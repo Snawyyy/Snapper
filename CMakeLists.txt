@@ -42,7 +42,8 @@ snapper_module(render
           warp_raster.cpp
   MODULES anim)
 snapper_module(edit
-  SOURCES document_manager.cpp edit_scope.cpp history_manager.cpp
+  SOURCES doll_library_manager.cpp document_manager.cpp edit_scope.cpp
+          history_manager.cpp
   MODULES io media render)
 snapper_module(ui
   SOURCES main_window.cpp
@@ -62,6 +63,7 @@ if(BUILD_TESTING)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp)
   snapper_test(render SOURCES render_tests.cpp)
-  snapper_test(edit SOURCES document_tests.cpp history_tests.cpp)
+  snapper_test(edit SOURCES document_tests.cpp history_tests.cpp
+                            library_tests.cpp)
   snapper_checks()
 endif()
