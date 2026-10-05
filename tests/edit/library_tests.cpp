@@ -55,6 +55,7 @@ class LibraryTests final : public QObject {
   void SavedRigGoesBackToTheLibrary();
   void RemovingAUsedDollIsRefused();
   void NoticesReexports();
+  void ConvertsOldDolls();
 };
 
 void LibraryTests::ImportsOnce() {
@@ -132,6 +133,34 @@ void LibraryTests::NoticesReexports() {
   Export(dir.path(), {Piece("body"), Piece("hat")});
   QVERIFY(changed.wait(2000));
   QCOMPARE(changed.first().first().toString(), QString("Bob"));
+}
+
+void LibraryTests::ConvertsOldDolls() {
+  QTemporaryDir dir;
+  const QString folder = QDir(dir.path()).filePath("Old.doll");
+  QVERIFY(QDir().mkpath(folder));
+  const QJsonObject piece{{"id", 1}, {"name", "body"}, {"parent", 0},
+                          {"drawings", QJsonArray{"body.png"}},
+                          {"pin_x", 0.0}, {"pin_y", 0.0},
+                          {"pivot_x", 4.0}, {"pivot_y", 6.0},
+                          {"order", 2}, {"rest_rotation", 10.0}};
+  QVERIFY(WriteJsonFile(QDir(folder).filePath("doll.json"),
+                        QJsonObject{{"version", 1},
+                                    {"pieces", QJsonArray{piece}}})
+              .has_value());
+  HistoryManager history{Project()};
+  DollLibraryManager library(&history, dir.path());
+  QVERIFY(library.conversion_problems().isEmpty());
+  QVERIFY(QFile::exists(QDir(folder).filePath("art.json")));
+  QVERIFY(QFile::exists(QDir(folder).filePath("doll.json.old")));
+  QVERIFY(!QFile::exists(QDir(folder).filePath("doll.json")));
+  QVERIFY(library.Import("Old").has_value());
+  const RigPiece* body = FindRig(FindDoll(history.current(), "Old")->rig,
+                                 "body");
+  QCOMPARE(body->rest_rotation, 10.0);
+  QCOMPARE(body->order, 2);
+  QCOMPARE(FindArt(*FindDoll(history.current(), "Old"), "body")->position,
+           QPointF(-4, -6));
 }
 
 }  // namespace snapper

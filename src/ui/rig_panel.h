@@ -2,6 +2,7 @@
 #define SNAPPER_UI_RIG_PANEL_H_
 
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -52,6 +53,7 @@ class RigPanel final : public QWidget {
   QFormLayout form_;
   QComboBox parent_;
   QSpinBox order_;
+  QDoubleSpinBox rest_;
   QComboBox drawing_;
   QSpinBox warp_columns_;
   QSpinBox warp_rows_;

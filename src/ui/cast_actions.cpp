@@ -81,6 +81,13 @@ void CastPanel::RefreshLibrary() {
       library_.setCurrentItem(item);
     }
   }
+  const QStringList& problems = managers_.library->conversion_problems();
+  const bool has_problems = !problems.isEmpty();
+  library_title_.setText(has_problems
+                             ? tr("Doll library (%1 old doll(s) not "
+                                  "converted)").arg(problems.size())
+                             : tr("Doll library"));
+  library_title_.setToolTip(problems.join("\n"));
   RefreshButtons();
 }
 

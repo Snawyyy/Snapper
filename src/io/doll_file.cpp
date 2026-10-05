@@ -1,6 +1,7 @@
 #include "io/doll_file.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
 
@@ -11,6 +12,7 @@
 #include "base/text.h"
 #include "io/doll_json.h"
 #include "io/json_file.h"
+#include "io/legacy_doll.h"
 
 namespace snapper {
 namespace {
@@ -36,34 +38,6 @@ Result<QJsonObject> CheckFormat(Result<QJsonObject> read, const char* format,
   return read;
 }
 
-// The first exporter wrote one piece per layer with its pivot in the
-// middle and its pin where that middle sits in doll space.
-DollArt ArtFromLegacy(const QJsonObject& object) {
-  const QJsonArray pieces = object.value("pieces").toArray();
-  assert(pieces.size() >= 0);
-  DollArt art;
-  const qsizetype count = std::min<qsizetype>(pieces.size(), kMaxDollPieces);
-  for (qsizetype i = 0; i < count; ++i) {
-    const QJsonObject piece = pieces.at(i).toObject();
-    const QPointF pivot(piece.value("pivot_x").toDouble(),
-                        piece.value("pivot_y").toDouble());
-    const QPointF pin(piece.value("pin_x").toDouble(),
-                      piece.value("pin_y").toDouble());
-    ArtPiece out;
-    out.name = piece.value("name").toString();
-    const QJsonArray drawings = piece.value("drawings").toArray();
-    for (const QJsonValue& drawing : drawings) {
-      out.drawings.push_back(drawing.toString());
-    }
-    out.position = pin - pivot;
-    out.size = QSize(static_cast<int>(std::lround(pivot.x() * 2.0)),
-                     static_cast<int>(std::lround(pivot.y() * 2.0)));
-    art.pieces.push_back(out);
-  }
-  assert(art.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
-  return art;
-}
-
 }  // namespace
 
 Result<DollArt> ReadArt(const QString& folder) {
@@ -77,7 +51,7 @@ Result<DollArt> ReadArt(const QString& folder) {
     if (!legacy) {
       return std::unexpected(legacy.error());
     }
-    return ArtFromLegacy(*legacy);
+    return FromLegacy(*legacy, folder).art;
   }
   const auto read =
       CheckFormat(ReadJsonFile(path), "snapper-art", kArtVersion, path);
@@ -96,8 +70,18 @@ Result<DollArt> ReadArt(const QString& folder) {
 
 Result<Rig> ReadRig(const QString& folder) {
   assert(!folder.isEmpty());
-  const QString path = QDir(folder).filePath(QLatin1String(kRigFileName));
+  const QDir dir(folder);
+  const QString path = dir.filePath(QLatin1String(kRigFileName));
+  const QString legacy = dir.filePath(QLatin1String(kLegacyFileName));
   const bool is_new_doll = !QFileInfo::exists(path);
+  const bool has_legacy_rig = is_new_doll && QFileInfo::exists(legacy);
+  if (has_legacy_rig) {
+    const auto old = ReadJsonFile(legacy);
+    if (!old) {
+      return std::unexpected(old.error());
+    }
+    return FromLegacy(*old, folder).rig;
+  }
   if (is_new_doll) {
     return Rig();
   }
@@ -123,6 +107,37 @@ Result<void> WriteRig(const QString& folder, const Rig& rig) {
   object.insert("format", "snapper-rig");
   object.insert("version", kRigVersion);
   return WriteJsonFile(QDir(folder).filePath(kRigFileName), object);
+}
+
+Result<bool> ConvertLegacyDoll(const QString& folder) {
+  assert(!folder.isEmpty());
+  const QDir dir(folder);
+  const QString legacy = dir.filePath(QLatin1String(kLegacyFileName));
+  const bool is_old = QFileInfo::exists(legacy) &&
+                      !QFileInfo::exists(dir.filePath(kArtFileName));
+  if (!is_old) {
+    return false;
+  }
+  const auto read = ReadJsonFile(legacy);
+  if (!read) {
+    return std::unexpected(read.error());
+  }
+  const LegacyDoll doll = FromLegacy(*read, folder);
+  QJsonObject art = ArtToJson(doll.art);
+  art.insert("format", "snapper-art");
+  art.insert("version", kArtVersion);
+  const auto rig = WriteRig(folder, doll.rig);
+  const auto wrote = rig ? WriteJsonFile(dir.filePath(kArtFileName), art)
+                         : rig;
+  const bool is_kept =
+      wrote.has_value() &&
+      QFile::rename(legacy, dir.filePath(QLatin1String(kLegacyKeptName)));
+  if (!is_kept) {
+    return std::unexpected(wrote ? Error{Tr("Can't rename %1.").arg(legacy)}
+                                 : wrote.error());
+  }
+  assert(QFileInfo::exists(dir.filePath(kArtFileName)));
+  return true;
 }
 
 Result<LoadedDoll> LoadDoll(const QString& folder) {

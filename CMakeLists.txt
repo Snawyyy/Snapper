@@ -31,7 +31,8 @@ snapper_module(anim
   MODULES model)
 snapper_module(io
   SOURCES doll_file.cpp doll_json.cpp json_file.cpp json_values.cpp
-          layer_json.cpp pose_file.cpp project_file.cpp reconcile.cpp
+          layer_json.cpp legacy_doll.cpp pose_file.cpp project_file.cpp
+          reconcile.cpp
   MODULES model)
 snapper_module(media
   SOURCES audio_clip.cpp audio_player.cpp ffmpeg_handles.cpp

@@ -25,6 +25,9 @@ class DollLibraryManager final : public QObject {
   DollLibraryManager(HistoryManager* history, QString library_folder);
 
   const QString& folder() const { return folder_; }
+  // Old dolls (a single doll.json from the first Snapper) that couldn't
+  // be turned into today's files, and why.
+  const QStringList& conversion_problems() const { return problems_; }
   // Names of the dolls in the library, sorted.
   QStringList Available() const;
 
@@ -58,7 +61,10 @@ class DollLibraryManager final : public QObject {
 
   HistoryManager* history_;
   QString folder_;
+  void ConvertOldDolls();
+
   QFileSystemWatcher watcher_;
+  QStringList problems_;
   // When each project doll's art was last taken, to spot re-exports.
   std::map<QString, QDateTime> stamps_;
 };

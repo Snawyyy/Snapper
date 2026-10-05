@@ -160,6 +160,24 @@ Result<void> RigManager::SetOrder(const QString& doll, const QString& piece,
                 }));
 }
 
+Result<void> RigManager::SetRestRotation(const QString& doll,
+                                         const QString& piece,
+                                         double degrees) {
+  assert(history_ != nullptr);
+  assert(!piece.isEmpty());
+  const bool is_finite = std::isfinite(degrees);
+  if (!is_finite) {
+    return std::unexpected(Error{Tr("That angle is off the map.")});
+  }
+  return history_->Apply(
+      Tr("Rest turn of %1").arg(piece),
+      WithPiece(history_->current(), doll, piece,
+                [degrees](RigPiece* rig) -> Result<void> {
+                  rig->rest_rotation = degrees;
+                  return {};
+                }));
+}
+
 Result<void> RigManager::SetDefaultDrawing(const QString& doll,
                                            const QString& piece,
                                            int drawing) {

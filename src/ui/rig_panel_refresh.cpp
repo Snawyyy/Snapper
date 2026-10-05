@@ -104,6 +104,7 @@ void RigPanel::RefreshPiece() {
                                          : tr("Pick a piece first.");
   for (QWidget* field : {static_cast<QWidget*>(&parent_),
                          static_cast<QWidget*>(&order_),
+                         static_cast<QWidget*>(&rest_),
                          static_cast<QWidget*>(&drawing_),
                          static_cast<QWidget*>(&warp_columns_),
                          static_cast<QWidget*>(&warp_rows_),
@@ -128,6 +129,7 @@ void RigPanel::RefreshPiece() {
                               ? 0
                               : std::max(0, parent_.findText(rig->parent)));
   order_.setValue(rig->order);
+  ShowNumber(&rest_, rig->rest_rotation);
   drawing_.clear();
   drawing_.addItem(tr("As in Krita"));
   for (const QString& file : art->drawings) {

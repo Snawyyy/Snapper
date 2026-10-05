@@ -21,6 +21,15 @@ Result<DollArt> ReadArt(const QString& folder);
 Result<Rig> ReadRig(const QString& folder);
 Result<void> WriteRig(const QString& folder, const Rig& rig);
 
+// What the first Snapper's doll.json is renamed to once converted: kept,
+// never deleted, so nothing of the old rig is lost.
+inline constexpr char kLegacyKeptName[] = "doll.json.old";
+
+// Rewrites a folder holding only an old doll.json as art.json plus
+// rig.json, keeping the old file under kLegacyKeptName. False (and no
+// change) when there is nothing old to convert.
+Result<bool> ConvertLegacyDoll(const QString& folder);
+
 // What matching art to a rig changed, to tell the user.
 struct ReconcileReport final {
   // New art pieces that got a default rig.

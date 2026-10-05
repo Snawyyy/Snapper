@@ -72,6 +72,9 @@ void RigTests::PivotOrderAndDrawingAreUndoable() {
   QCOMPARE(FindRig(BobRig(history), "upper")->order, 1);
   QCOMPARE(FindRig(BobRig(history), "upper")->pivot, QPointF(3, 1));
   QVERIFY(!rig.SetPivot("Bob", "upper", QPointF(qInf(), 0)).has_value());
+  QVERIFY(rig.SetRestRotation("Bob", "upper", 30.0).has_value());
+  QCOMPARE(FindRig(BobRig(history), "upper")->rest_rotation, 30.0);
+  QVERIFY(!rig.SetRestRotation("Bob", "upper", qQNaN()).has_value());
 }
 
 void RigTests::NewWarpGridClearsOldWarpKeys() {

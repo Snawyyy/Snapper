@@ -22,6 +22,7 @@ DollLibraryManager::DollLibraryManager(HistoryManager* history,
   assert(history_ != nullptr);
   assert(!folder_.isEmpty());
   QDir().mkpath(folder_);
+  ConvertOldDolls();
   watcher_.addPath(folder_);
   connect(&watcher_, &QFileSystemWatcher::directoryChanged, this,
           &DollLibraryManager::Rescan);
@@ -173,9 +174,23 @@ QDateTime DollLibraryManager::ArtStamp(const QString& name) const {
   return info.lastModified();
 }
 
+void DollLibraryManager::ConvertOldDolls() {
+  assert(!folder_.isEmpty());
+  problems_.clear();
+  const QStringList names = Available();
+  for (const QString& name : names) {
+    const auto converted = ConvertLegacyDoll(FolderOf(name));
+    if (!converted) {
+      problems_.append(converted.error().message);
+    }
+  }
+  assert(problems_.size() <= names.size());
+}
+
 void DollLibraryManager::Rescan() {
   assert(history_ != nullptr);
   assert(stamps_.size() <= static_cast<size_t>(kMaxProjectDolls));
+  ConvertOldDolls();
   emit LibraryChanged();
   for (auto& [name, stamp] : stamps_) {
     const QDateTime now = ArtStamp(name);

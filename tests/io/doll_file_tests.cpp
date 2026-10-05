@@ -1,6 +1,7 @@
 #include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QImage>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -43,6 +44,7 @@ class DollFileTests final : public QObject {
   void ReexportKeepsTheRigAndReportsChanges();
   void ReadsTheOldExporterFormat();
   void RefusesForeignFiles();
+  void KeepsTheOldSnappersRig();
 };
 
 void DollFileTests::ReadsArtAndGivesNewPiecesADefaultRig() {
@@ -117,6 +119,40 @@ void DollFileTests::RefusesForeignFiles() {
   QVERIFY(!art.has_value());
   QVERIFY(art.error().message.contains("not a doll file"));
   QVERIFY(!ReadArt(QDir(dir.path()).filePath("missing")).has_value());
+}
+
+void DollFileTests::KeepsTheOldSnappersRig() {
+  QTemporaryDir dir;
+  QImage drawing(30, 40, QImage::Format_ARGB32);
+  drawing.fill(Qt::red);
+  QVERIFY(drawing.save(QDir(dir.path()).filePath("arm.png")));
+  const QJsonObject legacy{
+      {"version", 1},
+      {"pieces",
+       QJsonArray{
+           QJsonObject{{"id", 1}, {"name", "body"}, {"parent", 0},
+                       {"drawings", QJsonArray{"body.png"}},
+                       {"pin_x", 5.0}, {"pin_y", 5.0},
+                       {"pivot_x", 10.0}, {"pivot_y", 20.0},
+                       {"order", 0}, {"rest_rotation", 0.0}},
+           QJsonObject{{"id", 2}, {"name", "arm"}, {"parent", 1},
+                       {"drawings", QJsonArray{"arm.png"}},
+                       {"pin_x", 18.0}, {"pin_y", 4.0},
+                       {"pivot_x", 2.0}, {"pivot_y", 3.0},
+                       {"order", 3}, {"rest_rotation", 15.0}}}}};
+  Write(QDir(dir.path()).filePath("doll.json"), legacy);
+  const auto loaded = LoadDoll(dir.path());
+  QVERIFY(loaded.has_value());
+  const Doll& doll = loaded->doll;
+  QCOMPARE(FindArt(doll, "body")->position, QPointF(-5, -15));
+  QCOMPARE(FindArt(doll, "arm")->position, QPointF(11, -14));
+  QCOMPARE(FindArt(doll, "arm")->size, QSize(30, 40));
+  const RigPiece* arm = FindRig(doll.rig, "arm");
+  QCOMPARE(arm->parent, QString("body"));
+  QCOMPARE(arm->pivot, QPointF(2, 3));
+  QCOMPARE(arm->order, 3);
+  QCOMPARE(arm->rest_rotation, 15.0);
+  QVERIFY(loaded->report.added.isEmpty());
 }
 
 }  // namespace snapper

@@ -33,12 +33,15 @@ void RigPanel::BuildLayout() {
   hint_.setWordWrap(true);
   order_.setRange(-1000, 1000);
   order_.setToolTip(tr("Higher draws in front."));
+  SetUpNumber(&rest_, -360, 360, 1, tr(" deg"));
+  rest_.setToolTip(tr("How the piece is turned when not posed."));
   for (QSpinBox* side : {&warp_columns_, &warp_rows_}) {
     side->setRange(0, kMaxWarpCells);
     side->setSpecialValueText(tr("off"));
   }
   form_.addRow(tr("Hangs from"), &parent_);
   form_.addRow(tr("Draw order"), &order_);
+  form_.addRow(tr("Rest turn"), &rest_);
   form_.addRow(tr("Default drawing"), &drawing_);
   form_.addRow(tr("Warp columns"), &warp_columns_);
   form_.addRow(tr("Warp rows"), &warp_rows_);
@@ -53,12 +56,12 @@ void RigPanel::BuildLayout() {
   layout_.addLayout(&chain_buttons_);
   layout_.addWidget(&save_rig_);
   layout_.addWidget(&hint_);
-  assert(form_.rowCount() == 5);
+  assert(form_.rowCount() == 6);
 }
 
 void RigPanel::Wire() {
   assert(managers_.IsComplete());
-  assert(form_.rowCount() == 5);
+  assert(form_.rowCount() == 6);
   RigManager* rig = managers_.rig;
   connect(&dolls_, &QComboBox::textActivated, this, [this](const QString& d) {
     doll_ = d;
@@ -78,6 +81,10 @@ void RigPanel::Wire() {
   });
   connect(&order_, &QSpinBox::editingFinished, this, [this, rig] {
     emit Problem(ProblemOf(rig->SetOrder(doll_, piece_, order_.value())));
+  });
+  connect(&rest_, &QDoubleSpinBox::editingFinished, this, [this, rig] {
+    emit Problem(
+        ProblemOf(rig->SetRestRotation(doll_, piece_, rest_.value())));
   });
   connect(&drawing_, &QComboBox::activated, this, [this, rig](int index) {
     emit Problem(ProblemOf(rig->SetDefaultDrawing(doll_, piece_, index - 1)));

@@ -25,6 +25,9 @@ class RigManager final {
                         QPointF pivot);
   Result<void> SetOrder(const QString& doll, const QString& piece,
                         int order);
+  // Degrees the piece is turned at rest; poses turn from there.
+  Result<void> SetRestRotation(const QString& doll, const QString& piece,
+                               double degrees);
   // -1 goes back to the drawing that was visible in Krita.
   Result<void> SetDefaultDrawing(const QString& doll, const QString& piece,
                                  int drawing);
