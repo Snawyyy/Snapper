@@ -43,6 +43,9 @@ MainWindow::MainWindow(const Managers& managers)
       pose_split_(Qt::Vertical),
       stage_(managers),
       timeline_(managers),
+      rig_split_(Qt::Horizontal),
+      rig_canvas_(managers),
+      rig_panel_(managers),
       cast_dock_(tr("Cast")),
       cast_(managers),
       inspector_dock_(tr("Inspector")),
@@ -65,10 +68,18 @@ MainWindow::MainWindow(const Managers& managers)
   pose_layout_.addWidget(&strip_);
   pose_layout_.addWidget(&pose_split_, 1);
   pages_.addWidget(&pose_page_);
-  rig_empty_.setAlignment(Qt::AlignCenter);
-  rig_empty_.setEnabled(false);
-  rig_empty_.setText(tr("The rig editor goes here."));
-  pages_.addWidget(&rig_empty_);
+  rig_split_.addWidget(&rig_canvas_);
+  rig_split_.addWidget(&rig_panel_);
+  rig_split_.setStretchFactor(0, 3);
+  rig_split_.setStretchFactor(1, 1);
+  pages_.addWidget(&rig_split_);
+  connect(&rig_panel_, &RigPanel::DollPicked, &rig_canvas_,
+          &RigCanvas::SetDoll);
+  connect(&rig_panel_, &RigPanel::PiecePicked, &rig_canvas_,
+          &RigCanvas::SetPiece);
+  connect(&rig_canvas_, &RigCanvas::PiecePicked, &rig_panel_,
+          &RigPanel::PickPiece);
+  rig_canvas_.SetDoll(rig_panel_.doll());
   const auto show_problem = [this](const QString& why) {
     statusBar()->showMessage(why, kStatusMs);
   };
@@ -76,6 +87,8 @@ MainWindow::MainWindow(const Managers& managers)
   connect(&timeline_, &TimelineView::Problem, this, show_problem);
   connect(&strip_, &ShotStrip::Problem, this, show_problem);
   connect(&cast_, &CastPanel::Problem, this, show_problem);
+  connect(&rig_canvas_, &RigCanvas::Problem, this, show_problem);
+  connect(&rig_panel_, &RigPanel::Problem, this, show_problem);
   cast_dock_.setObjectName(QStringLiteral("cast"));
   cast_dock_.setWidget(&cast_);
   addDockWidget(Qt::LeftDockWidgetArea, &cast_dock_);

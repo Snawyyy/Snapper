@@ -28,8 +28,9 @@ bool IsSolidAt(const QImage& image, QPointF point) {
   return is_inside && qAlpha(image.pixel(x, y)) >= kSolidAlpha;
 }
 
-// The topmost solid piece of a doll under point (shot space).
-std::optional<QString> HitPiece(const Doll& doll, const DollLayer& layer,
+}  // namespace
+
+std::optional<QString> HitDollPiece(const Doll& doll, const DollLayer& layer,
                                 Frame local, const QTransform& world,
                                 QPointF point, ImageCache* cache) {
   assert(cache != nullptr);
@@ -64,6 +65,8 @@ std::optional<QString> HitPiece(const Doll& doll, const DollLayer& layer,
   return std::nullopt;
 }
 
+namespace {
+
 // Hit-tests one layer by its kind. An empty name means the whole layer
 // was hit; nothing means it wasn't.
 struct LayerHitter final {
@@ -79,7 +82,7 @@ struct LayerHitter final {
     assert(!layer.doll.isNull());
     const Doll* doll = FindDoll(project, layer.doll);
     const bool has_doll = doll != nullptr;
-    return has_doll ? HitPiece(*doll, layer, local, world, point, cache)
+    return has_doll ? HitDollPiece(*doll, layer, local, world, point, cache)
                     : std::nullopt;
   }
   std::optional<QString> operator()(const ImageLayer& layer) const {

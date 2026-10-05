@@ -3,7 +3,6 @@
 
 #include <QAction>
 #include <QDockWidget>
-#include <QLabel>
 #include <QMainWindow>
 #include <QMenu>
 #include <QSplitter>
@@ -16,6 +15,8 @@
 #include "ui/file_menu.h"
 #include "ui/inspector.h"
 #include "ui/managers.h"
+#include "ui/rig_canvas.h"
+#include "ui/rig_panel.h"
 #include "ui/shot_strip.h"
 #include "ui/stage_view.h"
 #include "ui/timeline_view.h"
@@ -64,8 +65,9 @@ class MainWindow final : public QMainWindow {
   QSplitter pose_split_;
   StageView stage_;
   TimelineView timeline_;
-  // Shown on the Rig tab until the rig editor arrives.
-  QLabel rig_empty_;
+  QSplitter rig_split_;
+  RigCanvas rig_canvas_;
+  RigPanel rig_panel_;
   QDockWidget cast_dock_;
   CastPanel cast_;
   QDockWidget inspector_dock_;

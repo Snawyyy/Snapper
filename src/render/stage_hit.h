@@ -3,6 +3,7 @@
 
 #include <QPointF>
 #include <QString>
+#include <QTransform>
 
 #include <optional>
 
@@ -17,6 +18,12 @@ struct StageHit final {
   LayerId layer;
   QString piece;
 };
+
+// The topmost solid piece of a posed doll under point, where world maps
+// the doll's space to the point's space.
+std::optional<QString> HitDollPiece(const Doll& doll, const DollLayer& layer,
+                                    Frame local, const QTransform& world,
+                                    QPointF point, ImageCache* cache);
 
 // The topmost thing drawn at point (output pixels of a frame rendered
 // at scale), so clicks pick what is actually seen: see-through pixels
