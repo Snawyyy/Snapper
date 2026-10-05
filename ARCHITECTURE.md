@@ -105,8 +105,10 @@ History keeps at most `kMaxUndoSteps` steps and drops the oldest.
 A doll is a folder in the doll library:
 
 - `art.json` and the PNGs come from Krita (`tools/krita` holds the
-  exporter). Snapper only reads them. Dolls from the first exporter
-  (`doll.json`) still load.
+  exporter). Snapper only reads them. Old dolls (a single
+  `doll.json` from the first Snapper) are converted to `art.json` and
+  `rig.json` when the library is scanned, rig and rest angles included;
+  the old file stays as `doll.json.old`.
 - `rig.json` belongs to Snapper: parents, pivots, draw order, IK chains,
   warp grids, default drawing per piece.
 
