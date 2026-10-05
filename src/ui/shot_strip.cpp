@@ -77,13 +77,14 @@ void ShotStrip::paintEvent(QPaintEvent* event) {
   painter.fillRect(rect(), theme::kFaceDark);
   for (const Block& block : Blocks()) {
     const Shot& shot = *FindShot(project, block.shot);
-    const bool is_picked = block.shot == managers_.selection->shot();
-    painter.fillRect(block.rect, theme::kFace);
+    const bool is_focus = block.shot == managers_.selection->shot();
+    const bool is_picked = managers_.selection->shots().contains(block.shot);
+    painter.fillRect(block.rect, is_picked ? theme::kFaceLight : theme::kFace);
     painter.fillRect(
         QRectF(block.rect.topLeft(), QSizeF(6, block.rect.height())),
         shot.background);
     painter.setPen(QPen(is_picked ? theme::kPick : theme::kShadow,
-                        is_picked ? 2.0 : 1.0));
+                        is_focus ? 2.0 : 1.0));
     painter.drawRect(block.rect);
     painter.setPen(theme::kText);
     painter.drawText(block.rect.adjusted(10, 2, -4, -2),
@@ -124,13 +125,24 @@ void ShotStrip::mousePressEvent(QMouseEvent* event) {
     if (!is_hit) {
       continue;
     }
-    Pick(block.shot);
+    const bool is_shift = event->modifiers().testFlag(Qt::ShiftModifier);
+    const bool is_ctrl = event->modifiers().testFlag(Qt::ControlModifier);
     const bool is_edge = block.rect.right() - at.x() <= kEdgeReach;
-    drag_ = is_edge ? Drag::kLength : Drag::kMove;
+    const bool is_picked = managers_.selection->shots().contains(block.shot);
+    const bool is_plain = !is_ctrl && !is_shift;
+    const bool is_fresh = is_plain && !is_picked;
+    if (!is_plain) {
+      managers_.selection->PickShots(
+          {block.shot}, is_ctrl ? PickMode::kToggle : PickMode::kAdd);
+    } else if (is_fresh) {
+      Pick(block.shot);
+    }
+    // Plain-dragging a shot reorders it; dragging any picked shot's edge
+    // lengthens every picked shot by the same amount.
+    drag_ = is_edge ? Drag::kLength : is_plain ? Drag::kMove : Drag::kNone;
     dragged_ = block.shot;
     drag_start_x_ = at.x();
-    drag_start_length_ = FindShot(managers_.history->current(),
-                                  block.shot)->length;
+    drag_frames_ = 0;
     scope_ = is_edge ? std::make_unique<EditScope>(managers_.history,
                                                     tr("Change shot length"))
                      : nullptr;
@@ -152,8 +164,12 @@ void ShotStrip::mouseMoveEvent(QMouseEvent* event) {
   if (is_resizing) {
     const int frames = static_cast<int>(
         std::lround((at.x() - drag_start_x_) / kPixelsPerFrame));
-    const int length = std::max(1, drag_start_length_.index() + frames);
-    Report(ProblemOf(managers_.shots->SetLength(dragged_, Frame(length))));
+    const int step = frames - drag_frames_;
+    const bool has_step = step != 0;
+    if (has_step) {
+      Report(ProblemOf(managers_.shots->ShiftLength(PickedShots(), step)));
+      drag_frames_ = frames;
+    }
   }
 }
 
@@ -170,6 +186,11 @@ void ShotStrip::mouseReleaseEvent(QMouseEvent* event) {
     }
     Report(ProblemOf(managers_.shots->Move(dragged_, index)));
   }
+  const bool is_click = drag_ == Drag::kMove && !is_moving;
+  if (is_click) {
+    // A plain click on a shot already in a bigger pick picks just it.
+    Pick(dragged_);
+  }
   scope_.reset();
   drag_ = Drag::kNone;
 }
@@ -179,7 +200,12 @@ void ShotStrip::contextMenuEvent(QContextMenuEvent* event) {
   for (const Block& block : Blocks()) {
     const bool is_hit = block.rect.contains(event->pos());
     if (is_hit) {
-      Pick(block.shot);
+      // Right-clicking outside the pick picks just that shot first.
+      const bool is_picked =
+          managers_.selection->shots().contains(block.shot);
+      if (!is_picked) {
+        Pick(block.shot);
+      }
       Menu(block.shot, event->globalPos());
       return;
     }
@@ -188,12 +214,21 @@ void ShotStrip::contextMenuEvent(QContextMenuEvent* event) {
 
 void ShotStrip::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
-  const ShotId shot = managers_.selection->shot();
-  const bool is_delete = shot.IsValid() &&
+  const std::vector<ShotId> picked = PickedShots();
+  const bool is_delete = !picked.empty() &&
                          (event->key() == Qt::Key_Delete ||
                           event->key() == Qt::Key_Backspace);
+  const bool is_all = event->matches(QKeySequence::SelectAll);
   if (is_delete) {
-    Report(ProblemOf(managers_.shots->Remove(shot)));
+    Report(ProblemOf(managers_.shots->RemoveAll(picked)));
+    return;
+  }
+  if (is_all) {
+    std::set<ShotId> all;
+    for (const auto& shot : managers_.history->current().shots) {
+      all.insert(shot->id);
+    }
+    managers_.selection->PickShots(all, PickMode::kAdd);
     return;
   }
   QWidget::keyPressEvent(event);
@@ -208,6 +243,12 @@ void ShotStrip::Pick(ShotId shot) {
   if (is_found) {
     managers_.playback->Seek(ShotStart(project, index));
   }
+}
+
+std::vector<ShotId> ShotStrip::PickedShots() const {
+  const auto& picked = managers_.selection->shots();
+  assert(picked.size() <= static_cast<size_t>(kMaxShots));
+  return std::vector<ShotId>(picked.begin(), picked.end());
 }
 
 void ShotStrip::Menu(ShotId shot, QPoint where) {
@@ -230,7 +271,8 @@ void ShotStrip::Menu(ShotId shot, QPoint where) {
             const QColor picked = QColorDialog::getColor(colour, this);
             const bool is_picked = picked.isValid();
             if (is_picked) {
-              Report(ProblemOf(managers_.shots->SetBackground(shot, picked)));
+              Report(ProblemOf(
+                  managers_.shots->SetBackgroundAll(PickedShots(), picked)));
             }
           });
   QMenu& into = *menu.addMenu(tr("Transition into next"));
@@ -239,21 +281,20 @@ void ShotStrip::Menu(ShotId shot, QPoint where) {
     QMenu& lengths = *into.addMenu(TransitionName(chosen));
     for (const int frames : kTransitionLengths) {
       connect(lengths.addAction(tr("%1 frames").arg(frames)),
-              &QAction::triggered, this, [this, shot, chosen, frames] {
-                Report(ProblemOf(managers_.shots->SetTransition(
-                    shot, {chosen, Frame(frames)})));
+              &QAction::triggered, this, [this, chosen, frames] {
+                Report(ProblemOf(managers_.shots->SetTransitionAll(
+                    PickedShots(), {chosen, Frame(frames)})));
               });
     }
   }
   connect(menu.addAction(tr("Duplicate")), &QAction::triggered, this,
-          [this, shot] {
-            const auto copy = managers_.shots->Duplicate(shot);
-            Report(ProblemOf(copy));
+          [this] {
+            Report(ProblemOf(managers_.shots->DuplicateAll(PickedShots())));
           });
-  connect(menu.addAction(tr("Delete")), &QAction::triggered, this,
-          [this, shot] { Report(ProblemOf(managers_.shots->Remove(shot))); });
+  connect(menu.addAction(tr("Delete")), &QAction::triggered, this, [this] {
+    Report(ProblemOf(managers_.shots->RemoveAll(PickedShots())));
+  });
   menu.exec(where);
 }
-
 
 }  // namespace snapper

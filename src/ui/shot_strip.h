@@ -10,6 +10,7 @@
 
 #include "base/error.h"
 #include "edit/edit_scope.h"
+#include "edit/selection_manager.h"
 #include "model/shot.h"
 #include "ui/managers.h"
 #include "ui/problem.h"
@@ -51,13 +52,15 @@ class ShotStrip final : public QWidget {
 
   void Pick(ShotId shot);
   void Menu(ShotId shot, QPoint where);
+  std::vector<ShotId> PickedShots() const;
   void Report(const QString& problem) { emit Problem(problem); }
 
   Managers managers_;
   Drag drag_ = Drag::kNone;
   ShotId dragged_;
   double drag_start_x_ = 0.0;
-  Frame drag_start_length_;
+  // Frames already added by the edge drag in progress.
+  int drag_frames_ = 0;
   std::unique_ptr<EditScope> scope_;
 };
 

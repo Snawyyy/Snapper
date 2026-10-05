@@ -4,6 +4,8 @@
 #include <QColor>
 #include <QString>
 
+#include <vector>
+
 #include "base/error.h"
 #include "base/frame.h"
 #include "model/shot.h"
@@ -33,6 +35,16 @@ class ShotManager final {
   Result<void> SetBackground(ShotId shot, QColor color);
   // How shot hands over to the one after it.
   Result<void> SetTransition(ShotId shot, Transition transition);
+
+  // The same change to many shots at once, as one undo step; lengths
+  // are added to each shot's own.
+  Result<void> RemoveAll(const std::vector<ShotId>& shots);
+  Result<void> DuplicateAll(const std::vector<ShotId>& shots);
+  Result<void> ShiftLength(const std::vector<ShotId>& shots, int delta);
+  Result<void> SetBackgroundAll(const std::vector<ShotId>& shots,
+                                QColor color);
+  Result<void> SetTransitionAll(const std::vector<ShotId>& shots,
+                                Transition transition);
 
  private:
   HistoryManager* history_;

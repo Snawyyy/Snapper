@@ -27,6 +27,7 @@ class ShotStripTests final : public QObject {
   void DraggingTheEdgeChangesLength();
   void DraggingAShotReordersIt();
   void DeleteRemovesThePickedShot();
+  void ManyShotsResizeAndDeleteTogether();
 };
 
 void ShotStripTests::PlusAddsAfterThePickedShot() {
@@ -93,6 +94,32 @@ void ShotStripTests::DeleteRemovesThePickedShot() {
   strip.resize(800, 40);
   QTest::mouseClick(&strip, Qt::LeftButton, {},
                     Middle(strip.Blocks()[0].rect));
+  QTest::keyClick(&strip, Qt::Key_Delete);
+  QCOMPARE(Names(bench), QStringList({"Shot 2"}));
+}
+
+void ShotStripTests::ManyShotsResizeAndDeleteTogether() {
+  Bench bench;
+  for (int i = 0; i < 3; ++i) {
+    QVERIFY(bench.shots.Add(-1).has_value());
+  }
+  ShotStrip strip(bench.All());
+  strip.resize(800, 40);
+  QTest::mouseClick(&strip, Qt::LeftButton, {},
+                    Middle(strip.Blocks()[0].rect));
+  QTest::mouseClick(&strip, Qt::LeftButton, Qt::ShiftModifier,
+                    Middle(strip.Blocks()[2].rect));
+  QCOMPARE(bench.selection.shots().size(), size_t{2});
+  const QRectF block = strip.Blocks()[0].rect;
+  const QPoint edge(static_cast<int>(block.right()) - 2,
+                    static_cast<int>(block.center().y()));
+  QTest::mousePress(&strip, Qt::LeftButton, {}, edge);
+  QTest::mouseMove(&strip, edge + QPoint(24, 0));
+  QTest::mouseRelease(&strip, Qt::LeftButton, {}, edge + QPoint(24, 0));
+  const auto& shots = bench.history.current().shots;
+  QCOMPARE(shots[0]->length, Frame(60));
+  QCOMPARE(shots[1]->length, Frame(48));
+  QCOMPARE(shots[2]->length, Frame(60));
   QTest::keyClick(&strip, Qt::Key_Delete);
   QCOMPARE(Names(bench), QStringList({"Shot 2"}));
 }
