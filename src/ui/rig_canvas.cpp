@@ -39,6 +39,7 @@ std::map<QString, QTransform> RestPieces(const Doll& doll) {
 RigCanvas::RigCanvas(const Managers& managers) : managers_(managers) {
   assert(managers_.IsComplete());
   setFocusPolicy(Qt::StrongFocus);
+  setMouseTracking(true);
   connect(managers_.history, &HistoryManager::Changed, this,
           [this] { update(); });
   assert(drag_ == Drag::kNone);
@@ -48,6 +49,7 @@ void RigCanvas::SetDoll(const QString& doll) {
   assert(doll.size() < 100000);
   doll_ = doll;
   piece_.clear();
+  StopHanging();
   update();
   assert(piece_.isEmpty());
 }
@@ -139,6 +141,13 @@ void RigCanvas::PaintOverlay(QPainter* painter) const {
     painter->setBrush(theme::kHandle);
     painter->drawEllipse(joint(rig), radius, radius);
   }
+  const bool shows_hang = is_hanging_ && pieces.contains(piece_);
+  if (shows_hang) {
+    painter->setPen(QPen(theme::kPick, 2.0, Qt::DashLine));
+    painter->drawLine(joint(*FindRig(doll.rig, piece_)), cursor_);
+  }
+  painter->setPen(QPen(theme::kShadow, 1.0));
+  painter->setBrush(theme::kHandle);
   for (const IkChain& chain : doll.rig.chains) {
     const bool is_placed = pieces.contains(chain.lower);
     if (is_placed) {

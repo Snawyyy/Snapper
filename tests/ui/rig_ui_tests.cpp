@@ -1,6 +1,7 @@
 #include <QComboBox>
 #include <QListWidget>
 #include <QPushButton>
+#include <QSignalSpy>
 #include <QTest>
 
 #include "anim/doll_pose.h"
@@ -51,6 +52,7 @@ class RigUiTests final : public QObject {
   void PanelPicksTheDollAndEditsAPiece();
   void ChainsComeFromThePickedPiece();
   void DraggingAJointMovesThePivot();
+  void DoubleClickAJointThenClickItsParent();
 };
 
 void RigUiTests::PanelPicksTheDollAndEditsAPiece() {
@@ -103,6 +105,31 @@ void RigUiTests::DraggingAJointMovesThePivot() {
   QVERIFY(std::abs(pivot.x() - 15.0) < 0.5);
   QVERIFY(std::abs(pivot.y() - 10.0) < 0.5);
   QCOMPARE(bench.history.UndoLabel(), QString("Move pivot of body"));
+}
+
+void RigUiTests::DoubleClickAJointThenClickItsParent() {
+  Bench bench;
+  Stage(&bench);
+  RigCanvas canvas(bench.All());
+  canvas.resize(400, 400);
+  canvas.SetDoll("Bob");
+  QSignalSpy hints(&canvas, &RigCanvas::Hint);
+  const QTransform world = canvas.World();
+  // The arm's joint is at the left edge of its drawing.
+  const QPoint arm_joint = world.map(QPointF(10, 0)).toPoint();
+  const QPoint body = world.map(QPointF(-5, -5)).toPoint();
+  QTest::mouseDClick(&canvas, Qt::LeftButton, {}, arm_joint);
+  QVERIFY(!hints.isEmpty() && !hints.last().first().toString().isEmpty());
+  QTest::mouseClick(&canvas, Qt::LeftButton, {}, body);
+  QCOMPARE(FindRig(BobRig(bench), "arm")->parent, QString("body"));
+  QVERIFY(hints.last().first().toString().isEmpty());
+  QTest::mouseDClick(&canvas, Qt::LeftButton, {}, arm_joint);
+  QTest::keyClick(&canvas, Qt::Key_Escape);
+  QTest::mouseClick(&canvas, Qt::LeftButton, {}, body);
+  QCOMPARE(bench.history.UndoLabel(), QString("Parent arm"));
+  QTest::mouseDClick(&canvas, Qt::LeftButton, {}, arm_joint);
+  QTest::mouseClick(&canvas, Qt::LeftButton, {}, QPoint(2, 2));
+  QVERIFY(FindRig(BobRig(bench), "arm")->parent.isEmpty());
 }
 
 }  // namespace snapper

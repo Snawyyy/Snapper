@@ -90,6 +90,10 @@ MainWindow::MainWindow(const Managers& managers)
   connect(&strip_, &ShotStrip::Problem, this, show_problem);
   connect(&cast_, &CastPanel::Problem, this, show_problem);
   connect(&rig_canvas_, &RigCanvas::Problem, this, show_problem);
+  // A hint stays until the canvas clears it.
+  connect(&rig_canvas_, &RigCanvas::Hint, this, [this](const QString& hint) {
+    statusBar()->showMessage(hint);
+  });
   connect(&rig_panel_, &RigPanel::Problem, this, show_problem);
   cast_dock_.setObjectName(QStringLiteral("cast"));
   cast_dock_.setWidget(&cast_);

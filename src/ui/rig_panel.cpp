@@ -18,8 +18,9 @@ RigPanel::RigPanel(const Managers& managers)
       flip_chain_(tr("Flip bend")),
       remove_chain_(tr("Remove")),
       save_rig_(tr("Save rig to library")),
-      hint_(tr("Drag a yellow joint to move it; drag a square to move an "
-               "IK tip.")) {
+      hint_(tr("Drag a yellow joint to move it. Double-click a joint, then "
+               "click the part it hangs from. Drag a square to move an IK "
+               "tip.")) {
   assert(managers_.IsComplete());
   BuildLayout();
   Wire();

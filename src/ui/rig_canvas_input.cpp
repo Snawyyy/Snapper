@@ -69,6 +69,60 @@ bool RigCanvas::PressHandle(QPointF point) {
   return is_on_joint;
 }
 
+QString RigCanvas::JointAt(QPointF point) const {
+  assert(std::isfinite(point.x()));
+  const Doll* doll =
+      doll_.isEmpty() ? nullptr : FindDoll(managers_.history->current(), doll_);
+  const bool has_doll = doll != nullptr;
+  if (!has_doll) {
+    return QString();
+  }
+  const QTransform world = World();
+  const auto pieces = PieceTransforms(*doll, PoseMap());
+  for (const RigPiece& rig : doll->rig.pieces) {
+    const bool is_near =
+        pieces.contains(rig.name) &&
+        QLineF((pieces.at(rig.name) * world).map(rig.pivot), point)
+                .length() <= kHandleReach;
+    if (is_near) {
+      return rig.name;
+    }
+  }
+  assert(doll->rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+  return QString();
+}
+
+void RigCanvas::StopHanging() {
+  const bool was_hanging = is_hanging_;
+  is_hanging_ = false;
+  unsetCursor();
+  assert(!is_hanging_);
+  if (was_hanging) {
+    emit Hint(QString());
+    update();
+  }
+}
+
+void RigCanvas::mouseDoubleClickEvent(QMouseEvent* event) {
+  assert(event != nullptr);
+  const QString joint = JointAt(event->position());
+  const bool is_joint = !joint.isEmpty() && event->button() == Qt::LeftButton;
+  if (!is_joint) {
+    return;
+  }
+  scope_.reset();
+  drag_ = Drag::kNone;
+  piece_ = joint;
+  emit PiecePicked(piece_);
+  is_hanging_ = true;
+  cursor_ = event->position();
+  setCursor(Qt::CrossCursor);
+  emit Hint(tr("Click the part %1 hangs from; click empty space to make "
+               "it a root; Escape cancels.").arg(joint));
+  update();
+  assert(is_hanging_);
+}
+
 void RigCanvas::mousePressEvent(QMouseEvent* event) {
   assert(event != nullptr);
   const Doll* doll =
@@ -77,11 +131,23 @@ void RigCanvas::mousePressEvent(QMouseEvent* event) {
   if (!is_usable) {
     return;
   }
+  const DollLayer rest{doll_, {}, false};
+  if (is_hanging_) {
+    const auto hit = HitDollPiece(*doll, rest, Frame(0), World(),
+                                  event->position(), &cache_);
+    const QString parent = hit.value_or(QString());
+    const QString child = piece_;
+    StopHanging();
+    const bool is_self = parent == child;
+    if (!is_self) {
+      emit Problem(ProblemOf(managers_.rig->SetParent(doll_, child, parent)));
+    }
+    return;
+  }
   const bool is_handle = PressHandle(event->position());
   if (is_handle) {
     return;
   }
-  const DollLayer rest{doll_, {}, false};
   const auto hit = HitDollPiece(*doll, rest, Frame(0), World(),
                                 event->position(), &cache_);
   piece_ = hit.value_or(QString());
@@ -91,6 +157,11 @@ void RigCanvas::mousePressEvent(QMouseEvent* event) {
 
 void RigCanvas::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  cursor_ = event->position();
+  if (is_hanging_) {
+    update();
+    return;
+  }
   const bool is_dragging = drag_ != Drag::kNone;
   if (!is_dragging) {
     return;
@@ -123,6 +194,11 @@ void RigCanvas::mouseReleaseEvent(QMouseEvent* event) {
 
 void RigCanvas::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
+  const bool stops_hang = event->key() == Qt::Key_Escape && is_hanging_;
+  if (stops_hang) {
+    StopHanging();
+    return;
+  }
   const bool is_cancel = event->key() == Qt::Key_Escape && scope_ != nullptr;
   if (is_cancel) {
     scope_->Cancel();
