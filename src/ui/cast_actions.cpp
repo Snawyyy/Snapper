@@ -38,32 +38,34 @@ QString LayerKind(const Layer& layer) {
 
 // What the user should hear after an import or reload: the error, or
 // what the rig lost because the art no longer has it.
-QString Outcome(const QString& doll, const Result<ReconcileReport>& report) {
-  assert(!doll.isEmpty());
-  const bool is_failed = !report.has_value();
+QString Outcome(
+    const Result<std::map<QString, ReconcileReport>>& reports) {
+  const bool is_failed = !reports.has_value();
   if (is_failed) {
-    return report.error().message;
+    return reports.error().message;
   }
-  const QStringList lost = report->missing + report->dropped_chains;
+  QStringList lost;
+  for (const auto& [doll, report] : *reports) {
+    for (const QString& gone : report.missing + report.dropped_chains) {
+      lost.append(doll + ": " + gone);
+    }
+  }
   assert(lost.size() < 100000);
   return lost.isEmpty() ? QString()
-                        : QObject::tr("%1: gone from the art, so dropped "
-                                      "from the rig: %2")
-                              .arg(doll, lost.join(", "));
+                        : QObject::tr("Gone from the art, so dropped from "
+                                      "the rig: %1")
+                              .arg(lost.join(", "));
 }
 
 }  // namespace
 
-QString CastPanel::PickedDoll() const {
-  const QListWidgetItem* item = library_.currentItem();
-  assert(library_.count() >= 0);
-  assert(item == nullptr || item->data(kKeyRole).isValid());
-  return item != nullptr ? item->data(kKeyRole).toString() : QString();
-}
-
 void CastPanel::RefreshLibrary() {
   assert(managers_.library != nullptr);
-  const QString picked = PickedDoll();
+  // Keep every picked doll picked across the rebuild.
+  QSet<QString> picked;
+  for (const QListWidgetItem* item : library_.selectedItems()) {
+    picked.insert(item->data(kKeyRole).toString());
+  }
   const QSignalBlocker quiet(library_);
   library_.clear();
   const Project& project = managers_.history->current();
@@ -76,10 +78,7 @@ void CastPanel::RefreshLibrary() {
     library_.addItem(name + note);
     QListWidgetItem* item = library_.item(library_.count() - 1);
     item->setData(kKeyRole, name);
-    const bool is_picked = name == picked;
-    if (is_picked) {
-      library_.setCurrentItem(item);
-    }
+    item->setSelected(picked.contains(name));
   }
   const QStringList& problems = managers_.library->conversion_problems();
   const bool has_problems = !problems.isEmpty();
@@ -116,12 +115,17 @@ void CastPanel::RefreshLayers() {
 
 void CastPanel::RefreshButtons() {
   assert(managers_.library != nullptr);
-  const QString doll = PickedDoll();
-  const bool is_in =
-      !doll.isEmpty() && FindDoll(managers_.history->current(), doll);
+  const QStringList out = PickedDolls(false);
+  const bool is_in = !PickedDolls(true).isEmpty();
   const bool has_shot = managers_.selection->shot().IsValid();
   const bool has_layer = managers_.selection->layer().IsValid();
-  Explain(&import_, managers_.library->WhyNoImport(doll));
+  const QString picked_one = library_.selectedItems().isEmpty()
+                                 ? QString()
+                                 : library_.selectedItems().front()
+                                       ->data(kKeyRole).toString();
+  Explain(&import_, out.isEmpty()
+                        ? managers_.library->WhyNoImport(picked_one)
+                        : managers_.library->WhyNoImport(out.front()));
   Explain(&reload_, is_in ? QString() : tr("Import the doll first."));
   Explain(&place_, !is_in      ? tr("Import the doll first.")
                    : has_shot ? QString()
@@ -136,33 +140,56 @@ void CastPanel::RefreshButtons() {
   }
 }
 
+QStringList CastPanel::PickedDolls(bool is_in_project) const {
+  const Project& project = managers_.history->current();
+  assert(library_.count() >= 0);
+  QStringList dolls;
+  for (const QListWidgetItem* item : library_.selectedItems()) {
+    const QString name = item->data(kKeyRole).toString();
+    const bool is_wanted =
+        (FindDoll(project, name) != nullptr) == is_in_project;
+    if (is_wanted) {
+      dolls.append(name);
+    }
+  }
+  assert(dolls.size() <= library_.count());
+  return dolls;
+}
+
 void CastPanel::Import() {
-  const QString doll = PickedDoll();
-  assert(!doll.isEmpty());
+  const QStringList dolls = PickedDolls(false);
   assert(managers_.library != nullptr);
-  stale_.remove(doll);
-  Report(Outcome(doll, managers_.library->Import(doll)));
+  Report(Outcome(managers_.library->ImportAll(dolls)));
+  for (const QString& doll : dolls) {
+    stale_.remove(doll);
+  }
 }
 
 void CastPanel::Reload() {
-  const QString doll = PickedDoll();
-  assert(!doll.isEmpty());
+  const QStringList dolls = PickedDolls(true);
   assert(managers_.library != nullptr);
-  stale_.remove(doll);
-  Report(Outcome(doll, managers_.library->Reload(doll)));
+  Report(Outcome(managers_.library->ReloadAll(dolls)));
+  for (const QString& doll : dolls) {
+    stale_.remove(doll);
+  }
   RefreshLibrary();
 }
 
 void CastPanel::Place() {
-  const QString doll = PickedDoll();
-  assert(!doll.isEmpty());
+  const QStringList dolls = PickedDolls(true);
   assert(managers_.stage != nullptr);
-  const auto layer = managers_.stage->AddDoll(managers_.selection->shot(),
-                                              doll);
-  if (layer) {
-    managers_.selection->SelectLayer(*layer);
+  const auto layers =
+      managers_.stage->AddDolls(managers_.selection->shot(), dolls);
+  if (layers) {
+    std::set<Pick> picks;
+    for (const LayerId layer : *layers) {
+      picks.insert({layer, QString()});
+    }
+    managers_.selection->PickThings(
+        picks, PickMode::kReplace,
+        layers->empty() ? LayerId() : layers->front());
   }
-  Report(ProblemOf(layer));
+  Report(ProblemOf(layers));
 }
 
 void CastPanel::AddPicture() {

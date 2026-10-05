@@ -40,6 +40,9 @@ class PresetManager final : public QObject {
   // Keys a saved pose at frame on every piece the doll shares with it.
   Result<void> ApplyPose(const QString& name, ShotId shot, LayerId layer,
                          Frame frame);
+  // The same saved pose on every doll layer given, as one step.
+  Result<void> ApplyPoseAll(const QString& name, ShotId shot,
+                            const std::vector<LayerId>& layers, Frame frame);
   Result<void> DeletePose(const QString& name);
   // Why the saved poses couldn't be read; empty when they could. While
   // set, nothing is saved, so a damaged file is never overwritten.

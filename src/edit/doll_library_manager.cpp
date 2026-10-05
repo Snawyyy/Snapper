@@ -7,6 +7,7 @@
 #include <variant>
 
 #include "base/text.h"
+#include "edit/edit_scope.h"
 #include "edit/history_manager.h"
 
 namespace snapper {
@@ -109,6 +110,40 @@ Result<ReconcileReport> DollLibraryManager::Reload(const QString& name) {
   }
   stamps_[name] = ArtStamp(name);
   return report;
+}
+
+Result<std::map<QString, ReconcileReport>> DollLibraryManager::ImportAll(
+    const QStringList& names) {
+  assert(history_ != nullptr);
+  assert(names.size() <= kMaxProjectDolls);
+  EditScope batch(history_, Tr("Import dolls"));
+  std::map<QString, ReconcileReport> reports;
+  for (const QString& name : names) {
+    auto report = Import(name);
+    if (!report) {
+      batch.Cancel();
+      return std::unexpected(report.error());
+    }
+    reports[name] = *report;
+  }
+  return reports;
+}
+
+Result<std::map<QString, ReconcileReport>> DollLibraryManager::ReloadAll(
+    const QStringList& names) {
+  assert(history_ != nullptr);
+  assert(names.size() <= kMaxProjectDolls);
+  EditScope batch(history_, Tr("Reload dolls"));
+  std::map<QString, ReconcileReport> reports;
+  for (const QString& name : names) {
+    auto report = Reload(name);
+    if (!report) {
+      batch.Cancel();
+      return std::unexpected(report.error());
+    }
+    reports[name] = *report;
+  }
+  return reports;
 }
 
 Result<void> DollLibraryManager::SaveRig(const QString& name) {

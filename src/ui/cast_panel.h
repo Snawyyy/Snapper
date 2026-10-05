@@ -45,7 +45,8 @@ class CastPanel final : public QWidget {
   void Restack(int step);
   void PickLayer();
   void ToggleShown(QListWidgetItem* item);
-  QString PickedDoll() const;
+  // Picked library dolls that are (or are not yet) in the project.
+  QStringList PickedDolls(bool is_in_project) const;
   void Report(const QString& problem) { emit Problem(problem); }
 
   Managers managers_;

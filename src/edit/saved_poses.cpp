@@ -4,6 +4,7 @@
 #include <cassert>
 
 #include "anim/doll_pose.h"
+#include "edit/edit_scope.h"
 #include "edit/history_manager.h"
 #include "edit/pose_edits.h"
 #include "edit/preset_manager.h"
@@ -82,6 +83,28 @@ Result<void> PresetManager::ApplyPose(const QString& name, ShotId shot,
         Tr("%1 shares no pieces with this doll.").arg(name)});
   }
   return history_->Apply(Tr("Apply pose %1").arg(name), std::move(next));
+}
+
+Result<void> PresetManager::ApplyPoseAll(const QString& name, ShotId shot,
+                                         const std::vector<LayerId>& layers,
+                                         Frame frame) {
+  assert(history_ != nullptr);
+  assert(frame.index() >= 0);
+  EditScope batch(history_, Tr("Apply pose %1").arg(name));
+  int applied = 0;
+  QString why;
+  for (const LayerId layer : layers) {
+    const auto done = ApplyPose(name, shot, layer, frame);
+    applied += done.has_value() ? 1 : 0;
+    why = done.has_value() ? why : done.error().message;
+  }
+  const bool is_none = applied == 0;
+  if (is_none) {
+    batch.Cancel();
+    return std::unexpected(
+        Error{why.isEmpty() ? Tr("Pick a doll layer first.") : why});
+  }
+  return {};
 }
 
 Result<void> PresetManager::DeletePose(const QString& name) {

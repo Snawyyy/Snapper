@@ -40,6 +40,12 @@ class DollLibraryManager final : public QObject {
   // Takes the newest art from the library for a project doll, keeping
   // its rig (matched by piece name).
   Result<ReconcileReport> Reload(const QString& name);
+  // Imports or reloads several dolls as one step; what each changed
+  // in its rig, by name. Stops at the first that fails.
+  Result<std::map<QString, ReconcileReport>> ImportAll(
+      const QStringList& names);
+  Result<std::map<QString, ReconcileReport>> ReloadAll(
+      const QStringList& names);
   // Writes the project's rig of a doll back to the library, so other
   // projects that import it get the same rig.
   Result<void> SaveRig(const QString& name);

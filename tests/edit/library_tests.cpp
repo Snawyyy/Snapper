@@ -56,6 +56,7 @@ class LibraryTests final : public QObject {
   void RemovingAUsedDollIsRefused();
   void NoticesReexports();
   void ConvertsOldDolls();
+  void ImportsAndReloadsManyAsOneStep();
 };
 
 void LibraryTests::ImportsOnce() {
@@ -161,6 +162,25 @@ void LibraryTests::ConvertsOldDolls() {
   QCOMPARE(body->order, 2);
   QCOMPARE(FindArt(*FindDoll(history.current(), "Old"), "body")->position,
            QPointF(-4, -6));
+}
+
+void LibraryTests::ImportsAndReloadsManyAsOneStep() {
+  QTemporaryDir dir;
+  Export(dir.path(), {Piece("body")});
+  QVERIFY(QDir(dir.path()).rename("Bob.doll", "Ann.doll"));
+  Export(dir.path(), {Piece("body")});
+  HistoryManager history{Project()};
+  DollLibraryManager library(&history, dir.path());
+  const auto imported = library.ImportAll({"Ann", "Bob"});
+  QVERIFY(imported.has_value());
+  QCOMPARE(imported->size(), size_t{2});
+  QCOMPARE(history.UndoLabel(), QString("Import dolls"));
+  QVERIFY(!library.ImportAll({"Bob"}).has_value());
+  QVERIFY(library.ReloadAll({"Ann", "Bob"}).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Reload dolls"));
+  history.Undo();
+  history.Undo();
+  QVERIFY(history.current().dolls.empty());
 }
 
 }  // namespace snapper

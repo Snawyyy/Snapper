@@ -3,6 +3,7 @@
 
 #include <QColor>
 #include <QString>
+#include <QStringList>
 
 #include <vector>
 
@@ -49,6 +50,8 @@ class StageManager final {
   Result<std::vector<LayerId>> DuplicateAll(ShotId shot,
                                             const std::vector<LayerId>& ids);
   Result<void> RemoveAll(ShotId shot, const std::vector<LayerId>& ids);
+  Result<std::vector<LayerId>> AddDolls(ShotId shot,
+                                        const QStringList& dolls);
   Result<void> ShowAll(ShotId shot, const std::vector<LayerId>& ids,
                        bool is_visible);
   Result<void> FlipAll(ShotId shot, const std::vector<LayerId>& ids,

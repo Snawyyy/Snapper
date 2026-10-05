@@ -61,6 +61,23 @@ Result<std::vector<LayerId>> StageManager::DuplicateAll(
   return copies;
 }
 
+Result<std::vector<LayerId>> StageManager::AddDolls(
+    ShotId shot, const QStringList& dolls) {
+  assert(history_ != nullptr);
+  assert(dolls.size() <= kMaxLayersPerShot);
+  std::vector<LayerId> added;
+  EditScope batch(history_, Tr("Add dolls"));
+  for (const QString& doll : dolls) {
+    const auto layer = AddDoll(shot, doll);
+    if (!layer) {
+      batch.Cancel();
+      return std::unexpected(layer.error());
+    }
+    added.push_back(*layer);
+  }
+  return added;
+}
+
 Result<void> StageManager::RemoveAll(ShotId shot,
                                      const std::vector<LayerId>& ids) {
   assert(history_ != nullptr);

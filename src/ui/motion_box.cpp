@@ -55,16 +55,18 @@ void MotionBox::Refresh() {
 
 void MotionBox::Apply() {
   const auto spot = SpotOf(managers_);
-  const auto track = spot ? PickedTrack(managers_, spot->shot) : std::nullopt;
+  const auto tracks = managers_.selection->PickedTracks();
   assert(managers_.presets != nullptr);
-  if (!track) {
+  const bool is_ready = spot.has_value() && !tracks.empty() &&
+                        managers_.selection->shot() == spot->shot;
+  if (!is_ready) {
     return;
   }
   const PresetSettings settings{
       static_cast<MotionPreset>(preset_.currentIndex()), amount_.value(),
       hold_.currentData().toInt(), length_.value()};
   emit Problem(ProblemOf(
-      managers_.presets->ApplyMotion({*track}, spot->local, settings)));
+      managers_.presets->ApplyMotion(tracks, spot->local, settings)));
   assert(settings.hold >= 1);
 }
 
@@ -138,8 +140,9 @@ void PosesBox::Use() {
   const auto spot = SpotOf(managers_);
   assert(spot.has_value());
   assert(managers_.presets != nullptr);
-  emit Problem(ProblemOf(managers_.presets->ApplyPose(
-      Picked(), spot->shot, managers_.selection->layer(), spot->local)));
+  emit Problem(ProblemOf(managers_.presets->ApplyPoseAll(
+      Picked(), spot->shot, managers_.selection->PickedLayers(),
+      spot->local)));
 }
 
 void PosesBox::Forget() {

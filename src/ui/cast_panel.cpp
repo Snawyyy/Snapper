@@ -55,6 +55,7 @@ void CastPanel::BuildLayout() {
   layout_.addLayout(&layer_buttons_);
   // Shift picks a run, Ctrl adds or drops one, as in any list.
   layers_.setSelectionMode(QAbstractItemView::ExtendedSelection);
+  library_.setSelectionMode(QAbstractItemView::ExtendedSelection);
   assert(layout_.count() > 0);
 }
 
@@ -84,7 +85,7 @@ void CastPanel::Wire() {
   });
   connect(&up_, &QPushButton::clicked, this, [this] { Restack(1); });
   connect(&down_, &QPushButton::clicked, this, [this] { Restack(-1); });
-  connect(&library_, &QListWidget::currentRowChanged, this,
+  connect(&library_, &QListWidget::itemSelectionChanged, this,
           &CastPanel::RefreshButtons);
   connect(&layers_, &QListWidget::itemSelectionChanged, this,
           &CastPanel::PickLayer);
