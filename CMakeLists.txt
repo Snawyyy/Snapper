@@ -8,7 +8,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Multimedia Widgets Test)
+find_package(Qt6 6.5 REQUIRED COMPONENTS
+  Concurrent Core Gui Multimedia Widgets Test)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
   libavcodec libavformat libavutil libswresample libswscale)
@@ -44,12 +45,13 @@ snapper_module(render
 snapper_module(edit
   SOURCES doll_library_manager.cpp document_manager.cpp edit_scope.cpp
           history_manager.cpp key_clipboard.cpp key_manager.cpp
-          pose_clipboard.cpp pose_manager.cpp preset_manager.cpp
-          saved_poses.cpp
+          playback_manager.cpp pose_clipboard.cpp pose_manager.cpp
+          preset_manager.cpp saved_poses.cpp
           project_edits.cpp rig_manager.cpp
           selection_manager.cpp shot_manager.cpp stage_manager.cpp
           stage_settings.cpp
-  MODULES io media render)
+  MODULES io media render
+  LIBS Qt6::Concurrent)
 snapper_module(ui
   SOURCES main_window.cpp
   MODULES edit
@@ -70,7 +72,7 @@ if(BUILD_TESTING)
   snapper_test(render SOURCES render_tests.cpp)
   snapper_test(edit SOURCES document_tests.cpp history_tests.cpp
                             key_tests.cpp library_tests.cpp posing_tests.cpp
-                            preset_tests.cpp
+                            playback_tests.cpp preset_tests.cpp
                             rig_tests.cpp
                             shot_tests.cpp
                             selection_tests.cpp stage_tests.cpp
