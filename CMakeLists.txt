@@ -44,7 +44,8 @@ snapper_module(render
 snapper_module(edit
   SOURCES doll_library_manager.cpp document_manager.cpp edit_scope.cpp
           history_manager.cpp key_clipboard.cpp key_manager.cpp
-          pose_clipboard.cpp pose_manager.cpp
+          pose_clipboard.cpp pose_manager.cpp preset_manager.cpp
+          saved_poses.cpp
           project_edits.cpp rig_manager.cpp
           selection_manager.cpp shot_manager.cpp stage_manager.cpp
           stage_settings.cpp
@@ -69,6 +70,7 @@ if(BUILD_TESTING)
   snapper_test(render SOURCES render_tests.cpp)
   snapper_test(edit SOURCES document_tests.cpp history_tests.cpp
                             key_tests.cpp library_tests.cpp posing_tests.cpp
+                            preset_tests.cpp
                             rig_tests.cpp
                             shot_tests.cpp
                             selection_tests.cpp stage_tests.cpp
