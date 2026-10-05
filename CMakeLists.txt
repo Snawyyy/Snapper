@@ -25,7 +25,7 @@ snapper_module(model
   MODULES base
   LIBS Qt6::Gui)
 snapper_module(anim
-  SOURCES doll_pose.cpp ik.cpp master_timeline.cpp mirror.cpp presets.cpp
+  SOURCES doll_pose.cpp ik.cpp jitter.cpp master_timeline.cpp mirror.cpp presets.cpp
           sampler.cpp warp.cpp
   MODULES model)
 snapper_module(io
@@ -37,6 +37,10 @@ snapper_module(media
           video_encoder.cpp video_streams.cpp
   MODULES base
   LIBS Qt6::Gui Qt6::Multimedia PkgConfig::FFMPEG)
+snapper_module(render
+  SOURCES effects.cpp frame_renderer.cpp image_cache.cpp layer_painter.cpp
+          warp_raster.cpp
+  MODULES anim)
 snapper_module(edit
   SOURCES history_manager.cpp edit_scope.cpp
   MODULES model)
@@ -57,6 +61,7 @@ if(BUILD_TESTING)
   snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp)
+  snapper_test(render SOURCES render_tests.cpp)
   snapper_test(edit SOURCES history_tests.cpp)
   snapper_checks()
 endif()

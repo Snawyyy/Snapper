@@ -2,24 +2,12 @@
 
 #include <cassert>
 #include <cmath>
-#include <cstdint>
 
+#include "anim/jitter.h"
 #include "base/text.h"
 
 namespace snapper {
 namespace {
-
-// Same frame, same jitter: a shake renders identically every time.
-double Jitter(int step, int axis) {
-  assert(step >= 0);
-  assert(axis == 0 || axis == 1);
-  std::uint32_t x = static_cast<std::uint32_t>(step * 2 + axis + 1);
-  x ^= x << 13;
-  x ^= x >> 17;
-  x ^= x << 5;
-  x *= 2654435761u;
-  return (x % 2001u) / 1000.0 - 1.0;
-}
 
 // The pose change on the step-th key of a loop.
 PiecePose StepPose(const PresetSettings& settings, int step) {
