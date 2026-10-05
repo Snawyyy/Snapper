@@ -4,6 +4,7 @@
 #include <variant>
 
 #include "edit/history_manager.h"
+#include "edit/project_edits.h"
 
 namespace snapper {
 
@@ -135,14 +136,7 @@ void SelectionManager::Prune() {
 bool SelectionManager::IsPiece(const QString& piece) const {
   assert(history_ != nullptr);
   assert(!piece.isEmpty());
-  const Project& project = history_->current();
-  const Shot* shot = FindShot(project, shot_);
-  const Layer* layer =
-      shot != nullptr && layer_.IsValid() ? FindLayer(*shot, layer_) : nullptr;
-  const auto* posed =
-      layer != nullptr ? std::get_if<DollLayer>(&layer->content) : nullptr;
-  const Doll* doll = posed != nullptr ? FindDoll(project, posed->doll)
-                                      : nullptr;
+  const Doll* doll = DollOfLayer(history_->current(), shot_, layer_);
   return doll != nullptr && FindRig(doll->rig, piece) != nullptr;
 }
 

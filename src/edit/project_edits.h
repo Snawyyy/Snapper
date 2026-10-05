@@ -65,6 +65,14 @@ Result<Project> WithTrack(Project project, const TrackRef& track,
                   [&](Shot* shot) { return VisitTrack(shot, track, change); });
 }
 
+// The doll layer at shot and layer, or nullptr when it is gone or not
+// a doll.
+const DollLayer* PosedLayerOf(const Project& project, ShotId shot,
+                              LayerId layer);
+// The doll a doll layer shows, or nullptr when the shot, layer or doll
+// is gone or the layer is not a doll.
+const Doll* DollOfLayer(const Project& project, ShotId shot, LayerId layer);
+
 // Hands out the next layer id; ids are never reused.
 LayerId TakeLayerId(Project* project);
 ShotId TakeShotId(Project* project);
