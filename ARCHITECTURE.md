@@ -187,7 +187,7 @@ are destroyed in reverse.
 | `RigManager`           | Rig edits: parent, pivot, order, IK, warp grid |
 | `ShotManager`          | Shots on the master track, transitions         |
 | `StageManager`         | What is in a shot: actors, props, text, effects |
-| `SelectionManager`     | What is picked: pieces, keys, shots            |
+| `SelectionManager`     | What is picked: shots, layers, pieces, keys    |
 | `PoseManager`          | Pose edits, IK drags, copy, paste, mirror      |
 | `KeyManager`           | Keys on the timeline: move, hold, ease, retime |
 | `PresetManager`        | Motion presets and saved poses                 |
@@ -196,6 +196,21 @@ are destroyed in reverse.
 
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.
+
+## Picking many
+
+Every list of things (stage pieces and layers, the layer list, timeline
+keys, shots, rig pieces, library dolls) picks the same way: click picks
+one, Shift adds, Ctrl flips one in or out, a box on empty space picks
+what it touches (Shift adds, Ctrl takes out), Ctrl+A picks all, Escape
+or a click on empty space clears. `Combine` in `selection_manager.h` is
+the one rule they share.
+
+A change made with many things picked is one undo step and is added to
+each thing's own value, so they keep their differences: x 10 and x 0
+moved by 5 become 15 and 5. Managers offer these as `...All` or
+`Shift...` methods; widgets show the focused pick's value and send the
+difference.
 
 ## Errors
 
