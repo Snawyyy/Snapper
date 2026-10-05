@@ -44,6 +44,7 @@ snapper_module(render
   MODULES anim)
 snapper_module(edit
   SOURCES doll_library_manager.cpp document_manager.cpp edit_scope.cpp
+          export_manager.cpp
           history_manager.cpp key_clipboard.cpp key_manager.cpp
           playback_manager.cpp pose_clipboard.cpp pose_manager.cpp
           preset_manager.cpp saved_poses.cpp
@@ -70,7 +71,8 @@ if(BUILD_TESTING)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp)
   snapper_test(render SOURCES render_tests.cpp)
-  snapper_test(edit SOURCES document_tests.cpp history_tests.cpp
+  snapper_test(edit SOURCES document_tests.cpp export_tests.cpp
+                            history_tests.cpp
                             key_tests.cpp library_tests.cpp posing_tests.cpp
                             playback_tests.cpp preset_tests.cpp
                             rig_tests.cpp
