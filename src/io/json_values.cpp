@@ -186,6 +186,11 @@ CameraPose ValueFromJson(const QJsonValue& value, CameraPose fallback,
   pose.zoom = Number(object, "z", fallback.zoom);
   pose.rotation = Number(object, "r", fallback.rotation);
   pose.shake = Number(object, "s", fallback.shake);
+  const bool is_usable = pose.zoom > 0.0 && pose.shake >= 0.0;
+  if (!is_usable) {
+    issues->Note(QStringLiteral("a camera key has no zoom or a bad shake"));
+    pose = fallback;
+  }
   assert(std::isfinite(pose.zoom));
   return pose;
 }

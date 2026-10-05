@@ -62,6 +62,7 @@ qt_add_executable(snapper src/app/main.cpp src/app/app_context.cpp)
 target_link_libraries(snapper PRIVATE snapper_ui)
 snapper_warnings(snapper)
 set_property(GLOBAL APPEND PROPERTY SNAPPER_LAYERS "app=ui")
+target_include_directories(snapper PRIVATE src)
 set_target_properties(snapper PROPERTIES WIN32_EXECUTABLE TRUE)
 
 if(BUILD_TESTING)

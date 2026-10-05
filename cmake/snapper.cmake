@@ -7,6 +7,11 @@ function(snapper_warnings target)
     target_compile_options(${target} PRIVATE
       -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion -Wshadow
       -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Werror)
+    # GCC's optimizer reports std::variant copies holding a QString as
+    # "maybe uninitialized" (GCC bug 80635), a known false positive.
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      target_compile_options(${target} PRIVATE -Wno-maybe-uninitialized)
+    endif()
   endif()
 endfunction()
 

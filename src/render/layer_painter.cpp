@@ -104,7 +104,8 @@ void Painter::operator()(const TextLayer& layer) const {
   painter->fillPath(path, layer.fill);
 }
 
-void Painter::operator()(const EffectLayer& layer) const {
+// Effects change what is drawn instead; RenderShot applies them.
+void Painter::operator()([[maybe_unused]] const EffectLayer& layer) const {
   assert(painter != nullptr);
   assert(static_cast<int>(layer.kind) < kEffectKindCount);
 }

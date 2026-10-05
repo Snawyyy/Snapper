@@ -29,7 +29,7 @@ QAudioFormat ClipFormat() {
 PcmSource::PcmSource(std::shared_ptr<const AudioClip> clip)
     : clip_(std::move(clip)) {
   assert(clip_ != nullptr);
-  const bool is_open = open(QIODevice::ReadOnly);
+  [[maybe_unused]] const bool is_open = open(QIODevice::ReadOnly);
   assert(is_open);
 }
 
@@ -63,9 +63,11 @@ qint64 PcmSource::readData(char* data, qint64 max_size) {
   return count;
 }
 
-qint64 PcmSource::writeData(const char* data, qint64 max_size) {
+qint64 PcmSource::writeData([[maybe_unused]] const char* data,
+                            [[maybe_unused]] qint64 max_size) {
   assert(data != nullptr || max_size == 0);
   assert(max_size >= 0);
+  // Read-only: the sound card only pulls.
   return -1;
 }
 

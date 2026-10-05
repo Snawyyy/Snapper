@@ -15,6 +15,13 @@ ctest --preset debug
 green run means the code builds, passes its tests, follows the rules
 and respects the module order.
 
+## Krita exporter
+
+`tools/krita` is the Krita plugin. Install by linking
+`snapper_doll_export.desktop` and the `snapper_doll_export` folder into
+`~/.local/share/krita/pykrita`, then enable it in Krita's Python Plugin
+Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
+
 ## Rules for every change
 
 - Put logic in the manager that owns the concern. A widget never decides
