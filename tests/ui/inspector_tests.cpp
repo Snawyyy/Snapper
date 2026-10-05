@@ -60,6 +60,7 @@ class InspectorTests final : public QObject {
   void MotionLoopsGoOnThePick();
   void LayerBoxFollowsTheKind();
   void FieldsApplyAsYouTypeAsOneStep();
+  void FieldsChangeEveryPickByTheSameAmount();
 };
 
 void InspectorTests::TypedPoseNumbersKeyAtThePlayhead() {
@@ -125,6 +126,31 @@ void InspectorTests::FieldsApplyAsYouTypeAsOneStep() {
   QCOMPARE(bench.history.UndoLabel(), QString("Pose"));
   bench.history.Undo();
   QCOMPARE(Head(bench, 0).rotation, 0.0);
+}
+
+void InspectorTests::FieldsChangeEveryPickByTheSameAmount() {
+  Bench bench;
+  Stage(&bench);
+  Project project = bench.history.current();
+  Doll doll = *project.dolls.at("Bob");
+  doll.rig.pieces.push_back({"arm", "", {}, 0, -1, {}});
+  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
+  bench.history.Reset(project);
+  const TrackRef arm{kShot, TrackKind::kPiece, LayerId(1), "arm"};
+  QVERIFY(bench.pose.Move(arm, Frame(0), QPointF(10, 0)).has_value());
+  bench.selection.SelectLayer(LayerId(1));
+  bench.selection.PickThings({{LayerId(1), "head"}, {LayerId(1), "arm"}},
+                             PickMode::kReplace, LayerId(1));
+  PoseBox box(bench.All());
+  auto* x = box.findChild<QDoubleSpinBox*>("x");
+  QCOMPARE(x->value(), 10.0);
+  x->setValue(15.0);
+  emit x->editingFinished();
+  const PoseMap poses = SamplePoses(
+      std::get<DollLayer>(bench.history.current().shots[0]->layers[0].content),
+      Frame(0));
+  QCOMPARE(poses.at("arm").offset.x(), 15.0);
+  QCOMPARE(poses.at("head").offset.x(), 5.0);
 }
 
 }  // namespace snapper

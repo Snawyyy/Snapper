@@ -87,6 +87,10 @@ void PoseBox::Refresh() {
   }
   const Project& project = managers_.history->current();
   const PiecePose pose = PoseAt(project, *track, spot->local);
+  const auto picked = managers_.selection->picks().size();
+  setTitle(picked > 1 ? tr("Pose at playhead (%1 picked, changes add to "
+                           "each)").arg(picked)
+                      : tr("Pose at playhead"));
   ShowNumber(&fields_[kTurn], pose.rotation);
   ShowNumber(&fields_[kX], pose.offset.x());
   ShowNumber(&fields_[kY], pose.offset.y());
@@ -119,14 +123,20 @@ void PoseBox::Commit() {
   if (!track) {
     return;
   }
-  PiecePose pose = PoseAt(managers_.history->current(), *track, spot->local);
-  pose.rotation = fields_[kTurn].value();
-  pose.offset = QPointF(fields_[kX].value(), fields_[kY].value());
-  pose.scale_x = fields_[kScaleX].value();
-  pose.scale_y = fields_[kScaleY].value();
-  pose.skew = fields_[kSkew].value();
-  pose.opacity = fields_[kOpacity].value();
-  emit Problem(ProblemOf(managers_.pose->SetPose(*track, spot->local, pose)));
+  // The fields show the focused pick; a change there is added to every
+  // pick, so each keeps its own value plus the same difference.
+  const PiecePose shown =
+      PoseAt(managers_.history->current(), *track, spot->local);
+  PoseDelta delta;
+  delta.rotation = fields_[kTurn].value() - shown.rotation;
+  delta.offset = QPointF(fields_[kX].value(), fields_[kY].value()) -
+                 shown.offset;
+  delta.scale_x = fields_[kScaleX].value() - shown.scale_x;
+  delta.scale_y = fields_[kScaleY].value() - shown.scale_y;
+  delta.skew = fields_[kSkew].value() - shown.skew;
+  delta.opacity = fields_[kOpacity].value() - shown.opacity;
+  emit Problem(ProblemOf(managers_.pose->Shift(
+      managers_.selection->PickedTracks(), spot->local, delta)));
   assert(managers_.history != nullptr);
 }
 
