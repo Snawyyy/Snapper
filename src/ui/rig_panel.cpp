@@ -38,18 +38,25 @@ void RigPanel::BuildLayout() {
   hint_.setWordWrap(true);
   order_.setRange(-1000, 1000);
   order_.setToolTip(tr("Higher draws in front."));
-  SetUpNumber(&rest_, -360, 360, 1, tr(" deg"));
+  SetUpNumber(&rest_, Number::kDegrees);
   rest_.setToolTip(tr("How the piece is turned when not posed."));
+  warp_columns_.setPrefix(tr("across "));
+  warp_rows_.setPrefix(tr("down "));
   for (QSpinBox* side : {&warp_columns_, &warp_rows_}) {
-    side->setRange(0, kMaxWarpCells);
-    side->setSpecialValueText(tr("off"));
+    side->setRange(1, kMaxWarpCells);
+    side->setValue(kDefaultWarpCells);
   }
+  warp_on_.setText(tr("Bend with a grid"));
+  warp_on_.setToolTip(tr("Lets you push spots of the drawing, like a "
+                         "crease in a shirt."));
+  AddTitle(&form_, &joint_title_, tr("Joint"));
   form_.addRow(tr("Hangs from"), &parent_);
-  form_.addRow(tr("Draw order"), &order_);
   form_.addRow(tr("Rest turn"), &rest_);
-  form_.addRow(tr("Default drawing"), &drawing_);
-  form_.addRow(tr("Warp columns"), &warp_columns_);
-  form_.addRow(tr("Warp rows"), &warp_rows_);
+  form_.addRow(tr("Draw order"), &order_);
+  form_.addRow(tr("Drawing"), &drawing_);
+  AddTitle(&form_, &warp_title_, tr("Warp"));
+  form_.addRow(QString(), &warp_on_);
+  AddPair(&form_, tr("Cells"), &warp_row_, &warp_columns_, &warp_rows_);
   chain_buttons_.addWidget(&add_chain_);
   chain_buttons_.addWidget(&flip_chain_);
   chain_buttons_.addWidget(&remove_chain_);
@@ -64,12 +71,12 @@ void RigPanel::BuildLayout() {
   layout_.addLayout(&chain_buttons_);
   layout_.addWidget(&save_rig_);
   layout_.addWidget(&hint_);
-  assert(form_.rowCount() == 6);
+  assert(form_.rowCount() == 8);
 }
 
 void RigPanel::Wire() {
   assert(managers_.IsComplete());
-  assert(form_.rowCount() == 6);
+  assert(form_.rowCount() == 8);
   RigManager* rig = managers_.rig;
   connect(&dolls_, &QComboBox::textActivated, this, [this](const QString& d) {
     doll_ = d;
@@ -97,16 +104,16 @@ void RigPanel::Wire() {
   connect(&drawing_, &QComboBox::activated, this, [this, rig](int index) {
     emit Problem(ProblemOf(rig->SetDefaultDrawing(doll_, piece_, index - 1)));
   });
+  const auto set_grid = [this, rig] {
+    const bool is_on = warp_on_.isChecked();
+    const WarpGrid grid = is_on ? WarpGrid{warp_columns_.value(),
+                                           warp_rows_.value()}
+                                : WarpGrid();
+    emit Problem(ProblemOf(rig->SetWarpGrid(doll_, piece_, grid)));
+  };
+  connect(&warp_on_, &QCheckBox::clicked, this, set_grid);
   for (QSpinBox* side : {&warp_columns_, &warp_rows_}) {
-    MakeLive(side, &live_, tr("Warp grid"), this, [this, rig] {
-      // A grid needs both sides; one at zero turns warping off.
-      const bool is_off =
-          warp_columns_.value() == 0 || warp_rows_.value() == 0;
-      const WarpGrid grid = is_off ? WarpGrid()
-                                   : WarpGrid{warp_columns_.value(),
-                                              warp_rows_.value()};
-      emit Problem(ProblemOf(rig->SetWarpGrid(doll_, piece_, grid)));
-    });
+    MakeLive(side, &live_, tr("Warp grid"), this, set_grid);
   }
   WireChains();
 }

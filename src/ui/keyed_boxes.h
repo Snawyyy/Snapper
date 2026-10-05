@@ -5,6 +5,7 @@
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QHBoxLayout>
 
 #include <array>
 
@@ -36,6 +37,8 @@ class PoseBox final : public QGroupBox {
   QFormLayout layout_;
   LiveEdit live_;
   std::array<QDoubleSpinBox, kCount> fields_;
+  QHBoxLayout move_row_;
+  QHBoxLayout scale_row_;
   QComboBox drawing_;
 };
 
@@ -60,6 +63,7 @@ class CameraBox final : public QGroupBox {
   QFormLayout layout_;
   LiveEdit live_;
   std::array<QDoubleSpinBox, kCount> fields_;
+  QHBoxLayout look_row_;
 };
 
 }  // namespace snapper

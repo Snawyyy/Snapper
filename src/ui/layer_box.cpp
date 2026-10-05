@@ -33,35 +33,38 @@ LayerBox::LayerBox(const Managers& managers)
 void LayerBox::BuildRows() {
   assert(layout_.rowCount() == 0);
   start_.setRange(0, kMaxFrame);
+  start_.setPrefix(tr("from "));
   length_.setRange(0, kMaxFrame);
+  length_.setPrefix(tr("for "));
   length_.setSpecialValueText(tr("to the end"));
   words_.setMaximumHeight(60);
-  SetUpNumber(&size_, 1, 2000, 0, tr(" px"));
-  SetUpNumber(&outline_width_, 0, 200, 1, tr(" px"));
-  SetUpNumber(&strength_, 0, 1, 2, QString());
-  strength_.setSingleStep(0.05);
+  SetUpNumber(&size_, Number::kSize);
+  size_.setMinimum(1);
+  SetUpNumber(&outline_width_, Number::kSize);
+  SetUpNumber(&strength_, Number::kFraction);
   for (int kind = 0; kind < kEffectKindCount; ++kind) {
     effect_.addItem(EffectName(static_cast<EffectKind>(kind)));
   }
   layout_.addRow(tr("Name"), &name_);
-  layout_.addRow(tr("From frame"), &start_);
-  layout_.addRow(tr("For frames"), &length_);
+  AddPair(&layout_, tr("Frames"), &timing_row_, &start_, &length_);
   layout_.addRow(QString(), &flip_);
+  AddTitle(&layout_, &text_title_, tr("Text"));
   layout_.addRow(tr("Words"), &words_);
-  layout_.addRow(tr("Size"), &size_);
-  layout_.addRow(QString(), &bold_);
-  layout_.addRow(tr("Fill"), &fill_);
-  layout_.addRow(tr("Outline"), &outline_);
-  layout_.addRow(tr("Outline width"), &outline_width_);
-  layout_.addRow(tr("Effect"), &effect_);
-  layout_.addRow(tr("Colour"), &effect_colour_);
-  layout_.addRow(tr("Strength at playhead"), &strength_);
-  assert(layout_.rowCount() == 13);
+  AddPair(&layout_, tr("Size"), &size_row_, &size_, &bold_);
+  AddPair(&layout_, tr("Colours"), &colour_row_, &fill_, &outline_);
+  layout_.addRow(tr("Outline"), &outline_width_);
+  AddTitle(&layout_, &effect_title_, tr("Effect"));
+  AddPair(&layout_, tr("Kind"), &effect_row_, &effect_, &effect_colour_);
+  layout_.addRow(tr("Strength"), &strength_);
+  fill_.setToolTip(tr("Fill colour"));
+  outline_.setToolTip(tr("Outline colour"));
+  strength_.setToolTip(tr("Keyed at the playhead."));
+  assert(layout_.rowCount() == 11);
 }
 
 void LayerBox::Wire() {
   assert(managers_.IsComplete());
-  assert(layout_.rowCount() == 13);
+  assert(layout_.rowCount() == 11);
   connect(&name_, &QLineEdit::editingFinished, this, &LayerBox::CommitName);
   for (QSpinBox* box : {&start_, &length_}) {
     MakeLive(box, &live_, tr("Change layer timing"), this,
@@ -114,19 +117,14 @@ void LayerBox::ShowRows(bool is_doll, bool is_text, bool is_effect) {
   assert(!(is_doll && is_text));
   assert(!(is_text && is_effect));
   layout_.setRowVisible(&flip_, is_doll);
-  for (QWidget* row : {static_cast<QWidget*>(&words_),
-                       static_cast<QWidget*>(&size_),
-                       static_cast<QWidget*>(&bold_),
-                       static_cast<QWidget*>(&fill_),
-                       static_cast<QWidget*>(&outline_),
-                       static_cast<QWidget*>(&outline_width_)}) {
-    layout_.setRowVisible(row, is_text);
-  }
-  for (QWidget* row : {static_cast<QWidget*>(&effect_),
-                       static_cast<QWidget*>(&effect_colour_),
-                       static_cast<QWidget*>(&strength_)}) {
-    layout_.setRowVisible(row, is_effect);
-  }
+  layout_.setRowVisible(&text_title_, is_text);
+  layout_.setRowVisible(&words_, is_text);
+  layout_.setRowVisible(&size_row_, is_text);
+  layout_.setRowVisible(&colour_row_, is_text);
+  layout_.setRowVisible(&outline_width_, is_text);
+  layout_.setRowVisible(&effect_title_, is_effect);
+  layout_.setRowVisible(&effect_row_, is_effect);
+  layout_.setRowVisible(&strength_, is_effect);
 }
 
 }  // namespace snapper

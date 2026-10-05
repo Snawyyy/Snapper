@@ -47,21 +47,28 @@ PoseBox::PoseBox(const Managers& managers)
     : QGroupBox(tr("Pose at playhead")), managers_(managers),
       layout_(this), live_(managers.history) {
   assert(managers_.IsComplete());
-  const std::array<const char*, kCount> labels = {
-      "Turn", "Move x", "Move y", "Scale x", "Scale y", "Lean", "Opacity"};
-  SetUpNumber(&fields_[kTurn], -3600, 3600, 1, tr(" deg"));
-  SetUpNumber(&fields_[kX], -100000, 100000, 1, tr(" px"));
-  SetUpNumber(&fields_[kY], -100000, 100000, 1, tr(" px"));
-  SetUpNumber(&fields_[kScaleX], -50, 50, 3, QString());
-  SetUpNumber(&fields_[kScaleY], -50, 50, 3, QString());
-  SetUpNumber(&fields_[kSkew], -88, 88, 1, tr(" deg"));
-  SetUpNumber(&fields_[kOpacity], 0, 1, 2, QString());
-  fields_[kOpacity].setSingleStep(0.05);
+  SetUpNumber(&fields_[kX], Number::kPixels, tr("x "));
+  SetUpNumber(&fields_[kY], Number::kPixels, tr("y "));
+  SetUpNumber(&fields_[kScaleX], Number::kScale, tr("x "));
+  SetUpNumber(&fields_[kScaleY], Number::kScale, tr("y "));
+  SetUpNumber(&fields_[kTurn], Number::kDegrees);
+  SetUpNumber(&fields_[kSkew], Number::kLean);
+  SetUpNumber(&fields_[kOpacity], Number::kFraction);
+  // Named so tests and screen readers find a field by what it is.
+  const std::array<const char*, kCount> names = {
+      "turn", "x", "y", "scale_x", "scale_y", "lean", "opacity"};
   for (int i = 0; i < kCount; ++i) {
-    layout_.addRow(tr(labels[static_cast<size_t>(i)]),
-                   &fields_[static_cast<size_t>(i)]);
-    MakeLive(&fields_[static_cast<size_t>(i)], &live_, tr("Pose"), this,
-             [this] { Commit(); });
+    fields_[static_cast<size_t>(i)].setObjectName(
+        QLatin1String(names[static_cast<size_t>(i)]));
+  }
+  AddPair(&layout_, tr("Move"), &move_row_, &fields_[kX], &fields_[kY]);
+  AddPair(&layout_, tr("Scale"), &scale_row_, &fields_[kScaleX],
+          &fields_[kScaleY]);
+  layout_.addRow(tr("Turn"), &fields_[kTurn]);
+  layout_.addRow(tr("Lean"), &fields_[kSkew]);
+  layout_.addRow(tr("Opacity"), &fields_[kOpacity]);
+  for (QDoubleSpinBox& field : fields_) {
+    MakeLive(&field, &live_, tr("Pose"), this, [this] { Commit(); });
   }
   layout_.addRow(tr("Drawing"), &drawing_);
   connect(&drawing_, &QComboBox::activated, this, &PoseBox::SwapDrawing);
@@ -139,19 +146,23 @@ CameraBox::CameraBox(const Managers& managers)
     : QGroupBox(tr("Camera at playhead")), managers_(managers),
       layout_(this), live_(managers.history) {
   assert(managers_.IsComplete());
-  const std::array<const char*, kCount> labels = {"Look x", "Look y", "Zoom",
-                                                  "Turn", "Shake"};
-  SetUpNumber(&fields_[kX], -100000, 100000, 1, tr(" px"));
-  SetUpNumber(&fields_[kY], -100000, 100000, 1, tr(" px"));
-  SetUpNumber(&fields_[kZoom], 0.01, 50, 3, QString());
-  fields_[kZoom].setSingleStep(0.05);
-  SetUpNumber(&fields_[kTurn], -3600, 3600, 1, tr(" deg"));
-  SetUpNumber(&fields_[kShake], 0, 1000, 1, tr(" px"));
+  SetUpNumber(&fields_[kX], Number::kPixels, tr("x "));
+  SetUpNumber(&fields_[kY], Number::kPixels, tr("y "));
+  SetUpNumber(&fields_[kZoom], Number::kZoom);
+  SetUpNumber(&fields_[kTurn], Number::kDegrees);
+  SetUpNumber(&fields_[kShake], Number::kSize);
+  const std::array<const char*, kCount> names = {"x", "y", "zoom", "turn",
+                                                 "shake"};
   for (int i = 0; i < kCount; ++i) {
-    layout_.addRow(tr(labels[static_cast<size_t>(i)]),
-                   &fields_[static_cast<size_t>(i)]);
-    MakeLive(&fields_[static_cast<size_t>(i)], &live_, tr("Move camera"),
-             this, [this] { Commit(); });
+    fields_[static_cast<size_t>(i)].setObjectName(
+        QLatin1String(names[static_cast<size_t>(i)]));
+  }
+  AddPair(&layout_, tr("Look at"), &look_row_, &fields_[kX], &fields_[kY]);
+  layout_.addRow(tr("Zoom"), &fields_[kZoom]);
+  layout_.addRow(tr("Turn"), &fields_[kTurn]);
+  layout_.addRow(tr("Shake"), &fields_[kShake]);
+  for (QDoubleSpinBox& field : fields_) {
+    MakeLive(&field, &live_, tr("Move camera"), this, [this] { Commit(); });
   }
   Follow(managers_, this);
   Refresh();

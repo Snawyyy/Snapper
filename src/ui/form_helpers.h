@@ -3,6 +3,9 @@
 
 #include <QColor>
 #include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QPushButton>
 #include <QString>
 #include <QWidget>
@@ -11,9 +14,28 @@ namespace snapper {
 
 // Small shared pieces for the inspector's forms.
 
-// A number field: range, decimals and unit.
-void SetUpNumber(QDoubleSpinBox* box, double low, double high, int decimals,
-                 const QString& suffix);
+// The kinds of number the panels show. Each has one range, step and
+// unit, so the same kind feels the same everywhere.
+enum class Number {
+  kPixels,    // Positions: any size, step 1 px.
+  kSize,      // Sizes and widths: 0 up, step 1 px.
+  kDegrees,   // Turns: step 1 degree.
+  kLean,      // Skew: -85 to 85 degrees.
+  kScale,     // Scale: 0 to 10, step 0.05.
+  kFraction,  // Opacity, strength: 0 to 1, step 0.05.
+  kZoom,      // Camera zoom: 0.05 to 10, step 0.05.
+};
+
+// Sets box up as kind; prefix labels one half of a pair ("x ", "y ").
+void SetUpNumber(QDoubleSpinBox* box, Number kind,
+                 const QString& prefix = QString());
+
+// A form title above a group of rows, such as "Move" or "Warp".
+void AddTitle(QFormLayout* form, QLabel* title, const QString& text);
+
+// Two fields side by side on one form row, such as x and y.
+void AddPair(QFormLayout* form, const QString& label, QHBoxLayout* row,
+             QWidget* first, QWidget* second);
 
 // Sets a field without it reporting a change back.
 void ShowNumber(QDoubleSpinBox* box, double value);

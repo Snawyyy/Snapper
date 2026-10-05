@@ -106,8 +106,7 @@ void RigPanel::RefreshPiece() {
                          static_cast<QWidget*>(&order_),
                          static_cast<QWidget*>(&rest_),
                          static_cast<QWidget*>(&drawing_),
-                         static_cast<QWidget*>(&warp_columns_),
-                         static_cast<QWidget*>(&warp_rows_),
+                         static_cast<QWidget*>(&warp_on_),
                          static_cast<QWidget*>(&add_chain_)}) {
     Explain(field, why_not);
   }
@@ -136,8 +135,13 @@ void RigPanel::RefreshPiece() {
     const QSignalBlocker quiet_columns(warp_columns_);
     const QSignalBlocker quiet_rows(warp_rows_);
     order_.setValue(rig->order);
-    warp_columns_.setValue(rig->warp.columns);
-    warp_rows_.setValue(rig->warp.rows);
+    const bool has_grid = rig->warp.IsOn();
+    warp_on_.setChecked(has_grid);
+    // Off keeps the last sizes ready for switching back on.
+    if (has_grid) {
+      warp_columns_.setValue(rig->warp.columns);
+      warp_rows_.setValue(rig->warp.rows);
+    }
   }
   ShowNumber(&rest_, rig->rest_rotation);
   drawing_.clear();
@@ -146,6 +150,10 @@ void RigPanel::RefreshPiece() {
     drawing_.addItem(file);
   }
   drawing_.setCurrentIndex(rig->default_drawing + 1);
+  const QString no_grid =
+      rig->warp.IsOn() ? QString() : tr("Tick \"Bend with a grid\" first.");
+  Explain(&warp_columns_, no_grid);
+  Explain(&warp_rows_, no_grid);
   Explain(&add_chain_, rig->parent.isEmpty()
                            ? tr("A chain needs the piece to hang from one.")
                            : QString());

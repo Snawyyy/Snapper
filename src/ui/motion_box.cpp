@@ -24,7 +24,7 @@ MotionBox::MotionBox(const Managers& managers)
   for (int kind = 0; kind < kMotionPresetCount; ++kind) {
     preset_.addItem(PresetName(static_cast<MotionPreset>(kind)));
   }
-  SetUpNumber(&amount_, 0, 1000, 1, QString());
+  SetUpNumber(&amount_, Number::kSize);
   amount_.setValue(10.0);
   amount_.setToolTip(tr("Pixels for moves, degrees for turns."));
   hold_.addItem(tr("On 1s"), 1);

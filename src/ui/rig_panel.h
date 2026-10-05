@@ -1,6 +1,7 @@
 #ifndef SNAPPER_UI_RIG_PANEL_H_
 #define SNAPPER_UI_RIG_PANEL_H_
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
@@ -16,6 +17,9 @@
 #include "ui/managers.h"
 
 namespace snapper {
+
+// A new warp grid starts 3 by 3: enough to crease, few points to push.
+constexpr int kDefaultWarpCells = 3;
 
 // The rig's settings beside the rig canvas: which doll, its pieces as a
 // tree, the picked piece's parent, draw order, default drawing and warp
@@ -57,6 +61,10 @@ class RigPanel final : public QWidget {
   QSpinBox order_;
   QDoubleSpinBox rest_;
   QComboBox drawing_;
+  QLabel joint_title_;
+  QLabel warp_title_;
+  QCheckBox warp_on_;
+  QHBoxLayout warp_row_;
   QSpinBox warp_columns_;
   QSpinBox warp_rows_;
   QLabel chains_title_;

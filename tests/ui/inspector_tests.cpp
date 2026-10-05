@@ -68,7 +68,7 @@ void InspectorTests::TypedPoseNumbersKeyAtThePlayhead() {
   bench.playback.Seek(Frame(5));
   PoseBox box(bench.All());
   QVERIFY(box.isEnabled());
-  Type(box.findChildren<QDoubleSpinBox*>()[0], 45.0);
+  Type(box.findChild<QDoubleSpinBox*>("turn"), 45.0);
   QCOMPARE(Head(bench, 5).rotation, 45.0);
   QCOMPARE(Head(bench, 4).rotation, 45.0);
   bench.selection.Clear();
@@ -79,7 +79,7 @@ void InspectorTests::CameraNumbersKeyTheCamera() {
   Bench bench;
   Stage(&bench);
   CameraBox box(bench.All());
-  Type(box.findChildren<QDoubleSpinBox*>()[2], 2.5);
+  Type(box.findChild<QDoubleSpinBox*>("zoom"), 2.5);
   QCOMPARE(bench.history.current().shots[0]->camera.keys[0].value.zoom, 2.5);
 }
 
@@ -116,7 +116,7 @@ void InspectorTests::FieldsApplyAsYouTypeAsOneStep() {
   Bench bench;
   Stage(&bench);
   PoseBox box(bench.All());
-  QDoubleSpinBox* turn = box.findChildren<QDoubleSpinBox*>()[0];
+  QDoubleSpinBox* turn = box.findChild<QDoubleSpinBox*>("turn");
   turn->setValue(10.0);
   QCOMPARE(Head(bench, 0).rotation, 10.0);
   turn->setValue(20.0);

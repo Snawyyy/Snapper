@@ -1,3 +1,4 @@
+#include <QCheckBox>
 #include <QComboBox>
 #include <QListWidget>
 #include <QPushButton>
@@ -53,6 +54,7 @@ class RigUiTests final : public QObject {
   void ChainsComeFromThePickedPiece();
   void DraggingAJointMovesThePivot();
   void DoubleClickAJointThenClickItsParent();
+  void WarpSwitchesOnAtThreeByThree();
 };
 
 void RigUiTests::PanelPicksTheDollAndEditsAPiece() {
@@ -130,6 +132,19 @@ void RigUiTests::DoubleClickAJointThenClickItsParent() {
   QTest::mouseDClick(&canvas, Qt::LeftButton, {}, arm_joint);
   QTest::mouseClick(&canvas, Qt::LeftButton, {}, QPoint(2, 2));
   QVERIFY(FindRig(BobRig(bench), "arm")->parent.isEmpty());
+}
+
+void RigUiTests::WarpSwitchesOnAtThreeByThree() {
+  Bench bench;
+  Stage(&bench);
+  RigPanel panel(bench.All());
+  panel.PickPiece("arm");
+  auto* on = panel.findChild<QCheckBox*>();
+  QVERIFY(on->isEnabled());
+  on->click();
+  QCOMPARE(FindRig(BobRig(bench), "arm")->warp, (WarpGrid{3, 3}));
+  on->click();
+  QVERIFY(!FindRig(BobRig(bench), "arm")->warp.IsOn());
 }
 
 }  // namespace snapper

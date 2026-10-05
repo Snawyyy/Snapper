@@ -6,6 +6,8 @@
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -48,6 +50,12 @@ class LayerBox final : public QGroupBox {
   QFormLayout layout_;
   LiveEdit live_;
   QLineEdit name_;
+  QHBoxLayout timing_row_;
+  QHBoxLayout size_row_;
+  QHBoxLayout colour_row_;
+  QHBoxLayout effect_row_;
+  QLabel text_title_;
+  QLabel effect_title_;
   QSpinBox start_;
   QSpinBox length_;
   QCheckBox flip_;

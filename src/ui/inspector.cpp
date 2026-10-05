@@ -1,5 +1,7 @@
 #include "ui/inspector.h"
 
+#include <QScrollBar>
+
 #include <cassert>
 
 namespace snapper {
@@ -30,6 +32,9 @@ Inspector::Inspector(const Managers& managers)
   // The scroll area must not delete body_, a member; it is taken back in
   // the destructor below.
   setWidget(&body_);
+  // Wide enough that paired fields (x and y) never get cut off.
+  setMinimumWidth(body_.minimumSizeHint().width() +
+                  verticalScrollBar()->sizeHint().width() + 4);
   assert(widget() == &body_);
 }
 
