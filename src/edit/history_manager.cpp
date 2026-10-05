@@ -57,14 +57,15 @@ void HistoryManager::Redo() {
   }
 }
 
-void HistoryManager::Reset(Project start) {
+void HistoryManager::Reset(Project start, bool is_saved) {
   assert(!is_scope_open_);
   current_ = std::move(start);
   undo_.clear();
   redo_.clear();
   revision_ = next_revision_++;
-  saved_revision_ = revision_;
-  assert(!IsDirty());
+  // Revisions start at 0, so -1 matches no state: dirty until saved.
+  saved_revision_ = is_saved ? revision_ : -1;
+  assert(IsDirty() != is_saved);
   emit Changed();
 }
 

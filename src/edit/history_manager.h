@@ -35,7 +35,8 @@ class HistoryManager final : public QObject {
   void Undo();
   void Redo();
   // Starts over with start, as opening a file does: no undo across it.
-  void Reset(Project start);
+  // A start that was never saved (recovered work) begins dirty.
+  void Reset(Project start, bool is_saved = true);
 
   // False while a drag is open, so undo never cuts into one.
   bool CanUndo() const;
