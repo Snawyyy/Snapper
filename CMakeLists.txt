@@ -44,7 +44,8 @@ snapper_module(render
 snapper_module(edit
   SOURCES doll_library_manager.cpp document_manager.cpp edit_scope.cpp
           history_manager.cpp project_edits.cpp rig_manager.cpp
-          shot_manager.cpp stage_manager.cpp stage_settings.cpp
+          selection_manager.cpp shot_manager.cpp stage_manager.cpp
+          stage_settings.cpp
   MODULES io media render)
 snapper_module(ui
   SOURCES main_window.cpp
@@ -66,6 +67,7 @@ if(BUILD_TESTING)
   snapper_test(render SOURCES render_tests.cpp)
   snapper_test(edit SOURCES document_tests.cpp history_tests.cpp
                             library_tests.cpp rig_tests.cpp shot_tests.cpp
-                            stage_tests.cpp track_tests.cpp)
+                            selection_tests.cpp stage_tests.cpp
+                            track_tests.cpp)
   snapper_checks()
 endif()
