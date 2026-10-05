@@ -66,6 +66,6 @@ if(BUILD_TESTING)
   snapper_test(render SOURCES render_tests.cpp)
   snapper_test(edit SOURCES document_tests.cpp history_tests.cpp
                             library_tests.cpp rig_tests.cpp shot_tests.cpp
-                            stage_tests.cpp)
+                            stage_tests.cpp track_tests.cpp)
   snapper_checks()
 endif()

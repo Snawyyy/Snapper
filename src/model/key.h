@@ -30,6 +30,8 @@ struct Key final {
 // at most one per frame. Arms, camera and glitch amount all use this.
 template <typename T>
 struct Channel final {
+  using value_type = T;
+
   std::vector<Key<T>> keys;
 
   bool operator==(const Channel&) const = default;

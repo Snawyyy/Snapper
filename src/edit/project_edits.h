@@ -7,6 +7,7 @@
 
 #include "base/error.h"
 #include "base/text.h"
+#include "edit/track_ref.h"
 #include "model/project.h"
 
 namespace snapper {
@@ -51,6 +52,17 @@ Result<Project> WithLayer(Project project, ShotId shot, LayerId id,
                     }
                     return change(layer);
                   });
+}
+
+// The project with the channel track names changed by
+// change(Channel<T>*), for any T.
+template <typename Change>
+Result<Project> WithTrack(Project project, const TrackRef& track,
+                          Change change) {
+  assert(track.shot.value() >= 0);
+  assert(track.kind != TrackKind::kPiece || !track.piece.isEmpty());
+  return WithShot(std::move(project), track.shot,
+                  [&](Shot* shot) { return VisitTrack(shot, track, change); });
 }
 
 // Hands out the next layer id; ids are never reused.
