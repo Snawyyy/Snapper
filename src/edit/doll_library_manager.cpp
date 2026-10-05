@@ -41,22 +41,34 @@ QStringList DollLibraryManager::Available() const {
   return names;
 }
 
+QString DollLibraryManager::WhyNoImport(const QString& name) const {
+  assert(history_ != nullptr);
+  assert(name.size() < 100000);
+  const Project& project = history_->current();
+  const bool is_unpicked = name.isEmpty();
+  const bool is_present = !is_unpicked && FindDoll(project, name) != nullptr;
+  const bool is_full =
+      project.dolls.size() >= static_cast<size_t>(kMaxProjectDolls);
+  if (is_unpicked) {
+    return Tr("Pick a doll in the library first.");
+  }
+  if (is_present) {
+    return Tr("%1 is already in the project; reload it for the latest art.")
+        .arg(name);
+  }
+  return is_full ? Tr("A project holds at most %1 dolls.")
+                       .arg(kMaxProjectDolls)
+                 : QString();
+}
+
 Result<ReconcileReport> DollLibraryManager::Import(const QString& name) {
   assert(history_ != nullptr);
-  assert(!name.isEmpty());
+  const QString why_not = WhyNoImport(name);
+  const bool can_import = why_not.isEmpty();
+  if (!can_import) {
+    return std::unexpected(Error{why_not});
+  }
   const Project& project = history_->current();
-  const bool is_present = FindDoll(project, name) != nullptr;
-  if (is_present) {
-    return std::unexpected(Error{
-        Tr("%1 is already in the project; reload it for the latest art.")
-            .arg(name)});
-  }
-  const bool is_full = project.dolls.size() >=
-                       static_cast<size_t>(kMaxProjectDolls);
-  if (is_full) {
-    return std::unexpected(Error{Tr("A project holds at most %1 dolls.")
-                                     .arg(kMaxProjectDolls)});
-  }
   auto loaded = LoadDoll(FolderOf(name));
   if (!loaded) {
     return std::unexpected(loaded.error());

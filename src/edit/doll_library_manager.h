@@ -28,6 +28,9 @@ class DollLibraryManager final : public QObject {
   // Names of the dolls in the library, sorted.
   QStringList Available() const;
 
+  // Why Import can't act on name, for the greyed-out button; empty when
+  // it can.
+  QString WhyNoImport(const QString& name) const;
   // Copies a library doll into the project. The report says what the
   // rig had to change to fit the art.
   Result<ReconcileReport> Import(const QString& name);

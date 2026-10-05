@@ -43,6 +43,8 @@ MainWindow::MainWindow(const Managers& managers)
       pose_split_(Qt::Vertical),
       stage_(managers),
       timeline_(managers),
+      cast_dock_(tr("Cast")),
+      cast_(managers),
       play_menu_(tr("&Play")),
       play_action_(tr("&Play / pause")),
       next_action_(tr("&Next frame")),
@@ -71,6 +73,10 @@ MainWindow::MainWindow(const Managers& managers)
   connect(&stage_, &StageView::Problem, this, show_problem);
   connect(&timeline_, &TimelineView::Problem, this, show_problem);
   connect(&strip_, &ShotStrip::Problem, this, show_problem);
+  connect(&cast_, &CastPanel::Problem, this, show_problem);
+  cast_dock_.setObjectName(QStringLiteral("cast"));
+  cast_dock_.setWidget(&cast_);
+  addDockWidget(Qt::LeftDockWidgetArea, &cast_dock_);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
           &MainWindow::FollowPlayhead);
   center_layout_.setContentsMargins(0, 0, 0, 0);

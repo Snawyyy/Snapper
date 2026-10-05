@@ -2,6 +2,7 @@
 #define SNAPPER_UI_MAIN_WINDOW_H_
 
 #include <QAction>
+#include <QDockWidget>
 #include <QLabel>
 #include <QMainWindow>
 #include <QMenu>
@@ -11,6 +12,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "ui/cast_panel.h"
 #include "ui/file_menu.h"
 #include "ui/managers.h"
 #include "ui/shot_strip.h"
@@ -63,6 +65,8 @@ class MainWindow final : public QMainWindow {
   TimelineView timeline_;
   // Shown on the Rig tab until the rig editor arrives.
   QLabel rig_empty_;
+  QDockWidget cast_dock_;
+  CastPanel cast_;
   QMenu play_menu_;
   QAction play_action_;
   QAction next_action_;
