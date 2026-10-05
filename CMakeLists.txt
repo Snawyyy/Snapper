@@ -15,7 +15,7 @@ include(CTest)
 
 # Modules, lowest first. See ARCHITECTURE.md for what each one owns.
 snapper_module(base
-  SOURCES frame.cpp
+  SOURCES frame.cpp text.cpp
   LIBS Qt6::Core)
 snapper_module(model
   SOURCES doll.cpp layer.cpp project.cpp shot.cpp
@@ -24,6 +24,10 @@ snapper_module(model
 snapper_module(anim
   SOURCES doll_pose.cpp ik.cpp master_timeline.cpp mirror.cpp presets.cpp
           sampler.cpp warp.cpp
+  MODULES model)
+snapper_module(io
+  SOURCES doll_file.cpp doll_json.cpp json_file.cpp json_values.cpp
+          layer_json.cpp pose_file.cpp project_file.cpp reconcile.cpp
   MODULES model)
 snapper_module(edit
   SOURCES history_manager.cpp edit_scope.cpp
@@ -43,6 +47,7 @@ if(BUILD_TESTING)
   snapper_test(base SOURCES base_tests.cpp)
   snapper_test(model SOURCES model_tests.cpp)
   snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp)
+  snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
   snapper_test(edit SOURCES history_tests.cpp)
   snapper_checks()
 endif()

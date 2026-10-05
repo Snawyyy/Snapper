@@ -1,10 +1,10 @@
 #include "anim/presets.h"
 
-#include <QCoreApplication>
-
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+
+#include "base/text.h"
 
 namespace snapper {
 namespace {
@@ -60,15 +60,15 @@ QString PresetName(MotionPreset preset) {
   assert(static_cast<int>(preset) < kMotionPresetCount);
   switch (preset) {
     case MotionPreset::kBob:
-      return QCoreApplication::translate("Presets", "Bob");
+      return Tr("Bob");
     case MotionPreset::kBounce:
-      return QCoreApplication::translate("Presets", "Bounce");
+      return Tr("Bounce");
     case MotionPreset::kShake:
-      return QCoreApplication::translate("Presets", "Shake");
+      return Tr("Shake");
     case MotionPreset::kNod:
-      return QCoreApplication::translate("Presets", "Nod");
+      return Tr("Nod");
     case MotionPreset::kSway:
-      return QCoreApplication::translate("Presets", "Sway");
+      return Tr("Sway");
   }
   return QString();
 }
