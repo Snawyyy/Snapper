@@ -68,6 +68,7 @@ class PosingTests final : public QObject {
   void CameraAndEffectsKeyToo();
   void IkBendsBothBones();
   void PasteMirroredSwapsSides();
+  void PosingOnePieceKeysTheWholeDoll();
 };
 
 void PosingTests::PosingKeysTheFrameAndHolds() {
@@ -174,6 +175,30 @@ void PosingTests::PasteMirroredSwapsSides() {
   QVERIFY(pose.PastePose(kShot, kDoll, Frame(12), false).has_value());
   QCOMPARE(Keys(history, "arm_l").keys.back().frame, Frame(12));
   QVERIFY(!pose.CopyPose(kShot, kEffect, Frame(0), {}).has_value());
+}
+
+void PosingTests::PosingOnePieceKeysTheWholeDoll() {
+  HistoryManager history(Stage());
+  PoseManager pose(&history);
+  QVERIFY(pose.Rotate(Piece("arm_r"), Frame(0), 10.0).has_value());
+  QVERIFY(pose.Rotate(Piece("arm_r"), Frame(8), 50.0).has_value());
+  Project eased = history.current();
+  Shot shot = *eased.shots[0];
+  auto& arm = std::get<DollLayer>(shot.layers[0].content).pieces["arm_r"];
+  arm.keys[0].ease = Ease::kLinear;
+  eased.shots[0] = std::make_shared<const Shot>(shot);
+  history.Commit("Ease", eased);
+  QVERIFY(pose.Rotate(Piece("arm_l"), Frame(4), 20.0).has_value());
+  for (const QString piece : {"arm_l", "hand_l", "arm_r"}) {
+    QVERIFY(KeyIndexAt(Keys(history, piece), Frame(4)) >= 0);
+  }
+  const Layer& layer = history.current().shots[0]->layers[0];
+  QVERIFY(KeyIndexAt(layer.transform, Frame(4)) >= 0);
+  // The in-between arm_r key holds the eased value and keeps easing.
+  const Channel<PiecePose> right = Keys(history, "arm_r");
+  QCOMPARE(right.keys[1].value.rotation, 30.0);
+  QCOMPARE(right.keys[1].ease, Ease::kLinear);
+  QCOMPARE(PosesAt(history, Frame(6)).at("arm_r").rotation, 40.0);
 }
 
 }  // namespace snapper

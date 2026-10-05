@@ -125,6 +125,10 @@ In Krita, a group is a piece and each child layer is one of its
 drawings (head: happy, angry...). The visible child is the default. A
 plain layer is a piece with one drawing.
 
+A doll is keyed as a whole, as a drawing is in traditional animation:
+posing any piece keys every piece and the layer's own move at that
+frame, so one key on the doll's timeline row is its full pose.
+
 A piece can:
 
 - rotate, move, scale (separately in x and y) and skew,
