@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=Krita/PythonPlugin
+X-KDE-Library=snapper_doll_export
+X-Python-2-Compatible=false
+X-Krita-Manual=
+Name=Snapper Doll Export
+Comment=Saves the visible layers as a Snapper doll: a group is one piece and its layers are the drawings it can swap between.
