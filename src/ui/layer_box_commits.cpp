@@ -44,8 +44,11 @@ void LayerBox::Refresh() {
   const QSignalBlocker quiet_start(start_);
   const QSignalBlocker quiet_length(length_);
   name_.setText(layer->name);
-  start_.setValue(layer->start.index());
-  length_.setValue(layer->length.index());
+  const bool is_timing_typed = start_.hasFocus() || length_.hasFocus();
+  if (!is_timing_typed) {
+    start_.setValue(layer->start.index());
+    length_.setValue(layer->length.index());
+  }
   flip_.setChecked(doll != nullptr && doll->is_flipped);
   const bool is_text = text != nullptr;
   // Never overwrite words while they are being typed.

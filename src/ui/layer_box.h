@@ -12,6 +12,7 @@
 #include <QSpinBox>
 
 #include "model/layer.h"
+#include "ui/live_edit.h"
 #include "ui/managers.h"
 
 namespace snapper {
@@ -45,6 +46,7 @@ class LayerBox final : public QGroupBox {
 
   Managers managers_;
   QFormLayout layout_;
+  LiveEdit live_;
   QLineEdit name_;
   QSpinBox start_;
   QSpinBox length_;

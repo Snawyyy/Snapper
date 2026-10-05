@@ -8,6 +8,7 @@
 
 #include <array>
 
+#include "ui/live_edit.h"
 #include "ui/managers.h"
 
 namespace snapper {
@@ -33,6 +34,7 @@ class PoseBox final : public QGroupBox {
 
   Managers managers_;
   QFormLayout layout_;
+  LiveEdit live_;
   std::array<QDoubleSpinBox, kCount> fields_;
   QComboBox drawing_;
 };
@@ -56,6 +58,7 @@ class CameraBox final : public QGroupBox {
 
   Managers managers_;
   QFormLayout layout_;
+  LiveEdit live_;
   std::array<QDoubleSpinBox, kCount> fields_;
 };
 

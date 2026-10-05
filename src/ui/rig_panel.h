@@ -12,6 +12,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "ui/live_edit.h"
 #include "ui/managers.h"
 
 namespace snapper {
@@ -48,6 +49,7 @@ class RigPanel final : public QWidget {
   QString doll_;
   QString piece_;
   QVBoxLayout layout_;
+  LiveEdit live_;
   QComboBox dolls_;
   QListWidget pieces_;
   QFormLayout form_;

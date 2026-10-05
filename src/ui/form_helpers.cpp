@@ -15,13 +15,17 @@ void SetUpNumber(QDoubleSpinBox* box, double low, double high, int decimals,
   box->setRange(low, high);
   box->setDecimals(decimals);
   box->setSuffix(suffix);
-  box->setKeyboardTracking(false);
   box->setAccelerated(true);
 }
 
 void ShowNumber(QDoubleSpinBox* box, double value) {
   assert(box != nullptr);
   assert(std::isfinite(value));
+  // Never rewrite a field while it is being typed in.
+  const bool is_typing = box->hasFocus();
+  if (is_typing) {
+    return;
+  }
   const QSignalBlocker quiet(box);
   box->setValue(value);
 }

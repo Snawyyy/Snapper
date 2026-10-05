@@ -13,6 +13,7 @@
 #include "edit/stage_manager.h"
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
+#include "ui/live_edit.h"
 #include "ui/playhead.h"
 #include "ui/problem.h"
 
@@ -20,6 +21,7 @@ namespace snapper {
 
 LayerBox::LayerBox(const Managers& managers)
     : QGroupBox(tr("Layer")), managers_(managers), layout_(this),
+      live_(managers.history),
       flip_(tr("Mirrored")), bold_(tr("Bold")) {
   assert(managers_.IsComplete());
   BuildRows();
@@ -61,17 +63,16 @@ void LayerBox::Wire() {
   assert(managers_.IsComplete());
   assert(layout_.rowCount() == 13);
   connect(&name_, &QLineEdit::editingFinished, this, &LayerBox::CommitName);
-  connect(&start_, &QSpinBox::editingFinished, this,
-          &LayerBox::CommitTiming);
-  connect(&length_, &QSpinBox::editingFinished, this,
-          &LayerBox::CommitTiming);
+  for (QSpinBox* box : {&start_, &length_}) {
+    MakeLive(box, &live_, tr("Change layer timing"), this,
+             [this] { CommitTiming(); });
+  }
   connect(&flip_, &QCheckBox::clicked, this, [this](bool is_on) {
     emit Problem(ProblemOf(managers_.stage->SetFlipped(
         managers_.selection->shot(), managers_.selection->layer(), is_on)));
   });
   for (QDoubleSpinBox* box : {&size_, &outline_width_}) {
-    connect(box, &QDoubleSpinBox::editingFinished, this,
-            &LayerBox::CommitText);
+    MakeLive(box, &live_, tr("Edit text"), this, [this] { CommitText(); });
   }
   connect(&bold_, &QCheckBox::clicked, this, &LayerBox::CommitText);
   // Words land when the field is left, not on every key.
@@ -93,8 +94,8 @@ void LayerBox::Wire() {
     });
   }
   connect(&effect_, &QComboBox::activated, this, &LayerBox::CommitEffect);
-  connect(&strength_, &QDoubleSpinBox::editingFinished, this,
-          &LayerBox::CommitStrength);
+  MakeLive(&strength_, &live_, tr("Effect strength"), this,
+           [this] { CommitStrength(); });
   Follow(managers_, this);
 }
 

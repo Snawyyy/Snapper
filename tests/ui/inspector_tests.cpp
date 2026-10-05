@@ -59,6 +59,7 @@ class InspectorTests final : public QObject {
   void CameraNumbersKeyTheCamera();
   void MotionLoopsGoOnThePick();
   void LayerBoxFollowsTheKind();
+  void FieldsApplyAsYouTypeAsOneStep();
 };
 
 void InspectorTests::TypedPoseNumbersKeyAtThePlayhead() {
@@ -109,6 +110,21 @@ void InspectorTests::LayerBoxFollowsTheKind() {
   emit line->editingFinished();
   QCOMPARE(bench.history.current().shots[0]->layers[1].name,
            QString("Lyric"));
+}
+
+void InspectorTests::FieldsApplyAsYouTypeAsOneStep() {
+  Bench bench;
+  Stage(&bench);
+  PoseBox box(bench.All());
+  QDoubleSpinBox* turn = box.findChildren<QDoubleSpinBox*>()[0];
+  turn->setValue(10.0);
+  QCOMPARE(Head(bench, 0).rotation, 10.0);
+  turn->setValue(20.0);
+  QCOMPARE(Head(bench, 0).rotation, 20.0);
+  emit turn->editingFinished();
+  QCOMPARE(bench.history.UndoLabel(), QString("Pose"));
+  bench.history.Undo();
+  QCOMPARE(Head(bench, 0).rotation, 0.0);
 }
 
 }  // namespace snapper

@@ -13,6 +13,7 @@
 #include "edit/selection_manager.h"
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
+#include "ui/live_edit.h"
 #include "ui/playhead.h"
 #include "ui/problem.h"
 
@@ -44,7 +45,7 @@ PiecePose PoseAt(const Project& project, const TrackRef& track,
 
 PoseBox::PoseBox(const Managers& managers)
     : QGroupBox(tr("Pose at playhead")), managers_(managers),
-      layout_(this) {
+      layout_(this), live_(managers.history) {
   assert(managers_.IsComplete());
   const std::array<const char*, kCount> labels = {
       "Turn", "Move x", "Move y", "Scale x", "Scale y", "Lean", "Opacity"};
@@ -59,8 +60,8 @@ PoseBox::PoseBox(const Managers& managers)
   for (int i = 0; i < kCount; ++i) {
     layout_.addRow(tr(labels[static_cast<size_t>(i)]),
                    &fields_[static_cast<size_t>(i)]);
-    connect(&fields_[static_cast<size_t>(i)], &QDoubleSpinBox::editingFinished,
-            this, &PoseBox::Commit);
+    MakeLive(&fields_[static_cast<size_t>(i)], &live_, tr("Pose"), this,
+             [this] { Commit(); });
   }
   layout_.addRow(tr("Drawing"), &drawing_);
   connect(&drawing_, &QComboBox::activated, this, &PoseBox::SwapDrawing);
@@ -136,7 +137,7 @@ void PoseBox::SwapDrawing(int index) {
 
 CameraBox::CameraBox(const Managers& managers)
     : QGroupBox(tr("Camera at playhead")), managers_(managers),
-      layout_(this) {
+      layout_(this), live_(managers.history) {
   assert(managers_.IsComplete());
   const std::array<const char*, kCount> labels = {"Look x", "Look y", "Zoom",
                                                   "Turn", "Shake"};
@@ -149,8 +150,8 @@ CameraBox::CameraBox(const Managers& managers)
   for (int i = 0; i < kCount; ++i) {
     layout_.addRow(tr(labels[static_cast<size_t>(i)]),
                    &fields_[static_cast<size_t>(i)]);
-    connect(&fields_[static_cast<size_t>(i)], &QDoubleSpinBox::editingFinished,
-            this, &CameraBox::Commit);
+    MakeLive(&fields_[static_cast<size_t>(i)], &live_, tr("Move camera"),
+             this, [this] { Commit(); });
   }
   Follow(managers_, this);
   Refresh();

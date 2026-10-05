@@ -6,6 +6,7 @@
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
 #include "ui/form_helpers.h"
+#include "ui/live_edit.h"
 #include "ui/problem.h"
 
 namespace snapper {
@@ -13,6 +14,7 @@ namespace snapper {
 RigPanel::RigPanel(const Managers& managers)
     : managers_(managers),
       layout_(this),
+      live_(managers.history),
       chains_title_(tr("IK chains")),
       add_chain_(tr("Add for piece")),
       flip_chain_(tr("Flip bend")),
@@ -85,10 +87,10 @@ void RigPanel::Wire() {
     const QString parent = index == 0 ? QString() : parent_.itemText(index);
     emit Problem(ProblemOf(rig->SetParent(doll_, piece_, parent)));
   });
-  connect(&order_, &QSpinBox::editingFinished, this, [this, rig] {
+  MakeLive(&order_, &live_, tr("Restack"), this, [this, rig] {
     emit Problem(ProblemOf(rig->SetOrder(doll_, piece_, order_.value())));
   });
-  connect(&rest_, &QDoubleSpinBox::editingFinished, this, [this, rig] {
+  MakeLive(&rest_, &live_, tr("Rest turn"), this, [this, rig] {
     emit Problem(
         ProblemOf(rig->SetRestRotation(doll_, piece_, rest_.value())));
   });
@@ -96,7 +98,7 @@ void RigPanel::Wire() {
     emit Problem(ProblemOf(rig->SetDefaultDrawing(doll_, piece_, index - 1)));
   });
   for (QSpinBox* side : {&warp_columns_, &warp_rows_}) {
-    connect(side, &QSpinBox::editingFinished, this, [this, rig] {
+    MakeLive(side, &live_, tr("Warp grid"), this, [this, rig] {
       // A grid needs both sides; one at zero turns warping off.
       const bool is_off =
           warp_columns_.value() == 0 || warp_rows_.value() == 0;

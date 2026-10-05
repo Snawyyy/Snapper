@@ -131,7 +131,14 @@ void RigPanel::RefreshPiece() {
   parent_.setCurrentIndex(rig->parent.isEmpty()
                               ? 0
                               : std::max(0, parent_.findText(rig->parent)));
-  order_.setValue(rig->order);
+  {
+    const QSignalBlocker quiet_order(order_);
+    const QSignalBlocker quiet_columns(warp_columns_);
+    const QSignalBlocker quiet_rows(warp_rows_);
+    order_.setValue(rig->order);
+    warp_columns_.setValue(rig->warp.columns);
+    warp_rows_.setValue(rig->warp.rows);
+  }
   ShowNumber(&rest_, rig->rest_rotation);
   drawing_.clear();
   drawing_.addItem(tr("As in Krita"));
@@ -139,8 +146,6 @@ void RigPanel::RefreshPiece() {
     drawing_.addItem(file);
   }
   drawing_.setCurrentIndex(rig->default_drawing + 1);
-  warp_columns_.setValue(rig->warp.columns);
-  warp_rows_.setValue(rig->warp.rows);
   Explain(&add_chain_, rig->parent.isEmpty()
                            ? tr("A chain needs the piece to hang from one.")
                            : QString());
