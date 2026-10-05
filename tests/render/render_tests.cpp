@@ -4,6 +4,7 @@
 
 #include "render/effects.h"
 #include "render/frame_renderer.h"
+#include "render/stage_hit.h"
 #include "render/warp_raster.h"
 
 namespace snapper {
@@ -55,6 +56,7 @@ class RenderTests final : public QObject {
   void WarpStretchesTheDrawing();
   void TextDrawsCentred();
   void MissingImagesDrawNothing();
+  void ClicksPickWhatIsSeen();
 };
 
 void RenderTests::DollsDrawWhereKritaPutThem() {
@@ -196,6 +198,44 @@ void RenderTests::MissingImagesDrawNothing() {
   QVERIFY(cache.Get("/no/such/file.png").isNull());
   cache.Forget("/no/such/file.png");
   QCOMPARE(cache.bytes(), std::int64_t{0});
+}
+
+void RenderTests::ClicksPickWhatIsSeen() {
+  QTemporaryDir dir;
+  Project project = RedDollProject(dir);
+  // A see-through hole in the middle of the drawing.
+  QImage holed(20, 20, QImage::Format_ARGB32);
+  holed.fill(Qt::red);
+  for (int y = 8; y < 12; ++y) {
+    for (int x = 8; x < 12; ++x) {
+      holed.setPixelColor(x, y, Qt::transparent);
+    }
+  }
+  QVERIFY(holed.save(QDir(dir.path()).filePath("body.png")));
+  Layer words;
+  words.id = LayerId(2);
+  TextLayer text;
+  text.text = "HI";
+  text.size = 20.0;
+  words.content = text;
+  PiecePose low;
+  low.offset = QPointF(0, 35);
+  SetKey(&words.transform, {Frame(0), low, Ease::kStep});
+  FirstShot(&project).layers.push_back(words);
+  ImageCache cache;
+  const Shot& shot = *project.shots[0];
+  const auto body = HitTest(project, shot, Frame(0), {45, 45}, 1.0, &cache);
+  QVERIFY(body.has_value());
+  QCOMPARE(body->layer, LayerId(1));
+  QCOMPARE(body->piece, QString("body"));
+  QVERIFY(!HitTest(project, shot, Frame(0), {50, 50}, 1.0, &cache));
+  QVERIFY(!HitTest(project, shot, Frame(0), {5, 5}, 1.0, &cache));
+  const auto label = HitTest(project, shot, Frame(0), {50, 85}, 1.0, &cache);
+  QVERIFY(label.has_value());
+  QCOMPARE(label->layer, LayerId(2));
+  QVERIFY(label->piece.isEmpty());
+  const auto half = HitTest(project, shot, Frame(0), {22, 22}, 0.5, &cache);
+  QVERIFY(half.has_value());
 }
 
 }  // namespace snapper

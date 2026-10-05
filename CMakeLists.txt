@@ -40,7 +40,7 @@ snapper_module(media
   LIBS Qt6::Gui Qt6::Multimedia PkgConfig::FFMPEG)
 snapper_module(render
   SOURCES effects.cpp frame_renderer.cpp image_cache.cpp layer_painter.cpp
-          warp_raster.cpp
+          stage_hit.cpp warp_raster.cpp
   MODULES anim)
 snapper_module(edit
   SOURCES doll_library_manager.cpp document_manager.cpp edit_scope.cpp

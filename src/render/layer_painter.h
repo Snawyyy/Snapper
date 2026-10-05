@@ -1,7 +1,9 @@
 #ifndef SNAPPER_RENDER_LAYER_PAINTER_H_
 #define SNAPPER_RENDER_LAYER_PAINTER_H_
 
+#include <QFont>
 #include <QPainter>
+#include <QRectF>
 #include <QTransform>
 
 #include "base/frame.h"
@@ -10,6 +12,11 @@
 #include "render/image_cache.h"
 
 namespace snapper {
+
+// The lettering box of a text layer, centred on its origin, in layer
+// space; drawing and clicking both use it.
+QRectF TextBox(const TextLayer& text);
+QFont TextFont(const TextLayer& text);
 
 // The layer's own place in shot space at frame, flip included.
 QTransform LayerTransform(const Layer& layer, Frame frame);

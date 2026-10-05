@@ -79,19 +79,15 @@ void Painter::operator()(const ImageLayer& layer) const {
 void Painter::operator()(const TextLayer& layer) const {
   assert(painter != nullptr);
   assert(layer.size > 0.0);
-  QFont font(layer.font_family);
-  font.setPixelSize(std::max(1, static_cast<int>(layer.size)));
-  font.setBold(layer.is_bold);
+  const QFont font = TextFont(layer);
   const QFontMetricsF metrics(font);
-  const QStringList lines = layer.text.split(QLatin1Char('\n'));
+  const QRectF box = TextBox(layer);
   QPainterPath path;
-  double y = metrics.ascent();
-  for (const QString& line : lines) {
+  double y = box.top() + metrics.ascent();
+  for (const QString& line : layer.text.split(QLatin1Char('\n'))) {
     path.addText(-metrics.horizontalAdvance(line) / 2.0, y, font, line);
     y += metrics.lineSpacing();
   }
-  // Centred on the layer's origin.
-  path.translate(0, -(y - metrics.lineSpacing() + metrics.descent()) / 2.0);
   painter->setTransform(world);
   const bool has_outline = layer.outline_width > 0.0;
   if (has_outline) {
@@ -111,6 +107,30 @@ void Painter::operator()([[maybe_unused]] const EffectLayer& layer) const {
 }
 
 }  // namespace
+
+QFont TextFont(const TextLayer& text) {
+  assert(text.size > 0.0);
+  assert(!text.font_family.isNull());
+  QFont font(text.font_family);
+  font.setPixelSize(std::max(1, static_cast<int>(text.size)));
+  font.setBold(text.is_bold);
+  return font;
+}
+
+QRectF TextBox(const TextLayer& text) {
+  assert(text.size > 0.0);
+  const QFontMetricsF metrics(TextFont(text));
+  const QStringList lines = text.text.split(QLatin1Char('\n'));
+  assert(!lines.isEmpty());
+  double width = 0.0;
+  for (const QString& line : lines) {
+    width = std::max(width, metrics.horizontalAdvance(line));
+  }
+  const double height =
+      metrics.lineSpacing() * static_cast<double>(lines.size() - 1) +
+      metrics.height();
+  return QRectF(-width / 2.0, -height / 2.0, width, height);
+}
 
 QTransform LayerTransform(const Layer& layer, Frame frame) {
   assert(frame.index() >= 0);

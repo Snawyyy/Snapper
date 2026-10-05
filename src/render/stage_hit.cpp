@@ -1,0 +1,137 @@
+#include "render/stage_hit.h"
+
+#include <QTransform>
+
+#include <cassert>
+#include <cmath>
+#include <variant>
+
+#include "anim/doll_pose.h"
+#include "render/frame_renderer.h"
+#include "render/layer_painter.h"
+#include "render/warp_raster.h"
+
+namespace snapper {
+namespace {
+
+// Pixels fainter than this are see-through to clicks.
+constexpr int kSolidAlpha = 32;
+
+// True when point (in image pixels) lands on a solid pixel of image.
+bool IsSolidAt(const QImage& image, QPointF point) {
+  assert(!image.isNull());
+  assert(std::isfinite(point.x()) && std::isfinite(point.y()));
+  const int x = static_cast<int>(std::floor(point.x()));
+  const int y = static_cast<int>(std::floor(point.y()));
+  const bool is_inside =
+      x >= 0 && y >= 0 && x < image.width() && y < image.height();
+  return is_inside && qAlpha(image.pixel(x, y)) >= kSolidAlpha;
+}
+
+// The topmost solid piece of a doll under point (shot space).
+std::optional<QString> HitPiece(const Doll& doll, const DollLayer& layer,
+                                Frame local, const QTransform& world,
+                                QPointF point, ImageCache* cache) {
+  assert(cache != nullptr);
+  assert(local.index() >= 0);
+  const auto placed = PlaceDoll(doll, SamplePoses(layer, local));
+  for (auto it = placed.rbegin(); it != placed.rend(); ++it) {
+    const QImage& image = cache->Get(it->drawing);
+    const bool is_drawn = !image.isNull() && it->opacity > 0.0;
+    if (!is_drawn) {
+      continue;
+    }
+    bool is_invertible = false;
+    const QTransform back = (it->transform * world).inverted(&is_invertible);
+    if (!is_invertible) {
+      continue;
+    }
+    const QPointF in_drawing = back.map(point);
+    const bool is_warped = !it->warp_points.empty();
+    const WarpedImage warped =
+        is_warped ? WarpImage(image, it->grid, it->warp_points)
+                  : WarpedImage{QImage(), QPointF()};
+    const bool is_hit =
+        is_warped ? IsSolidAt(warped.image, in_drawing - warped.origin)
+                  : IsSolidAt(image, QPointF(in_drawing.x() * image.width() /
+                                                 it->size.width(),
+                                             in_drawing.y() * image.height() /
+                                                 it->size.height()));
+    if (is_hit) {
+      return it->name;
+    }
+  }
+  return std::nullopt;
+}
+
+// Hit-tests one layer by its kind. An empty name means the whole layer
+// was hit; nothing means it wasn't.
+struct LayerHitter final {
+  const Project& project;
+  Frame local;
+  const QTransform& world;
+  QPointF point;
+  QPointF in_layer;
+  ImageCache* cache;
+
+  std::optional<QString> operator()(const DollLayer& layer) const {
+    assert(cache != nullptr);
+    assert(!layer.doll.isNull());
+    const Doll* doll = FindDoll(project, layer.doll);
+    const bool has_doll = doll != nullptr;
+    return has_doll ? HitPiece(*doll, layer, local, world, point, cache)
+                    : std::nullopt;
+  }
+  std::optional<QString> operator()(const ImageLayer& layer) const {
+    assert(cache != nullptr);
+    assert(!layer.path.isNull());
+    const QImage& pixels = cache->Get(layer.path);
+    const QPointF corner(pixels.width() / 2.0, pixels.height() / 2.0);
+    const bool is_hit =
+        !pixels.isNull() && IsSolidAt(pixels, in_layer + corner);
+    return is_hit ? std::optional<QString>(QString()) : std::nullopt;
+  }
+  std::optional<QString> operator()(const TextLayer& layer) const {
+    assert(layer.size > 0.0);
+    assert(std::isfinite(in_layer.x()));
+    const bool is_hit = TextBox(layer).contains(in_layer);
+    return is_hit ? std::optional<QString>(QString()) : std::nullopt;
+  }
+  // Effects change pixels; there is nothing of theirs to click.
+  std::optional<QString> operator()(const EffectLayer& layer) const {
+    assert(static_cast<int>(layer.kind) < kEffectKindCount);
+    assert(cache != nullptr);
+    return std::nullopt;
+  }
+};
+
+}  // namespace
+
+std::optional<StageHit> HitTest(const Project& project, const Shot& shot,
+                                Frame local, QPointF point, double scale,
+                                ImageCache* cache) {
+  assert(cache != nullptr);
+  assert(scale > 0.0);
+  const QTransform view =
+      FrameRenderer::ViewTransform(project, shot, local, scale);
+  for (auto it = shot.layers.rbegin(); it != shot.layers.rend(); ++it) {
+    const QTransform world = LayerTransform(*it, local) * view;
+    bool is_invertible = false;
+    const QPointF in_layer = world.inverted(&is_invertible).map(point);
+    const bool is_testable =
+        IsLayerLive(*it, local, shot.length) && is_invertible;
+    if (!is_testable) {
+      continue;
+    }
+    const std::optional<QString> hit = std::visit(
+        LayerHitter{project, local, world, point, in_layer, cache},
+        it->content);
+    const bool is_hit = hit.has_value();
+    if (is_hit) {
+      return StageHit{it->id, *hit};
+    }
+  }
+  return std::nullopt;
+}
+
+}  // namespace snapper
