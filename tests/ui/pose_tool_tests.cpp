@@ -53,6 +53,7 @@ class PoseToolTests final : public QObject {
   void WheelTurns();
   void EscapePutsItBack();
   void ClickingNothingDropsThePick();
+  void ManyPicksMoveAndTurnTogether();
 };
 
 void PoseToolTests::ClickPicksAndDragMoves() {
@@ -60,7 +61,7 @@ void PoseToolTests::ClickPicksAndDragMoves() {
   Stage(&bench);
   ImageCache cache;
   PoseTool tool(bench.All(), &cache);
-  tool.Press({60, 60}, false, kFrame);
+  tool.Press({60, 60}, false, false, kFrame);
   QCOMPARE(bench.selection.layer(), LayerId(1));
   QCOMPARE(bench.selection.pieces(), std::set<QString>({"body"}));
   QVERIFY(tool.IsDragging());
@@ -78,7 +79,7 @@ void PoseToolTests::ShiftLocksTheAxis() {
   Stage(&bench);
   ImageCache cache;
   PoseTool tool(bench.All(), &cache);
-  tool.Press({60, 60}, false, kFrame);
+  tool.Press({60, 60}, false, false, kFrame);
   tool.Move({70, 63}, true);
   tool.Release();
   QCOMPARE(Body(bench).offset, QPointF(10, 0));
@@ -89,7 +90,7 @@ void PoseToolTests::CtrlScales() {
   Stage(&bench);
   ImageCache cache;
   PoseTool tool(bench.All(), &cache);
-  tool.Press({60, 60}, true, kFrame);
+  tool.Press({60, 60}, false, true, kFrame);
   tool.Move({60 + kScalePixels, 60}, false);
   tool.Release();
   QCOMPARE(Body(bench).scale_x, 2.0);
@@ -104,7 +105,7 @@ void PoseToolTests::WheelTurns() {
   PoseTool tool(bench.All(), &cache);
   tool.Wheel(1, false, kFrame);
   QVERIFY(!tool.problem().isEmpty());
-  tool.Press({60, 60}, false, kFrame);
+  tool.Press({60, 60}, false, false, kFrame);
   tool.Release();
   tool.Wheel(1, false, kFrame);
   tool.Wheel(-2, true, kFrame);
@@ -117,7 +118,7 @@ void PoseToolTests::EscapePutsItBack() {
   Stage(&bench);
   ImageCache cache;
   PoseTool tool(bench.All(), &cache);
-  tool.Press({60, 60}, false, kFrame);
+  tool.Press({60, 60}, false, false, kFrame);
   tool.Move({90, 90}, false);
   QCOMPARE(Body(bench).offset, QPointF(30, 30));
   tool.Cancel();
@@ -131,12 +132,54 @@ void PoseToolTests::ClickingNothingDropsThePick() {
   Stage(&bench);
   ImageCache cache;
   PoseTool tool(bench.All(), &cache);
-  tool.Press({60, 60}, false, kFrame);
+  tool.Press({60, 60}, false, false, kFrame);
   tool.Release();
-  tool.Press({12, 12}, false, kFrame);
+  tool.Press({12, 12}, false, false, kFrame);
+  tool.Release();
   QVERIFY(!tool.IsDragging());
   QVERIFY(!bench.selection.layer().IsValid());
   QVERIFY(!bench.history.CanUndo());
+}
+
+void PoseToolTests::ManyPicksMoveAndTurnTogether() {
+  Bench bench;
+  Stage(&bench);
+  // A second 20x20 doll piece to the right of the first.
+  Project project = bench.history.current();
+  Doll doll = *project.dolls.at("Dot");
+  doll.art.pieces.push_back({"eye", {"body.png"}, 0, {20, -10}, {20, 20}});
+  doll.rig.pieces.push_back({"eye", "", {10, 10}, 1, -1, {}});
+  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
+  bench.history.Reset(project);
+  ImageCache cache;
+  PoseTool tool(bench.All(), &cache);
+  // Box from above-left of the body to inside the eye catches both.
+  tool.Press({12, 12}, false, false, kFrame);
+  tool.Move({85, 65}, false);
+  QVERIFY(!tool.Box().isEmpty());
+  tool.Release();
+  QCOMPARE(bench.selection.picks().size(), size_t{2});
+  tool.Press({60, 60}, false, false, kFrame);
+  tool.Move({64, 60}, false);
+  tool.Release();
+  const PoseMap poses = SamplePoses(
+      std::get<DollLayer>(bench.history.current().shots[0]->layers[0].content),
+      Frame(0));
+  QCOMPARE(poses.at("body").offset, QPointF(4, 0));
+  QCOMPARE(poses.at("eye").offset, QPointF(4, 0));
+  QCOMPARE(bench.history.UndoLabel(), QString("Move 2 parts"));
+  tool.Wheel(1, false, kFrame);
+  const PoseMap turned = SamplePoses(
+      std::get<DollLayer>(bench.history.current().shots[0]->layers[0].content),
+      Frame(0));
+  QCOMPARE(turned.at("eye").rotation, -5.0);
+  // Ctrl-click flips the eye out; Shift-click adds it back.
+  tool.Press({95, 60}, false, true, kFrame);
+  tool.Release();
+  QCOMPARE(bench.selection.picks().size(), size_t{1});
+  tool.Press({95, 60}, true, false, kFrame);
+  tool.Release();
+  QCOMPARE(bench.selection.picks().size(), size_t{2});
 }
 
 }  // namespace snapper

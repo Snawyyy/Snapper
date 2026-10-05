@@ -7,11 +7,14 @@
 
 #include <algorithm>
 #include <cassert>
+#include <variant>
 
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
+#include "edit/project_edits.h"
 #include "render/stage_geometry.h"
+#include "render/stage_hit.h"
 #include "ui/playhead.h"
 #include "ui/theme.h"
 
@@ -72,27 +75,41 @@ void StageView::paintEvent(QPaintEvent* event) {
   painter.drawImage(frame->corner, image);
   painter.setRenderHint(QPainter::Antialiasing);
   PaintHandles(*frame, &painter);
+  const QRectF box = tool_.Box();
+  const bool has_box = !box.isEmpty();
+  if (has_box) {
+    painter.resetTransform();
+    painter.setPen(QPen(theme::kPick, 1.0, Qt::DashLine));
+    painter.setBrush(QColor(theme::kPick.red(), theme::kPick.green(),
+                            theme::kPick.blue(), 40));
+    painter.drawRect(box);
+  }
 }
 
-void StageView::PaintHandles(const StageFrame& frame,
-                             QPainter* painter) const {
+void StageView::PaintHandles(const StageFrame& frame, QPainter* painter) {
   assert(painter != nullptr);
   assert(frame.scale > 0.0);
   const Project& project = managers_.history->current();
   const SelectionManager& selection = *managers_.selection;
   const Shot* shot = FindShot(project, frame.shot);
   const bool is_picked = shot != nullptr && selection.shot() == frame.shot &&
-                         selection.layer().IsValid();
+                         !selection.picks().empty();
   if (!is_picked) {
     return;
   }
   painter->translate(frame.corner);
-  for (const QString& piece : selection.pieces()) {
-    const auto outline = PieceOnScreen(project, *shot, selection.layer(),
-                                       piece, frame.local, frame.scale);
+  for (const Pick& pick : selection.picks()) {
+    const bool is_whole = pick.piece.isEmpty();
+    painter->setPen(QPen(theme::kPick, 2.0));
+    painter->setBrush(Qt::NoBrush);
+    if (is_whole) {
+      painter->drawPolygon(LayerShape(project, *shot, pick.layer, frame.local,
+                                      frame.scale, renderer_.cache()));
+      continue;
+    }
+    const auto outline = PieceOnScreen(project, *shot, pick.layer,
+                                       pick.piece, frame.local, frame.scale);
     if (outline) {
-      painter->setPen(QPen(theme::kPick, 2.0));
-      painter->setBrush(Qt::NoBrush);
       painter->drawPolygon(outline->outline);
       painter->setPen(QPen(theme::kShadow, 1.0));
       painter->setBrush(theme::kHandle);
@@ -116,6 +133,7 @@ void StageView::mousePressEvent(QMouseEvent* event) {
                          event->button() == Qt::LeftButton;
   if (is_usable) {
     tool_.Press(event->position(),
+                event->modifiers().testFlag(Qt::ShiftModifier),
                 event->modifiers().testFlag(Qt::ControlModifier), *frame);
     ReportTool();
   }
@@ -129,6 +147,7 @@ void StageView::mouseMoveEvent(QMouseEvent* event) {
     tool_.Move(event->position(),
                event->modifiers().testFlag(Qt::ShiftModifier));
     ReportTool();
+    update();
   }
   assert(event->type() == QEvent::MouseMove);
 }
@@ -138,6 +157,7 @@ void StageView::mouseReleaseEvent(QMouseEvent* event) {
   const bool is_left = event->button() == Qt::LeftButton;
   if (is_left) {
     tool_.Release();
+    update();
   }
   assert(!is_left || !tool_.IsDragging());
 }
@@ -165,13 +185,57 @@ void StageView::wheelEvent(QWheelEvent* event) {
 void StageView::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
   const bool is_escape = event->key() == Qt::Key_Escape;
+  const bool is_all = event->matches(QKeySequence::SelectAll);
   if (is_escape) {
+    const bool was_dragging = tool_.IsDragging();
     tool_.Cancel();
+    if (!was_dragging) {
+      managers_.selection->Clear();
+    }
+    event->accept();
+    return;
+  }
+  if (is_all) {
+    PickAll();
     event->accept();
     return;
   }
   QWidget::keyPressEvent(event);
   assert(!is_escape);
+}
+
+void StageView::PickAll() {
+  const auto frame = CurrentFrame();
+  assert(managers_.selection != nullptr);
+  const Shot* shot =
+      frame ? FindShot(managers_.history->current(), frame->shot) : nullptr;
+  const bool has_shot = shot != nullptr;
+  if (!has_shot) {
+    return;
+  }
+  // Inside a picked doll: all its pieces; otherwise every layer.
+  const LayerId focus = managers_.selection->layer();
+  const Doll* doll = focus.IsValid()
+                         ? DollOfLayer(managers_.history->current(),
+                                       frame->shot, focus)
+                         : nullptr;
+  std::set<Pick> all;
+  const bool is_in_doll = doll != nullptr;
+  if (is_in_doll) {
+    for (const RigPiece& piece : doll->rig.pieces) {
+      all.insert({focus, piece.name});
+    }
+  } else {
+    for (const Layer& layer : shot->layers) {
+      const bool is_pickable =
+          !std::holds_alternative<EffectLayer>(layer.content);
+      if (is_pickable) {
+        all.insert({layer.id, QString()});
+      }
+    }
+  }
+  managers_.selection->SelectShot(frame->shot);
+  managers_.selection->PickThings(all, PickMode::kReplace, focus);
 }
 
 void StageView::ReportTool() {

@@ -6,6 +6,7 @@
 
 #include <map>
 #include <set>
+#include <vector>
 
 #include "base/error.h"
 #include "base/frame.h"
@@ -15,6 +16,17 @@
 namespace snapper {
 
 class HistoryManager;
+
+// A change added to each picked thing's own pose, so things keep their
+// differences: x 10 and x 0 moved by 5 become 15 and 5.
+struct PoseDelta final {
+  double rotation = 0.0;
+  QPointF offset;
+  double scale_x = 0.0;
+  double scale_y = 0.0;
+  double skew = 0.0;
+  double opacity = 0.0;
+};
 
 // Posing at a frame: each call keys the value it changes at that frame
 // (keeping the key's ease if one is there, stepping otherwise), so
@@ -38,6 +50,10 @@ class PoseManager final {
   Result<void> Warp(const TrackRef& track, Frame frame, int point,
                     QPointF offset);
   Result<void> SetPose(const TrackRef& track, Frame frame, PiecePose pose);
+  // Adds delta to every track's pose at frame, as one step. Scale stays
+  // 0 or more and opacity 0 to 1.
+  Result<void> Shift(const std::vector<TrackRef>& tracks, Frame frame,
+                     const PoseDelta& delta);
   Result<void> SetCamera(ShotId shot, Frame frame, CameraPose camera);
   // Effect amount tracks, 0 to 1.
   Result<void> SetAmount(const TrackRef& track, Frame frame, double amount);

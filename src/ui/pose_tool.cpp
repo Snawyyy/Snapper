@@ -36,7 +36,8 @@ PoseTool::PoseTool(const Managers& managers, ImageCache* cache)
   assert(cache_ != nullptr);
 }
 
-void PoseTool::Press(QPointF point, bool is_ctrl, const StageFrame& frame) {
+void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
+                     const StageFrame& frame) {
   assert(cache_ != nullptr);
   assert(frame.scale > 0.0);
   Cancel();
@@ -51,33 +52,60 @@ void PoseTool::Press(QPointF point, bool is_ctrl, const StageFrame& frame) {
       shot != nullptr ? HitTest(project, *shot, frame.local,
                                 point - frame.corner, frame.scale, cache_)
                       : std::nullopt;
-  SelectionManager* selection = managers_.selection;
-  if (!hit) {
-    selection->Clear();
+  managers_.selection->SelectShot(frame.shot);
+  if (hit) {
+    PressPick({hit->layer, hit->piece}, is_shift, is_ctrl, frame, point);
     return;
   }
-  selection->SelectShot(frame.shot);
-  selection->SelectLayer(hit->layer);
-  selection->SelectPieces(hit->piece.isEmpty() ? std::set<QString>()
-                                               : std::set<QString>{hit->piece},
-                          false);
-  const TrackRef track =
-      hit->piece.isEmpty()
-          ? TrackRef{frame.shot, TrackKind::kLayer, hit->layer, {}}
-          : TrackRef{frame.shot, TrackKind::kPiece, hit->layer, hit->piece};
-  const QString what = hit->piece.isEmpty() ? QObject::tr("layer")
-                                            : hit->piece;
   auto drag = std::make_unique<Drag>();
+  drag->kind = Kind::kBox;
+  drag->frame = frame;
+  drag->start = point;
+  drag->corner = point;
+  drag->box_mode = is_shift  ? PickMode::kAdd
+                   : is_ctrl ? PickMode::kRemove
+                             : PickMode::kReplace;
+  drag_ = std::move(drag);
+  assert(IsDragging());
+}
+
+void PoseTool::PressPick(const Pick& pick, bool is_shift, bool is_ctrl,
+                         const StageFrame& frame, QPointF point) {
+  SelectionManager* selection = managers_.selection;
+  assert(selection != nullptr);
+  const bool is_picked = selection->picks().contains(pick);
+  auto drag = std::make_unique<Drag>();
+  const bool is_flip_later = is_ctrl && is_picked;
+  if (is_flip_later) {
+    drag->toggle = pick;
+  } else {
+    const bool is_adding = is_shift || is_ctrl;
+    const bool is_kept = is_picked && !is_adding;
+    if (!is_kept) {
+      selection->PickThings({pick},
+                            is_adding ? PickMode::kAdd : PickMode::kReplace,
+                            pick.layer);
+    }
+  }
+  const auto count = selection->picks().size();
+  const QString what = count > 1 ? QObject::tr("%1 parts").arg(count)
+                       : pick.piece.isEmpty() ? QObject::tr("layer")
+                                              : pick.piece;
   drag->kind = is_ctrl ? Kind::kScale : Kind::kMove;
   drag->frame = frame;
-  drag->track = track;
   drag->start = point;
-  drag->start_pose = PoseOf(track, frame.local);
   drag->scope = std::make_unique<EditScope>(
       managers_.history, is_ctrl ? QObject::tr("Scale %1").arg(what)
                                  : QObject::tr("Move %1").arg(what));
   drag_ = std::move(drag);
   assert(IsDragging());
+}
+
+QRectF PoseTool::Box() const {
+  const bool is_box = drag_ != nullptr && drag_->kind == Kind::kBox;
+  assert(!is_box || drag_->frame.scale > 0.0);
+  return is_box ? QRectF(drag_->start, drag_->corner).normalized()
+                : QRectF();
 }
 
 void PoseTool::Move(QPointF point, bool is_shift) {
@@ -86,61 +114,114 @@ void PoseTool::Move(QPointF point, bool is_shift) {
   if (!drag_) {
     return;
   }
-  const Project& project = managers_.history->current();
-  const Shot* shot = FindShot(project, drag_->frame.shot);
-  const bool has_shot = shot != nullptr;
-  if (!has_shot) {
-    return;
-  }
-  const StageFrame& at = drag_->frame;
-  QPointF delta = point - drag_->start;
+  QPointF total = point - drag_->start;
   const bool is_locked = is_shift && drag_->kind == Kind::kMove;
   if (is_locked) {
-    const bool is_sideways = std::abs(delta.x()) >= std::abs(delta.y());
-    delta = is_sideways ? QPointF(delta.x(), 0) : QPointF(0, delta.y());
+    const bool is_sideways = std::abs(total.x()) >= std::abs(total.y());
+    total = is_sideways ? QPointF(total.x(), 0) : QPointF(0, total.y());
   }
-  const TrackRef& track = drag_->track;
+  const bool is_moved = QLineF(QPointF(), total).length() > 2.0;
+  if (is_moved) {
+    // A Ctrl-click that turned into a drag doesn't flip the pick.
+    drag_->toggle.reset();
+  }
   switch (drag_->kind) {
+    case Kind::kBox:
+      drag_->corner = point;
+      break;
     case Kind::kIk: {
+      const Project& project = managers_.history->current();
+      const Shot* shot = FindShot(project, drag_->frame.shot);
+      const StageFrame& at = drag_->frame;
       const auto to_screen =
-          LayerToScreen(project, *shot, track.layer, at.local, at.scale);
+          shot != nullptr
+              ? LayerToScreen(project, *shot, drag_->layer, at.local, at.scale)
+              : std::nullopt;
       if (to_screen) {
-        Note(managers_.pose->DragIk(at.shot, track.layer, drag_->chain,
+        Note(managers_.pose->DragIk(at.shot, drag_->layer, drag_->chain,
                                     at.local,
                                     Back(*to_screen, point, at.corner)));
       }
       break;
     }
-    case Kind::kMove: {
-      const bool is_piece = track.kind == TrackKind::kPiece;
-      const auto frame =
-          is_piece ? PieceParentToScreen(project, *shot, track.layer,
-                                         track.piece, at.local, at.scale)
-                   : std::optional<QTransform>(FrameRenderer::ViewTransform(
-                         project, *shot, at.local, at.scale));
-      if (frame) {
-        const QPointF moved = Back(*frame, drag_->start + delta, at.corner) -
-                              Back(*frame, drag_->start, at.corner);
-        Note(managers_.pose->Move(track, at.local,
-                                  drag_->start_pose.offset + moved));
-      }
+    case Kind::kMove:
+      MoveAll(total);
       break;
-    }
-    case Kind::kScale: {
+    case Kind::kScale:
       // Right or up grows, left or down shrinks.
-      const double factor =
-          std::pow(2.0, (delta.x() - delta.y()) / kScalePixels);
-      Note(managers_.pose->Scale(track, at.local,
-                                 drag_->start_pose.scale_x * factor,
-                                 drag_->start_pose.scale_y * factor));
+      ScaleAll(std::pow(2.0, (total.x() - total.y()) / kScalePixels));
       break;
+  }
+}
+
+void PoseTool::MoveAll(QPointF total) {
+  assert(drag_ != nullptr);
+  const Project& project = managers_.history->current();
+  const StageFrame& at = drag_->frame;
+  const Shot* shot = FindShot(project, at.shot);
+  const bool has_shot = shot != nullptr;
+  if (!has_shot) {
+    return;
+  }
+  // Each pick moves in its own parent's frame, so all follow the cursor
+  // on screen by the same amount.
+  for (const TrackRef& track : managers_.selection->PickedTracks()) {
+    const bool is_piece = track.kind == TrackKind::kPiece;
+    const auto frame =
+        is_piece ? PieceParentToScreen(project, *shot, track.layer,
+                                       track.piece, at.local, at.scale)
+                 : std::optional<QTransform>(FrameRenderer::ViewTransform(
+                       project, *shot, at.local, at.scale));
+    if (frame) {
+      PoseDelta delta;
+      delta.offset = Back(*frame, drag_->start + total, at.corner) -
+                     Back(*frame, drag_->start + drag_->done, at.corner);
+      Note(managers_.pose->Shift({track}, at.local, delta));
     }
   }
+  drag_->done = total;
+}
+
+void PoseTool::ScaleAll(double factor) {
+  assert(drag_ != nullptr);
+  assert(std::isfinite(factor) && factor > 0.0);
+  PoseDelta delta;
+  delta.scale_x = factor - drag_->scaled;
+  delta.scale_y = delta.scale_x;
+  Note(managers_.pose->Shift(managers_.selection->PickedTracks(),
+                             drag_->frame.local, delta));
+  drag_->scaled = factor;
 }
 
 void PoseTool::Release() {
   assert(cache_ != nullptr);
   assert(managers_.history != nullptr);
+  const bool is_box = drag_ != nullptr && drag_->kind == Kind::kBox;
+  if (is_box) {
+    const QRectF box = Box();
+    const StageFrame& at = drag_->frame;
+    const Project& project = managers_.history->current();
+    const Shot* shot = FindShot(project, at.shot);
+    std::set<Pick> caught;
+    const bool is_box_drawn = shot != nullptr && box.width() > 2.0 &&
+                              box.height() > 2.0;
+    if (is_box_drawn) {
+      for (const StageHit& hit :
+           HitBox(project, *shot, at.local,
+                  box.translated(-at.corner), at.scale, cache_)) {
+        caught.insert({hit.layer, hit.piece});
+      }
+    }
+    const LayerId focus = caught.empty() ? managers_.selection->layer()
+                                         : caught.begin()->layer;
+    managers_.selection->PickThings(caught, drag_->box_mode, focus);
+  }
+  const bool flips = drag_ != nullptr && drag_->toggle.has_value();
+  if (flips) {
+    const Pick pick = *drag_->toggle;
+    drag_->scope->Cancel();
+    managers_.selection->PickThings({pick}, PickMode::kToggle, pick.layer);
+  }
   drag_.reset();
 }
 
@@ -156,34 +237,17 @@ void PoseTool::Cancel() {
 void PoseTool::Wheel(int notches, bool is_fine, const StageFrame& frame) {
   assert(notches != 0);
   assert(frame.scale > 0.0);
-  const auto track = PickedTrack(managers_, frame.shot);
-  if (!track) {
+  const auto tracks = managers_.selection->PickedTracks();
+  const bool is_picked =
+      !tracks.empty() && managers_.selection->shot() == frame.shot;
+  if (!is_picked) {
     problem_ = QObject::tr("Click a piece first, then turn it.");
     return;
   }
-  const double step = is_fine ? kFineWheelStep : kWheelStep;
+  PoseDelta delta;
   // Wheel up turns counterclockwise, like a knob.
-  const double turned =
-      PoseOf(*track, frame.local).rotation - notches * step;
-  Note(managers_.pose->Rotate(*track, frame.local, turned));
-}
-
-PiecePose PoseTool::PoseOf(const TrackRef& track, Frame local) const {
-  assert(local.index() >= 0);
-  assert(managers_.history != nullptr);
-  PiecePose pose;
-  const Shot* shot = FindShot(managers_.history->current(), track.shot);
-  const bool has_shot = shot != nullptr;
-  if (has_shot) {
-    ReadTrack(*shot, track, [&](const auto& channel) {
-      using Held = typename std::remove_cvref_t<decltype(channel)>::value_type;
-      constexpr bool is_pose = std::is_same_v<Held, PiecePose>;
-      if constexpr (is_pose) {
-        pose = Sample(channel, local, PiecePose());
-      }
-    });
-  }
-  return pose;
+  delta.rotation = -notches * (is_fine ? kFineWheelStep : kWheelStep);
+  Note(managers_.pose->Shift(tracks, frame.local, delta));
 }
 
 bool PoseTool::PressIk(QPointF point, const StageFrame& frame) {
@@ -205,7 +269,7 @@ bool PoseTool::PressIk(QPointF point, const StageFrame& frame) {
       auto drag = std::make_unique<Drag>();
       drag->kind = Kind::kIk;
       drag->frame = frame;
-      drag->track = {frame.shot, TrackKind::kLayer, layer, {}};
+      drag->layer = layer;
       drag->chain = handle.chain;
       drag->start = point;
       drag->scope = std::make_unique<EditScope>(

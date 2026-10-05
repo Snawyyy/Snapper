@@ -1,5 +1,6 @@
 #include "render/stage_hit.h"
 
+#include <QPainterPath>
 #include <QTransform>
 
 #include <cassert>
@@ -9,6 +10,7 @@
 #include "anim/doll_pose.h"
 #include "render/frame_renderer.h"
 #include "render/layer_painter.h"
+#include "render/stage_geometry.h"
 #include "render/warp_raster.h"
 
 namespace snapper {
@@ -135,6 +137,69 @@ std::optional<StageHit> HitTest(const Project& project, const Shot& shot,
     }
   }
   return std::nullopt;
+}
+
+QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
+                     Frame local, double scale, ImageCache* cache) {
+  assert(cache != nullptr);
+  assert(scale > 0.0);
+  const Layer* found = layer.IsValid() ? FindLayer(shot, layer) : nullptr;
+  const auto to_screen = LayerToScreen(project, shot, layer, local, scale);
+  const bool is_found = found != nullptr && to_screen.has_value();
+  if (!is_found) {
+    return QPolygonF();
+  }
+  const auto* text = std::get_if<TextLayer>(&found->content);
+  const auto* image = std::get_if<ImageLayer>(&found->content);
+  const QSizeF picture =
+      image != nullptr ? QSizeF(cache->Get(image->path).size()) : QSizeF();
+  const QRectF own =
+      text != nullptr
+          ? TextBox(*text)
+          : QRectF(QPointF(-picture.width() / 2, -picture.height() / 2),
+                   picture);
+  return to_screen->map(QPolygonF(own));
+}
+
+std::vector<StageHit> HitBox(const Project& project, const Shot& shot,
+                             Frame local, const QRectF& box, double scale,
+                             ImageCache* cache) {
+  assert(scale > 0.0 && cache != nullptr);
+  assert(box.isValid());
+  std::vector<StageHit> hits;
+  QPainterPath area;
+  area.addRect(box);
+  for (const Layer& layer : shot.layers) {
+    const bool is_live = IsLayerLive(layer, local, shot.length) &&
+                         !std::holds_alternative<EffectLayer>(layer.content);
+    if (!is_live) {
+      continue;
+    }
+    const auto* posed = std::get_if<DollLayer>(&layer.content);
+    const Doll* doll =
+        posed != nullptr ? FindDoll(project, posed->doll) : nullptr;
+    const bool is_doll = doll != nullptr;
+    if (is_doll) {
+      for (const RigPiece& piece : doll->rig.pieces) {
+        const auto outline =
+            PieceOnScreen(project, shot, layer.id, piece.name, local, scale);
+        QPainterPath shape;
+        shape.addPolygon(outline ? outline->outline : QPolygonF());
+        const bool is_caught = outline.has_value() && area.intersects(shape);
+        if (is_caught) {
+          hits.push_back({layer.id, piece.name});
+        }
+      }
+      continue;
+    }
+    QPainterPath shape;
+    shape.addPolygon(LayerShape(project, shot, layer.id, local, scale, cache));
+    const bool is_caught = area.intersects(shape);
+    if (is_caught) {
+      hits.push_back({layer.id, QString()});
+    }
+  }
+  return hits;
 }
 
 }  // namespace snapper

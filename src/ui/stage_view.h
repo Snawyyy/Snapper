@@ -39,8 +39,10 @@ class StageView final : public QWidget {
   void keyPressEvent(QKeyEvent* event) override;
 
  private:
-  void PaintHandles(const StageFrame& frame, QPainter* painter) const;
+  void PaintHandles(const StageFrame& frame, QPainter* painter);
   void ReportTool();
+  // Ctrl+A: every piece of the picked doll, or every layer.
+  void PickAll();
 
   Managers managers_;
   FrameRenderer renderer_;

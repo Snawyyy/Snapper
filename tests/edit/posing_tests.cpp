@@ -69,6 +69,7 @@ class PosingTests final : public QObject {
   void IkBendsBothBones();
   void PasteMirroredSwapsSides();
   void PosingOnePieceKeysTheWholeDoll();
+  void ShiftMovesEachByTheSameAmount();
 };
 
 void PosingTests::PosingKeysTheFrameAndHolds() {
@@ -199,6 +200,26 @@ void PosingTests::PosingOnePieceKeysTheWholeDoll() {
   QCOMPARE(right.keys[1].value.rotation, 30.0);
   QCOMPARE(right.keys[1].ease, Ease::kLinear);
   QCOMPARE(PosesAt(history, Frame(6)).at("arm_r").rotation, 40.0);
+}
+
+void PosingTests::ShiftMovesEachByTheSameAmount() {
+  HistoryManager history(Stage());
+  PoseManager pose(&history);
+  QVERIFY(pose.Move(Piece("arm_l"), Frame(0), QPointF(10, 0)).has_value());
+  PoseDelta delta;
+  delta.offset = QPointF(5, 1);
+  delta.scale_x = -2.0;
+  delta.opacity = 0.5;
+  QVERIFY(pose.Shift({Piece("arm_l"), Piece("arm_r")}, Frame(0), delta)
+              .has_value());
+  const PoseMap at0 = PosesAt(history, Frame(0));
+  QCOMPARE(at0.at("arm_l").offset, QPointF(15, 1));
+  QCOMPARE(at0.at("arm_r").offset, QPointF(5, 1));
+  QCOMPARE(at0.at("arm_r").scale_x, 0.0);
+  QCOMPARE(at0.at("arm_r").opacity, 1.0);
+  QVERIFY(!pose.Shift({}, Frame(0), delta).has_value());
+  history.Undo();
+  QCOMPARE(PosesAt(history, Frame(0)).at("arm_l").offset, QPointF(10, 0));
 }
 
 }  // namespace snapper
