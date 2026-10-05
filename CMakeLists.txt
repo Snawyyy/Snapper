@@ -8,7 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Test)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets Test)
 
 include(cmake/snapper.cmake)
 include(CTest)
@@ -23,6 +23,17 @@ snapper_module(model
 snapper_module(edit
   SOURCES history_manager.cpp edit_scope.cpp
   MODULES model)
+snapper_module(ui
+  SOURCES main_window.cpp
+  MODULES edit
+  LIBS Qt6::Widgets)
+
+qt_add_executable(snapper src/app/main.cpp src/app/app_context.cpp)
+target_link_libraries(snapper PRIVATE snapper_ui)
+snapper_warnings(snapper)
+set_property(GLOBAL APPEND PROPERTY SNAPPER_LAYERS "app=ui")
+set_target_properties(snapper PROPERTIES WIN32_EXECUTABLE TRUE)
+
 if(BUILD_TESTING)
   snapper_test(base SOURCES base_tests.cpp)
   snapper_test(model SOURCES model_tests.cpp)
