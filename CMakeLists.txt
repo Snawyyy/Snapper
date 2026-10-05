@@ -17,7 +17,15 @@ include(CTest)
 snapper_module(base
   SOURCES frame.cpp
   LIBS Qt6::Core)
+snapper_module(model
+  SOURCES project.cpp
+  MODULES base)
+snapper_module(edit
+  SOURCES history_manager.cpp edit_scope.cpp
+  MODULES model)
 if(BUILD_TESTING)
   snapper_test(base SOURCES base_tests.cpp)
+  snapper_test(model SOURCES model_tests.cpp)
+  snapper_test(edit SOURCES history_tests.cpp)
   snapper_checks()
 endif()
