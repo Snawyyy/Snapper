@@ -62,6 +62,9 @@ struct RigPiece final {
   // -1 uses the art's default drawing.
   int default_drawing = -1;
   WarpGrid warp;
+  // Degrees the piece is turned at rest, on top of how it was drawn;
+  // poses turn from there.
+  double rest_rotation = 0.0;
 
   bool operator==(const RigPiece&) const = default;
 };

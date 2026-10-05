@@ -18,14 +18,15 @@ PiecePose PoseOf(const PoseMap& poses, const QString& name) {
   return found == poses.end() ? PiecePose() : found->second;
 }
 
-// The piece's own move, in doll space, before its parent's.
-QTransform LocalTransform(const ArtPiece& art, const RigPiece& rig,
-                          const PoseMap& poses) {
+// How the piece's own pose moves doll space at rest: around its joint,
+// from its rest angle. Its parent's motion is added on top.
+QTransform OwnMotion(const ArtPiece& art, const RigPiece& rig,
+                     const PoseMap& poses) {
   assert(!art.name.isEmpty());
   assert(art.name == rig.name);
-  const QPointF joint = art.position + rig.pivot;
-  return QTransform::fromTranslate(art.position.x(), art.position.y()) *
-         PoseMatrix(PoseOf(poses, art.name), joint);
+  PiecePose pose = PoseOf(poses, art.name);
+  pose.rotation += rig.rest_rotation;
+  return PoseMatrix(pose, art.position + rig.pivot);
 }
 
 }  // namespace
@@ -59,35 +60,43 @@ std::map<QString, QTransform> PieceTransforms(const Doll& doll,
                                               const PoseMap& poses) {
   assert(doll.art.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   assert(doll.rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
-  std::map<QString, QTransform> done;
-  // Each pass places every piece whose parent is placed; a tree of n
-  // pieces needs at most n passes.
+  // Rest doll space to posed doll space, per piece: its own motion,
+  // then its parent's. Each pass places every piece whose parent is
+  // placed; a tree of n pieces needs at most n passes.
+  std::map<QString, QTransform> motion;
   for (int pass = 0; pass <= kMaxDollPieces; ++pass) {
     bool placed_any = false;
     for (const RigPiece& rig : doll.rig.pieces) {
       const ArtPiece* art = FindArt(doll, rig.name);
-      const bool is_skipped = art == nullptr || done.contains(rig.name);
+      const bool is_skipped = art == nullptr || motion.contains(rig.name);
       if (is_skipped) {
         continue;
       }
-      const bool has_parent =
-          !rig.parent.isEmpty() && FindRig(doll.rig, rig.parent) != nullptr;
-      const bool is_waiting = has_parent && !done.contains(rig.parent);
+      const bool has_parent = !rig.parent.isEmpty() &&
+                              FindRig(doll.rig, rig.parent) != nullptr &&
+                              FindArt(doll, rig.parent) != nullptr;
+      const bool is_waiting = has_parent && !motion.contains(rig.parent);
       if (is_waiting) {
         continue;
       }
-      QTransform world = LocalTransform(*art, rig, poses);
+      QTransform moved = OwnMotion(*art, rig, poses);
       if (has_parent) {
-        world = world * done.at(rig.parent);
+        moved = moved * motion.at(rig.parent);
       }
-      done[rig.name] = world;
+      motion[rig.name] = moved;
       placed_any = true;
     }
     if (!placed_any) {
       break;
     }
   }
-  return done;
+  // A drawing's pixels sit at its Krita spot, then move with it.
+  std::map<QString, QTransform> placed;
+  for (const auto& [name, moved] : motion) {
+    const QPointF at = FindArt(doll, name)->position;
+    placed[name] = QTransform::fromTranslate(at.x(), at.y()) * moved;
+  }
+  return placed;
 }
 
 std::vector<PlacedPiece> PlaceDoll(const Doll& doll, const PoseMap& poses) {

@@ -49,6 +49,7 @@ class PoseTests final : public QObject {
   void RestPoseKeepsTheKritaLayout();
   void ChildrenFollowTheirParent();
   void PiecesDrawBackToFront();
+  void ChildrenOfMovedPartsStayInPlace();
   void PoseMatrixTurnsAroundTheCenter();
   void IkReachesATarget();
   void IkBendsEitherWay();
@@ -74,6 +75,24 @@ void PoseTests::ChildrenFollowTheirParent() {
   QVERIFY(IsNear(PieceTransforms(BodyAndArm(), poses)
                      .at("arm").map(QPointF(0, 1)),
                  QPointF(13, 1)));
+}
+
+void PoseTests::ChildrenOfMovedPartsStayInPlace() {
+  Doll doll = BodyAndArm();
+  doll.art.pieces[0].position = QPointF(100, 50);
+  doll.art.pieces[1].position = QPointF(110, 50);
+  doll.rig.pieces[0].pivot = QPointF(5, 5);
+  const auto rest = PieceTransforms(doll, PoseMap());
+  QVERIFY(IsNear(rest.at("arm").map(QPointF(0, 1)), QPointF(110, 51)));
+  PoseMap poses;
+  poses["body"].rotation = 90.0;
+  // The arm's joint swings around the body's at (105, 55).
+  QVERIFY(IsNear(PieceTransforms(doll, poses).at("arm").map(QPointF(0, 1)),
+                 QPointF(109, 60)));
+  doll.rig.pieces[1].rest_rotation = 90.0;
+  QVERIFY(IsNear(PieceTransforms(doll, PoseMap()).at("arm")
+                     .map(QPointF(1, 1)),
+                 QPointF(110, 52)));
 }
 
 void PoseTests::PiecesDrawBackToFront() {
