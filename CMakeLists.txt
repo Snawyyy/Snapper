@@ -8,7 +8,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets Test)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Multimedia Widgets Test)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
+  libavcodec libavformat libavutil libswresample libswscale)
 
 include(cmake/snapper.cmake)
 include(CTest)
@@ -29,6 +32,11 @@ snapper_module(io
   SOURCES doll_file.cpp doll_json.cpp json_file.cpp json_values.cpp
           layer_json.cpp pose_file.cpp project_file.cpp reconcile.cpp
   MODULES model)
+snapper_module(media
+  SOURCES audio_clip.cpp audio_player.cpp ffmpeg_handles.cpp
+          video_encoder.cpp video_streams.cpp
+  MODULES base
+  LIBS Qt6::Gui Qt6::Multimedia PkgConfig::FFMPEG)
 snapper_module(edit
   SOURCES history_manager.cpp edit_scope.cpp
   MODULES model)
@@ -48,6 +56,7 @@ if(BUILD_TESTING)
   snapper_test(model SOURCES model_tests.cpp)
   snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
+  snapper_test(media SOURCES media_tests.cpp)
   snapper_test(edit SOURCES history_tests.cpp)
   snapper_checks()
 endif()
