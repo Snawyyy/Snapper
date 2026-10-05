@@ -12,6 +12,7 @@
 #include "render/frame_renderer.h"
 #include "render/stage_geometry.h"
 #include "render/stage_hit.h"
+#include "ui/playhead.h"
 
 namespace snapper {
 namespace {
@@ -155,7 +156,7 @@ void PoseTool::Cancel() {
 void PoseTool::Wheel(int notches, bool is_fine, const StageFrame& frame) {
   assert(notches != 0);
   assert(frame.scale > 0.0);
-  const auto track = PickedTrack(frame.shot);
+  const auto track = PickedTrack(managers_, frame.shot);
   if (!track) {
     problem_ = QObject::tr("Click a piece first, then turn it.");
     return;
@@ -165,22 +166,6 @@ void PoseTool::Wheel(int notches, bool is_fine, const StageFrame& frame) {
   const double turned =
       PoseOf(*track, frame.local).rotation - notches * step;
   Note(managers_.pose->Rotate(*track, frame.local, turned));
-}
-
-std::optional<TrackRef> PoseTool::PickedTrack(ShotId shot) const {
-  const SelectionManager* selection = managers_.selection;
-  assert(selection != nullptr);
-  assert(shot.value() >= 0);
-  const bool is_picked =
-      selection->shot() == shot && selection->layer().IsValid();
-  if (!is_picked) {
-    return std::nullopt;
-  }
-  const bool has_piece = !selection->pieces().empty();
-  return has_piece ? TrackRef{shot, TrackKind::kPiece, selection->layer(),
-                              *selection->pieces().begin()}
-                   : TrackRef{shot, TrackKind::kLayer, selection->layer(),
-                              {}};
 }
 
 PiecePose PoseTool::PoseOf(const TrackRef& track, Frame local) const {

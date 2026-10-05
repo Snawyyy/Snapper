@@ -14,6 +14,7 @@
 
 #include "ui/cast_panel.h"
 #include "ui/file_menu.h"
+#include "ui/inspector.h"
 #include "ui/managers.h"
 #include "ui/shot_strip.h"
 #include "ui/stage_view.h"
@@ -67,6 +68,8 @@ class MainWindow final : public QMainWindow {
   QLabel rig_empty_;
   QDockWidget cast_dock_;
   CastPanel cast_;
+  QDockWidget inspector_dock_;
+  Inspector inspector_;
   QMenu play_menu_;
   QAction play_action_;
   QAction next_action_;

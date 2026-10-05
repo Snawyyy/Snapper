@@ -45,6 +45,8 @@ MainWindow::MainWindow(const Managers& managers)
       timeline_(managers),
       cast_dock_(tr("Cast")),
       cast_(managers),
+      inspector_dock_(tr("Inspector")),
+      inspector_(managers),
       play_menu_(tr("&Play")),
       play_action_(tr("&Play / pause")),
       next_action_(tr("&Next frame")),
@@ -77,6 +79,10 @@ MainWindow::MainWindow(const Managers& managers)
   cast_dock_.setObjectName(QStringLiteral("cast"));
   cast_dock_.setWidget(&cast_);
   addDockWidget(Qt::LeftDockWidgetArea, &cast_dock_);
+  connect(&inspector_, &Inspector::Problem, this, show_problem);
+  inspector_dock_.setObjectName(QStringLiteral("inspector"));
+  inspector_dock_.setWidget(&inspector_);
+  addDockWidget(Qt::RightDockWidgetArea, &inspector_dock_);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
           &MainWindow::FollowPlayhead);
   center_layout_.setContentsMargins(0, 0, 0, 0);

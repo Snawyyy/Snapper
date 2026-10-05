@@ -65,8 +65,6 @@ class PoseTool final {
     std::unique_ptr<EditScope> scope;
   };
 
-  // The track the picked thing moves on: its piece, or its layer.
-  std::optional<TrackRef> PickedTrack(ShotId shot) const;
   PiecePose PoseOf(const TrackRef& track, Frame local) const;
   bool PressIk(QPointF point, const StageFrame& frame);
   void Note(const Result<void>& result);

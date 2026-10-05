@@ -8,11 +8,11 @@
 #include <algorithm>
 #include <cassert>
 
-#include "anim/master_timeline.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "render/stage_geometry.h"
+#include "ui/playhead.h"
 #include "ui/theme.h"
 
 namespace snapper {
@@ -40,10 +40,9 @@ StageView::StageView(const Managers& managers)
 
 std::optional<StageFrame> StageView::CurrentFrame() const {
   const Project& project = managers_.history->current();
-  const ShotMoment moment = Locate(project, managers_.playback->frame());
-  const bool has_shot = moment.shot >= 0;
+  const auto spot = SpotOf(managers_);
   assert(IsValidCanvas(project.canvas));
-  if (!has_shot) {
+  if (!spot) {
     return std::nullopt;
   }
   const double scale =
@@ -52,8 +51,7 @@ std::optional<StageFrame> StageView::CurrentFrame() const {
   const QPointF corner((width() - project.canvas.width * scale) / 2.0,
                        (height() - project.canvas.height * scale) / 2.0);
   assert(scale > 0.0);
-  return StageFrame{project.shots[static_cast<size_t>(moment.shot)]->id,
-                    moment.local, scale, corner};
+  return StageFrame{spot->shot, spot->local, scale, corner};
 }
 
 void StageView::paintEvent(QPaintEvent* event) {

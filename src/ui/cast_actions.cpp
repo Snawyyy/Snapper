@@ -13,19 +13,13 @@
 #include "edit/selection_manager.h"
 #include "edit/stage_manager.h"
 #include "ui/cast_panel.h"
+#include "ui/form_helpers.h"
 
 namespace snapper {
 namespace {
 
 // Each list item keeps its doll name or layer id here.
 constexpr int kKeyRole = Qt::UserRole;
-
-void Explain(QWidget* button, const QString& why_not) {
-  assert(button != nullptr);
-  assert(why_not.size() < 100000);
-  button->setEnabled(why_not.isEmpty());
-  button->setToolTip(why_not);
-}
 
 QString LayerKind(const Layer& layer) {
   assert(layer.id.IsValid());
