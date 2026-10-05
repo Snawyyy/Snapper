@@ -12,6 +12,7 @@
 #include "edit/edit_scope.h"
 #include "edit/timeline_rows.h"
 #include "ui/managers.h"
+#include "ui/problem.h"
 
 namespace snapper {
 
@@ -58,7 +59,7 @@ class TimelineView final : public QWidget {
   // The playhead's frame in this shot, or nothing when it is elsewhere.
   std::optional<Frame> PlayheadHere() const;
   void Seek(Frame local);
-  void Report(const Result<void>& result);
+  void Report(const QString& problem) { emit Problem(problem); }
   void KeyMenu(const TimelineRow& row, Frame frame, QPoint where);
   void EmptyMenu(const TimelineRow& row, Frame frame, QPoint where);
 

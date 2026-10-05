@@ -13,6 +13,7 @@
 
 #include "ui/file_menu.h"
 #include "ui/managers.h"
+#include "ui/shot_strip.h"
 #include "ui/stage_view.h"
 #include "ui/timeline_view.h"
 
@@ -52,8 +53,11 @@ class MainWindow final : public QMainWindow {
   QVBoxLayout center_layout_;
   QTabBar modes_;
   QStackedWidget pages_;
-  // Holds the stage over the timeline; declared before them so they
-  // leave it before it goes.
+  // Containers come before what they hold, so the held widgets leave
+  // them before they go.
+  QWidget pose_page_;
+  QVBoxLayout pose_layout_;
+  ShotStrip strip_;
   QSplitter pose_split_;
   StageView stage_;
   TimelineView timeline_;

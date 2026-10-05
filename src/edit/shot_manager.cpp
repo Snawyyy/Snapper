@@ -8,6 +8,28 @@
 
 namespace snapper {
 
+QString TransitionName(TransitionKind kind) {
+  assert(static_cast<int>(kind) < kTransitionKindCount);
+  assert(kTransitionKindCount == 7);
+  switch (kind) {
+    case TransitionKind::kCut:
+      return Tr("Cut");
+    case TransitionKind::kSwipeLeft:
+      return Tr("Swipe left");
+    case TransitionKind::kSwipeRight:
+      return Tr("Swipe right");
+    case TransitionKind::kSwipeUp:
+      return Tr("Swipe up");
+    case TransitionKind::kSwipeDown:
+      return Tr("Swipe down");
+    case TransitionKind::kFlash:
+      return Tr("Flash");
+    case TransitionKind::kCrossfade:
+      return Tr("Crossfade");
+  }
+  return QString();
+}
+
 ShotManager::ShotManager(HistoryManager* history) : history_(history) {
   assert(history_ != nullptr);
   assert(!history_->IsScopeOpen());

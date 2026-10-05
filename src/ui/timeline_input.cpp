@@ -128,9 +128,9 @@ void TimelineView::mouseDoubleClickEvent(QMouseEvent* event) {
   if (is_camera) {
     const CameraPose now =
         Sample(FindShot(project, shot)->camera, *frame, CameraPose());
-    Report(managers_.pose->SetCamera(shot, *frame, now));
+    Report(ProblemOf(managers_.pose->SetCamera(shot, *frame, now)));
   } else {
-    Report(managers_.pose->KeyInPlace(shot, row.layer, *frame));
+    Report(ProblemOf(managers_.pose->KeyInPlace(shot, row.layer, *frame)));
   }
 }
 
@@ -169,17 +169,19 @@ void TimelineView::KeyMenu(const TimelineRow& row, Frame frame,
   for (const EaseChoice& choice : kEases) {
     connect(ease.addAction(tr(choice.label)), &QAction::triggered, this,
             [this, choice] {
-              Report(managers_.keys->SetEase(managers_.selection->keys(),
-                                             choice.ease));
+              const auto& picked = managers_.selection->keys();
+              Report(ProblemOf(managers_.keys->SetEase(picked, choice.ease)));
             });
   }
   connect(menu.addAction(tr("Copy keys")), &QAction::triggered, this,
           [this] {
-            Report(managers_.keys->Copy(managers_.selection->keys()));
+            const auto& picked = managers_.selection->keys();
+            Report(ProblemOf(managers_.keys->Copy(picked)));
           });
   connect(menu.addAction(tr("Delete keys")), &QAction::triggered, this,
           [this] {
-            Report(managers_.keys->Remove(managers_.selection->keys()));
+            const auto& picked = managers_.selection->keys();
+            Report(ProblemOf(managers_.keys->Remove(picked)));
           });
   menu.exec(where);
 }
@@ -196,16 +198,16 @@ void TimelineView::EmptyMenu(const TimelineRow& row, Frame frame,
   paste->setEnabled(why_not.isEmpty());
   paste->setToolTip(why_not);
   connect(paste, &QAction::triggered, this, [this, shot, frame, row] {
-    Report(managers_.keys->Paste(shot, frame, row.layer));
+    Report(ProblemOf(managers_.keys->Paste(shot, frame, row.layer)));
   });
   menu.addSeparator();
   connect(menu.addAction(tr("Hold one frame longer")), &QAction::triggered,
           this, [this, row, frame] {
-            Report(managers_.keys->Retime(row.tracks, frame, 1));
+            Report(ProblemOf(managers_.keys->Retime(row.tracks, frame, 1)));
           });
   connect(menu.addAction(tr("Hold one frame shorter")), &QAction::triggered,
           this, [this, row, frame] {
-            Report(managers_.keys->Retime(row.tracks, frame, -1));
+            Report(ProblemOf(managers_.keys->Retime(row.tracks, frame, -1)));
           });
   menu.exec(where);
 }
@@ -220,12 +222,12 @@ void TimelineView::keyPressEvent(QKeyEvent* event) {
   const auto here = PlayheadHere();
   const bool can_paste_here = is_paste && here.has_value();
   if (is_delete) {
-    Report(managers_.keys->Remove(picked));
+    Report(ProblemOf(managers_.keys->Remove(picked)));
   } else if (is_copy) {
-    Report(managers_.keys->Copy(picked));
+    Report(ProblemOf(managers_.keys->Copy(picked)));
   } else if (can_paste_here) {
-    Report(managers_.keys->Paste(managers_.selection->shot(), *here,
-                                 managers_.selection->layer()));
+    Report(ProblemOf(managers_.keys->Paste(managers_.selection->shot(), *here,
+                                 managers_.selection->layer())));
   } else {
     QWidget::keyPressEvent(event);
   }
@@ -259,11 +261,5 @@ void TimelineView::Seek(Frame local) {
   }
 }
 
-void TimelineView::Report(const Result<void>& result) {
-  assert(managers_.history != nullptr);
-  const bool is_failed = !result.has_value();
-  emit Problem(is_failed ? result.error().message : QString());
-  assert(is_failed || result.has_value());
-}
 
 }  // namespace snapper

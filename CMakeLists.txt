@@ -55,6 +55,7 @@ snapper_module(edit
   LIBS Qt6::Concurrent)
 snapper_module(ui
   SOURCES file_menu.cpp main_window.cpp new_project_dialog.cpp pose_tool.cpp
+          shot_strip.cpp
           stage_view.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
           timeline_view.cpp
   MODULES edit
@@ -82,7 +83,8 @@ if(BUILD_TESTING)
                             shot_tests.cpp
                             selection_tests.cpp stage_tests.cpp
                             timeline_tests.cpp track_tests.cpp)
-  snapper_test(ui SOURCES pose_tool_tests.cpp theme_tests.cpp
+  snapper_test(ui SOURCES pose_tool_tests.cpp shot_strip_tests.cpp
+                          theme_tests.cpp
                           timeline_view_tests.cpp window_tests.cpp)
   snapper_checks()
 endif()

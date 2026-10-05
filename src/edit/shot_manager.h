@@ -12,6 +12,8 @@ namespace snapper {
 
 class HistoryManager;
 
+QString TransitionName(TransitionKind kind);
+
 // The master track: which shots there are, in what order, how long,
 // and how each hands over to the next.
 class ShotManager final {

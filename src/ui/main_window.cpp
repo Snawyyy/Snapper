@@ -38,6 +38,8 @@ MainWindow::MainWindow(const Managers& managers)
       undo_action_(tr("&Undo")),
       redo_action_(tr("&Redo")),
       center_layout_(&center_),
+      pose_layout_(&pose_page_),
+      strip_(managers),
       pose_split_(Qt::Vertical),
       stage_(managers),
       timeline_(managers),
@@ -54,7 +56,11 @@ MainWindow::MainWindow(const Managers& managers)
   pose_split_.addWidget(&timeline_);
   pose_split_.setStretchFactor(0, 3);
   pose_split_.setStretchFactor(1, 1);
-  pages_.addWidget(&pose_split_);
+  pose_layout_.setContentsMargins(0, 0, 0, 0);
+  pose_layout_.setSpacing(0);
+  pose_layout_.addWidget(&strip_);
+  pose_layout_.addWidget(&pose_split_, 1);
+  pages_.addWidget(&pose_page_);
   rig_empty_.setAlignment(Qt::AlignCenter);
   rig_empty_.setEnabled(false);
   rig_empty_.setText(tr("The rig editor goes here."));
@@ -64,6 +70,7 @@ MainWindow::MainWindow(const Managers& managers)
   };
   connect(&stage_, &StageView::Problem, this, show_problem);
   connect(&timeline_, &TimelineView::Problem, this, show_problem);
+  connect(&strip_, &ShotStrip::Problem, this, show_problem);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
           &MainWindow::FollowPlayhead);
   center_layout_.setContentsMargins(0, 0, 0, 0);
