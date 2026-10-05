@@ -1,0 +1,106 @@
+#include <QDir>
+#include <QMainWindow>
+#include <QMenu>
+#include <QMenuBar>
+#include <QPushButton>
+#include <QTemporaryDir>
+#include <QTest>
+
+#include "bench.h"
+#include "ui/main_window.h"
+#include "ui/new_project_dialog.h"
+#include "ui/theme.h"
+
+namespace snapper {
+namespace {
+
+// The menu bar action whose text starts with text, one menu deep.
+QAction* FindAction(QMainWindow* window, const QString& text) {
+  for (QAction* top : window->menuBar()->actions()) {
+    const QList<QAction*> items =
+        top->menu() != nullptr ? top->menu()->actions() : QList<QAction*>();
+    for (QAction* action : items) {
+      const bool is_match = action->text().startsWith(text);
+      if (is_match) {
+        return action;
+      }
+    }
+  }
+  return nullptr;
+}
+
+}  // namespace
+
+class WindowTests final : public QObject {
+  Q_OBJECT
+
+ private slots:
+  void TitleShowsNameDirtAndPlace();
+  void UndoSaysWhatAndWhyNot();
+  void NewProjectDialogChecksItsFields();
+  void DrawsInTheTheme();
+};
+
+void WindowTests::TitleShowsNameDirtAndPlace() {
+  Bench rig;
+  MainWindow window(rig.All());
+  QVERIFY(window.windowTitle().contains("Untitled"));
+  QVERIFY(window.windowTitle().contains("not saved yet"));
+  QVERIFY(!window.isWindowModified());
+  QVERIFY(rig.document.Rename("Teto").has_value());
+  QVERIFY(window.windowTitle().startsWith("Teto"));
+  QVERIFY(window.isWindowModified());
+  QVERIFY(rig.document.SaveAs(QDir(rig.dir.path()).filePath("t"))
+              .has_value());
+  QVERIFY(window.windowTitle().contains("t.snapper"));
+  QVERIFY(!window.isWindowModified());
+  QCOMPARE(window.mode(), MainWindow::Mode::kPose);
+}
+
+void WindowTests::UndoSaysWhatAndWhyNot() {
+  Bench rig;
+  MainWindow window(rig.All());
+  QAction* undo = FindAction(&window, "&Undo");
+  QVERIFY(undo != nullptr);
+  QVERIFY(!undo->isEnabled());
+  QCOMPARE(undo->toolTip(), QString("Nothing to undo"));
+  QVERIFY(rig.shots.Add(-1).has_value());
+  QVERIFY(undo->isEnabled());
+  QCOMPARE(undo->text(), QString("&Undo Add shot"));
+  QAction* remove_song = FindAction(&window, "Remove song");
+  QVERIFY(remove_song != nullptr && !remove_song->isEnabled());
+}
+
+void WindowTests::NewProjectDialogChecksItsFields() {
+  NewProjectDialog dialog(nullptr);
+  QVERIFY(dialog.WhyNotReady().isEmpty());
+  QCOMPARE(dialog.canvas(), (CanvasSize{1920, 1080}));
+  dialog.SetCanvas({1081, 1080});
+  QVERIFY(dialog.WhyNotReady().contains("even"));
+  auto* edit = dialog.findChild<QLineEdit*>();
+  QVERIFY(edit != nullptr);
+  edit->clear();
+  QVERIFY(dialog.WhyNotReady().contains("name"));
+  const auto buttons = dialog.findChildren<QPushButton*>();
+  const bool has_disabled_ok = std::any_of(
+      buttons.begin(), buttons.end(),
+      [](QPushButton* button) { return !button->isEnabled(); });
+  QVERIFY(has_disabled_ok);
+}
+
+void WindowTests::DrawsInTheTheme() {
+  theme::Apply(qApp);
+  Bench rig;
+  MainWindow window(rig.All());
+  window.resize(900, 600);
+  const QImage shot = window.grab().toImage();
+  // Kept beside the test binary so the look can be checked by eye.
+  shot.save(QDir(QT_TESTCASE_BUILDDIR).filePath("window.png"));
+  const QColor face = shot.pixelColor(shot.width() - 3, 3);
+  QVERIFY(face.lightness() < 90);
+}
+
+}  // namespace snapper
+
+QTEST_MAIN(snapper::WindowTests)
+#include "window_tests.moc"

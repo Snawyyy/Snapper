@@ -19,7 +19,9 @@ AppContext::AppContext(const QString& data_folder)
       presets_(&history_, QDir(data_folder).filePath("poses.json")),
       playback_(&history_),
       exporter_(&history_, &playback_),
-      window_(&history_) {
+      window_(Managers{&history_, &document_, &library_, &rig_, &shots_,
+                       &stage_, &selection_, &pose_, &keys_, &presets_,
+                       &playback_, &exporter_}) {
   assert(!data_folder.isEmpty());
   assert(!history_.IsDirty());
 }

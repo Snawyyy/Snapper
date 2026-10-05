@@ -19,5 +19,6 @@ int main(int argc, char* argv[]) {
       QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
   snapper::AppContext context(data);
   context.window()->show();
+  context.window()->Start();
   return QApplication::exec();
 }
