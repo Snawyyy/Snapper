@@ -65,6 +65,12 @@ void TimelineView::paintEvent(QPaintEvent* event) {
   PaintWave(&painter);
   PaintRows(&painter, rows);
   PaintPlayhead(&painter);
+  if (is_boxing_) {
+    painter.setPen(QPen(theme::kPick, 1.0, Qt::DashLine));
+    painter.setBrush(QColor(theme::kPick.red(), theme::kPick.green(),
+                            theme::kPick.blue(), 40));
+    painter.drawRect(QRectF(box_from_, box_to_).normalized());
+  }
 }
 
 void TimelineView::PaintRuler(QPainter* painter) const {

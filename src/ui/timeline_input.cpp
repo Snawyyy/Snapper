@@ -65,18 +65,37 @@ void TimelineView::mousePressEvent(QMouseEvent* event) {
     return;
   }
   const TimelineRow& row = rows[static_cast<size_t>(index)];
-  const bool is_layer = row.layer.IsValid();
-  if (is_layer) {
+  const bool is_shift = event->modifiers().testFlag(Qt::ShiftModifier);
+  const bool is_ctrl = event->modifiers().testFlag(Qt::ControlModifier);
+  const bool is_plain = !is_shift && !is_ctrl;
+  const bool picks_row = row.layer.IsValid() && is_plain;
+  if (picks_row) {
     managers_.selection->SelectLayer(row.layer);
   }
   const auto key = KeyNear(row, at.x());
-  const bool is_shift = event->modifiers().testFlag(Qt::ShiftModifier);
   if (!key) {
-    managers_.selection->ClearKeys();
-    Seek(*frame);
+    // Empty space starts a box over rows and frames.
+    is_boxing_ = true;
+    box_from_ = at;
+    box_to_ = at;
+    box_mode_ = is_shift  ? PickMode::kAdd
+                : is_ctrl ? PickMode::kRemove
+                          : PickMode::kReplace;
     return;
   }
-  managers_.selection->SelectKeys(RowKeysAt(project, row, *key), is_shift);
+  const auto keys = RowKeysAt(project, row, *key);
+  const auto& picked = managers_.selection->keys();
+  const bool is_picked =
+      std::includes(picked.begin(), picked.end(), keys.begin(), keys.end());
+  if (is_ctrl) {
+    managers_.selection->PickKeys(keys, PickMode::kToggle);
+    return;
+  }
+  const bool keeps = is_picked && !is_shift;
+  if (!keeps) {
+    managers_.selection->PickKeys(
+        keys, is_shift ? PickMode::kAdd : PickMode::kReplace);
+  }
   Seek(*key);
   key_drag_ = std::make_unique<EditScope>(managers_.history, tr("Move keys"));
   drag_frame_ = *key;
@@ -89,6 +108,11 @@ void TimelineView::mouseMoveEvent(QMouseEvent* event) {
   assert(frame.has_value());
   if (is_scrubbing_) {
     Seek(*frame);
+    return;
+  }
+  if (is_boxing_) {
+    box_to_ = event->position();
+    update();
     return;
   }
   const int step = frame->index() - drag_frame_.index();
@@ -110,6 +134,51 @@ void TimelineView::mouseReleaseEvent(QMouseEvent* event) {
   assert(managers_.history != nullptr);
   is_scrubbing_ = false;
   key_drag_.reset();
+  if (is_boxing_) {
+    FinishBox();
+  }
+}
+
+void TimelineView::FinishBox() {
+  assert(is_boxing_);
+  assert(managers_.selection != nullptr);
+  is_boxing_ = false;
+  const QRectF box = QRectF(box_from_, box_to_).normalized();
+  const bool is_click = box.width() < 3.0 && box.height() < 3.0;
+  if (is_click) {
+    // A plain click on empty space clears the keys and moves the
+    // playhead there.
+    const auto frame = FrameAt(box_from_.x());
+    const bool is_plain = box_mode_ == PickMode::kReplace;
+    if (is_plain) {
+      managers_.selection->ClearKeys();
+    }
+    if (frame) {
+      Seek(*frame);
+    }
+    update();
+    return;
+  }
+  const Project& project = managers_.history->current();
+  const auto rows = TimelineRows(project, managers_.selection->shot());
+  const auto first = FrameAt(std::max<double>(box.left(), kNameWidth));
+  const auto last = FrameAt(std::max<double>(box.right(), kNameWidth));
+  std::set<KeyRef> caught;
+  for (size_t i = 0; i < rows.size(); ++i) {
+    const double top =
+        kRulerHeight + kWaveHeight + static_cast<double>(i) * kRowHeight;
+    const bool is_row_in =
+        box.intersects(QRectF(0, top, width(), kRowHeight));
+    for (const Frame key : rows[i].keys) {
+      const bool is_in = is_row_in && first && last && !(key < *first) &&
+                         !(*last < key);
+      if (is_in) {
+        caught.merge(RowKeysAt(project, rows[i], key));
+      }
+    }
+  }
+  managers_.selection->PickKeys(caught, box_mode_);
+  update();
 }
 
 void TimelineView::mouseDoubleClickEvent(QMouseEvent* event) {
@@ -218,6 +287,19 @@ void TimelineView::keyPressEvent(QKeyEvent* event) {
   const bool is_delete = event->key() == Qt::Key_Delete ||
                          event->key() == Qt::Key_Backspace;
   const bool is_copy = event->matches(QKeySequence::Copy);
+  const bool is_all = event->matches(QKeySequence::SelectAll);
+  if (is_all) {
+    const Project& project = managers_.history->current();
+    std::set<KeyRef> all;
+    for (const TimelineRow& row :
+         TimelineRows(project, managers_.selection->shot())) {
+      for (const Frame key : row.keys) {
+        all.merge(RowKeysAt(project, row, key));
+      }
+    }
+    managers_.selection->PickKeys(all, PickMode::kReplace);
+    return;
+  }
   const bool is_paste = event->matches(QKeySequence::Paste);
   const auto here = PlayheadHere();
   const bool can_paste_here = is_paste && here.has_value();

@@ -50,6 +50,7 @@ class TimelineViewTests final : public QObject {
   void DoubleClickKeysThePose();
   void DeleteRemovesPickedKeys();
   void RulerClickSeeks();
+  void BoxShiftAndCtrlPickKeys();
 };
 
 void TimelineViewTests::FramesMapToPixels() {
@@ -104,6 +105,31 @@ void TimelineViewTests::RulerClickSeeks() {
   const QPoint ruler(Cell(view, 9).x(), kRulerHeight / 2);
   QTest::mouseClick(&view, Qt::LeftButton, {}, ruler);
   QCOMPARE(bench.playback.frame(), Frame(9));
+}
+
+void TimelineViewTests::BoxShiftAndCtrlPickKeys() {
+  Bench bench;
+  Stage(&bench);
+  QVERIFY(bench.pose.KeyInPlace(kShot, LayerId(1), Frame(10)).has_value());
+  TimelineView view(bench.All());
+  view.resize(800, 200);
+  const QPoint from = Cell(view, 1) + QPoint(0, -5);
+  const QPoint to = Cell(view, 12) + QPoint(0, 5);
+  QTest::mousePress(&view, Qt::LeftButton, {}, from);
+  QTest::mouseMove(&view, to);
+  QTest::mouseRelease(&view, Qt::LeftButton, {}, to);
+  // Two frames, each keying the head and the layer's own move.
+  QCOMPARE(bench.selection.keys().size(), size_t{4});
+  QTest::mouseClick(&view, Qt::LeftButton, Qt::ControlModifier,
+                    Cell(view, 10));
+  QCOMPARE(bench.selection.keys().size(), size_t{2});
+  QTest::mouseClick(&view, Qt::LeftButton, Qt::ShiftModifier,
+                    Cell(view, 10));
+  QCOMPARE(bench.selection.keys().size(), size_t{4});
+  QTest::mouseClick(&view, Qt::LeftButton, {}, Cell(view, 20));
+  QVERIFY(bench.selection.keys().empty());
+  QTest::keyClick(&view, Qt::Key_A, Qt::ControlModifier);
+  QCOMPARE(bench.selection.keys().size(), size_t{4});
 }
 
 }  // namespace snapper

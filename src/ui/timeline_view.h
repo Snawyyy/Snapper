@@ -10,6 +10,7 @@
 
 #include "base/frame.h"
 #include "edit/edit_scope.h"
+#include "edit/selection_manager.h"
 #include "edit/timeline_rows.h"
 #include "ui/managers.h"
 #include "ui/problem.h"
@@ -67,6 +68,13 @@ class TimelineView final : public QWidget {
   double frame_width_;
   double scroll_ = 0.0;
   bool is_scrubbing_ = false;
+  void FinishBox();
+
+  // A box being drawn over keys, and how it combines with the pick.
+  bool is_boxing_ = false;
+  QPointF box_from_;
+  QPointF box_to_;
+  PickMode box_mode_ = PickMode::kReplace;
   std::unique_ptr<EditScope> key_drag_;
   Frame drag_frame_;
 };
