@@ -13,6 +13,7 @@ constexpr int kMaxDollPieces = 128;
 constexpr int kMaxPieceDrawings = 64;
 constexpr int kMaxIkChains = 32;
 constexpr int kMaxWarpCells = 8;
+constexpr int kMaxWarpPoints = (kMaxWarpCells + 1) * (kMaxWarpCells + 1);
 
 // One piece as Krita drew it. Doll space has its origin at the middle
 // of the Krita canvas, y down, in pixels.

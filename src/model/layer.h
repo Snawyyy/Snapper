@@ -14,6 +14,9 @@
 
 namespace snapper {
 
+// A doll's pieces plus room for keys left by pieces renamed in Krita.
+constexpr int kMaxPieceTracks = 256;
+
 struct LayerTag;
 using LayerId = Id<LayerTag>;
 

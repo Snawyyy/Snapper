@@ -29,17 +29,19 @@ function(snapper_module name)
   set_property(GLOBAL APPEND PROPERTY SNAPPER_LAYERS "${name}=${joined}")
 endfunction()
 
-# snapper_test(<module> SOURCES ...) builds tests/<module> into one test.
+# snapper_test(<module> SOURCES ...) builds each tests/<module>/<name>.cpp
+# into its own test program, linked against the module.
 function(snapper_test module)
   cmake_parse_arguments(ARG "" "" "SOURCES" ${ARGN})
-  set(target ${module}_tests)
-  list(TRANSFORM ARG_SOURCES PREPEND ${PROJECT_SOURCE_DIR}/tests/${module}/)
-  add_executable(${target} ${ARG_SOURCES})
-  target_link_libraries(${target} PRIVATE snapper_${module} Qt6::Test)
-  snapper_warnings(${target})
-  add_test(NAME ${target} COMMAND ${target})
-  set_tests_properties(${target} PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+  foreach(source IN LISTS ARG_SOURCES)
+    get_filename_component(target ${source} NAME_WE)
+    add_executable(${target} ${PROJECT_SOURCE_DIR}/tests/${module}/${source})
+    target_link_libraries(${target} PRIVATE snapper_${module} Qt6::Test)
+    snapper_warnings(${target})
+    add_test(NAME ${target} COMMAND ${target})
+    set_tests_properties(${target} PROPERTIES
+      ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+  endforeach()
 endfunction()
 
 # Writes the declared module graph and adds the checks that read it.

@@ -21,6 +21,10 @@ snapper_module(model
   SOURCES doll.cpp layer.cpp project.cpp shot.cpp
   MODULES base
   LIBS Qt6::Gui)
+snapper_module(anim
+  SOURCES doll_pose.cpp ik.cpp master_timeline.cpp mirror.cpp presets.cpp
+          sampler.cpp warp.cpp
+  MODULES model)
 snapper_module(edit
   SOURCES history_manager.cpp edit_scope.cpp
   MODULES model)
@@ -38,6 +42,7 @@ set_target_properties(snapper PROPERTIES WIN32_EXECUTABLE TRUE)
 if(BUILD_TESTING)
   snapper_test(base SOURCES base_tests.cpp)
   snapper_test(model SOURCES model_tests.cpp)
+  snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp)
   snapper_test(edit SOURCES history_tests.cpp)
   snapper_checks()
 endif()
