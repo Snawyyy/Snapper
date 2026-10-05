@@ -6,6 +6,7 @@
 
 #include <deque>
 
+#include "base/error.h"
 #include "model/project.h"
 
 namespace snapper {
@@ -27,6 +28,10 @@ class HistoryManager final : public QObject {
   // Makes next the project as one undo step named label ("Rotate
   // head"). An edit that changes nothing records nothing.
   void Commit(const QString& label, Project next);
+  // What every manager calls: lands next as one step, or, while a drag
+  // is open, as that drag's live preview. A failed edit changes
+  // nothing and hands its error back.
+  Result<void> Apply(const QString& label, Result<Project> next);
   void Undo();
   void Redo();
   // Starts over with start, as opening a file does: no undo across it.

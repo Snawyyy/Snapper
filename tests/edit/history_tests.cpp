@@ -31,6 +31,7 @@ class HistoryTests final : public QObject {
   void CancelledDragPutsTheStartBack();
   void UndoIsBlockedDuringADrag();
   void ResetForgetsHistory();
+  void ApplyCommitsOrPreviews();
 };
 
 void HistoryTests::StartsCleanWithNothingToUndo() {
@@ -162,6 +163,25 @@ void HistoryTests::ResetForgetsHistory() {
   QCOMPARE(history.current().name, QString("opened"));
   QVERIFY(!history.CanUndo());
   QVERIFY(!history.IsDirty());
+}
+
+void HistoryTests::ApplyCommitsOrPreviews() {
+  HistoryManager history(Named("a"));
+  QVERIFY(history.Apply("Rename", Named("b")).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Rename"));
+  const auto refused =
+      history.Apply("Rename", std::unexpected(Error{"no such shot"}));
+  QCOMPARE(refused.error().message, QString("no such shot"));
+  QCOMPARE(history.current().name, QString("b"));
+  {
+    EditScope drag(&history, "Drag");
+    QVERIFY(history.Apply("Move", Named("c")).has_value());
+    QVERIFY(history.Apply("Move", Named("d")).has_value());
+  }
+  QCOMPARE(history.current().name, QString("d"));
+  QCOMPARE(history.UndoLabel(), QString("Drag"));
+  history.Undo();
+  QCOMPARE(history.current().name, QString("b"));
 }
 
 }  // namespace snapper

@@ -24,6 +24,21 @@ void HistoryManager::Commit(const QString& label, Project next) {
   emit Changed();
 }
 
+Result<void> HistoryManager::Apply(const QString& label,
+                                   Result<Project> next) {
+  assert(!label.isEmpty());
+  assert(undo_.size() <= static_cast<size_t>(kMaxUndoSteps));
+  if (!next) {
+    return std::unexpected(next.error());
+  }
+  if (is_scope_open_) {
+    PreviewScope(std::move(*next));
+  } else {
+    Commit(label, std::move(*next));
+  }
+  return {};
+}
+
 void HistoryManager::Undo() {
   assert(undo_.size() <= static_cast<size_t>(kMaxUndoSteps));
   assert(redo_.size() <= static_cast<size_t>(kMaxUndoSteps));
