@@ -42,6 +42,10 @@ class PoseManager final {
   // Effect amount tracks, 0 to 1.
   Result<void> SetAmount(const TrackRef& track, Frame frame, double amount);
 
+  // Keys the layer at frame exactly as it looks there (a whole doll for
+  // a doll layer), to mark a pose before changing it.
+  Result<void> KeyInPlace(ShotId shot, LayerId layer, Frame frame);
+
   // Bends chain on a doll layer so its tip reaches target (doll space).
   Result<void> DragIk(ShotId shot, LayerId layer, const QString& chain,
                       Frame frame, QPointF target);

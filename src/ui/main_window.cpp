@@ -8,8 +8,10 @@
 #include <cassert>
 
 #include "edit/document_manager.h"
+#include "anim/master_timeline.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
+#include "edit/selection_manager.h"
 
 namespace snapper {
 namespace {
@@ -36,7 +38,9 @@ MainWindow::MainWindow(const Managers& managers)
       undo_action_(tr("&Undo")),
       redo_action_(tr("&Redo")),
       center_layout_(&center_),
+      pose_split_(Qt::Vertical),
       stage_(managers),
+      timeline_(managers),
       play_menu_(tr("&Play")),
       play_action_(tr("&Play / pause")),
       next_action_(tr("&Next frame")),
@@ -46,14 +50,22 @@ MainWindow::MainWindow(const Managers& managers)
   modes_.addTab(tr("Pose"));
   modes_.addTab(tr("Rig"));
   modes_.setExpanding(false);
-  pages_.addWidget(&stage_);
+  pose_split_.addWidget(&stage_);
+  pose_split_.addWidget(&timeline_);
+  pose_split_.setStretchFactor(0, 3);
+  pose_split_.setStretchFactor(1, 1);
+  pages_.addWidget(&pose_split_);
   rig_empty_.setAlignment(Qt::AlignCenter);
   rig_empty_.setEnabled(false);
   rig_empty_.setText(tr("The rig editor goes here."));
   pages_.addWidget(&rig_empty_);
-  connect(&stage_, &StageView::Problem, this, [this](const QString& why) {
+  const auto show_problem = [this](const QString& why) {
     statusBar()->showMessage(why, kStatusMs);
-  });
+  };
+  connect(&stage_, &StageView::Problem, this, show_problem);
+  connect(&timeline_, &TimelineView::Problem, this, show_problem);
+  connect(managers_.playback, &PlaybackManager::FrameChanged, this,
+          &MainWindow::FollowPlayhead);
   center_layout_.setContentsMargins(0, 0, 0, 0);
   center_layout_.setSpacing(0);
   center_layout_.addWidget(&modes_);
@@ -80,6 +92,18 @@ void MainWindow::Start() {
   assert(isVisible());
   assert(managers_.IsComplete());
   file_menu_.OfferRecovery();
+}
+
+void MainWindow::FollowPlayhead() {
+  assert(managers_.playback != nullptr);
+  assert(managers_.selection != nullptr);
+  const Project& project = managers_.history->current();
+  const ShotMoment moment = Locate(project, managers_.playback->frame());
+  const bool is_on_shot = moment.shot >= 0;
+  if (is_on_shot) {
+    managers_.selection->SelectShot(
+        project.shots[static_cast<size_t>(moment.shot)]->id);
+  }
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {

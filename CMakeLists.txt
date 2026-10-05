@@ -50,12 +50,13 @@ snapper_module(edit
           preset_manager.cpp saved_poses.cpp
           project_edits.cpp rig_manager.cpp
           selection_manager.cpp shot_manager.cpp stage_manager.cpp
-          stage_settings.cpp
+          stage_settings.cpp timeline_rows.cpp
   MODULES io media render
   LIBS Qt6::Concurrent)
 snapper_module(ui
   SOURCES file_menu.cpp main_window.cpp new_project_dialog.cpp pose_tool.cpp
-          stage_view.cpp theme.cpp
+          stage_view.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
+          timeline_view.cpp
   MODULES edit
   LIBS Qt6::Widgets)
 
@@ -80,8 +81,8 @@ if(BUILD_TESTING)
                             rig_tests.cpp
                             shot_tests.cpp
                             selection_tests.cpp stage_tests.cpp
-                            track_tests.cpp)
+                            timeline_tests.cpp track_tests.cpp)
   snapper_test(ui SOURCES pose_tool_tests.cpp theme_tests.cpp
-                          window_tests.cpp)
+                          timeline_view_tests.cpp window_tests.cpp)
   snapper_checks()
 endif()

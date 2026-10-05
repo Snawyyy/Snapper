@@ -5,6 +5,7 @@
 #include <QLabel>
 #include <QMainWindow>
 #include <QMenu>
+#include <QSplitter>
 #include <QStackedWidget>
 #include <QTabBar>
 #include <QVBoxLayout>
@@ -13,6 +14,7 @@
 #include "ui/file_menu.h"
 #include "ui/managers.h"
 #include "ui/stage_view.h"
+#include "ui/timeline_view.h"
 
 namespace snapper {
 
@@ -38,6 +40,8 @@ class MainWindow final : public QMainWindow {
   void BuildMenus();
   // Pulls title, undo and redo state from the history.
   void Refresh();
+  // Keeps the picked shot on the one under the playhead.
+  void FollowPlayhead();
 
   Managers managers_;
   FileMenu file_menu_;
@@ -48,7 +52,11 @@ class MainWindow final : public QMainWindow {
   QVBoxLayout center_layout_;
   QTabBar modes_;
   QStackedWidget pages_;
+  // Holds the stage over the timeline; declared before them so they
+  // leave it before it goes.
+  QSplitter pose_split_;
   StageView stage_;
+  TimelineView timeline_;
   // Shown on the Rig tab until the rig editor arrives.
   QLabel rig_empty_;
   QMenu play_menu_;

@@ -34,6 +34,10 @@ Result<AudioClip> DecodeAudio(const QString& path);
 // drawing a waveform.
 std::vector<float> Peaks(const AudioClip& clip, int count);
 
+// The loudest sample (0 to 1) between two times in seconds; 0 outside
+// the clip. The timeline's waveform reads one per pixel column.
+float PeakBetween(const AudioClip& clip, double from, double to);
+
 // The part from start for length seconds, silent where the clip has
 // nothing, so a range past the song's end still has its full length.
 AudioClip Slice(const AudioClip& clip, double start, double length);

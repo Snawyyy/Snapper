@@ -143,6 +143,10 @@ void MediaTests::PeaksFollowLoudness() {
   QCOMPARE(peaks[0], 0.2f);
   QCOMPARE(peaks[1], 1.0f);
   QCOMPARE(Peaks(AudioClip(), 3), std::vector<float>(3, 0.0f));
+  const double frame = 1.0 / kAudioRate;
+  QCOMPARE(PeakBetween(clip, 0.0, 2 * frame), 0.2f);
+  QCOMPARE(PeakBetween(clip, 2 * frame, 4 * frame), 1.0f);
+  QCOMPARE(PeakBetween(clip, 9.0, 10.0), 0.0f);
 }
 
 void MediaTests::SlicesPadWithSilence() {

@@ -181,6 +181,22 @@ std::vector<float> Peaks(const AudioClip& clip, int count) {
   return peaks;
 }
 
+float PeakBetween(const AudioClip& clip, double from, double to) {
+  assert(std::isfinite(from) && std::isfinite(to));
+  assert(clip.samples.size() <= kMaxSamples);
+  const auto frames = static_cast<std::int64_t>(clip.FrameCount());
+  const auto first = std::clamp<std::int64_t>(
+      static_cast<std::int64_t>(std::floor(from * kAudioRate)), 0, frames);
+  const auto last = std::clamp<std::int64_t>(
+      static_cast<std::int64_t>(std::ceil(to * kAudioRate)), first, frames);
+  float peak = 0.0f;
+  for (std::int64_t i = first * kAudioChannels; i < last * kAudioChannels;
+       ++i) {
+    peak = std::max(peak, std::abs(clip.samples[static_cast<size_t>(i)]));
+  }
+  return std::min(peak, 1.0f);
+}
+
 AudioClip Slice(const AudioClip& clip, double start, double length) {
   assert(std::isfinite(start) && std::isfinite(length));
   assert(length >= 0.0 && length <= kMaxAudioSeconds);

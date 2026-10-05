@@ -177,6 +177,18 @@ Result<void> PoseManager::Warp(const TrackRef& track, Frame frame, int point,
               }));
 }
 
+Result<void> PoseManager::KeyInPlace(ShotId shot, LayerId layer,
+                                     Frame frame) {
+  assert(history_ != nullptr);
+  assert(frame.index() >= 0);
+  const TrackRef track{shot, TrackKind::kLayer, layer, {}};
+  return history_->Apply(Tr("Add key"),
+                         KeyedAt(history_->current(), track, frame,
+                                 PiecePose(), [](PiecePose*) {
+                                   return Result<void>();
+                                 }));
+}
+
 Result<void> PoseManager::SetCamera(ShotId shot, Frame frame,
                                     CameraPose camera) {
   assert(history_ != nullptr);
