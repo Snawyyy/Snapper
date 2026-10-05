@@ -9,6 +9,7 @@
 
 #include "edit/document_manager.h"
 #include "edit/history_manager.h"
+#include "edit/playback_manager.h"
 
 namespace snapper {
 namespace {
@@ -34,19 +35,25 @@ MainWindow::MainWindow(const Managers& managers)
       edit_menu_(tr("&Edit")),
       undo_action_(tr("&Undo")),
       redo_action_(tr("&Redo")),
-      center_layout_(&center_) {
+      center_layout_(&center_),
+      stage_(managers),
+      play_menu_(tr("&Play")),
+      play_action_(tr("&Play / pause")),
+      next_action_(tr("&Next frame")),
+      back_action_(tr("Pre&vious frame")) {
   assert(managers_.IsComplete());
   BuildMenus();
   modes_.addTab(tr("Pose"));
   modes_.addTab(tr("Rig"));
   modes_.setExpanding(false);
-  for (QLabel* empty : {&pose_empty_, &rig_empty_}) {
-    empty->setAlignment(Qt::AlignCenter);
-    empty->setEnabled(false);
-    pages_.addWidget(empty);
-  }
-  pose_empty_.setText(tr("The stage goes here."));
+  pages_.addWidget(&stage_);
+  rig_empty_.setAlignment(Qt::AlignCenter);
+  rig_empty_.setEnabled(false);
   rig_empty_.setText(tr("The rig editor goes here."));
+  pages_.addWidget(&rig_empty_);
+  connect(&stage_, &StageView::Problem, this, [this](const QString& why) {
+    statusBar()->showMessage(why, kStatusMs);
+  });
   center_layout_.setContentsMargins(0, 0, 0, 0);
   center_layout_.setSpacing(0);
   center_layout_.addWidget(&modes_);
@@ -95,8 +102,20 @@ void MainWindow::BuildMenus() {
   edit_menu_.addAction(&redo_action_);
   // Disabled actions still show why on hover.
   edit_menu_.setToolTipsVisible(true);
+  play_action_.setShortcut(Qt::Key_Space);
+  next_action_.setShortcuts({Qt::Key_Right, Qt::Key_Period});
+  back_action_.setShortcuts({Qt::Key_Left, Qt::Key_Comma});
+  play_menu_.addActions({&play_action_, &next_action_, &back_action_});
   menuBar()->addMenu(file_menu_.menu());
   menuBar()->addMenu(&edit_menu_);
+  menuBar()->addMenu(&play_menu_);
+  PlaybackManager* playback = managers_.playback;
+  connect(&play_action_, &QAction::triggered, playback,
+          &PlaybackManager::Toggle);
+  connect(&next_action_, &QAction::triggered, playback,
+          [playback] { playback->Step(1); });
+  connect(&back_action_, &QAction::triggered, playback,
+          [playback] { playback->Step(-1); });
   connect(&undo_action_, &QAction::triggered, managers_.history,
           &HistoryManager::Undo);
   connect(&redo_action_, &QAction::triggered, managers_.history,

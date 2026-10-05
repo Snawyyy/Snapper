@@ -40,7 +40,7 @@ snapper_module(media
   LIBS Qt6::Gui Qt6::Multimedia PkgConfig::FFMPEG)
 snapper_module(render
   SOURCES effects.cpp frame_renderer.cpp image_cache.cpp layer_painter.cpp
-          stage_hit.cpp warp_raster.cpp
+          stage_geometry.cpp stage_hit.cpp warp_raster.cpp
   MODULES anim)
 snapper_module(edit
   SOURCES doll_library_manager.cpp document_manager.cpp edit_scope.cpp
@@ -54,7 +54,8 @@ snapper_module(edit
   MODULES io media render
   LIBS Qt6::Concurrent)
 snapper_module(ui
-  SOURCES file_menu.cpp main_window.cpp new_project_dialog.cpp theme.cpp
+  SOURCES file_menu.cpp main_window.cpp new_project_dialog.cpp pose_tool.cpp
+          stage_view.cpp theme.cpp
   MODULES edit
   LIBS Qt6::Widgets)
 
@@ -80,6 +81,7 @@ if(BUILD_TESTING)
                             shot_tests.cpp
                             selection_tests.cpp stage_tests.cpp
                             track_tests.cpp)
-  snapper_test(ui SOURCES theme_tests.cpp window_tests.cpp)
+  snapper_test(ui SOURCES pose_tool_tests.cpp theme_tests.cpp
+                          window_tests.cpp)
   snapper_checks()
 endif()

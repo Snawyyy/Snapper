@@ -12,6 +12,7 @@
 
 #include "ui/file_menu.h"
 #include "ui/managers.h"
+#include "ui/stage_view.h"
 
 namespace snapper {
 
@@ -47,9 +48,13 @@ class MainWindow final : public QMainWindow {
   QVBoxLayout center_layout_;
   QTabBar modes_;
   QStackedWidget pages_;
-  // Shown on a mode until its page arrives.
-  QLabel pose_empty_;
+  StageView stage_;
+  // Shown on the Rig tab until the rig editor arrives.
   QLabel rig_empty_;
+  QMenu play_menu_;
+  QAction play_action_;
+  QAction next_action_;
+  QAction back_action_;
 };
 
 }  // namespace snapper

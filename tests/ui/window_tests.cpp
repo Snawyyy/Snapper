@@ -91,12 +91,31 @@ void WindowTests::NewProjectDialogChecksItsFields() {
 void WindowTests::DrawsInTheTheme() {
   theme::Apply(qApp);
   Bench rig;
+  QImage red(200, 300, QImage::Format_ARGB32);
+  red.fill(QColor(220, 60, 90));
+  QVERIFY(red.save(QDir(rig.dir.path()).filePath("body.png")));
+  Doll doll;
+  doll.folder = rig.dir.path();
+  doll.art.pieces = {{"body", {"body.png"}, 0, {-100, -150}, {200, 300}}};
+  doll.rig.pieces = {{"body", "", {100, 20}, 0, -1, {}}};
+  Layer layer;
+  layer.id = LayerId(1);
+  layer.content = DollLayer{"Dot", {}, false};
+  Shot shot;
+  shot.id = ShotId(1);
+  shot.layers = {layer};
+  Project project;
+  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
+  project.shots = {std::make_shared<const Shot>(shot)};
+  rig.history.Reset(project);
+  rig.selection.SelectLayer(LayerId(1));
+  rig.selection.SelectPieces({"body"}, false);
   MainWindow window(rig.All());
   window.resize(900, 600);
-  const QImage shot = window.grab().toImage();
+  const QImage picture = window.grab().toImage();
   // Kept beside the test binary so the look can be checked by eye.
-  shot.save(QDir(QT_TESTCASE_BUILDDIR).filePath("window.png"));
-  const QColor face = shot.pixelColor(shot.width() - 3, 3);
+  picture.save(QDir(QT_TESTCASE_BUILDDIR).filePath("window.png"));
+  const QColor face = picture.pixelColor(picture.width() - 3, 3);
   QVERIFY(face.lightness() < 90);
 }
 
