@@ -251,6 +251,28 @@ Result<void> PoseManager::SetCamera(ShotId shot, Frame frame,
               }));
 }
 
+Result<void> PoseManager::ShiftAmounts(const std::vector<TrackRef>& tracks,
+                                       Frame frame, double delta) {
+  assert(history_ != nullptr);
+  assert(frame.index() >= 0);
+  const bool is_usable = std::isfinite(delta) && !tracks.empty();
+  if (!is_usable) {
+    return std::unexpected(Error{Tr("Pick an effect first.")});
+  }
+  Project next = history_->current();
+  for (const TrackRef& track : tracks) {
+    auto shifted = KeyedAt(next, track, frame, 1.0, [delta](double* amount) {
+      *amount = std::clamp(*amount + delta, 0.0, 1.0);
+      return Result<void>();
+    });
+    if (!shifted) {
+      return std::unexpected(shifted.error());
+    }
+    next = std::move(*shifted);
+  }
+  return history_->Apply(Tr("Effect strength"), std::move(next));
+}
+
 Result<void> PoseManager::SetAmount(const TrackRef& track, Frame frame,
                                     double amount) {
   assert(history_ != nullptr);

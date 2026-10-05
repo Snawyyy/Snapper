@@ -88,13 +88,18 @@ void LayerBox::CommitName() {
 void LayerBox::CommitTiming() {
   assert(managers_.stage != nullptr);
   const Layer* layer = Picked();
-  const bool is_changed =
-      layer != nullptr && (layer->start.index() != start_.value() ||
-                           layer->length.index() != length_.value());
+  const bool has_layer = layer != nullptr;
+  if (!has_layer) {
+    return;
+  }
+  // The fields show the focused layer; the change is added to each.
+  const int start_delta = start_.value() - layer->start.index();
+  const int length_delta = length_.value() - layer->length.index();
+  const bool is_changed = start_delta != 0 || length_delta != 0;
   if (is_changed) {
-    emit Problem(ProblemOf(managers_.stage->SetRange(
-        managers_.selection->shot(), layer->id, Frame(start_.value()),
-        Frame(length_.value()))));
+    emit Problem(ProblemOf(managers_.stage->ShiftTiming(
+        managers_.selection->shot(), managers_.selection->PickedLayers(),
+        start_delta, length_delta)));
   }
 }
 
@@ -107,17 +112,30 @@ void LayerBox::CommitText() {
   if (!is_text) {
     return;
   }
-  TextLayer text = *old;
-  text.text = words_.toPlainText();
-  text.size = size_.value();
-  text.is_bold = bold_.isChecked();
-  text.fill = QColor::fromString(fill_.text());
-  text.outline = QColor::fromString(outline_.text());
-  text.outline_width = outline_width_.value();
-  const bool is_changed = !(text == *old);
-  if (is_changed) {
-    emit Problem(ProblemOf(managers_.stage->SetText(
-        managers_.selection->shot(), layer->id, text)));
+  const ShotId shot = managers_.selection->shot();
+  const auto picked = managers_.selection->PickedLayers();
+  // Words belong to the focused layer alone.
+  const bool is_reworded = old->text != words_.toPlainText();
+  if (is_reworded) {
+    TextLayer text = *old;
+    text.text = words_.toPlainText();
+    emit Problem(
+        ProblemOf(managers_.stage->SetText(shot, layer->id, text)));
+  }
+  const double size_delta = size_.value() - old->size;
+  const double outline_delta = outline_width_.value() - old->outline_width;
+  const bool is_resized = size_delta != 0.0 || outline_delta != 0.0;
+  if (is_resized) {
+    emit Problem(ProblemOf(managers_.stage->ShiftText(
+        shot, picked, size_delta, outline_delta)));
+  }
+  const QColor fill = QColor::fromString(fill_.text());
+  const QColor outline = QColor::fromString(outline_.text());
+  const bool is_restyled = bold_.isChecked() != old->is_bold ||
+                           fill != old->fill || outline != old->outline;
+  if (is_restyled) {
+    emit Problem(ProblemOf(managers_.stage->StyleText(
+        shot, picked, bold_.isChecked(), fill, outline)));
   }
 }
 
@@ -128,8 +146,8 @@ void LayerBox::CommitEffect() {
   if (!has_layer) {
     return;
   }
-  emit Problem(ProblemOf(managers_.stage->SetEffect(
-      managers_.selection->shot(), layer->id,
+  emit Problem(ProblemOf(managers_.stage->SetEffectAll(
+      managers_.selection->shot(), managers_.selection->PickedLayers(),
       static_cast<EffectKind>(effect_.currentIndex()),
       QColor::fromString(effect_colour_.text()))));
 }
@@ -137,16 +155,30 @@ void LayerBox::CommitEffect() {
 void LayerBox::CommitStrength() {
   assert(managers_.pose != nullptr);
   const Layer* layer = Picked();
+  const auto* effect =
+      layer != nullptr ? std::get_if<EffectLayer>(&layer->content) : nullptr;
   const auto spot = SpotOf(managers_);
-  const bool is_ready = layer != nullptr && spot.has_value() &&
+  const bool is_ready = effect != nullptr && spot.has_value() &&
                         spot->shot == managers_.selection->shot();
   if (!is_ready) {
     emit Problem(tr("Move the playhead onto this shot to key strength."));
     return;
   }
-  const TrackRef track{spot->shot, TrackKind::kEffectAmount, layer->id, {}};
-  emit Problem(ProblemOf(
-      managers_.pose->SetAmount(track, spot->local, strength_.value())));
+  const Shot* shot = FindShot(managers_.history->current(), spot->shot);
+  std::vector<TrackRef> tracks;
+  for (const LayerId id : managers_.selection->PickedLayers()) {
+    const Layer* picked = shot != nullptr ? FindLayer(*shot, id) : nullptr;
+    const bool is_effect =
+        picked != nullptr &&
+        std::holds_alternative<EffectLayer>(picked->content);
+    if (is_effect) {
+      tracks.push_back({spot->shot, TrackKind::kEffectAmount, id, {}});
+    }
+  }
+  const double delta =
+      strength_.value() - Sample(effect->amount, spot->local, 1.0);
+  emit Problem(
+      ProblemOf(managers_.pose->ShiftAmounts(tracks, spot->local, delta)));
 }
 
 }  // namespace snapper

@@ -32,6 +32,7 @@ class StageTests final : public QObject {
   void RefusesWhatCantBeShown();
   void DuplicateMoveAndRemove();
   void SettingsFitTheirKind();
+  void ManyLayersChangeTogether();
 };
 
 void StageTests::AddsEveryKindOnTop() {
@@ -111,6 +112,38 @@ void StageTests::SettingsFitTheirKind() {
   QVERIFY(std::get<DollLayer>(layer.content).is_flipped);
   QCOMPARE(std::get<TextLayer>(TheShot(history).layers[1].content).text,
            QString("Bye"));
+}
+
+void StageTests::ManyLayersChangeTogether() {
+  HistoryManager history(OneShot());
+  StageManager stage(&history);
+  const ShotId shot(1);
+  const LayerId a = *stage.AddText(shot, "A");
+  const LayerId b = *stage.AddText(shot, "B");
+  const LayerId c = *stage.AddText(shot, "C");
+  QVERIFY(stage.SetRange(shot, a, Frame(10), Frame(5)).has_value());
+  QVERIFY(stage.ShiftTiming(shot, {a, b}, 4, 2).has_value());
+  const auto& layers = [&history]() -> const std::vector<Layer>& {
+    return history.current().shots[0]->layers;
+  };
+  QCOMPARE(layers()[0].start, Frame(14));
+  QCOMPARE(layers()[1].start, Frame(4));
+  QCOMPARE(layers()[1].length, Frame(2));
+  QVERIFY(stage.ShiftText(shot, {a, c}, 4.0, -100.0).has_value());
+  QCOMPARE(std::get<TextLayer>(layers()[2].content).size, 100.0);
+  QCOMPARE(std::get<TextLayer>(layers()[2].content).outline_width, 0.0);
+  QVERIFY(stage.ShowAll(shot, {a, b}, false).has_value());
+  QVERIFY(!layers()[0].is_visible && !layers()[1].is_visible);
+  QVERIFY(stage.Restack(shot, {a, b}, 1).has_value());
+  QCOMPARE(layers()[0].id, c);
+  QCOMPARE(layers()[1].id, a);
+  QVERIFY(stage.RemoveAll(shot, {a, c}).has_value());
+  QCOMPARE(layers().size(), size_t{1});
+  QVERIFY(!stage.ShowAll(shot, {LayerId(99)}, true).has_value());
+  const auto copies = stage.DuplicateAll(shot, {b});
+  QVERIFY(copies.has_value());
+  QCOMPARE(layers().size(), size_t{2});
+  QCOMPARE(history.UndoLabel(), QString("Duplicate layers"));
 }
 
 }  // namespace snapper

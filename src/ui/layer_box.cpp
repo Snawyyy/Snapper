@@ -71,8 +71,9 @@ void LayerBox::Wire() {
              [this] { CommitTiming(); });
   }
   connect(&flip_, &QCheckBox::clicked, this, [this](bool is_on) {
-    emit Problem(ProblemOf(managers_.stage->SetFlipped(
-        managers_.selection->shot(), managers_.selection->layer(), is_on)));
+    emit Problem(ProblemOf(managers_.stage->FlipAll(
+        managers_.selection->shot(), managers_.selection->PickedLayers(),
+        is_on)));
   });
   for (QDoubleSpinBox* box : {&size_, &outline_width_}) {
     MakeLive(box, &live_, tr("Edit text"), this, [this] { CommitText(); });

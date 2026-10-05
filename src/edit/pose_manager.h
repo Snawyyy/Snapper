@@ -57,6 +57,9 @@ class PoseManager final {
   Result<void> SetCamera(ShotId shot, Frame frame, CameraPose camera);
   // Effect amount tracks, 0 to 1.
   Result<void> SetAmount(const TrackRef& track, Frame frame, double amount);
+  // Adds delta to every effect strength at frame, kept 0 to 1.
+  Result<void> ShiftAmounts(const std::vector<TrackRef>& tracks, Frame frame,
+                            double delta);
 
   // Keys the layer at frame exactly as it looks there (a whole doll for
   // a doll layer), to mark a pose before changing it.

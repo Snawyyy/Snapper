@@ -53,7 +53,8 @@ void CastPanel::BuildLayout() {
   layout_.addWidget(&layers_title_);
   layout_.addWidget(&layers_, 2);
   layout_.addLayout(&layer_buttons_);
-  layers_.setSelectionMode(QAbstractItemView::SingleSelection);
+  // Shift picks a run, Ctrl adds or drops one, as in any list.
+  layers_.setSelectionMode(QAbstractItemView::ExtendedSelection);
   assert(layout_.count() > 0);
 }
 
@@ -74,12 +75,12 @@ void CastPanel::Wire() {
   connect(&reload_, &QPushButton::clicked, this, &CastPanel::Reload);
   connect(&place_, &QPushButton::clicked, this, &CastPanel::Place);
   connect(&copy_, &QPushButton::clicked, this, [this] {
-    Report(ProblemOf(managers_.stage->Duplicate(
-        managers_.selection->shot(), managers_.selection->layer())));
+    Report(ProblemOf(managers_.stage->DuplicateAll(
+        managers_.selection->shot(), managers_.selection->PickedLayers())));
   });
   connect(&remove_, &QPushButton::clicked, this, [this] {
-    Report(ProblemOf(managers_.stage->Remove(managers_.selection->shot(),
-                                             managers_.selection->layer())));
+    Report(ProblemOf(managers_.stage->RemoveAll(
+        managers_.selection->shot(), managers_.selection->PickedLayers())));
   });
   connect(&up_, &QPushButton::clicked, this, [this] { Restack(1); });
   connect(&down_, &QPushButton::clicked, this, [this] { Restack(-1); });
