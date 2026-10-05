@@ -4,6 +4,7 @@
 #include <cassert>
 
 #include "app/app_context.h"
+#include "ui/theme.h"
 
 int main(int argc, char* argv[]) {
   assert(argc >= 1);
@@ -13,6 +14,7 @@ int main(int argc, char* argv[]) {
   // dolls into its dolls folder.
   QApplication::setOrganizationName(QStringLiteral("Snapper"));
   QApplication::setApplicationName(QStringLiteral("Snapper"));
+  snapper::theme::Apply(&application);
   const QString data =
       QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
   snapper::AppContext context(data);
