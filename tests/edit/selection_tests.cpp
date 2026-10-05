@@ -40,6 +40,8 @@ class SelectionTests final : public QObject {
   void PicksOnlyWhatExists();
   void PickingAnotherShotDropsTheRest();
   void EditsDropWhatIsGone();
+  void ManyThingsCombineByMode();
+  void ManyShotsKeepAFocus();
 };
 
 void SelectionTests::StartsOnTheFirstShot() {
@@ -102,6 +104,41 @@ void SelectionTests::EditsDropWhatIsGone() {
   QCOMPARE(selection.shot(), ShotId(2));
   QVERIFY(!selection.layer().IsValid());
   QVERIFY(selection.pieces().empty());
+}
+
+void SelectionTests::ManyThingsCombineByMode() {
+  HistoryManager history(Stage());
+  SelectionManager selection(&history);
+  const Pick head{LayerId(1), "head"};
+  const Pick arm{LayerId(1), "arm"};
+  selection.PickThings({head}, PickMode::kReplace, LayerId(1));
+  selection.PickThings({arm}, PickMode::kAdd, LayerId(1));
+  QCOMPARE(selection.picks(), std::set<Pick>({head, arm}));
+  selection.PickThings({head}, PickMode::kToggle, LayerId(1));
+  QCOMPARE(selection.picks(), std::set<Pick>({arm}));
+  selection.PickThings({arm, {LayerId(1), "tail"}}, PickMode::kRemove,
+                       LayerId(1));
+  QVERIFY(selection.picks().empty());
+  QVERIFY(!selection.layer().IsValid());
+  selection.PickThings({head, {LayerId(1), {}}}, PickMode::kAdd, LayerId(1));
+  // A layer picked by a piece isn't also picked whole.
+  QCOMPARE(selection.picks(), std::set<Pick>({head}));
+  const auto tracks = selection.PickedTracks();
+  QCOMPARE(tracks.size(), size_t{1});
+  QCOMPARE(tracks[0].kind, TrackKind::kPiece);
+  QCOMPARE(selection.PickedLayers(), std::vector<LayerId>({LayerId(1)}));
+}
+
+void SelectionTests::ManyShotsKeepAFocus() {
+  HistoryManager history(Stage());
+  SelectionManager selection(&history);
+  selection.PickShots({ShotId(2)}, PickMode::kAdd);
+  QCOMPARE(selection.shots(), std::set<ShotId>({ShotId(1), ShotId(2)}));
+  QCOMPARE(selection.shot(), ShotId(1));
+  selection.PickShots({ShotId(1)}, PickMode::kToggle);
+  QCOMPARE(selection.shot(), ShotId(2));
+  selection.PickShots({ShotId(2)}, PickMode::kRemove);
+  QCOMPARE(selection.shots(), std::set<ShotId>({ShotId(2)}));
 }
 
 }  // namespace snapper
