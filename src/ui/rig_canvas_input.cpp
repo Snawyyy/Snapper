@@ -3,8 +3,10 @@
 #include <QKeyEvent>
 #include <QLineF>
 #include <QMouseEvent>
+#include <QPainterPath>
 
 #include <cassert>
+#include <map>
 
 #include "anim/doll_pose.h"
 #include "edit/history_manager.h"
@@ -55,16 +57,20 @@ bool RigCanvas::PressHandle(QPointF point) {
       return true;
     }
   }
-  const RigPiece* rig =
-      piece_.isEmpty() ? nullptr : FindRig(doll->rig, piece_);
-  const bool is_on_joint =
-      rig != nullptr && pieces.contains(piece_) &&
-      QLineF((pieces.at(piece_) * world).map(rig->pivot), point).length() <=
-          kHandleReach;
+  // Any joint can be grabbed; a picked one drags every picked joint.
+  const QString joint = JointAt(point);
+  const bool is_on_joint = !joint.isEmpty();
   if (is_on_joint) {
+    const bool is_in_pick = picked_.contains(joint);
+    if (!is_in_pick) {
+      ApplyPick({joint}, PickMode::kReplace, joint);
+    }
     drag_ = Drag::kPivot;
+    last_ = point;
     scope_ = std::make_unique<EditScope>(
-        managers_.history, tr("Move pivot of %1").arg(piece_));
+        managers_.history, picked_.size() > 1
+                               ? tr("Move %1 joints").arg(picked_.size())
+                               : tr("Move pivot of %1").arg(joint));
   }
   return is_on_joint;
 }
@@ -112,8 +118,12 @@ void RigCanvas::mouseDoubleClickEvent(QMouseEvent* event) {
   }
   scope_.reset();
   drag_ = Drag::kNone;
+  const bool is_in_pick = picked_.contains(joint);
+  if (!is_in_pick) {
+    picked_ = {joint};
+  }
   piece_ = joint;
-  emit PiecePicked(piece_);
+  emit PickChanged(QStringList(picked_.begin(), picked_.end()), piece_);
   is_hanging_ = true;
   cursor_ = event->position();
   setCursor(Qt::CrossCursor);
@@ -136,12 +146,17 @@ void RigCanvas::mousePressEvent(QMouseEvent* event) {
     const auto hit = HitDollPiece(*doll, rest, Frame(0), World(),
                                   event->position(), &cache_);
     const QString parent = hit.value_or(QString());
-    const QString child = piece_;
     StopHanging();
-    const bool is_self = parent == child;
-    if (!is_self) {
-      emit Problem(ProblemOf(managers_.rig->SetParent(doll_, child, parent)));
+    // Every picked piece hangs from the clicked one, except itself.
+    std::vector<QString> children;
+    for (const QString& child : picked_) {
+      const bool is_self = child == parent;
+      if (!is_self) {
+        children.push_back(child);
+      }
     }
+    emit Problem(ProblemOf(
+        managers_.rig->SetParentAll(doll_, children, parent)));
     return;
   }
   const bool is_handle = PressHandle(event->position());
@@ -150,15 +165,75 @@ void RigCanvas::mousePressEvent(QMouseEvent* event) {
   }
   const auto hit = HitDollPiece(*doll, rest, Frame(0), World(),
                                 event->position(), &cache_);
-  piece_ = hit.value_or(QString());
-  emit PiecePicked(piece_);
+  const bool is_shift = event->modifiers().testFlag(Qt::ShiftModifier);
+  const bool is_ctrl = event->modifiers().testFlag(Qt::ControlModifier);
+  const PickMode mode = is_shift  ? PickMode::kAdd
+                        : is_ctrl ? PickMode::kToggle
+                                  : PickMode::kReplace;
+  if (!hit) {
+    // Empty space starts a pick box.
+    is_boxing_ = true;
+    box_from_ = event->position();
+    box_to_ = box_from_;
+    box_mode_ = is_shift  ? PickMode::kAdd
+                : is_ctrl ? PickMode::kRemove
+                          : PickMode::kReplace;
+    return;
+  }
+  ApplyPick({*hit}, mode, *hit);
+}
+
+void RigCanvas::ApplyPick(const std::set<QString>& pieces, PickMode mode,
+                          const QString& focus) {
+  assert(pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+  assert(focus.size() < 100000);
+  picked_ = Combine(picked_, pieces, mode);
+  const bool keeps_focus = picked_.contains(focus);
+  piece_ = keeps_focus           ? focus
+           : picked_.empty()     ? QString()
+                                 : *picked_.begin();
+  emit PickChanged(QStringList(picked_.begin(), picked_.end()), piece_);
   update();
+}
+
+void RigCanvas::FinishBox() {
+  assert(is_boxing_);
+  is_boxing_ = false;
+  const QRectF box = QRectF(box_from_, box_to_).normalized();
+  const Doll* doll = doll_.isEmpty()
+                         ? nullptr
+                         : FindDoll(managers_.history->current(), doll_);
+  const bool is_click = box.width() < 3.0 && box.height() < 3.0;
+  std::set<QString> caught;
+  const bool is_drawn = doll != nullptr && !is_click;
+  if (is_drawn) {
+    const QTransform world = World();
+    QPainterPath area;
+    area.addRect(box);
+    for (const auto& [name, at] : PieceTransforms(*doll, PoseMap())) {
+      const ArtPiece* art = FindArt(*doll, name);
+      QPainterPath shape;
+      shape.addPolygon((at * world).map(
+          QPolygonF(QRectF(QPointF(), QSizeF(art->size)))));
+      const bool is_in = area.intersects(shape);
+      if (is_in) {
+        caught.insert(name);
+      }
+    }
+  }
+  ApplyPick(caught, box_mode_,
+            caught.empty() ? piece_ : *caught.begin());
 }
 
 void RigCanvas::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
   cursor_ = event->position();
   if (is_hanging_) {
+    update();
+    return;
+  }
+  if (is_boxing_) {
+    box_to_ = event->position();
     update();
     return;
   }
@@ -171,21 +246,38 @@ void RigCanvas::mouseMoveEvent(QMouseEvent* event) {
       chain_.isEmpty() || doll == nullptr ? nullptr
                                           : FindChain(doll->rig, chain_);
   const bool is_tip = drag_ == Drag::kTip && chain != nullptr;
-  const QString& piece = is_tip ? chain->lower : piece_;
-  const auto spot = doll != nullptr
-                        ? IntoPiece(*doll, piece, World(), event->position())
-                        : std::nullopt;
-  if (!spot) {
+  const bool has_doll = doll != nullptr;
+  if (!has_doll) {
     return;
   }
-  const Result<void> moved =
-      is_tip ? managers_.rig->SetChainTip(doll_, chain_, *spot)
-             : managers_.rig->SetPivot(doll_, piece_, *spot);
-  emit Problem(ProblemOf(moved));
+  if (is_tip) {
+    const auto spot =
+        IntoPiece(*doll, chain->lower, World(), event->position());
+    if (spot) {
+      emit Problem(
+          ProblemOf(managers_.rig->SetChainTip(doll_, chain_, *spot)));
+    }
+    return;
+  }
+  // Each joint moves by the cursor's step, in its own drawing's pixels.
+  std::map<QString, QPointF> offsets;
+  for (const QString& piece : picked_) {
+    const auto now = IntoPiece(*doll, piece, World(), event->position());
+    const auto before = IntoPiece(*doll, piece, World(), last_);
+    const bool is_mapped = now.has_value() && before.has_value();
+    if (is_mapped) {
+      offsets[piece] = *now - *before;
+    }
+  }
+  last_ = event->position();
+  emit Problem(ProblemOf(managers_.rig->MovePivots(doll_, offsets)));
 }
 
 void RigCanvas::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  if (is_boxing_) {
+    FinishBox();
+  }
   scope_.reset();
   drag_ = Drag::kNone;
   chain_.clear();
@@ -195,8 +287,27 @@ void RigCanvas::mouseReleaseEvent(QMouseEvent* event) {
 void RigCanvas::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
   const bool stops_hang = event->key() == Qt::Key_Escape && is_hanging_;
+  const bool clears = event->key() == Qt::Key_Escape && scope_ == nullptr &&
+                      !is_hanging_;
+  const bool is_all = event->matches(QKeySequence::SelectAll);
   if (stops_hang) {
     StopHanging();
+    return;
+  }
+  if (clears) {
+    ApplyPick({}, PickMode::kReplace, QString());
+    return;
+  }
+  if (is_all) {
+    const Doll* doll = doll_.isEmpty()
+                           ? nullptr
+                           : FindDoll(managers_.history->current(), doll_);
+    std::set<QString> all;
+    for (const RigPiece& piece :
+         doll != nullptr ? doll->rig.pieces : std::vector<RigPiece>()) {
+      all.insert(piece.name);
+    }
+    ApplyPick(all, PickMode::kReplace, piece_);
     return;
   }
   const bool is_cancel = event->key() == Qt::Key_Escape && scope_ != nullptr;

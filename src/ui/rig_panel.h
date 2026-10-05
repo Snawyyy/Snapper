@@ -10,9 +10,13 @@
 #include <QListWidget>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QStringList>
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <vector>
+
+#include "model/doll.h"
 #include "ui/live_edit.h"
 #include "ui/managers.h"
 
@@ -33,11 +37,13 @@ class RigPanel final : public QWidget {
   const QString& doll() const { return doll_; }
   const QString& piece() const { return piece_; }
   void PickPiece(const QString& piece);
+  // Picks pieces with focus shown in the fields, as the canvas does.
+  void SetPick(const QStringList& picked, const QString& focus);
   void Refresh();
 
  signals:
   void DollPicked(const QString& doll);
-  void PiecePicked(const QString& piece);
+  void PickChanged(const QStringList& picked, const QString& focus);
   void Problem(const QString& why);
 
  private:
@@ -48,10 +54,14 @@ class RigPanel final : public QWidget {
   void RefreshPiece();
   void RefreshChains();
   void AddChain();
+  // The picked pieces, at least the focused one.
+  std::vector<QString> Picked() const;
+  const RigPiece* Focus() const;
 
   Managers managers_;
   QString doll_;
   QString piece_;
+  QStringList picked_;
   QVBoxLayout layout_;
   LiveEdit live_;
   QComboBox dolls_;

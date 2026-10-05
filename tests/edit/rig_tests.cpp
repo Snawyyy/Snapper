@@ -47,6 +47,7 @@ class RigTests final : public QObject {
   void ChainsNeedLinkedPieces();
   void UnknownDollsAndPiecesSayWhy();
   void OneSideCopiesToTheOther();
+  void ManyPiecesChangeTogether();
 };
 
 void RigTests::ParentsRefuseLoops() {
@@ -156,6 +157,28 @@ void RigTests::OneSideCopiesToTheOther() {
   QCOMPARE(BobRig(history).chains[1].tip, QPointF(10, 3));
   QVERIFY(!BobRig(history).chains[1].bends_clockwise);
   QCOMPARE(history.UndoLabel(), QString("Copy side to the other"));
+}
+
+void RigTests::ManyPiecesChangeTogether() {
+  HistoryManager history(ArmProject());
+  RigManager rig(&history);
+  QVERIFY(rig.SetRestRotation("Bob", "upper", 10.0).has_value());
+  QVERIFY(rig.ShiftRestAll("Bob", {"upper", "lower"}, 5.0).has_value());
+  QCOMPARE(FindRig(BobRig(history), "upper")->rest_rotation, 15.0);
+  QCOMPARE(FindRig(BobRig(history), "lower")->rest_rotation, 5.0);
+  QVERIFY(rig.ShiftOrderAll("Bob", {"upper", "lower"}, 2).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->order, 4);
+  QVERIFY(rig.SetParentAll("Bob", {"upper", "lower"}, "").has_value());
+  QVERIFY(FindRig(BobRig(history), "lower")->parent.isEmpty());
+  QVERIFY(!rig.SetParentAll("Bob", {"body", "upper"}, "upper").has_value());
+  QVERIFY(rig.MovePivots("Bob", {{"upper", QPointF(1, 2)},
+                                 {"lower", QPointF(-1, 0)}})
+              .has_value());
+  QCOMPARE(FindRig(BobRig(history), "upper")->pivot, QPointF(1, 2));
+  QVERIFY(rig.SetWarpAll("Bob", {"upper", "lower"}, {2, 2}).has_value());
+  QCOMPARE(FindRig(BobRig(history), "upper")->warp, (WarpGrid{2, 2}));
+  QVERIFY(!rig.ShiftRestAll("Bob", {}, 1.0).has_value());
+  QVERIFY(!rig.CopyAllToOtherSide("Bob", {"body"}).has_value());
 }
 
 }  // namespace snapper

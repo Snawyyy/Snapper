@@ -32,6 +32,25 @@ RigPanel::RigPanel(const Managers& managers)
   assert(layout_.count() > 0);
 }
 
+std::vector<QString> RigPanel::Picked() const {
+  assert(picked_.size() <= kMaxDollPieces);
+  std::vector<QString> picked(picked_.begin(), picked_.end());
+  const bool has_none = picked.empty() && !piece_.isEmpty();
+  if (has_none) {
+    picked.push_back(piece_);
+  }
+  return picked;
+}
+
+const RigPiece* RigPanel::Focus() const {
+  const Doll* doll = doll_.isEmpty()
+                         ? nullptr
+                         : FindDoll(managers_.history->current(), doll_);
+  assert(managers_.history != nullptr);
+  return doll != nullptr && !piece_.isEmpty() ? FindRig(doll->rig, piece_)
+                                              : nullptr;
+}
+
 void RigPanel::BuildLayout() {
   assert(layout_.count() == 0);
   layout_.setContentsMargins(4, 4, 4, 4);
@@ -81,25 +100,45 @@ void RigPanel::Wire() {
   connect(&dolls_, &QComboBox::textActivated, this, [this](const QString& d) {
     doll_ = d;
     piece_.clear();
+    picked_.clear();
     emit DollPicked(doll_);
     Refresh();
   });
-  connect(&pieces_, &QListWidget::currentTextChanged, this,
-          [this](const QString& text) {
-            piece_ = text.trimmed();
-            emit PiecePicked(piece_);
-            RefreshPiece();
-          });
+  // Shift picks a run of pieces, Ctrl adds or drops one.
+  pieces_.setSelectionMode(QAbstractItemView::ExtendedSelection);
+  connect(&pieces_, &QListWidget::itemSelectionChanged, this, [this] {
+    QStringList picked;
+    for (const QListWidgetItem* item : pieces_.selectedItems()) {
+      picked.append(item->text().trimmed());
+    }
+    const QListWidgetItem* current = pieces_.currentItem();
+    const QString focus = current != nullptr && current->isSelected()
+                              ? current->text().trimmed()
+                              : (picked.isEmpty() ? QString() : picked[0]);
+    picked_ = picked;
+    piece_ = focus;
+    emit PickChanged(picked_, piece_);
+    RefreshPiece();
+  });
   connect(&parent_, &QComboBox::activated, this, [this, rig](int index) {
     const QString parent = index == 0 ? QString() : parent_.itemText(index);
-    emit Problem(ProblemOf(rig->SetParent(doll_, piece_, parent)));
+    emit Problem(ProblemOf(rig->SetParentAll(doll_, Picked(), parent)));
   });
   MakeLive(&order_, &live_, tr("Restack"), this, [this, rig] {
-    emit Problem(ProblemOf(rig->SetOrder(doll_, piece_, order_.value())));
+    const RigPiece* focus = Focus();
+    const bool has_focus = focus != nullptr;
+    if (has_focus) {
+      emit Problem(ProblemOf(rig->ShiftOrderAll(
+          doll_, Picked(), order_.value() - focus->order)));
+    }
   });
   MakeLive(&rest_, &live_, tr("Rest turn"), this, [this, rig] {
-    emit Problem(
-        ProblemOf(rig->SetRestRotation(doll_, piece_, rest_.value())));
+    const RigPiece* focus = Focus();
+    const bool has_focus = focus != nullptr;
+    if (has_focus) {
+      emit Problem(ProblemOf(rig->ShiftRestAll(
+          doll_, Picked(), rest_.value() - focus->rest_rotation)));
+    }
   });
   connect(&drawing_, &QComboBox::activated, this, [this, rig](int index) {
     emit Problem(ProblemOf(rig->SetDefaultDrawing(doll_, piece_, index - 1)));
@@ -109,7 +148,7 @@ void RigPanel::Wire() {
     const WarpGrid grid = is_on ? WarpGrid{warp_columns_.value(),
                                            warp_rows_.value()}
                                 : WarpGrid();
-    emit Problem(ProblemOf(rig->SetWarpGrid(doll_, piece_, grid)));
+    emit Problem(ProblemOf(rig->SetWarpAll(doll_, Picked(), grid)));
   };
   connect(&warp_on_, &QCheckBox::clicked, this, set_grid);
   for (QSpinBox* side : {&warp_columns_, &warp_rows_}) {
@@ -124,7 +163,7 @@ void RigPanel::WireChains() {
   assert(managers_.library != nullptr);
   connect(&add_chain_, &QPushButton::clicked, this, &RigPanel::AddChain);
   connect(&copy_piece_, &QPushButton::clicked, this, [this, rig] {
-    emit Problem(ProblemOf(rig->CopyToOtherSide(doll_, piece_, false)));
+    emit Problem(ProblemOf(rig->CopyAllToOtherSide(doll_, Picked())));
   });
   connect(&copy_side_, &QPushButton::clicked, this, [this, rig] {
     emit Problem(ProblemOf(rig->CopyToOtherSide(doll_, piece_, true)));

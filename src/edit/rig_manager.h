@@ -4,6 +4,9 @@
 #include <QPointF>
 #include <QString>
 
+#include <map>
+#include <vector>
+
 #include "base/error.h"
 #include "model/doll.h"
 
@@ -44,6 +47,25 @@ class RigManager final {
                                bool whole_side);
   // Why CopyToOtherSide can't act on piece; empty when it can.
   QString WhyNoCopy(const QString& doll, const QString& piece) const;
+
+  // The same change to many pieces of a doll, as one undo step.
+  // Numbers are added to each piece's own, so they keep differences.
+  Result<void> ShiftRestAll(const QString& doll,
+                            const std::vector<QString>& pieces,
+                            double delta);
+  Result<void> ShiftOrderAll(const QString& doll,
+                             const std::vector<QString>& pieces, int delta);
+  // Empty parent makes them all roots.
+  Result<void> SetParentAll(const QString& doll,
+                            const std::vector<QString>& pieces,
+                            const QString& parent);
+  Result<void> SetWarpAll(const QString& doll,
+                          const std::vector<QString>& pieces, WarpGrid grid);
+  // Each piece's joint moves by its own offset (drawing pixels).
+  Result<void> MovePivots(const QString& doll,
+                          const std::map<QString, QPointF>& offsets);
+  Result<void> CopyAllToOtherSide(const QString& doll,
+                                  const std::vector<QString>& pieces);
 
   // upper must be lower's parent; the name must be new.
   Result<void> AddChain(const QString& doll, const IkChain& chain);

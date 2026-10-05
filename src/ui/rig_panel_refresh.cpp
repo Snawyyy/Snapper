@@ -34,13 +34,23 @@ int DepthOf(const Rig& rig, const QString& piece) {
 
 void RigPanel::PickPiece(const QString& piece) {
   assert(piece.size() < 100000);
-  piece_ = piece;
+  SetPick(piece.isEmpty() ? QStringList() : QStringList{piece}, piece);
+}
+
+void RigPanel::SetPick(const QStringList& picked, const QString& focus) {
+  assert(picked.size() <= kMaxDollPieces);
+  assert(focus.size() < 100000);
+  picked_ = picked;
+  piece_ = focus;
   const QSignalBlocker quiet(pieces_);
-  pieces_.setCurrentRow(-1);
+  pieces_.clearSelection();
   for (int i = 0; i < pieces_.count(); ++i) {
-    const bool is_it = pieces_.item(i)->text().trimmed() == piece;
-    if (is_it) {
-      pieces_.setCurrentRow(i);
+    QListWidgetItem* item = pieces_.item(i);
+    const QString name = item->text().trimmed();
+    item->setSelected(picked.contains(name));
+    const bool is_focus = name == focus;
+    if (is_focus) {
+      pieces_.setCurrentItem(item, QItemSelectionModel::NoUpdate);
     }
   }
   RefreshPiece();
@@ -52,6 +62,7 @@ void RigPanel::Refresh() {
   if (is_gone) {
     doll_.clear();
     piece_.clear();
+    picked_.clear();
   }
   const bool has_none = doll_.isEmpty() && !project.dolls.empty();
   if (has_none) {
@@ -88,7 +99,7 @@ void RigPanel::RefreshPieces() {
       }
     }
   }
-  PickPiece(piece_);
+  SetPick(picked_, piece_);
   RefreshChains();
 }
 

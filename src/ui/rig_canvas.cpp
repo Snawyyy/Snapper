@@ -49,6 +49,7 @@ void RigCanvas::SetDoll(const QString& doll) {
   assert(doll.size() < 100000);
   doll_ = doll;
   piece_.clear();
+  picked_.clear();
   StopHanging();
   update();
   assert(piece_.isEmpty());
@@ -56,9 +57,16 @@ void RigCanvas::SetDoll(const QString& doll) {
 
 void RigCanvas::SetPiece(const QString& piece) {
   assert(piece.size() < 100000);
-  piece_ = piece;
-  update();
+  SetPick(piece.isEmpty() ? QStringList() : QStringList{piece}, piece);
   assert(piece_ == piece);
+}
+
+void RigCanvas::SetPick(const QStringList& picked, const QString& focus) {
+  assert(picked.size() <= kMaxDollPieces);
+  assert(focus.size() < 100000);
+  picked_ = std::set<QString>(picked.begin(), picked.end());
+  piece_ = focus;
+  update();
 }
 
 QTransform RigCanvas::World() const {
@@ -105,6 +113,12 @@ void RigCanvas::paintEvent(QPaintEvent* event) {
   PaintLayer(project, RestLayer(doll_), Frame(0), world, &cache_, &painter);
   painter.setRenderHint(QPainter::Antialiasing);
   PaintOverlay(&painter);
+  if (is_boxing_) {
+    painter.setPen(QPen(theme::kPick, 1.0, Qt::DashLine));
+    painter.setBrush(QColor(theme::kPick.red(), theme::kPick.green(),
+                            theme::kPick.blue(), 40));
+    painter.drawRect(QRectF(box_from_, box_to_).normalized());
+  }
 }
 
 void RigCanvas::PaintOverlay(QPainter* painter) const {
@@ -127,7 +141,7 @@ void RigCanvas::PaintOverlay(QPainter* painter) const {
       painter->setPen(QPen(theme::kHandle, 1.0, Qt::DashLine));
       painter->drawLine(joint(*parent), joint(rig));
     }
-    const bool is_picked = rig.name == piece_;
+    const bool is_picked = picked_.contains(rig.name);
     if (is_picked) {
       const ArtPiece* art = FindArt(doll, rig.name);
       painter->setPen(QPen(theme::kPick, 2.0));

@@ -77,10 +77,10 @@ MainWindow::MainWindow(const Managers& managers)
   pages_.addWidget(&rig_split_);
   connect(&rig_panel_, &RigPanel::DollPicked, &rig_canvas_,
           &RigCanvas::SetDoll);
-  connect(&rig_panel_, &RigPanel::PiecePicked, &rig_canvas_,
-          &RigCanvas::SetPiece);
-  connect(&rig_canvas_, &RigCanvas::PiecePicked, &rig_panel_,
-          &RigPanel::PickPiece);
+  connect(&rig_panel_, &RigPanel::PickChanged, &rig_canvas_,
+          &RigCanvas::SetPick);
+  connect(&rig_canvas_, &RigCanvas::PickChanged, &rig_panel_,
+          &RigPanel::SetPick);
   rig_canvas_.SetDoll(rig_panel_.doll());
   const auto show_problem = [this](const QString& why) {
     statusBar()->showMessage(why, kStatusMs);

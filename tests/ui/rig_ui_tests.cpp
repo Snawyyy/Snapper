@@ -55,6 +55,7 @@ class RigUiTests final : public QObject {
   void DraggingAJointMovesThePivot();
   void DoubleClickAJointThenClickItsParent();
   void WarpSwitchesOnAtThreeByThree();
+  void ShiftPickedJointsDragTogether();
 };
 
 void RigUiTests::PanelPicksTheDollAndEditsAPiece() {
@@ -145,6 +146,31 @@ void RigUiTests::WarpSwitchesOnAtThreeByThree() {
   QCOMPARE(FindRig(BobRig(bench), "arm")->warp, (WarpGrid{3, 3}));
   on->click();
   QVERIFY(!FindRig(BobRig(bench), "arm")->warp.IsOn());
+}
+
+void RigUiTests::ShiftPickedJointsDragTogether() {
+  Bench bench;
+  Stage(&bench);
+  RigCanvas canvas(bench.All());
+  canvas.resize(400, 400);
+  canvas.SetDoll("Bob");
+  QSignalSpy picks(&canvas, &RigCanvas::PickChanged);
+  const QTransform world = canvas.World();
+  QTest::mouseClick(&canvas, Qt::LeftButton, {},
+                    world.map(QPointF(-5, -5)).toPoint());
+  QTest::mouseClick(&canvas, Qt::LeftButton, Qt::ShiftModifier,
+                    world.map(QPointF(25, 5)).toPoint());
+  QCOMPARE(picks.last().first().toStringList().size(), 2);
+  const QPoint joint = world.map(QPointF(0, 0)).toPoint();
+  const QPoint moved = world.map(QPointF(4, 0)).toPoint();
+  QTest::mousePress(&canvas, Qt::LeftButton, {}, joint);
+  QTest::mouseMove(&canvas, moved);
+  QTest::mouseRelease(&canvas, Qt::LeftButton, {}, moved);
+  const double body = FindRig(BobRig(bench), "body")->pivot.x();
+  const double arm = FindRig(BobRig(bench), "arm")->pivot.x();
+  QVERIFY(std::abs(body - 14.0) < 0.6);
+  QVERIFY(std::abs(arm - 4.0) < 0.6);
+  QCOMPARE(bench.history.UndoLabel(), QString("Move 2 joints"));
 }
 
 }  // namespace snapper
