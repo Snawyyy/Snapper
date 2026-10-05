@@ -50,6 +50,8 @@ MainWindow::MainWindow(const Managers& managers)
       cast_(managers),
       inspector_dock_(tr("Inspector")),
       inspector_(managers),
+      export_dialog_(managers, this),
+      export_action_(tr("&Export...")),
       play_menu_(tr("&Play")),
       play_action_(tr("&Play / pause")),
       next_action_(tr("&Next frame")),
@@ -162,6 +164,15 @@ void MainWindow::BuildMenus() {
   next_action_.setShortcuts({Qt::Key_Right, Qt::Key_Period});
   back_action_.setShortcuts({Qt::Key_Left, Qt::Key_Comma});
   play_menu_.addActions({&play_action_, &next_action_, &back_action_});
+  export_action_.setShortcut(QKeySequence(Qt::CTRL | Qt::Key_E));
+  QMenu* file = file_menu_.menu();
+  // Export sits just above Quit.
+  file->insertAction(file->actions().last(), &export_action_);
+  file->insertSeparator(file->actions().last());
+  connect(&export_action_, &QAction::triggered, &export_dialog_, [this] {
+    export_dialog_.show();
+    export_dialog_.raise();
+  });
   menuBar()->addMenu(file_menu_.menu());
   menuBar()->addMenu(&edit_menu_);
   menuBar()->addMenu(&play_menu_);

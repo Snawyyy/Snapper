@@ -12,6 +12,7 @@
 #include <QWidget>
 
 #include "ui/cast_panel.h"
+#include "ui/export_dialog.h"
 #include "ui/file_menu.h"
 #include "ui/inspector.h"
 #include "ui/managers.h"
@@ -72,6 +73,8 @@ class MainWindow final : public QMainWindow {
   CastPanel cast_;
   QDockWidget inspector_dock_;
   Inspector inspector_;
+  ExportDialog export_dialog_;
+  QAction export_action_;
   QMenu play_menu_;
   QAction play_action_;
   QAction next_action_;
