@@ -56,6 +56,8 @@ function(snapper_checks)
     ${layer_file} ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/tests)
   add_test(NAME layers_self_test COMMAND Python3::Interpreter
     ${PROJECT_SOURCE_DIR}/tools/check_layers.py --self-test)
+  add_test(NAME krita_art_json COMMAND Python3::Interpreter
+    ${PROJECT_SOURCE_DIR}/tools/krita/snapper_doll_export/art_json.py)
   file(GLOB_RECURSE code CONFIGURE_DEPENDS
     ${PROJECT_SOURCE_DIR}/src/*.h ${PROJECT_SOURCE_DIR}/src/*.cpp
     ${PROJECT_SOURCE_DIR}/tests/*.h ${PROJECT_SOURCE_DIR}/tests/*.cpp)
