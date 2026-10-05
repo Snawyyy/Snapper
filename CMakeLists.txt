@@ -49,7 +49,7 @@ snapper_module(edit
           history_manager.cpp key_clipboard.cpp key_manager.cpp
           playback_manager.cpp pose_clipboard.cpp pose_manager.cpp
           preset_manager.cpp saved_poses.cpp
-          project_edits.cpp rig_manager.cpp
+          project_edits.cpp rig_manager.cpp rig_mirror.cpp
           selection_manager.cpp shot_manager.cpp stage_manager.cpp
           stage_settings.cpp timeline_rows.cpp
   MODULES io media render

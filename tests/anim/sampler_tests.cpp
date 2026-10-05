@@ -145,6 +145,9 @@ void SamplerTests::MirrorNamesSwapSides() {
   QCOMPARE(MirrorName("upper_l_arm"), QString("upper_r_arm"));
   QCOMPARE(MirrorName("lip"), QString("lip"));
   QCOMPARE(MirrorName("cleft"), QString("cleft"));
+  QCOMPARE(SideOf("arm_l"), -1);
+  QCOMPARE(SideOf("Right hand"), 1);
+  QCOMPARE(SideOf("head"), 0);
 }
 
 }  // namespace snapper

@@ -36,6 +36,15 @@ class RigManager final {
   Result<void> SetWarpGrid(const QString& doll, const QString& piece,
                            WarpGrid grid);
 
+  // Copies piece's joint, rest turn, parent and warp grid onto its
+  // partner on the other side (arm_l to arm_r), mirrored, so a doll is
+  // jointed once. With whole_side, every piece on that side goes over,
+  // IK chains too.
+  Result<void> CopyToOtherSide(const QString& doll, const QString& piece,
+                               bool whole_side);
+  // Why CopyToOtherSide can't act on piece; empty when it can.
+  QString WhyNoCopy(const QString& doll, const QString& piece) const;
+
   // upper must be lower's parent; the name must be new.
   Result<void> AddChain(const QString& doll, const IkChain& chain);
   Result<void> RemoveChain(const QString& doll, const QString& chain);

@@ -111,6 +111,9 @@ void RigPanel::RefreshPiece() {
                          static_cast<QWidget*>(&add_chain_)}) {
     Explain(field, why_not);
   }
+  const QString no_twin = managers_.rig->WhyNoCopy(doll_, piece_);
+  Explain(&copy_piece_, no_twin);
+  Explain(&copy_side_, no_twin);
   const bool has_piece = rig != nullptr && art != nullptr;
   if (!has_piece) {
     return;

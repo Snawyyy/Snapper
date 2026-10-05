@@ -13,6 +13,9 @@ namespace snapper {
 // back as they are.
 QString MirrorName(const QString& name);
 
+// Which side a name marks: -1 left, 1 right, 0 neither.
+int SideOf(const QString& name);
+
 // One pose seen in a mirror: turns, leans and sideways moves flip, and
 // the warp grid flips left to right.
 PiecePose MirrorPose(const PiecePose& pose, WarpGrid grid);

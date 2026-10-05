@@ -3,6 +3,7 @@
 #include <QRegularExpression>
 
 #include <array>
+#include <optional>
 #include <cassert>
 
 namespace snapper {
@@ -40,25 +41,53 @@ QString SwapSide(const QString& word, const SidePattern& side) {
   return other;
 }
 
-}  // namespace
+// The side marker in name and the pattern that found it.
+struct SideMatch final {
+  QRegularExpressionMatch match;
+  const SidePattern* side = nullptr;
+};
 
-QString MirrorName(const QString& name) {
+std::optional<SideMatch> MatchSide(const QString& name) {
   assert(name.size() < 4096);
   assert(!kSides.empty());
   for (const SidePattern& side : kSides) {
     const QRegularExpression pattern(
         QLatin1String(side.pattern),
         QRegularExpression::CaseInsensitiveOption);
-    const QRegularExpressionMatch match = pattern.match(name);
+    QRegularExpressionMatch match = pattern.match(name);
     const bool is_sided = match.hasMatch();
     if (is_sided) {
-      QString mirrored = name;
-      mirrored.replace(match.capturedStart(1), match.capturedLength(1),
-                       SwapSide(match.captured(1), side));
-      return mirrored;
+      return SideMatch{std::move(match), &side};
     }
   }
-  return name;
+  return std::nullopt;
+}
+
+}  // namespace
+
+QString MirrorName(const QString& name) {
+  const auto found = MatchSide(name);
+  if (!found) {
+    return name;
+  }
+  QString mirrored = name;
+  const QRegularExpressionMatch& match = found->match;
+  mirrored.replace(match.capturedStart(1), match.capturedLength(1),
+                   SwapSide(match.captured(1), *found->side));
+  assert(mirrored.size() >= name.size() - 1);
+  return mirrored;
+}
+
+int SideOf(const QString& name) {
+  const auto found = MatchSide(name);
+  if (!found) {
+    return 0;
+  }
+  const bool is_left = found->match.captured(1).compare(
+                           QLatin1String(found->side->left),
+                           Qt::CaseInsensitive) == 0;
+  assert(found->side != nullptr);
+  return is_left ? -1 : 1;
 }
 
 PiecePose MirrorPose(const PiecePose& pose, WarpGrid grid) {

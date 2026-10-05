@@ -46,6 +46,7 @@ class RigTests final : public QObject {
   void NewWarpGridClearsOldWarpKeys();
   void ChainsNeedLinkedPieces();
   void UnknownDollsAndPiecesSayWhy();
+  void OneSideCopiesToTheOther();
 };
 
 void RigTests::ParentsRefuseLoops() {
@@ -117,6 +118,44 @@ void RigTests::UnknownDollsAndPiecesSayWhy() {
   const auto piece = rig.SetOrder("Bob", "tail", 1);
   QVERIFY(piece.error().message.contains("tail"));
   QVERIFY(!history.CanUndo());
+}
+
+void RigTests::OneSideCopiesToTheOther() {
+  // A chest at 0..20 with arms drawn either side, off-centre by 100.
+  Doll doll;
+  doll.art.pieces = {{"chest", {"c"}, 0, {100, 0}, {20, 20}},
+                     {"arm_l", {"a"}, 0, {80, 0}, {20, 6}},
+                     {"arm_r", {"a"}, 0, {120, 0}, {20, 6}},
+                     {"hand_l", {"h"}, 0, {70, 0}, {10, 6}},
+                     {"hand_r", {"h"}, 0, {140, 0}, {10, 6}}};
+  doll.rig.pieces = {{"chest", "", {10, 10}, 0, -1, {}},
+                     {"arm_l", "chest", {18, 3}, 1, -1, {}, 12.0},
+                     {"arm_r", "", {10, 3}, 2, -1, {}},
+                     {"hand_l", "arm_l", {9, 3}, 3, -1, {2, 2}},
+                     {"hand_r", "", {5, 3}, 4, -1, {}}};
+  doll.rig.chains = {{"reach_l", "arm_l", "hand_l", {0, 3}, true}};
+  Project project;
+  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
+  HistoryManager history(project);
+  RigManager rig(&history);
+  QVERIFY(!rig.WhyNoCopy("Bob", "chest").isEmpty());
+  QVERIFY(rig.CopyToOtherSide("Bob", "arm_l", false).has_value());
+  const RigPiece* arm = FindRig(BobRig(history), "arm_r");
+  // Joint at doll x 98 mirrors across x 110 to 122: 2 into arm_r.
+  QCOMPARE(arm->pivot, QPointF(2, 3));
+  QCOMPARE(arm->rest_rotation, -12.0);
+  QCOMPARE(arm->parent, QString("chest"));
+  QCOMPARE(arm->order, 2);
+  QVERIFY(FindRig(BobRig(history), "hand_r")->parent.isEmpty());
+  QVERIFY(rig.CopyToOtherSide("Bob", "hand_l", true).has_value());
+  const RigPiece* hand = FindRig(BobRig(history), "hand_r");
+  QCOMPARE(hand->parent, QString("arm_r"));
+  QCOMPARE(hand->warp, (WarpGrid{2, 2}));
+  QCOMPARE(BobRig(history).chains.size(), size_t{2});
+  QCOMPARE(BobRig(history).chains[1].lower, QString("hand_r"));
+  QCOMPARE(BobRig(history).chains[1].tip, QPointF(10, 3));
+  QVERIFY(!BobRig(history).chains[1].bends_clockwise);
+  QCOMPARE(history.UndoLabel(), QString("Copy side to the other"));
 }
 
 }  // namespace snapper

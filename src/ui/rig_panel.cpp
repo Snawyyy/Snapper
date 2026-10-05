@@ -17,6 +17,8 @@ RigPanel::RigPanel(const Managers& managers)
       add_chain_(tr("Add for piece")),
       flip_chain_(tr("Flip bend")),
       remove_chain_(tr("Remove")),
+      copy_piece_(tr("Copy to other side")),
+      copy_side_(tr("Copy whole side")),
       save_rig_(tr("Save rig to library")),
       hint_(tr("Drag a yellow joint to move it. Double-click a joint, then "
                "click the part it hangs from. Drag a square to move an IK "
@@ -52,6 +54,9 @@ void RigPanel::BuildLayout() {
   layout_.addWidget(&dolls_);
   layout_.addWidget(&pieces_, 2);
   layout_.addLayout(&form_);
+  mirror_buttons_.addWidget(&copy_piece_);
+  mirror_buttons_.addWidget(&copy_side_);
+  layout_.addLayout(&mirror_buttons_);
   layout_.addWidget(&chains_title_);
   layout_.addWidget(&chains_, 1);
   layout_.addLayout(&chain_buttons_);
@@ -109,6 +114,12 @@ void RigPanel::WireChains() {
   assert(rig != nullptr);
   assert(managers_.library != nullptr);
   connect(&add_chain_, &QPushButton::clicked, this, &RigPanel::AddChain);
+  connect(&copy_piece_, &QPushButton::clicked, this, [this, rig] {
+    emit Problem(ProblemOf(rig->CopyToOtherSide(doll_, piece_, false)));
+  });
+  connect(&copy_side_, &QPushButton::clicked, this, [this, rig] {
+    emit Problem(ProblemOf(rig->CopyToOtherSide(doll_, piece_, true)));
+  });
   connect(&flip_chain_, &QPushButton::clicked, this, [this, rig] {
     const Doll* doll = FindDoll(managers_.history->current(), doll_);
     const IkChain* chain =
