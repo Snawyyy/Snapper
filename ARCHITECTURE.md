@@ -32,7 +32,7 @@ code; the table already fixes where each future feature goes.
 What each layer may not do:
 
 - `model` has no behaviour beyond checking its own invariants. No
-  signals, no files, no Qt Gui.
+  signals, no files. From Qt Gui it uses value types only (`QColor`).
 - `anim` is pure: data in, data out. No state, no Qt Widgets, no I/O.
   This is where the hard math lives, so it is where most tests live.
 - `io` turns bytes into model values and back. It never decides

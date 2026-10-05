@@ -18,8 +18,9 @@ snapper_module(base
   SOURCES frame.cpp
   LIBS Qt6::Core)
 snapper_module(model
-  SOURCES project.cpp
-  MODULES base)
+  SOURCES doll.cpp layer.cpp project.cpp shot.cpp
+  MODULES base
+  LIBS Qt6::Gui)
 snapper_module(edit
   SOURCES history_manager.cpp edit_scope.cpp
   MODULES model)
