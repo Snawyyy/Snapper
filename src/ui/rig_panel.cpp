@@ -65,14 +65,22 @@ void RigPanel::BuildLayout() {
     side->setRange(1, kMaxWarpCells);
     side->setValue(kDefaultWarpCells);
   }
+  // Named so tests and screen readers find them by what they are.
+  warp_on_.setObjectName("warp_on");
+  keep_shape_.setObjectName("keep_shape");
   warp_on_.setText(tr("Bend with a grid"));
   warp_on_.setToolTip(tr("Lets you push spots of the drawing, like a "
                          "crease in a shirt."));
+  keep_shape_.setText(tr("Keep shape when leaning"));
+  keep_shape_.setToolTip(tr("Leaning or swivelling the doll still moves "
+                            "and sizes this piece, but never squashes it. "
+                            "Good for heads."));
   AddTitle(&form_, &joint_title_, tr("Joint"));
   form_.addRow(tr("Hangs from"), &parent_);
   form_.addRow(tr("Rest turn"), &rest_);
   form_.addRow(tr("Draw order"), &order_);
   form_.addRow(tr("Drawing"), &drawing_);
+  form_.addRow(QString(), &keep_shape_);
   AddTitle(&form_, &warp_title_, tr("Warp"));
   form_.addRow(QString(), &warp_on_);
   AddPair(&form_, tr("Cells"), &warp_row_, &warp_columns_, &warp_rows_);
@@ -90,12 +98,12 @@ void RigPanel::BuildLayout() {
   layout_.addLayout(&chain_buttons_);
   layout_.addWidget(&save_rig_);
   layout_.addWidget(&hint_);
-  assert(form_.rowCount() == 8);
+  assert(form_.rowCount() == 9);
 }
 
 void RigPanel::Wire() {
   assert(managers_.IsComplete());
-  assert(form_.rowCount() == 8);
+  assert(form_.rowCount() == 9);
   RigManager* rig = managers_.rig;
   connect(&dolls_, &QComboBox::textActivated, this, [this](const QString& d) {
     doll_ = d;
@@ -151,6 +159,9 @@ void RigPanel::Wire() {
     emit Problem(ProblemOf(rig->SetWarpAll(doll_, Picked(), grid)));
   };
   connect(&warp_on_, &QCheckBox::clicked, this, set_grid);
+  connect(&keep_shape_, &QCheckBox::clicked, this, [this, rig](bool is_on) {
+    emit Problem(ProblemOf(rig->SetKeepShapeAll(doll_, Picked(), is_on)));
+  });
   for (QSpinBox* side : {&warp_columns_, &warp_rows_}) {
     MakeLive(side, &live_, tr("Warp grid"), this, set_grid);
   }

@@ -65,6 +65,9 @@ struct RigPiece final {
   // Degrees the piece is turned at rest, on top of how it was drawn;
   // poses turn from there.
   double rest_rotation = 0.0;
+  // Leaning or swivelling the doll moves and sizes the piece but never
+  // squashes its drawing: for heads and the like.
+  bool keeps_shape = false;
 
   bool operator==(const RigPiece&) const = default;
 };

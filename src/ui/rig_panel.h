@@ -74,6 +74,7 @@ class RigPanel final : public QWidget {
   QLabel joint_title_;
   QLabel warp_title_;
   QCheckBox warp_on_;
+  QCheckBox keep_shape_;
   QHBoxLayout warp_row_;
   QSpinBox warp_columns_;
   QSpinBox warp_rows_;

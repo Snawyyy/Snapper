@@ -93,6 +93,7 @@ QJsonObject RigToJson(const Rig& rig) {
         {"order", piece.order},
         {"default", piece.default_drawing},
         {"rest", piece.rest_rotation},
+        {"keep_shape", piece.keeps_shape},
         {"warp", QJsonArray{piece.warp.columns, piece.warp.rows}}});
   }
   QJsonArray chains;
@@ -121,7 +122,8 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
                           PointFromJson(piece.value("pivot")),
                           piece.value("order").toInt(),
                           piece.value("default").toInt(-1), grid,
-                          piece.value("rest").toDouble()});
+                          piece.value("rest").toDouble(),
+                          piece.value("keep_shape").toBool()});
   }
   const QJsonArray chains =
       Bounded(object.value("chains"), kMaxIkChains, "IK chains", issues);

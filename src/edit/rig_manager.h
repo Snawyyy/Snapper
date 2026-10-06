@@ -61,6 +61,9 @@ class RigManager final {
                             const QString& parent);
   Result<void> SetWarpAll(const QString& doll,
                           const std::vector<QString>& pieces, WarpGrid grid);
+  Result<void> SetKeepShapeAll(const QString& doll,
+                               const std::vector<QString>& pieces,
+                               bool keeps_shape);
   // Each piece's joint moves by its own offset (drawing pixels).
   Result<void> MovePivots(const QString& doll,
                           const std::map<QString, QPointF>& offsets);

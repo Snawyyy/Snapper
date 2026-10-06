@@ -55,6 +55,7 @@ class RigUiTests final : public QObject {
   void DraggingAJointMovesThePivot();
   void DoubleClickAJointThenClickItsParent();
   void WarpSwitchesOnAtThreeByThree();
+  void KeepShapeTicksOn();
   void ShiftPickedJointsDragTogether();
 };
 
@@ -140,12 +141,25 @@ void RigUiTests::WarpSwitchesOnAtThreeByThree() {
   Stage(&bench);
   RigPanel panel(bench.All());
   panel.PickPiece("arm");
-  auto* on = panel.findChild<QCheckBox*>();
+  auto* on = panel.findChild<QCheckBox*>("warp_on");
   QVERIFY(on->isEnabled());
   on->click();
   QCOMPARE(FindRig(BobRig(bench), "arm")->warp, (WarpGrid{3, 3}));
   on->click();
   QVERIFY(!FindRig(BobRig(bench), "arm")->warp.IsOn());
+}
+
+void RigUiTests::KeepShapeTicksOn() {
+  Bench bench;
+  Stage(&bench);
+  RigPanel panel(bench.All());
+  auto* keep = panel.findChild<QCheckBox*>("keep_shape");
+  QVERIFY(!keep->isEnabled());
+  panel.PickPiece("arm");
+  QVERIFY(keep->isEnabled());
+  keep->click();
+  QVERIFY(FindRig(BobRig(bench), "arm")->keeps_shape);
+  QVERIFY(keep->isChecked());
 }
 
 void RigUiTests::ShiftPickedJointsDragTogether() {

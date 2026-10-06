@@ -147,6 +147,8 @@ A piece can:
   the head, and a
   piece clearly nearer than its parent, child or sibling draws in
   front of it.
+  A piece ticked "Keep shape when leaning" in the rig still moves and
+  grows but never squashes, for heads and the like.
 - belong to a two-bone IK chain. IK is a posing tool: dragging a hand
   solves the chain and writes ordinary rotation keys. Playback only
   ever plays keys, so what was posed is what plays.

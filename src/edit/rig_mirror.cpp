@@ -34,6 +34,7 @@ void MirrorPiece(const Doll& doll, const RigPiece& from, RigPiece* to) {
   to->pivot = QPointF(2.0 * axis - joint.x(), joint.y()) - to_art->position;
   to->rest_rotation = -from.rest_rotation;
   to->warp = from.warp;
+  to->keeps_shape = from.keeps_shape;
   const QString parent = MirrorName(from.parent);
   const bool has_mirrored_parent =
       !from.parent.isEmpty() && FindRig(doll.rig, parent) != nullptr;

@@ -118,6 +118,7 @@ void RigPanel::RefreshPiece() {
                          static_cast<QWidget*>(&rest_),
                          static_cast<QWidget*>(&drawing_),
                          static_cast<QWidget*>(&warp_on_),
+                         static_cast<QWidget*>(&keep_shape_),
                          static_cast<QWidget*>(&add_chain_)}) {
     Explain(field, why_not);
   }
@@ -146,6 +147,7 @@ void RigPanel::RefreshPiece() {
     const QSignalBlocker quiet_columns(warp_columns_);
     const QSignalBlocker quiet_rows(warp_rows_);
     order_.setValue(rig->order);
+    keep_shape_.setChecked(rig->keeps_shape);
     const bool has_grid = rig->warp.IsOn();
     warp_on_.setChecked(has_grid);
     // Off keeps the last sizes ready for switching back on.

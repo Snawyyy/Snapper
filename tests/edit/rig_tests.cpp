@@ -177,6 +177,10 @@ void RigTests::ManyPiecesChangeTogether() {
   QCOMPARE(FindRig(BobRig(history), "upper")->pivot, QPointF(1, 2));
   QVERIFY(rig.SetWarpAll("Bob", {"upper", "lower"}, {2, 2}).has_value());
   QCOMPARE(FindRig(BobRig(history), "upper")->warp, (WarpGrid{2, 2}));
+  QVERIFY(rig.SetKeepShapeAll("Bob", {"upper", "lower"}, true).has_value());
+  QVERIFY(FindRig(BobRig(history), "lower")->keeps_shape);
+  QVERIFY(!FindRig(BobRig(history), "body")->keeps_shape);
+  QCOMPARE(history.UndoLabel(), QString("Keep shape"));
   QVERIFY(!rig.ShiftRestAll("Bob", {}, 1.0).has_value());
   QVERIFY(!rig.CopyAllToOtherSide("Bob", {"body"}).has_value());
 }

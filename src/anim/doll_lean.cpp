@@ -232,7 +232,9 @@ PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double degrees) {
       const QTransform target =
           at->second * QTransform::fromTranslate(-joint.x(), -joint.y()) *
           QTransform::fromScale(grow->second,
-                                grow->second * drawing_squash) *
+                                grow->second * (rig.keeps_shape
+                                                    ? std::copysign(1.0, cos)
+                                                    : drawing_squash)) *
           QTransform::fromTranslate(seen.x(), seen.y());
       const QPointF corner = FindArt(doll, rig.name)->position;
       const QTransform motion =

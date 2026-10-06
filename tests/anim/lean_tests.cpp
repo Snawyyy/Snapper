@@ -67,6 +67,7 @@ class LeanTests final : public QObject {
   void LeaningInDropsAndGrowsTheTop();
   void ItTurnsAllTheWayRound();
   void ShownPosesLeanByTheLayer();
+  void KeptShapesOnlyGrow();
   void TheNearPartComesInFront();
 };
 
@@ -175,6 +176,18 @@ void LeanTests::TheNearPartComesInFront() {
            QStringList({"hair", "leg", "torso", "head"}));
   QCOMPARE(names(LeanPoses(doll, {}, -20.0)),
            QStringList({"hair", "head", "torso", "leg"}));
+}
+
+void LeanTests::KeptShapesOnlyGrow() {
+  Doll doll = Body();
+  doll.rig.pieces[1].keeps_shape = true;
+  const auto before = PieceTransforms(doll, {});
+  const auto after = PieceTransforms(doll, LeanPoses(doll, {}, 30.0));
+  // The head grows evenly; the leg, not kept, still squashes.
+  const QTransform& head = after.at("head");
+  QVERIFY(head.m11() > 1.0);
+  QVERIFY(std::abs(head.m22() - head.m11()) < 1e-9);
+  QVERIFY(GrowthOf(before.at("leg"), after.at("leg")) > 0.0);
 }
 
 }  // namespace snapper

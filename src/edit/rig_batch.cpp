@@ -111,6 +111,21 @@ Result<void> RigManager::SetWarpAll(const QString& doll,
   return history_->Apply(Tr("Warp grid"), std::move(next));
 }
 
+Result<void> RigManager::SetKeepShapeAll(const QString& doll,
+                                         const std::vector<QString>& pieces,
+                                         bool keeps_shape) {
+  assert(history_ != nullptr);
+  assert(pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+  return history_->Apply(
+      keeps_shape ? Tr("Keep shape") : Tr("Let shape squash"),
+      WithRig(history_->current(), doll, [&](Rig* rig) {
+        return EachPiece(rig, doll, pieces, [keeps_shape](RigPiece* piece) {
+          piece->keeps_shape = keeps_shape;
+          return Result<void>();
+        });
+      }));
+}
+
 Result<void> RigManager::MovePivots(
     const QString& doll, const std::map<QString, QPointF>& offsets) {
   assert(history_ != nullptr);
