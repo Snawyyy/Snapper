@@ -118,8 +118,11 @@ void LeanTests::TheAmountStaysInRange() {
 
 void LeanTests::TheNearPartComesInFront() {
   Doll doll = Body();
-  // At rest the leg is drawn over everything.
+  // At rest the leg is drawn over everything; hair hangs from the head
+  // and sits behind it all.
   doll.rig.pieces[2].order = 5;
+  doll.art.pieces.push_back({"hair", {"r.png"}, 0, {5, 0}, {10, 20}});
+  doll.rig.pieces.push_back({"hair", "head", {5, 20}, -1, -1, {}});
   const auto names = [&doll](const PoseMap& poses) {
     QStringList order;
     for (const PlacedPiece& piece : PlaceDoll(doll, poses)) {
@@ -127,14 +130,15 @@ void LeanTests::TheNearPartComesInFront() {
     }
     return order;
   };
-  QCOMPARE(names({}), QStringList({"torso", "head", "leg"}));
+  QCOMPARE(names({}), QStringList({"hair", "torso", "head", "leg"}));
   QCOMPARE(names(LeanPoses(doll, {}, 0.0)), names({}));
-  // Leaning in brings the top nearer, so the head comes in front;
-  // leaning back brings the leg forward.
+  // Leaning in brings the top nearer, so the head comes in front of
+  // the torso and the torso of the leg; leaning back turns it round.
+  // The hair only answers to the head, so it stays at the back.
   QCOMPARE(names(LeanPoses(doll, {}, 0.3)),
-           QStringList({"leg", "torso", "head"}));
+           QStringList({"hair", "leg", "torso", "head"}));
   QCOMPARE(names(LeanPoses(doll, {}, -0.3)),
-           QStringList({"head", "torso", "leg"}));
+           QStringList({"hair", "head", "torso", "leg"}));
 }
 
 }  // namespace snapper

@@ -6,8 +6,6 @@
 #include <cassert>
 #include <cmath>
 #include <map>
-#include <set>
-#include <tuple>
 #include <vector>
 #include <numbers>
 
@@ -37,6 +35,8 @@ QRectF BoxOf(const Doll& doll,
 // box, and the doll's rest height.
 struct RestHeights final {
   std::map<QString, double> above;
+  // The same for the middle of each piece's drawing.
+  std::map<QString, double> middle_above;
   double doll = 0.0;
 };
 
@@ -52,6 +52,11 @@ RestHeights HeightsOf(const Doll& doll) {
     if (is_placed) {
       heights.above[rig.name] =
           box.center().y() - placed->second.map(rig.pivot).y();
+      const ArtPiece* art = FindArt(doll, rig.name);
+      heights.middle_above[rig.name] =
+          box.center().y() -
+          placed->second.map(QRectF(QPointF(), QSizeF(art->size)).center())
+              .y();
     }
   }
   assert(heights.above.size() <= rest.size());
@@ -77,53 +82,11 @@ std::map<QString, double> Growth(const RestHeights& heights, double tilt) {
   return growth;
 }
 
-// The doll's main parts: going down from the roots while there is only
-// one branch, each piece belongs to the first branch that splits off.
-// Pieces above the split are parts of their own.
-std::map<QString, QString> PartsOf(const Doll& doll) {
-  assert(doll.rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
-  const auto is_hung = [&doll](const RigPiece& rig) {
-    return !rig.parent.isEmpty() && FindRig(doll.rig, rig.parent) != nullptr;
-  };
-  std::map<QString, QString> parts;
-  std::set<QString> level;
-  for (const RigPiece& rig : doll.rig.pieces) {
-    const bool is_root = !is_hung(rig);
-    if (is_root) {
-      level.insert(rig.name);
-    }
-  }
-  for (int depth = 0; depth < kMaxDollPieces && level.size() == 1; ++depth) {
-    const QString single = *level.begin();
-    parts[single] = single;
-    level.clear();
-    for (const RigPiece& rig : doll.rig.pieces) {
-      const bool is_child = is_hung(rig) && rig.parent == single;
-      if (is_child) {
-        level.insert(rig.name);
-      }
-    }
-  }
-  for (const RigPiece& rig : doll.rig.pieces) {
-    const RigPiece* at = &rig;
-    for (int i = 0; i < kMaxDollPieces && !parts.contains(rig.name); ++i) {
-      const bool is_head = level.contains(at->name);
-      if (is_head) {
-        parts[rig.name] = at->name;
-      }
-      const bool is_top = !is_hung(*at);
-      if (is_top) {
-        break;
-      }
-      at = FindRig(doll.rig, at->parent);
-    }
-  }
-  assert(parts.size() <= doll.rig.pieces.size());
-  return parts;
-}
-
-// Brings the main parts nearer the camera in front, keeping the order
-// inside each part as it was.
+// Brings pieces nearer the camera in front. A piece only passes its
+// parent, its children and its siblings, and only when clearly nearer
+// (by kRestackGap of the doll's height, measured at the middles of
+// their drawings); otherwise the order is kept, so hair stays behind
+// the body and close pieces such as hair and face stay as rigged.
 void Restack(const Doll& doll, const RestHeights& heights, double tilt,
              PoseMap* leaned) {
   assert(leaned != nullptr);
@@ -132,33 +95,42 @@ void Restack(const Doll& doll, const RestHeights& heights, double tilt,
   if (is_level) {
     return;
   }
-  const std::map<QString, QString> parts = PartsOf(doll);
   struct Stacked final {
     double nearer;
     int order;
-    int index;
     const RigPiece* rig;
   };
-  std::vector<Stacked> stack;
-  for (int i = 0; i < static_cast<int>(doll.rig.pieces.size()); ++i) {
-    const RigPiece& rig = doll.rig.pieces[static_cast<size_t>(i)];
-    const auto part = parts.find(rig.name);
-    const auto above = part != parts.end() ? heights.above.find(part->second)
-                                           : heights.above.end();
-    const bool is_placed = above != heights.above.end();
+  std::vector<Stacked> left;
+  for (const RigPiece& rig : doll.rig.pieces) {
+    const auto above = heights.middle_above.find(rig.name);
+    const bool is_placed = above != heights.middle_above.end();
     if (is_placed) {
-      stack.push_back({above->second * (tilt > 0.0 ? 1.0 : -1.0),
-                       rig.order + (*leaned)[rig.name].order, i, &rig});
+      left.push_back({above->second * (tilt > 0.0 ? 1.0 : -1.0),
+                      rig.order + (*leaned)[rig.name].order, &rig});
     }
   }
-  std::sort(stack.begin(), stack.end(),
-            [](const Stacked& a, const Stacked& b) {
-              return std::tie(a.nearer, a.order, a.index) <
-                     std::tie(b.nearer, b.order, b.index);
-            });
-  for (int rank = 0; rank < static_cast<int>(stack.size()); ++rank) {
-    const RigPiece& rig = *stack[static_cast<size_t>(rank)].rig;
-    (*leaned)[rig.name].order = rank - rig.order;
+  const double gap = kRestackGap * heights.doll;
+  // Back to front: each time, of the pieces nothing left must go
+  // behind, the one the rig and pose draw furthest back.
+  for (int rank = 0; !left.empty() && rank < kMaxDollPieces; ++rank) {
+    auto next = left.end();
+    for (auto it = left.begin(); it != left.end(); ++it) {
+      const bool is_free =
+          std::none_of(left.begin(), left.end(), [&](const Stacked& other) {
+            const RigPiece& a = *it->rig;
+            const RigPiece& b = *other.rig;
+            const bool is_kin = a.parent == b.name || b.parent == a.name ||
+                                a.parent == b.parent;
+            return is_kin && it->nearer - other.nearer > gap;
+          });
+      const bool is_better = is_free && (next == left.end() ||
+                                         it->order < next->order);
+      if (is_better) {
+        next = it;
+      }
+    }
+    (*leaned)[next->rig->name].order = rank - next->rig->order;
+    left.erase(next);
   }
 }
 
