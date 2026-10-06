@@ -4,9 +4,13 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
+#include <iterator>
+#include <set>
 
 #include "anim/master_timeline.h"
 #include "edit/history_manager.h"
+#include "edit/timeline_rows.h"
 
 namespace snapper {
 namespace {
@@ -91,7 +95,37 @@ void PlaybackManager::Step(int delta) {
   assert(history_ != nullptr);
   assert(delta >= -kMaxFrame && delta <= kMaxFrame);
   Pause();
-  Seek(Frame(frame_.index() + delta));
+  const bool is_scrub = step_mode_ == StepMode::kScrub;
+  if (is_scrub) {
+    Seek(Frame(frame_.index() + delta));
+    return;
+  }
+  const std::set<Frame> changes = PoseChanges(history_->current());
+  Frame at = frame_;
+  for (int i = 0; i < std::abs(delta); ++i) {
+    const bool is_forward = delta > 0;
+    const auto next = changes.upper_bound(at);
+    const auto before = changes.lower_bound(at);
+    const bool has_next = is_forward ? next != changes.end()
+                                     : before != changes.begin();
+    if (!has_next) {
+      // Past the last change, the end of the track is next.
+      at = is_forward ? LastFrame() : Frame(0);
+      break;
+    }
+    at = is_forward ? *next : *std::prev(before);
+  }
+  Seek(at);
+}
+
+void PlaybackManager::SetStepMode(StepMode mode) {
+  assert(history_ != nullptr);
+  const bool is_new = mode != step_mode_;
+  step_mode_ = mode;
+  if (is_new) {
+    emit StepModeChanged(mode);
+  }
+  assert(step_mode_ == mode);
 }
 
 void PlaybackManager::SetLoop(Frame start, Frame end) {

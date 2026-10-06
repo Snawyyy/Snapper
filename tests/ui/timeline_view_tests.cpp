@@ -1,4 +1,5 @@
 #include <QTest>
+#include <QToolButton>
 
 #include "bench.h"
 #include "edit/timeline_rows.h"
@@ -51,6 +52,7 @@ class TimelineViewTests final : public QObject {
   void DeleteRemovesPickedKeys();
   void RulerClickSeeks();
   void BoxShiftAndCtrlPickKeys();
+  void StepModeToggles();
 };
 
 void TimelineViewTests::FramesMapToPixels() {
@@ -130,6 +132,20 @@ void TimelineViewTests::BoxShiftAndCtrlPickKeys() {
   QVERIFY(bench.selection.keys().empty());
   QTest::keyClick(&view, Qt::Key_A, Qt::ControlModifier);
   QCOMPARE(bench.selection.keys().size(), size_t{4});
+}
+
+void TimelineViewTests::StepModeToggles() {
+  Bench bench;
+  Stage(&bench);
+  TimelineView view(bench.All());
+  auto* toggle = view.findChild<QToolButton*>("step_mode");
+  QVERIFY(toggle != nullptr);
+  QCOMPARE(toggle->text(), QString("Scrub mode"));
+  toggle->click();
+  QCOMPARE(bench.playback.step_mode(), StepMode::kAnimation);
+  QCOMPARE(toggle->text(), QString("Animation mode"));
+  bench.playback.Step(1);
+  QCOMPARE(bench.playback.frame(), Frame(2));
 }
 
 }  // namespace snapper

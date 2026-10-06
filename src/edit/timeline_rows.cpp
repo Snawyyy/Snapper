@@ -4,6 +4,7 @@
 #include <map>
 #include <variant>
 
+#include "anim/master_timeline.h"
 #include "base/text.h"
 
 namespace snapper {
@@ -90,6 +91,28 @@ std::set<KeyRef> RowKeysAt(const Project& project, const TimelineRow& row,
     });
   }
   return keys;
+}
+
+std::set<Frame> PoseChanges(const Project& project) {
+  assert(project.shots.size() <= static_cast<size_t>(kMaxShots));
+  std::set<Frame> changes;
+  for (int i = 0; i < static_cast<int>(project.shots.size()); ++i) {
+    const Shot& shot = *project.shots[static_cast<size_t>(i)];
+    const int start = ShotStart(project, i).index();
+    changes.insert(Frame(start));
+    for (const TimelineRow& row : TimelineRows(project, shot.id)) {
+      for (size_t k = 0; k < row.keys.size(); ++k) {
+        const int from = row.keys[k].index();
+        const bool is_eased = row.is_eased[k] && k + 1 < row.keys.size();
+        const int to = is_eased ? row.keys[k + 1].index() : from;
+        for (int f = from; f <= to && f < shot.length.index(); ++f) {
+          changes.insert(Frame(start + f));
+        }
+      }
+    }
+  }
+  assert(changes.size() <= static_cast<size_t>(kMaxFrame) + 1);
+  return changes;
 }
 
 }  // namespace snapper

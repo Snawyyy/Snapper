@@ -63,6 +63,7 @@ class PlaybackTests final : public QObject {
 
  private slots:
   void SeekAndStepStayOnTheTrack();
+  void AnimationModeSkipsHeldFrames();
   void PlayingMovesTheFrame();
   void PlayingStopsAtTheEnd();
   void LoopsWrapAround();
@@ -141,6 +142,40 @@ void PlaybackTests::SongsLoadInTheBackground() {
   history.Commit("Bad song", project);
   QTRY_VERIFY_WITH_TIMEOUT(!playback.song_error().isEmpty(), 5000);
   QVERIFY(playback.song() == nullptr);
+}
+
+void PlaybackTests::AnimationModeSkipsHeldFrames() {
+  // Camera keys at 4 (held) and 10 (easing into 13).
+  Project project = Lasting(48);
+  Shot shot = *project.shots[0];
+  SetKey(&shot.camera, {Frame(4), CameraPose(), Ease::kStep});
+  SetKey(&shot.camera, {Frame(10), CameraPose(), Ease::kLinear});
+  SetKey(&shot.camera, {Frame(13), CameraPose(), Ease::kStep});
+  project.shots[0] = std::make_shared<const Shot>(shot);
+  HistoryManager history(project);
+  PlaybackManager playback(&history);
+  QSignalSpy changed(&playback, &PlaybackManager::StepModeChanged);
+  playback.SetStepMode(StepMode::kAnimation);
+  QCOMPARE(changed.count(), 1);
+  playback.Step(1);
+  QCOMPARE(playback.frame(), Frame(4));
+  playback.Step(1);
+  QCOMPARE(playback.frame(), Frame(10));
+  // Through an ease every frame changes.
+  playback.Step(1);
+  QCOMPARE(playback.frame(), Frame(11));
+  playback.Step(2);
+  QCOMPARE(playback.frame(), Frame(13));
+  playback.Step(-2);
+  QCOMPARE(playback.frame(), Frame(11));
+  // Past the last change, the end; before the first, the start.
+  playback.Step(5);
+  QCOMPARE(playback.frame(), Frame(47));
+  playback.Step(-10);
+  QCOMPARE(playback.frame(), Frame(0));
+  playback.SetStepMode(StepMode::kScrub);
+  playback.Step(1);
+  QCOMPARE(playback.frame(), Frame(1));
 }
 
 }  // namespace snapper

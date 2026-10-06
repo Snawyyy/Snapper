@@ -2,6 +2,7 @@
 #define SNAPPER_UI_TIMELINE_VIEW_H_
 
 #include <QString>
+#include <QToolButton>
 #include <QWidget>
 
 #include <memory>
@@ -71,7 +72,12 @@ class TimelineView final : public QWidget {
   void KeyMenu(const TimelineRow& row, Frame frame, QPoint where);
   void EmptyMenu(const TimelineRow& row, Frame frame, QPoint where);
 
+  // Shows and flips the playback's step mode.
+  void ShowStepMode();
+
   Managers managers_;
+  // Scrub or animation stepping, in the ruler's corner.
+  QToolButton step_mode_;
   double frame_width_;
   double scroll_ = 0.0;
   bool is_scrubbing_ = false;

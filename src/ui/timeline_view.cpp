@@ -17,8 +17,20 @@
 namespace snapper {
 
 TimelineView::TimelineView(const Managers& managers)
-    : managers_(managers), frame_width_(kDefaultFrameWidth) {
+    : managers_(managers), step_mode_(this),
+      frame_width_(kDefaultFrameWidth) {
   assert(managers_.IsComplete());
+  step_mode_.setObjectName("step_mode");
+  step_mode_.setCheckable(true);
+  step_mode_.setFocusPolicy(Qt::NoFocus);
+  step_mode_.setGeometry(1, 1, kNameWidth - 2, kRulerHeight - 2);
+  connect(&step_mode_, &QToolButton::clicked, this, [this](bool is_on) {
+    managers_.playback->SetStepMode(is_on ? StepMode::kAnimation
+                                          : StepMode::kScrub);
+  });
+  connect(managers_.playback, &PlaybackManager::StepModeChanged, this,
+          &TimelineView::ShowStepMode);
+  ShowStepMode();
   setFocusPolicy(Qt::StrongFocus);
   setMinimumHeight(kRulerHeight + kWaveHeight + 3 * kRowHeight);
   const auto update_me = [this] { update(); };
@@ -29,6 +41,22 @@ TimelineView::TimelineView(const Managers& managers)
   connect(managers_.playback, &PlaybackManager::SongChanged, this,
           update_me);
   assert(frame_width_ > 0.0);
+}
+
+void TimelineView::ShowStepMode() {
+  assert(managers_.playback != nullptr);
+  const bool is_animation =
+      managers_.playback->step_mode() == StepMode::kAnimation;
+  step_mode_.setChecked(is_animation);
+  step_mode_.setText(is_animation ? tr("Animation mode") : tr("Scrub mode"));
+  step_mode_.setToolTip(
+      is_animation
+          ? tr("The arrow keys jump to the next frame where something "
+               "changes, skipping held frames. Click for one frame at a "
+               "time.")
+          : tr("The arrow keys move one frame at a time. Click to jump "
+               "between frames where something changes."));
+  assert(step_mode_.isCheckable());
 }
 
 std::optional<Frame> TimelineView::FrameAt(double x) const {

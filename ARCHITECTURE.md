@@ -98,6 +98,10 @@ History keeps at most `kMaxUndoSteps` steps and drops the oldest.
   length, it does not force them. Picked keys can be spaced evenly on
   1s to 4s (`KeyManager::Space`); keys after them slide along so later
   timing stays.
+- The timeline's corner flips stepping between scrub mode (the arrow
+  keys move one frame) and animation mode (they jump to the next frame
+  where the picture changes: a key, a shot's start, or each frame of
+  an ease; `PoseChanges`).
 - Playback is driven by the audio clock, so picture never drifts from
   the song. Without a song or a sound card it falls back to elapsed
   time.

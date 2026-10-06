@@ -34,6 +34,11 @@ std::vector<TimelineRow> TimelineRows(const Project& project, ShotId shot);
 std::set<KeyRef> RowKeysAt(const Project& project, const TimelineRow& row,
                            Frame frame);
 
+// Master frames where the picture can change: each shot's start, each
+// key inside a shot, and every frame of an ease or slide. Stepping in
+// animation mode jumps between these.
+std::set<Frame> PoseChanges(const Project& project);
+
 }  // namespace snapper
 
 #endif  // SNAPPER_EDIT_TIMELINE_ROWS_H_

@@ -17,6 +17,11 @@ namespace snapper {
 
 class HistoryManager;
 
+// What stepping (the arrow keys) moves by: one frame at a time, or to
+// the next frame where the picture changes (a key, a shot's start, or
+// each frame of an ease), skipping held frames.
+enum class StepMode { kScrub, kAnimation };
+
 // The playhead on the master track and playing the song under it. The
 // song's clock drives the picture, so frames never drift from the
 // music. The song is decoded in the background whenever the project's
@@ -36,8 +41,10 @@ class PlaybackManager final : public QObject {
   void Toggle();
   // Clamped to the master track.
   void Seek(Frame frame);
-  // A frame at a time, for stepping through poses.
+  // delta frames, or delta pose changes in animation mode.
   void Step(int delta);
+  StepMode step_mode() const { return step_mode_; }
+  void SetStepMode(StepMode mode);
   // Playing wraps from end back to start.
   void SetLoop(Frame start, Frame end);
   void ClearLoop();
@@ -55,6 +62,7 @@ class PlaybackManager final : public QObject {
   void FrameChanged(Frame frame);
   void PlayingChanged(bool is_playing);
   void SongChanged();
+  void StepModeChanged(StepMode mode);
 
  private:
   void Tick();
@@ -72,6 +80,7 @@ class PlaybackManager final : public QObject {
   Frame frame_;
   Frame loop_start_;
   Frame loop_end_;
+  StepMode step_mode_ = StepMode::kScrub;
 };
 
 }  // namespace snapper
