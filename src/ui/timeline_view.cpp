@@ -11,6 +11,7 @@
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "media/audio_clip.h"
+#include "ui/playhead.h"
 #include "ui/theme.h"
 #include "ui/timeline_layout.h"
 
@@ -225,14 +226,11 @@ void TimelineView::PaintPlayhead(QPainter* painter) const {
 }
 
 std::optional<Frame> TimelineView::PlayheadHere() const {
-  const Project& project = managers_.history->current();
-  const ShotMoment moment = Locate(project, managers_.playback->frame());
-  const bool is_here =
-      moment.shot >= 0 &&
-      project.shots[static_cast<size_t>(moment.shot)]->id ==
-          managers_.selection->shot();
   assert(managers_.selection != nullptr);
-  return is_here ? std::optional<Frame>(moment.local) : std::nullopt;
+  const auto spot = SpotOf(managers_);
+  const bool is_here = spot && spot->shot == managers_.selection->shot();
+  assert(!is_here || spot->local.index() >= 0);
+  return is_here ? std::optional<Frame>(spot->local) : std::nullopt;
 }
 
 int TimelineView::RowAt(double y, size_t count) const {

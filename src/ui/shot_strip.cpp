@@ -241,7 +241,7 @@ void ShotStrip::Pick(ShotId shot) {
   managers_.selection->SelectShot(shot);
   const bool is_found = index >= 0;
   if (is_found) {
-    managers_.playback->Seek(ShotStart(project, index));
+    managers_.playback->Seek(ShotOwnStart(project, index));
   }
 }
 

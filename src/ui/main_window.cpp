@@ -138,7 +138,13 @@ void MainWindow::FollowPlayhead() {
   const Project& project = managers_.history->current();
   const ShotMoment moment = Locate(project, managers_.playback->frame());
   const bool is_on_shot = moment.shot >= 0;
-  if (is_on_shot) {
+  // In a hand-over the picked shot may be either side; keep it.
+  const bool is_next_picked =
+      moment.next_shot >= 0 &&
+      project.shots[static_cast<size_t>(moment.next_shot)]->id ==
+          managers_.selection->shot();
+  const bool is_moving_on = is_on_shot && !is_next_picked;
+  if (is_moving_on) {
     managers_.selection->SelectShot(
         project.shots[static_cast<size_t>(moment.shot)]->id);
   }

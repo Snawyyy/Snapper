@@ -20,6 +20,9 @@ struct ShotMoment final {
 // First master frame of the shot at index; each shot starts where the
 // one before ends, less its transition overlap.
 Frame ShotStart(const Project& project, int index);
+// First master frame that belongs to the shot at index alone: past the
+// overlap where the shot before is still handing over to it.
+Frame ShotOwnStart(const Project& project, int index);
 Frame TotalLength(const Project& project);
 ShotMoment Locate(const Project& project, Frame master);
 
