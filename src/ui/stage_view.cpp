@@ -187,11 +187,53 @@ void StageView::PaintWarp(const StageFrame& frame, const Pick& pick,
   for (const QPointF& point : warp->points) {
     painter->drawEllipse(warp->to_screen.map(point), kWarpDot, kWarpDot);
   }
+  const auto dot = tool_.PickedDot(frame);
+  const bool is_dot_here =
+      dot.has_value() && dot->layer == pick.layer && dot->piece == pick.piece;
+  if (is_dot_here) {
+    PaintReach(*warp, dot->point, painter);
+  }
+}
+
+void StageView::PaintReach(const WarpOnScreen& warp, int point,
+                           QPainter* painter) {
+  assert(painter != nullptr);
+  assert(point >= 0 && point < warp.grid.PointCount());
+  const QPointF spot = warp.points[static_cast<size_t>(point)];
+  const double reach = warp.reach[static_cast<size_t>(point)];
+  const QPointF on_screen = warp.to_screen.map(spot);
+  // Picked is orange; the faint ring is how far the rubber reaches, in
+  // the drawing's own grid cells.
+  painter->setPen(QPen(theme::kPick, 2.0));
+  painter->setBrush(Qt::NoBrush);
+  painter->drawEllipse(on_screen, kWarpDot + 2, kWarpDot + 2);
+  const bool has_reach = reach > 0.0;
+  if (has_reach) {
+    painter->save();
+    painter->setTransform(warp.to_screen, true);
+    QColor faint = theme::kPick;
+    faint.setAlpha(150);
+    painter->setPen(QPen(faint, 0.0, Qt::DashLine));
+    painter->drawEllipse(spot,
+                         reach * warp.size.width() / warp.grid.columns,
+                         reach * warp.size.height() / warp.grid.rows);
+    painter->restore();
+  }
+  painter->setPen(theme::kText);
+  painter->drawText(on_screen + QPointF(kWarpDot + 4, -kWarpDot - 4),
+                    tr("reach %1").arg(reach, 0, 'f', 1));
 }
 
 void StageView::mousePressEvent(QMouseEvent* event) {
   assert(event != nullptr);
   const auto frame = CurrentFrame();
+  const bool is_middle =
+      frame.has_value() && event->button() == Qt::MiddleButton;
+  if (is_middle) {
+    tool_.PickDot(event->position(), *frame);
+    update();
+    return;
+  }
   const bool is_usable = frame.has_value() &&
                          event->button() == Qt::LeftButton;
   if (is_usable) {
@@ -262,11 +304,16 @@ void StageView::keyPressEvent(QKeyEvent* event) {
   const bool is_escape = event->key() == Qt::Key_Escape;
   const bool is_all = event->matches(QKeySequence::SelectAll);
   if (is_escape) {
+    // Escape backs out one thing at a time: the drag, the picked warp
+    // dot, then the pick.
     const bool was_dragging = tool_.IsDragging();
     tool_.Cancel();
-    if (!was_dragging) {
+    const bool had_dot = !was_dragging && tool_.DropDot();
+    const bool is_clearing = !was_dragging && !had_dot;
+    if (is_clearing) {
       managers_.selection->Clear();
     }
+    update();
     event->accept();
     return;
   }

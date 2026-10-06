@@ -6,6 +6,8 @@
 #include <optional>
 #include <cassert>
 
+#include "anim/warp.h"
+
 namespace snapper {
 namespace {
 
@@ -102,13 +104,10 @@ PiecePose MirrorPose(const PiecePose& pose, WarpGrid grid) {
   if (!has_warp) {
     return mirrored;
   }
-  const int width = grid.columns + 1;
-  for (int row = 0; row <= grid.rows; ++row) {
-    for (int column = 0; column < width; ++column) {
-      const auto from = static_cast<size_t>(row * width + column);
-      const auto to = static_cast<size_t>(row * width + grid.columns - column);
-      mirrored.warp[to] = QPointF(-pose.warp[from].x(), pose.warp[from].y());
-    }
+  for (int from = 0; from < grid.PointCount(); ++from) {
+    const QPointF pushed = pose.warp[static_cast<size_t>(from)];
+    mirrored.warp[static_cast<size_t>(MirroredPoint(grid, from))] =
+        QPointF(-pushed.x(), pushed.y());
   }
   return mirrored;
 }

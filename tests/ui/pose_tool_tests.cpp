@@ -308,6 +308,23 @@ void PoseToolTests::WarpDotsBendThePiece() {
   QCOMPARE(Body(bench).warp[4], QPointF(6, 3));
   tool.Cancel();
   QCOMPARE(Body(bench).warp[4], QPointF(4, 3));
+  // Middle click picks the dot under the corner; the wheel then sets
+  // its reach instead of turning the body.
+  tool.PickDot({50, 50}, kFrame);
+  QCOMPARE(tool.PickedDot(kFrame), (WarpDot{LayerId(1), "body", 0}));
+  tool.Wheel(3, false, kFrame);
+  tool.Wheel(-1, true, kFrame);
+  const RigPiece& rig = bench.history.current().dolls.at("Dot")->rig.pieces[0];
+  QCOMPARE(rig.warp_reach[0], 3 * kReachStep - kFineReachStep);
+  QCOMPARE(Body(bench).rotation, 0.0);
+  // Again drops it, and the wheel turns the body as before.
+  tool.PickDot({50, 50}, kFrame);
+  QVERIFY(!tool.PickedDot(kFrame).has_value());
+  tool.Wheel(1, false, kFrame);
+  QCOMPARE(Body(bench).rotation, -kWheelStep);
+  tool.PickDot({50, 50}, kFrame);
+  QVERIFY(tool.DropDot());
+  QVERIFY(!tool.DropDot());
 }
 
 }  // namespace snapper

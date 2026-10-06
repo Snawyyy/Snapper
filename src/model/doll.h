@@ -68,6 +68,10 @@ struct RigPiece final {
   // Leaning or swivelling the doll moves and sizes the piece but never
   // squashes its drawing: for heads and the like.
   bool keeps_shape = false;
+  // How far, in grid cells, pulling each warp grid point drags its
+  // neighbours along, like rubber; 0 moves the point alone. Row by row,
+  // one per point, or empty when every point is 0.
+  std::vector<double> warp_reach{};
 
   bool operator==(const RigPiece&) const = default;
 };

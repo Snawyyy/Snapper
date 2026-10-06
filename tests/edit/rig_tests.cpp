@@ -84,7 +84,16 @@ void RigTests::NewWarpGridClearsOldWarpKeys() {
   RigManager rig(&history);
   QVERIFY(!rig.SetWarpGrid("Bob", "lower", {0, 3}).has_value());
   QVERIFY(!rig.SetWarpGrid("Bob", "lower", {9, 1}).has_value());
+  QVERIFY(rig.SetWarpReach("Bob", "lower", 4, 1.5).has_value());
+  QVERIFY(!rig.SetWarpReach("Bob", "lower", 9, 1.0).has_value());
+  QVERIFY(!rig.SetWarpReach("Bob", "upper", 0, 1.0).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->warp_reach[4], 1.5);
+  QVERIFY(rig.SetWarpReach("Bob", "lower", 0, -3.0).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->warp_reach[0], 0.0);
+  QCOMPARE(history.UndoLabel(), QString("Rubber reach of lower"));
+  // A new grid starts with no reach.
   QVERIFY(rig.SetWarpGrid("Bob", "lower", {3, 1}).has_value());
+  QVERIFY(FindRig(BobRig(history), "lower")->warp_reach.empty());
   const auto& layer = std::get<DollLayer>(
       history.current().shots[0]->layers[0].content);
   QVERIFY(layer.pieces.at("lower").keys[0].value.warp.empty());

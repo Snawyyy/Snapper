@@ -173,6 +173,15 @@ void PoseTests::WarpPushesGridPoints() {
   QCOMPARE(NearestPoint(rest, QPointF(9, 3), 2.0), 5);
   QCOMPARE(NearestPoint(rest, QPointF(7, 2), 1.0), -1);
   QVERIFY(RestPoints(QSize(10, 4), WarpGrid()).empty());
+  // Rubber: a point always takes the whole pull; others fade with
+  // distance in cells and stop at the reach.
+  QCOMPARE(PullWeight(grid, 1, 1, 0.0), 1.0);
+  QCOMPARE(PullWeight(grid, 1, 0, 0.0), 0.0);
+  QCOMPARE(PullWeight(grid, 1, 0, 2.0), 0.5);
+  QCOMPARE(PullWeight(grid, 1, 5, 1.0), 0.0);
+  QVERIFY(PullWeight(grid, 0, 4, 2.0) < PullWeight(grid, 0, 1, 2.0));
+  QCOMPARE(MirroredPoint(grid, 0), 2);
+  QCOMPARE(MirroredPoint(grid, 4), 4);
 }
 
 void PoseTests::MirrorSwapsSidesAndFlipsTurns() {

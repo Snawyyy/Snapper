@@ -63,7 +63,8 @@ void DollFileTests::ReadsArtAndGivesNewPiecesADefaultRig() {
 void DollFileTests::RigSurvivesARoundTrip() {
   QTemporaryDir dir;
   Rig rig;
-  rig.pieces = {{"body", "", {1, 2}, 3, 0, {2, 3}},
+  rig.pieces = {{"body", "", {1, 2}, 3, 0, {1, 1}, 0.0, false,
+                 {0.0, 1.5, 0.0, 2.0}},
                 {"head", "body", {4, 5}, 6, -1, {}, 10.0, true}};
   rig.chains = {{"neck", "body", "head", {7, 8}, false}};
   QVERIFY(WriteRig(dir.path(), rig).has_value());

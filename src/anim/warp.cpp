@@ -3,6 +3,8 @@
 #include <QLineF>
 
 #include <cassert>
+#include <cmath>
+#include <numbers>
 
 namespace snapper {
 
@@ -53,6 +55,31 @@ int NearestPoint(const std::vector<QPointF>& points, QPointF spot,
     }
   }
   return best;
+}
+
+double PullWeight(WarpGrid grid, int point, int other, double reach) {
+  assert(point >= 0 && point < grid.PointCount());
+  assert(other >= 0 && other < grid.PointCount());
+  const bool is_self = point == other;
+  const bool is_rubber = std::isfinite(reach) && reach > 0.0;
+  const bool is_alone = is_self || !is_rubber;
+  if (is_alone) {
+    return is_self ? 1.0 : 0.0;
+  }
+  const int across = grid.columns + 1;
+  const double cells = std::hypot(point % across - other % across,
+                                  point / across - other / across);
+  const bool is_reached = cells < reach;
+  return is_reached
+             ? 0.5 * (1.0 + std::cos(std::numbers::pi * cells / reach))
+             : 0.0;
+}
+
+int MirroredPoint(WarpGrid grid, int point) {
+  assert(point >= 0 && point < grid.PointCount());
+  assert(grid.IsOn());
+  const int across = grid.columns + 1;
+  return point / across * across + grid.columns - point % across;
 }
 
 }  // namespace snapper

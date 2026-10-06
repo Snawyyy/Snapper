@@ -3,6 +3,7 @@
 
 #include <QPointF>
 #include <QPolygonF>
+#include <QSize>
 #include <QString>
 #include <QTransform>
 
@@ -41,13 +42,14 @@ std::optional<PieceOutline> PieceOnScreen(const Project& project,
                                           double scale);
 
 // A piece's warp grid on screen: its points row by row (as shown,
-// pushed by the pose's warp), the grid's size, the pose's warp offsets
-// in drawing pixels (empty at rest), and drawing pixels to screen.
-// Nothing when the piece has no grid.
+// pushed by the pose's warp, in drawing pixels), the grid's size, each
+// point's rubber reach in cells, the drawing's size, and drawing
+// pixels to screen. Nothing when the piece has no grid.
 struct WarpOnScreen final {
   WarpGrid grid;
   std::vector<QPointF> points;
-  std::vector<QPointF> offsets;
+  std::vector<double> reach;
+  QSize size;
   QTransform to_screen;
 };
 std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,

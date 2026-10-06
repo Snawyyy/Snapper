@@ -120,6 +120,7 @@ Result<void> RigManager::SetWarpGrid(const QString& doll,
   auto next = WithPiece(history_->current(), doll, piece,
                         [grid](RigPiece* rig) -> Result<void> {
                           rig->warp = grid;
+                          rig->warp_reach.clear();
                           return {};
                         });
   const bool is_changed = next.has_value();
@@ -127,6 +128,32 @@ Result<void> RigManager::SetWarpGrid(const QString& doll,
     *next = WithoutWarpKeys(std::move(*next), doll, piece);
   }
   return history_->Apply(Tr("Warp grid of %1").arg(piece), std::move(next));
+}
+
+Result<void> RigManager::SetWarpReach(const QString& doll,
+                                      const QString& piece, int point,
+                                      double reach) {
+  assert(history_ != nullptr);
+  assert(!piece.isEmpty());
+  const bool is_number = std::isfinite(reach);
+  if (!is_number) {
+    return std::unexpected(Error{Tr("That reach is off the map.")});
+  }
+  const double cells = std::clamp(reach, 0.0, double(kMaxWarpCells));
+  return history_->Apply(
+      Tr("Rubber reach of %1").arg(piece),
+      WithPiece(history_->current(), doll, piece,
+                [point, cells](RigPiece* rig) -> Result<void> {
+                  const int count = rig->warp.PointCount();
+                  const bool is_point = point >= 0 && point < count;
+                  if (!is_point) {
+                    return std::unexpected(Error{
+                        Tr("Give the piece a warp grid in the rig first.")});
+                  }
+                  rig->warp_reach.resize(static_cast<size_t>(count), 0.0);
+                  rig->warp_reach[static_cast<size_t>(point)] = cells;
+                  return {};
+                }));
 }
 
 Result<void> RigManager::AddChain(const QString& doll, const IkChain& chain) {

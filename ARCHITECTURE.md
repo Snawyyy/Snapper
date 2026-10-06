@@ -138,7 +138,11 @@ A piece can:
 - warp locally through a grid of handles, so one-piece parts such as a
   trunk can still crease at the collar or chest.
   On the stage a picked piece shows its grid as faint lines with
-  yellow dots; dragging a dot keys that point's push.
+  yellow dots; dragging a dot keys that point's push. Each dot has a
+  rubber reach in grid cells, kept in the rig (0 by default): pulling
+  the dot drags its neighbours along, fading out at the reach. Middle
+  click picks a dot (orange, with its reach drawn) and the wheel then
+  sets the reach instead of turning the piece.
 - turn in depth with the whole doll: a doll picked whole has two
   yellow handles (and Lean and Swivel fields). Lean, beside the box,
   turns it like a wheel facing the camera; Swivel, below it, like a

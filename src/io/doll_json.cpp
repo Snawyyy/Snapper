@@ -4,9 +4,41 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
+#include <vector>
 
 namespace snapper {
 namespace {
+
+QJsonArray ReachToJson(const std::vector<double>& reach) {
+  assert(reach.size() <= static_cast<size_t>(kMaxWarpPoints));
+  QJsonArray array;
+  for (const double cells : reach) {
+    array.append(cells);
+  }
+  assert(array.size() == static_cast<qsizetype>(reach.size()));
+  return array;
+}
+
+// One reach per point of grid, never negative; anything that doesn't
+// fit the grid reads as no reach at all.
+std::vector<double> ReachFromJson(const QJsonValue& value, WarpGrid grid) {
+  assert(grid.columns >= 0 && grid.rows >= 0);
+  const QJsonArray array = value.toArray();
+  std::vector<double> reach;
+  const bool is_fitting = array.size() == grid.PointCount();
+  if (!is_fitting) {
+    return reach;
+  }
+  for (const QJsonValue& cells : array) {
+    const double read = cells.toDouble();
+    reach.push_back(std::isfinite(read)
+                        ? std::clamp(read, 0.0, double(kMaxWarpCells))
+                        : 0.0);
+  }
+  assert(reach.size() <= static_cast<size_t>(kMaxWarpPoints));
+  return reach;
+}
 
 QJsonArray Names(const std::vector<QString>& names) {
   assert(names.size() <= static_cast<size_t>(kMaxPieceDrawings));
@@ -94,6 +126,7 @@ QJsonObject RigToJson(const Rig& rig) {
         {"default", piece.default_drawing},
         {"rest", piece.rest_rotation},
         {"keep_shape", piece.keeps_shape},
+        {"reach", ReachToJson(piece.warp_reach)},
         {"warp", QJsonArray{piece.warp.columns, piece.warp.rows}}});
   }
   QJsonArray chains;
@@ -123,7 +156,8 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
                           piece.value("order").toInt(),
                           piece.value("default").toInt(-1), grid,
                           piece.value("rest").toDouble(),
-                          piece.value("keep_shape").toBool()});
+                          piece.value("keep_shape").toBool(),
+                          ReachFromJson(piece.value("reach"), grid)});
   }
   const QJsonArray chains =
       Bounded(object.value("chains"), kMaxIkChains, "IK chains", issues);

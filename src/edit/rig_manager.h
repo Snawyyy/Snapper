@@ -38,6 +38,10 @@ class RigManager final {
   // fit, so they are cleared from the piece's poses.
   Result<void> SetWarpGrid(const QString& doll, const QString& piece,
                            WarpGrid grid);
+  // How far pulling one grid point drags its neighbours, in cells (0
+  // moves it alone), kept from 0 to kMaxWarpCells.
+  Result<void> SetWarpReach(const QString& doll, const QString& piece,
+                            int point, double reach);
 
   // Copies piece's joint, rest turn, parent and warp grid onto its
   // partner on the other side (arm_l to arm_r), mirrored, so a doll is

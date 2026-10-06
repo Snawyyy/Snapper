@@ -6,6 +6,7 @@
 #include <utility>
 #include <variant>
 
+#include "anim/warp.h"
 #include "edit/history_manager.h"
 #include "edit/pose_edits.h"
 
@@ -190,31 +191,38 @@ Result<void> PoseManager::SwapDrawing(const TrackRef& track, Frame frame,
               }));
 }
 
-Result<void> PoseManager::Warp(const TrackRef& track, Frame frame, int point,
-                               QPointF offset) {
+Result<void> PoseManager::Pull(const TrackRef& track, Frame frame,
+                               int point, QPointF by) {
   assert(history_ != nullptr);
   assert(frame.index() >= 0);
+  const Project& base = history_->before();
   const bool is_piece = track.kind == TrackKind::kPiece;
-  const RigPiece* rig =
-      is_piece ? PieceOf(history_->current(), track).first : nullptr;
+  const RigPiece* rig = is_piece ? PieceOf(base, track).first : nullptr;
   const int count = rig != nullptr ? rig->warp.PointCount() : 0;
   const bool is_valid = point >= 0 && point < count &&
-                        std::isfinite(offset.x()) &&
-                        std::isfinite(offset.y());
+                        std::isfinite(by.x()) && std::isfinite(by.y());
   if (!is_valid) {
     return std::unexpected(
         Error{Tr("Give the piece a warp grid in the rig first.")});
   }
+  const WarpGrid grid = rig->warp;
+  const bool has_reach =
+      static_cast<int>(rig->warp_reach.size()) == count;
+  const double reach =
+      has_reach ? rig->warp_reach[static_cast<size_t>(point)] : 0.0;
   return history_->Apply(
       Tr("Warp %1").arg(track.piece),
-      KeyedAt(history_->current(), track, frame, PiecePose(),
-              [count, point, offset](PiecePose* value) {
+      KeyedAt(base, track, frame, PiecePose(),
+              [&](PiecePose* value) {
                 const bool is_fitting =
                     static_cast<int>(value->warp.size()) == count;
                 if (!is_fitting) {
                   value->warp.assign(static_cast<size_t>(count), QPointF());
                 }
-                value->warp[static_cast<size_t>(point)] = offset;
+                for (int other = 0; other < count; ++other) {
+                  value->warp[static_cast<size_t>(other)] +=
+                      by * PullWeight(grid, point, other, reach);
+                }
                 return Result<void>();
               }));
 }

@@ -4,9 +4,11 @@
 #include <QPointF>
 #include <QRectF>
 #include <QString>
+#include <QTransform>
 
 #include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "base/frame.h"
@@ -30,6 +32,20 @@ constexpr double kScalePixels = 200.0;
 // lean handle down leans it toward the camera, the swivel handle right
 // brings its right side toward the camera. There is no end to either.
 constexpr double kTurnPerPixel = 0.25;
+
+// Each wheel notch on a picked warp dot changes its rubber reach by this
+// many grid cells (the fine step with Shift).
+constexpr double kReachStep = 0.5;
+constexpr double kFineReachStep = 0.1;
+
+// One dot of a picked piece's warp grid.
+struct WarpDot final {
+  LayerId layer;
+  QString piece;
+  int point = -1;
+
+  bool operator==(const WarpDot&) const = default;
+};
 
 // Where on screen the stage frame is: which shot and frame it shows,
 // how big, and where its top-left corner sits in the widget.
@@ -63,6 +79,15 @@ class PoseTool final {
   // Double-click: picks the whole doll (or layer) under point as one
   // group, so it moves, scales and turns as one.
   void PickWhole(QPointF point, const StageFrame& frame);
+  // Middle click: picks the warp dot under point (again drops it), so
+  // the wheel sets its rubber reach instead of turning; anywhere else
+  // drops it.
+  void PickDot(QPointF point, const StageFrame& frame);
+  // The picked warp dot while its piece is still picked and the dot
+  // still on its grid.
+  std::optional<WarpDot> PickedDot(const StageFrame& frame) const;
+  // Escape: drops the picked dot; false when there was none.
+  bool DropDot();
 
   bool IsDragging() const { return drag_ != nullptr; }
   // The pick box being drawn, in widget pixels; empty when none.
@@ -79,12 +104,10 @@ class PoseTool final {
     // For IK drags: the layer and chain.
     LayerId layer;
     QString chain;
-    // For warp drags: the piece, its grid point, where that point was
-    // pushed at the press (drawing pixels), and drawing pixels to
+    // For warp drags: the piece, its grid point, and drawing pixels to
     // screen.
     QString piece;
     int point = -1;
-    QPointF pushed;
     QTransform drawing_to_screen;
     // For lean and swivel drags: every doll picked whole.
     std::vector<LayerId> dolls;
@@ -103,6 +126,12 @@ class PoseTool final {
   bool PressIk(QPointF point, const StageFrame& frame);
   bool PressLean(QPointF point, const StageFrame& frame);
   bool PressWarp(QPointF point, const StageFrame& frame);
+  // The dot of a picked piece's warp grid under point, and that
+  // piece's drawing pixels to screen.
+  std::optional<std::pair<WarpDot, QTransform>> DotAt(
+      QPointF point, const StageFrame& frame) const;
+  void WheelReach(const WarpDot& dot, int notches, bool is_fine,
+                  const StageFrame& frame);
   void PressPick(const Pick& pick, bool is_shift, bool is_ctrl,
                  const StageFrame& frame, QPointF point);
   void MoveAll(QPointF total);
@@ -112,6 +141,7 @@ class PoseTool final {
   Managers managers_;
   ImageCache* cache_;
   std::unique_ptr<Drag> drag_;
+  std::optional<WarpDot> dot_;
   QString problem_;
 };
 

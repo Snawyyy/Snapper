@@ -99,6 +99,7 @@ Result<void> RigManager::SetWarpAll(const QString& doll,
   auto next = WithRig(history_->current(), doll, [&](Rig* rig) {
     return EachPiece(rig, doll, pieces, [grid](RigPiece* piece) {
       piece->warp = grid;
+      piece->warp_reach.clear();
       return Result<void>();
     });
   });

@@ -49,9 +49,12 @@ class PoseManager final {
   // Piece tracks: show drawing (index into the piece's drawings; -1 for
   // the rig's default).
   Result<void> SwapDrawing(const TrackRef& track, Frame frame, int drawing);
-  // Piece tracks: push one warp grid point by offset from rest.
-  Result<void> Warp(const TrackRef& track, Frame frame, int point,
-                    QPointF offset);
+  // Piece tracks: pull one warp grid point by `by` (drawing pixels),
+  // dragging its neighbours along as far as the rig's rubber reach for
+  // that point says. It pulls from where the open drag started, so a
+  // drag calls it with its running total.
+  Result<void> Pull(const TrackRef& track, Frame frame, int point,
+                    QPointF by);
   Result<void> SetPose(const TrackRef& track, Frame frame, PiecePose pose);
   // Adds delta to every track's pose at frame, as one step. Scale stays
   // 0 or more and opacity 0 to 1.

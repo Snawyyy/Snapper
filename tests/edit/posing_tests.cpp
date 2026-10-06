@@ -65,6 +65,7 @@ class PosingTests final : public QObject {
   void KeysKeepTheirEase();
   void DragsLandAsOneKey();
   void SwapsAndWarpsCheckTheRig();
+  void PullingDragsRubberNeighbours();
   void CameraAndEffectsKeyToo();
   void IkBendsBothBones();
   void PasteMirroredSwapsSides();
@@ -120,13 +121,41 @@ void PosingTests::SwapsAndWarpsCheckTheRig() {
   PoseManager pose(&history);
   QVERIFY(pose.SwapDrawing(Piece("arm_l"), Frame(0), 1).has_value());
   QVERIFY(!pose.SwapDrawing(Piece("arm_l"), Frame(0), 2).has_value());
-  QVERIFY(pose.Warp(Piece("arm_l"), Frame(0), 3, QPointF(1, 1)).has_value());
-  QVERIFY(!pose.Warp(Piece("arm_l"), Frame(0), 4, QPointF()).has_value());
-  QVERIFY(!pose.Warp(Piece("arm_r"), Frame(0), 0, QPointF()).has_value());
+  QVERIFY(pose.Pull(Piece("arm_l"), Frame(0), 3, QPointF(1, 1)).has_value());
+  QVERIFY(!pose.Pull(Piece("arm_l"), Frame(0), 4, QPointF()).has_value());
+  QVERIFY(!pose.Pull(Piece("arm_r"), Frame(0), 0, QPointF()).has_value());
   const PiecePose arm = PosesAt(history, Frame(0)).at("arm_l");
   QCOMPARE(arm.drawing, 1);
   QCOMPARE(arm.warp.size(), size_t{4});
   QCOMPARE(arm.warp[3], QPointF(1, 1));
+}
+
+void PosingTests::PullingDragsRubberNeighbours() {
+  Project project = Stage();
+  Doll doll = *project.dolls.at("Bob");
+  doll.rig.pieces[0].warp = {2, 2};
+  doll.rig.pieces[0].warp_reach = std::vector<double>(9, 0.0);
+  doll.rig.pieces[0].warp_reach[4] = 2.0;
+  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
+  HistoryManager history(project);
+  PoseManager pose(&history);
+  {
+    // A drag pulls by its running total from where it started.
+    EditScope drag(&history, "Warp arm_l");
+    QVERIFY(pose.Pull(Piece("arm_l"), Frame(0), 4, QPointF(2, 0)));
+    QVERIFY(pose.Pull(Piece("arm_l"), Frame(0), 4, QPointF(4, 0)));
+  }
+  const PiecePose arm = PosesAt(history, Frame(0)).at("arm_l");
+  // The middle point takes it all, an edge point one cell off half,
+  // and the corners, further, less.
+  QCOMPARE(arm.warp[4], QPointF(4, 0));
+  QCOMPARE(arm.warp[1], QPointF(2, 0));
+  QVERIFY(arm.warp[0].x() > 0.0 && arm.warp[0].x() < 2.0);
+  // A point with no reach moves alone.
+  QVERIFY(pose.Pull(Piece("arm_l"), Frame(0), 0, QPointF(0, 3)));
+  const PiecePose after = PosesAt(history, Frame(0)).at("arm_l");
+  QCOMPARE(after.warp[0].y(), 3.0);
+  QCOMPARE(after.warp[1], QPointF(2, 0));
 }
 
 void PosingTests::CameraAndEffectsKeyToo() {

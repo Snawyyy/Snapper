@@ -168,9 +168,9 @@ void PoseTool::Move(QPointF point, bool is_shift) {
       const QPointF moved =
           Back(drag_->drawing_to_screen, point, at.corner) -
           Back(drag_->drawing_to_screen, drag_->start, at.corner);
-      Note(managers_.pose->Warp(
+      Note(managers_.pose->Pull(
           {at.shot, TrackKind::kPiece, drag_->layer, drag_->piece},
-          at.local, drag_->point, drag_->pushed + moved));
+          at.local, drag_->point, moved));
       break;
     }
     case Kind::kSwivel:
@@ -281,6 +281,11 @@ void PoseTool::PickWhole(QPointF point, const StageFrame& frame) {
 void PoseTool::Wheel(int notches, bool is_fine, const StageFrame& frame) {
   assert(notches != 0);
   assert(frame.scale > 0.0);
+  const auto dot = PickedDot(frame);
+  if (dot) {
+    WheelReach(*dot, notches, is_fine, frame);
+    return;
+  }
   const auto tracks = managers_.selection->PickedTracks();
   const bool is_picked =
       !tracks.empty() && managers_.selection->shot() == frame.shot;

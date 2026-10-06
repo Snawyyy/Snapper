@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include "anim/mirror.h"
+#include "anim/warp.h"
 #include "base/text.h"
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
@@ -35,6 +36,13 @@ void MirrorPiece(const Doll& doll, const RigPiece& from, RigPiece* to) {
   to->rest_rotation = -from.rest_rotation;
   to->warp = from.warp;
   to->keeps_shape = from.keeps_shape;
+  to->warp_reach = from.warp_reach;
+  const bool has_reach = static_cast<int>(from.warp_reach.size()) ==
+                         from.warp.PointCount();
+  for (int point = 0; has_reach && point < from.warp.PointCount(); ++point) {
+    to->warp_reach[static_cast<size_t>(MirroredPoint(from.warp, point))] =
+        from.warp_reach[static_cast<size_t>(point)];
+  }
   const QString parent = MirrorName(from.parent);
   const bool has_mirrored_parent =
       !from.parent.isEmpty() && FindRig(doll.rig, parent) != nullptr;

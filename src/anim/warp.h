@@ -18,6 +18,13 @@ std::vector<QPointF> RestPoints(QSize size, WarpGrid grid);
 std::vector<QPointF> WarpedPoints(QSize size, WarpGrid grid,
                                   const std::vector<QPointF>& offsets);
 
+// How much pulling point drags point other along (1 for itself), when
+// the pull reaches reach grid cells: fading smoothly to 0 at reach.
+double PullWeight(WarpGrid grid, int point, int other, double reach);
+
+// The point that lands on point when the grid is mirrored left to right.
+int MirroredPoint(WarpGrid grid, int point);
+
 // Index of the grid point closest to spot (drawing pixels), or -1 when
 // none is within reach.
 int NearestPoint(const std::vector<QPointF>& points, QPointF spot,

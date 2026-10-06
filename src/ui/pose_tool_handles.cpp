@@ -9,6 +9,7 @@
 
 #include "anim/warp.h"
 #include "edit/history_manager.h"
+#include "edit/rig_manager.h"
 #include "edit/project_edits.h"
 #include "edit/selection_manager.h"
 #include "render/stage_geometry.h"
@@ -67,7 +68,8 @@ bool PoseTool::PressLean(QPointF point, const StageFrame& frame) {
   return true;
 }
 
-bool PoseTool::PressWarp(QPointF point, const StageFrame& frame) {
+std::optional<std::pair<WarpDot, QTransform>> PoseTool::DotAt(
+    QPointF point, const StageFrame& frame) const {
   assert(frame.scale > 0.0);
   assert(managers_.selection != nullptr);
   const Project& project = managers_.history->current();
@@ -75,7 +77,7 @@ bool PoseTool::PressWarp(QPointF point, const StageFrame& frame) {
   const bool is_ready =
       shot != nullptr && managers_.selection->shot() == frame.shot;
   if (!is_ready) {
-    return false;
+    return std::nullopt;
   }
   for (const Pick& pick : managers_.selection->picks()) {
     const auto warp =
@@ -92,26 +94,94 @@ bool PoseTool::PressWarp(QPointF point, const StageFrame& frame) {
       on_screen.push_back(warp->to_screen.map(spot) + frame.corner);
     }
     const int nearest = NearestPoint(on_screen, point, kHandleReach);
-    const bool is_grabbed = nearest >= 0;
-    if (is_grabbed) {
-      auto drag = std::make_unique<Drag>();
-      drag->kind = Kind::kWarp;
-      drag->frame = frame;
-      drag->layer = pick.layer;
-      drag->piece = pick.piece;
-      drag->point = nearest;
-      drag->pushed = warp->offsets.empty()
-                         ? QPointF()
-                         : warp->offsets[static_cast<size_t>(nearest)];
-      drag->drawing_to_screen = warp->to_screen;
-      drag->start = point;
-      drag->scope = std::make_unique<EditScope>(
-          managers_.history, QObject::tr("Warp %1").arg(pick.piece));
-      drag_ = std::move(drag);
-      return true;
+    const bool is_hit = nearest >= 0;
+    if (is_hit) {
+      return std::pair(WarpDot{pick.layer, pick.piece, nearest},
+                       warp->to_screen);
     }
   }
-  return false;
+  return std::nullopt;
+}
+
+bool PoseTool::PressWarp(QPointF point, const StageFrame& frame) {
+  assert(frame.scale > 0.0);
+  assert(managers_.history != nullptr);
+  const auto hit = DotAt(point, frame);
+  if (!hit) {
+    return false;
+  }
+  auto drag = std::make_unique<Drag>();
+  drag->kind = Kind::kWarp;
+  drag->frame = frame;
+  drag->layer = hit->first.layer;
+  drag->piece = hit->first.piece;
+  drag->point = hit->first.point;
+  drag->drawing_to_screen = hit->second;
+  drag->start = point;
+  drag->scope = std::make_unique<EditScope>(
+      managers_.history, QObject::tr("Warp %1").arg(hit->first.piece));
+  drag_ = std::move(drag);
+  return true;
+}
+
+void PoseTool::PickDot(QPointF point, const StageFrame& frame) {
+  assert(frame.scale > 0.0);
+  assert(cache_ != nullptr);
+  const auto hit = DotAt(point, frame);
+  const bool is_again = hit && dot_ == hit->first;
+  dot_ = hit && !is_again ? std::optional<WarpDot>(hit->first)
+                          : std::nullopt;
+}
+
+std::optional<WarpDot> PoseTool::PickedDot(const StageFrame& frame) const {
+  assert(frame.scale > 0.0);
+  assert(managers_.selection != nullptr);
+  const bool is_picked =
+      dot_.has_value() && managers_.selection->shot() == frame.shot &&
+      managers_.selection->picks().contains({dot_->layer, dot_->piece});
+  const Project& project = managers_.history->current();
+  const Doll* doll = is_picked ? DollOfLayer(project, frame.shot, dot_->layer)
+                               : nullptr;
+  const RigPiece* rig =
+      doll != nullptr ? FindRig(doll->rig, dot_->piece) : nullptr;
+  const bool is_on_grid =
+      rig != nullptr && dot_->point < rig->warp.PointCount();
+  return is_on_grid ? dot_ : std::nullopt;
+}
+
+bool PoseTool::DropDot() {
+  assert(cache_ != nullptr);
+  const bool had_dot = dot_.has_value();
+  dot_.reset();
+  assert(!dot_.has_value());
+  return had_dot;
+}
+
+void PoseTool::WheelReach(const WarpDot& dot, int notches, bool is_fine,
+                          const StageFrame& frame) {
+  assert(notches != 0);
+  assert(dot.point >= 0);
+  const Project& project = managers_.history->current();
+  const Shot* shot = FindShot(project, frame.shot);
+  const Layer* layer = shot != nullptr ? FindLayer(*shot, dot.layer) : nullptr;
+  const auto* posed =
+      layer != nullptr ? std::get_if<DollLayer>(&layer->content) : nullptr;
+  const Doll* doll =
+      posed != nullptr ? FindDoll(project, posed->doll) : nullptr;
+  const RigPiece* rig =
+      doll != nullptr ? FindRig(doll->rig, dot.piece) : nullptr;
+  const bool has_rig = rig != nullptr;
+  if (!has_rig) {
+    return;
+  }
+  const bool has_reach =
+      static_cast<int>(rig->warp_reach.size()) == rig->warp.PointCount();
+  const double reach =
+      has_reach ? rig->warp_reach[static_cast<size_t>(dot.point)] : 0.0;
+  // Wheel up reaches further.
+  Note(managers_.rig->SetWarpReach(
+      posed->doll, dot.piece, dot.point,
+      reach + notches * (is_fine ? kFineReachStep : kReachStep)));
 }
 
 bool PoseTool::PressIk(QPointF point, const StageFrame& frame) {
