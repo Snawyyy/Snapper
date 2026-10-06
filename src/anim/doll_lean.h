@@ -6,16 +6,22 @@
 
 namespace snapper {
 
-// The lean amount stays inside this, so no piece shrinks to nothing.
+// Lean amounts run from -kMaxLean to kMaxLean, which tips the doll
+// kMaxTilt degrees.
 constexpr double kMaxLean = 0.9;
+constexpr double kMaxTilt = 45.0;
+// How far the make-believe camera stands, in doll heights. Nearer
+// makes the near end grow more.
+constexpr double kCameraDistance = 1.5;
 
 // Fakes the doll tipping toward the camera (amount above 0) or away
-// (below 0) around the middle of its box. Each piece gets a weight from
-// where its joint sits in the rest pose: 0 on the box's middle line, 1
-// at the top edge, -1 at the bottom. A piece then grows by
-// 1 + amount * weight and moves the same way away from the middle of
-// the posed box, so the top spreads while the bottom pulls in. Only
-// scale and offset change; turns, drawings and warps stay.
+// (below 0) around the middle line of its box, as a camera would see
+// it. Heights shrink toward the middle line, so leaning in brings the
+// head down. How far up or down a piece's joint sits in the rest pose
+// sets how near the camera it swings: the top comes nearer, growing and
+// spreading out; the bottom goes back, shrinking and pulling in. Turns,
+// scale, skew and offset change; drawings and warps stay. Drawings
+// grow without squashing, so faces keep their shape.
 PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double amount);
 
 }  // namespace snapper

@@ -209,8 +209,8 @@ void PoseToolTests::DoubleClickPicksTheWholeDoll() {
 void PoseToolTests::LeanHandleTipsTheDoll() {
   Bench bench;
   Stage(&bench);
-  // A head hung above the body: its joint half way up the doll's box,
-  // the body's half way down.
+  // A head hung above the body: its joint above the middle of the
+  // doll's box, the body's below.
   Project project = bench.history.current();
   Doll doll = *project.dolls.at("Dot");
   doll.art.pieces.push_back({"head", {"body.png"}, 0, {-10, -30}, {20, 20}});
@@ -228,7 +228,7 @@ void PoseToolTests::LeanHandleTipsTheDoll() {
                                  Frame(0), 1.0, &cache);
   QVERIFY(handle.has_value());
   QCOMPARE(*handle, QPointF(60 + kLeanGap, 40));
-  // Half way down leans it half way toward the camera, keyed once.
+  // Dragging down leans it toward the camera, keyed once.
   tool.Press({83, 52}, false, false, kFrame);
   tool.Move({83, 52 + kLeanPixels}, false);
   tool.Move({83, 52 + kLeanPixels / 2}, false);
@@ -237,8 +237,9 @@ void PoseToolTests::LeanHandleTipsTheDoll() {
       std::get<DollLayer>(
           bench.history.current().shots[0]->layers[0].content),
       Frame(0));
-  QCOMPARE(poses.at("body").scale_x, 0.75);
-  QCOMPARE(poses.at("head").scale_x, 1.25 / 0.75);
+  // The head, above the middle, comes nearer; the body goes back.
+  QVERIFY(poses.at("body").scale_x < 1.0);
+  QVERIFY(poses.at("head").scale_x > 1.0);
   QCOMPARE(bench.history.UndoLabel(), QString("Lean Dot"));
   bench.history.Undo();
   QVERIFY(!bench.history.CanUndo());

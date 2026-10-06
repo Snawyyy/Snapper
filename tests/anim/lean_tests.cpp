@@ -40,12 +40,14 @@ bool IsSame(const QTransform& a, const QTransform& b) {
          std::abs(a.dx() - b.dx()) < 1e-9 && std::abs(a.dy() - b.dy()) < 1e-9;
 }
 
-// Scaling by factor around middle, after transform.
-QTransform ScaledAround(const QTransform& transform, double factor,
-                        QPointF middle) {
-  return transform * QTransform::fromTranslate(-middle.x(), -middle.y()) *
-         QTransform::fromScale(factor, factor) *
-         QTransform::fromTranslate(middle.x(), middle.y());
+// How much bigger after draws than before; 0 when it is not the same
+// drawing scaled evenly, turned and skewed alike.
+double GrowthOf(const QTransform& before, const QTransform& after) {
+  const double grow = after.m11() / before.m11();
+  const bool is_even = std::abs(after.m12() - before.m12() * grow) < 1e-9 &&
+                       std::abs(after.m21() - before.m21() * grow) < 1e-9 &&
+                       std::abs(after.m22() - before.m22() * grow) < 1e-9;
+  return is_even ? grow : 0.0;
 }
 
 }  // namespace
@@ -55,7 +57,7 @@ class LeanTests final : public QObject {
 
  private slots:
   void NothingLeansAtZero();
-  void EachPieceScalesAroundTheMiddleByItsWeight();
+  void LeaningInDropsAndGrowsTheTop();
   void TheAmountStaysInRange();
 };
 
@@ -69,7 +71,7 @@ void LeanTests::NothingLeansAtZero() {
   }
 }
 
-void LeanTests::EachPieceScalesAroundTheMiddleByItsWeight() {
+void LeanTests::LeaningInDropsAndGrowsTheTop() {
   const Doll doll = Body();
   PoseMap poses;
   poses["torso"].rotation = 20.0;
@@ -79,20 +81,30 @@ void LeanTests::EachPieceScalesAroundTheMiddleByItsWeight() {
   poses["leg"].skew = 12.0;
   const auto before = PieceTransforms(doll, poses);
   const QPointF middle = BoxOf(doll, before).center();
-  // Down (above 0) tips the top toward the camera: the head grows, the
-  // torso on the middle line stays, the leg shrinks.
-  for (const double amount : {0.6, -0.45}) {
-    const PoseMap leaned = LeanPoses(doll, poses, amount);
-    const auto after = PieceTransforms(doll, leaned);
-    QVERIFY(IsSame(after.at("torso"), before.at("torso")));
-    QVERIFY(IsSame(after.at("head"),
-                   ScaledAround(before.at("head"), 1.0 + amount / 3.0,
-                                middle)));
-    QVERIFY(IsSame(after.at("leg"),
-                   ScaledAround(before.at("leg"), 1.0 - amount / 3.0,
-                                middle)));
-    QCOMPARE(leaned.at("head").rotation, -10.0);
-  }
+  const auto joint = [&doll](const std::map<QString, QTransform>& placed,
+                             const QString& name) {
+    return placed.at(name).map(FindRig(doll.rig, name)->pivot);
+  };
+  // Leaning in: the head comes nearer, so it grows, yet seen tipped it
+  // drops toward the middle; the leg goes back, shrinks and rises.
+  const auto in = PieceTransforms(doll, LeanPoses(doll, poses, 0.6));
+  QVERIFY(GrowthOf(before.at("head"), in.at("head")) > 1.0);
+  QVERIFY(GrowthOf(before.at("leg"), in.at("leg")) < 1.0);
+  QVERIFY(GrowthOf(before.at("leg"), in.at("leg")) > 0.0);
+  QVERIFY(joint(in, "head").y() > joint(before, "head").y());
+  QVERIFY(joint(in, "leg").y() < joint(before, "leg").y());
+  // The torso's joint sits on the middle line: neither nearer nor
+  // further, its height off the middle only squashed.
+  QCOMPARE(GrowthOf(before.at("torso"), in.at("torso")), 1.0);
+  QVERIFY(std::abs(joint(in, "torso").x() - joint(before, "torso").x()) <
+          1e-9);
+  QVERIFY(std::abs(joint(in, "torso").y() - middle.y()) <
+          std::abs(joint(before, "torso").y() - middle.y()) + 1e-9);
+  // Leaning back shrinks the top instead.
+  const auto back = PieceTransforms(doll, LeanPoses(doll, poses, -0.6));
+  QVERIFY(GrowthOf(before.at("head"), back.at("head")) < 1.0);
+  QVERIFY(GrowthOf(before.at("leg"), back.at("leg")) > 1.0);
+  QCOMPARE(LeanPoses(doll, poses, 0.6).at("head").drawing, -1);
 }
 
 void LeanTests::TheAmountStaysInRange() {
