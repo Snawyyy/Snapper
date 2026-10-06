@@ -40,6 +40,21 @@ std::optional<PieceOutline> PieceOnScreen(const Project& project,
                                           const QString& piece, Frame local,
                                           double scale);
 
+// A piece's warp grid on screen: its points row by row (as shown,
+// pushed by the pose's warp), the grid's size, the pose's warp offsets
+// in drawing pixels (empty at rest), and drawing pixels to screen.
+// Nothing when the piece has no grid.
+struct WarpOnScreen final {
+  WarpGrid grid;
+  std::vector<QPointF> points;
+  std::vector<QPointF> offsets;
+  QTransform to_screen;
+};
+std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
+                                              const Shot& shot, LayerId layer,
+                                              const QString& piece,
+                                              Frame local, double scale);
+
 // The draggable tip of each IK chain of a doll layer.
 struct IkHandle final {
   QString chain;

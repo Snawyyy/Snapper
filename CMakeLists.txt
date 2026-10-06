@@ -60,7 +60,7 @@ snapper_module(ui
           export_dialog_actions.cpp file_menu.cpp main_window.cpp
           form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
           layer_box_commits.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
-          rig_canvas_input.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp
+          rig_canvas_input.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp
           shot_strip.cpp
           stage_view.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
           timeline_view.cpp

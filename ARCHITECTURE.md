@@ -136,7 +136,9 @@ A piece can:
 - rotate, move, scale (separately in x and y) and skew,
 - swap between its drawings,
 - warp locally through a grid of handles, so one-piece parts such as a
-  trunk can still crease at the collar or chest,
+  trunk can still crease at the collar or chest.
+  On the stage a picked piece shows its grid as faint lines with
+  yellow dots; dragging a dot keys that point's push.
 - turn in depth with the whole doll: a doll picked whole has two
   yellow handles (and Lean and Swivel fields). Lean, beside the box,
   turns it like a wheel facing the camera; Swivel, below it, like a

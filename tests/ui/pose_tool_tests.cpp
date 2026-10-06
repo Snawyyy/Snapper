@@ -4,6 +4,7 @@
 #include "anim/doll_pose.h"
 #include "anim/sampler.h"
 #include "bench.h"
+#include "render/stage_geometry.h"
 #include "render/stage_hit.h"
 #include "ui/pose_tool.h"
 
@@ -59,6 +60,7 @@ class PoseToolTests final : public QObject {
   void ManyPicksMoveAndTurnTogether();
   void DoubleClickPicksTheWholeDoll();
   void LeanHandleTipsTheDoll();
+  void WarpDotsBendThePiece();
 };
 
 void PoseToolTests::ClickPicksAndDragMoves() {
@@ -269,6 +271,43 @@ void PoseToolTests::LeanHandleTipsTheDoll() {
            40 * kTurnPerPixel);
   QCOMPARE(lean(), 0.0);
   QCOMPARE(bench.history.UndoLabel(), QString("Swivel Dot"));
+}
+
+void PoseToolTests::WarpDotsBendThePiece() {
+  Bench bench;
+  Stage(&bench);
+  Project project = bench.history.current();
+  Doll doll = *project.dolls.at("Dot");
+  doll.rig.pieces[0].warp = {2, 2};
+  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
+  bench.history.Reset(project);
+  ImageCache cache;
+  PoseTool tool(bench.All(), &cache);
+  // Not picked yet: the press picks and moves, it doesn't warp.
+  tool.Press({60, 60}, false, false, kFrame);
+  tool.Release();
+  QVERIFY(Body(bench).warp.empty());
+  const auto warp =
+      PieceWarpOnScreen(bench.history.current(),
+                        *bench.history.current().shots[0], LayerId(1),
+                        "body", Frame(0), 1.0);
+  QVERIFY(warp.has_value());
+  QCOMPARE(warp->points.size(), size_t{9});
+  QCOMPARE(warp->to_screen.map(warp->points[4]), QPointF(50, 50));
+  // Picked: dragging the middle dot pushes that grid point.
+  tool.Press({61, 59}, false, false, kFrame);
+  tool.Move({65, 62}, false);
+  tool.Release();
+  QCOMPARE(Body(bench).warp.size(), size_t{9});
+  QCOMPARE(Body(bench).warp[4], QPointF(4, 3));
+  QCOMPARE(Body(bench).offset, QPointF(0, 0));
+  QCOMPARE(bench.history.UndoLabel(), QString("Warp body"));
+  // A second drag adds to where the point already was.
+  tool.Press({64, 63}, false, false, kFrame);
+  tool.Move({66, 63}, false);
+  QCOMPARE(Body(bench).warp[4], QPointF(6, 3));
+  tool.Cancel();
+  QCOMPARE(Body(bench).warp[4], QPointF(4, 3));
 }
 
 }  // namespace snapper

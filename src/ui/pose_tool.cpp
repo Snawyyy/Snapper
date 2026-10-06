@@ -43,7 +43,8 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
   assert(frame.scale > 0.0);
   Cancel();
   problem_.clear();
-  const bool is_handle = PressLean(point, frame) || PressIk(point, frame);
+  const bool is_handle = PressLean(point, frame) ||
+                         PressWarp(point, frame) || PressIk(point, frame);
   if (is_handle) {
     return;
   }
@@ -162,6 +163,16 @@ void PoseTool::Move(QPointF point, bool is_shift) {
                                 drag_->frame.local,
                                 total.y() * kTurnPerPixel, 0.0));
       break;
+    case Kind::kWarp: {
+      const StageFrame& at = drag_->frame;
+      const QPointF moved =
+          Back(drag_->drawing_to_screen, point, at.corner) -
+          Back(drag_->drawing_to_screen, drag_->start, at.corner);
+      Note(managers_.pose->Warp(
+          {at.shot, TrackKind::kPiece, drag_->layer, drag_->piece},
+          at.local, drag_->point, drag_->pushed + moved));
+      break;
+    }
     case Kind::kSwivel:
       Note(managers_.pose->Lean(drag_->frame.shot, drag_->dolls,
                                 drag_->frame.local, 0.0,
@@ -281,87 +292,6 @@ void PoseTool::Wheel(int notches, bool is_fine, const StageFrame& frame) {
   // Wheel up turns counterclockwise, like a knob.
   delta.rotation = -notches * (is_fine ? kFineWheelStep : kWheelStep);
   Note(managers_.pose->Shift(tracks, frame.local, delta));
-}
-
-bool PoseTool::PressLean(QPointF point, const StageFrame& frame) {
-  assert(frame.scale > 0.0);
-  assert(managers_.selection != nullptr);
-  const Project& project = managers_.history->current();
-  const Shot* shot = FindShot(project, frame.shot);
-  const bool is_ready =
-      shot != nullptr && managers_.selection->shot() == frame.shot;
-  if (!is_ready) {
-    return false;
-  }
-  std::vector<LayerId> dolls;
-  bool is_lean = false;
-  bool is_swivel = false;
-  const auto is_near = [&](QPointF handle) {
-    return QLineF(handle + frame.corner, point).length() <= kHandleReach;
-  };
-  for (const Pick& pick : managers_.selection->picks()) {
-    const auto handles =
-        pick.piece.isEmpty()
-            ? TurnHandlesOf(project, *shot, pick.layer, frame.local,
-                            frame.scale, cache_)
-            : std::nullopt;
-    const bool is_doll = handles.has_value();
-    if (is_doll) {
-      dolls.push_back(pick.layer);
-      is_lean = is_lean || is_near(handles->lean);
-      is_swivel = is_swivel || (!is_lean && is_near(handles->swivel));
-    }
-  }
-  const bool is_grabbed = is_lean || is_swivel;
-  if (!is_grabbed) {
-    return false;
-  }
-  const Layer* first = FindLayer(*shot, dolls.front());
-  const QString what =
-      dolls.size() > 1
-          ? QObject::tr("%1 dolls").arg(dolls.size())
-          : std::get<DollLayer>(first->content).doll;
-  auto drag = std::make_unique<Drag>();
-  drag->kind = is_lean ? Kind::kLean : Kind::kSwivel;
-  drag->frame = frame;
-  drag->dolls = std::move(dolls);
-  drag->start = point;
-  drag->scope = std::make_unique<EditScope>(
-      managers_.history, is_lean ? QObject::tr("Lean %1").arg(what)
-                                 : QObject::tr("Swivel %1").arg(what));
-  drag_ = std::move(drag);
-  return true;
-}
-
-bool PoseTool::PressIk(QPointF point, const StageFrame& frame) {
-  assert(frame.scale > 0.0);
-  assert(managers_.selection != nullptr);
-  const LayerId layer = managers_.selection->layer();
-  const Project& project = managers_.history->current();
-  const Shot* shot = FindShot(project, frame.shot);
-  const bool is_ready = shot != nullptr && layer.IsValid() &&
-                        managers_.selection->shot() == frame.shot;
-  if (!is_ready) {
-    return false;
-  }
-  for (const IkHandle& handle :
-       IkHandles(project, *shot, layer, frame.local, frame.scale)) {
-    const bool is_near =
-        QLineF(handle.point + frame.corner, point).length() <= kHandleReach;
-    if (is_near) {
-      auto drag = std::make_unique<Drag>();
-      drag->kind = Kind::kIk;
-      drag->frame = frame;
-      drag->layer = layer;
-      drag->chain = handle.chain;
-      drag->start = point;
-      drag->scope = std::make_unique<EditScope>(
-          managers_.history, QObject::tr("Bend %1").arg(handle.chain));
-      drag_ = std::move(drag);
-      return true;
-    }
-  }
-  return false;
 }
 
 void PoseTool::Note(const Result<void>& result) {

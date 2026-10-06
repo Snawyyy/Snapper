@@ -25,6 +25,9 @@ namespace {
 constexpr double kMargin = 0.94;
 constexpr double kHandleRadius = 4.0;
 constexpr double kBarThin = 6.0;
+// Warp grids: faint lines, small dots (they grab big).
+constexpr QColor kWarpLine{255, 255, 255, 70};
+constexpr double kWarpDot = 2.5;
 constexpr double kBarLong = 14.0;
 constexpr int kWheelUnit = 120;
 
@@ -125,6 +128,9 @@ void StageView::PaintHandles(const StageFrame& frame, QPainter* painter) {
     }
     const auto outline = PieceOnScreen(project, *shot, pick.layer,
                                        pick.piece, frame.local, frame.scale);
+    PaintWarp(frame, pick, painter);
+    painter->setPen(QPen(theme::kPick, 2.0));
+    painter->setBrush(Qt::NoBrush);
     if (outline) {
       painter->drawPolygon(outline->outline);
       painter->setPen(QPen(theme::kShadow, 1.0));
@@ -139,6 +145,47 @@ void StageView::PaintHandles(const StageFrame& frame, QPainter* painter) {
     painter->drawRect(QRectF(handle.point - QPointF(kHandleRadius,
                                                     kHandleRadius),
                              QSizeF(kHandleRadius * 2, kHandleRadius * 2)));
+  }
+}
+
+void StageView::PaintWarp(const StageFrame& frame, const Pick& pick,
+                          QPainter* painter) {
+  assert(painter != nullptr);
+  assert(!pick.piece.isEmpty());
+  const Project& project = managers_.history->current();
+  const Shot* shot = FindShot(project, frame.shot);
+  const auto warp =
+      shot != nullptr ? PieceWarpOnScreen(project, *shot, pick.layer,
+                                          pick.piece, frame.local,
+                                          frame.scale)
+                      : std::nullopt;
+  if (!warp) {
+    return;
+  }
+  const int across = warp->grid.columns + 1;
+  const auto at = [&warp, across](int row, int column) {
+    return warp->to_screen.map(
+        warp->points[static_cast<size_t>(row * across + column)]);
+  };
+  // A faint grid, so the dots read as one sheet.
+  painter->setPen(QPen(kWarpLine, 1.0));
+  painter->setBrush(Qt::NoBrush);
+  for (int row = 0; row <= warp->grid.rows; ++row) {
+    for (int column = 0; column <= warp->grid.columns; ++column) {
+      const bool has_right = column < warp->grid.columns;
+      if (has_right) {
+        painter->drawLine(at(row, column), at(row, column + 1));
+      }
+      const bool has_below = row < warp->grid.rows;
+      if (has_below) {
+        painter->drawLine(at(row, column), at(row + 1, column));
+      }
+    }
+  }
+  painter->setPen(QPen(theme::kShadow, 1.0));
+  painter->setBrush(theme::kHandle);
+  for (const QPointF& point : warp->points) {
+    painter->drawEllipse(warp->to_screen.map(point), kWarpDot, kWarpDot);
   }
 }
 

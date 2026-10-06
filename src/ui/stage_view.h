@@ -16,7 +16,8 @@ namespace snapper {
 // The stage: the frame under the playhead, fitted to the widget, with
 // the pose tool on top. Picks are outlined in Teto red; joints and IK
 // tips are yellow handles, and a doll picked whole has yellow lean and
-// swivel handles on its right side and below it.
+// swivel handles on its right side and below it. A picked piece with a
+// warp grid shows it as faint lines with yellow dots to drag.
 class StageView final : public QWidget {
   Q_OBJECT
 
@@ -42,6 +43,9 @@ class StageView final : public QWidget {
 
  private:
   void PaintHandles(const StageFrame& frame, QPainter* painter);
+  // A picked piece's warp grid: faint lines and yellow dots.
+  void PaintWarp(const StageFrame& frame, const Pick& pick,
+                 QPainter* painter);
   void ReportTool();
   // Ctrl+A: every piece of the picked doll, or every layer.
   void PickAll();

@@ -7,6 +7,7 @@
 
 #include "anim/doll_lean.h"
 #include "anim/doll_pose.h"
+#include "anim/warp.h"
 #include "render/frame_renderer.h"
 #include "render/layer_painter.h"
 
@@ -96,6 +97,32 @@ std::optional<PieceOutline> PieceOnScreen(const Project& project,
   return PieceOutline{
       to_screen.map(QPolygonF(QRectF(QPointF(), QSizeF(art->size)))),
       to_screen.map(rig->pivot)};
+}
+
+std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
+                                              const Shot& shot, LayerId layer,
+                                              const QString& piece,
+                                              Frame local, double scale) {
+  assert(!piece.isEmpty());
+  assert(scale > 0.0);
+  const auto posed = Pose(project, shot, layer, local, scale);
+  const ArtPiece* art = posed ? FindArt(*posed->doll, piece) : nullptr;
+  const RigPiece* rig = posed ? FindRig(posed->doll->rig, piece) : nullptr;
+  const bool has_grid = art != nullptr && rig != nullptr &&
+                        rig->warp.IsOn() && posed->pieces.contains(piece);
+  if (!has_grid) {
+    return std::nullopt;
+  }
+  const auto& keys = std::get<DollLayer>(FindLayer(shot, layer)->content);
+  const PoseMap poses = SamplePoses(keys, local);
+  const auto pose = poses.find(piece);
+  const bool is_fitting =
+      pose != poses.end() &&
+      static_cast<int>(pose->second.warp.size()) == rig->warp.PointCount();
+  const std::vector<QPointF> offsets =
+      is_fitting ? pose->second.warp : std::vector<QPointF>();
+  return WarpOnScreen{rig->warp, WarpedPoints(art->size, rig->warp, offsets),
+                      offsets, posed->pieces.at(piece) * posed->to_screen};
 }
 
 std::vector<IkHandle> IkHandles(const Project& project, const Shot& shot,

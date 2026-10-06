@@ -47,7 +47,8 @@ struct StageFrame final {
 // axis, Ctrl scales instead); the wheel turns them 5 degrees a notch
 // (1 with Shift); dragging an IK tip bends its chain; dragging the lean
 // or swivel handle of a doll picked whole turns every whole doll picked
-// in depth. A drag is one undo step and Escape (Cancel) undoes it on
+// in depth; dragging a dot of a picked piece's warp grid bends the
+// drawing there. A drag is one undo step and Escape (Cancel) undoes it on
 // the spot.
 class PoseTool final {
  public:
@@ -70,7 +71,7 @@ class PoseTool final {
   const QString& problem() const { return problem_; }
 
  private:
-  enum class Kind { kMove, kScale, kIk, kBox, kLean, kSwivel };
+  enum class Kind { kMove, kScale, kIk, kBox, kLean, kSwivel, kWarp };
 
   struct Drag final {
     Kind kind = Kind::kMove;
@@ -78,6 +79,13 @@ class PoseTool final {
     // For IK drags: the layer and chain.
     LayerId layer;
     QString chain;
+    // For warp drags: the piece, its grid point, where that point was
+    // pushed at the press (drawing pixels), and drawing pixels to
+    // screen.
+    QString piece;
+    int point = -1;
+    QPointF pushed;
+    QTransform drawing_to_screen;
     // For lean and swivel drags: every doll picked whole.
     std::vector<LayerId> dolls;
     QPointF start;
@@ -94,6 +102,7 @@ class PoseTool final {
 
   bool PressIk(QPointF point, const StageFrame& frame);
   bool PressLean(QPointF point, const StageFrame& frame);
+  bool PressWarp(QPointF point, const StageFrame& frame);
   void PressPick(const Pick& pick, bool is_shift, bool is_ctrl,
                  const StageFrame& frame, QPointF point);
   void MoveAll(QPointF total);

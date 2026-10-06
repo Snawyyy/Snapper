@@ -70,7 +70,8 @@ void RigPanel::BuildLayout() {
   keep_shape_.setObjectName("keep_shape");
   warp_on_.setText(tr("Bend with a grid"));
   warp_on_.setToolTip(tr("Lets you push spots of the drawing, like a "
-                         "crease in a shirt."));
+                         "crease in a shirt: pick the piece on the stage "
+                         "and drag its grid's dots."));
   keep_shape_.setText(tr("Keep shape when leaning"));
   keep_shape_.setToolTip(tr("Leaning or swivelling the doll still moves "
                             "and sizes this piece, but never squashes it. "
