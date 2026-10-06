@@ -123,12 +123,16 @@ std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
       is_fitting ? pose->second.warp : std::vector<QPointF>();
   const bool has_reach =
       static_cast<int>(rig->warp_reach.size()) == rig->warp.PointCount();
+  std::vector<int> drags;
+  for (const DragNode& node : rig->drag_nodes) {
+    drags.push_back(node.point);
+  }
   return WarpOnScreen{
       rig->warp, WarpedPoints(art->size, rig->warp, offsets),
       has_reach ? rig->warp_reach
                 : std::vector<double>(
                       static_cast<size_t>(rig->warp.PointCount()), 0.0),
-      art->size, posed->pieces.at(piece) * posed->to_screen};
+      drags, art->size, posed->pieces.at(piece) * posed->to_screen};
 }
 
 std::vector<IkHandle> IkHandles(const Project& project, const Shot& shot,

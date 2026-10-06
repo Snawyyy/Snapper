@@ -326,8 +326,19 @@ void PoseToolTests::WarpDotsBendThePiece() {
   QCOMPARE(Body(bench).rotation, -kWheelStep);
   tool.Press({50, 50}, false, false, kFrame);
   tool.Release();
+  // D makes the picked dot drag, and again stops it.
+  tool.ToggleDrag(kFrame);
+  const auto drags = [&bench] {
+    return bench.history.current().dolls.at("Dot")->rig.pieces[0].drag_nodes;
+  };
+  QCOMPARE(drags().size(), size_t{1});
+  QCOMPARE(drags()[0].point, 0);
+  tool.ToggleDrag(kFrame);
+  QVERIFY(drags().empty());
   QVERIFY(tool.DropDot());
   QVERIFY(!tool.DropDot());
+  tool.ToggleDrag(kFrame);
+  QVERIFY(!tool.problem().isEmpty());
   // Clicking off the dots drops a picked one too.
   tool.Press({50, 50}, false, false, kFrame);
   tool.Release();

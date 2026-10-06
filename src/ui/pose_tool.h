@@ -77,6 +77,8 @@ class PoseTool final {
   std::optional<WarpDot> PickedDot(const StageFrame& frame) const;
   // Escape: drops the picked dot; false when there was none.
   bool DropDot();
+  // D: makes the picked dot drag behind, or stop dragging.
+  void ToggleDrag(const StageFrame& frame);
 
   bool IsDragging() const { return drag_ != nullptr; }
   // The pick box being drawn, in widget pixels; empty when none.

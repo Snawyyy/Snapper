@@ -187,6 +187,14 @@ void StageView::PaintWarp(const StageFrame& frame, const Pick& pick,
   for (const QPointF& point : warp->points) {
     painter->drawEllipse(warp->to_screen.map(point), kWarpDot, kWarpDot);
   }
+  // Drag nodes wear a yellow ring, so they read apart from plain dots.
+  painter->setPen(QPen(theme::kHandle, 1.5));
+  painter->setBrush(Qt::NoBrush);
+  for (const int drag : warp->drags) {
+    painter->drawEllipse(
+        warp->to_screen.map(warp->points[static_cast<size_t>(drag)]),
+        kWarpDot + 3.5, kWarpDot + 3.5);
+  }
   const auto dot = tool_.PickedDot(frame);
   const bool is_dot_here =
       dot.has_value() && dot->layer == pick.layer && dot->piece == pick.piece;
@@ -312,6 +320,16 @@ void StageView::keyPressEvent(QKeyEvent* event) {
   }
   if (is_all) {
     PickAll();
+    event->accept();
+    return;
+  }
+  const auto frame = CurrentFrame();
+  const bool is_drag_key = event->key() == Qt::Key_D &&
+                           event->modifiers() == Qt::NoModifier &&
+                           frame.has_value();
+  if (is_drag_key) {
+    tool_.ToggleDrag(*frame);
+    ReportTool();
     event->accept();
     return;
   }

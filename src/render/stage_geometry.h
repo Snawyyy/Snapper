@@ -43,12 +43,14 @@ std::optional<PieceOutline> PieceOnScreen(const Project& project,
 
 // A piece's warp grid on screen: its points row by row (as shown,
 // pushed by the pose's warp, in drawing pixels), the grid's size, each
-// point's rubber reach in cells, the drawing's size, and drawing
-// pixels to screen. Nothing when the piece has no grid.
+// point's rubber reach in cells, its drag nodes, the drawing's size,
+// and drawing pixels to screen. Nothing when the piece has no grid.
 struct WarpOnScreen final {
   WarpGrid grid;
   std::vector<QPointF> points;
   std::vector<double> reach;
+  // Points that are drag nodes.
+  std::vector<int> drags;
   QSize size;
   QTransform to_screen;
 };

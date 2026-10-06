@@ -144,15 +144,11 @@ void PoseTool::WheelReach(const WarpDot& dot, int notches, bool is_fine,
   assert(notches != 0);
   assert(dot.point >= 0);
   const Project& project = managers_.history->current();
-  const Shot* shot = FindShot(project, frame.shot);
-  const Layer* layer = shot != nullptr ? FindLayer(*shot, dot.layer) : nullptr;
-  const auto* posed =
-      layer != nullptr ? std::get_if<DollLayer>(&layer->content) : nullptr;
-  const Doll* doll =
-      posed != nullptr ? FindDoll(project, posed->doll) : nullptr;
+  const DollLayer* posed = PosedLayerOf(project, frame.shot, dot.layer);
+  const Doll* doll = DollOfLayer(project, frame.shot, dot.layer);
   const RigPiece* rig =
       doll != nullptr ? FindRig(doll->rig, dot.piece) : nullptr;
-  const bool has_rig = rig != nullptr;
+  const bool has_rig = rig != nullptr && posed != nullptr;
   if (!has_rig) {
     return;
   }
@@ -164,6 +160,22 @@ void PoseTool::WheelReach(const WarpDot& dot, int notches, bool is_fine,
   Note(managers_.rig->SetWarpReach(
       posed->doll, dot.piece, dot.point,
       reach + notches * (is_fine ? kFineReachStep : kReachStep)));
+}
+
+void PoseTool::ToggleDrag(const StageFrame& frame) {
+  assert(frame.scale > 0.0);
+  assert(managers_.rig != nullptr);
+  const auto dot = PickedDot(frame);
+  const DollLayer* posed =
+      dot ? PosedLayerOf(managers_.history->current(), frame.shot,
+                         dot->layer)
+          : nullptr;
+  const bool has_dot = posed != nullptr;
+  if (!has_dot) {
+    problem_ = QObject::tr("Click a warp dot of a picked piece first.");
+    return;
+  }
+  Note(managers_.rig->ToggleDragNode(posed->doll, dot->piece, dot->point));
 }
 
 bool PoseTool::PressIk(QPointF point, const StageFrame& frame) {

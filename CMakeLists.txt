@@ -58,7 +58,7 @@ snapper_module(edit
 snapper_module(ui
   SOURCES cast_actions.cpp cast_panel.cpp export_dialog.cpp
           export_dialog_actions.cpp file_menu.cpp main_window.cpp
-          form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
+          drag_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
           layer_box_commits.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
           rig_canvas_input.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp
           shot_strip.cpp
@@ -77,7 +77,8 @@ set_target_properties(snapper PROPERTIES WIN32_EXECUTABLE TRUE)
 if(BUILD_TESTING)
   snapper_test(base SOURCES base_tests.cpp)
   snapper_test(model SOURCES model_tests.cpp)
-  snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp lean_tests.cpp)
+  snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp lean_tests.cpp
+                    drag_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp)
   snapper_test(render SOURCES render_tests.cpp)

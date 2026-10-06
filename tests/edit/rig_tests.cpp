@@ -91,9 +91,21 @@ void RigTests::NewWarpGridClearsOldWarpKeys() {
   QVERIFY(rig.SetWarpReach("Bob", "lower", 0, -3.0).has_value());
   QCOMPARE(FindRig(BobRig(history), "lower")->warp_reach[0], 0.0);
   QCOMPARE(history.UndoLabel(), QString("Rubber reach of lower"));
-  // A new grid starts with no reach.
+  QVERIFY(rig.ToggleDragNode("Bob", "lower", 4).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes,
+           (std::vector<DragNode>{{4, 0.5, 0.5}}));
+  QVERIFY(rig.SetDrag("Bob", "lower", {4, 2.0, 0.2}).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].lag, 1.0);
+  QVERIFY(!rig.SetDrag("Bob", "lower", {5, 0.5, 0.5}).has_value());
+  QVERIFY(!rig.ToggleDragNode("Bob", "upper", 0).has_value());
+  QVERIFY(rig.ToggleDragNode("Bob", "lower", 4).has_value());
+  QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes.empty());
+  QCOMPARE(history.UndoLabel(), QString("Stop dragging point of lower"));
+  QVERIFY(rig.ToggleDragNode("Bob", "lower", 4).has_value());
+  // A new grid starts with no reach and no drag nodes.
   QVERIFY(rig.SetWarpGrid("Bob", "lower", {3, 1}).has_value());
   QVERIFY(FindRig(BobRig(history), "lower")->warp_reach.empty());
+  QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes.empty());
   const auto& layer = std::get<DollLayer>(
       history.current().shots[0]->layers[0].content);
   QVERIFY(layer.pieces.at("lower").keys[0].value.warp.empty());

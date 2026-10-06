@@ -5,6 +5,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "ui/drag_box.h"
 #include "ui/keyed_boxes.h"
 #include "ui/layer_box.h"
 #include "ui/managers.h"
@@ -13,8 +14,8 @@
 namespace snapper {
 
 // The right-hand panel: exact pose and camera numbers at the playhead,
-// the picked layer's settings, motion loops and saved poses, stacked
-// and scrollable.
+// the picked warp dot's drag, the picked layer's settings, motion
+// loops and saved poses, stacked and scrollable.
 class Inspector final : public QScrollArea {
   Q_OBJECT
 
@@ -30,6 +31,7 @@ class Inspector final : public QScrollArea {
   QWidget body_;
   QVBoxLayout layout_;
   PoseBox pose_;
+  DragBox drag_;
   CameraBox camera_;
   LayerBox layer_;
   MotionBox motion_;

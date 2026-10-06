@@ -149,6 +149,11 @@ A piece can:
   the dot drags its neighbours along, fading out at the reach. Clicking
   a dot picks it (orange, with its reach drawn) and the wheel then
   sets the reach instead of turning the piece.
+  Pressing D on a picked dot makes it a drag node (ringed): a spring
+  that trails where the pose and the layer carry it, then bounces back,
+  like hair or a chest, spread by the dot's reach (`DraggedPoses`).
+  Its Lag and Bounce are in the Drag node panel. The spring runs from
+  the shot's first frame, so every render of a frame is the same.
 - turn in depth with the whole doll: a doll picked whole has two
   yellow handles (and Lean and Swivel fields). Lean, beside the box,
   turns it like a wheel facing the camera; Swivel, below it, like a

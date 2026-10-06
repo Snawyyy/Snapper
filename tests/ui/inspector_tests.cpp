@@ -1,9 +1,11 @@
+#include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QPushButton>
 #include <QTest>
 
 #include "anim/doll_pose.h"
 #include "bench.h"
+#include "ui/drag_box.h"
 #include "ui/keyed_boxes.h"
 #include "ui/layer_box.h"
 #include "ui/motion_box.h"
@@ -61,6 +63,7 @@ class InspectorTests final : public QObject {
   void LayerBoxFollowsTheKind();
   void FieldsApplyAsYouTypeAsOneStep();
   void FieldsChangeEveryPickByTheSameAmount();
+  void DragBoxTunesThePickedDot();
 };
 
 void InspectorTests::TypedPoseNumbersKeyAtThePlayhead() {
@@ -151,6 +154,27 @@ void InspectorTests::FieldsChangeEveryPickByTheSameAmount() {
       Frame(0));
   QCOMPARE(poses.at("arm").offset.x(), 15.0);
   QCOMPARE(poses.at("head").offset.x(), 5.0);
+}
+
+void InspectorTests::DragBoxTunesThePickedDot() {
+  Bench bench;
+  Stage(&bench);
+  QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
+  DragBox box(bench.All());
+  auto* drags = box.findChild<QCheckBox*>("drags");
+  auto* lag = box.findChild<QDoubleSpinBox*>("lag");
+  QVERIFY(!drags->isEnabled());
+  bench.selection.PickDot(WarpDot{LayerId(1), "head", 4});
+  QVERIFY(drags->isEnabled());
+  QVERIFY(!lag->isEnabled());
+  drags->click();
+  QVERIFY(lag->isEnabled());
+  Type(lag, 0.8);
+  const auto& nodes =
+      bench.history.current().dolls.at("Bob")->rig.pieces[0].drag_nodes;
+  QCOMPARE(nodes.size(), size_t{1});
+  QCOMPARE(nodes[0].lag, 0.8);
+  QVERIFY(drags->isChecked());
 }
 
 }  // namespace snapper
