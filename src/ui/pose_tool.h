@@ -52,6 +52,9 @@ class PoseTool final {
   void Release();
   void Cancel();
   void Wheel(int notches, bool is_fine, const StageFrame& frame);
+  // Double-click: picks the whole doll (or layer) under point as one
+  // group, so it moves, scales and turns as one.
+  void PickWhole(QPointF point, const StageFrame& frame);
 
   bool IsDragging() const { return drag_ != nullptr; }
   // The pick box being drawn, in widget pixels; empty when none.

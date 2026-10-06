@@ -54,7 +54,12 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
                       : std::nullopt;
   managers_.selection->SelectShot(frame.shot);
   if (hit) {
-    PressPick({hit->layer, hit->piece}, is_shift, is_ctrl, frame, point);
+    // A doll picked whole stays whole: grabbing any of its limbs moves
+    // the group, not the limb.
+    const Pick whole{hit->layer, QString()};
+    const bool is_group = managers_.selection->picks().contains(whole);
+    PressPick(is_group ? whole : Pick{hit->layer, hit->piece}, is_shift,
+              is_ctrl, frame, point);
     return;
   }
   auto drag = std::make_unique<Drag>();
@@ -232,6 +237,23 @@ void PoseTool::Cancel() {
     drag_->scope->Cancel();
   }
   drag_.reset();
+}
+
+void PoseTool::PickWhole(QPointF point, const StageFrame& frame) {
+  assert(cache_ != nullptr);
+  assert(frame.scale > 0.0);
+  Cancel();
+  const Project& project = managers_.history->current();
+  const Shot* shot = FindShot(project, frame.shot);
+  const auto hit =
+      shot != nullptr ? HitTest(project, *shot, frame.local,
+                                point - frame.corner, frame.scale, cache_)
+                      : std::nullopt;
+  if (hit) {
+    managers_.selection->SelectShot(frame.shot);
+    managers_.selection->PickThings({{hit->layer, QString()}},
+                                    PickMode::kReplace, hit->layer);
+  }
 }
 
 void PoseTool::Wheel(int notches, bool is_fine, const StageFrame& frame) {

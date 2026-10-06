@@ -2,6 +2,7 @@
 
 #include "anim/doll_pose.h"
 #include "bench.h"
+#include "render/stage_hit.h"
 #include "ui/pose_tool.h"
 
 namespace snapper {
@@ -54,6 +55,7 @@ class PoseToolTests final : public QObject {
   void EscapePutsItBack();
   void ClickingNothingDropsThePick();
   void ManyPicksMoveAndTurnTogether();
+  void DoubleClickPicksTheWholeDoll();
 };
 
 void PoseToolTests::ClickPicksAndDragMoves() {
@@ -180,6 +182,27 @@ void PoseToolTests::ManyPicksMoveAndTurnTogether() {
   tool.Press({95, 60}, true, false, kFrame);
   tool.Release();
   QCOMPARE(bench.selection.picks().size(), size_t{2});
+}
+
+void PoseToolTests::DoubleClickPicksTheWholeDoll() {
+  Bench bench;
+  Stage(&bench);
+  ImageCache cache;
+  PoseTool tool(bench.All(), &cache);
+  tool.PickWhole({60, 60}, kFrame);
+  QCOMPARE(bench.selection.picks(),
+           std::set<Pick>({{LayerId(1), QString()}}));
+  const QPolygonF box =
+      LayerShape(bench.history.current(), *bench.history.current().shots[0],
+                 LayerId(1), Frame(0), 1.0, &cache);
+  QCOMPARE(box.boundingRect(), QRectF(40, 40, 20, 20));
+  // Dragging it moves the doll layer, not a piece.
+  tool.Press({60, 60}, false, false, kFrame);
+  tool.Move({70, 60}, false);
+  tool.Release();
+  QCOMPARE(bench.history.current().shots[0]->layers[0].transform.keys.back()
+               .value.offset,
+           QPointF(10, 0));
 }
 
 }  // namespace snapper

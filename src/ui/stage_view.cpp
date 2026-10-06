@@ -162,6 +162,18 @@ void StageView::mouseReleaseEvent(QMouseEvent* event) {
   assert(!is_left || !tool_.IsDragging());
 }
 
+void StageView::mouseDoubleClickEvent(QMouseEvent* event) {
+  assert(event != nullptr);
+  const auto frame = CurrentFrame();
+  const bool is_usable = frame.has_value() &&
+                         event->button() == Qt::LeftButton;
+  if (is_usable) {
+    tool_.PickWhole(event->position(), *frame);
+    update();
+  }
+  assert(!tool_.IsDragging());
+}
+
 void StageView::wheelEvent(QWheelEvent* event) {
   assert(event != nullptr);
   // Some systems turn Shift+wheel into a sideways scroll.

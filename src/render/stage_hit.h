@@ -35,7 +35,8 @@ std::optional<StageHit> HitTest(const Project& project, const Shot& shot,
                                 Frame local, QPointF point, double scale,
                                 ImageCache* cache);
 
-// The outline of a picture or text layer on screen; empty for others.
+// The outline of a picture, text or whole doll layer on screen (a doll's
+// is one box around all its pieces); empty for effects.
 QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
                      Frame local, double scale, ImageCache* cache);
 

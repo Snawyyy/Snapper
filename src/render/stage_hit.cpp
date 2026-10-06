@@ -151,13 +151,27 @@ QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
   }
   const auto* text = std::get_if<TextLayer>(&found->content);
   const auto* image = std::get_if<ImageLayer>(&found->content);
+  const auto* posed = std::get_if<DollLayer>(&found->content);
   const QSizeF picture =
       image != nullptr ? QSizeF(cache->Get(image->path).size()) : QSizeF();
-  const QRectF own =
+  QRectF own =
       text != nullptr
           ? TextBox(*text)
           : QRectF(QPointF(-picture.width() / 2, -picture.height() / 2),
                    picture);
+  const Doll* doll =
+      posed != nullptr ? FindDoll(project, posed->doll) : nullptr;
+  const bool is_doll = doll != nullptr;
+  if (is_doll) {
+    // One box around every posed piece, in the layer's own space, so it
+    // turns and scales with the doll.
+    own = QRectF();
+    for (const PlacedPiece& piece :
+         PlaceDoll(*doll, SamplePoses(*posed, local))) {
+      own = own.united(
+          piece.transform.mapRect(QRectF(QPointF(), QSizeF(piece.size))));
+    }
+  }
   return to_screen->map(QPolygonF(own));
 }
 
