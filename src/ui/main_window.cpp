@@ -159,7 +159,9 @@ void MainWindow::BuildMenus() {
   assert(managers_.history != nullptr);
   assert(menuBar() != nullptr);
   undo_action_.setShortcut(QKeySequence::Undo);
-  redo_action_.setShortcut(QKeySequence::Redo);
+  // Ctrl+Y everywhere, plus the system's own (Ctrl+Shift+Z on Linux).
+  redo_action_.setShortcuts(
+      {QKeySequence(Qt::CTRL | Qt::Key_Y), QKeySequence(QKeySequence::Redo)});
   edit_menu_.addAction(&undo_action_);
   edit_menu_.addAction(&redo_action_);
   // Disabled actions still show why on hover.
