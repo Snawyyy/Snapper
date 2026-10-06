@@ -51,6 +51,7 @@ PiecePose Lerp(const PiecePose& a, const PiecePose& b, double t) {
   out.skew = Lerp(a.skew, b.skew, t);
   out.opacity = Lerp(a.opacity, b.opacity, t);
   out.lean = Lerp(a.lean, b.lean, t);
+  out.swivel = Lerp(a.swivel, b.swivel, t);
   // An empty warp is the rest shape, so it blends as all zeros.
   const size_t count = std::max(a.warp.size(), b.warp.size());
   const bool can_blend = (a.warp.empty() || a.warp.size() == count) &&

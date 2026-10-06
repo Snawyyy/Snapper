@@ -53,7 +53,8 @@ Result<void> PoseManager::Shift(const std::vector<TrackRef>& tracks,
       std::isfinite(delta.rotation) && std::isfinite(delta.offset.x()) &&
       std::isfinite(delta.offset.y()) && std::isfinite(delta.scale_x) &&
       std::isfinite(delta.scale_y) && std::isfinite(delta.skew) &&
-      std::isfinite(delta.opacity) && std::isfinite(delta.lean);
+      std::isfinite(delta.opacity) && std::isfinite(delta.lean) &&
+      std::isfinite(delta.swivel);
   const bool is_usable = is_finite && !tracks.empty();
   if (!is_usable) {
     return std::unexpected(Error{Tr("Pick something to change first.")});
@@ -74,6 +75,7 @@ Result<void> PoseManager::Shift(const std::vector<TrackRef>& tracks,
                              pose->opacity = std::clamp(
                                  pose->opacity + delta.opacity, 0.0, 1.0);
                              pose->lean += is_layer ? delta.lean : 0.0;
+                             pose->swivel += is_layer ? delta.swivel : 0.0;
                              return Result<void>();
                            });
     if (!shifted) {
@@ -231,10 +233,11 @@ Result<void> PoseManager::KeyInPlace(ShotId shot, LayerId layer,
 
 Result<void> PoseManager::Lean(ShotId shot,
                                const std::vector<LayerId>& layers,
-                               Frame frame, double degrees) {
+                               Frame frame, double lean, double swivel) {
   assert(history_ != nullptr);
   assert(frame.index() >= 0);
-  const bool is_usable = std::isfinite(degrees) && !layers.empty();
+  const bool is_usable =
+      std::isfinite(lean) && std::isfinite(swivel) && !layers.empty();
   if (!is_usable) {
     return std::unexpected(Error{Tr("Pick a whole doll to lean first.")});
   }
@@ -248,8 +251,9 @@ Result<void> PoseManager::Lean(ShotId shot,
     }
     has_doll = true;
     auto keyed = KeyedAt(next, {shot, TrackKind::kLayer, id, {}}, frame,
-                         PiecePose(), [degrees](PiecePose* value) {
-                           value->lean += degrees;
+                         PiecePose(), [lean, swivel](PiecePose* value) {
+                           value->lean += lean;
+                           value->swivel += swivel;
                            return Result<void>();
                          });
     if (!keyed) {
@@ -260,7 +264,8 @@ Result<void> PoseManager::Lean(ShotId shot,
   if (!has_doll) {
     return std::unexpected(Error{Tr("Pick a whole doll to lean first.")});
   }
-  return history_->Apply(Tr("Lean"), std::move(next));
+  return history_->Apply(lean != 0.0 ? Tr("Lean") : Tr("Swivel"),
+                         std::move(next));
 }
 
 Result<void> PoseManager::SetCamera(ShotId shot, Frame frame,

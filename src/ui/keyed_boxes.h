@@ -29,7 +29,8 @@ class PoseBox final : public QGroupBox {
 
  private:
   enum Field {
-    kTurn, kX, kY, kScaleX, kScaleY, kSkew, kOpacity, kLean, kCount
+    kTurn, kX, kY, kScaleX, kScaleY, kSkew, kOpacity, kLean, kSwivel,
+    kCount
   };
 
   void Commit();

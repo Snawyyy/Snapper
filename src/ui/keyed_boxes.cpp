@@ -55,9 +55,11 @@ PoseBox::PoseBox(const Managers& managers)
   SetUpNumber(&fields_[kSkew], Number::kLean);
   SetUpNumber(&fields_[kOpacity], Number::kFraction);
   SetUpNumber(&fields_[kLean], Number::kDegrees);
+  SetUpNumber(&fields_[kSwivel], Number::kDegrees);
   // Named so tests and screen readers find a field by what it is.
   const std::array<const char*, kCount> names = {
-      "turn", "x", "y", "scale_x", "scale_y", "skew", "opacity", "lean"};
+      "turn", "x",       "y",    "scale_x", "scale_y",
+      "skew", "opacity", "lean", "swivel"};
   for (int i = 0; i < kCount; ++i) {
     fields_[static_cast<size_t>(i)].setObjectName(
         QLatin1String(names[static_cast<size_t>(i)]));
@@ -69,6 +71,7 @@ PoseBox::PoseBox(const Managers& managers)
   layout_.addRow(tr("Skew"), &fields_[kSkew]);
   layout_.addRow(tr("Opacity"), &fields_[kOpacity]);
   layout_.addRow(tr("Lean"), &fields_[kLean]);
+  layout_.addRow(tr("Swivel"), &fields_[kSwivel]);
   for (QDoubleSpinBox& field : fields_) {
     MakeLive(&field, &live_, tr("Pose"), this, [this] { Commit(); });
   }
@@ -101,12 +104,15 @@ void PoseBox::Refresh() {
   ShowNumber(&fields_[kSkew], pose.skew);
   ShowNumber(&fields_[kOpacity], pose.opacity);
   ShowNumber(&fields_[kLean], pose.lean);
+  ShowNumber(&fields_[kSwivel], pose.swivel);
   const bool is_whole_doll =
       track->kind == TrackKind::kLayer &&
       DollOfLayer(project, track->shot, track->layer) != nullptr;
-  Explain(&fields_[kLean],
-          is_whole_doll ? QString()
-                        : tr("Double-click a doll to pick it whole first."));
+  for (QDoubleSpinBox* turn : {&fields_[kLean], &fields_[kSwivel]}) {
+    Explain(turn, is_whole_doll
+                      ? QString()
+                      : tr("Double-click a doll to pick it whole first."));
+  }
   const QSignalBlocker quiet(drawing_);
   drawing_.clear();
   const bool is_piece = track->kind == TrackKind::kPiece;
@@ -145,6 +151,7 @@ void PoseBox::Commit() {
   delta.skew = fields_[kSkew].value() - shown.skew;
   delta.opacity = fields_[kOpacity].value() - shown.opacity;
   delta.lean = fields_[kLean].value() - shown.lean;
+  delta.swivel = fields_[kSwivel].value() - shown.swivel;
   emit Problem(ProblemOf(managers_.pose->Shift(
       managers_.selection->PickedTracks(), spot->local, delta)));
   assert(managers_.history != nullptr);

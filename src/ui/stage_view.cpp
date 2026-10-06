@@ -24,8 +24,8 @@ namespace {
 // Room left around the frame so handles at its edge stay grabbable.
 constexpr double kMargin = 0.94;
 constexpr double kHandleRadius = 4.0;
-constexpr double kLeanWidth = 6.0;
-constexpr double kLeanHeight = 14.0;
+constexpr double kBarThin = 6.0;
+constexpr double kBarLong = 14.0;
 constexpr int kWheelUnit = 120;
 
 }  // namespace
@@ -107,15 +107,19 @@ void StageView::PaintHandles(const StageFrame& frame, QPainter* painter) {
     if (is_whole) {
       painter->drawPolygon(LayerShape(project, *shot, pick.layer, frame.local,
                                       frame.scale, renderer_.cache()));
-      const auto lean = LeanHandle(project, *shot, pick.layer, frame.local,
-                                   frame.scale, renderer_.cache());
-      if (lean) {
-        // Tall and thin: it drags up and down.
+      const auto turn = TurnHandlesOf(project, *shot, pick.layer,
+                                      frame.local, frame.scale,
+                                      renderer_.cache());
+      if (turn) {
+        // Long the way they drag: lean up and down, swivel sideways.
         painter->setPen(QPen(theme::kShadow, 1.0));
         painter->setBrush(theme::kHandle);
-        painter->drawRect(QRectF(*lean - QPointF(kLeanWidth / 2,
-                                                 kLeanHeight / 2),
-                                 QSizeF(kLeanWidth, kLeanHeight)));
+        painter->drawRect(QRectF(turn->lean - QPointF(kBarThin / 2,
+                                                      kBarLong / 2),
+                                 QSizeF(kBarThin, kBarLong)));
+        painter->drawRect(QRectF(turn->swivel - QPointF(kBarLong / 2,
+                                                        kBarThin / 2),
+                                 QSizeF(kBarLong, kBarThin)));
       }
       continue;
     }

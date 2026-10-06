@@ -160,7 +160,12 @@ void PoseTool::Move(QPointF point, bool is_shift) {
     case Kind::kLean:
       Note(managers_.pose->Lean(drag_->frame.shot, drag_->dolls,
                                 drag_->frame.local,
-                                total.y() * kLeanPerPixel));
+                                total.y() * kTurnPerPixel, 0.0));
+      break;
+    case Kind::kSwivel:
+      Note(managers_.pose->Lean(drag_->frame.shot, drag_->dolls,
+                                drag_->frame.local, 0.0,
+                                total.x() * kTurnPerPixel));
       break;
   }
 }
@@ -289,21 +294,26 @@ bool PoseTool::PressLean(QPointF point, const StageFrame& frame) {
     return false;
   }
   std::vector<LayerId> dolls;
-  bool is_near = false;
+  bool is_lean = false;
+  bool is_swivel = false;
+  const auto is_near = [&](QPointF handle) {
+    return QLineF(handle + frame.corner, point).length() <= kHandleReach;
+  };
   for (const Pick& pick : managers_.selection->picks()) {
-    const auto handle =
+    const auto handles =
         pick.piece.isEmpty()
-            ? LeanHandle(project, *shot, pick.layer, frame.local,
-                         frame.scale, cache_)
+            ? TurnHandlesOf(project, *shot, pick.layer, frame.local,
+                            frame.scale, cache_)
             : std::nullopt;
-    const bool is_doll = handle.has_value();
+    const bool is_doll = handles.has_value();
     if (is_doll) {
       dolls.push_back(pick.layer);
-      is_near = is_near || QLineF(*handle + frame.corner, point).length() <=
-                               kHandleReach;
+      is_lean = is_lean || is_near(handles->lean);
+      is_swivel = is_swivel || (!is_lean && is_near(handles->swivel));
     }
   }
-  if (!is_near) {
+  const bool is_grabbed = is_lean || is_swivel;
+  if (!is_grabbed) {
     return false;
   }
   const Layer* first = FindLayer(*shot, dolls.front());
@@ -312,12 +322,13 @@ bool PoseTool::PressLean(QPointF point, const StageFrame& frame) {
           ? QObject::tr("%1 dolls").arg(dolls.size())
           : std::get<DollLayer>(first->content).doll;
   auto drag = std::make_unique<Drag>();
-  drag->kind = Kind::kLean;
+  drag->kind = is_lean ? Kind::kLean : Kind::kSwivel;
   drag->frame = frame;
   drag->dolls = std::move(dolls);
   drag->start = point;
   drag->scope = std::make_unique<EditScope>(
-      managers_.history, QObject::tr("Lean %1").arg(what));
+      managers_.history, is_lean ? QObject::tr("Lean %1").arg(what)
+                                 : QObject::tr("Swivel %1").arg(what));
   drag_ = std::move(drag);
   return true;
 }

@@ -26,9 +26,10 @@ constexpr double kWheelStep = 5.0;
 constexpr double kFineWheelStep = 1.0;
 // Dragging this many pixels doubles (or halves) the size.
 constexpr double kScalePixels = 200.0;
-// Dragging the lean handle down leans a doll toward the camera this
-// many degrees a pixel; up leans it away. There is no end to it.
-constexpr double kLeanPerPixel = 0.25;
+// Dragging a turn handle turns a doll this many degrees a pixel: the
+// lean handle down leans it toward the camera, the swivel handle right
+// brings its right side toward the camera. There is no end to either.
+constexpr double kTurnPerPixel = 0.25;
 
 // Where on screen the stage frame is: which shot and frame it shows,
 // how big, and where its top-left corner sits in the widget.
@@ -45,9 +46,9 @@ struct StageFrame final {
 // pick moves everything picked by the same amount (Shift locks to one
 // axis, Ctrl scales instead); the wheel turns them 5 degrees a notch
 // (1 with Shift); dragging an IK tip bends its chain; dragging the lean
-// handle of a doll picked whole tips every whole doll picked toward the
-// camera (down) or away (up). A drag is one undo
-// step and Escape (Cancel) undoes it on the spot.
+// or swivel handle of a doll picked whole turns every whole doll picked
+// in depth. A drag is one undo step and Escape (Cancel) undoes it on
+// the spot.
 class PoseTool final {
  public:
   PoseTool(const Managers& managers, ImageCache* cache);
@@ -69,7 +70,7 @@ class PoseTool final {
   const QString& problem() const { return problem_; }
 
  private:
-  enum class Kind { kMove, kScale, kIk, kBox, kLean };
+  enum class Kind { kMove, kScale, kIk, kBox, kLean, kSwivel };
 
   struct Drag final {
     Kind kind = Kind::kMove;
@@ -77,7 +78,7 @@ class PoseTool final {
     // For IK drags: the layer and chain.
     LayerId layer;
     QString chain;
-    // For lean drags: every doll picked whole.
+    // For lean and swivel drags: every doll picked whole.
     std::vector<LayerId> dolls;
     QPointF start;
     // How far the drag had got at the last move, so each move adds

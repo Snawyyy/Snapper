@@ -226,17 +226,18 @@ void PoseToolTests::LeanHandleTipsTheDoll() {
   tool.Release();
   tool.PickWhole({60, 60}, kFrame);
   const Shot& shot = *bench.history.current().shots[0];
-  const auto handle = LeanHandle(bench.history.current(), shot, LayerId(1),
-                                 Frame(0), 1.0, &cache);
-  QVERIFY(handle.has_value());
-  QCOMPARE(*handle, QPointF(60 + kLeanGap, 40));
+  const auto handles = TurnHandlesOf(bench.history.current(), shot,
+                                     LayerId(1), Frame(0), 1.0, &cache);
+  QVERIFY(handles.has_value());
+  QCOMPARE(handles->lean, QPointF(60 + kTurnGap, 40));
+  QCOMPARE(handles->swivel, QPointF(50, 60 + kTurnGap));
   // Dragging down leans it toward the camera, keyed once.
   tool.Press({83, 52}, false, false, kFrame);
   tool.Move({83, 52 + 200}, false);
   tool.Move({83, 52 + 100}, false);
   tool.Release();
   const Layer& layer = bench.history.current().shots[0]->layers[0];
-  QCOMPARE(layer.transform.keys.back().value.lean, 100 * kLeanPerPixel);
+  QCOMPARE(layer.transform.keys.back().value.lean, 100 * kTurnPerPixel);
   // The keys stay as posed; the head, above the middle, is drawn
   // nearer and the body further.
   QCOMPARE(Body(bench).scale_x, 1.0);
@@ -255,9 +256,19 @@ void PoseToolTests::LeanHandleTipsTheDoll() {
                   Frame(0), PiecePose())
         .lean;
   };
-  QCOMPARE(lean(), -40 * kLeanPerPixel);
+  QCOMPARE(lean(), -40 * kTurnPerPixel);
   tool.Cancel();
   QCOMPARE(lean(), 0.0);
+  // The swivel handle, below the box, drags sideways.
+  tool.Press({60, 82}, false, false, kFrame);
+  tool.Move({100, 90}, false);
+  tool.Release();
+  QCOMPARE(Sample(bench.history.current().shots[0]->layers[0].transform,
+                  Frame(0), PiecePose())
+               .swivel,
+           40 * kTurnPerPixel);
+  QCOMPARE(lean(), 0.0);
+  QCOMPARE(bench.history.UndoLabel(), QString("Swivel Dot"));
 }
 
 }  // namespace snapper

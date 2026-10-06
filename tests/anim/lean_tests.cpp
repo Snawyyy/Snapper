@@ -68,6 +68,7 @@ class LeanTests final : public QObject {
   void ItTurnsAllTheWayRound();
   void ShownPosesLeanByTheLayer();
   void KeptShapesOnlyGrow();
+  void SwivelBringsOneSideNear();
   void TheNearPartComesInFront();
 };
 
@@ -188,6 +189,36 @@ void LeanTests::KeptShapesOnlyGrow() {
   QVERIFY(head.m11() > 1.0);
   QVERIFY(std::abs(head.m22() - head.m11()) < 1e-9);
   QVERIFY(GrowthOf(before.at("leg"), after.at("leg")) > 0.0);
+}
+
+void LeanTests::SwivelBringsOneSideNear() {
+  // Two arms off a torso, left and right.
+  Doll doll;
+  doll.art.pieces = {{"torso", {"t.png"}, 0, {0, 0}, {20, 40}},
+                     {"left", {"l.png"}, 0, {-20, 10}, {20, 10}},
+                     {"right", {"r.png"}, 0, {20, 10}, {20, 10}}};
+  doll.rig.pieces = {{"torso", "", {10, 20}, 1, -1, {}},
+                     {"left", "torso", {20, 5}, 0, -1, {}},
+                     {"right", "torso", {0, 5}, 2, -1, {}}};
+  const auto before = PieceTransforms(doll, {});
+  const auto width = [](const QTransform& t) {
+    return std::hypot(t.m11(), t.m12());
+  };
+  // Right side toward the camera: the right arm grows, the left shrinks,
+  // and the torso, on the hinge, narrows.
+  const auto turned = PieceTransforms(doll, LeanPoses(doll, {}, 0.0, 30.0));
+  QVERIFY(width(turned.at("right")) > width(before.at("right")));
+  QVERIFY(width(turned.at("left")) < width(before.at("left")));
+  QVERIFY(width(turned.at("torso")) < width(before.at("torso")));
+  QVERIFY(std::abs(turned.at("torso").m22() - 1.0) < 1e-9);
+  // Half way round it is seen from behind: mirrored, back to front.
+  const PoseMap behind = LeanPoses(doll, {}, 0.0, 180.0);
+  QVERIFY(PieceTransforms(doll, behind).at("torso").determinant() < 0.0);
+  QStringList order;
+  for (const PlacedPiece& piece : PlaceDoll(doll, behind)) {
+    order.append(piece.name);
+  }
+  QCOMPARE(order, QStringList({"right", "torso", "left"}));
 }
 
 }  // namespace snapper

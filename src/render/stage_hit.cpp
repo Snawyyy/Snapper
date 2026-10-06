@@ -179,9 +179,24 @@ QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
   return to_screen->map(QPolygonF(own));
 }
 
-std::optional<QPointF> LeanHandle(const Project& project, const Shot& shot,
-                                  LayerId layer, Frame local, double scale,
-                                  ImageCache* cache) {
+namespace {
+
+// from pushed on past to, by kTurnGap pixels.
+QPointF PastBy(QPointF from, QPointF to) {
+  assert(std::isfinite(from.x()) && std::isfinite(to.x()));
+  const QLineF out(from, to);
+  const bool has_length = out.length() > 0.0;
+  assert(std::isfinite(out.length()));
+  return has_length ? to + (to - from) * (kTurnGap / out.length())
+                    : to + QPointF(kTurnGap, 0.0);
+}
+
+}  // namespace
+
+std::optional<TurnHandles> TurnHandlesOf(const Project& project,
+                                         const Shot& shot, LayerId layer,
+                                         Frame local, double scale,
+                                         ImageCache* cache) {
   assert(cache != nullptr);
   assert(scale > 0.0);
   const Layer* found = layer.IsValid() ? FindLayer(shot, layer) : nullptr;
@@ -190,18 +205,17 @@ std::optional<QPointF> LeanHandle(const Project& project, const Shot& shot,
   const QPolygonF box =
       is_doll ? LayerShape(project, shot, layer, local, scale, cache)
               : QPolygonF();
-  // A rectangle's outline runs top-left, top-right, bottom-right...
-  const bool has_box = box.size() >= 3;
+  // A rectangle's outline runs top-left, top-right, bottom-right,
+  // bottom-left.
+  const bool has_box = box.size() >= 4;
   if (!has_box) {
     return std::nullopt;
   }
-  // Set out past the side, so grabbing the doll near its edge still
+  // Set out past the box, so grabbing the doll near its edge still
   // moves it.
-  const QPointF right = (box[1] + box[2]) / 2.0;
-  const QLineF out((box[0] + box[3]) / 2.0, right);
-  const bool has_width = out.length() > 0.0;
-  return has_width ? right + (out.p2() - out.p1()) * (kLeanGap / out.length())
-                   : right + QPointF(kLeanGap, 0.0);
+  return TurnHandles{PastBy((box[0] + box[3]) / 2.0, (box[1] + box[2]) / 2.0),
+                     PastBy((box[0] + box[1]) / 2.0,
+                            (box[2] + box[3]) / 2.0)};
 }
 
 std::vector<StageHit> HitBox(const Project& project, const Shot& shot,

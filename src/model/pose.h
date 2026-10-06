@@ -26,6 +26,9 @@ struct PiecePose final {
   // LeanPoses). It is drawn on top of the pieces' keys, so leaning back
   // to 0 always gives the keyed pose again.
   double lean = 0.0;
+  // The same for turning it left and right, toward the camera above 0
+  // on its right side.
+  double swivel = 0.0;
   // One offset per warp grid point, row by row; empty means no warp.
   std::vector<QPointF> warp;
 

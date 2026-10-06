@@ -18,20 +18,24 @@ constexpr double kDrawingSquash = 0.5;
 // this much of the doll's height.
 constexpr double kRestackGap = 0.12;
 
-// Fakes the doll turning degrees around the middle line of its box,
-// like a wheel facing the camera, as the camera would see it: above 0
-// the top swings toward the camera, below 0 away, and any amount works
-// (a whole turn is the start again). Heights shrink toward the middle
-// line, so leaning in brings the head down; past a quarter turn the
-// doll is upside down. How far up or down a piece's joint sits in the
-// rest pose sets how near the camera it swings: nearer pieces grow and
-// spread out, further ones shrink and pull in, and drawings squash in
-// height, a little less than the spacing. Pieces clearly nearer the
-// camera than their parent, children or siblings draw in front.
-PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double degrees);
+// Fakes the doll turning in depth around the middle of its box, as a
+// camera would see it. lean turns it like a wheel facing the camera
+// (above 0 the top swings toward the camera); swivel turns it like a
+// door on an upright hinge (above 0 its right side swings toward the
+// camera). Any amount works and a whole turn is the start again.
+// Spacing shrinks along the turn, so leaning in brings the head down;
+// past a quarter turn the doll is upside down or seen from behind.
+// How far a piece's joint sits from the middle in the rest pose sets
+// how near the camera it swings: nearer pieces grow and spread out,
+// further ones shrink and pull in. Drawings squash a little less than
+// the spacing, and not at all when the rig says a piece keeps its
+// shape. Pieces clearly nearer the camera than their parent, children
+// or siblings draw in front.
+PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double lean,
+                  double swivel = 0.0);
 
-// The poses a doll layer shows at frame: its pieces' keys, leaned by
-// its own move's lean. Everything that draws or hit-tests a doll on
+// The poses a doll layer shows at frame: its pieces' keys, turned by
+// its own move's lean and swivel. Everything that draws or hit-tests a doll on
 // stage uses this.
 PoseMap ShownPoses(const Doll& doll, const Layer& layer, Frame frame);
 
