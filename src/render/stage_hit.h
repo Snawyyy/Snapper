@@ -40,6 +40,16 @@ std::optional<StageHit> HitTest(const Project& project, const Shot& shot,
 QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
                      Frame local, double scale, ImageCache* cache);
 
+// How far, in screen pixels, the lean handle sits out from the box.
+constexpr double kLeanGap = 12.0;
+
+// Where a doll layer's lean handle sits on screen: just out from the
+// middle of the right side of its box (LayerShape). Nothing for other
+// layers.
+std::optional<QPointF> LeanHandle(const Project& project, const Shot& shot,
+                                  LayerId layer, Frame local, double scale,
+                                  ImageCache* cache);
+
 // Everything a box (output pixels at scale) touches: each doll piece
 // whose drawing overlaps it, and each other picture or text layer whose
 // box does. Effects and hidden layers are never caught.

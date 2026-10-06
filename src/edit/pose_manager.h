@@ -61,6 +61,12 @@ class PoseManager final {
   Result<void> ShiftAmounts(const std::vector<TrackRef>& tracks, Frame frame,
                             double delta);
 
+  // Leans every doll layer in layers toward the camera by amount (away
+  // when below 0; see LeanPoses), on top of the pose the open drag
+  // started from, so a drag calls it with its running total. One step.
+  Result<void> Lean(ShotId shot, const std::vector<LayerId>& layers,
+                    Frame frame, double amount);
+
   // Keys the layer at frame exactly as it looks there (a whole doll for
   // a doll layer), to mark a pose before changing it.
   Result<void> KeyInPlace(ShotId shot, LayerId layer, Frame frame);

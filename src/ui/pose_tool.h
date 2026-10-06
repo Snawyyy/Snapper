@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include "base/frame.h"
 #include "edit/edit_scope.h"
@@ -25,6 +26,9 @@ constexpr double kWheelStep = 5.0;
 constexpr double kFineWheelStep = 1.0;
 // Dragging this many pixels doubles (or halves) the size.
 constexpr double kScalePixels = 200.0;
+// Dragging the lean handle this many pixels down leans a doll fully
+// toward the camera; up leans it away.
+constexpr double kLeanPixels = 200.0;
 
 // Where on screen the stage frame is: which shot and frame it shows,
 // how big, and where its top-left corner sits in the widget.
@@ -40,7 +44,9 @@ struct StageFrame final {
 // that picks what it touches (Shift adds, Ctrl takes out). Dragging a
 // pick moves everything picked by the same amount (Shift locks to one
 // axis, Ctrl scales instead); the wheel turns them 5 degrees a notch
-// (1 with Shift); dragging an IK tip bends its chain. A drag is one undo
+// (1 with Shift); dragging an IK tip bends its chain; dragging the lean
+// handle of a doll picked whole tips every whole doll picked toward the
+// camera (down) or away (up). A drag is one undo
 // step and Escape (Cancel) undoes it on the spot.
 class PoseTool final {
  public:
@@ -63,7 +69,7 @@ class PoseTool final {
   const QString& problem() const { return problem_; }
 
  private:
-  enum class Kind { kMove, kScale, kIk, kBox };
+  enum class Kind { kMove, kScale, kIk, kBox, kLean };
 
   struct Drag final {
     Kind kind = Kind::kMove;
@@ -71,6 +77,8 @@ class PoseTool final {
     // For IK drags: the layer and chain.
     LayerId layer;
     QString chain;
+    // For lean drags: every doll picked whole.
+    std::vector<LayerId> dolls;
     QPointF start;
     // How far the drag had got at the last move, so each move adds
     // only its own part.
@@ -84,6 +92,7 @@ class PoseTool final {
   };
 
   bool PressIk(QPointF point, const StageFrame& frame);
+  bool PressLean(QPointF point, const StageFrame& frame);
   void PressPick(const Pick& pick, bool is_shift, bool is_ctrl,
                  const StageFrame& frame, QPointF point);
   void MoveAll(QPointF total);

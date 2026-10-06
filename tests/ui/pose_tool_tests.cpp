@@ -56,6 +56,7 @@ class PoseToolTests final : public QObject {
   void ClickingNothingDropsThePick();
   void ManyPicksMoveAndTurnTogether();
   void DoubleClickPicksTheWholeDoll();
+  void LeanHandleTipsTheDoll();
 };
 
 void PoseToolTests::ClickPicksAndDragMoves() {
@@ -203,6 +204,50 @@ void PoseToolTests::DoubleClickPicksTheWholeDoll() {
   QCOMPARE(bench.history.current().shots[0]->layers[0].transform.keys.back()
                .value.offset,
            QPointF(10, 0));
+}
+
+void PoseToolTests::LeanHandleTipsTheDoll() {
+  Bench bench;
+  Stage(&bench);
+  // A head hung above the body: its joint half way up the doll's box,
+  // the body's half way down.
+  Project project = bench.history.current();
+  Doll doll = *project.dolls.at("Dot");
+  doll.art.pieces.push_back({"head", {"body.png"}, 0, {-10, -30}, {20, 20}});
+  doll.rig.pieces.push_back({"head", "body", {10, 10}, 1, -1, {}});
+  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
+  bench.history.Reset(project);
+  ImageCache cache;
+  PoseTool tool(bench.All(), &cache);
+  // Not picked whole: no handle to grab, the press draws a box.
+  tool.Press({82, 50}, false, false, kFrame);
+  tool.Release();
+  tool.PickWhole({60, 60}, kFrame);
+  const Shot& shot = *bench.history.current().shots[0];
+  const auto handle = LeanHandle(bench.history.current(), shot, LayerId(1),
+                                 Frame(0), 1.0, &cache);
+  QVERIFY(handle.has_value());
+  QCOMPARE(*handle, QPointF(60 + kLeanGap, 40));
+  // Half way down leans it half way toward the camera, keyed once.
+  tool.Press({83, 52}, false, false, kFrame);
+  tool.Move({83, 52 + kLeanPixels}, false);
+  tool.Move({83, 52 + kLeanPixels / 2}, false);
+  tool.Release();
+  const PoseMap poses = SamplePoses(
+      std::get<DollLayer>(
+          bench.history.current().shots[0]->layers[0].content),
+      Frame(0));
+  QCOMPARE(poses.at("body").scale_x, 0.75);
+  QCOMPARE(poses.at("head").scale_x, 1.25 / 0.75);
+  QCOMPARE(bench.history.UndoLabel(), QString("Lean Dot"));
+  bench.history.Undo();
+  QVERIFY(!bench.history.CanUndo());
+  // Escape puts it back.
+  tool.Press({82, 50}, false, false, kFrame);
+  tool.Move({82, 10}, false);
+  QVERIFY(Body(bench).scale_x > 1.0);
+  tool.Cancel();
+  QCOMPARE(Body(bench).scale_x, 1.0);
 }
 
 }  // namespace snapper

@@ -2,9 +2,11 @@
 
 #include <QLineF>
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 
+#include "anim/doll_lean.h"
 #include "anim/sampler.h"
 #include "edit/history_manager.h"
 #include "edit/pose_manager.h"
@@ -42,8 +44,8 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
   assert(frame.scale > 0.0);
   Cancel();
   problem_.clear();
-  const bool is_ik = PressIk(point, frame);
-  if (is_ik) {
+  const bool is_handle = PressLean(point, frame) || PressIk(point, frame);
+  if (is_handle) {
     return;
   }
   const Project& project = managers_.history->current();
@@ -155,6 +157,11 @@ void PoseTool::Move(QPointF point, bool is_shift) {
     case Kind::kScale:
       // Right or up grows, left or down shrinks.
       ScaleAll(std::pow(2.0, (total.x() - total.y()) / kScalePixels));
+      break;
+    case Kind::kLean:
+      Note(managers_.pose->Lean(
+          drag_->frame.shot, drag_->dolls, drag_->frame.local,
+          std::clamp(total.y() / kLeanPixels, -kMaxLean, kMaxLean)));
       break;
   }
 }
@@ -270,6 +277,50 @@ void PoseTool::Wheel(int notches, bool is_fine, const StageFrame& frame) {
   // Wheel up turns counterclockwise, like a knob.
   delta.rotation = -notches * (is_fine ? kFineWheelStep : kWheelStep);
   Note(managers_.pose->Shift(tracks, frame.local, delta));
+}
+
+bool PoseTool::PressLean(QPointF point, const StageFrame& frame) {
+  assert(frame.scale > 0.0);
+  assert(managers_.selection != nullptr);
+  const Project& project = managers_.history->current();
+  const Shot* shot = FindShot(project, frame.shot);
+  const bool is_ready =
+      shot != nullptr && managers_.selection->shot() == frame.shot;
+  if (!is_ready) {
+    return false;
+  }
+  std::vector<LayerId> dolls;
+  bool is_near = false;
+  for (const Pick& pick : managers_.selection->picks()) {
+    const auto handle =
+        pick.piece.isEmpty()
+            ? LeanHandle(project, *shot, pick.layer, frame.local,
+                         frame.scale, cache_)
+            : std::nullopt;
+    const bool is_doll = handle.has_value();
+    if (is_doll) {
+      dolls.push_back(pick.layer);
+      is_near = is_near || QLineF(*handle + frame.corner, point).length() <=
+                               kHandleReach;
+    }
+  }
+  if (!is_near) {
+    return false;
+  }
+  const Layer* first = FindLayer(*shot, dolls.front());
+  const QString what =
+      dolls.size() > 1
+          ? QObject::tr("%1 dolls").arg(dolls.size())
+          : std::get<DollLayer>(first->content).doll;
+  auto drag = std::make_unique<Drag>();
+  drag->kind = Kind::kLean;
+  drag->frame = frame;
+  drag->dolls = std::move(dolls);
+  drag->start = point;
+  drag->scope = std::make_unique<EditScope>(
+      managers_.history, QObject::tr("Lean %1").arg(what));
+  drag_ = std::move(drag);
+  return true;
 }
 
 bool PoseTool::PressIk(QPointF point, const StageFrame& frame) {

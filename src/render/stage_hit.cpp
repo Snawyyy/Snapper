@@ -1,5 +1,6 @@
 #include "render/stage_hit.h"
 
+#include <QLineF>
 #include <QPainterPath>
 #include <QTransform>
 
@@ -173,6 +174,31 @@ QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
     }
   }
   return to_screen->map(QPolygonF(own));
+}
+
+std::optional<QPointF> LeanHandle(const Project& project, const Shot& shot,
+                                  LayerId layer, Frame local, double scale,
+                                  ImageCache* cache) {
+  assert(cache != nullptr);
+  assert(scale > 0.0);
+  const Layer* found = layer.IsValid() ? FindLayer(shot, layer) : nullptr;
+  const bool is_doll =
+      found != nullptr && std::holds_alternative<DollLayer>(found->content);
+  const QPolygonF box =
+      is_doll ? LayerShape(project, shot, layer, local, scale, cache)
+              : QPolygonF();
+  // A rectangle's outline runs top-left, top-right, bottom-right...
+  const bool has_box = box.size() >= 3;
+  if (!has_box) {
+    return std::nullopt;
+  }
+  // Set out past the side, so grabbing the doll near its edge still
+  // moves it.
+  const QPointF right = (box[1] + box[2]) / 2.0;
+  const QLineF out((box[0] + box[3]) / 2.0, right);
+  const bool has_width = out.length() > 0.0;
+  return has_width ? right + (out.p2() - out.p1()) * (kLeanGap / out.length())
+                   : right + QPointF(kLeanGap, 0.0);
 }
 
 std::vector<StageHit> HitBox(const Project& project, const Shot& shot,

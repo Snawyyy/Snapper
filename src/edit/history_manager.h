@@ -24,6 +24,11 @@ class HistoryManager final : public QObject {
   explicit HistoryManager(Project start);
 
   const Project& current() const { return current_; }
+  // The project an open drag started from; current when none is open.
+  // Edits that a drag calls with a running total build on this.
+  const Project& before() const {
+    return is_scope_open_ ? scope_start_ : current_;
+  }
 
   // Makes next the project as one undo step named label ("Rotate
   // head"). An edit that changes nothing records nothing.

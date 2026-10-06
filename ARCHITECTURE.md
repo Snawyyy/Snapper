@@ -137,6 +137,12 @@ A piece can:
 - swap between its drawings,
 - warp locally through a grid of handles, so one-piece parts such as a
   trunk can still crease at the collar or chest,
+- lean with the whole doll: dragging the yellow handle beside a doll
+  picked whole fakes it tipping toward the camera (down) or away (up)
+  around the middle of its box. Each piece's weight comes from its
+  rest joint's height (0 on the middle line, 1 at the top, -1 at the
+  bottom) and sets how much it grows and spreads from the middle
+  (`LeanPoses`). It writes ordinary scale and offset keys.
 - belong to a two-bone IK chain. IK is a posing tool: dragging a hand
   solves the chain and writes ordinary rotation keys. Playback only
   ever plays keys, so what was posed is what plays.

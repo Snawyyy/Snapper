@@ -15,7 +15,8 @@ namespace snapper {
 
 // The stage: the frame under the playhead, fitted to the widget, with
 // the pose tool on top. Picks are outlined in Teto red; joints and IK
-// tips are yellow handles.
+// tips are yellow handles, and a doll picked whole has a yellow lean
+// handle on its right side.
 class StageView final : public QWidget {
   Q_OBJECT
 

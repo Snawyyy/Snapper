@@ -6,6 +6,7 @@
 #include <utility>
 #include <variant>
 
+#include "anim/doll_lean.h"
 #include "edit/history_manager.h"
 #include "edit/pose_edits.h"
 
@@ -225,6 +226,55 @@ Result<void> PoseManager::KeyInPlace(ShotId shot, LayerId layer,
                                  PiecePose(), [](PiecePose*) {
                                    return Result<void>();
                                  }));
+}
+
+Result<void> PoseManager::Lean(ShotId shot,
+                               const std::vector<LayerId>& layers,
+                               Frame frame, double amount) {
+  assert(history_ != nullptr);
+  assert(frame.index() >= 0);
+  const bool is_usable = std::isfinite(amount) &&
+                         std::abs(amount) <= kMaxLean && !layers.empty();
+  if (!is_usable) {
+    return std::unexpected(Error{Tr("Pick a whole doll to lean first.")});
+  }
+  const Project& base = history_->before();
+  const Shot* found = FindShot(base, shot);
+  Project next = base;
+  bool has_doll = false;
+  for (const LayerId id : layers) {
+    const Layer* layer = found != nullptr ? FindLayer(*found, id) : nullptr;
+    const auto* posed =
+        layer != nullptr ? std::get_if<DollLayer>(&layer->content) : nullptr;
+    const Doll* doll = DollOfLayer(base, shot, id);
+    const bool is_doll = posed != nullptr && doll != nullptr;
+    if (!is_doll) {
+      continue;
+    }
+    has_doll = true;
+    const PoseMap leaned =
+        LeanPoses(*doll, SamplePoses(*posed, frame), amount);
+    for (const RigPiece& rig : doll->rig.pieces) {
+      const auto pose = leaned.find(rig.name);
+      const bool is_leaned = pose != leaned.end();
+      if (!is_leaned) {
+        continue;
+      }
+      auto keyed = KeyedAt(next, {shot, TrackKind::kPiece, id, rig.name},
+                           frame, PiecePose(), [&pose](PiecePose* value) {
+                             *value = pose->second;
+                             return Result<void>();
+                           });
+      if (!keyed) {
+        return std::unexpected(keyed.error());
+      }
+      next = std::move(*keyed);
+    }
+  }
+  if (!has_doll) {
+    return std::unexpected(Error{Tr("Pick a whole doll to lean first.")});
+  }
+  return history_->Apply(Tr("Lean"), std::move(next));
 }
 
 Result<void> PoseManager::SetCamera(ShotId shot, Frame frame,
