@@ -153,7 +153,9 @@ A piece can:
   that trails where the pose and the layer carry it, then bounces back,
   like hair or a chest, spread by the dot's reach (`DraggedPoses`).
   Its Lag and Bounce are in the Drag node panel. The spring runs from
-  the shot's first frame, so every render of a frame is the same.
+  the shot's first frame, so every render of a frame is the same, and
+  shows only on the doll's own beat (its keys, each frame of an ease,
+  the same spacing through a long hold), so a doll on 3s drags on 3s.
 - turn in depth with the whole doll: a doll picked whole has two
   yellow handles (and Lean and Swivel fields). Lean, beside the box,
   turns it like a wheel facing the camera; Swivel, below it, like a

@@ -4,6 +4,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <utility>
@@ -58,6 +59,51 @@ std::optional<std::pair<QPointF, QTransform>> Carried(
 }
 
 using Carry = std::optional<std::pair<QPointF, QTransform>>;
+
+// The doll's keys (its own move's and every piece's), each with whether
+// the motion after it eases instead of holding.
+std::map<Frame, bool> KeysOf(const Layer& layer) {
+  assert(std::holds_alternative<DollLayer>(layer.content));
+  std::map<Frame, bool> keys;
+  const auto add = [&keys](const Channel<PiecePose>& channel) {
+    for (const auto& key : channel.keys) {
+      keys[key.frame] = keys[key.frame] || key.ease != Ease::kStep;
+    }
+  };
+  add(layer.transform);
+  const auto& pieces = std::get<DollLayer>(layer.content).pieces;
+  for (const auto& [name, channel] : pieces) {
+    add(channel);
+  }
+  return keys;
+}
+
+// The frame whose drag frame shows: drags move on the doll's own beat,
+// so a doll on 3s wobbles on 3s. Each key is a beat, every frame of an
+// ease is, and a long hold keeps beating at the spacing of the keys
+// before it.
+Frame BeatOf(const Layer& layer, Frame frame) {
+  assert(frame.index() >= 0);
+  const std::map<Frame, bool> keys = KeysOf(layer);
+  const auto after = keys.upper_bound(frame);
+  const bool has_key_before = after != keys.begin();
+  if (!has_key_before) {
+    return frame;
+  }
+  const auto at = std::prev(after);
+  const bool is_easing = at->second && after != keys.end();
+  if (is_easing) {
+    return frame;
+  }
+  const bool has_earlier = at != keys.begin();
+  const int spacing =
+      has_earlier ? at->first.index() - std::prev(at)->first.index()
+      : after != keys.end() ? after->first.index() - at->first.index()
+                            : 1;
+  const int since = frame.index() - at->first.index();
+  assert(spacing >= 1);
+  return Frame(at->first.index() + since / spacing * spacing);
+}
 
 // A spring per drag node of the doll.
 std::vector<Spring> SpringsOf(const Doll& doll) {
@@ -151,7 +197,8 @@ PoseMap DraggedPoses(const Doll& doll, const Layer& layer, Frame frame) {
   if (!has_springs) {
     return poses;
   }
-  const std::vector<Carry> carried = Run(doll, layer, frame, &springs);
+  const std::vector<Carry> carried =
+      Run(doll, layer, BeatOf(layer, frame), &springs);
   for (size_t i = 0; i < springs.size(); ++i) {
     AddTrail(doll, springs[i], carried[i], &poses);
   }

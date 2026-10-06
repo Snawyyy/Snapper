@@ -44,6 +44,7 @@ class DragTests final : public QObject {
   void ANodeTrailsThenSettles();
   void BounceOvershoots();
   void ReachSpreadsTheTrail();
+  void EasesDragEveryFrame();
 };
 
 void DragTests::StillDollsDontDrag() {
@@ -66,6 +67,10 @@ void DragTests::ANodeTrailsThenSettles() {
   QVERIFY(Trail(doll, layer, 2) < -3.0);
   QVERIFY(Trail(doll, layer, 4) > Trail(doll, layer, 2));
   QVERIFY(std::abs(Trail(doll, layer, 60)) < 0.05);
+  // Keyed on 2s, it drags on 2s: held frames hold the trail too.
+  QCOMPARE(Trail(doll, layer, 3), Trail(doll, layer, 2));
+  QVERIFY(Trail(doll, layer, 4) != Trail(doll, layer, 3));
+  QCOMPARE(Trail(doll, layer, 9), Trail(doll, layer, 8));
   // The same frame always comes out the same.
   QCOMPARE(Trail(doll, layer, 7), Trail(doll, layer, 7));
 }
@@ -94,6 +99,17 @@ void DragTests::ReachSpreadsTheTrail() {
   // One cell off, half the pull.
   QVERIFY(std::abs(Trail(doll, layer, 2, 1) - Trail(doll, layer, 2) / 2) <
           1e-9);
+}
+
+void DragTests::EasesDragEveryFrame() {
+  const Doll doll = Blob(0.0);
+  Layer layer = Jumping();
+  // Sliding from 2 to 12: every frame between is a beat.
+  PiecePose far;
+  far.offset = QPointF(40, 0);
+  layer.transform.keys[1].ease = Ease::kLinear;
+  SetKey(&layer.transform, {Frame(12), far, Ease::kStep});
+  QVERIFY(Trail(doll, layer, 5) != Trail(doll, layer, 4));
 }
 
 }  // namespace snapper
