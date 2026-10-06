@@ -42,6 +42,13 @@ class RigManager final {
   // moves it alone), kept from 0 to kMaxWarpCells.
   Result<void> SetWarpReach(const QString& doll, const QString& piece,
                             int point, double reach);
+  // Makes a warp grid point a drag node (with the default lag and
+  // bounce), or a plain point again if it is one.
+  Result<void> ToggleDragNode(const QString& doll, const QString& piece,
+                              int point);
+  // A drag node's lag and bounce, each kept 0 to 1.
+  Result<void> SetDrag(const QString& doll, const QString& piece,
+                       const DragNode& node);
 
   // Copies piece's joint, rest turn, parent and warp grid onto its
   // partner on the other side (arm_l to arm_r), mirrored, so a doll is

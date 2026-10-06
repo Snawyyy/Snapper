@@ -26,7 +26,7 @@ snapper_module(model
   MODULES base
   LIBS Qt6::Gui)
 snapper_module(anim
-  SOURCES doll_lean.cpp doll_pose.cpp ik.cpp jitter.cpp master_timeline.cpp mirror.cpp presets.cpp
+  SOURCES doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp jitter.cpp master_timeline.cpp mirror.cpp presets.cpp
           sampler.cpp warp.cpp
   MODULES model)
 snapper_module(io

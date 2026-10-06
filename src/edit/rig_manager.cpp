@@ -121,6 +121,7 @@ Result<void> RigManager::SetWarpGrid(const QString& doll,
                         [grid](RigPiece* rig) -> Result<void> {
                           rig->warp = grid;
                           rig->warp_reach.clear();
+                          rig->drag_nodes.clear();
                           return {};
                         });
   const bool is_changed = next.has_value();
@@ -152,6 +153,68 @@ Result<void> RigManager::SetWarpReach(const QString& doll,
                   }
                   rig->warp_reach.resize(static_cast<size_t>(count), 0.0);
                   rig->warp_reach[static_cast<size_t>(point)] = cells;
+                  return {};
+                }));
+}
+
+Result<void> RigManager::ToggleDragNode(const QString& doll,
+                                        const QString& piece, int point) {
+  assert(history_ != nullptr);
+  assert(!piece.isEmpty());
+  const Doll* found = FindDoll(history_->current(), doll);
+  const RigPiece* rig = found != nullptr ? FindRig(found->rig, piece)
+                                         : nullptr;
+  const bool is_drag =
+      rig != nullptr &&
+      std::any_of(rig->drag_nodes.begin(), rig->drag_nodes.end(),
+                  [point](const DragNode& n) { return n.point == point; });
+  return history_->Apply(
+      is_drag ? Tr("Stop dragging point of %1").arg(piece)
+              : Tr("Drag point of %1").arg(piece),
+      WithPiece(history_->current(), doll, piece,
+                [point, is_drag](RigPiece* edited) -> Result<void> {
+                  const bool is_point =
+                      point >= 0 && point < edited->warp.PointCount();
+                  if (!is_point) {
+                    return std::unexpected(Error{
+                        Tr("Give the piece a warp grid in the rig first.")});
+                  }
+                  if (is_drag) {
+                    std::erase_if(edited->drag_nodes,
+                                  [point](const DragNode& n) {
+                                    return n.point == point;
+                                  });
+                  } else {
+                    edited->drag_nodes.push_back(DragNode{point});
+                  }
+                  return {};
+                }));
+}
+
+Result<void> RigManager::SetDrag(const QString& doll, const QString& piece,
+                                 const DragNode& node) {
+  assert(history_ != nullptr);
+  assert(!piece.isEmpty());
+  const bool is_number = std::isfinite(node.lag) && std::isfinite(node.bounce);
+  if (!is_number) {
+    return std::unexpected(Error{Tr("That value is off the map.")});
+  }
+  return history_->Apply(
+      Tr("Drag of %1").arg(piece),
+      WithPiece(history_->current(), doll, piece,
+                [&node](RigPiece* edited) -> Result<void> {
+                  const auto found = std::find_if(
+                      edited->drag_nodes.begin(), edited->drag_nodes.end(),
+                      [&node](const DragNode& n) {
+                        return n.point == node.point;
+                      });
+                  const bool is_drag = found != edited->drag_nodes.end();
+                  if (!is_drag) {
+                    return std::unexpected(Error{
+                        Tr("Press D on a picked dot to make it drag first.")});
+                  }
+                  found->lag = std::clamp(node.lag, 0.0, 1.0);
+                  found->bounce = std::clamp(node.bounce, 0.0, 1.0);
                   return {};
                 }));
 }

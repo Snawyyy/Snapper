@@ -70,6 +70,31 @@ bool SelectionManager::IsReal(const Pick& pick) const {
   return doll != nullptr && FindRig(doll->rig, pick.piece) != nullptr;
 }
 
+std::optional<WarpDot> SelectionManager::dot() const {
+  assert(history_ != nullptr);
+  assert(picks_.size() < 100000);
+  const bool is_picked =
+      dot_.has_value() && picks_.contains({dot_->layer, dot_->piece});
+  const Doll* doll = is_picked
+                         ? DollOfLayer(history_->current(), shot_, dot_->layer)
+                         : nullptr;
+  const RigPiece* rig =
+      doll != nullptr ? FindRig(doll->rig, dot_->piece) : nullptr;
+  const bool is_on_grid =
+      rig != nullptr && dot_->point < rig->warp.PointCount();
+  return is_on_grid ? dot_ : std::nullopt;
+}
+
+void SelectionManager::PickDot(std::optional<WarpDot> dot) {
+  assert(history_ != nullptr);
+  assert(!dot || dot->point >= 0);
+  const bool is_changed = dot != dot_;
+  dot_ = std::move(dot);
+  if (is_changed) {
+    emit Changed();
+  }
+}
+
 bool SelectionManager::IsKey(const KeyRef& key) const {
   assert(history_ != nullptr);
   assert(key.frame.index() >= 0);

@@ -34,9 +34,9 @@ constexpr double kRestackGap = 0.12;
 PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double lean,
                   double swivel = 0.0);
 
-// The poses a doll layer shows at frame: its pieces' keys, turned by
-// its own move's lean and swivel. Everything that draws or hit-tests a doll on
-// stage uses this.
+// The poses a doll layer shows at frame: its pieces' keys, drag nodes
+// trailing (DraggedPoses), turned by its own move's lean and swivel.
+// Everything that draws or hit-tests a doll on stage uses this.
 PoseMap ShownPoses(const Doll& doll, const Layer& layer, Frame frame);
 
 }  // namespace snapper

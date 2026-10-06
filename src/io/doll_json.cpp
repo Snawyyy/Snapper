@@ -1,6 +1,7 @@
 #include "io/doll_json.h"
 
 #include <QJsonArray>
+#include <QJsonObject>
 
 #include <algorithm>
 #include <cassert>
@@ -38,6 +39,43 @@ std::vector<double> ReachFromJson(const QJsonValue& value, WarpGrid grid) {
   }
   assert(reach.size() <= static_cast<size_t>(kMaxWarpPoints));
   return reach;
+}
+
+QJsonArray DragToJson(const std::vector<DragNode>& nodes) {
+  assert(nodes.size() <= static_cast<size_t>(kMaxWarpPoints));
+  QJsonArray array;
+  for (const DragNode& node : nodes) {
+    array.append(QJsonObject{{"point", node.point},
+                             {"lag", node.lag},
+                             {"bounce", node.bounce}});
+  }
+  assert(array.size() == static_cast<qsizetype>(nodes.size()));
+  return array;
+}
+
+// Drag nodes on points of grid, once each, settings kept 0 to 1.
+std::vector<DragNode> DragFromJson(const QJsonValue& value, WarpGrid grid) {
+  assert(grid.columns >= 0 && grid.rows >= 0);
+  std::vector<DragNode> nodes;
+  const QJsonArray array = value.toArray();
+  const auto unit = [](const QJsonValue& number, double fallback) {
+    const double read = number.toDouble(fallback);
+    return std::isfinite(read) ? std::clamp(read, 0.0, 1.0) : fallback;
+  };
+  for (const QJsonValue& item : array) {
+    const QJsonObject object = item.toObject();
+    const int point = object.value("point").toInt(-1);
+    const bool is_new =
+        point >= 0 && point < grid.PointCount() &&
+        std::none_of(nodes.begin(), nodes.end(),
+                     [point](const DragNode& n) { return n.point == point; });
+    if (is_new) {
+      nodes.push_back({point, unit(object.value("lag"), 0.5),
+                       unit(object.value("bounce"), 0.5)});
+    }
+  }
+  assert(nodes.size() <= static_cast<size_t>(kMaxWarpPoints));
+  return nodes;
 }
 
 QJsonArray Names(const std::vector<QString>& names) {
@@ -127,6 +165,7 @@ QJsonObject RigToJson(const Rig& rig) {
         {"rest", piece.rest_rotation},
         {"keep_shape", piece.keeps_shape},
         {"reach", ReachToJson(piece.warp_reach)},
+        {"drag", DragToJson(piece.drag_nodes)},
         {"warp", QJsonArray{piece.warp.columns, piece.warp.rows}}});
   }
   QJsonArray chains;
@@ -157,7 +196,8 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
                           piece.value("default").toInt(-1), grid,
                           piece.value("rest").toDouble(),
                           piece.value("keep_shape").toBool(),
-                          ReachFromJson(piece.value("reach"), grid)});
+                          ReachFromJson(piece.value("reach"), grid),
+                          DragFromJson(piece.value("drag"), grid)});
   }
   const QJsonArray chains =
       Bounded(object.value("chains"), kMaxIkChains, "IK chains", issues);

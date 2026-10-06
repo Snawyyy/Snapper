@@ -47,7 +47,7 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
                          PressWarp(point, frame) || PressIk(point, frame);
   const bool is_on_dot = drag_ != nullptr && drag_->kind == Kind::kWarp;
   if (!is_on_dot) {
-    dot_.reset();
+    managers_.selection->PickDot(std::nullopt);
   }
   if (is_handle) {
     return;
@@ -261,7 +261,9 @@ void PoseTool::Release() {
     // Clicking a dot picks it for the wheel; clicking it again drops it.
     drag_->scope->Cancel();
     const WarpDot dot{drag_->layer, drag_->piece, drag_->point};
-    dot_ = dot_ == dot ? std::nullopt : std::optional<WarpDot>(dot);
+    const bool is_again = managers_.selection->dot() == dot;
+    managers_.selection->PickDot(is_again ? std::nullopt
+                                          : std::optional<WarpDot>(dot));
   }
   drag_.reset();
 }

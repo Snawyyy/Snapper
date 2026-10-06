@@ -127,24 +127,15 @@ bool PoseTool::PressWarp(QPointF point, const StageFrame& frame) {
 std::optional<WarpDot> PoseTool::PickedDot(const StageFrame& frame) const {
   assert(frame.scale > 0.0);
   assert(managers_.selection != nullptr);
-  const bool is_picked =
-      dot_.has_value() && managers_.selection->shot() == frame.shot &&
-      managers_.selection->picks().contains({dot_->layer, dot_->piece});
-  const Project& project = managers_.history->current();
-  const Doll* doll = is_picked ? DollOfLayer(project, frame.shot, dot_->layer)
-                               : nullptr;
-  const RigPiece* rig =
-      doll != nullptr ? FindRig(doll->rig, dot_->piece) : nullptr;
-  const bool is_on_grid =
-      rig != nullptr && dot_->point < rig->warp.PointCount();
-  return is_on_grid ? dot_ : std::nullopt;
+  const bool is_here = managers_.selection->shot() == frame.shot;
+  return is_here ? managers_.selection->dot() : std::nullopt;
 }
 
 bool PoseTool::DropDot() {
-  assert(cache_ != nullptr);
-  const bool had_dot = dot_.has_value();
-  dot_.reset();
-  assert(!dot_.has_value());
+  assert(managers_.selection != nullptr);
+  const bool had_dot = managers_.selection->dot().has_value();
+  managers_.selection->PickDot(std::nullopt);
+  assert(!managers_.selection->dot().has_value());
   return had_dot;
 }
 

@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cmath>
 #include <numbers>
+#include <variant>
 
 #include "anim/sampler.h"
 #include "anim/warp.h"
@@ -134,6 +135,17 @@ std::vector<PlacedPiece> PlaceDoll(const Doll& doll, const PoseMap& poses) {
                      return a.order < b.order;
                    });
   return placed;
+}
+
+QTransform LayerTransform(const Layer& layer, Frame frame) {
+  assert(frame.index() >= 0);
+  assert(IsSorted(layer.transform));
+  const PiecePose pose = Sample(layer.transform, frame, PiecePose());
+  const auto* doll = std::get_if<DollLayer>(&layer.content);
+  const bool is_flipped = doll != nullptr && doll->is_flipped;
+  const QTransform flip =
+      is_flipped ? QTransform::fromScale(-1.0, 1.0) : QTransform();
+  return flip * PoseMatrix(pose, QPointF());
 }
 
 }  // namespace snapper

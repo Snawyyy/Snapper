@@ -38,15 +38,6 @@ constexpr double kTurnPerPixel = 0.25;
 constexpr double kReachStep = 0.5;
 constexpr double kFineReachStep = 0.1;
 
-// One dot of a picked piece's warp grid.
-struct WarpDot final {
-  LayerId layer;
-  QString piece;
-  int point = -1;
-
-  bool operator==(const WarpDot&) const = default;
-};
-
 // Where on screen the stage frame is: which shot and frame it shows,
 // how big, and where its top-left corner sits in the widget.
 struct StageFrame final {
@@ -140,7 +131,6 @@ class PoseTool final {
   Managers managers_;
   ImageCache* cache_;
   std::unique_ptr<Drag> drag_;
-  std::optional<WarpDot> dot_;
   QString problem_;
 };
 

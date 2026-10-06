@@ -9,6 +9,7 @@
 #include <variant>
 #include <vector>
 
+#include "anim/doll_drag.h"
 #include "anim/sampler.h"
 #include <numbers>
 
@@ -302,9 +303,8 @@ PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double lean,
 
 PoseMap ShownPoses(const Doll& doll, const Layer& layer, Frame frame) {
   assert(frame.index() >= 0);
-  const auto* posed = std::get_if<DollLayer>(&layer.content);
-  assert(posed != nullptr);
-  const PoseMap keyed = SamplePoses(*posed, frame);
+  assert(std::holds_alternative<DollLayer>(layer.content));
+  const PoseMap keyed = DraggedPoses(doll, layer, frame);
   const PiecePose own = Sample(layer.transform, frame, PiecePose());
   const bool is_turned = std::isfinite(own.lean) &&
                          std::isfinite(own.swivel) &&

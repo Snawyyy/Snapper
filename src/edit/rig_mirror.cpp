@@ -43,6 +43,10 @@ void MirrorPiece(const Doll& doll, const RigPiece& from, RigPiece* to) {
     to->warp_reach[static_cast<size_t>(MirroredPoint(from.warp, point))] =
         from.warp_reach[static_cast<size_t>(point)];
   }
+  to->drag_nodes = from.drag_nodes;
+  for (DragNode& node : to->drag_nodes) {
+    node.point = MirroredPoint(from.warp, node.point);
+  }
   const QString parent = MirrorName(from.parent);
   const bool has_mirrored_parent =
       !from.parent.isEmpty() && FindRig(doll.rig, parent) != nullptr;

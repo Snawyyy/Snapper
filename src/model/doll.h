@@ -49,6 +49,17 @@ struct WarpGrid final {
   bool operator==(const WarpGrid&) const = default;
 };
 
+// A warp grid point that trails behind when the doll moves and bounces
+// back, like hair or a chest. lag is how far it trails and bounce how
+// much it wobbles before settling, both 0 to 1.
+struct DragNode final {
+  int point = 0;
+  double lag = 0.5;
+  double bounce = 0.5;
+
+  bool operator==(const DragNode&) const = default;
+};
+
 // How Snapper moves a piece: rig.json.
 struct RigPiece final {
   QString name;
@@ -72,6 +83,8 @@ struct RigPiece final {
   // neighbours along, like rubber; 0 moves the point alone. Row by row,
   // one per point, or empty when every point is 0.
   std::vector<double> warp_reach{};
+  // Grid points that drag behind, each at most once.
+  std::vector<DragNode> drag_nodes{};
 
   bool operator==(const RigPiece&) const = default;
 };

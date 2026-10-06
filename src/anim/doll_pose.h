@@ -46,6 +46,9 @@ PoseMap SamplePoses(const DollLayer& layer, Frame frame);
 std::map<QString, QTransform> PieceTransforms(const Doll& doll,
                                               const PoseMap& poses);
 
+// The layer's own place in shot space at frame, flip included.
+QTransform LayerTransform(const Layer& layer, Frame frame);
+
 // The whole doll posed, back to front.
 std::vector<PlacedPiece> PlaceDoll(const Doll& doll, const PoseMap& poses);
 

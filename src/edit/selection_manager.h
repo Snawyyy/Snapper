@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <compare>
+#include <optional>
 #include <set>
 #include <vector>
 
@@ -24,6 +25,16 @@ struct Pick final {
 
   auto operator<=>(const Pick&) const = default;
   bool operator==(const Pick&) const = default;
+};
+
+// One dot of a picked piece's warp grid, picked so the wheel sets its
+// reach and D makes it drag.
+struct WarpDot final {
+  LayerId layer;
+  QString piece;
+  int point = -1;
+
+  bool operator==(const WarpDot&) const = default;
 };
 
 // How a pick combines with what is already picked: replace it (click),
@@ -74,6 +85,9 @@ class SelectionManager final : public QObject {
   // One channel per picked thing: its piece, or the layer's own move.
   std::vector<TrackRef> PickedTracks() const;
   const std::set<KeyRef>& keys() const { return keys_; }
+  // The picked warp dot, while its piece is picked and the dot is still
+  // on its grid.
+  std::optional<WarpDot> dot() const;
 
   // Focusing another shot drops what was picked inside the old one.
   void SelectShot(ShotId shot);
@@ -87,6 +101,8 @@ class SelectionManager final : public QObject {
   void SelectKeys(const std::set<KeyRef>& keys, bool add);
   void PickKeys(const std::set<KeyRef>& keys, PickMode mode);
   void ClearKeys();
+  // Picks a warp dot of a picked piece; nothing drops it.
+  void PickDot(std::optional<WarpDot> dot);
   void Clear();
 
  signals:
@@ -104,6 +120,7 @@ class SelectionManager final : public QObject {
   LayerId focus_;
   std::set<Pick> picks_;
   std::set<KeyRef> keys_;
+  std::optional<WarpDot> dot_;
 };
 
 }  // namespace snapper

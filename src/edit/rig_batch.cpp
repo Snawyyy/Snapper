@@ -100,6 +100,7 @@ Result<void> RigManager::SetWarpAll(const QString& doll,
     return EachPiece(rig, doll, pieces, [grid](RigPiece* piece) {
       piece->warp = grid;
       piece->warp_reach.clear();
+      piece->drag_nodes.clear();
       return Result<void>();
     });
   });
