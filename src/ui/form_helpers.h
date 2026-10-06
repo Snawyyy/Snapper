@@ -3,6 +3,7 @@
 
 #include <QColor>
 #include <QDoubleSpinBox>
+#include <QSpinBox>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -39,6 +40,7 @@ void AddPair(QFormLayout* form, const QString& label, QHBoxLayout* row,
 
 // Sets a field without it reporting a change back.
 void ShowNumber(QDoubleSpinBox* box, double value);
+void ShowNumber(QSpinBox* box, int value);
 
 // Paints a colour button with its colour.
 void ShowColour(QPushButton* button, const QColor& colour);

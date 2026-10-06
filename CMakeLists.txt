@@ -58,7 +58,7 @@ snapper_module(edit
 snapper_module(ui
   SOURCES cast_actions.cpp cast_panel.cpp export_dialog.cpp
           export_dialog_actions.cpp file_menu.cpp main_window.cpp
-          drag_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
+          drag_box.cpp shot_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
           layer_box_commits.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
           rig_canvas_input.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp
           shot_strip.cpp

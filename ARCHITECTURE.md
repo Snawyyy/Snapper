@@ -242,6 +242,11 @@ moved by 5 become 15 and 5. Managers offer these as `...All` or
 `Shift...` methods; widgets show the focused pick's value and send the
 difference.
 
+The side panel shows only the settings of what is picked: the shot
+and its camera with nothing picked on the stage; pose, layer, motion
+and saved poses for picked pieces or layers; the drag node panel for
+a picked warp dot (`Inspector::Refresh`).
+
 ## Errors
 
 No exceptions. A call that can fail returns `Result<T>`

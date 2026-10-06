@@ -78,6 +78,17 @@ void ShowNumber(QDoubleSpinBox* box, double value) {
   box->setValue(value);
 }
 
+void ShowNumber(QSpinBox* box, int value) {
+  assert(box != nullptr);
+  assert(box->maximum() >= box->minimum());
+  const bool is_typing = box->hasFocus();
+  if (is_typing) {
+    return;
+  }
+  const QSignalBlocker quiet(box);
+  box->setValue(value);
+}
+
 void ShowColour(QPushButton* button, const QColor& colour) {
   assert(button != nullptr);
   assert(colour.isValid());
