@@ -227,13 +227,6 @@ void StageView::PaintReach(const WarpOnScreen& warp, int point,
 void StageView::mousePressEvent(QMouseEvent* event) {
   assert(event != nullptr);
   const auto frame = CurrentFrame();
-  const bool is_middle =
-      frame.has_value() && event->button() == Qt::MiddleButton;
-  if (is_middle) {
-    tool_.PickDot(event->position(), *frame);
-    update();
-    return;
-  }
   const bool is_usable = frame.has_value() &&
                          event->button() == Qt::LeftButton;
   if (is_usable) {

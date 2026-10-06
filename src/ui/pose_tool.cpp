@@ -45,6 +45,10 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
   problem_.clear();
   const bool is_handle = PressLean(point, frame) ||
                          PressWarp(point, frame) || PressIk(point, frame);
+  const bool is_on_dot = drag_ != nullptr && drag_->kind == Kind::kWarp;
+  if (!is_on_dot) {
+    dot_.reset();
+  }
   if (is_handle) {
     return;
   }
@@ -129,8 +133,10 @@ void PoseTool::Move(QPointF point, bool is_shift) {
   }
   const bool is_moved = QLineF(QPointF(), total).length() > 2.0;
   if (is_moved) {
-    // A Ctrl-click that turned into a drag doesn't flip the pick.
+    // A Ctrl-click that turned into a drag doesn't flip the pick, and a
+    // click on a warp dot that turned into a drag doesn't pick the dot.
     drag_->toggle.reset();
+    drag_->has_moved = true;
   }
   switch (drag_->kind) {
     case Kind::kBox:
@@ -248,6 +254,14 @@ void PoseTool::Release() {
     const Pick pick = *drag_->toggle;
     drag_->scope->Cancel();
     managers_.selection->PickThings({pick}, PickMode::kToggle, pick.layer);
+  }
+  const bool is_dot_click = drag_ != nullptr &&
+                            drag_->kind == Kind::kWarp && !drag_->has_moved;
+  if (is_dot_click) {
+    // Clicking a dot picks it for the wheel; clicking it again drops it.
+    drag_->scope->Cancel();
+    const WarpDot dot{drag_->layer, drag_->piece, drag_->point};
+    dot_ = dot_ == dot ? std::nullopt : std::optional<WarpDot>(dot);
   }
   drag_.reset();
 }

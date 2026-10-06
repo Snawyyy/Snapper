@@ -308,9 +308,10 @@ void PoseToolTests::WarpDotsBendThePiece() {
   QCOMPARE(Body(bench).warp[4], QPointF(6, 3));
   tool.Cancel();
   QCOMPARE(Body(bench).warp[4], QPointF(4, 3));
-  // Middle click picks the dot under the corner; the wheel then sets
-  // its reach instead of turning the body.
-  tool.PickDot({50, 50}, kFrame);
+  // Clicking the corner dot picks it; the wheel then sets its reach
+  // instead of turning the body.
+  tool.Press({50, 50}, false, false, kFrame);
+  tool.Release();
   QCOMPARE(tool.PickedDot(kFrame), (WarpDot{LayerId(1), "body", 0}));
   tool.Wheel(3, false, kFrame);
   tool.Wheel(-1, true, kFrame);
@@ -318,13 +319,21 @@ void PoseToolTests::WarpDotsBendThePiece() {
   QCOMPARE(rig.warp_reach[0], 3 * kReachStep - kFineReachStep);
   QCOMPARE(Body(bench).rotation, 0.0);
   // Again drops it, and the wheel turns the body as before.
-  tool.PickDot({50, 50}, kFrame);
+  tool.Press({50, 50}, false, false, kFrame);
+  tool.Release();
   QVERIFY(!tool.PickedDot(kFrame).has_value());
   tool.Wheel(1, false, kFrame);
   QCOMPARE(Body(bench).rotation, -kWheelStep);
-  tool.PickDot({50, 50}, kFrame);
+  tool.Press({50, 50}, false, false, kFrame);
+  tool.Release();
   QVERIFY(tool.DropDot());
   QVERIFY(!tool.DropDot());
+  // Clicking off the dots drops a picked one too.
+  tool.Press({50, 50}, false, false, kFrame);
+  tool.Release();
+  tool.Press({20, 20}, false, false, kFrame);
+  tool.Release();
+  QVERIFY(!tool.PickedDot(kFrame).has_value());
 }
 
 }  // namespace snapper

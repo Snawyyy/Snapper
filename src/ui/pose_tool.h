@@ -64,8 +64,10 @@ struct StageFrame final {
 // (1 with Shift); dragging an IK tip bends its chain; dragging the lean
 // or swivel handle of a doll picked whole turns every whole doll picked
 // in depth; dragging a dot of a picked piece's warp grid bends the
-// drawing there. A drag is one undo step and Escape (Cancel) undoes it on
-// the spot.
+// drawing there, and clicking one picks it so the wheel sets how far it
+// pulls its neighbours (clicking it again, or anything else, drops
+// it). A drag is one undo step and Escape (Cancel) undoes it on the
+// spot.
 class PoseTool final {
  public:
   PoseTool(const Managers& managers, ImageCache* cache);
@@ -79,10 +81,6 @@ class PoseTool final {
   // Double-click: picks the whole doll (or layer) under point as one
   // group, so it moves, scales and turns as one.
   void PickWhole(QPointF point, const StageFrame& frame);
-  // Middle click: picks the warp dot under point (again drops it), so
-  // the wheel sets its rubber reach instead of turning; anywhere else
-  // drops it.
-  void PickDot(QPointF point, const StageFrame& frame);
   // The picked warp dot while its piece is still picked and the dot
   // still on its grid.
   std::optional<WarpDot> PickedDot(const StageFrame& frame) const;
@@ -118,6 +116,7 @@ class PoseTool final {
     double scaled = 1.0;
     // Ctrl-clicking a picked thing takes it out, unless it was dragged.
     std::optional<Pick> toggle;
+    bool has_moved = false;
     PickMode box_mode = PickMode::kReplace;
     QPointF corner;
     std::unique_ptr<EditScope> scope;

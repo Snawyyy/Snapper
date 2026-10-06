@@ -124,15 +124,6 @@ bool PoseTool::PressWarp(QPointF point, const StageFrame& frame) {
   return true;
 }
 
-void PoseTool::PickDot(QPointF point, const StageFrame& frame) {
-  assert(frame.scale > 0.0);
-  assert(cache_ != nullptr);
-  const auto hit = DotAt(point, frame);
-  const bool is_again = hit && dot_ == hit->first;
-  dot_ = hit && !is_again ? std::optional<WarpDot>(hit->first)
-                          : std::nullopt;
-}
-
 std::optional<WarpDot> PoseTool::PickedDot(const StageFrame& frame) const {
   assert(frame.scale > 0.0);
   assert(managers_.selection != nullptr);

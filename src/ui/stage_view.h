@@ -18,8 +18,8 @@ namespace snapper {
 // the pose tool on top. Picks are outlined in Teto red; joints and IK
 // tips are yellow handles, and a doll picked whole has yellow lean and
 // swivel handles on its right side and below it. A picked piece with a
-// warp grid shows it as faint lines with yellow dots to drag; middle
-// click picks a dot, and the wheel then sets how far it pulls its
+// warp grid shows it as faint lines with yellow dots to drag; clicking
+// a dot picks it, and the wheel then sets how far it pulls its
 // neighbours.
 class StageView final : public QWidget {
   Q_OBJECT
