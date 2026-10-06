@@ -95,7 +95,9 @@ History keeps at most `kMaxUndoSteps` steps and drops the oldest.
 - Keys hold by default (step). A key can instead ease or move linearly
   into the next one.
 - Poses are usually on 2s or 3s; the timeline offers both as a hold
-  length, it does not force them.
+  length, it does not force them. Picked keys can be spaced evenly on
+  1s to 4s (`KeyManager::Space`); keys after them slide along so later
+  timing stays.
 - Playback is driven by the audio clock, so picture never drifts from
   the song. Without a song or a sound card it falls back to elapsed
   time.
@@ -206,7 +208,7 @@ are destroyed in reverse.
 | `StageManager`         | What is in a shot: actors, props, text, effects |
 | `SelectionManager`     | What is picked: shots, layers, pieces, keys    |
 | `PoseManager`          | Pose edits, IK drags, copy, paste, mirror      |
-| `KeyManager`           | Keys on the timeline: move, hold, ease, retime |
+| `KeyManager`           | Keys on the timeline: move, space, ease, retime |
 | `PresetManager`        | Motion presets and saved poses                 |
 | `PlaybackManager`      | Playhead, play, pause, loop, song loading      |
 | `ExportManager`        | MP4 and GIF export on a worker thread          |

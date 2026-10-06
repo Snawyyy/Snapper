@@ -60,6 +60,7 @@ class KeyTests final : public QObject {
   Q_OBJECT
 
  private slots:
+  void SpacingPutsKeysOnTwosAndThrees();
   void ShiftMovesAndReplaces();
   void RemoveAndEase();
   void RetimeMakesHoldsLongerAndShorter();
@@ -126,6 +127,27 @@ void KeyTests::CopyPastesOntoAnotherLayer() {
   QVERIFY(keys.Copy({{kCamera, Frame(4)}}).has_value());
   QVERIFY(keys.Paste(kShot, Frame(0), LayerId(2)).has_value());
   QCOMPARE(history.current().shots[0]->camera.keys.size(), size_t{2});
+}
+
+void KeyTests::SpacingPutsKeysOnTwosAndThrees() {
+  HistoryManager history(Stage());
+  KeyManager keys(&history);
+  QVERIFY(!keys.WhyNoSpace({{kArm, Frame(0)}}).isEmpty());
+  QVERIFY(!keys.Space({{kArm, Frame(0)}}, 2).has_value());
+  // The first two arm keys on 2s: the third, unpicked, slides back with
+  // them so its hold stays four frames.
+  const auto spaced = keys.Space({{kArm, Frame(0)}, {kArm, Frame(4)}}, 2);
+  QVERIFY(spaced.has_value());
+  QCOMPARE(ArmFrames(history), (std::vector<int>{0, 2, 6}));
+  QCOMPARE(*spaced, (std::set<KeyRef>{{kArm, Frame(0)}, {kArm, Frame(2)}}));
+  QCOMPARE(history.UndoLabel(), QString("Space keys on 2s"));
+  // All three on 3s; the camera, not picked, stays put.
+  QVERIFY(keys.Space({{kArm, Frame(0)}, {kArm, Frame(2)}, {kArm, Frame(6)}},
+                     3)
+              .has_value());
+  QCOMPARE(ArmFrames(history), (std::vector<int>{0, 3, 6}));
+  QCOMPARE(history.current().shots[0]->camera.keys[0].frame, Frame(4));
+  QVERIFY(!keys.Space({{kArm, Frame(0)}, {kArm, Frame(3)}}, 0).has_value());
 }
 
 }  // namespace snapper

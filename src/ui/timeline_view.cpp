@@ -63,6 +63,7 @@ void TimelineView::paintEvent(QPaintEvent* event) {
   }
   PaintRuler(&painter);
   PaintWave(&painter);
+  PaintGrid(&painter);
   PaintRows(&painter, rows);
   PaintPlayhead(&painter);
   if (is_boxing_) {
@@ -71,6 +72,20 @@ void TimelineView::paintEvent(QPaintEvent* event) {
                             theme::kPick.blue(), 40));
     painter.drawRect(QRectF(box_from_, box_to_).normalized());
   }
+}
+
+int TimelineView::LabelStep() const {
+  assert(frame_width_ > 0.0);
+  assert(kMinLabelGap > 0.0);
+  // The smallest step that keeps numbers apart, on counts animators
+  // think in.
+  for (const int step : kLabelSteps) {
+    const bool is_roomy = step * frame_width_ >= kMinLabelGap;
+    if (is_roomy) {
+      return step;
+    }
+  }
+  return kLabelSteps.back();
 }
 
 void TimelineView::PaintRuler(QPainter* painter) const {
@@ -85,6 +100,7 @@ void TimelineView::PaintRuler(QPainter* painter) const {
                     theme::kFaceDark);
   const int first = std::max(0, FrameAt(kNameWidth)->index());
   const int last = FrameAt(width())->index();
+  const int step = LabelStep();
   for (int f = first; f <= last; ++f) {
     const double x = XOf(Frame(f));
     const bool is_second = f % kFramesPerSecond == 0;
@@ -93,11 +109,39 @@ void TimelineView::PaintRuler(QPainter* painter) const {
     const double tick = is_second ? kRulerHeight : (is_two ? 6.0 : 3.0);
     painter->drawLine(QPointF(x, kRulerHeight - tick),
                       QPointF(x, kRulerHeight));
-    const bool has_label = is_second || (frame_width_ >= 14.0 && f % 6 == 0);
+    const bool has_label = f % step == 0;
     if (has_label) {
-      painter->drawText(QPointF(x + 2, kRulerHeight - 5),
+      // Numbers sit over the frame's middle, where its keys are.
+      painter->drawText(QRectF(x + frame_width_ / 2.0 - kMinLabelGap / 2.0,
+                               0, kMinLabelGap, kRulerHeight - 4),
+                        Qt::AlignHCenter | Qt::AlignVCenter,
                         QString::number(f));
     }
+  }
+}
+
+void TimelineView::PaintGrid(QPainter* painter) const {
+  assert(painter != nullptr);
+  assert(frame_width_ > 0.0);
+  const int first = std::max(0, FrameAt(kNameWidth)->index());
+  const int last = FrameAt(width())->index();
+  const int step = LabelStep();
+  const double top = kRulerHeight + kWaveHeight;
+  for (int f = first; f <= last; ++f) {
+    const bool is_second = f % kFramesPerSecond == 0;
+    const bool is_labelled = f % step == 0;
+    // Every frame faintly when there is room, numbered frames a little
+    // more, seconds most.
+    const bool is_drawn =
+        is_second || is_labelled || frame_width_ >= kMinGridWidth;
+    if (!is_drawn) {
+      continue;
+    }
+    painter->setPen(is_second     ? kGridSecond
+                    : is_labelled ? kGridLabel
+                                  : kGridFrame);
+    const double x = XOf(Frame(f));
+    painter->drawLine(QPointF(x, top), QPointF(x, height()));
   }
 }
 
@@ -142,6 +186,14 @@ void TimelineView::PaintPlayhead(QPainter* painter) const {
   const double x = XOf(*here) + frame_width_ / 2.0;
   painter->setPen(QPen(theme::kPick, 2.0));
   painter->drawLine(QPointF(x, 0), QPointF(x, height()));
+  // The frame the playhead is on, in a tag on the ruler.
+  const QString number = QString::number(here->index());
+  const double tag_width =
+      painter->fontMetrics().horizontalAdvance(number) + 8.0;
+  const QRectF tag(x - tag_width / 2.0, 0, tag_width, kRulerHeight);
+  painter->fillRect(tag, theme::kPick);
+  painter->setPen(theme::kText);
+  painter->drawText(tag, Qt::AlignCenter, number);
 }
 
 std::optional<Frame> TimelineView::PlayheadHere() const {

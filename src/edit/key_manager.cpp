@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <map>
+#include <set>
 
 #include "edit/history_manager.h"
 #include "edit/key_edits.h"
@@ -81,6 +83,91 @@ Result<std::set<KeyRef>> KeyManager::Shift(const std::set<KeyRef>& keys,
         return Result<void>();
       });
   auto applied = history_->Apply(Tr("Move keys"), std::move(next));
+  if (!applied) {
+    return std::unexpected(applied.error());
+  }
+  return moved;
+}
+
+QString KeyManager::WhyNoSpace(const std::set<KeyRef>& keys) const {
+  assert(history_ != nullptr);
+  assert(keys.size() < 10000000);
+  std::set<Frame> frames;
+  for (const KeyRef& key : keys) {
+    frames.insert(key.frame);
+  }
+  return frames.size() < 2 ? Tr("Pick keys on two or more frames first.")
+                           : QString();
+}
+
+Result<std::set<KeyRef>> KeyManager::Space(const std::set<KeyRef>& keys,
+                                           int step) {
+  assert(history_ != nullptr);
+  assert(keys.size() < 10000000);
+  const QString why_not = WhyNoSpace(keys);
+  const bool is_usable = why_not.isEmpty() && step >= 1 &&
+                         step <= kFramesPerSecond;
+  if (!is_usable) {
+    return std::unexpected(
+        Error{why_not.isEmpty() ? Tr("Keys space 1 to 24 frames apart.")
+                                : why_not});
+  }
+  std::map<Frame, Frame> to;
+  for (const KeyRef& key : keys) {
+    to.emplace(key.frame, Frame());
+  }
+  const int first = to.begin()->first.index();
+  int place = 0;
+  for (auto& [from, landing] : to) {
+    landing = Frame(first + place * step);
+    ++place;
+  }
+  const Frame last = to.rbegin()->first;
+  const int tail = to.rbegin()->second.index() - last.index();
+  const bool fits = to.rbegin()->second.index() <= kMaxFrame;
+  if (!fits) {
+    return std::unexpected(Error{Tr("That runs past the longest shot.")});
+  }
+  std::set<KeyRef> moved;
+  for (const KeyRef& key : keys) {
+    moved.insert({key.track, to.at(key.frame)});
+  }
+  auto next = ForEachTrack(
+      history_->current(), keys,
+      [&](auto* channel, const std::set<Frame>& frames) {
+        auto old = channel->keys;
+        channel->keys.clear();
+        bool is_set = true;
+        bool is_inside = true;
+        // Unpicked keys first, later ones sliding with the last picked
+        // key; picked keys then land on top, winning any clash.
+        for (auto key : old) {
+          const bool is_picked = frames.contains(key.frame);
+          if (!is_picked) {
+            const int frame = key.frame > last ? key.frame.index() + tail
+                                               : key.frame.index();
+            is_inside = is_inside && frame <= kMaxFrame;
+            key.frame = Frame(std::min(frame, kMaxFrame));
+            is_set = SetKey(channel, key) && is_set;
+          }
+        }
+        for (auto key : old) {
+          const bool is_picked = frames.contains(key.frame);
+          if (is_picked) {
+            key.frame = to.at(key.frame);
+            is_set = SetKey(channel, key) && is_set;
+          }
+        }
+        const QString trouble =
+            !is_inside ? Tr("That runs past the longest shot.")
+            : !is_set  ? Tr("That track is full of keys.")
+                       : QString();
+        return trouble.isEmpty()
+                   ? Result<void>()
+                   : Result<void>(std::unexpected(Error{trouble}));
+      });
+  auto applied =
+      history_->Apply(Tr("Space keys on %1s").arg(step), std::move(next));
   if (!applied) {
     return std::unexpected(applied.error());
   }

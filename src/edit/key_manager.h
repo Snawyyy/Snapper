@@ -29,6 +29,13 @@ class KeyManager final {
   // Slides keys by delta frames; a key landing on an unpicked one
   // replaces it. Returns where the keys ended up, to keep them picked.
   Result<std::set<KeyRef>> Shift(const std::set<KeyRef>& keys, int delta);
+  // Spaces the picked keys' frames step frames apart (on 2s, on 3s...)
+  // from the first one, keeping their order. Unpicked keys after the
+  // last picked one on the same channels slide with it, so the timing
+  // after stays the same. Returns where the keys ended up.
+  Result<std::set<KeyRef>> Space(const std::set<KeyRef>& keys, int step);
+  // Why Space can't act on keys; empty when it can.
+  QString WhyNoSpace(const std::set<KeyRef>& keys) const;
   Result<void> Remove(const std::set<KeyRef>& keys);
   Result<void> SetEase(const std::set<KeyRef>& keys, Ease ease);
   // Adds (delta > 0) or takes out (delta < 0) frames at frame on every

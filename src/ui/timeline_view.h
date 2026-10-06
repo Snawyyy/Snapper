@@ -20,11 +20,14 @@ namespace snapper {
 // The picked shot's timeline, laid out as in traditional animation:
 // frames run across, one row per doll (its whole pose), layer or the
 // camera. A key is a diamond; a hold is a bar to the next key, an ease
-// a thin line. The song's waveform and the playhead run on top.
+// a thin line. The song's waveform and the playhead, tagged with its
+// frame, run on top; the ruler numbers frames as closely as the zoom
+// allows and faint lines mark each frame down the rows.
 //
 // Click a key to pick it (Shift adds), drag to slide; double-click
-// empty space to key the pose as it is; right-click for ease, copy,
-// paste and holds; Delete removes; the wheel scrolls, Ctrl zooms.
+// empty space to key the pose as it is; right-click for ease, spacing
+// picked keys evenly (on 2s, on 3s...), copy, paste and holds; Delete
+// removes; the wheel scrolls, Ctrl zooms.
 class TimelineView final : public QWidget {
   Q_OBJECT
 
@@ -50,6 +53,10 @@ class TimelineView final : public QWidget {
 
  private:
   void PaintRuler(QPainter* painter) const;
+  // Faint lines down the rows at each frame's start.
+  void PaintGrid(QPainter* painter) const;
+  // Frames between ruler numbers at the current zoom.
+  int LabelStep() const;
   void PaintWave(QPainter* painter) const;
   void PaintRows(QPainter* painter, const std::vector<TimelineRow>& rows);
   void PaintPlayhead(QPainter* painter) const;
