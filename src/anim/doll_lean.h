@@ -22,8 +22,8 @@ constexpr double kRestackGap = 0.12;
 // line, so leaning in brings the head down; past a quarter turn the
 // doll is upside down. How far up or down a piece's joint sits in the
 // rest pose sets how near the camera it swings: nearer pieces grow and
-// spread out, further ones shrink and pull in. Drawings grow without
-// squashing, so faces keep their shape. Pieces clearly nearer the
+// spread out, further ones shrink and pull in, and drawings squash in
+// height like the rest. Pieces clearly nearer the
 // camera than their parent, children or siblings draw in front.
 PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double degrees);
 

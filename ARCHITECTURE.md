@@ -143,7 +143,8 @@ A piece can:
   (`LeanPoses`). The lean is a keyed value on the layer's own move,
   drawn on top of the pieces' keys (`ShownPoses`), so leaning back to
   0 always gives the posed doll again. Nearer pieces grow and spread,
-  heights squash toward the middle so leaning in drops the head, and a
+  heights and drawings squash toward the middle so leaning in drops
+  the head, and a
   piece clearly nearer than its parent, child or sibling draws in
   front of it.
 - belong to a two-bone IK chain. IK is a posing tool: dragging a hand

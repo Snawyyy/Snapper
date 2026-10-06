@@ -2,6 +2,7 @@
 #include <QTest>
 
 #include <cmath>
+#include <numbers>
 
 #include "anim/doll_lean.h"
 #include "anim/doll_pose.h"
@@ -41,14 +42,18 @@ bool IsSame(const QTransform& a, const QTransform& b) {
          std::abs(a.dx() - b.dx()) < 1e-9 && std::abs(a.dy() - b.dy()) < 1e-9;
 }
 
-// How much bigger after draws than before; 0 when it is not the same
-// drawing scaled evenly, turned and skewed alike.
+// Tipped 30 degrees, heights shrink by this much.
+const double kSquash30 = std::cos(30.0 * std::numbers::pi / 180.0);
+
+// How much wider after draws than before; 0 unless it is the same
+// drawing grown that much and squashed in height by kSquash30.
 double GrowthOf(const QTransform& before, const QTransform& after) {
   const double grow = after.m11() / before.m11();
-  const bool is_even = std::abs(after.m12() - before.m12() * grow) < 1e-9 &&
-                       std::abs(after.m21() - before.m21() * grow) < 1e-9 &&
-                       std::abs(after.m22() - before.m22() * grow) < 1e-9;
-  return is_even ? grow : 0.0;
+  const double tall = grow * kSquash30;
+  const bool is_kept = std::abs(after.m21() - before.m21() * grow) < 1e-9 &&
+                       std::abs(after.m12() - before.m12() * tall) < 1e-9 &&
+                       std::abs(after.m22() - before.m22() * tall) < 1e-9;
+  return is_kept ? grow : 0.0;
 }
 
 }  // namespace
@@ -97,7 +102,7 @@ void LeanTests::LeaningInDropsAndGrowsTheTop() {
   QVERIFY(joint(in, "head").y() > joint(before, "head").y());
   QVERIFY(joint(in, "leg").y() < joint(before, "leg").y());
   // The torso's joint sits on the middle line: neither nearer nor
-  // further, its height off the middle only squashed.
+  // further, only squashed.
   QCOMPARE(GrowthOf(before.at("torso"), in.at("torso")), 1.0);
   QVERIFY(std::abs(joint(in, "torso").x() - joint(before, "torso").x()) <
           1e-9);

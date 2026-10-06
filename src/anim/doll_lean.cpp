@@ -198,10 +198,11 @@ PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double degrees) {
   const std::map<QString, double> growth = Growth(heights, tilt);
   const std::map<QString, QTransform> placed = PieceTransforms(doll, poses);
   const QPointF middle = BoxOf(doll, placed).center();
-  // Seen tipped, heights shrink by the cosine around the middle; past
-  // a quarter turn the doll is upside down, drawings too.
-  const double squash = std::cos(tilt);
-  const double flip = squash < 0.0 ? -1.0 : 1.0;
+  // Seen tipped, heights shrink by the cosine around the middle,
+  // drawings too; past a quarter turn the doll is upside down. Edge on
+  // it keeps a sliver of height, so pieces can still be undone.
+  const double cos = std::cos(tilt);
+  const double squash = std::copysign(std::max(std::abs(cos), 0.01), cos);
   PoseMap leaned = poses;
   std::map<QString, QTransform> moved;
   for (int pass = 0; pass <= kMaxDollPieces; ++pass) {
@@ -218,16 +219,15 @@ PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double degrees) {
         continue;
       }
       // The joint lands where the camera would see it: nearer is
-      // bigger and further out, heights squash toward the middle. The
-      // drawing only grows (or turns over), so faces and hands keep
-      // their shape.
+      // bigger and further out, heights squash toward the middle, and
+      // the drawing grows and squashes with it.
       const QPointF joint = at->second.map(rig.pivot);
       const QPointF seen =
           middle + QPointF((joint.x() - middle.x()) * grow->second,
                            (joint.y() - middle.y()) * grow->second * squash);
       const QTransform target =
           at->second * QTransform::fromTranslate(-joint.x(), -joint.y()) *
-          QTransform::fromScale(grow->second, grow->second * flip) *
+          QTransform::fromScale(grow->second, grow->second * squash) *
           QTransform::fromTranslate(seen.x(), seen.y());
       const QPointF corner = FindArt(doll, rig.name)->position;
       const QTransform motion =
