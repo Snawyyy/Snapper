@@ -198,11 +198,15 @@ PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double degrees) {
   const std::map<QString, double> growth = Growth(heights, tilt);
   const std::map<QString, QTransform> placed = PieceTransforms(doll, poses);
   const QPointF middle = BoxOf(doll, placed).center();
-  // Seen tipped, heights shrink by the cosine around the middle,
-  // drawings too; past a quarter turn the doll is upside down. Edge on
-  // it keeps a sliver of height, so pieces can still be undone.
+  // Seen tipped, heights shrink by the cosine around the middle;
+  // drawings shrink less (kDrawingSquash) so they don't look like
+  // paper. Past a quarter turn the doll is upside down. Edge on it
+  // keeps a sliver of height, so pieces can still be undone.
   const double cos = std::cos(tilt);
-  const double squash = std::copysign(std::max(std::abs(cos), 0.01), cos);
+  const double flat = std::max(std::abs(cos), 0.01);
+  const double squash = std::copysign(flat, cos);
+  const double drawing_squash =
+      std::copysign(std::pow(flat, kDrawingSquash), cos);
   PoseMap leaned = poses;
   std::map<QString, QTransform> moved;
   for (int pass = 0; pass <= kMaxDollPieces; ++pass) {
@@ -220,14 +224,15 @@ PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double degrees) {
       }
       // The joint lands where the camera would see it: nearer is
       // bigger and further out, heights squash toward the middle, and
-      // the drawing grows and squashes with it.
+      // the drawing grows and squashes a little less.
       const QPointF joint = at->second.map(rig.pivot);
       const QPointF seen =
           middle + QPointF((joint.x() - middle.x()) * grow->second,
                            (joint.y() - middle.y()) * grow->second * squash);
       const QTransform target =
           at->second * QTransform::fromTranslate(-joint.x(), -joint.y()) *
-          QTransform::fromScale(grow->second, grow->second * squash) *
+          QTransform::fromScale(grow->second,
+                                grow->second * drawing_squash) *
           QTransform::fromTranslate(seen.x(), seen.y());
       const QPointF corner = FindArt(doll, rig.name)->position;
       const QTransform motion =

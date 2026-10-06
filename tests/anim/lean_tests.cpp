@@ -42,8 +42,9 @@ bool IsSame(const QTransform& a, const QTransform& b) {
          std::abs(a.dx() - b.dx()) < 1e-9 && std::abs(a.dy() - b.dy()) < 1e-9;
 }
 
-// Tipped 30 degrees, heights shrink by this much.
-const double kSquash30 = std::cos(30.0 * std::numbers::pi / 180.0);
+// Tipped 30 degrees, drawings shrink in height by this much.
+const double kSquash30 =
+    std::pow(std::cos(30.0 * std::numbers::pi / 180.0), kDrawingSquash);
 
 // How much wider after draws than before; 0 unless it is the same
 // drawing grown that much and squashed in height by kSquash30.

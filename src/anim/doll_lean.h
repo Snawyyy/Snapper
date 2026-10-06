@@ -11,6 +11,9 @@ namespace snapper {
 // How far the make-believe camera stands, in doll heights. Nearer
 // makes the near end grow more.
 constexpr double kCameraDistance = 1.5;
+// Drawings squash by the spacing's squash to this power, so they keep
+// more of their height than the gaps between them.
+constexpr double kDrawingSquash = 0.5;
 // A leaning piece draws in front of another only when it is nearer by
 // this much of the doll's height.
 constexpr double kRestackGap = 0.12;
@@ -23,7 +26,7 @@ constexpr double kRestackGap = 0.12;
 // doll is upside down. How far up or down a piece's joint sits in the
 // rest pose sets how near the camera it swings: nearer pieces grow and
 // spread out, further ones shrink and pull in, and drawings squash in
-// height like the rest. Pieces clearly nearer the
+// height, a little less than the spacing. Pieces clearly nearer the
 // camera than their parent, children or siblings draw in front.
 PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double degrees);
 
