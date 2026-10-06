@@ -21,7 +21,9 @@ constexpr double kCameraDistance = 1.5;
 // sets how near the camera it swings: the top comes nearer, growing and
 // spreading out; the bottom goes back, shrinking and pulling in. Turns,
 // scale, skew and offset change; drawings and warps stay. Drawings
-// grow without squashing, so faces keep their shape.
+// grow without squashing, so faces keep their shape. The doll's main
+// parts (the branches where its tree first splits) restack so the
+// nearer one draws in front, keeping the order inside each part.
 PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double amount);
 
 }  // namespace snapper

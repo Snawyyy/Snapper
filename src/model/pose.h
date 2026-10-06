@@ -18,6 +18,9 @@ struct PiecePose final {
   double opacity = 1.0;
   // Which of the piece's drawings shows; -1 means the rig's default.
   int drawing = -1;
+  // Added to the rig's draw order for this pose, so a part can come in
+  // front for a while (leaning in brings the near half forward).
+  int order = 0;
   // One offset per warp grid point, row by row; empty means no warp.
   std::vector<QPointF> warp;
 

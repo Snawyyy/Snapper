@@ -1,5 +1,6 @@
 #include "io/json_values.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 
@@ -138,7 +139,7 @@ QJsonValue ValueToJson(const PiecePose& pose) {
                      {"y", pose.offset.y()},     {"sx", pose.scale_x},
                      {"sy", pose.scale_y},       {"k", pose.skew},
                      {"o", pose.opacity},        {"d", pose.drawing},
-                     {"w", warp}};
+                     {"z", pose.order},          {"w", warp}};
 }
 
 PiecePose ValueFromJson(const QJsonValue& value, PiecePose fallback,
@@ -154,6 +155,8 @@ PiecePose ValueFromJson(const QJsonValue& value, PiecePose fallback,
   pose.skew = Number(object, "k", fallback.skew);
   pose.opacity = Number(object, "o", fallback.opacity);
   pose.drawing = object.value("d").toInt(fallback.drawing);
+  pose.order = std::clamp(object.value("z").toInt(fallback.order),
+                          -kMaxDollPieces, kMaxDollPieces);
   const QJsonArray warp = object.value("w").toArray();
   const bool is_too_many = warp.size() > kMaxWarpPoints;
   if (is_too_many) {

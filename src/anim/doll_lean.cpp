@@ -6,6 +6,9 @@
 #include <cassert>
 #include <cmath>
 #include <map>
+#include <set>
+#include <tuple>
+#include <vector>
 #include <numbers>
 
 namespace snapper {
@@ -30,27 +33,133 @@ QRectF BoxOf(const Doll& doll,
   return box;
 }
 
-// How much nearer the camera brings each piece once the doll tips by
-// tilt: its rest joint's height off the middle line sets how far it
-// swings toward (above the line) or away from (below) the camera.
-std::map<QString, double> Growth(const Doll& doll, double tilt) {
-  assert(std::abs(tilt) <= kMaxTilt * kRadians);
+// Each piece's rest joint height above the middle line of the rest
+// box, and the doll's rest height.
+struct RestHeights final {
+  std::map<QString, double> above;
+  double doll = 0.0;
+};
+
+RestHeights HeightsOf(const Doll& doll) {
   assert(doll.rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   const std::map<QString, QTransform> rest = PieceTransforms(doll, {});
   const QRectF box = BoxOf(doll, rest);
-  const double distance = kCameraDistance * box.height();
-  std::map<QString, double> growth;
+  RestHeights heights;
+  heights.doll = box.height();
   for (const RigPiece& rig : doll.rig.pieces) {
     const auto placed = rest.find(rig.name);
-    const bool is_placed = placed != rest.end() && distance > 0.0;
+    const bool is_placed = placed != rest.end();
     if (is_placed) {
-      const double height =
+      heights.above[rig.name] =
           box.center().y() - placed->second.map(rig.pivot).y();
-      const double nearer = height * std::sin(tilt);
-      growth[rig.name] = distance / std::max(distance - nearer, distance / 10);
     }
   }
+  assert(heights.above.size() <= rest.size());
+  return heights;
+}
+
+// How much nearer the camera brings each piece once the doll tips by
+// tilt: its rest height off the middle line sets how far it swings
+// toward (above the line) or away from (below) the camera.
+std::map<QString, double> Growth(const RestHeights& heights, double tilt) {
+  assert(std::abs(tilt) <= kMaxTilt * kRadians);
+  assert(heights.doll >= 0.0);
+  const double distance = kCameraDistance * heights.doll;
+  std::map<QString, double> growth;
+  const bool has_height = distance > 0.0;
+  if (!has_height) {
+    return growth;
+  }
+  for (const auto& [name, above] : heights.above) {
+    const double nearer = above * std::sin(tilt);
+    growth[name] = distance / std::max(distance - nearer, distance / 10);
+  }
   return growth;
+}
+
+// The doll's main parts: going down from the roots while there is only
+// one branch, each piece belongs to the first branch that splits off.
+// Pieces above the split are parts of their own.
+std::map<QString, QString> PartsOf(const Doll& doll) {
+  assert(doll.rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+  const auto is_hung = [&doll](const RigPiece& rig) {
+    return !rig.parent.isEmpty() && FindRig(doll.rig, rig.parent) != nullptr;
+  };
+  std::map<QString, QString> parts;
+  std::set<QString> level;
+  for (const RigPiece& rig : doll.rig.pieces) {
+    const bool is_root = !is_hung(rig);
+    if (is_root) {
+      level.insert(rig.name);
+    }
+  }
+  for (int depth = 0; depth < kMaxDollPieces && level.size() == 1; ++depth) {
+    const QString single = *level.begin();
+    parts[single] = single;
+    level.clear();
+    for (const RigPiece& rig : doll.rig.pieces) {
+      const bool is_child = is_hung(rig) && rig.parent == single;
+      if (is_child) {
+        level.insert(rig.name);
+      }
+    }
+  }
+  for (const RigPiece& rig : doll.rig.pieces) {
+    const RigPiece* at = &rig;
+    for (int i = 0; i < kMaxDollPieces && !parts.contains(rig.name); ++i) {
+      const bool is_head = level.contains(at->name);
+      if (is_head) {
+        parts[rig.name] = at->name;
+      }
+      const bool is_top = !is_hung(*at);
+      if (is_top) {
+        break;
+      }
+      at = FindRig(doll.rig, at->parent);
+    }
+  }
+  assert(parts.size() <= doll.rig.pieces.size());
+  return parts;
+}
+
+// Brings the main parts nearer the camera in front, keeping the order
+// inside each part as it was.
+void Restack(const Doll& doll, const RestHeights& heights, double tilt,
+             PoseMap* leaned) {
+  assert(leaned != nullptr);
+  assert(std::isfinite(tilt));
+  const bool is_level = tilt == 0.0;
+  if (is_level) {
+    return;
+  }
+  const std::map<QString, QString> parts = PartsOf(doll);
+  struct Stacked final {
+    double nearer;
+    int order;
+    int index;
+    const RigPiece* rig;
+  };
+  std::vector<Stacked> stack;
+  for (int i = 0; i < static_cast<int>(doll.rig.pieces.size()); ++i) {
+    const RigPiece& rig = doll.rig.pieces[static_cast<size_t>(i)];
+    const auto part = parts.find(rig.name);
+    const auto above = part != parts.end() ? heights.above.find(part->second)
+                                           : heights.above.end();
+    const bool is_placed = above != heights.above.end();
+    if (is_placed) {
+      stack.push_back({above->second * (tilt > 0.0 ? 1.0 : -1.0),
+                       rig.order + (*leaned)[rig.name].order, i, &rig});
+    }
+  }
+  std::sort(stack.begin(), stack.end(),
+            [](const Stacked& a, const Stacked& b) {
+              return std::tie(a.nearer, a.order, a.index) <
+                     std::tie(b.nearer, b.order, b.index);
+            });
+  for (int rank = 0; rank < static_cast<int>(stack.size()); ++rank) {
+    const RigPiece& rig = *stack[static_cast<size_t>(rank)].rig;
+    (*leaned)[rig.name].order = rank - rig.order;
+  }
 }
 
 // Writes own (rest doll space to the piece's place, before its
@@ -90,7 +199,8 @@ PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double amount) {
   const double tilt =
       std::clamp(amount, -kMaxLean, kMaxLean) / kMaxLean * kMaxTilt *
       kRadians;
-  const std::map<QString, double> growth = Growth(doll, tilt);
+  const RestHeights heights = HeightsOf(doll);
+  const std::map<QString, double> growth = Growth(heights, tilt);
   const std::map<QString, QTransform> placed = PieceTransforms(doll, poses);
   const QPointF middle = BoxOf(doll, placed).center();
   // Seen tipped, heights shrink by the cosine around the middle.
@@ -135,6 +245,7 @@ PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double amount) {
       break;
     }
   }
+  Restack(doll, heights, tilt, &leaned);
   return leaned;
 }
 

@@ -44,6 +44,7 @@ Project FullProject() {
   PiecePose tilt;
   tilt.rotation = 15.0;
   tilt.drawing = 1;
+  tilt.order = -2;
   SetKey(&posed.pieces["head"], {Frame(0), tilt, Ease::kStep});
   EffectLayer flash{EffectKind::kGlitch, QColor(255, 0, 0, 128), {}};
   SetKey(&flash.amount, {Frame(1), 0.5, Ease::kLinear});

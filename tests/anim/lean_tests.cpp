@@ -59,6 +59,7 @@ class LeanTests final : public QObject {
   void NothingLeansAtZero();
   void LeaningInDropsAndGrowsTheTop();
   void TheAmountStaysInRange();
+  void TheNearPartComesInFront();
 };
 
 void LeanTests::NothingLeansAtZero() {
@@ -113,6 +114,27 @@ void LeanTests::TheAmountStaysInRange() {
   const PoseMap most = LeanPoses(doll, {}, kMaxLean);
   QCOMPARE(far.at("leg").scale_x, most.at("leg").scale_x);
   QVERIFY(most.at("leg").scale_x > 0.0);
+}
+
+void LeanTests::TheNearPartComesInFront() {
+  Doll doll = Body();
+  // At rest the leg is drawn over everything.
+  doll.rig.pieces[2].order = 5;
+  const auto names = [&doll](const PoseMap& poses) {
+    QStringList order;
+    for (const PlacedPiece& piece : PlaceDoll(doll, poses)) {
+      order.append(piece.name);
+    }
+    return order;
+  };
+  QCOMPARE(names({}), QStringList({"torso", "head", "leg"}));
+  QCOMPARE(names(LeanPoses(doll, {}, 0.0)), names({}));
+  // Leaning in brings the top nearer, so the head comes in front;
+  // leaning back brings the leg forward.
+  QCOMPARE(names(LeanPoses(doll, {}, 0.3)),
+           QStringList({"leg", "torso", "head"}));
+  QCOMPARE(names(LeanPoses(doll, {}, -0.3)),
+           QStringList({"head", "torso", "leg"}));
 }
 
 }  // namespace snapper

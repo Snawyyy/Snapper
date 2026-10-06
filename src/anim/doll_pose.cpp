@@ -117,7 +117,7 @@ std::vector<PlacedPiece> PlaceDoll(const Doll& doll, const PoseMap& poses) {
                       DrawingPath(doll, rig.name, pose.drawing),
                       art->size,
                       transform->second,
-                      rig.order,
+                      rig.order + pose.order,
                       pose.opacity,
                       rig.warp,
                       {}};

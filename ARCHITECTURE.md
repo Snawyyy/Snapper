@@ -142,7 +142,9 @@ A piece can:
   around the middle line of its box, as a camera would see it
   (`LeanPoses`): each piece's rest joint height sets how near it
   swings, nearer pieces grow and spread, and heights squash toward
-  the middle, so leaning in drops the head. It writes ordinary keys.
+  the middle, so leaning in drops the head. The doll's main parts
+  restack so the nearer one draws in front (each pose can shift a
+  piece's draw order). It writes ordinary keys.
 - belong to a two-bone IK chain. IK is a posing tool: dragging a hand
   solves the chain and writes ordinary rotation keys. Playback only
   ever plays keys, so what was posed is what plays.
