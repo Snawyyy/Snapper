@@ -5,6 +5,7 @@
 #include <cassert>
 #include <variant>
 
+#include "anim/doll_lean.h"
 #include "anim/doll_pose.h"
 #include "render/frame_renderer.h"
 #include "render/layer_painter.h"
@@ -32,7 +33,8 @@ std::optional<PosedDoll> Pose(const Project& project, const Shot& shot,
   if (!is_doll) {
     return std::nullopt;
   }
-  return PosedDoll{doll, PieceTransforms(*doll, SamplePoses(*posed, local)),
+  return PosedDoll{doll,
+                   PieceTransforms(*doll, ShownPoses(*doll, *found, local)),
                    LayerTransform(*found, local) *
                        FrameRenderer::ViewTransform(project, shot, local,
                                                     scale)};

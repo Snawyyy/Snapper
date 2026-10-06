@@ -28,7 +28,9 @@ class PoseBox final : public QGroupBox {
   void Problem(const QString& why);
 
  private:
-  enum Field { kTurn, kX, kY, kScaleX, kScaleY, kSkew, kOpacity, kCount };
+  enum Field {
+    kTurn, kX, kY, kScaleX, kScaleY, kSkew, kOpacity, kLean, kCount
+  };
 
   void Commit();
   void SwapDrawing(int index);

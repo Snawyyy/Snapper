@@ -1,6 +1,8 @@
 #include <QTest>
 
+#include "anim/doll_lean.h"
 #include "anim/doll_pose.h"
+#include "anim/sampler.h"
 #include "bench.h"
 #include "render/stage_hit.h"
 #include "ui/pose_tool.h"
@@ -230,25 +232,32 @@ void PoseToolTests::LeanHandleTipsTheDoll() {
   QCOMPARE(*handle, QPointF(60 + kLeanGap, 40));
   // Dragging down leans it toward the camera, keyed once.
   tool.Press({83, 52}, false, false, kFrame);
-  tool.Move({83, 52 + kLeanPixels}, false);
-  tool.Move({83, 52 + kLeanPixels / 2}, false);
+  tool.Move({83, 52 + 200}, false);
+  tool.Move({83, 52 + 100}, false);
   tool.Release();
-  const PoseMap poses = SamplePoses(
-      std::get<DollLayer>(
-          bench.history.current().shots[0]->layers[0].content),
-      Frame(0));
-  // The head, above the middle, comes nearer; the body goes back.
-  QVERIFY(poses.at("body").scale_x < 1.0);
-  QVERIFY(poses.at("head").scale_x > 1.0);
+  const Layer& layer = bench.history.current().shots[0]->layers[0];
+  QCOMPARE(layer.transform.keys.back().value.lean, 100 * kLeanPerPixel);
+  // The keys stay as posed; the head, above the middle, is drawn
+  // nearer and the body further.
+  QCOMPARE(Body(bench).scale_x, 1.0);
+  const PoseMap shown =
+      ShownPoses(*bench.history.current().dolls.at("Dot"), layer, Frame(0));
+  QVERIFY(shown.at("body").scale_x < 1.0);
+  QVERIFY(shown.at("head").scale_x > 1.0);
   QCOMPARE(bench.history.UndoLabel(), QString("Lean Dot"));
   bench.history.Undo();
   QVERIFY(!bench.history.CanUndo());
   // Escape puts it back.
   tool.Press({82, 50}, false, false, kFrame);
   tool.Move({82, 10}, false);
-  QVERIFY(Body(bench).scale_x > 1.0);
+  const auto lean = [&bench] {
+    return Sample(bench.history.current().shots[0]->layers[0].transform,
+                  Frame(0), PiecePose())
+        .lean;
+  };
+  QCOMPARE(lean(), -40 * kLeanPerPixel);
   tool.Cancel();
-  QCOMPARE(Body(bench).scale_x, 1.0);
+  QCOMPARE(lean(), 0.0);
 }
 
 }  // namespace snapper

@@ -6,7 +6,6 @@
 #include <utility>
 #include <variant>
 
-#include "anim/doll_lean.h"
 #include "edit/history_manager.h"
 #include "edit/pose_edits.h"
 
@@ -54,15 +53,16 @@ Result<void> PoseManager::Shift(const std::vector<TrackRef>& tracks,
       std::isfinite(delta.rotation) && std::isfinite(delta.offset.x()) &&
       std::isfinite(delta.offset.y()) && std::isfinite(delta.scale_x) &&
       std::isfinite(delta.scale_y) && std::isfinite(delta.skew) &&
-      std::isfinite(delta.opacity);
+      std::isfinite(delta.opacity) && std::isfinite(delta.lean);
   const bool is_usable = is_finite && !tracks.empty();
   if (!is_usable) {
     return std::unexpected(Error{Tr("Pick something to change first.")});
   }
   Project next = history_->current();
   for (const TrackRef& track : tracks) {
+    const bool is_layer = track.kind == TrackKind::kLayer;
     auto shifted = KeyedAt(next, track, frame, PiecePose(),
-                           [&delta](PiecePose* pose) {
+                           [&delta, is_layer](PiecePose* pose) {
                              pose->rotation += delta.rotation;
                              pose->offset += delta.offset;
                              pose->scale_x =
@@ -73,6 +73,7 @@ Result<void> PoseManager::Shift(const std::vector<TrackRef>& tracks,
                                                      -85.0, 85.0);
                              pose->opacity = std::clamp(
                                  pose->opacity + delta.opacity, 0.0, 1.0);
+                             pose->lean += is_layer ? delta.lean : 0.0;
                              return Result<void>();
                            });
     if (!shifted) {
@@ -230,46 +231,31 @@ Result<void> PoseManager::KeyInPlace(ShotId shot, LayerId layer,
 
 Result<void> PoseManager::Lean(ShotId shot,
                                const std::vector<LayerId>& layers,
-                               Frame frame, double amount) {
+                               Frame frame, double degrees) {
   assert(history_ != nullptr);
   assert(frame.index() >= 0);
-  const bool is_usable = std::isfinite(amount) &&
-                         std::abs(amount) <= kMaxLean && !layers.empty();
+  const bool is_usable = std::isfinite(degrees) && !layers.empty();
   if (!is_usable) {
     return std::unexpected(Error{Tr("Pick a whole doll to lean first.")});
   }
   const Project& base = history_->before();
-  const Shot* found = FindShot(base, shot);
   Project next = base;
   bool has_doll = false;
   for (const LayerId id : layers) {
-    const Layer* layer = found != nullptr ? FindLayer(*found, id) : nullptr;
-    const auto* posed =
-        layer != nullptr ? std::get_if<DollLayer>(&layer->content) : nullptr;
-    const Doll* doll = DollOfLayer(base, shot, id);
-    const bool is_doll = posed != nullptr && doll != nullptr;
+    const bool is_doll = DollOfLayer(base, shot, id) != nullptr;
     if (!is_doll) {
       continue;
     }
     has_doll = true;
-    const PoseMap leaned =
-        LeanPoses(*doll, SamplePoses(*posed, frame), amount);
-    for (const RigPiece& rig : doll->rig.pieces) {
-      const auto pose = leaned.find(rig.name);
-      const bool is_leaned = pose != leaned.end();
-      if (!is_leaned) {
-        continue;
-      }
-      auto keyed = KeyedAt(next, {shot, TrackKind::kPiece, id, rig.name},
-                           frame, PiecePose(), [&pose](PiecePose* value) {
-                             *value = pose->second;
-                             return Result<void>();
-                           });
-      if (!keyed) {
-        return std::unexpected(keyed.error());
-      }
-      next = std::move(*keyed);
+    auto keyed = KeyedAt(next, {shot, TrackKind::kLayer, id, {}}, frame,
+                         PiecePose(), [degrees](PiecePose* value) {
+                           value->lean += degrees;
+                           return Result<void>();
+                         });
+    if (!keyed) {
+      return std::unexpected(keyed.error());
     }
+    next = std::move(*keyed);
   }
   if (!has_doll) {
     return std::unexpected(Error{Tr("Pick a whole doll to lean first.")});

@@ -8,6 +8,7 @@
 #include <cmath>
 #include <variant>
 
+#include "anim/doll_lean.h"
 #include "anim/doll_pose.h"
 #include "render/frame_renderer.h"
 #include "render/layer_painter.h"
@@ -33,12 +34,12 @@ bool IsSolidAt(const QImage& image, QPointF point) {
 
 }  // namespace
 
-std::optional<QString> HitDollPiece(const Doll& doll, const DollLayer& layer,
-                                Frame local, const QTransform& world,
-                                QPointF point, ImageCache* cache) {
+std::optional<QString> HitDollPiece(const Doll& doll, const PoseMap& poses,
+                                    const QTransform& world, QPointF point,
+                                    ImageCache* cache) {
   assert(cache != nullptr);
-  assert(local.index() >= 0);
-  const auto placed = PlaceDoll(doll, SamplePoses(layer, local));
+  assert(poses.size() <= static_cast<size_t>(kMaxPieceTracks));
+  const auto placed = PlaceDoll(doll, poses);
   for (auto it = placed.rbegin(); it != placed.rend(); ++it) {
     const QImage& image = cache->Get(it->drawing);
     const bool is_drawn = !image.isNull() && it->opacity > 0.0;
@@ -74,6 +75,7 @@ namespace {
 // was hit; nothing means it wasn't.
 struct LayerHitter final {
   const Project& project;
+  const Layer& whole;
   Frame local;
   const QTransform& world;
   QPointF point;
@@ -85,7 +87,8 @@ struct LayerHitter final {
     assert(!layer.doll.isNull());
     const Doll* doll = FindDoll(project, layer.doll);
     const bool has_doll = doll != nullptr;
-    return has_doll ? HitDollPiece(*doll, layer, local, world, point, cache)
+    return has_doll ? HitDollPiece(*doll, ShownPoses(*doll, whole, local),
+                                   world, point, cache)
                     : std::nullopt;
   }
   std::optional<QString> operator()(const ImageLayer& layer) const {
@@ -130,7 +133,7 @@ std::optional<StageHit> HitTest(const Project& project, const Shot& shot,
       continue;
     }
     const std::optional<QString> hit = std::visit(
-        LayerHitter{project, local, world, point, in_layer, cache},
+        LayerHitter{project, *it, local, world, point, in_layer, cache},
         it->content);
     const bool is_hit = hit.has_value();
     if (is_hit) {
@@ -168,7 +171,7 @@ QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
     // turns and scales with the doll.
     own = QRectF();
     for (const PlacedPiece& piece :
-         PlaceDoll(*doll, SamplePoses(*posed, local))) {
+         PlaceDoll(*doll, ShownPoses(*doll, *found, local))) {
       own = own.united(
           piece.transform.mapRect(QRectF(QPointF(), QSizeF(piece.size))));
     }

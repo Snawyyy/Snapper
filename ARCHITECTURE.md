@@ -138,13 +138,14 @@ A piece can:
 - warp locally through a grid of handles, so one-piece parts such as a
   trunk can still crease at the collar or chest,
 - lean with the whole doll: dragging the yellow handle beside a doll
-  picked whole fakes it tipping toward the camera (down) or away (up)
-  around the middle line of its box, as a camera would see it
-  (`LeanPoses`): each piece's rest joint height sets how near it
-  swings, nearer pieces grow and spread, and heights squash toward
-  the middle, so leaning in drops the head. A piece clearly nearer
-  than its parent, child or sibling draws in front of it (each pose
-  can shift a piece's draw order). It writes ordinary keys.
+  picked whole (or the Lean field) turns it any number of degrees
+  around the middle line of its box, like a wheel facing the camera
+  (`LeanPoses`). The lean is a keyed value on the layer's own move,
+  drawn on top of the pieces' keys (`ShownPoses`), so leaning back to
+  0 always gives the posed doll again. Nearer pieces grow and spread,
+  heights squash toward the middle so leaning in drops the head, and a
+  piece clearly nearer than its parent, child or sibling draws in
+  front of it.
 - belong to a two-bone IK chain. IK is a posing tool: dragging a hand
   solves the chain and writes ordinary rotation keys. Playback only
   ever plays keys, so what was posed is what plays.

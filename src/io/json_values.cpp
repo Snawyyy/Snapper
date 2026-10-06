@@ -139,7 +139,8 @@ QJsonValue ValueToJson(const PiecePose& pose) {
                      {"y", pose.offset.y()},     {"sx", pose.scale_x},
                      {"sy", pose.scale_y},       {"k", pose.skew},
                      {"o", pose.opacity},        {"d", pose.drawing},
-                     {"z", pose.order},          {"w", warp}};
+                     {"z", pose.order},          {"l", pose.lean},
+                     {"w", warp}};
 }
 
 PiecePose ValueFromJson(const QJsonValue& value, PiecePose fallback,
@@ -154,6 +155,7 @@ PiecePose ValueFromJson(const QJsonValue& value, PiecePose fallback,
   pose.scale_y = Number(object, "sy", fallback.scale_y);
   pose.skew = Number(object, "k", fallback.skew);
   pose.opacity = Number(object, "o", fallback.opacity);
+  pose.lean = Number(object, "l", fallback.lean);
   pose.drawing = object.value("d").toInt(fallback.drawing);
   pose.order = std::clamp(object.value("z").toInt(fallback.order),
                           -kMaxDollPieces, kMaxDollPieces);

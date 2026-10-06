@@ -26,9 +26,9 @@ constexpr double kWheelStep = 5.0;
 constexpr double kFineWheelStep = 1.0;
 // Dragging this many pixels doubles (or halves) the size.
 constexpr double kScalePixels = 200.0;
-// Dragging the lean handle this many pixels down leans a doll fully
-// toward the camera; up leans it away.
-constexpr double kLeanPixels = 200.0;
+// Dragging the lean handle down leans a doll toward the camera this
+// many degrees a pixel; up leans it away. There is no end to it.
+constexpr double kLeanPerPixel = 0.25;
 
 // Where on screen the stage frame is: which shot and frame it shows,
 // how big, and where its top-left corner sits in the widget.

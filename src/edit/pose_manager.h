@@ -26,6 +26,8 @@ struct PoseDelta final {
   double scale_y = 0.0;
   double skew = 0.0;
   double opacity = 0.0;
+  // Doll lean in degrees; only layer tracks lean.
+  double lean = 0.0;
 };
 
 // Posing at a frame: each call keys the value it changes at that frame
@@ -61,11 +63,11 @@ class PoseManager final {
   Result<void> ShiftAmounts(const std::vector<TrackRef>& tracks, Frame frame,
                             double delta);
 
-  // Leans every doll layer in layers toward the camera by amount (away
-  // when below 0; see LeanPoses), on top of the pose the open drag
+  // Adds degrees to the lean of every doll layer in layers (toward the
+  // camera above 0; see LeanPoses). It adds to the lean the open drag
   // started from, so a drag calls it with its running total. One step.
   Result<void> Lean(ShotId shot, const std::vector<LayerId>& layers,
-                    Frame frame, double amount);
+                    Frame frame, double degrees);
 
   // Keys the layer at frame exactly as it looks there (a whole doll for
   // a doll layer), to mark a pose before changing it.

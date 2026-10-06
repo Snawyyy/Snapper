@@ -9,6 +9,7 @@
 #include <cassert>
 #include <variant>
 
+#include "anim/doll_lean.h"
 #include "anim/doll_pose.h"
 #include "anim/sampler.h"
 #include "render/warp_raster.h"
@@ -19,6 +20,7 @@ namespace {
 // Each content kind draws itself; PaintLayer picks by visiting.
 struct Painter final {
   const Project& project;
+  const Layer& whole;
   Frame frame;
   const QTransform& world;
   ImageCache* cache;
@@ -40,7 +42,7 @@ void Painter::operator()(const DollLayer& layer) const {
   }
   const double layer_opacity = painter->opacity();
   for (const PlacedPiece& piece :
-       PlaceDoll(*doll, SamplePoses(layer, frame))) {
+       PlaceDoll(*doll, ShownPoses(*doll, whole, frame))) {
     const QImage& image = cache->Get(piece.drawing);
     const bool is_drawable = !image.isNull() && piece.opacity > 0.0;
     if (!is_drawable) {
@@ -154,7 +156,8 @@ void PaintLayer(const Project& project, const Layer& layer, Frame frame,
   painter->setRenderHint(QPainter::SmoothPixmapTransform);
   painter->setOpacity(std::clamp(pose.opacity, 0.0, 1.0));
   const QTransform world = LayerTransform(layer, frame) * view;
-  std::visit(Painter{project, frame, world, cache, painter}, layer.content);
+  std::visit(Painter{project, layer, frame, world, cache, painter},
+             layer.content);
   painter->restore();
 }
 

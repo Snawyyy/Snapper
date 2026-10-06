@@ -5,6 +5,7 @@
 
 #include "anim/doll_lean.h"
 #include "anim/doll_pose.h"
+#include "model/layer.h"
 
 namespace snapper {
 namespace {
@@ -58,7 +59,8 @@ class LeanTests final : public QObject {
  private slots:
   void NothingLeansAtZero();
   void LeaningInDropsAndGrowsTheTop();
-  void TheAmountStaysInRange();
+  void ItTurnsAllTheWayRound();
+  void ShownPosesLeanByTheLayer();
   void TheNearPartComesInFront();
 };
 
@@ -88,7 +90,7 @@ void LeanTests::LeaningInDropsAndGrowsTheTop() {
   };
   // Leaning in: the head comes nearer, so it grows, yet seen tipped it
   // drops toward the middle; the leg goes back, shrinks and rises.
-  const auto in = PieceTransforms(doll, LeanPoses(doll, poses, 0.6));
+  const auto in = PieceTransforms(doll, LeanPoses(doll, poses, 30.0));
   QVERIFY(GrowthOf(before.at("head"), in.at("head")) > 1.0);
   QVERIFY(GrowthOf(before.at("leg"), in.at("leg")) < 1.0);
   QVERIFY(GrowthOf(before.at("leg"), in.at("leg")) > 0.0);
@@ -102,18 +104,46 @@ void LeanTests::LeaningInDropsAndGrowsTheTop() {
   QVERIFY(std::abs(joint(in, "torso").y() - middle.y()) <
           std::abs(joint(before, "torso").y() - middle.y()) + 1e-9);
   // Leaning back shrinks the top instead.
-  const auto back = PieceTransforms(doll, LeanPoses(doll, poses, -0.6));
+  const auto back = PieceTransforms(doll, LeanPoses(doll, poses, -30.0));
   QVERIFY(GrowthOf(before.at("head"), back.at("head")) < 1.0);
   QVERIFY(GrowthOf(before.at("leg"), back.at("leg")) > 1.0);
-  QCOMPARE(LeanPoses(doll, poses, 0.6).at("head").drawing, -1);
+  QCOMPARE(LeanPoses(doll, poses, 30.0).at("head").drawing, -1);
 }
 
-void LeanTests::TheAmountStaysInRange() {
+void LeanTests::ItTurnsAllTheWayRound() {
   const Doll doll = Body();
-  const PoseMap far = LeanPoses(doll, {}, 50.0);
-  const PoseMap most = LeanPoses(doll, {}, kMaxLean);
-  QCOMPARE(far.at("leg").scale_x, most.at("leg").scale_x);
-  QVERIFY(most.at("leg").scale_x > 0.0);
+  PoseMap poses;
+  poses["head"].rotation = 15.0;
+  const auto before = PieceTransforms(doll, poses);
+  // A whole turn, either way, is the start again.
+  for (const double degrees : {360.0, -720.0}) {
+    const auto turned = PieceTransforms(doll, LeanPoses(doll, poses, degrees));
+    for (const auto& [name, transform] : before) {
+      QVERIFY(IsSame(turned.at(name), transform));
+    }
+  }
+  // Half a turn stands it on its head: the head's joint goes below the
+  // leg's, and the drawings turn over.
+  const auto over = PieceTransforms(doll, LeanPoses(doll, poses, 180.0));
+  const auto joint = [&doll, &over](const QString& name) {
+    return over.at(name).map(FindRig(doll.rig, name)->pivot);
+  };
+  QVERIFY(joint("head").y() > joint("leg").y());
+  QVERIFY(over.at("torso").determinant() < 0.0);
+}
+
+void LeanTests::ShownPosesLeanByTheLayer() {
+  const Doll doll = Body();
+  Layer layer;
+  DollLayer posed{"Body", {}, false};
+  SetKey(&posed.pieces["head"], {Frame(0), PiecePose(), Ease::kStep});
+  layer.content = posed;
+  QCOMPARE(ShownPoses(doll, layer, Frame(0)), SamplePoses(posed, Frame(0)));
+  PiecePose leaning;
+  leaning.lean = 25.0;
+  SetKey(&layer.transform, {Frame(0), leaning, Ease::kStep});
+  QCOMPARE(ShownPoses(doll, layer, Frame(0)),
+           LeanPoses(doll, SamplePoses(posed, Frame(0)), 25.0));
 }
 
 void LeanTests::TheNearPartComesInFront() {
@@ -135,9 +165,9 @@ void LeanTests::TheNearPartComesInFront() {
   // Leaning in brings the top nearer, so the head comes in front of
   // the torso and the torso of the leg; leaning back turns it round.
   // The hair only answers to the head, so it stays at the back.
-  QCOMPARE(names(LeanPoses(doll, {}, 0.3)),
+  QCOMPARE(names(LeanPoses(doll, {}, 20.0)),
            QStringList({"hair", "leg", "torso", "head"}));
-  QCOMPARE(names(LeanPoses(doll, {}, -0.3)),
+  QCOMPARE(names(LeanPoses(doll, {}, -20.0)),
            QStringList({"hair", "head", "torso", "leg"}));
 }
 

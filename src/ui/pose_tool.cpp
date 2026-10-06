@@ -6,7 +6,6 @@
 #include <cassert>
 #include <cmath>
 
-#include "anim/doll_lean.h"
 #include "anim/sampler.h"
 #include "edit/history_manager.h"
 #include "edit/pose_manager.h"
@@ -159,9 +158,9 @@ void PoseTool::Move(QPointF point, bool is_shift) {
       ScaleAll(std::pow(2.0, (total.x() - total.y()) / kScalePixels));
       break;
     case Kind::kLean:
-      Note(managers_.pose->Lean(
-          drag_->frame.shot, drag_->dolls, drag_->frame.local,
-          std::clamp(total.y() / kLeanPixels, -kMaxLean, kMaxLean)));
+      Note(managers_.pose->Lean(drag_->frame.shot, drag_->dolls,
+                                drag_->frame.local,
+                                total.y() * kLeanPerPixel));
       break;
   }
 }

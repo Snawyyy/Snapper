@@ -21,6 +21,11 @@ struct PiecePose final {
   // Added to the rig's draw order for this pose, so a part can come in
   // front for a while (leaning in brings the near half forward).
   int order = 0;
+  // On a doll layer's own move only: how many degrees the doll leans
+  // toward the camera (above 0) or away, with no limit (see
+  // LeanPoses). It is drawn on top of the pieces' keys, so leaning back
+  // to 0 always gives the keyed pose again.
+  double lean = 0.0;
   // One offset per warp grid point, row by row; empty means no warp.
   std::vector<QPointF> warp;
 

@@ -141,9 +141,8 @@ void RigCanvas::mousePressEvent(QMouseEvent* event) {
   if (!is_usable) {
     return;
   }
-  const DollLayer rest{doll_, {}, false};
   if (is_hanging_) {
-    const auto hit = HitDollPiece(*doll, rest, Frame(0), World(),
+    const auto hit = HitDollPiece(*doll, PoseMap(), World(),
                                   event->position(), &cache_);
     const QString parent = hit.value_or(QString());
     StopHanging();
@@ -163,7 +162,7 @@ void RigCanvas::mousePressEvent(QMouseEvent* event) {
   if (is_handle) {
     return;
   }
-  const auto hit = HitDollPiece(*doll, rest, Frame(0), World(),
+  const auto hit = HitDollPiece(*doll, PoseMap(), World(),
                                 event->position(), &cache_);
   const bool is_shift = event->modifiers().testFlag(Qt::ShiftModifier);
   const bool is_ctrl = event->modifiers().testFlag(Qt::ControlModifier);

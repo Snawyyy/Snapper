@@ -6,7 +6,10 @@
 #include <cassert>
 #include <cmath>
 #include <map>
+#include <variant>
 #include <vector>
+
+#include "anim/sampler.h"
 #include <numbers>
 
 namespace snapper {
@@ -67,7 +70,7 @@ RestHeights HeightsOf(const Doll& doll) {
 // tilt: its rest height off the middle line sets how far it swings
 // toward (above the line) or away from (below) the camera.
 std::map<QString, double> Growth(const RestHeights& heights, double tilt) {
-  assert(std::abs(tilt) <= kMaxTilt * kRadians);
+  assert(std::isfinite(tilt));
   assert(heights.doll >= 0.0);
   const double distance = kCameraDistance * heights.doll;
   std::map<QString, double> growth;
@@ -91,10 +94,11 @@ void Restack(const Doll& doll, const RestHeights& heights, double tilt,
              PoseMap* leaned) {
   assert(leaned != nullptr);
   assert(std::isfinite(tilt));
-  const bool is_level = tilt == 0.0;
-  if (is_level) {
-    return;
-  }
+  // Which way the top swings (toward the camera above 0); seen from
+  // behind, the rig's order turns round.
+  const double sin = std::sin(tilt);
+  const double toward = sin > 1e-9 ? 1.0 : sin < -1e-9 ? -1.0 : 0.0;
+  const int facing = std::cos(tilt) < 0.0 ? -1 : 1;
   struct Stacked final {
     double nearer;
     int order;
@@ -105,29 +109,45 @@ void Restack(const Doll& doll, const RestHeights& heights, double tilt,
     const auto above = heights.middle_above.find(rig.name);
     const bool is_placed = above != heights.middle_above.end();
     if (is_placed) {
-      left.push_back({above->second * (tilt > 0.0 ? 1.0 : -1.0),
-                      rig.order + (*leaned)[rig.name].order, &rig});
+      left.push_back({above->second * toward,
+                      facing * (rig.order + (*leaned)[rig.name].order),
+                      &rig});
     }
   }
   const double gap = kRestackGap * heights.doll;
   // Back to front: each time, of the pieces nothing left must go
-  // behind, the one the rig and pose draw furthest back.
+  // behind, the one the rig and pose draw furthest back. A piece must
+  // go behind kin that is clearly nearer, and behind close kin drawn
+  // further back. Should those ever knot up, the furthest back goes.
+  const auto must_wait = [gap](const Stacked& piece, const Stacked& other) {
+    const RigPiece& a = *piece.rig;
+    const RigPiece& b = *other.rig;
+    const bool is_kin = a.parent == b.name || b.parent == a.name ||
+                        a.parent == b.parent;
+    const double nearer = piece.nearer - other.nearer;
+    const bool is_close = std::abs(nearer) <= gap;
+    return is_kin && (nearer > gap || (is_close && other.order < piece.order));
+  };
   for (int rank = 0; !left.empty() && rank < kMaxDollPieces; ++rank) {
     auto next = left.end();
+    auto backmost = left.begin();
     for (auto it = left.begin(); it != left.end(); ++it) {
-      const bool is_free =
-          std::none_of(left.begin(), left.end(), [&](const Stacked& other) {
-            const RigPiece& a = *it->rig;
-            const RigPiece& b = *other.rig;
-            const bool is_kin = a.parent == b.name || b.parent == a.name ||
-                                a.parent == b.parent;
-            return is_kin && it->nearer - other.nearer > gap;
-          });
+      const bool is_free = std::none_of(
+          left.begin(), left.end(),
+          [&](const Stacked& other) { return must_wait(*it, other); });
       const bool is_better = is_free && (next == left.end() ||
                                          it->order < next->order);
       if (is_better) {
         next = it;
       }
+      const bool is_further = it->order < backmost->order;
+      if (is_further) {
+        backmost = it;
+      }
+    }
+    const bool is_knotted = next == left.end();
+    if (is_knotted) {
+      next = backmost;
     }
     (*leaned)[next->rig->name].order = rank - next->rig->order;
     left.erase(next);
@@ -165,18 +185,23 @@ void Unbuild(const QTransform& own, QPointF joint, double rest_rotation,
 
 }  // namespace
 
-PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double amount) {
-  assert(std::isfinite(amount));
+PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double degrees) {
+  assert(std::isfinite(degrees));
   assert(poses.size() <= static_cast<size_t>(kMaxPieceTracks));
-  const double tilt =
-      std::clamp(amount, -kMaxLean, kMaxLean) / kMaxLean * kMaxTilt *
-      kRadians;
+  // A whole turn comes back to the start, exactly.
+  const double tilt = std::remainder(degrees, 360.0) * kRadians;
+  const bool is_level = tilt == 0.0;
+  if (is_level) {
+    return poses;
+  }
   const RestHeights heights = HeightsOf(doll);
   const std::map<QString, double> growth = Growth(heights, tilt);
   const std::map<QString, QTransform> placed = PieceTransforms(doll, poses);
   const QPointF middle = BoxOf(doll, placed).center();
-  // Seen tipped, heights shrink by the cosine around the middle.
+  // Seen tipped, heights shrink by the cosine around the middle; past
+  // a quarter turn the doll is upside down, drawings too.
   const double squash = std::cos(tilt);
+  const double flip = squash < 0.0 ? -1.0 : 1.0;
   PoseMap leaned = poses;
   std::map<QString, QTransform> moved;
   for (int pass = 0; pass <= kMaxDollPieces; ++pass) {
@@ -194,14 +219,15 @@ PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double amount) {
       }
       // The joint lands where the camera would see it: nearer is
       // bigger and further out, heights squash toward the middle. The
-      // drawing only grows, so faces and hands keep their shape.
+      // drawing only grows (or turns over), so faces and hands keep
+      // their shape.
       const QPointF joint = at->second.map(rig.pivot);
       const QPointF seen =
           middle + QPointF((joint.x() - middle.x()) * grow->second,
                            (joint.y() - middle.y()) * grow->second * squash);
       const QTransform target =
           at->second * QTransform::fromTranslate(-joint.x(), -joint.y()) *
-          QTransform::fromScale(grow->second, grow->second) *
+          QTransform::fromScale(grow->second, grow->second * flip) *
           QTransform::fromTranslate(seen.x(), seen.y());
       const QPointF corner = FindArt(doll, rig.name)->position;
       const QTransform motion =
@@ -219,6 +245,16 @@ PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double amount) {
   }
   Restack(doll, heights, tilt, &leaned);
   return leaned;
+}
+
+PoseMap ShownPoses(const Doll& doll, const Layer& layer, Frame frame) {
+  assert(frame.index() >= 0);
+  const auto* posed = std::get_if<DollLayer>(&layer.content);
+  assert(posed != nullptr);
+  const PoseMap keyed = SamplePoses(*posed, frame);
+  const double lean = Sample(layer.transform, frame, PiecePose()).lean;
+  const bool is_leaning = std::isfinite(lean) && lean != 0.0;
+  return is_leaning ? LeanPoses(doll, keyed, lean) : keyed;
 }
 
 }  // namespace snapper
