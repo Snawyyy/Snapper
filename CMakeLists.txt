@@ -50,7 +50,8 @@ snapper_module(edit
           history_manager.cpp key_clipboard.cpp key_manager.cpp
           playback_manager.cpp pose_clipboard.cpp pose_manager.cpp
           preset_manager.cpp saved_poses.cpp
-          project_edits.cpp rig_batch.cpp rig_manager.cpp rig_mirror.cpp
+          link_manager.cpp project_edits.cpp rig_batch.cpp rig_manager.cpp
+          rig_mirror.cpp
           selection_manager.cpp selection_prune.cpp shot_batch.cpp
           shot_manager.cpp stage_batch.cpp stage_manager.cpp
           stage_settings.cpp timeline_rows.cpp
@@ -85,7 +86,8 @@ if(BUILD_TESTING)
   snapper_test(render SOURCES render_tests.cpp)
   snapper_test(edit SOURCES document_tests.cpp export_tests.cpp
                             history_tests.cpp
-                            key_tests.cpp library_tests.cpp posing_tests.cpp
+                            key_tests.cpp library_tests.cpp
+                            link_manager_tests.cpp posing_tests.cpp
                             playback_tests.cpp preset_tests.cpp
                             rig_tests.cpp
                             shot_tests.cpp
