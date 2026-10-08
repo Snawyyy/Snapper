@@ -65,7 +65,8 @@ void DollFileTests::RigSurvivesARoundTrip() {
   Rig rig;
   rig.pieces = {{"body", "", {1, 2}, 3, 0, {1, 1}, 0.0, false,
                  {0.0, 1.5, 0.0, 2.0}, {{3, 0.25, 0.75}},
-                 {WarpMotionKind::kNone, 12.0, 30, WarpEdge::kLeft}},
+                 {{1, WarpMotionKind::kPulse, 12.0, 30, -45.0, 0.25},
+                  {3, WarpMotionKind::kShiver, 2.0, 6, 0.0, 0.0}}},
                 {"head", "body", {4, 5}, 6, -1, {}, 10.0, true}};
   rig.chains = {{"neck", "body", "head", {7, 8}, false}};
   QVERIFY(WriteRig(dir.path(), rig).has_value());

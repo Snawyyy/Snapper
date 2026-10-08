@@ -57,6 +57,14 @@ int NearestPoint(const std::vector<QPointF>& points, QPointF spot,
   return best;
 }
 
+double CellsApart(WarpGrid grid, int point, int other) {
+  assert(point >= 0 && point < grid.PointCount());
+  assert(other >= 0 && other < grid.PointCount());
+  const int across = grid.columns + 1;
+  return std::hypot(point % across - other % across,
+                    point / across - other / across);
+}
+
 double PullWeight(WarpGrid grid, int point, int other, double reach) {
   assert(point >= 0 && point < grid.PointCount());
   assert(other >= 0 && other < grid.PointCount());
@@ -66,9 +74,7 @@ double PullWeight(WarpGrid grid, int point, int other, double reach) {
   if (is_alone) {
     return is_self ? 1.0 : 0.0;
   }
-  const int across = grid.columns + 1;
-  const double cells = std::hypot(point % across - other % across,
-                                  point / across - other / across);
+  const double cells = CellsApart(grid, point, other);
   const bool is_reached = cells < reach;
   return is_reached
              ? 0.5 * (1.0 + std::cos(std::numbers::pi * cells / reach))

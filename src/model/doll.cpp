@@ -40,6 +40,15 @@ RigPiece* FindRig(Rig* rig, const QString& name) {
   return const_cast<RigPiece*>(piece);
 }
 
+const PointMotion* FindMotion(const RigPiece& rig, int point) {
+  assert(rig.point_motions.size() <= static_cast<size_t>(kMaxWarpPoints));
+  assert(point >= -1);
+  const auto found =
+      std::find_if(rig.point_motions.begin(), rig.point_motions.end(),
+                   [point](const PointMotion& m) { return m.point == point; });
+  return found == rig.point_motions.end() ? nullptr : &*found;
+}
+
 const IkChain* FindChain(const Rig& rig, const QString& name) {
   assert(rig.chains.size() <= static_cast<size_t>(kMaxIkChains));
   assert(!name.isEmpty());

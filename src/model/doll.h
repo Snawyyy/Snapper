@@ -60,39 +60,39 @@ struct DragNode final {
   bool operator==(const DragNode&) const = default;
 };
 
-// Moves a warp grid by itself, on top of its keys and drag nodes: hair
-// that waves, a heart that beats.
+// How a warp point moves by itself, on top of its keys and drag nodes:
+// hair that waves, a heart that beats.
 enum class WarpMotionKind {
   kNone,
-  kWave,     // A ripple running from the anchor edge, for hair.
-  kPulse,    // A lub-dub beat swelling from the middle, for a heart.
-  kBreathe,  // A slow smooth swell and fall, for a chest.
-  kSway,     // A swing from the anchor edge, for cloth or a tail.
-  kShiver,   // Small fast shakes of every dot, for fear or cold.
+  kWave,     // A swing that reaches its neighbours late, a ripple.
+  kPulse,    // A lub-dub out along its direction, for a heart.
+  kBreathe,  // A slow smooth swell out and back, for a chest.
+  kSway,     // A swing to and fro, neighbours in step, for cloth.
+  kShiver,   // Small fast shakes every way, for fear or cold.
 };
 constexpr int kWarpMotionKindCount = 6;
 
-// The edge a motion hangs from: dots there stay put and the far side
-// moves most.
-enum class WarpEdge { kTop, kLeft, kBottom, kRight };
-constexpr int kWarpEdgeCount = 4;
-
-// Frames one cycle of a warp motion may take, 24 being a second.
+// Frames one cycle of a point motion may take, 24 being a second.
 constexpr int kMinWarpCycle = 2;
 constexpr int kMaxWarpCycle = 240;
-// The farthest a warp motion pushes a dot, in drawing pixels.
+// The farthest a point motion pushes its point, in drawing pixels.
 constexpr double kMaxWarpMotionSize = 500.0;
 
-struct WarpMotion final {
-  WarpMotionKind kind = WarpMotionKind::kNone;
-  // How far the dots move at most, in drawing pixels.
+// A warp grid point that moves by itself. Its neighbours follow by the
+// point's rubber reach, as they follow a drag node.
+struct PointMotion final {
+  int point = 0;
+  WarpMotionKind kind = WarpMotionKind::kSway;
+  // How far the point moves at most, in drawing pixels.
   double size = 8.0;
   // Frames one cycle takes.
   int cycle = 24;
-  WarpEdge edge = WarpEdge::kTop;
+  // The way it moves, in degrees: 0 is right, 90 is down.
+  double angle = 0.0;
+  // How late in its cycle it starts, 0 to 1 of a cycle.
+  double delay = 0.0;
 
-  bool IsOn() const { return kind != WarpMotionKind::kNone; }
-  bool operator==(const WarpMotion&) const = default;
+  bool operator==(const PointMotion&) const = default;
 };
 
 // How Snapper moves a piece: rig.json.
@@ -120,8 +120,8 @@ struct RigPiece final {
   std::vector<double> warp_reach{};
   // Grid points that drag behind, each at most once.
   std::vector<DragNode> drag_nodes{};
-  // How the warp grid moves by itself; off by default.
-  WarpMotion warp_motion{};
+  // Grid points that move by themselves, each at most once.
+  std::vector<PointMotion> point_motions{};
 
   bool operator==(const RigPiece&) const = default;
 };
@@ -162,6 +162,8 @@ struct Doll final {
 const ArtPiece* FindArt(const Doll& doll, const QString& name);
 const RigPiece* FindRig(const Rig& rig, const QString& name);
 RigPiece* FindRig(Rig* rig, const QString& name);
+// The motion of rig's warp point, or nullptr when it has none.
+const PointMotion* FindMotion(const RigPiece& rig, int point);
 const IkChain* FindChain(const Rig& rig, const QString& name);
 
 // True when parent may become child's parent: it exists (or is empty,

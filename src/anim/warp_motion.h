@@ -2,7 +2,6 @@
 #define SNAPPER_ANIM_WARP_MOTION_H_
 
 #include <QPointF>
-#include <QSize>
 
 #include <vector>
 
@@ -11,16 +10,19 @@
 
 namespace snapper {
 
-// How far motion pushes each point of grid, over a drawing of size, at
-// frame of the shot: one push per point, row by row, in drawing pixels.
-// The same frame always gives the same pushes. All zero when the motion
-// or the grid is off.
-std::vector<QPointF> MotionPushes(QSize size, WarpGrid grid,
-                                  const WarpMotion& motion, Frame frame);
+// How far motion pushes its own point at frame of the shot, in drawing
+// pixels, when it starts late by extra of a cycle on top of its delay.
+// The same frame always gives the same push.
+QPointF MotionPush(const PointMotion& motion, Frame frame,
+                   double extra = 0.0);
 
-// True when kind hangs from its anchor edge; the rest grow from the
-// middle and pay the edge no mind.
-bool HangsFromEdge(WarpMotionKind kind);
+// motion's push on every point of grid at frame, row by row: its own
+// point moves by MotionPush and the rest follow by reach, as they
+// follow a drag node; a wave reaches them later the further they are.
+// All zero when motion's point is not on grid.
+std::vector<QPointF> PointMotionPushes(WarpGrid grid,
+                                       const PointMotion& motion,
+                                       double reach, Frame frame);
 
 }  // namespace snapper
 

@@ -156,11 +156,14 @@ A piece can:
   the shot's first frame, so every render of a frame is the same, and
   shows only on the doll's own beat (its keys, each frame of an ease,
   the same spacing through a long hold), so a doll on 3s drags on 3s.
-  A grid can also move by itself (Animation in the rig: a wave, a
-  pulse), hanging from an anchor edge, with a size in pixels and a
-  cycle in frames. Its pushes are a formula of the frame
-  (`MotionPushes`), added on top of the keys and drag nodes on the
-  same beat, so it never needs keys and renders the same every time.
+  A dot can also move by itself (a point motion: wave, pulse,
+  breathe, sway, shiver), with a size in pixels, a cycle in frames, a
+  direction and a delay. Its neighbours follow by its rubber reach, as
+  they follow a drag node, and a wave reaches them later the further
+  they are. Its push is a formula of the frame (`PointMotionPushes`),
+  added on top of the keys and drag nodes on the same beat, so it
+  never needs keys and renders the same every time. A dot can have a
+  drag node, a motion, or both.
 - turn in depth with the whole doll: a doll picked whole has two
   yellow handles (and Lean and Swivel fields). Lean, beside the box,
   turns it like a wheel facing the camera; Swivel, below it, like a
@@ -219,7 +222,7 @@ are destroyed in reverse.
 | `HistoryManager`       | Current project, undo, redo, dirty state       |
 | `DocumentManager`      | New, open, save, autosave, recent files        |
 | `DollLibraryManager`   | Doll folders, loading, reload on re-export     |
-| `RigManager`           | Rig edits: parent, pivot, order, IK, warp grid |
+| `RigManager`           | Rig edits: joints, IK, warp grids, their dots  |
 | `ShotManager`          | Shots on the master track, transitions         |
 | `StageManager`         | What is in a shot: actors, props, text, effects |
 | `SelectionManager`     | What is picked: shots, layers, pieces, keys    |

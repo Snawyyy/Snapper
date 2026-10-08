@@ -10,6 +10,20 @@
 #include "edit/rig_edits.h"
 
 namespace snapper {
+namespace {
+
+// motion with every number kept in range.
+PointMotion Kept(PointMotion motion) {
+  assert(std::isfinite(motion.size) && std::isfinite(motion.angle));
+  assert(std::isfinite(motion.delay));
+  motion.size = std::clamp(motion.size, 0.0, kMaxWarpMotionSize);
+  motion.cycle = std::clamp(motion.cycle, kMinWarpCycle, kMaxWarpCycle);
+  motion.angle = std::remainder(motion.angle, 360.0);
+  motion.delay = std::clamp(motion.delay, 0.0, 1.0);
+  return motion;
+}
+
+}  // namespace
 
 RigManager::RigManager(HistoryManager* history) : history_(history) {
   assert(history_ != nullptr);
@@ -122,6 +136,7 @@ Result<void> RigManager::SetWarpGrid(const QString& doll,
                           rig->warp = grid;
                           rig->warp_reach.clear();
                           rig->drag_nodes.clear();
+                          rig->point_motions.clear();
                           return {};
                         });
   const bool is_changed = next.has_value();
@@ -215,6 +230,58 @@ Result<void> RigManager::SetDrag(const QString& doll, const QString& piece,
                   }
                   found->lag = std::clamp(node.lag, 0.0, 1.0);
                   found->bounce = std::clamp(node.bounce, 0.0, 1.0);
+                  return {};
+                }));
+}
+
+Result<void> RigManager::SetPointMotion(const QString& doll,
+                                        const QString& piece,
+                                        const PointMotion& motion) {
+  assert(history_ != nullptr);
+  assert(!piece.isEmpty());
+  const bool is_number = std::isfinite(motion.size) &&
+                         std::isfinite(motion.angle) &&
+                         std::isfinite(motion.delay);
+  const bool is_kind = static_cast<int>(motion.kind) >= 0 &&
+                       static_cast<int>(motion.kind) < kWarpMotionKindCount;
+  const bool is_usable = is_number && is_kind;
+  if (!is_usable) {
+    return std::unexpected(Error{Tr("That value is off the map.")});
+  }
+  const Doll* found = FindDoll(history_->current(), doll);
+  const RigPiece* rig = found != nullptr ? FindRig(found->rig, piece)
+                                         : nullptr;
+  const PointMotion* old =
+      rig != nullptr ? FindMotion(*rig, motion.point) : nullptr;
+  const bool was_moving = old != nullptr;
+  const bool is_stopping = motion.kind == WarpMotionKind::kNone;
+  // Nothing changes, so there is nothing to undo.
+  const bool is_same = was_moving ? *old == Kept(motion)
+                                  : is_stopping && rig != nullptr;
+  if (is_same) {
+    return {};
+  }
+  const QString label = is_stopping   ? Tr("Stop animating point of %1")
+                        : was_moving ? Tr("Point animation of %1")
+                                     : Tr("Animate point of %1");
+  return history_->Apply(
+      label.arg(piece),
+      WithPiece(history_->current(), doll, piece,
+                [&motion, is_stopping](RigPiece* edited) -> Result<void> {
+                  const bool is_point = motion.point >= 0 &&
+                                        motion.point <
+                                            edited->warp.PointCount();
+                  if (!is_point) {
+                    return std::unexpected(Error{
+                        Tr("Give the piece a warp grid in the rig first.")});
+                  }
+                  std::erase_if(edited->point_motions,
+                                [&motion](const PointMotion& m) {
+                                  return m.point == motion.point;
+                                });
+                  if (!is_stopping) {
+                    edited->point_motions.push_back(Kept(motion));
+                  }
                   return {};
                 }));
 }

@@ -213,4 +213,17 @@ Ease EaseFromJson(const QJsonValue& value, JsonIssues* issues) {
   return static_cast<Ease>(EnumFromJson(value, kEaseNames, issues));
 }
 
+QJsonArray Bounded(const QJsonValue& value, int limit, const char* what,
+                   JsonIssues* issues) {
+  assert(issues != nullptr);
+  assert(limit > 0);
+  const QJsonArray array = value.toArray();
+  const bool is_too_long = array.size() > limit;
+  if (is_too_long) {
+    issues->Note(QStringLiteral("too many %1").arg(QLatin1String(what)));
+    return QJsonArray();
+  }
+  return array;
+}
+
 }  // namespace snapper

@@ -4,10 +4,11 @@
 #include <QJsonObject>
 
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <cmath>
 #include <vector>
+
+#include "io/point_motion_json.h"
 
 namespace snapper {
 namespace {
@@ -79,44 +80,6 @@ std::vector<DragNode> DragFromJson(const QJsonValue& value, WarpGrid grid) {
   return nodes;
 }
 
-constexpr std::array<const char*, kWarpMotionKindCount> kMotionNames = {
-    "none", "wave", "pulse", "breathe", "sway", "shiver"};
-constexpr std::array<const char*, kWarpEdgeCount> kEdgeNames = {
-    "top", "left", "bottom", "right"};
-
-QJsonObject MotionToJson(const WarpMotion& motion) {
-  assert(static_cast<int>(motion.kind) < kWarpMotionKindCount);
-  assert(static_cast<int>(motion.edge) < kWarpEdgeCount);
-  return QJsonObject{
-      {"kind", EnumToJson(static_cast<int>(motion.kind), kMotionNames)},
-      {"size", motion.size},
-      {"cycle", motion.cycle},
-      {"edge", EnumToJson(static_cast<int>(motion.edge), kEdgeNames)}};
-}
-
-// A rig without a motion (older files) stays still.
-WarpMotion MotionFromJson(const QJsonValue& value, JsonIssues* issues) {
-  assert(issues != nullptr);
-  WarpMotion motion;
-  const bool is_present = value.isObject();
-  if (!is_present) {
-    return motion;
-  }
-  const QJsonObject object = value.toObject();
-  motion.kind = static_cast<WarpMotionKind>(
-      EnumFromJson(object.value("kind"), kMotionNames, issues));
-  motion.edge = static_cast<WarpEdge>(
-      EnumFromJson(object.value("edge"), kEdgeNames, issues));
-  const double size = object.value("size").toDouble(motion.size);
-  motion.size = std::isfinite(size)
-                    ? std::clamp(size, 0.0, kMaxWarpMotionSize)
-                    : WarpMotion().size;
-  motion.cycle = std::clamp(object.value("cycle").toInt(motion.cycle),
-                            kMinWarpCycle, kMaxWarpCycle);
-  assert(motion.size >= 0.0 && motion.size <= kMaxWarpMotionSize);
-  return motion;
-}
-
 QJsonArray Names(const std::vector<QString>& names) {
   assert(names.size() <= static_cast<size_t>(kMaxPieceDrawings));
   QJsonArray array;
@@ -124,20 +87,6 @@ QJsonArray Names(const std::vector<QString>& names) {
     array.append(name);
   }
   assert(array.size() == static_cast<qsizetype>(names.size()));
-  return array;
-}
-
-// Reads an array, noting it when it is longer than limit.
-QJsonArray Bounded(const QJsonValue& value, int limit, const char* what,
-                   JsonIssues* issues) {
-  assert(issues != nullptr);
-  assert(limit > 0);
-  const QJsonArray array = value.toArray();
-  const bool is_too_long = array.size() > limit;
-  if (is_too_long) {
-    issues->Note(QStringLiteral("too many %1").arg(QLatin1String(what)));
-    return QJsonArray();
-  }
   return array;
 }
 
@@ -205,7 +154,7 @@ QJsonObject RigToJson(const Rig& rig) {
         {"keep_shape", piece.keeps_shape},
         {"reach", ReachToJson(piece.warp_reach)},
         {"drag", DragToJson(piece.drag_nodes)},
-        {"motion", MotionToJson(piece.warp_motion)},
+        {"motions", PointMotionsToJson(piece.point_motions)},
         {"warp", QJsonArray{piece.warp.columns, piece.warp.rows}}});
   }
   QJsonArray chains;
@@ -238,7 +187,7 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
                           piece.value("keep_shape").toBool(),
                           ReachFromJson(piece.value("reach"), grid),
                           DragFromJson(piece.value("drag"), grid),
-                          MotionFromJson(piece.value("motion"), issues)});
+                          PointMotionsFromJson(piece, grid, issues)});
   }
   const QJsonArray chains =
       Bounded(object.value("chains"), kMaxIkChains, "IK chains", issues);
