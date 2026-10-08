@@ -16,7 +16,8 @@ namespace snapper {
 // The trail only changes on the doll's own beat (its keys, each frame
 // of an ease, and the same spacing through a long hold), so a doll on
 // 3s drags on 3s. Settled at the first frame, so every render of a
-// frame is the same.
+// frame is the same. Each piece's warp motion (a wave, a pulse) is
+// added on top, on the same beat.
 PoseMap DraggedPoses(const Doll& doll, const Layer& layer, Frame frame);
 
 }  // namespace snapper

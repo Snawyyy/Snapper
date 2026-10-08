@@ -156,6 +156,11 @@ A piece can:
   the shot's first frame, so every render of a frame is the same, and
   shows only on the doll's own beat (its keys, each frame of an ease,
   the same spacing through a long hold), so a doll on 3s drags on 3s.
+  A grid can also move by itself (Animation in the rig: a wave, a
+  pulse), hanging from an anchor edge, with a size in pixels and a
+  cycle in frames. Its pushes are a formula of the frame
+  (`MotionPushes`), added on top of the keys and drag nodes on the
+  same beat, so it never needs keys and renders the same every time.
 - turn in depth with the whole doll: a doll picked whole has two
   yellow handles (and Lean and Swivel fields). Lean, beside the box,
   turns it like a wheel facing the camera; Swivel, below it, like a

@@ -27,7 +27,7 @@ snapper_module(model
   LIBS Qt6::Gui)
 snapper_module(anim
   SOURCES doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp jitter.cpp master_timeline.cpp mirror.cpp presets.cpp
-          sampler.cpp warp.cpp
+          sampler.cpp warp.cpp warp_motion.cpp
   MODULES model)
 snapper_module(io
   SOURCES doll_file.cpp doll_json.cpp json_file.cpp json_values.cpp
@@ -78,7 +78,7 @@ if(BUILD_TESTING)
   snapper_test(base SOURCES base_tests.cpp)
   snapper_test(model SOURCES model_tests.cpp)
   snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp lean_tests.cpp
-                    drag_tests.cpp)
+                    drag_tests.cpp warp_motion_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp)
   snapper_test(render SOURCES render_tests.cpp)
