@@ -1,8 +1,12 @@
 #include <QApplication>
+#include <QDir>
 #include <QDropEvent>
+#include <QFile>
 #include <QMimeData>
 #include <QPushButton>
 #include <QTest>
+
+#include <cassert>
 
 #include "anim/reel_timeline.h"
 #include "bench.h"
@@ -18,12 +22,15 @@ QPoint Middle(const QRectF& rect) { return rect.center().toPoint(); }
 
 // The bench with one 48-frame shot, its playhead on the reel.
 void AddShot(Bench* bench) {
+  assert(bench != nullptr);
   QVERIFY(bench->shots.Add(-1).has_value());
   bench->playback.SetTimeline(Timeline::kReel);
 }
 
 // Drops a shot from the shot list at where on timeline.
 void DropShot(ReelTimeline* timeline, ShotId shot, QPoint where) {
+  assert(timeline != nullptr);
+  assert(shot.IsValid());
   QMimeData data;
   data.setData(kShotMime, QByteArray::number(shot.value()));
   QDragEnterEvent enter(where, Qt::CopyAction, &data, Qt::LeftButton, {});
@@ -35,23 +42,28 @@ void DropShot(ReelTimeline* timeline, ShotId shot, QPoint where) {
 }
 
 QString WriteTake(const QString& folder, const QString& name) {
+  assert(!folder.isEmpty());
   const QString path = QDir(folder).filePath(name);
   VideoEncoder encoder;
-  const bool is_open =
+  bool is_ok =
       encoder.Open({path, VideoFormat::kMp4, 32, 32, nullptr}).has_value();
-  for (int i = 0; is_open && i < kFramesPerSecond; ++i) {
+  for (int i = 0; is_ok && i < kFramesPerSecond; ++i) {
     QImage image(32, 32, QImage::Format_ARGB32);
     image.fill(Qt::blue);
-    encoder.AddFrame(image);
+    is_ok = encoder.AddFrame(image).has_value();
   }
-  const bool is_done = is_open && encoder.Finish().has_value();
+  const bool is_done = is_ok && encoder.Finish().has_value();
+  // A finished take is on disk.
+  assert(!is_done || QFile::exists(path));
   return is_done ? path : QString();
 }
 
 const Clip& OnlyClip(const Bench& bench, int track) {
-  return bench.history.current()
-      .reel.tracks[static_cast<size_t>(track)]
-      .clips.front();
+  const auto& tracks = bench.history.current().reel.tracks;
+  assert(track >= 0 && track < static_cast<int>(tracks.size()));
+  const auto& clips = tracks[static_cast<size_t>(track)].clips;
+  assert(clips.size() == 1);
+  return clips.front();
 }
 
 }  // namespace

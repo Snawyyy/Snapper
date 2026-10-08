@@ -3,6 +3,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <cassert>
 #include <cmath>
 
 #include "base/frame.h"
@@ -18,26 +19,33 @@ constexpr int kHeight = 48;
 // Half a second of red, then half a second of blue: easy to tell apart
 // after lossy encoding.
 QString WriteRedThenBlue(const QTemporaryDir& dir) {
+  assert(dir.isValid());
   const QString path = QDir(dir.path()).filePath("take.mp4");
   VideoEncoder encoder;
-  const bool is_open =
+  bool is_ok =
       encoder.Open({path, VideoFormat::kMp4, kWidth, kHeight, nullptr})
           .has_value();
-  for (int i = 0; is_open && i < kFramesPerSecond; ++i) {
+  for (int i = 0; is_ok && i < kFramesPerSecond; ++i) {
     QImage image(kWidth, kHeight, QImage::Format_ARGB32);
     image.fill(i < kFramesPerSecond / 2 ? Qt::red : Qt::blue);
-    encoder.AddFrame(image);
+    is_ok = encoder.AddFrame(image).has_value();
   }
-  const bool is_done = is_open && encoder.Finish().has_value();
+  const bool is_done = is_ok && encoder.Finish().has_value();
+  // A finished take is on disk.
+  assert(!is_done || QFile::exists(path));
   return is_done ? path : QString();
 }
 
 bool IsReddish(const QImage& image) {
+  assert(!image.isNull());
+  assert(image.width() == kWidth && image.height() == kHeight);
   const QColor middle = image.pixelColor(kWidth / 2, kHeight / 2);
   return middle.red() > 180 && middle.blue() < 80;
 }
 
 bool IsBluish(const QImage& image) {
+  assert(!image.isNull());
+  assert(image.width() == kWidth && image.height() == kHeight);
   const QColor middle = image.pixelColor(kWidth / 2, kHeight / 2);
   return middle.blue() > 180 && middle.red() < 80;
 }

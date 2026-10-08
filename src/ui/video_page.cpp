@@ -99,6 +99,7 @@ void VideoPage::ImportVideos(const QStringList& paths) {
 
 void VideoPage::AskForVideos() {
   assert(managers_.reel != nullptr);
+  assert(managers_.selection != nullptr);
   const QStringList paths = QFileDialog::getOpenFileNames(
       this, tr("Import video"), QString(),
       tr("Videos (*.mp4 *.mov *.mkv *.webm *.avi *.m4v);;All files (*)"));

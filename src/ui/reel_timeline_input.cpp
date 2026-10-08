@@ -55,6 +55,7 @@ ReelTimeline::Drag ReelTimeline::DragFor(ClipId clip, QPointF at) const {
 }
 
 std::vector<ClipId> ReelTimeline::Picked() const {
+  assert(managers_.selection != nullptr);
   const auto& clips = managers_.selection->clips();
   assert(clips.size() < 1000000);
   return std::vector<ClipId>(clips.begin(), clips.end());
@@ -76,7 +77,10 @@ void ReelTimeline::Pick(ClipId clip, Qt::KeyboardModifiers modifiers) {
 
 int ReelTimeline::SnapReach() const {
   assert(zoom_ > 0.0);
-  return std::max(0, static_cast<int>(std::lround(kSnapPixels / zoom_)));
+  const int reach =
+      std::max(0, static_cast<int>(std::lround(kSnapPixels / zoom_)));
+  assert(reach >= 0);
+  return reach;
 }
 
 void ReelTimeline::SeekTo(double x) {
@@ -134,6 +138,7 @@ void ReelTimeline::Follow(QPointF at) {
 
 void ReelTimeline::mousePressEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  assert(managers_.selection != nullptr);
   const QPointF at = event->position();
   const bool is_left = event->button() == Qt::LeftButton;
   if (!is_left) {
@@ -165,6 +170,7 @@ void ReelTimeline::mousePressEvent(QMouseEvent* event) {
 
 void ReelTimeline::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  assert(managers_.playback != nullptr);
   const QPointF at = event->position();
   const ClipId hover = ClipAt(at);
   const bool is_edge =
@@ -195,6 +201,7 @@ void ReelTimeline::mouseReleaseEvent(QMouseEvent* event) {
   drag_ = Drag::kNone;
   dragged_ = ClipId();
   has_moved_ = false;
+  assert(scope_ == nullptr);
 }
 
 void ReelTimeline::mouseDoubleClickEvent(QMouseEvent* event) {

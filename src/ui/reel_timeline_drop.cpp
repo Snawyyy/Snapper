@@ -57,6 +57,7 @@ void Explain(QAction* action, const QString& why_not) {
 void ReelTimeline::dragEnterEvent(QDragEnterEvent* event) {
   assert(event != nullptr);
   const QMimeData* dropped = event->mimeData();
+  assert(dropped != nullptr);
   const bool is_ours =
       ShotOfDrop(dropped).IsValid() || !FilesOf(dropped).empty();
   if (is_ours) {
@@ -105,7 +106,8 @@ void ReelTimeline::dropEvent(QDropEvent* event) {
   event->acceptProposedAction();
   const ShotId shot = ShotOfDrop(event->mimeData());
   std::set<ClipId> added;
-  if (shot.IsValid()) {
+  const bool is_shot_drop = shot.IsValid();
+  if (is_shot_drop) {
     const auto clip = managers_.reel->AddShot(shot, track, at);
     Report(ProblemOf(clip));
     if (clip) {
@@ -135,6 +137,7 @@ void ReelTimeline::SplitPicked() {
 
 void ReelTimeline::contextMenuEvent(QContextMenuEvent* event) {
   assert(event != nullptr);
+  assert(managers_.selection != nullptr);
   const ClipId clip = ClipAt(event->pos());
   const bool is_on_clip = clip.IsValid();
   if (is_on_clip) {

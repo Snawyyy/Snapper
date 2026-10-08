@@ -4,6 +4,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <cassert>
 #include <cstdint>
 
 #include "edit/history_manager.h"
@@ -24,6 +25,7 @@ Project Lasting(int length) {
 
 // Lasting(length) with the shot also on the reel, from frame 100.
 Project OnTheReel(int length) {
+  assert(length >= 1);
   Project project = Lasting(length);
   Clip clip;
   clip.id = ClipId(1);
@@ -31,6 +33,7 @@ Project OnTheReel(int length) {
   clip.start = Frame(100);
   clip.length = Frame(length);
   PlaceClip(&project.reel.tracks[0], clip);
+  assert(project.reel.tracks[0].clips.size() == 1);
   return project;
 }
 
