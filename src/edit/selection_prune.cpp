@@ -25,7 +25,8 @@ void SelectionManager::Prune() {
   const Project& project = history_->current();
   const ShotId shot_before = shot_;
   const LayerId focus_before = focus_;
-  const size_t counts_before = picks_.size() + keys_.size() + shots_.size();
+  const size_t counts_before =
+      picks_.size() + keys_.size() + shots_.size() + clips_.size();
   std::erase_if(shots_, [&project](ShotId id) {
     return FindShot(project, id) == nullptr;
   });
@@ -44,10 +45,14 @@ void SelectionManager::Prune() {
   }
   std::erase_if(picks_, [this](const Pick& pick) { return !IsReal(pick); });
   std::erase_if(keys_, [this](const KeyRef& key) { return !IsKey(key); });
+  std::erase_if(clips_, [&project](ClipId id) {
+    return ClipOf(project.reel, id) == nullptr;
+  });
   FixFocus();
   const bool is_changed =
       shot_ != shot_before || focus_ != focus_before ||
-      picks_.size() + keys_.size() + shots_.size() != counts_before;
+      picks_.size() + keys_.size() + shots_.size() + clips_.size() !=
+          counts_before;
   if (is_changed) {
     emit Changed();
   }

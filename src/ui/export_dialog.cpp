@@ -106,7 +106,8 @@ ExportRequest ExportDialog::Request() const {
                         size_.currentData().toDouble()};
   const PlaybackManager* playback = managers_.playback;
   const int range = range_.currentIndex();
-  const bool is_loop = range == kLoop && playback->HasLoop();
+  const bool is_loop =
+      range == kLoop && managers_.exporter->WhyNoLoop().isEmpty();
   const bool is_custom = range == kCustom;
   if (is_loop) {
     request.start = playback->loop_start();

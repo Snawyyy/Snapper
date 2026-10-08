@@ -8,11 +8,13 @@
 #include "io/doll_json.h"
 #include "io/json_file.h"
 #include "io/layer_json.h"
+#include "io/reel_json.h"
 
 namespace snapper {
 namespace {
 
-constexpr int kProjectVersion = 1;
+// 2 added the reel; 1 files open with an empty one.
+constexpr int kProjectVersion = 2;
 
 void ReadDolls(const QJsonArray& dolls, Project* project, JsonIssues* issues) {
   assert(project != nullptr);
@@ -71,8 +73,11 @@ Result<Project> ReadProject(const QString& path) {
   project.song = read->value("song").toString();
   project.next_shot_id = read->value("next_shot_id").toInt(1);
   project.next_layer_id = read->value("next_layer_id").toInt(1);
+  project.next_clip_id = read->value("next_clip_id").toInt(1);
   ReadDolls(read->value("dolls").toArray(), &project, &issues);
   ReadShots(read->value("shots").toArray(), &project, &issues);
+  project.reel = ReelFromJson(read->value("reel"), &issues);
+  project.reel.markers = MarkersFromJson(read->value("cut_markers"), &issues);
   const bool is_damaged = issues.HasIssue() || !IsValidCanvas(project.canvas);
   if (is_damaged) {
     const QString why = issues.HasIssue() ? issues.first() : Tr("bad size");
@@ -105,8 +110,11 @@ Result<void> WriteProject(const QString& path, const Project& project) {
       {"song", project.song},
       {"next_shot_id", project.next_shot_id},
       {"next_layer_id", project.next_layer_id},
+      {"next_clip_id", project.next_clip_id},
       {"dolls", dolls},
-      {"shots", shots}};
+      {"shots", shots},
+      {"reel", ReelToJson(project.reel)},
+      {"cut_markers", MarkersToJson(project.reel.markers)}};
   return WriteJsonFile(path, object);
 }
 

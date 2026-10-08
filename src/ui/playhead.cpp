@@ -13,7 +13,10 @@ std::optional<PlayheadSpot> SpotOf(const Managers& managers) {
   assert(managers.history != nullptr);
   assert(managers.playback != nullptr);
   const Project& project = managers.history->current();
-  const ShotMoment moment = Locate(project, managers.playback->frame());
+  // Posing always works at the shots' own playhead, even while the
+  // reel's is the one moving.
+  const ShotMoment moment =
+      Locate(project, managers.playback->FrameOn(Timeline::kShots));
   const bool is_on_shot = moment.shot >= 0;
   if (!is_on_shot) {
     return std::nullopt;

@@ -13,6 +13,7 @@
 #include "edit/playback_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/preset_manager.h"
+#include "edit/reel_manager.h"
 #include "edit/rig_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/shot_manager.h"
@@ -40,6 +41,7 @@ class AppContext final {
   DollLibraryManager library_;
   RigManager rig_;
   ShotManager shots_;
+  ReelManager reel_;
   StageManager stage_;
   LinkManager links_;
   SelectionManager selection_;

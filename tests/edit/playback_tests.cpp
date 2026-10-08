@@ -4,6 +4,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <cassert>
 #include <cstdint>
 
 #include "edit/history_manager.h"
@@ -19,6 +20,20 @@ Project Lasting(int length) {
   shot.length = Frame(length);
   Project project;
   project.shots = {std::make_shared<const Shot>(shot)};
+  return project;
+}
+
+// Lasting(length) with the shot also on the reel, from frame 100.
+Project OnTheReel(int length) {
+  assert(length >= 1);
+  Project project = Lasting(length);
+  Clip clip;
+  clip.id = ClipId(1);
+  clip.source = ShotSource{ShotId(1)};
+  clip.start = Frame(100);
+  clip.length = Frame(length);
+  PlaceClip(&project.reel.tracks[0], clip);
+  assert(project.reel.tracks[0].clips.size() == 1);
   return project;
 }
 
@@ -64,6 +79,7 @@ class PlaybackTests final : public QObject {
  private slots:
   void SeekAndStepStayOnTheTrack();
   void AnimationModeSkipsHeldFrames();
+  void TimelinesKeepTheirOwnPlace();
   void PlayingMovesTheFrame();
   void PlayingStopsAtTheEnd();
   void LoopsWrapAround();
@@ -85,6 +101,34 @@ void PlaybackTests::SeekAndStepStayOnTheTrack() {
   playback.Seek(Frame(9));
   history.Commit("Shortest", Lasting(4));
   QCOMPARE(playback.frame(), Frame(3));
+}
+
+void PlaybackTests::TimelinesKeepTheirOwnPlace() {
+  HistoryManager history(OnTheReel(48));
+  PlaybackManager playback(&history);
+  QSignalSpy switched(&playback, &PlaybackManager::TimelineChanged);
+  playback.Seek(Frame(20));
+  playback.SetLoop(Frame(2), Frame(8));
+  playback.SetTimeline(Timeline::kReel);
+  QCOMPARE(playback.timeline(), Timeline::kReel);
+  QCOMPARE(switched.count(), 1);
+  QCOMPARE(playback.frame(), Frame(0));
+  QVERIFY(!playback.HasLoop());
+  // The reel runs to the end of its last clip.
+  playback.Seek(Frame(500));
+  QCOMPARE(playback.frame(), Frame(147));
+  QCOMPARE(playback.FrameOn(Timeline::kShots), Frame(20));
+  // In animation mode the reel steps cut to cut.
+  playback.SetStepMode(StepMode::kAnimation);
+  playback.Step(-1);
+  QCOMPARE(playback.frame(), Frame(100));
+  playback.Step(-1);
+  QCOMPARE(playback.frame(), Frame(0));
+  playback.SetTimeline(Timeline::kShots);
+  QCOMPARE(playback.frame(), Frame(20));
+  QCOMPARE(playback.FrameOn(Timeline::kReel), Frame(0));
+  playback.SetTimeline(Timeline::kShots);
+  QCOMPARE(switched.count(), 2);
 }
 
 void PlaybackTests::PlayingMovesTheFrame() {
@@ -138,6 +182,12 @@ void PlaybackTests::SongsLoadInTheBackground() {
   QTRY_VERIFY_WITH_TIMEOUT(playback.song() != nullptr, 5000);
   QVERIFY(std::abs(playback.song()->Seconds() - 2.0) < 0.05);
   QVERIFY(playback.song_error().isEmpty());
+  // An empty reel still runs the song's length, to mark cuts over it.
+  playback.SetTimeline(Timeline::kReel);
+  playback.Seek(Frame(100));
+  QCOMPARE(playback.frame(), Frame(47));
+  playback.Seek(Frame(30));
+  QCOMPARE(playback.frame(), Frame(30));
   project.song = QDir(dir.path()).filePath("gone.wav");
   history.Commit("Bad song", project);
   QTRY_VERIFY_WITH_TIMEOUT(!playback.song_error().isEmpty(), 5000);

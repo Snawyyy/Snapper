@@ -5,10 +5,12 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <variant>
 
 #include "anim/jitter.h"
 #include "anim/links.h"
 #include "anim/master_timeline.h"
+#include "anim/reel_timeline.h"
 #include "anim/sampler.h"
 #include "render/effects.h"
 #include "render/layer_painter.h"
@@ -73,6 +75,20 @@ QImage Combine(TransitionKind kind, double mix, const QImage& from,
     }
   }
   return out;
+}
+
+// Draws picture as large as fits in frame, centred, keeping its shape.
+void DrawFitted(const QImage& picture, QImage* frame) {
+  assert(frame != nullptr);
+  assert(!picture.isNull());
+  const QSizeF fitted =
+      QSizeF(picture.size()).scaled(frame->size(), Qt::KeepAspectRatio);
+  const QRectF target(QPointF((frame->width() - fitted.width()) / 2.0,
+                              (frame->height() - fitted.height()) / 2.0),
+                      fitted);
+  QPainter painter(frame);
+  painter.setRenderHint(QPainter::SmoothPixmapTransform);
+  painter.drawImage(target, picture);
 }
 
 }  // namespace
@@ -140,6 +156,37 @@ QImage FrameRenderer::RenderFrame(const Project& project, Frame master,
                     RenderShot(project, next, moment.next_local, scale));
   }
   return frame;
+}
+
+QImage FrameRenderer::RenderReel(const Project& project, Frame frame,
+                                 double scale, VideoFrames* videos) {
+  assert(scale > 0.0);
+  assert(frame.index() >= 0);
+  QImage out = Blank(project, scale, Qt::black);
+  for (const ReelPiece& piece : ReelAt(project, frame)) {
+    const auto* video = std::get_if<VideoSource>(&piece.clip->source);
+    const bool is_video = video != nullptr;
+    if (is_video) {
+      const QImage picture =
+          videos != nullptr ? videos->Picture(video->path, piece.source)
+                            : QImage();
+      const bool has_picture = !picture.isNull();
+      if (has_picture) {
+        DrawFitted(picture, &out);
+      }
+      continue;
+    }
+    const Shot* shot =
+        FindShot(project, std::get<ShotSource>(piece.clip->source).shot);
+    // A clip can outlive its shot; like the timeline, it shows nothing.
+    const bool is_shot_gone = shot == nullptr;
+    if (is_shot_gone) {
+      continue;
+    }
+    QPainter painter(&out);
+    painter.drawImage(0, 0, RenderShot(project, *shot, piece.source, scale));
+  }
+  return out;
 }
 
 }  // namespace snapper

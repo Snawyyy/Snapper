@@ -21,16 +21,18 @@ class PlaybackManager;
 struct ExportRequest final {
   QString path;
   VideoFormat format = VideoFormat::kMp4;
-  // Master frames [start, end); an end of 0 means the end of the track.
+  // Frames [start, end) of what is exported; an end of 0 means the end.
   Frame start;
   Frame end;
   // Output size against the canvas; GIFs are usually smaller.
   double scale = 1.0;
 };
 
-// Renders the master track to MP4 (with the song) or GIF on a worker
+// Renders the final video to MP4 (with the song) or GIF on a worker
 // thread, from a snapshot of the project, so editing can go on while it
-// runs. Progress is reported as it goes; cancelling leaves no file.
+// runs. The final video is the reel once it has a clip, and until then
+// the shots one after another. Progress is reported as it goes;
+// cancelling leaves no file.
 class ExportManager final : public QObject {
   Q_OBJECT
 
@@ -44,6 +46,13 @@ class ExportManager final : public QObject {
   // Why Export can't start now, for the greyed-out button; empty when
   // it can.
   QString WhyNoExport(VideoFormat format) const;
+  // True when the reel is what gets exported.
+  bool IsReelExport() const;
+  // How many frames the whole export would be.
+  Frame ExportLength() const;
+  // Why the playback loop can't be the export range: there is none, or
+  // it is on the other timeline. Empty when it can.
+  QString WhyNoLoop() const;
 
  signals:
   void Progress(int done, int total);

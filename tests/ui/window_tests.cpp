@@ -1,4 +1,5 @@
 #include <QDir>
+#include <QDockWidget>
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
@@ -39,6 +40,7 @@ class WindowTests final : public QObject {
   void UndoSaysWhatAndWhyNot();
   void NewProjectDialogChecksItsFields();
   void DrawsInTheTheme();
+  void VideoTabRunsTheReel();
 };
 
 void WindowTests::TitleShowsNameDirtAndPlace() {
@@ -117,6 +119,21 @@ void WindowTests::DrawsInTheTheme() {
   picture.save(QDir(QT_TESTCASE_BUILDDIR).filePath("window.png"));
   const QColor face = picture.pixelColor(picture.width() - 3, 3);
   QVERIFY(face.lightness() < 90);
+}
+
+void WindowTests::VideoTabRunsTheReel() {
+  Bench rig;
+  MainWindow window(rig.All());
+  window.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&window));
+  auto* cast = window.findChild<QDockWidget*>("cast");
+  QVERIFY(cast != nullptr && cast->isVisible());
+  window.SetMode(MainWindow::Mode::kVideo);
+  QCOMPARE(rig.playback.timeline(), Timeline::kReel);
+  QVERIFY(!cast->isVisible());
+  window.SetMode(MainWindow::Mode::kPose);
+  QCOMPARE(rig.playback.timeline(), Timeline::kShots);
+  QVERIFY(cast->isVisible());
 }
 
 }  // namespace snapper

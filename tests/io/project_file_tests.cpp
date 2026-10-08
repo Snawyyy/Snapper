@@ -1,5 +1,10 @@
+#include <cassert>
+
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -68,7 +73,31 @@ Project FullProject() {
   shot.links = {Link{{LayerId(4), "head"}, {LayerId(5), {}}, Frame(12), 0.75},
                 Link{{LayerId(6), {}}, {LayerId(4), "head"}, Frame(0), 2.0}};
   project.shots.push_back(std::make_shared<const Shot>(shot));
+
+  project.next_clip_id = 4;
+  Clip paint;
+  paint.id = ClipId(1);
+  paint.source = VideoSource{"/takes/paint.mp4", Frame(900)};
+  paint.in = Frame(30);
+  paint.length = Frame(600);
+  Clip intro;
+  intro.id = ClipId(3);
+  intro.source = ShotSource{ShotId(2)};
+  intro.start = Frame(120);
+  intro.length = Frame(72);
+  PlaceClip(&project.reel.tracks[0], paint);
+  PlaceClip(&project.reel.tracks[2], intro);
+  project.reel.markers = {Frame(24), Frame(96)};
   return project;
+}
+
+// Writes object as a project file at path.
+bool WriteObject(const QString& path, const QJsonObject& object) {
+  assert(!path.isEmpty());
+  assert(!object.isEmpty());
+  QFile file(path);
+  const bool is_open = file.open(QIODevice::WriteOnly);
+  return is_open && file.write(QJsonDocument(object).toJson()) > 0;
 }
 
 }  // namespace
@@ -80,6 +109,8 @@ class ProjectFileTests final : public QObject {
   void EverythingSurvivesARoundTrip();
   void DamagedFilesSayWhy();
   void BadLinkIdsAreDropped();
+  void OldFilesGetAnEmptyReel();
+  void OverlappingClipsAreDamage();
   void PosesSurviveARoundTrip();
 };
 
@@ -100,6 +131,8 @@ void ProjectFileTests::EverythingSurvivesARoundTrip() {
   QCOMPARE(*read->dolls.at("Bob"), *project.dolls.at("Bob"));
   QCOMPARE(read->shots.size(), size_t{1});
   QCOMPARE(*read->shots[0], *project.shots[0]);
+  QCOMPARE(read->next_clip_id, 4);
+  QCOMPARE(read->reel, project.reel);
 }
 
 void ProjectFileTests::DamagedFilesSayWhy() {
@@ -132,6 +165,35 @@ void ProjectFileTests::BadLinkIdsAreDropped() {
   const Shot read = ShotFromJson(object, &issues);
   QCOMPARE(read.layers.size(), size_t{2});
   QVERIFY(read.links.empty());
+}
+
+void ProjectFileTests::OldFilesGetAnEmptyReel() {
+  QTemporaryDir dir;
+  const QString path = QDir(dir.path()).filePath("old.snapper");
+  QVERIFY(WriteObject(path, {{"format", "snapper-project"},
+                             {"version", 1},
+                             {"canvas", QJsonArray{1920, 1080}}}));
+  const auto read = ReadProject(path);
+  QVERIFY(read.has_value());
+  QCOMPARE(read->reel, Reel());
+  QCOMPARE(read->next_clip_id, 1);
+}
+
+void ProjectFileTests::OverlappingClipsAreDamage() {
+  QTemporaryDir dir;
+  const QString path = QDir(dir.path()).filePath("overlap.snapper");
+  const QJsonObject first{{"id", 1}, {"start", 0}, {"length", 10},
+                          {"shot", 1}};
+  const QJsonObject second{{"id", 2}, {"start", 5}, {"length", 10},
+                           {"shot", 1}};
+  const QJsonArray reel{QJsonArray{first, second}};
+  QVERIFY(WriteObject(path, {{"format", "snapper-project"},
+                             {"version", 2},
+                             {"canvas", QJsonArray{1920, 1080}},
+                             {"reel", reel}}));
+  const auto read = ReadProject(path);
+  QVERIFY(!read.has_value());
+  QVERIFY(read.error().message.contains("overlap"));
 }
 
 void ProjectFileTests::PosesSurviveARoundTrip() {

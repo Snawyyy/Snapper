@@ -78,6 +78,7 @@ const Doll* DollOfLayer(const Project& project, ShotId shot, LayerId layer);
 // Hands out the next layer id; ids are never reused.
 LayerId TakeLayerId(Project* project);
 ShotId TakeShotId(Project* project);
+ClipId TakeClipId(Project* project);
 
 }  // namespace snapper
 

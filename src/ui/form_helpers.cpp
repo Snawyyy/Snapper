@@ -107,6 +107,15 @@ QColor AskColour(QWidget* parent, const QColor& current) {
                                 QColorDialog::ShowAlphaChannel);
 }
 
+QString TimeText(Frame frame) {
+  assert(frame.index() >= 0);
+  assert(kFramesPerSecond > 0);
+  const int seconds = frame.index() / kFramesPerSecond;
+  return QStringLiteral("%1:%2")
+      .arg(seconds / 60)
+      .arg(seconds % 60, 2, 10, QLatin1Char('0'));
+}
+
 void Explain(QWidget* widget, const QString& why_not) {
   assert(widget != nullptr);
   assert(why_not.size() < 100000);
