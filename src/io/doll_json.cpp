@@ -80,7 +80,7 @@ std::vector<DragNode> DragFromJson(const QJsonValue& value, WarpGrid grid) {
 }
 
 constexpr std::array<const char*, kWarpMotionKindCount> kMotionNames = {
-    "none"};
+    "none", "wave"};
 constexpr std::array<const char*, kWarpEdgeCount> kEdgeNames = {
     "top", "left", "bottom", "right"};
 

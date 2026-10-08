@@ -1,8 +1,64 @@
 #include "anim/warp_motion.h"
 
 #include <cassert>
+#include <cmath>
+#include <numbers>
 
 namespace snapper {
+namespace {
+
+constexpr double kTurn = 2.0 * std::numbers::pi;
+
+// How far through its cycle motion is at frame, 0 up to 1.
+double Phase(const WarpMotion& motion, Frame frame) {
+  assert(motion.cycle >= kMinWarpCycle);
+  assert(frame.index() >= 0);
+  return static_cast<double>(frame.index() % motion.cycle) / motion.cycle;
+}
+
+// Where point sits on grid, 0 to 1 across and down.
+QPointF Spot(WarpGrid grid, int point) {
+  assert(grid.IsOn());
+  assert(point >= 0 && point < grid.PointCount());
+  const int column = point % (grid.columns + 1);
+  const int row = point / (grid.columns + 1);
+  return QPointF(static_cast<double>(column) / grid.columns,
+                 static_cast<double>(row) / grid.rows);
+}
+
+// How far spot is from edge, 0 on it to 1 on the far side.
+double Along(QPointF spot, WarpEdge edge) {
+  assert(spot.x() >= 0.0 && spot.x() <= 1.0);
+  assert(spot.y() >= 0.0 && spot.y() <= 1.0);
+  switch (edge) {
+    case WarpEdge::kTop:
+      return spot.y();
+    case WarpEdge::kBottom:
+      return 1.0 - spot.y();
+    case WarpEdge::kLeft:
+      return spot.x();
+    case WarpEdge::kRight:
+      return 1.0 - spot.x();
+  }
+  assert(false);
+  return 0.0;
+}
+
+// Sideways to edge: the way something hanging from it swings.
+QPointF Across(WarpEdge edge) {
+  const bool is_level = edge == WarpEdge::kTop || edge == WarpEdge::kBottom;
+  return is_level ? QPointF(1.0, 0.0) : QPointF(0.0, 1.0);
+}
+
+// A ripple that leaves the anchor edge and runs to the far side,
+// swinging wider as it goes, like hair or a flag.
+QPointF Wave(const WarpMotion& motion, double phase, QPointF spot) {
+  const double along = Along(spot, motion.edge);
+  const double swing = std::sin(kTurn * (phase - along));
+  return Across(motion.edge) * (motion.size * along * swing);
+}
+
+}  // namespace
 
 std::vector<QPointF> MotionPushes(QSize size, WarpGrid grid,
                                   const WarpMotion& motion, Frame frame) {
@@ -13,9 +69,17 @@ std::vector<QPointF> MotionPushes(QSize size, WarpGrid grid,
   if (!is_moving) {
     return pushes;
   }
-  switch (motion.kind) {
-    case WarpMotionKind::kNone:
-      break;
+  const double phase = Phase(motion, frame);
+  for (int point = 0; point < grid.PointCount(); ++point) {
+    const QPointF spot = Spot(grid, point);
+    QPointF& push = pushes[static_cast<size_t>(point)];
+    switch (motion.kind) {
+      case WarpMotionKind::kNone:
+        break;
+      case WarpMotionKind::kWave:
+        push = Wave(motion, phase, spot);
+        break;
+    }
   }
   assert(pushes.size() <= static_cast<size_t>(kMaxWarpPoints));
   return pushes;

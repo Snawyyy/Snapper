@@ -16,6 +16,8 @@ QString MotionLabel(WarpMotionKind kind) {
   switch (kind) {
     case WarpMotionKind::kNone:
       return RigPanel::tr("None");
+    case WarpMotionKind::kWave:
+      return RigPanel::tr("Wave");
   }
   assert(false);
   return QString();

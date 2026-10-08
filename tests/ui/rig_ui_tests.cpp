@@ -174,6 +174,10 @@ void RigUiTests::AnimationWaitsForAGrid() {
   panel.findChild<QCheckBox*>("warp_on")->click();
   QVERIFY(motion->isEnabled());
   QCOMPARE(motion->count(), kWarpMotionKindCount);
+  motion->setCurrentIndex(static_cast<int>(WarpMotionKind::kWave));
+  emit motion->activated(motion->currentIndex());
+  QCOMPARE(FindRig(BobRig(bench), "arm")->warp_motion.kind,
+           WarpMotionKind::kWave);
 }
 
 void RigUiTests::ShiftPickedJointsDragTogether() {
