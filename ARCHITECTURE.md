@@ -186,6 +186,31 @@ An effect layer (flash, fill, invert, zoom punch, halftone, glitch,
 posterize) changes everything drawn below it, like an adjustment
 layer. Effects are drawn in screen space, after the camera.
 
+## Links
+
+A layer or a doll piece can follow another thing's movement: right-
+click the leader on the stage with the followers picked. A `Link` in
+the shot names the follower, the leader, the frame it was made at and
+a strength. From then on the follower copies strength x how far the
+leader's point (a layer's origin, a piece's joint) has moved in shot
+space since that frame, on top of its own keys, so it never jumps onto
+the leader. Only x and y are copied.
+
+`LinkSolver` (anim) works this out: a layer's share shifts it in shot
+space; a piece's share is turned into its parent's space and added to
+its offset, so it carries its children. A leader that follows something
+passes that on, so chains work. Everything that draws or hit-tests the
+stage asks the shot's solver (`RenderShot`, `HitTest`, the stage
+geometry), so what is clicked is what is seen. Keys stay as keyed; the
+pose tool moves by differences, so a linked thing drags without
+jumping.
+
+`LinkManager` refuses links within one doll (its pieces already move
+together) and links that would loop back into themselves (`WouldLoop`);
+a loop in a file counts as no push. Links drop with their layers and
+follow a duplicated shot's own layers. Drag nodes do not yet feel a
+link's push.
+
 Every animated value is a channel of keys, and every channel uses the
 same key type and the same sampling code, whether it moves an arm, the
 camera, or a glitch amount.
@@ -217,6 +242,7 @@ are destroyed in reverse.
 | `RigManager`           | Rig edits: parent, pivot, order, IK, warp grid |
 | `ShotManager`          | Shots on the master track, transitions         |
 | `StageManager`         | What is in a shot: actors, props, text, effects |
+| `LinkManager`          | Which things copy another's movement, how much |
 | `SelectionManager`     | What is picked: shots, layers, pieces, keys    |
 | `PoseManager`          | Pose edits, IK drags, copy, paste, mirror      |
 | `KeyManager`           | Keys on the timeline: move, space, ease, retime |
@@ -245,7 +271,8 @@ difference.
 The side panel shows only the settings of what is picked: the shot
 and its camera with nothing picked on the stage; pose, layer, motion
 and saved poses for picked pieces or layers; the drag node panel for
-a picked warp dot (`Inspector::Refresh`).
+a picked warp dot, and the Link box for what the picks follow
+(`Inspector::Refresh`).
 
 ## Errors
 
