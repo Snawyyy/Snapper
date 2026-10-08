@@ -52,7 +52,7 @@ snapper_module(edit
           project_edits.cpp rig_batch.cpp rig_manager.cpp rig_mirror.cpp
           selection_manager.cpp selection_prune.cpp shot_batch.cpp
           shot_manager.cpp stage_batch.cpp stage_manager.cpp
-          stage_settings.cpp timeline_rows.cpp
+          stage_settings.cpp timeline_rows.cpp video_file_frames.cpp
   MODULES io media render
   LIBS Qt6::Concurrent)
 snapper_module(ui
@@ -89,7 +89,8 @@ if(BUILD_TESTING)
                             rig_tests.cpp
                             shot_tests.cpp
                             selection_tests.cpp stage_tests.cpp
-                            timeline_tests.cpp track_tests.cpp)
+                            timeline_tests.cpp track_tests.cpp
+                            video_frames_tests.cpp)
   snapper_test(ui SOURCES cast_panel_tests.cpp export_dialog_tests.cpp
                           inspector_tests.cpp
                           pose_tool_tests.cpp rig_ui_tests.cpp

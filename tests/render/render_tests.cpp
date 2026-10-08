@@ -42,6 +42,38 @@ Shot& FirstShot(Project* project) {
 
 QColor At(const QImage& image, int x, int y) { return image.pixelColor(x, y); }
 
+// A wide green picture for every video, noting which frame was asked.
+class GreenVideos final : public VideoFrames {
+ public:
+  QImage Picture(const QString& path, Frame frame) override {
+    asked = frame;
+    asked_path = path;
+    QImage picture(50, 25, QImage::Format_RGB32);
+    picture.fill(Qt::green);
+    return picture;
+  }
+  Frame asked;
+  QString asked_path;
+};
+
+// The red doll's shot over a speedpaint, from frame 50 to 98.
+Project ShotOverVideo(const QTemporaryDir& dir) {
+  Project project = RedDollProject(dir);
+  Clip paint;
+  paint.id = ClipId(1);
+  paint.source = VideoSource{"/takes/paint.mp4", Frame(500)};
+  paint.in = Frame(5);
+  paint.length = Frame(100);
+  Clip shot;
+  shot.id = ClipId(2);
+  shot.source = ShotSource{ShotId(1)};
+  shot.start = Frame(50);
+  shot.length = Frame(48);
+  PlaceClip(&project.reel.tracks[0], paint);
+  PlaceClip(&project.reel.tracks[1], shot);
+  return project;
+}
+
 }  // namespace
 
 class RenderTests final : public QObject {
@@ -53,6 +85,7 @@ class RenderTests final : public QObject {
   void EffectsChangeWhatIsBelow();
   void SwipesPushTheShotOff();
   void PastTheEndIsBlack();
+  void ReelDrawsTracksBottomFirst();
   void WarpStretchesTheDrawing();
   void TextDrawsCentred();
   void MissingImagesDrawNothing();
@@ -145,6 +178,29 @@ void RenderTests::PastTheEndIsBlack() {
   const QImage frame =
       renderer.RenderFrame(RedDollProject(dir), Frame(500), 1.0);
   QCOMPARE(At(frame, 50, 50), QColor(Qt::black));
+}
+
+void RenderTests::ReelDrawsTracksBottomFirst() {
+  QTemporaryDir dir;
+  const Project project = ShotOverVideo(dir);
+  FrameRenderer renderer;
+  GreenVideos videos;
+  // The video fits the frame, keeping its shape, from its in point.
+  const QImage paint = renderer.RenderReel(project, Frame(10), 1.0, &videos);
+  QCOMPARE(videos.asked, Frame(15));
+  QCOMPARE(videos.asked_path, QString("/takes/paint.mp4"));
+  QCOMPARE(At(paint, 50, 50), QColor(Qt::green));
+  QCOMPARE(At(paint, 50, 10), QColor(Qt::black));
+  // The shot above covers it while it plays.
+  const QImage shot = renderer.RenderReel(project, Frame(60), 1.0, &videos);
+  QCOMPARE(At(shot, 50, 50), QColor(Qt::red));
+  QCOMPARE(At(shot, 5, 5), QColor(Qt::white));
+  const QImage after = renderer.RenderReel(project, Frame(98), 1.0, &videos);
+  QCOMPARE(At(after, 50, 50), QColor(Qt::green));
+  const QImage past = renderer.RenderReel(project, Frame(300), 1.0, &videos);
+  QCOMPARE(At(past, 50, 50), QColor(Qt::black));
+  const QImage blind = renderer.RenderReel(project, Frame(10), 1.0, nullptr);
+  QCOMPARE(At(blind, 50, 50), QColor(Qt::black));
 }
 
 void RenderTests::WarpStretchesTheDrawing() {
