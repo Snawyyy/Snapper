@@ -187,23 +187,34 @@ void FitWarp(int count, PiecePose* pose) {
   }
 }
 
-// Adds each piece's warp motion at beat to its warp.
+// The rubber reach of rig's point, 0 when it has none.
+double ReachOf(const RigPiece& rig, int point) {
+  assert(point >= 0 && point < rig.warp.PointCount());
+  assert(rig.warp_reach.size() <= static_cast<size_t>(kMaxWarpPoints));
+  const bool has_reach =
+      static_cast<int>(rig.warp_reach.size()) == rig.warp.PointCount();
+  return has_reach ? rig.warp_reach[static_cast<size_t>(point)] : 0.0;
+}
+
+// Adds each point motion at beat to the warp of its piece, spread by
+// the point's rubber reach.
 void AddMotions(const Doll& doll, Frame beat, PoseMap* poses) {
   assert(poses != nullptr);
   assert(doll.rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   for (const RigPiece& rig : doll.rig.pieces) {
-    const ArtPiece* art = FindArt(doll, rig.name);
-    const bool is_moving =
-        art != nullptr && rig.warp.IsOn() && rig.warp_motion.IsOn();
-    if (!is_moving) {
-      continue;
-    }
-    const std::vector<QPointF> pushes =
-        MotionPushes(art->size, rig.warp, rig.warp_motion, beat);
-    PiecePose& pose = (*poses)[rig.name];
-    FitWarp(rig.warp.PointCount(), &pose);
-    for (size_t point = 0; point < pushes.size(); ++point) {
-      pose.warp[point] += pushes[point];
+    const int count = rig.warp.PointCount();
+    for (const PointMotion& motion : rig.point_motions) {
+      const bool is_on_grid = motion.point >= 0 && motion.point < count;
+      if (!is_on_grid) {
+        continue;
+      }
+      const std::vector<QPointF> pushes = PointMotionPushes(
+          rig.warp, motion, ReachOf(rig, motion.point), beat);
+      PiecePose& pose = (*poses)[rig.name];
+      FitWarp(count, &pose);
+      for (size_t point = 0; point < pushes.size(); ++point) {
+        pose.warp[point] += pushes[point];
+      }
     }
   }
 }
@@ -226,10 +237,7 @@ void AddTrail(const Doll& doll, const Spring& spring, const Carry& carried,
   PiecePose& pose = (*poses)[spring.piece];
   const int count = rig->warp.PointCount();
   FitWarp(count, &pose);
-  const bool has_reach = static_cast<int>(rig->warp_reach.size()) == count;
-  const double reach =
-      has_reach ? rig->warp_reach[static_cast<size_t>(spring.node.point)]
-                : 0.0;
+  const double reach = ReachOf(*rig, spring.node.point);
   for (int other = 0; other < count; ++other) {
     pose.warp[static_cast<size_t>(other)] +=
         trail * PullWeight(rig->warp, spring.node.point, other, reach);

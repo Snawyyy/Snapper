@@ -1,6 +1,5 @@
 // RigManager's changes to many pieces at once.
 
-#include <algorithm>
 #include <cassert>
 #include <cmath>
 
@@ -36,74 +35,7 @@ Result<void> EachPiece(Rig* rig, const QString& doll,
   return {};
 }
 
-// change(WarpMotion*) on each of pieces; a piece without a warp grid
-// has nothing to move, so it is refused.
-template <typename Change>
-Result<Project> EachMotion(const Project& project, const QString& doll,
-                           const std::vector<QString>& pieces,
-                           Change change) {
-  assert(!doll.isEmpty());
-  assert(pieces.size() <= static_cast<size_t>(kMaxDollPieces));
-  return WithRig(project, doll, [&](Rig* rig) {
-    return EachPiece(rig, doll, pieces, [&](RigPiece* piece) {
-      const bool has_grid = piece->warp.IsOn();
-      if (!has_grid) {
-        return Result<void>(std::unexpected(Error{
-            Tr("Tick \"Bend with a grid\" for %1 first.").arg(piece->name)}));
-      }
-      change(&piece->warp_motion);
-      // MotionPushes divides by the cycle, so no change may leave it out
-      // of range.
-      assert(piece->warp_motion.cycle >= kMinWarpCycle &&
-             piece->warp_motion.cycle <= kMaxWarpCycle);
-      return Result<void>();
-    });
-  });
-}
-
 }  // namespace
-
-Result<void> RigManager::SetMotionKindAll(const QString& doll,
-                                          const std::vector<QString>& pieces,
-                                          WarpMotionKind kind) {
-  assert(history_ != nullptr);
-  assert(static_cast<int>(kind) < kWarpMotionKindCount);
-  return history_->Apply(
-      Tr("Warp animation"),
-      EachMotion(history_->current(), doll, pieces,
-                 [kind](WarpMotion* motion) { motion->kind = kind; }));
-}
-
-Result<void> RigManager::SetMotionEdgeAll(const QString& doll,
-                                          const std::vector<QString>& pieces,
-                                          WarpEdge edge) {
-  assert(history_ != nullptr);
-  assert(static_cast<int>(edge) < kWarpEdgeCount);
-  return history_->Apply(
-      Tr("Animation edge"),
-      EachMotion(history_->current(), doll, pieces,
-                 [edge](WarpMotion* motion) { motion->edge = edge; }));
-}
-
-Result<void> RigManager::ShiftMotionAll(const QString& doll,
-                                        const std::vector<QString>& pieces,
-                                        double size, int cycle) {
-  assert(history_ != nullptr);
-  assert(std::abs(cycle) <= kMaxWarpCycle * 2);
-  const bool is_number = std::isfinite(size);
-  if (!is_number) {
-    return std::unexpected(Error{Tr("That size is off the map.")});
-  }
-  return history_->Apply(
-      size != 0.0 ? Tr("Animation size") : Tr("Animation speed"),
-      EachMotion(history_->current(), doll, pieces,
-                 [size, cycle](WarpMotion* motion) {
-                   motion->size = std::clamp(motion->size + size, 0.0,
-                                             kMaxWarpMotionSize);
-                   motion->cycle = std::clamp(motion->cycle + cycle,
-                                              kMinWarpCycle, kMaxWarpCycle);
-                 }));
-}
 
 Result<void> RigManager::ShiftRestAll(const QString& doll,
                                       const std::vector<QString>& pieces,
@@ -169,6 +101,7 @@ Result<void> RigManager::SetWarpAll(const QString& doll,
       piece->warp = grid;
       piece->warp_reach.clear();
       piece->drag_nodes.clear();
+      piece->point_motions.clear();
       return Result<void>();
     });
   });

@@ -29,6 +29,11 @@ class JsonIssues final {
   QString first_;
 };
 
+// Reads an array, noting it (and reading none) when it is longer than
+// limit.
+QJsonArray Bounded(const QJsonValue& value, int limit, const char* what,
+                   JsonIssues* issues);
+
 QJsonArray PointToJson(QPointF point);
 QPointF PointFromJson(const QJsonValue& value);
 QJsonArray SizeToJson(QSize size);

@@ -48,7 +48,7 @@ class RigTests final : public QObject {
   void UnknownDollsAndPiecesSayWhy();
   void OneSideCopiesToTheOther();
   void ManyPiecesChangeTogether();
-  void WarpAnimationNeedsAGrid();
+  void PointMotionsAreOneStepEach();
 };
 
 void RigTests::ParentsRefuseLoops() {
@@ -170,11 +170,17 @@ void RigTests::OneSideCopiesToTheOther() {
   QCOMPARE(arm->parent, QString("chest"));
   QCOMPARE(arm->order, 2);
   QVERIFY(FindRig(BobRig(history), "hand_r")->parent.isEmpty());
-  QVERIFY(rig.SetMotionEdgeAll("Bob", {"hand_l"}, WarpEdge::kLeft)
+  QVERIFY(rig.SetPointMotion("Bob", "hand_l",
+                             {3, WarpMotionKind::kSway, 6.0, 24, 30.0, 0.5})
               .has_value());
   QVERIFY(rig.CopyToOtherSide("Bob", "hand_l", true).has_value());
   const RigPiece* hand = FindRig(BobRig(history), "hand_r");
-  QCOMPARE(hand->warp_motion.edge, WarpEdge::kRight);
+  // Point 3 starts the middle row; mirrored it ends it, swinging the
+  // other way across.
+  QCOMPARE(hand->point_motions.size(), size_t{1});
+  QCOMPARE(hand->point_motions[0].point, 5);
+  QCOMPARE(hand->point_motions[0].angle, 150.0);
+  QCOMPARE(hand->point_motions[0].delay, 0.5);
   QCOMPARE(hand->parent, QString("arm_r"));
   QCOMPARE(hand->warp, (WarpGrid{2, 2}));
   QCOMPARE(BobRig(history).chains.size(), size_t{2});
@@ -210,31 +216,39 @@ void RigTests::ManyPiecesChangeTogether() {
   QVERIFY(!rig.CopyAllToOtherSide("Bob", {"body"}).has_value());
 }
 
-void RigTests::WarpAnimationNeedsAGrid() {
+void RigTests::PointMotionsAreOneStepEach() {
   HistoryManager history(ArmProject());
   RigManager rig(&history);
-  QVERIFY(!rig.SetMotionEdgeAll("Bob", {"upper"}, WarpEdge::kLeft)
-               .has_value());
-  QVERIFY(!rig.SetMotionEdgeAll("Bob", {"lower", "upper"}, WarpEdge::kLeft)
-               .has_value());
-  QCOMPARE(FindRig(BobRig(history), "lower")->warp_motion.edge,
-           WarpEdge::kTop);
-  QVERIFY(rig.SetMotionEdgeAll("Bob", {"lower"}, WarpEdge::kLeft)
-              .has_value());
-  QCOMPARE(history.UndoLabel(), QString("Animation edge"));
-  QVERIFY(rig.ShiftMotionAll("Bob", {"lower"}, 4.0, 6).has_value());
-  const WarpMotion& moved = FindRig(BobRig(history), "lower")->warp_motion;
-  QCOMPARE(moved.size, 12.0);
-  QCOMPARE(moved.cycle, 30);
-  QCOMPARE(history.UndoLabel(), QString("Animation size"));
-  QVERIFY(rig.ShiftMotionAll("Bob", {"lower"}, 0.0, -400).has_value());
-  QCOMPARE(FindRig(BobRig(history), "lower")->warp_motion.cycle,
-           kMinWarpCycle);
-  QCOMPARE(history.UndoLabel(), QString("Animation speed"));
-  QVERIFY(!rig.ShiftMotionAll("Bob", {"lower"}, qQNaN(), 0).has_value());
-  QVERIFY(rig.SetMotionKindAll("Bob", {"lower"}, WarpMotionKind::kNone)
-              .has_value());
-  QCOMPARE(history.UndoLabel(), QString("Warp animation"));
+  PointMotion wave{4, WarpMotionKind::kWave, 600.0, 1, 270.0, 2.0};
+  QVERIFY(!rig.SetPointMotion("Bob", "upper", wave).has_value());
+  QVERIFY(!rig.SetPointMotion("Bob", "lower", {9}).has_value());
+  QVERIFY(rig.SetPointMotion("Bob", "lower", wave).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Animate point of lower"));
+  const PointMotion kept =
+      FindRig(BobRig(history), "lower")->point_motions.at(0);
+  QCOMPARE(kept.size, kMaxWarpMotionSize);
+  QCOMPARE(kept.cycle, kMinWarpCycle);
+  QCOMPARE(kept.angle, -90.0);
+  QCOMPARE(kept.delay, 1.0);
+  wave.size = 4.0;
+  QVERIFY(rig.SetPointMotion("Bob", "lower", wave).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Point animation of lower"));
+  QCOMPARE(FindRig(BobRig(history), "lower")->point_motions.size(),
+           size_t{1});
+  wave.angle = qQNaN();
+  QVERIFY(!rig.SetPointMotion("Bob", "lower", wave).has_value());
+  wave.kind = WarpMotionKind::kNone;
+  wave.angle = 0.0;
+  QVERIFY(rig.SetPointMotion("Bob", "lower", wave).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Stop animating point of lower"));
+  QVERIFY(FindRig(BobRig(history), "lower")->point_motions.empty());
+  // Stopping a still point again changes nothing, so adds no step.
+  QVERIFY(rig.SetPointMotion("Bob", "lower", wave).has_value());
+  history.Undo();
+  QCOMPARE(FindRig(BobRig(history), "lower")->point_motions.size(),
+           size_t{1});
+  QVERIFY(rig.SetWarpGrid("Bob", "lower", {3, 3}).has_value());
+  QVERIFY(FindRig(BobRig(history), "lower")->point_motions.empty());
 }
 
 }  // namespace snapper

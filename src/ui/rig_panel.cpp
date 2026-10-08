@@ -85,7 +85,6 @@ void RigPanel::BuildLayout() {
   AddTitle(&form_, &warp_title_, tr("Warp"));
   form_.addRow(QString(), &warp_on_);
   AddPair(&form_, tr("Cells"), &warp_row_, &warp_columns_, &warp_rows_);
-  BuildMotion();
   chain_buttons_.addWidget(&add_chain_);
   chain_buttons_.addWidget(&flip_chain_);
   chain_buttons_.addWidget(&remove_chain_);
@@ -100,12 +99,12 @@ void RigPanel::BuildLayout() {
   layout_.addLayout(&chain_buttons_);
   layout_.addWidget(&save_rig_);
   layout_.addWidget(&hint_);
-  assert(form_.rowCount() == 12);
+  assert(form_.rowCount() == 9);
 }
 
 void RigPanel::Wire() {
   assert(managers_.IsComplete());
-  assert(form_.rowCount() == 12);
+  assert(form_.rowCount() == 9);
   RigManager* rig = managers_.rig;
   connect(&dolls_, &QComboBox::textActivated, this, [this](const QString& d) {
     doll_ = d;
@@ -167,7 +166,6 @@ void RigPanel::Wire() {
   for (QSpinBox* side : {&warp_columns_, &warp_rows_}) {
     MakeLive(side, &live_, tr("Warp grid"), this, set_grid);
   }
-  WireMotion();
   WireChains();
 }
 

@@ -33,7 +33,7 @@ snapper_module(anim
 snapper_module(io
   SOURCES doll_file.cpp doll_json.cpp json_file.cpp json_values.cpp
           layer_json.cpp legacy_doll.cpp pose_file.cpp project_file.cpp
-          reconcile.cpp reel_json.cpp
+          point_motion_json.cpp reconcile.cpp reel_json.cpp
   MODULES model)
 snapper_module(media
   SOURCES audio_clip.cpp audio_player.cpp ffmpeg_handles.cpp
@@ -60,9 +60,9 @@ snapper_module(edit
 snapper_module(ui
   SOURCES cast_actions.cpp cast_panel.cpp export_dialog.cpp
           export_dialog_actions.cpp file_menu.cpp main_window.cpp
-          drag_box.cpp shot_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
+          drag_box.cpp picked_dot.cpp point_motion_box.cpp shot_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
           layer_box_commits.cpp link_box.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
-          rig_canvas_input.cpp rig_panel.cpp rig_panel_motion.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp
+          rig_canvas_input.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp
           reel_preview.cpp reel_timeline.cpp reel_timeline_drop.cpp
           reel_timeline_input.cpp shot_bin.cpp shot_strip.cpp slot_picker.cpp
           stage_menu.cpp stage_view.cpp theme.cpp timeline_input.cpp timeline_paint.cpp

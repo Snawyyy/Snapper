@@ -31,6 +31,27 @@ constexpr double kWarpDot = 2.5;
 constexpr double kBarLong = 14.0;
 constexpr int kWheelUnit = 120;
 
+// Rings drag nodes and squares dots that move by themselves, in
+// yellow, so they read apart from plain dots.
+void PaintMarks(const WarpOnScreen& warp, QPainter* painter) {
+  assert(painter != nullptr);
+  assert(warp.points.size() == static_cast<size_t>(warp.grid.PointCount()));
+  painter->setPen(QPen(theme::kHandle, 1.5));
+  painter->setBrush(Qt::NoBrush);
+  for (const int drag : warp.drags) {
+    painter->drawEllipse(
+        warp.to_screen.map(warp.points[static_cast<size_t>(drag)]),
+        kWarpDot + 3.5, kWarpDot + 3.5);
+  }
+  constexpr double kSquare = kWarpDot + 5.0;
+  for (const int move : warp.moves) {
+    painter->drawRect(QRectF(
+        warp.to_screen.map(warp.points[static_cast<size_t>(move)]) -
+            QPointF(kSquare, kSquare),
+        QSizeF(kSquare * 2, kSquare * 2)));
+  }
+}
+
 }  // namespace
 
 StageView::StageView(const Managers& managers)
@@ -187,14 +208,7 @@ void StageView::PaintWarp(const StageFrame& frame, const Pick& pick,
   for (const QPointF& point : warp->points) {
     painter->drawEllipse(warp->to_screen.map(point), kWarpDot, kWarpDot);
   }
-  // Drag nodes wear a yellow ring, so they read apart from plain dots.
-  painter->setPen(QPen(theme::kHandle, 1.5));
-  painter->setBrush(Qt::NoBrush);
-  for (const int drag : warp->drags) {
-    painter->drawEllipse(
-        warp->to_screen.map(warp->points[static_cast<size_t>(drag)]),
-        kWarpDot + 3.5, kWarpDot + 3.5);
-  }
+  PaintMarks(*warp, painter);
   const auto dot = tool_.PickedDot(frame);
   const bool is_dot_here =
       dot.has_value() && dot->layer == pick.layer && dot->piece == pick.piece;

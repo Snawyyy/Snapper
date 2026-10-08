@@ -18,6 +18,9 @@ std::vector<QPointF> RestPoints(QSize size, WarpGrid grid);
 std::vector<QPointF> WarpedPoints(QSize size, WarpGrid grid,
                                   const std::vector<QPointF>& offsets);
 
+// How many grid cells apart point and other are, straight across.
+double CellsApart(WarpGrid grid, int point, int other);
+
 // How much pulling point drags point other along (1 for itself), when
 // the pull reaches reach grid cells: fading smoothly to 0 at reach.
 double PullWeight(WarpGrid grid, int point, int other, double reach);

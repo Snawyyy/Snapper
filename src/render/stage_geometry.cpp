@@ -130,12 +130,16 @@ std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
   for (const DragNode& node : rig->drag_nodes) {
     drags.push_back(node.point);
   }
+  std::vector<int> moves;
+  for (const PointMotion& motion : rig->point_motions) {
+    moves.push_back(motion.point);
+  }
   return WarpOnScreen{
       rig->warp, WarpedPoints(art->size, rig->warp, offsets),
       has_reach ? rig->warp_reach
                 : std::vector<double>(
                       static_cast<size_t>(rig->warp.PointCount()), 0.0),
-      drags, art->size, posed->pieces.at(piece) * posed->to_screen};
+      drags, moves, art->size, posed->pieces.at(piece) * posed->to_screen};
 }
 
 std::vector<IkHandle> IkHandles(const Project& project, const Shot& shot,

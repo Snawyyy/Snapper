@@ -1,6 +1,7 @@
 // RigManager's copying of one side of a doll onto the other.
 
 #include <cassert>
+#include <cmath>
 
 #include "anim/mirror.h"
 #include "anim/warp.h"
@@ -47,11 +48,12 @@ void MirrorPiece(const Doll& doll, const RigPiece& from, RigPiece* to) {
   for (DragNode& node : to->drag_nodes) {
     node.point = MirroredPoint(from.warp, node.point);
   }
-  to->warp_motion = from.warp_motion;
-  const WarpEdge edge = from.warp_motion.edge;
-  to->warp_motion.edge = edge == WarpEdge::kLeft    ? WarpEdge::kRight
-                         : edge == WarpEdge::kRight ? WarpEdge::kLeft
-                                                    : edge;
+  to->point_motions = from.point_motions;
+  for (PointMotion& motion : to->point_motions) {
+    motion.point = MirroredPoint(from.warp, motion.point);
+    // Left and right swap, up and down stay.
+    motion.angle = std::remainder(180.0 - motion.angle, 360.0);
+  }
   const QString parent = MirrorName(from.parent);
   const bool has_mirrored_parent =
       !from.parent.isEmpty() && FindRig(doll.rig, parent) != nullptr;

@@ -26,9 +26,8 @@ namespace snapper {
 constexpr int kDefaultWarpCells = 3;
 
 // The rig's settings beside the rig canvas: which doll, its pieces as a
-// tree, the picked piece's parent, draw order, default drawing, warp
-// grid and how it animates, its IK chains, and saving the rig back to
-// the library.
+// tree, the picked piece's parent, draw order, default drawing and warp
+// grid, its IK chains, and saving the rig back to the library.
 class RigPanel final : public QWidget {
   Q_OBJECT
 
@@ -51,12 +50,9 @@ class RigPanel final : public QWidget {
   void BuildLayout();
   void Wire();
   void WireChains();
-  void BuildMotion();
-  void WireMotion();
   void RefreshPieces();
   void RefreshPiece();
   void RefreshChains();
-  void RefreshMotion(const RigPiece* rig);
   void AddChain();
   // The picked pieces, at least the focused one.
   std::vector<QString> Picked() const;
@@ -82,11 +78,6 @@ class RigPanel final : public QWidget {
   QHBoxLayout warp_row_;
   QSpinBox warp_columns_;
   QSpinBox warp_rows_;
-  QComboBox motion_;
-  QComboBox motion_edge_;
-  QHBoxLayout motion_row_;
-  QDoubleSpinBox motion_size_;
-  QSpinBox motion_cycle_;
   QLabel chains_title_;
   QListWidget chains_;
   QHBoxLayout chain_buttons_;

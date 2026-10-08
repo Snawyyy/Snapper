@@ -16,6 +16,7 @@
 #include "ui/layer_box.h"
 #include "ui/link_box.h"
 #include "ui/motion_box.h"
+#include "ui/point_motion_box.h"
 
 namespace snapper {
 namespace {
@@ -71,6 +72,7 @@ class InspectorTests final : public QObject {
   void FieldsApplyAsYouTypeAsOneStep();
   void FieldsChangeEveryPickByTheSameAmount();
   void DragBoxTunesThePickedDot();
+  void PointMotionBoxAnimatesThePickedDot();
   void OnlyWhatIsPickedShows();
   void ShotBoxChangesThePickedShots();
   void LinkBoxShowsOnlyWhenLinked();
@@ -187,6 +189,46 @@ void InspectorTests::DragBoxTunesThePickedDot() {
   QVERIFY(drags->isChecked());
 }
 
+void InspectorTests::PointMotionBoxAnimatesThePickedDot() {
+  Bench bench;
+  Stage(&bench);
+  QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
+  PointMotionBox box(bench.All());
+  auto* kind = box.findChild<QComboBox*>("point_motion");
+  auto* size = box.findChild<QDoubleSpinBox*>("motion_size");
+  auto* angle = box.findChild<QDoubleSpinBox*>("motion_angle");
+  QVERIFY(!kind->isEnabled());
+  QVERIFY(!kind->toolTip().isEmpty());
+  bench.selection.PickDot(WarpDot{LayerId(1), "head", 4});
+  QVERIFY(kind->isEnabled());
+  QVERIFY(!size->isEnabled());
+  QVERIFY(!size->toolTip().isEmpty());
+  kind->setCurrentIndex(static_cast<int>(WarpMotionKind::kWave));
+  emit kind->activated(kind->currentIndex());
+  QCOMPARE(bench.history.UndoLabel(), QString("Animate point of head"));
+  QVERIFY(size->isEnabled());
+  Type(size, 20.0);
+  QCOMPARE(bench.history.UndoLabel(), QString("Point animation"));
+  const auto& motions =
+      bench.history.current().dolls.at("Bob")->rig.pieces[0].point_motions;
+  QCOMPARE(motions.size(), size_t{1});
+  QCOMPARE(motions[0].point, 4);
+  QCOMPARE(motions[0].size, 20.0);
+  // A shiver shakes every way, so it has no direction.
+  QVERIFY(angle->isEnabled());
+  kind->setCurrentIndex(static_cast<int>(WarpMotionKind::kShiver));
+  emit kind->activated(kind->currentIndex());
+  QVERIFY(!angle->isEnabled());
+  QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
+               .point_motions[0].size,
+           20.0);
+  kind->setCurrentIndex(0);
+  emit kind->activated(0);
+  QCOMPARE(bench.history.UndoLabel(),
+           QString("Stop animating point of head"));
+  QVERIFY(!size->isEnabled());
+}
+
 void InspectorTests::OnlyWhatIsPickedShows() {
   Bench bench;
   Stage(&bench);
@@ -203,12 +245,14 @@ void InspectorTests::OnlyWhatIsPickedShows() {
   QVERIFY(!shown.operator()<DragBox>());
   bench.selection.PickDot(WarpDot{LayerId(1), "head", 0});
   QVERIFY(shown.operator()<DragBox>());
+  QVERIFY(shown.operator()<PointMotionBox>());
   // Nothing picked: the shot and its camera.
   bench.selection.Clear();
   QVERIFY(shown.operator()<ShotBox>());
   QVERIFY(shown.operator()<CameraBox>());
   QVERIFY(!shown.operator()<PoseBox>());
   QVERIFY(!shown.operator()<DragBox>());
+  QVERIFY(!shown.operator()<PointMotionBox>());
   // The text layer is not a doll: no saved poses.
   bench.selection.SelectLayer(LayerId(2));
   QVERIFY(shown.operator()<LayerBox>());

@@ -15,8 +15,8 @@ namespace snapper {
 class HistoryManager;
 
 // How a project doll is jointed: parents, pivots, draw order, default
-// drawings, warp grids and IK chains. Every change is one undo step,
-// or part of a drag.
+// drawings, warp grids, drag nodes, point motions and IK chains. Every
+// change is one undo step, or part of a drag.
 class RigManager final {
  public:
   explicit RigManager(HistoryManager* history);
@@ -49,6 +49,10 @@ class RigManager final {
   // A drag node's lag and bounce, each kept 0 to 1.
   Result<void> SetDrag(const QString& doll, const QString& piece,
                        const DragNode& node);
+  // Gives a warp grid point its motion, or changes it; kind kNone stops
+  // it. Size, cycle and delay are kept in range.
+  Result<void> SetPointMotion(const QString& doll, const QString& piece,
+                              const PointMotion& motion);
 
   // Copies piece's joint, rest turn, parent and warp grid onto its
   // partner on the other side (arm_l to arm_r), mirrored, so a doll is
@@ -75,19 +79,6 @@ class RigManager final {
   Result<void> SetKeepShapeAll(const QString& doll,
                                const std::vector<QString>& pieces,
                                bool keeps_shape);
-  // How the pieces' warp grids move by themselves (WarpMotionKind),
-  // and the edge they hang from. Every piece needs a warp grid.
-  Result<void> SetMotionKindAll(const QString& doll,
-                                const std::vector<QString>& pieces,
-                                WarpMotionKind kind);
-  Result<void> SetMotionEdgeAll(const QString& doll,
-                                const std::vector<QString>& pieces,
-                                WarpEdge edge);
-  // Adds to each piece's motion size (pixels) and cycle (frames), kept
-  // in range.
-  Result<void> ShiftMotionAll(const QString& doll,
-                              const std::vector<QString>& pieces,
-                              double size, int cycle);
   // Each piece's joint moves by its own offset (drawing pixels).
   Result<void> MovePivots(const QString& doll,
                           const std::map<QString, QPointF>& offsets);

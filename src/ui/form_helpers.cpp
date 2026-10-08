@@ -123,4 +123,14 @@ void Explain(QWidget* widget, const QString& why_not) {
   widget->setToolTip(why_not);
 }
 
+void Explain(QWidget* widget, const QString& why_not, const QString& help) {
+  assert(widget != nullptr);
+  assert(!help.isEmpty());
+  Explain(widget, why_not);
+  const bool is_usable = why_not.isEmpty();
+  if (is_usable) {
+    widget->setToolTip(help);
+  }
+}
+
 }  // namespace snapper

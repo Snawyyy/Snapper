@@ -115,20 +115,26 @@ void DragTests::EasesDragEveryFrame() {
 
 void DragTests::AnimationPlaysOnTheBeat() {
   Doll doll = Blob(0.5);
-  doll.rig.pieces[0].drag_nodes.clear();
-  doll.rig.pieces[0].warp_motion = {WarpMotionKind::kWave, 10.0, 24,
-                                    WarpEdge::kTop};
-  // Keyed on 3s: the wave moves at frames 0, 3, 6...
+  RigPiece& blob = doll.rig.pieces[0];
+  blob.drag_nodes.clear();
+  // The middle point sways 10 pixels right and back each second; its
+  // reach of 2 cells takes half of that to the points beside it.
+  blob.point_motions = {{4, WarpMotionKind::kSway, 10.0, 24, 0.0, 0.0}};
+  blob.warp_reach = std::vector<double>(9, 0.0);
+  blob.warp_reach[4] = 2.0;
+  // Keyed on 3s: the sway moves at frames 0, 3, 6...
   Layer layer;
   layer.content = DollLayer{"Blob", {}, false};
   SetKey(&layer.transform, {Frame(0), PiecePose(), Ease::kStep});
   SetKey(&layer.transform, {Frame(3), PiecePose(), Ease::kStep});
-  const double top = DraggedPoses(doll, layer, Frame(6)).at("blob")
-                         .warp.at(1).x();
-  QCOMPARE(top, 0.0);
-  QCOMPARE(Trail(doll, layer, 6, 7), 10.0);
-  QCOMPARE(Trail(doll, layer, 7, 7), 10.0);
-  QVERIFY(Trail(doll, layer, 9, 7) < 9.0);
+  QCOMPARE(Trail(doll, layer, 6), 10.0);
+  QCOMPARE(Trail(doll, layer, 7), 10.0);
+  QVERIFY(std::abs(Trail(doll, layer, 6, 3) - 5.0) < 1e-9);
+  // The corner is further off, so it follows less.
+  QVERIFY(Trail(doll, layer, 6, 0) < 5.0);
+  QVERIFY(Trail(doll, layer, 9) < 9.0);
+  QCOMPARE(DraggedPoses(doll, layer, Frame(6)).at("blob").warp.at(4).y(),
+           0.0);
 }
 
 }  // namespace snapper
