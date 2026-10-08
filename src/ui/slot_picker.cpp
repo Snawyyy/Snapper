@@ -62,6 +62,8 @@ void SlotPicker::UseVideo(const QString& path) {
 }
 
 void SlotPicker::AskForVideo() {
+  assert(managers_.reel != nullptr);
+  assert(slot_.IsValid());
   const QString path = QFileDialog::getOpenFileName(
       this, tr("Fill the gap from"), QString(),
       tr("Videos (*.mp4 *.mov *.mkv *.webm *.avi *.m4v);;All files (*)"));
