@@ -1,5 +1,6 @@
 #include <QTest>
 
+#include <cassert>
 #include <cmath>
 #include <memory>
 
@@ -13,10 +14,14 @@ namespace {
 constexpr double kClose = 1e-6;
 
 bool Near(QPointF a, QPointF b) {
+  assert(std::isfinite(a.x()) && std::isfinite(a.y()));
+  assert(std::isfinite(b.x()) && std::isfinite(b.y()));
   return std::abs(a.x() - b.x()) < kClose && std::abs(a.y() - b.y()) < kClose;
 }
 
 PiecePose At(double x, double y) {
+  assert(std::isfinite(x));
+  assert(std::isfinite(y));
   PiecePose pose;
   pose.offset = QPointF(x, y);
   return pose;
@@ -25,11 +30,13 @@ PiecePose At(double x, double y) {
 // A layer whose own move goes linearly from `from` at frame 0 to `to` at
 // frame 10.
 Layer Moving(int id, QPointF from, QPointF to) {
+  assert(id > 0);
   Layer layer;
   layer.id = LayerId(id);
   layer.content = ImageLayer{"/box.png"};
   SetKey(&layer.transform, {Frame(0), At(from.x(), from.y()), Ease::kLinear});
   SetKey(&layer.transform, {Frame(10), At(to.x(), to.y()), Ease::kStep});
+  assert(layer.transform.keys.size() == 2);
   return layer;
 }
 
@@ -41,6 +48,8 @@ Doll Body() {
                      {"arm", {"arm.png"}, 0, {20, 0}, {30, 8}}};
   doll.rig.pieces = {{"body", "", {10, 20}, 0, -1, {}},
                      {"arm", "body", {0, 4}, 1, -1, {}}};
+  assert(doll.art.pieces.size() == doll.rig.pieces.size());
+  assert(FindRig(doll.rig, "arm") != nullptr);
   return doll;
 }
 
@@ -66,29 +75,36 @@ Project Stage() {
   shot.layers = {Moving(1, {0, 0}, {0, -100}),
                  Moving(2, {300, 0}, {300, 0}), bob};
   project.shots = {std::make_shared<const Shot>(shot)};
+  assert(project.shots[0]->layers.size() == 3);
+  assert(FindDoll(project, "Bob") != nullptr);
   return project;
 }
 
 Shot& OnlyShot(Project* project) {
+  assert(project != nullptr);
+  assert(project->shots.size() == 1);
   auto shot = std::make_shared<Shot>(*project->shots[0]);
   project->shots[0] = shot;
   return *shot;
 }
 
 QPointF OriginOf(LinkSolver* links, const Shot& shot, int layer, int frame) {
-  return links->LayerTransform(*FindLayer(shot, LayerId(layer)),
-                               Frame(frame))
-      .map(QPointF());
+  assert(links != nullptr);
+  const Layer* found = FindLayer(shot, LayerId(layer));
+  assert(found != nullptr);
+  return links->LayerTransform(*found, Frame(frame)).map(QPointF());
 }
 
 // Where the arm's joint is drawn at frame, links included.
 QPointF ArmJoint(const Project& project, LinkSolver* links, int frame) {
+  assert(links != nullptr);
   const Shot& shot = *project.shots[0];
-  const Layer& bob = *FindLayer(shot, LayerId(3));
+  const Layer* bob = FindLayer(shot, LayerId(3));
+  assert(bob != nullptr);
   const Doll& doll = *project.dolls.at("Bob");
   const auto placed =
-      PieceTransforms(doll, links->Poses(doll, bob, Frame(frame)));
-  return links->LayerTransform(bob, Frame(frame))
+      PieceTransforms(doll, links->Poses(doll, *bob, Frame(frame)));
+  return links->LayerTransform(*bob, Frame(frame))
       .map(placed.at("arm").map(QPointF(0, 4)));
 }
 
@@ -108,6 +124,7 @@ class LinkTests final : public QObject {
 
 void LinkTests::UnlinkedThingsStayPut() {
   const Project project = Stage();
+  QVERIFY(project.shots[0]->links.empty());
   LinkSolver links(project, *project.shots[0]);
   QVERIFY(Near(OriginOf(&links, *project.shots[0], 2, 5), {300, 0}));
 }
@@ -131,6 +148,7 @@ void LinkTests::StrengthScalesTheMove() {
   OnlyShot(&project).links = {
       Link{{LayerId(2), {}}, {LayerId(1), {}}, Frame(0), 0.5}};
   LinkSolver links(project, *project.shots[0]);
+  QVERIFY(Near(OriginOf(&links, *project.shots[0], 2, 0), {300, 0}));
   QVERIFY(Near(OriginOf(&links, *project.shots[0], 2, 10), {300, -50}));
 }
 
@@ -156,6 +174,7 @@ void LinkTests::ChainsPassMovesOn() {
   LinkSolver links(project, *project.shots[0]);
   Project unlinked = Stage();
   LinkSolver none(unlinked, *unlinked.shots[0]);
+  QVERIFY(Near(OriginOf(&links, *project.shots[0], 2, 10), {300, -100}));
   // The arm hangs from the body, so it rises too.
   QVERIFY(Near(ArmJoint(project, &links, 10),
                ArmJoint(unlinked, &none, 10) + QPointF(0, -100)));

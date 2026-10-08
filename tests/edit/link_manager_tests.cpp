@@ -1,5 +1,6 @@
 #include <QTest>
 
+#include <cassert>
 #include <memory>
 
 #include "edit/history_manager.h"
@@ -30,6 +31,8 @@ Project Stage() {
     shot.layers.push_back(layer);
   }
   project.shots = {std::make_shared<const Shot>(shot)};
+  assert(project.shots[0]->layers.size() == 3);
+  assert(FindDoll(project, "Bob") != nullptr);
   return project;
 }
 
@@ -39,6 +42,8 @@ const LinkEnd kBob{LayerId(3), {}};
 const LinkEnd kArm{LayerId(3), "arm"};
 
 const Shot& OnlyShot(const HistoryManager& history) {
+  assert(history.current().shots.size() == 1);
+  assert(history.current().shots[0] != nullptr);
   return *history.current().shots[0];
 }
 

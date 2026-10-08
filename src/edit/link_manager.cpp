@@ -19,7 +19,8 @@ bool Exists(const Project& project, const Shot& shot, const LinkEnd& end) {
   assert(shot.layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
   const Layer* layer =
       end.layer.IsValid() ? FindLayer(shot, end.layer) : nullptr;
-  if (layer == nullptr) {
+  const bool has_layer = layer != nullptr;
+  if (!has_layer) {
     return false;
   }
   const bool is_whole = end.piece.isEmpty();
@@ -41,7 +42,8 @@ QString LinkManager::WhyNoLink(ShotId shot,
   assert(followers.size() < 100000);
   const Project& project = history_->current();
   const Shot* found = FindShot(project, shot);
-  if (found == nullptr) {
+  const bool has_shot = found != nullptr;
+  if (!has_shot) {
     return Tr("That shot no longer exists.");
   }
   const bool has_leader = Exists(project, *found, leader);
@@ -144,7 +146,8 @@ Result<void> LinkManager::ShiftStrength(
   assert(followers.size() < 100000);
   const bool is_number = std::isfinite(delta);
   const QString why_not = WhyNoUnlink(shot, followers);
-  if (!is_number || !why_not.isEmpty()) {
+  const bool can_shift = is_number && why_not.isEmpty();
+  if (!can_shift) {
     return std::unexpected(
         Error{is_number ? why_not : Tr("That isn't a number.")});
   }
@@ -170,7 +173,8 @@ QString LinkManager::NameOf(ShotId shot, const LinkEnd& end) const {
   const Layer* layer = found != nullptr && end.layer.IsValid()
                            ? FindLayer(*found, end.layer)
                            : nullptr;
-  if (layer == nullptr) {
+  const bool has_layer = layer != nullptr;
+  if (!has_layer) {
     return Tr("something gone");
   }
   const bool is_whole = end.piece.isEmpty();

@@ -29,6 +29,7 @@ std::vector<LinkEnd> EndsOf(const std::set<Pick>& picks) {
   for (const Pick& pick : picks) {
     ends.push_back(LinkEnd{pick.layer, pick.piece});
   }
+  assert(ends.size() == picks.size());
   return ends;
 }
 
@@ -36,6 +37,7 @@ std::vector<LinkEnd> EndsOf(const std::set<Pick>& picks) {
 
 void StageView::contextMenuEvent(QContextMenuEvent* event) {
   assert(event != nullptr);
+  assert(managers_.links != nullptr);
   const auto frame = CurrentFrame();
   const bool is_usable = frame.has_value() && !tool_.IsDragging();
   if (!is_usable) {
@@ -56,7 +58,8 @@ void StageView::AddLinkActions(QMenu* menu, QPointF point,
   assert(managers_.links != nullptr);
   const Project& project = managers_.history->current();
   const Shot* shot = FindShot(project, frame.shot);
-  if (shot == nullptr) {
+  const bool has_shot = shot != nullptr;
+  if (!has_shot) {
     return;
   }
   const std::vector<LinkEnd> picked =
@@ -77,13 +80,13 @@ void StageView::AddLinkActions(QMenu* menu, QPointF point,
   for (const LinkEnd& leader : leaders) {
     QAction* link = menu->addAction(
         tr("Link movement to %1").arg(links->NameOf(frame.shot, leader)));
-    link->setToolTip(tr("The picked things copy its movement from this "
-                        "frame on, from where they are."));
     const QString why_not = links->WhyNoLink(frame.shot, picked, leader);
     Explain(link, why_not);
-    // A tooltip that explains is better than one that repeats the label.
-    if (!why_not.isEmpty()) {
-      link->setToolTip(why_not);
+    // Explain clears the tooltip of a link that can act; say what it does.
+    const bool can_link = why_not.isEmpty();
+    if (can_link) {
+      link->setToolTip(tr("The picked things copy its movement from this "
+                          "frame on, from where they are."));
     }
     connect(link, &QAction::triggered, this,
             [this, shot = frame.shot, picked, leader, from = frame.local] {

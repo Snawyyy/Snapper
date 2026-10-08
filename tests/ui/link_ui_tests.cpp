@@ -6,6 +6,7 @@
 #include <QTest>
 #include <QTimer>
 
+#include <cassert>
 #include <functional>
 
 #include "bench.h"
@@ -63,7 +64,7 @@ void RightClick(StageView* stage, QPointF at,
   QTimer::singleShot(0, stage, [&use, &was_seen] {
     auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
     was_seen = menu != nullptr;
-    if (menu != nullptr) {
+    if (was_seen) {
       use(menu);
       menu->close();
     }
@@ -75,6 +76,8 @@ void RightClick(StageView* stage, QPointF at,
 }
 
 QAction* Find(QMenu* menu, const QString& text) {
+  assert(menu != nullptr);
+  assert(!text.isEmpty());
   for (QAction* action : menu->actions()) {
     const bool is_match = action->text() == text;
     if (is_match) {
@@ -108,6 +111,7 @@ void LinkUiTests::RightClickLinksThePick() {
     QAction* link = Find(menu, "Link movement to Box");
     QVERIFY(link != nullptr);
     QVERIFY(link->isEnabled());
+    QVERIFY(link->toolTip().contains("copy its movement"));
     link->trigger();
   });
   const Link* made = FindLink(*bench.history.current().shots[0],

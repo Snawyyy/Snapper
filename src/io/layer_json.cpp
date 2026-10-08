@@ -162,9 +162,13 @@ QJsonObject EndToJson(const LinkEnd& end) {
 
 LinkEnd EndFromJson(const QJsonValue& value) {
   const QJsonObject object = value.toObject();
-  assert(object.size() >= 0);
-  return LinkEnd{LayerId(object.value("layer").toInt()),
-                 object.value("piece").toString()};
+  const int layer = object.value("layer").toInt();
+  // A bad id becomes no layer, so DropDeadLinks clears the link.
+  const LinkEnd end{LayerId(std::max(layer, 0)),
+                    object.value("piece").toString()};
+  assert(end.layer.value() >= 0);
+  assert(end.layer.IsValid() == (layer > 0));
+  return end;
 }
 
 QJsonArray LinksToJson(const std::vector<Link>& links) {
@@ -176,12 +180,14 @@ QJsonArray LinksToJson(const std::vector<Link>& links) {
                              {"from", link.from.index()},
                              {"strength", link.strength}});
   }
+  assert(array.size() == static_cast<qsizetype>(links.size()));
   return array;
 }
 
 // Links whose layers are missing are dropped quietly, as editing does.
 void ReadLinks(const QJsonArray& links, Shot* shot, JsonIssues* issues) {
-  assert(shot != nullptr && issues != nullptr);
+  assert(shot != nullptr);
+  assert(issues != nullptr);
   const bool is_too_many = links.size() > kMaxLinksPerShot;
   if (is_too_many) {
     issues->Note(QStringLiteral("a shot has too many links"));

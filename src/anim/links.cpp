@@ -12,6 +12,7 @@ namespace snapper {
 namespace {
 
 const Doll* DollOf(const Project& project, const Layer& layer) {
+  assert(layer.id.value() >= 0);
   const auto* posed = std::get_if<DollLayer>(&layer.content);
   assert(project.dolls.size() <= static_cast<size_t>(kMaxProjectDolls));
   return posed != nullptr ? FindDoll(project, posed->doll) : nullptr;
@@ -22,10 +23,6 @@ QTransform Turn(const QTransform& m) {
   assert(std::isfinite(m.m11()) && std::isfinite(m.m22()));
   assert(std::isfinite(m.m12()) && std::isfinite(m.m21()));
   return QTransform(m.m11(), m.m12(), m.m21(), m.m22(), 0.0, 0.0);
-}
-
-bool IsFinite(QPointF point) {
-  return std::isfinite(point.x()) && std::isfinite(point.y());
 }
 
 }  // namespace
@@ -74,11 +71,13 @@ PoseMap LinkSolver::Poses(const Doll& doll, const Layer& layer,
         link.follower.layer == layer.id && !link.follower.piece.isEmpty();
     const RigPiece* rig =
         is_ours ? FindRig(doll.rig, link.follower.piece) : nullptr;
-    if (rig == nullptr) {
+    const bool is_followed_piece = rig != nullptr;
+    if (!is_followed_piece) {
       continue;
     }
     // Turns only, so the links' own shifts never change them.
-    if (placed.empty()) {
+    const bool is_unplaced = placed.empty();
+    if (is_unplaced) {
       placed = PieceTransforms(doll, BasePoses(doll, layer, frame));
     }
     const auto parent = placed.find(rig->parent);
@@ -115,7 +114,8 @@ QPointF LinkSolver::Push(const Link& link, Frame frame) {
   const bool has_points = now.has_value() && then.has_value();
   const QPointF push =
       has_points ? (*now - *then) * link.strength : QPointF();
-  return pushes_[key] = IsFinite(push) ? push : QPointF();
+  const bool is_finite = std::isfinite(push.x()) && std::isfinite(push.y());
+  return pushes_[key] = is_finite ? push : QPointF();
 }
 
 std::optional<QPointF> LinkSolver::PointOf(const LinkEnd& end,
@@ -124,7 +124,8 @@ std::optional<QPointF> LinkSolver::PointOf(const LinkEnd& end,
   assert(end.layer.value() >= 0);
   const Layer* layer =
       end.layer.IsValid() ? FindLayer(shot_, end.layer) : nullptr;
-  if (layer == nullptr) {
+  const bool has_layer = layer != nullptr;
+  if (!has_layer) {
     return std::nullopt;
   }
   const QTransform to_shot = snapper::LayerTransform(*layer, frame);
@@ -135,12 +136,14 @@ std::optional<QPointF> LinkSolver::PointOf(const LinkEnd& end,
   const Doll* doll = DollOf(project_, *layer);
   const RigPiece* rig =
       doll != nullptr ? FindRig(doll->rig, end.piece) : nullptr;
-  if (rig == nullptr) {
+  const bool has_rig = rig != nullptr;
+  if (!has_rig) {
     return std::nullopt;
   }
   const auto placed = PieceTransforms(*doll, BasePoses(*doll, *layer, frame));
   const auto piece = placed.find(end.piece);
-  if (piece == placed.end()) {
+  const bool is_placed = piece != placed.end();
+  if (!is_placed) {
     return std::nullopt;
   }
   return to_shot.map(piece->second.map(rig->pivot)) +
@@ -153,7 +156,8 @@ QPointF LinkSolver::Carried(const LinkEnd& end, Frame frame) {
   QPointF moved;
   for (const LinkEnd& carrier : CarriersOf(project_, shot_, end)) {
     const Link* link = FindLink(shot_, carrier);
-    if (link != nullptr) {
+    const bool is_carried = link != nullptr;
+    if (is_carried) {
       moved += Push(*link, frame);
     }
   }
@@ -178,7 +182,8 @@ std::vector<LinkEnd> CarriersOf(const Project& project, const Shot& shot,
   for (int i = 0; rig != nullptr && i < kMaxDollPieces; ++i) {
     const bool has_parent = !rig->parent.isEmpty();
     rig = has_parent ? FindRig(doll->rig, rig->parent) : nullptr;
-    if (rig != nullptr) {
+    const bool has_rig = rig != nullptr;
+    if (has_rig) {
       carriers.push_back(LinkEnd{end.layer, rig->name});
     }
   }
@@ -207,7 +212,8 @@ bool WouldLoop(const Project& project, const Shot& shot,
         return true;
       }
       const Link* link = FindLink(shot, carrier);
-      if (link != nullptr) {
+      const bool is_carried = link != nullptr;
+      if (is_carried) {
         waiting.push_back(link->leader);
       }
     }

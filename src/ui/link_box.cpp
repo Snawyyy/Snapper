@@ -49,19 +49,23 @@ std::vector<LinkEnd> LinkBox::Picked() const {
   std::ranges::stable_partition(ends, [this](const LinkEnd& end) {
     return end.layer == managers_.selection->layer();
   });
+  assert(ends.size() == managers_.selection->picks().size());
   return ends;
 }
 
 const Link* LinkBox::Shown() const {
   assert(managers_.history != nullptr);
+  assert(managers_.selection != nullptr);
   const Shot* shot =
       FindShot(managers_.history->current(), managers_.selection->shot());
-  if (shot == nullptr) {
+  const bool has_shot = shot != nullptr;
+  if (!has_shot) {
     return nullptr;
   }
   for (const LinkEnd& end : Picked()) {
     const Link* link = FindLink(*shot, end);
-    if (link != nullptr) {
+    const bool is_linked = link != nullptr;
+    if (is_linked) {
       return link;
     }
   }
@@ -70,14 +74,16 @@ const Link* LinkBox::Shown() const {
 
 void LinkBox::Refresh() {
   assert(managers_.links != nullptr);
+  assert(managers_.selection != nullptr);
   const Link* link = Shown();
+  const bool is_linked = link != nullptr;
   const QString why_not =
-      link != nullptr ? QString()
+      is_linked ? QString()
                       : tr("Right-click something on the stage to link the "
                            "picked things' movement to it.");
   Explain(&strength_, why_not);
   Explain(&unlink_, why_not);
-  if (link == nullptr) {
+  if (!is_linked) {
     follows_.setText(tr("Follows nothing."));
     return;
   }
@@ -91,8 +97,10 @@ void LinkBox::Refresh() {
 
 void LinkBox::Commit() {
   assert(managers_.links != nullptr);
+  assert(managers_.selection != nullptr);
   const Link* link = Shown();
-  if (link == nullptr) {
+  const bool is_linked = link != nullptr;
+  if (!is_linked) {
     return;
   }
   const double delta = strength_.value() - link->strength;
