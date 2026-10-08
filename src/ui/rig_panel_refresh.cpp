@@ -127,6 +127,7 @@ void RigPanel::RefreshPiece() {
   Explain(&copy_side_, no_twin);
   const bool has_piece = rig != nullptr && art != nullptr;
   if (!has_piece) {
+    RefreshMotion(nullptr);
     return;
   }
   const QSignalBlocker quiet_parent(parent_);
@@ -167,6 +168,7 @@ void RigPanel::RefreshPiece() {
       rig->warp.IsOn() ? QString() : tr("Tick \"Bend with a grid\" first.");
   Explain(&warp_columns_, no_grid);
   Explain(&warp_rows_, no_grid);
+  RefreshMotion(rig);
   Explain(&add_chain_, rig->parent.isEmpty()
                            ? tr("A chain needs the piece to hang from one.")
                            : QString());

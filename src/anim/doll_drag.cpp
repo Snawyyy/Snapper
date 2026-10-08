@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "anim/warp.h"
+#include "anim/warp_motion.h"
 
 namespace snapper {
 namespace {
@@ -155,6 +156,38 @@ std::vector<Carry> Run(const Doll& doll, const Layer& layer, Frame frame,
   return carried;
 }
 
+// Gives pose one warp offset per grid point (at rest when it had none
+// or a stale count), ready to add to.
+void FitWarp(int count, PiecePose* pose) {
+  assert(pose != nullptr);
+  assert(count >= 0 && count <= kMaxWarpPoints);
+  const bool is_fitting = static_cast<int>(pose->warp.size()) == count;
+  if (!is_fitting) {
+    pose->warp.assign(static_cast<size_t>(count), QPointF());
+  }
+}
+
+// Adds each piece's warp motion at beat to its warp.
+void AddMotions(const Doll& doll, Frame beat, PoseMap* poses) {
+  assert(poses != nullptr);
+  assert(doll.rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+  for (const RigPiece& rig : doll.rig.pieces) {
+    const ArtPiece* art = FindArt(doll, rig.name);
+    const bool is_moving =
+        art != nullptr && rig.warp.IsOn() && rig.warp_motion.IsOn();
+    if (!is_moving) {
+      continue;
+    }
+    const std::vector<QPointF> pushes =
+        MotionPushes(art->size, rig.warp, rig.warp_motion, beat);
+    PiecePose& pose = (*poses)[rig.name];
+    FitWarp(rig.warp.PointCount(), &pose);
+    for (size_t point = 0; point < pushes.size(); ++point) {
+      pose.warp[point] += pushes[point];
+    }
+  }
+}
+
 // Adds spring's trail (from where its point is carried) to the warp of
 // its piece, spread by the point's rubber reach.
 void AddTrail(const Doll& doll, const Spring& spring, const Carry& carried,
@@ -172,10 +205,7 @@ void AddTrail(const Doll& doll, const Spring& spring, const Carry& carried,
   const QPointF trail = back.map(spring.at) - back.map(carried->first);
   PiecePose& pose = (*poses)[spring.piece];
   const int count = rig->warp.PointCount();
-  const bool is_fitting = static_cast<int>(pose.warp.size()) == count;
-  if (!is_fitting) {
-    pose.warp.assign(static_cast<size_t>(count), QPointF());
-  }
+  FitWarp(count, &pose);
   const bool has_reach = static_cast<int>(rig->warp_reach.size()) == count;
   const double reach =
       has_reach ? rig->warp_reach[static_cast<size_t>(spring.node.point)]
@@ -192,16 +222,16 @@ PoseMap DraggedPoses(const Doll& doll, const Layer& layer, Frame frame) {
   assert(frame.index() >= 0);
   assert(std::holds_alternative<DollLayer>(layer.content));
   PoseMap poses = SamplePoses(std::get<DollLayer>(layer.content), frame);
+  const Frame beat = BeatOf(layer, frame);
   std::vector<Spring> springs = SpringsOf(doll);
   const bool has_springs = !springs.empty();
-  if (!has_springs) {
-    return poses;
+  if (has_springs) {
+    const std::vector<Carry> carried = Run(doll, layer, beat, &springs);
+    for (size_t i = 0; i < springs.size(); ++i) {
+      AddTrail(doll, springs[i], carried[i], &poses);
+    }
   }
-  const std::vector<Carry> carried =
-      Run(doll, layer, BeatOf(layer, frame), &springs);
-  for (size_t i = 0; i < springs.size(); ++i) {
-    AddTrail(doll, springs[i], carried[i], &poses);
-  }
+  AddMotions(doll, beat, &poses);
   return poses;
 }
 

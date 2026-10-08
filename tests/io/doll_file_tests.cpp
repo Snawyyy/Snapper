@@ -64,7 +64,8 @@ void DollFileTests::RigSurvivesARoundTrip() {
   QTemporaryDir dir;
   Rig rig;
   rig.pieces = {{"body", "", {1, 2}, 3, 0, {1, 1}, 0.0, false,
-                 {0.0, 1.5, 0.0, 2.0}, {{3, 0.25, 0.75}}},
+                 {0.0, 1.5, 0.0, 2.0}, {{3, 0.25, 0.75}},
+                 {WarpMotionKind::kNone, 12.0, 30, WarpEdge::kLeft}},
                 {"head", "body", {4, 5}, 6, -1, {}, 10.0, true}};
   rig.chains = {{"neck", "body", "head", {7, 8}, false}};
   QVERIFY(WriteRig(dir.path(), rig).has_value());

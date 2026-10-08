@@ -45,6 +45,7 @@ class DragTests final : public QObject {
   void BounceOvershoots();
   void ReachSpreadsTheTrail();
   void EasesDragEveryFrame();
+  void AnimationPlaysOnTheBeat();
 };
 
 void DragTests::StillDollsDontDrag() {
@@ -110,6 +111,24 @@ void DragTests::EasesDragEveryFrame() {
   layer.transform.keys[1].ease = Ease::kLinear;
   SetKey(&layer.transform, {Frame(12), far, Ease::kStep});
   QVERIFY(Trail(doll, layer, 5) != Trail(doll, layer, 4));
+}
+
+void DragTests::AnimationPlaysOnTheBeat() {
+  Doll doll = Blob(0.5);
+  doll.rig.pieces[0].drag_nodes.clear();
+  doll.rig.pieces[0].warp_motion = {WarpMotionKind::kWave, 10.0, 24,
+                                    WarpEdge::kTop};
+  // Keyed on 3s: the wave moves at frames 0, 3, 6...
+  Layer layer;
+  layer.content = DollLayer{"Blob", {}, false};
+  SetKey(&layer.transform, {Frame(0), PiecePose(), Ease::kStep});
+  SetKey(&layer.transform, {Frame(3), PiecePose(), Ease::kStep});
+  const double top = DraggedPoses(doll, layer, Frame(6)).at("blob")
+                         .warp.at(1).x();
+  QCOMPARE(top, 0.0);
+  QCOMPARE(Trail(doll, layer, 6, 7), 10.0);
+  QCOMPARE(Trail(doll, layer, 7, 7), 10.0);
+  QVERIFY(Trail(doll, layer, 9, 7) < 9.0);
 }
 
 }  // namespace snapper

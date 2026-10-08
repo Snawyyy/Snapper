@@ -48,6 +48,7 @@ class RigTests final : public QObject {
   void UnknownDollsAndPiecesSayWhy();
   void OneSideCopiesToTheOther();
   void ManyPiecesChangeTogether();
+  void WarpAnimationNeedsAGrid();
 };
 
 void RigTests::ParentsRefuseLoops() {
@@ -169,8 +170,11 @@ void RigTests::OneSideCopiesToTheOther() {
   QCOMPARE(arm->parent, QString("chest"));
   QCOMPARE(arm->order, 2);
   QVERIFY(FindRig(BobRig(history), "hand_r")->parent.isEmpty());
+  QVERIFY(rig.SetMotionEdgeAll("Bob", {"hand_l"}, WarpEdge::kLeft)
+              .has_value());
   QVERIFY(rig.CopyToOtherSide("Bob", "hand_l", true).has_value());
   const RigPiece* hand = FindRig(BobRig(history), "hand_r");
+  QCOMPARE(hand->warp_motion.edge, WarpEdge::kRight);
   QCOMPARE(hand->parent, QString("arm_r"));
   QCOMPARE(hand->warp, (WarpGrid{2, 2}));
   QCOMPARE(BobRig(history).chains.size(), size_t{2});
@@ -204,6 +208,33 @@ void RigTests::ManyPiecesChangeTogether() {
   QCOMPARE(history.UndoLabel(), QString("Keep shape"));
   QVERIFY(!rig.ShiftRestAll("Bob", {}, 1.0).has_value());
   QVERIFY(!rig.CopyAllToOtherSide("Bob", {"body"}).has_value());
+}
+
+void RigTests::WarpAnimationNeedsAGrid() {
+  HistoryManager history(ArmProject());
+  RigManager rig(&history);
+  QVERIFY(!rig.SetMotionEdgeAll("Bob", {"upper"}, WarpEdge::kLeft)
+               .has_value());
+  QVERIFY(!rig.SetMotionEdgeAll("Bob", {"lower", "upper"}, WarpEdge::kLeft)
+               .has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->warp_motion.edge,
+           WarpEdge::kTop);
+  QVERIFY(rig.SetMotionEdgeAll("Bob", {"lower"}, WarpEdge::kLeft)
+              .has_value());
+  QCOMPARE(history.UndoLabel(), QString("Animation edge"));
+  QVERIFY(rig.ShiftMotionAll("Bob", {"lower"}, 4.0, 6).has_value());
+  const WarpMotion& moved = FindRig(BobRig(history), "lower")->warp_motion;
+  QCOMPARE(moved.size, 12.0);
+  QCOMPARE(moved.cycle, 30);
+  QCOMPARE(history.UndoLabel(), QString("Animation size"));
+  QVERIFY(rig.ShiftMotionAll("Bob", {"lower"}, 0.0, -400).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->warp_motion.cycle,
+           kMinWarpCycle);
+  QCOMPARE(history.UndoLabel(), QString("Animation speed"));
+  QVERIFY(!rig.ShiftMotionAll("Bob", {"lower"}, qQNaN(), 0).has_value());
+  QVERIFY(rig.SetMotionKindAll("Bob", {"lower"}, WarpMotionKind::kNone)
+              .has_value());
+  QCOMPARE(history.UndoLabel(), QString("Warp animation"));
 }
 
 }  // namespace snapper
