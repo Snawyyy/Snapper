@@ -7,6 +7,7 @@
 
 #include "anim/doll_lean.h"
 #include "anim/doll_pose.h"
+#include "anim/links.h"
 #include "anim/warp.h"
 #include "render/frame_renderer.h"
 #include "render/layer_painter.h"
@@ -34,9 +35,10 @@ std::optional<PosedDoll> Pose(const Project& project, const Shot& shot,
   if (!is_doll) {
     return std::nullopt;
   }
+  LinkSolver links(project, shot);
   return PosedDoll{doll,
-                   PieceTransforms(*doll, ShownPoses(*doll, *found, local)),
-                   LayerTransform(*found, local) *
+                   PieceTransforms(*doll, links.Poses(*doll, *found, local)),
+                   links.LayerTransform(*found, local) *
                        FrameRenderer::ViewTransform(project, shot, local,
                                                     scale)};
 }
@@ -53,7 +55,8 @@ std::optional<QTransform> LayerToScreen(const Project& project,
   if (!is_found) {
     return std::nullopt;
   }
-  return LayerTransform(*found, local) *
+  LinkSolver links(project, shot);
+  return links.LayerTransform(*found, local) *
          FrameRenderer::ViewTransform(project, shot, local, scale);
 }
 

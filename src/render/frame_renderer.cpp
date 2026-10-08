@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include "anim/jitter.h"
+#include "anim/links.h"
 #include "anim/master_timeline.h"
 #include "anim/sampler.h"
 #include "render/effects.h"
@@ -99,6 +100,7 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
   assert(shot.layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
   QImage frame = Blank(project, scale, shot.background);
   const QTransform view = ViewTransform(project, shot, local, scale);
+  LinkSolver links(project, shot);
   for (const Layer& layer : shot.layers) {
     const bool is_live = IsLayerLive(layer, local, shot.length);
     if (!is_live) {
@@ -115,7 +117,7 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
       continue;
     }
     QPainter painter(&frame);
-    PaintLayer(project, layer, local, view, &cache_, &painter);
+    PaintLayer(project, layer, local, view, &links, &cache_, &painter);
   }
   return frame;
 }

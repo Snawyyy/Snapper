@@ -8,6 +8,7 @@ class DollLibraryManager;
 class ExportManager;
 class HistoryManager;
 class KeyManager;
+class LinkManager;
 class PlaybackManager;
 class PoseManager;
 class PresetManager;
@@ -31,10 +32,12 @@ struct Managers final {
   PresetManager* presets = nullptr;
   PlaybackManager* playback = nullptr;
   ExportManager* exporter = nullptr;
+  LinkManager* links = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&
-           selection && pose && keys && presets && playback && exporter;
+           selection && pose && keys && presets && playback && exporter &&
+           links;
   }
 };
 

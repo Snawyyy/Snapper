@@ -32,6 +32,8 @@ Result<Project> WithShot(Project project, ShotId id, Change change) {
   if (!done) {
     return std::unexpected(done.error());
   }
+  // A removed layer takes its links with it.
+  DropDeadLinks(&shot);
   shared = std::make_shared<const Shot>(std::move(shot));
   return project;
 }

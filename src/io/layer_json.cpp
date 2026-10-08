@@ -2,6 +2,7 @@
 
 #include <QJsonArray>
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <variant>
@@ -153,6 +154,61 @@ Layer LayerFromJson(const QJsonObject& object, JsonIssues* issues) {
   return layer;
 }
 
+QJsonObject EndToJson(const LinkEnd& end) {
+  assert(end.layer.IsValid());
+  assert(end.piece.size() < 100000);
+  return QJsonObject{{"layer", end.layer.value()}, {"piece", end.piece}};
+}
+
+LinkEnd EndFromJson(const QJsonValue& value) {
+  const QJsonObject object = value.toObject();
+  const int layer = object.value("layer").toInt();
+  // A bad id becomes no layer, so DropDeadLinks clears the link.
+  const LinkEnd end{LayerId(std::max(layer, 0)),
+                    object.value("piece").toString()};
+  assert(end.layer.value() >= 0);
+  assert(end.layer.IsValid() == (layer > 0));
+  return end;
+}
+
+QJsonArray LinksToJson(const std::vector<Link>& links) {
+  assert(links.size() <= static_cast<size_t>(kMaxLinksPerShot));
+  QJsonArray array;
+  for (const Link& link : links) {
+    array.append(QJsonObject{{"follower", EndToJson(link.follower)},
+                             {"leader", EndToJson(link.leader)},
+                             {"from", link.from.index()},
+                             {"strength", link.strength}});
+  }
+  assert(array.size() == static_cast<qsizetype>(links.size()));
+  return array;
+}
+
+// Links whose layers are missing are dropped quietly, as editing does.
+void ReadLinks(const QJsonArray& links, Shot* shot, JsonIssues* issues) {
+  assert(shot != nullptr);
+  assert(issues != nullptr);
+  const bool is_too_many = links.size() > kMaxLinksPerShot;
+  if (is_too_many) {
+    issues->Note(QStringLiteral("a shot has too many links"));
+    return;
+  }
+  for (const QJsonValue& item : links) {
+    const QJsonObject object = item.toObject();
+    Link link;
+    link.follower = EndFromJson(object.value("follower"));
+    link.leader = EndFromJson(object.value("leader"));
+    link.from = Frame(object.value("from").toInt());
+    link.strength = std::clamp(object.value("strength").toDouble(1.0), 0.0,
+                               kMaxLinkStrength);
+    const bool is_repeat = FindLink(*shot, link.follower) != nullptr;
+    if (!is_repeat) {
+      shot->links.push_back(link);
+    }
+  }
+  DropDeadLinks(shot);
+}
+
 }  // namespace
 
 QJsonObject ShotToJson(const Shot& shot) {
@@ -172,7 +228,8 @@ QJsonObject ShotToJson(const Shot& shot) {
        QJsonObject{{"kind", EnumToJson(static_cast<int>(shot.transition.kind),
                                        kTransitionNames)},
                    {"length", shot.transition.length.index()}}},
-      {"layers", layers}};
+      {"layers", layers},
+      {"links", LinksToJson(shot.links)}};
 }
 
 Shot ShotFromJson(const QJsonObject& object, JsonIssues* issues) {
@@ -197,6 +254,7 @@ Shot ShotFromJson(const QJsonObject& object, JsonIssues* issues) {
   for (const QJsonValue& layer : layers) {
     shot.layers.push_back(LayerFromJson(layer.toObject(), issues));
   }
+  ReadLinks(object.value("links").toArray(), &shot, issues);
   return shot;
 }
 

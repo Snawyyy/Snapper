@@ -26,7 +26,8 @@ snapper_module(model
   MODULES base
   LIBS Qt6::Gui)
 snapper_module(anim
-  SOURCES doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp jitter.cpp master_timeline.cpp mirror.cpp presets.cpp
+  SOURCES doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp jitter.cpp links.cpp
+          master_timeline.cpp mirror.cpp presets.cpp
           sampler.cpp warp.cpp warp_motion.cpp
   MODULES model)
 snapper_module(io
@@ -49,7 +50,8 @@ snapper_module(edit
           history_manager.cpp key_clipboard.cpp key_manager.cpp
           playback_manager.cpp pose_clipboard.cpp pose_manager.cpp
           preset_manager.cpp saved_poses.cpp
-          project_edits.cpp rig_batch.cpp rig_manager.cpp rig_mirror.cpp
+          link_manager.cpp project_edits.cpp rig_batch.cpp rig_manager.cpp
+          rig_mirror.cpp
           selection_manager.cpp selection_prune.cpp shot_batch.cpp
           shot_manager.cpp stage_batch.cpp stage_manager.cpp
           stage_settings.cpp timeline_rows.cpp
@@ -59,10 +61,10 @@ snapper_module(ui
   SOURCES cast_actions.cpp cast_panel.cpp export_dialog.cpp
           export_dialog_actions.cpp file_menu.cpp main_window.cpp
           drag_box.cpp shot_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
-          layer_box_commits.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
+          layer_box_commits.cpp link_box.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
           rig_canvas_input.cpp rig_panel.cpp rig_panel_motion.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp
           shot_strip.cpp
-          stage_view.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
+          stage_menu.cpp stage_view.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
           timeline_view.cpp
   MODULES edit
   LIBS Qt6::Widgets)
@@ -78,20 +80,21 @@ if(BUILD_TESTING)
   snapper_test(base SOURCES base_tests.cpp)
   snapper_test(model SOURCES model_tests.cpp)
   snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp lean_tests.cpp
-                    drag_tests.cpp warp_motion_tests.cpp)
+                    drag_tests.cpp link_tests.cpp warp_motion_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp)
   snapper_test(render SOURCES render_tests.cpp)
   snapper_test(edit SOURCES document_tests.cpp export_tests.cpp
                             history_tests.cpp
-                            key_tests.cpp library_tests.cpp posing_tests.cpp
+                            key_tests.cpp library_tests.cpp
+                            link_manager_tests.cpp posing_tests.cpp
                             playback_tests.cpp preset_tests.cpp
                             rig_tests.cpp
                             shot_tests.cpp
                             selection_tests.cpp stage_tests.cpp
                             timeline_tests.cpp track_tests.cpp)
   snapper_test(ui SOURCES cast_panel_tests.cpp export_dialog_tests.cpp
-                          inspector_tests.cpp
+                          inspector_tests.cpp link_ui_tests.cpp
                           pose_tool_tests.cpp rig_ui_tests.cpp
                           shot_strip_tests.cpp
                           theme_tests.cpp

@@ -9,6 +9,7 @@
 #include "edit/export_manager.h"
 #include "edit/history_manager.h"
 #include "edit/key_manager.h"
+#include "edit/link_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/preset_manager.h"
@@ -40,6 +41,7 @@ class AppContext final {
   RigManager rig_;
   ShotManager shots_;
   StageManager stage_;
+  LinkManager links_;
   SelectionManager selection_;
   PoseManager pose_;
   KeyManager keys_;

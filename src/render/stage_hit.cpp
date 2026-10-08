@@ -10,6 +10,7 @@
 
 #include "anim/doll_lean.h"
 #include "anim/doll_pose.h"
+#include "anim/links.h"
 #include "render/frame_renderer.h"
 #include "render/layer_painter.h"
 #include "render/stage_geometry.h"
@@ -80,6 +81,7 @@ struct LayerHitter final {
   const QTransform& world;
   QPointF point;
   QPointF in_layer;
+  LinkSolver* links;
   ImageCache* cache;
 
   std::optional<QString> operator()(const DollLayer& layer) const {
@@ -87,7 +89,7 @@ struct LayerHitter final {
     assert(!layer.doll.isNull());
     const Doll* doll = FindDoll(project, layer.doll);
     const bool has_doll = doll != nullptr;
-    return has_doll ? HitDollPiece(*doll, ShownPoses(*doll, whole, local),
+    return has_doll ? HitDollPiece(*doll, links->Poses(*doll, whole, local),
                                    world, point, cache)
                     : std::nullopt;
   }
@@ -123,8 +125,9 @@ std::optional<StageHit> HitTest(const Project& project, const Shot& shot,
   assert(scale > 0.0);
   const QTransform view =
       FrameRenderer::ViewTransform(project, shot, local, scale);
+  LinkSolver links(project, shot);
   for (auto it = shot.layers.rbegin(); it != shot.layers.rend(); ++it) {
-    const QTransform world = LayerTransform(*it, local) * view;
+    const QTransform world = links.LayerTransform(*it, local) * view;
     bool is_invertible = false;
     const QPointF in_layer = world.inverted(&is_invertible).map(point);
     const bool is_testable =
@@ -133,7 +136,8 @@ std::optional<StageHit> HitTest(const Project& project, const Shot& shot,
       continue;
     }
     const std::optional<QString> hit = std::visit(
-        LayerHitter{project, *it, local, world, point, in_layer, cache},
+        LayerHitter{project, *it, local, world, point, in_layer, &links,
+                    cache},
         it->content);
     const bool is_hit = hit.has_value();
     if (is_hit) {
@@ -170,8 +174,9 @@ QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
     // One box around every posed piece, in the layer's own space, so it
     // turns and scales with the doll.
     own = QRectF();
+    LinkSolver links(project, shot);
     for (const PlacedPiece& piece :
-         PlaceDoll(*doll, ShownPoses(*doll, *found, local))) {
+         PlaceDoll(*doll, links.Poses(*doll, *found, local))) {
       own = own.united(
           piece.transform.mapRect(QRectF(QPointF(), QSizeF(piece.size))));
     }

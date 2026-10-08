@@ -23,6 +23,7 @@ struct Painter final {
   const Layer& whole;
   Frame frame;
   const QTransform& world;
+  LinkSolver* links;
   ImageCache* cache;
   QPainter* painter;
 
@@ -42,7 +43,8 @@ void Painter::operator()(const DollLayer& layer) const {
   }
   const double layer_opacity = painter->opacity();
   for (const PlacedPiece& piece :
-       PlaceDoll(*doll, ShownPoses(*doll, whole, frame))) {
+       PlaceDoll(*doll, links != nullptr ? links->Poses(*doll, whole, frame)
+                                         : ShownPoses(*doll, whole, frame))) {
     const QImage& image = cache->Get(piece.drawing);
     const bool is_drawable = !image.isNull() && piece.opacity > 0.0;
     if (!is_drawable) {
@@ -135,7 +137,7 @@ QRectF TextBox(const TextLayer& text) {
 }
 
 void PaintLayer(const Project& project, const Layer& layer, Frame frame,
-                const QTransform& view, ImageCache* cache,
+                const QTransform& view, LinkSolver* links, ImageCache* cache,
                 QPainter* painter) {
   assert(cache != nullptr);
   assert(painter != nullptr && painter->isActive());
@@ -144,8 +146,11 @@ void PaintLayer(const Project& project, const Layer& layer, Frame frame,
   painter->setRenderHint(QPainter::Antialiasing);
   painter->setRenderHint(QPainter::SmoothPixmapTransform);
   painter->setOpacity(std::clamp(pose.opacity, 0.0, 1.0));
-  const QTransform world = LayerTransform(layer, frame) * view;
-  std::visit(Painter{project, layer, frame, world, cache, painter},
+  const QTransform world = (links != nullptr
+                                ? links->LayerTransform(layer, frame)
+                                : LayerTransform(layer, frame)) *
+                           view;
+  std::visit(Painter{project, layer, frame, world, links, cache, painter},
              layer.content);
   painter->restore();
 }
