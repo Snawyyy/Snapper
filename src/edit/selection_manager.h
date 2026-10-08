@@ -64,9 +64,10 @@ std::set<T> Combine(const std::set<T>& set, const std::set<T>& items,
 }
 
 // What the user has picked: shots, layers and pieces in the current
-// shot, keys, and clips on the reel. Many can be picked at once; the focus is the one the
-// panels show. Picking is not an edit, so it has no undo; after every
-// edit or undo anything picked that no longer exists is dropped.
+// shot, keys, and clips on the reel. Many can be picked at once; the
+// focus is the one the panels show. Picking is not an edit, so it has
+// no undo; after every edit or undo anything picked that no longer
+// exists is dropped.
 class SelectionManager final : public QObject {
   Q_OBJECT
 
