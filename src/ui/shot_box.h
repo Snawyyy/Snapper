@@ -2,8 +2,10 @@
 #define SNAPPER_UI_SHOT_BOX_H_
 
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QHBoxLayout>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSpinBox>
@@ -40,7 +42,9 @@ class ShotBox final : public QGroupBox {
   QFormLayout layout_;
   LiveEdit live_;
   QLineEdit name_;
+  QHBoxLayout length_row_;
   QSpinBox length_;
+  QDoubleSpinBox length_seconds_;
   QPushButton background_;
   QComboBox transition_;
   QSpinBox transition_length_;

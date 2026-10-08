@@ -23,6 +23,7 @@ class BaseTests final : public QObject {
   void IdsStartInvalidAndCompare();
   void FramesClampToTheirRange();
   void SecondsRoundDownToTheFrameThatShowsThem();
+  void TypedSecondsRoundToTheNearestFrame();
   void BadSecondsMeanTheStart();
 };
 
@@ -55,6 +56,16 @@ void BaseTests::BadSecondsMeanTheStart() {
            0);
   QCOMPARE(FrameAtSeconds(std::numeric_limits<double>::infinity()).index(),
            0);
+}
+
+void BaseTests::TypedSecondsRoundToTheNearestFrame() {
+  QCOMPARE(FramesNearSeconds(2.0), Frame(48));
+  QCOMPARE(FramesNearSeconds(2.53), Frame(61));
+  QCOMPARE(FramesNearSeconds(2.51), Frame(60));
+  QCOMPARE(FramesNearSeconds(90.0), Frame(2160));
+  QCOMPARE(FramesNearSeconds(-1.0), Frame(0));
+  QCOMPARE(FramesNearSeconds(qQNaN()), Frame(0));
+  QCOMPARE(FramesNearSeconds(1e12), Frame(kMaxFrame));
 }
 
 }  // namespace snapper
