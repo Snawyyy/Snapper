@@ -25,6 +25,8 @@ QString MotionLabel(WarpMotionKind kind) {
       return RigPanel::tr("Breathe");
     case WarpMotionKind::kSway:
       return RigPanel::tr("Sway");
+    case WarpMotionKind::kShiver:
+      return RigPanel::tr("Shiver");
   }
   assert(false);
   return QString();

@@ -15,6 +15,7 @@ class WarpMotionTests final : public QObject {
   void PulseBeatsFromTheMiddle();
   void BreatheSwellsAndFalls();
   void SwayBendsMostAtTheFreeEnd();
+  void ShiverShakesEachDotItsOwnWay();
 };
 
 void WarpMotionTests::StillWhenOff() {
@@ -108,6 +109,22 @@ void WarpMotionTests::SwayBendsMostAtTheFreeEnd() {
   QVERIFY(std::abs(MotionPushes(size, grid, sway, Frame(18))[0].x() + 10.0) <
           1e-9);
   QVERIFY(HangsFromEdge(WarpMotionKind::kSway));
+}
+
+void WarpMotionTests::ShiverShakesEachDotItsOwnWay() {
+  const QSize size(20, 20);
+  const WarpGrid grid{2, 2};
+  const WarpMotion shiver = Motion(WarpMotionKind::kShiver);
+  const std::vector<QPointF> first =
+      MotionPushes(size, grid, shiver, Frame(0));
+  // A fresh shake every 2 frames on a 24-frame cycle.
+  QCOMPARE(MotionPushes(size, grid, shiver, Frame(1)), first);
+  QVERIFY(MotionPushes(size, grid, shiver, Frame(2)) != first);
+  QVERIFY(first[0] != first[1]);
+  for (const QPointF& push : first) {
+    QVERIFY(std::abs(push.x()) <= 10.0 && std::abs(push.y()) <= 10.0);
+  }
+  QVERIFY(!HangsFromEdge(WarpMotionKind::kShiver));
 }
 
 }  // namespace snapper

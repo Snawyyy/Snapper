@@ -4,10 +4,14 @@
 #include <cmath>
 #include <numbers>
 
+#include "anim/jitter.h"
+
 namespace snapper {
 namespace {
 
 constexpr double kTurn = 2.0 * std::numbers::pi;
+// How many fresh shakes a shiver makes in one cycle.
+constexpr int kShakesPerCycle = 12;
 
 // How far through its cycle motion is at frame, 0 up to 1.
 double Phase(const WarpMotion& motion, Frame frame) {
@@ -94,6 +98,16 @@ QPointF Breathe(const WarpMotion& motion, double phase, QPointF spot) {
   return Outward(spot) * (motion.size * swell);
 }
 
+// Every dot jumps to its own small random spot, a fresh one
+// kShakesPerCycle times a cycle; the same frame always shakes the same.
+QPointF Shiver(const WarpMotion& motion, int point, Frame frame) {
+  assert(point >= 0 && point < kMaxWarpPoints);
+  assert(frame.index() >= 0);
+  const int shake = frame.index() * kShakesPerCycle / motion.cycle;
+  const int step = shake * kMaxWarpPoints + point;
+  return QPointF(Jitter(step, 0), Jitter(step, 1)) * motion.size;
+}
+
 }  // namespace
 
 bool HangsFromEdge(WarpMotionKind kind) {
@@ -101,6 +115,7 @@ bool HangsFromEdge(WarpMotionKind kind) {
     case WarpMotionKind::kNone:
     case WarpMotionKind::kPulse:
     case WarpMotionKind::kBreathe:
+    case WarpMotionKind::kShiver:
       return false;
     case WarpMotionKind::kWave:
     case WarpMotionKind::kSway:
@@ -137,6 +152,9 @@ std::vector<QPointF> MotionPushes(QSize size, WarpGrid grid,
         break;
       case WarpMotionKind::kSway:
         push = Sway(motion, phase, spot);
+        break;
+      case WarpMotionKind::kShiver:
+        push = Shiver(motion, point, frame);
         break;
     }
   }
