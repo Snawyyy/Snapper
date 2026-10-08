@@ -58,6 +58,14 @@ QPointF Wave(const WarpMotion& motion, double phase, QPointF spot) {
   return Across(motion.edge) * (motion.size * along * swing);
 }
 
+// The whole piece swings to and fro together from the anchor edge,
+// bending most at the free end, like a skirt or a tail.
+QPointF Sway(const WarpMotion& motion, double phase, QPointF spot) {
+  const double along = Along(spot, motion.edge);
+  const double swing = std::sin(kTurn * phase);
+  return Across(motion.edge) * (motion.size * along * along * swing);
+}
+
 // From the middle of the drawing out to spot, -1 to 1 each way.
 QPointF Outward(QPointF spot) {
   assert(spot.x() >= 0.0 && spot.x() <= 1.0);
@@ -95,6 +103,7 @@ bool HangsFromEdge(WarpMotionKind kind) {
     case WarpMotionKind::kBreathe:
       return false;
     case WarpMotionKind::kWave:
+    case WarpMotionKind::kSway:
       return true;
   }
   assert(false);
@@ -125,6 +134,9 @@ std::vector<QPointF> MotionPushes(QSize size, WarpGrid grid,
         break;
       case WarpMotionKind::kBreathe:
         push = Breathe(motion, phase, spot);
+        break;
+      case WarpMotionKind::kSway:
+        push = Sway(motion, phase, spot);
         break;
     }
   }

@@ -67,8 +67,9 @@ enum class WarpMotionKind {
   kWave,     // A ripple running from the anchor edge, for hair.
   kPulse,    // A lub-dub beat swelling from the middle, for a heart.
   kBreathe,  // A slow smooth swell and fall, for a chest.
+  kSway,     // A swing from the anchor edge, for cloth or a tail.
 };
-constexpr int kWarpMotionKindCount = 4;
+constexpr int kWarpMotionKindCount = 5;
 
 // The edge a motion hangs from: dots there stay put and the far side
 // moves most.
