@@ -12,13 +12,15 @@
 #include "ui/layer_box.h"
 #include "ui/managers.h"
 #include "ui/motion_box.h"
+#include "ui/point_motion_box.h"
 
 namespace snapper {
 
 // The right-hand panel: only the settings of what is picked. With
 // nothing picked on the stage: the shot and its camera. With pieces or
 // layers: their pose at the playhead and motion loops, the layer's
-// settings, saved poses for a doll, and the picked warp dot's drag.
+// settings, saved poses for a doll, and the picked warp dot's drag
+// and animation.
 // Stacked and scrollable.
 class Inspector final : public QScrollArea {
   Q_OBJECT
@@ -42,6 +44,7 @@ class Inspector final : public QScrollArea {
   ShotBox shot_;
   PoseBox pose_;
   DragBox drag_;
+  PointMotionBox point_motion_;
   CameraBox camera_;
   LayerBox layer_;
   MotionBox motion_;

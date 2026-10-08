@@ -2,13 +2,12 @@
 
 #include <algorithm>
 #include <cassert>
+#include <vector>
 
-#include "edit/history_manager.h"
-#include "edit/project_edits.h"
 #include "edit/rig_manager.h"
-#include "edit/selection_manager.h"
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
+#include "ui/picked_dot.h"
 #include "ui/problem.h"
 
 namespace snapper {
@@ -50,23 +49,17 @@ DragBox::DragBox(const Managers& managers)
 
 std::optional<DragBox::Picked> DragBox::Pick() const {
   assert(managers_.selection != nullptr);
-  const auto dot = managers_.selection->dot();
-  const Project& project = managers_.history->current();
-  const ShotId shot = managers_.selection->shot();
-  const DollLayer* posed =
-      dot ? PosedLayerOf(project, shot, dot->layer) : nullptr;
-  const Doll* doll = dot ? DollOfLayer(project, shot, dot->layer) : nullptr;
-  const RigPiece* rig =
-      doll != nullptr ? FindRig(doll->rig, dot->piece) : nullptr;
-  const bool has_rig = rig != nullptr && posed != nullptr;
-  if (!has_rig) {
+  const auto dot = PickedDotOf(managers_);
+  if (!dot) {
     return std::nullopt;
   }
+  const std::vector<DragNode>& nodes = dot->rig->drag_nodes;
+  assert(nodes.size() <= static_cast<size_t>(kMaxWarpPoints));
   const auto node =
-      std::find_if(rig->drag_nodes.begin(), rig->drag_nodes.end(),
+      std::find_if(nodes.begin(), nodes.end(),
                    [&dot](const DragNode& n) { return n.point == dot->point; });
-  const bool is_drag = node != rig->drag_nodes.end();
-  return Picked{posed->doll, dot->piece, dot->point,
+  const bool is_drag = node != nodes.end();
+  return Picked{dot->doll, dot->piece, dot->point,
                 is_drag ? std::optional<DragNode>(*node) : std::nullopt};
 }
 

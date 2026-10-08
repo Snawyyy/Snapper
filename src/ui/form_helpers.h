@@ -50,6 +50,8 @@ QColor AskColour(QWidget* parent, const QColor& current);
 
 // Greys widget out with why_not as its tooltip, or enables it.
 void Explain(QWidget* widget, const QString& why_not);
+// The same, but an enabled widget keeps help as its tooltip.
+void Explain(QWidget* widget, const QString& why_not, const QString& help);
 
 }  // namespace snapper
 

@@ -162,8 +162,10 @@ A piece can:
   they follow a drag node, and a wave reaches them later the further
   they are. Its push is a formula of the frame (`PointMotionPushes`),
   added on top of the keys and drag nodes on the same beat, so it
-  never needs keys and renders the same every time. A dot can have a
-  drag node, a motion, or both.
+  never needs keys and renders the same every time. It is set in the
+  Dot animation panel under the Drag node panel (no key: a motion is
+  one of five kinds, so the list is the one click), and the dot wears
+  a yellow square. A dot can have a drag node, a motion, or both.
 - turn in depth with the whole doll: a doll picked whole has two
   yellow handles (and Lean and Swivel fields). Lean, beside the box,
   turns it like a wheel facing the camera; Swivel, below it, like a
@@ -252,8 +254,8 @@ difference.
 
 The side panel shows only the settings of what is picked: the shot
 and its camera with nothing picked on the stage; pose, layer, motion
-and saved poses for picked pieces or layers; the drag node panel for
-a picked warp dot (`Inspector::Refresh`).
+and saved poses for picked pieces or layers; the drag node and dot
+animation panels for a picked warp dot (`Inspector::Refresh`).
 
 ## Errors
 

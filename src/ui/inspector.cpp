@@ -17,6 +17,7 @@ Inspector::Inspector(const Managers& managers)
       shot_(managers),
       pose_(managers),
       drag_(managers),
+      point_motion_(managers),
       camera_(managers),
       layer_(managers),
       motion_(managers),
@@ -30,6 +31,7 @@ Inspector::Inspector(const Managers& managers)
   layout_.addWidget(&shot_);
   layout_.addWidget(&pose_);
   layout_.addWidget(&drag_);
+  layout_.addWidget(&point_motion_);
   layout_.addWidget(&layer_);
   layout_.addWidget(&camera_);
   layout_.addWidget(&motion_);
@@ -38,6 +40,8 @@ Inspector::Inspector(const Managers& managers)
   connect(&pose_, &PoseBox::Problem, this, &Inspector::Problem);
   connect(&shot_, &ShotBox::Problem, this, &Inspector::Problem);
   connect(&drag_, &DragBox::Problem, this, &Inspector::Problem);
+  connect(&point_motion_, &PointMotionBox::Problem, this,
+          &Inspector::Problem);
   connect(&camera_, &CameraBox::Problem, this, &Inspector::Problem);
   connect(&layer_, &LayerBox::Problem, this, &Inspector::Problem);
   connect(&motion_, &MotionBox::Problem, this, &Inspector::Problem);
@@ -70,7 +74,10 @@ void Inspector::Refresh() {
   motion_.setVisible(has_pick);
   layer_.setVisible(has_pick && selection.layer().IsValid());
   poses_.setVisible(is_doll);
-  drag_.setVisible(has_pick && selection.dot().has_value());
+  const bool has_dot = has_pick && selection.dot().has_value();
+  drag_.setVisible(has_dot);
+  point_motion_.setVisible(has_dot);
+  assert(drag_.isVisibleTo(this) == point_motion_.isVisibleTo(this));
   assert(!(shot_.isVisibleTo(this) && pose_.isVisibleTo(this)));
 }
 
