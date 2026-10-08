@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <utility>
 #include <variant>
 
 #include "edit/history_manager.h"
@@ -195,6 +196,21 @@ void SelectionManager::ClearKeys() {
   const bool had_keys = !keys_.empty();
   keys_.clear();
   if (had_keys) {
+    emit Changed();
+  }
+}
+
+void SelectionManager::PickClips(const std::set<ClipId>& clips,
+                                 PickMode mode) {
+  assert(history_ != nullptr);
+  assert(clips.size() < 1000000);
+  std::set<ClipId> next = Combine(clips_, clips, mode);
+  std::erase_if(next, [this](ClipId id) {
+    return ClipOf(history_->current().reel, id) == nullptr;
+  });
+  const bool is_changed = next != clips_;
+  clips_ = std::move(next);
+  if (is_changed) {
     emit Changed();
   }
 }

@@ -34,4 +34,10 @@ ShotId TakeShotId(Project* project) {
   return ShotId(project->next_shot_id++);
 }
 
+ClipId TakeClipId(Project* project) {
+  assert(project != nullptr);
+  assert(project->next_clip_id >= 1);
+  return ClipId(project->next_clip_id++);
+}
+
 }  // namespace snapper

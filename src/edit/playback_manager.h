@@ -22,10 +22,14 @@ class HistoryManager;
 // each frame of an ease), skipping held frames.
 enum class StepMode { kScrub, kAnimation };
 
-// The playhead on the master track and playing the song under it. The
-// song's clock drives the picture, so frames never drift from the
-// music. The song is decoded in the background whenever the project's
-// song changes.
+// The two timelines the playhead can run on: the shots one after
+// another (where posing happens), or the reel (the final video).
+enum class Timeline { kShots, kReel };
+
+// The playhead and playing the song under it, on either timeline; each
+// timeline keeps its own place. The song's clock drives the picture, so
+// frames never drift from the music. The song is decoded in the
+// background whenever the project's song changes.
 class PlaybackManager final : public QObject {
   Q_OBJECT
 
@@ -33,15 +37,26 @@ class PlaybackManager final : public QObject {
   explicit PlaybackManager(HistoryManager* history);
   ~PlaybackManager() override;
 
+  // The playhead on the current timeline.
   Frame frame() const { return frame_; }
+  Timeline timeline() const { return timeline_; }
+  // The playhead's place on timeline, current or not.
+  Frame FrameOn(Timeline timeline) const {
+    return timeline == timeline_ ? frame_ : parked_;
+  }
+  // Stops playing and moves the playhead to timeline, where it was last.
+  // The loop is dropped: it belonged to the other timeline.
+  void SetTimeline(Timeline timeline);
   bool IsPlaying() const { return player_.IsPlaying(); }
 
   void Play();
   void Pause();
   void Toggle();
-  // Clamped to the master track.
+  // Clamped to the current timeline; the reel lasts at least as long as
+  // the song.
   void Seek(Frame frame);
-  // delta frames, or delta pose changes in animation mode.
+  // delta frames, or in animation mode delta pose changes (shots) or
+  // clip cuts (reel).
   void Step(int delta);
   StepMode step_mode() const { return step_mode_; }
   void SetStepMode(StepMode mode);
@@ -63,6 +78,7 @@ class PlaybackManager final : public QObject {
   void PlayingChanged(bool is_playing);
   void SongChanged();
   void StepModeChanged(StepMode mode);
+  void TimelineChanged(Timeline timeline);
 
  private:
   void Tick();
@@ -78,6 +94,9 @@ class PlaybackManager final : public QObject {
   std::shared_ptr<const AudioClip> song_;
   QString song_error_;
   Frame frame_;
+  // The other timeline's playhead.
+  Frame parked_;
+  Timeline timeline_ = Timeline::kShots;
   Frame loop_start_;
   Frame loop_end_;
   StepMode step_mode_ = StepMode::kScrub;

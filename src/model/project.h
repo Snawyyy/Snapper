@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "model/doll.h"
+#include "model/reel.h"
 #include "model/shot.h"
 
 namespace snapper {
@@ -40,8 +41,11 @@ struct Project final {
   std::vector<std::shared_ptr<const Shot>> shots;
   // Every doll the shots use, by name.
   std::map<QString, std::shared_ptr<const Doll>> dolls;
+  // The final video, cut from shots and video files.
+  Reel reel;
   int next_shot_id = 1;
   int next_layer_id = 1;
+  int next_clip_id = 1;
 
   bool operator==(const Project&) const = default;
 };

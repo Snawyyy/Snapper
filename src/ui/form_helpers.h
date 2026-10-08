@@ -11,6 +11,8 @@
 #include <QString>
 #include <QWidget>
 
+#include "base/frame.h"
+
 namespace snapper {
 
 // Small shared pieces for the inspector's forms.
@@ -47,6 +49,9 @@ void ShowColour(QPushButton* button, const QColor& colour);
 
 // Asks for a colour starting from current; invalid when cancelled.
 QColor AskColour(QWidget* parent, const QColor& current);
+
+// frame as minutes and seconds, such as 1:05, as a ruler shows it.
+QString TimeText(Frame frame);
 
 // Greys widget out with why_not as its tooltip, or enables it.
 void Explain(QWidget* widget, const QString& why_not);
