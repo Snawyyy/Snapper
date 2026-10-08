@@ -12,6 +12,7 @@
 #include "edit/playback_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/preset_manager.h"
+#include "edit/reel_manager.h"
 #include "edit/rig_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/shot_manager.h"
@@ -28,6 +29,7 @@ struct Bench final {
   DollLibraryManager library{&history, QDir(dir.path()).filePath("dolls")};
   RigManager rig{&history};
   ShotManager shots{&history};
+  ReelManager reel{&history};
   StageManager stage{&history};
   SelectionManager selection{&history};
   PoseManager pose{&history};
@@ -38,7 +40,8 @@ struct Bench final {
 
   Managers All() {
     return {&history, &document, &library, &rig, &shots, &stage,
-            &selection, &pose, &keys, &presets, &playback, &exporter};
+            &selection, &pose, &keys, &presets, &playback, &exporter,
+            &reel};
   }
 };
 

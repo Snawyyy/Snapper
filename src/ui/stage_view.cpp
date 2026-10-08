@@ -75,8 +75,8 @@ void StageView::paintEvent(QPaintEvent* event) {
     return;
   }
   const QImage image = renderer_.RenderFrame(
-      managers_.history->current(), managers_.playback->frame(),
-      frame->scale);
+      managers_.history->current(),
+      managers_.playback->FrameOn(Timeline::kShots), frame->scale);
   painter.drawImage(frame->corner, image);
   painter.setRenderHint(QPainter::Antialiasing);
   PaintHandles(*frame, &painter);

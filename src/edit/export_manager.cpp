@@ -7,9 +7,11 @@
 #include <cmath>
 
 #include "anim/master_timeline.h"
+#include "anim/reel_timeline.h"
 #include "base/text.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
+#include "edit/video_file_frames.h"
 #include "render/frame_renderer.h"
 
 namespace snapper {
@@ -22,6 +24,7 @@ struct ExportJob final {
   Project project;
   ExportRequest request;
   EncodeSettings settings;
+  bool is_reel = false;
   std::shared_ptr<std::atomic<bool>> cancel;
   std::shared_ptr<std::atomic<int>> done;
 };
@@ -43,13 +46,19 @@ Result<void> RunExport(ExportJob job) {
     return opened;
   }
   FrameRenderer renderer;
+  // This thread's own open video files.
+  VideoFileFrames videos;
   for (int f = job.request.start.index(); f < job.request.end.index(); ++f) {
     const bool is_cancelled = job.cancel->load();
     if (is_cancelled) {
       return std::unexpected(Error{Tr("Cancelled.")});
     }
+    const Frame frame(f);
     auto added = encoder.AddFrame(
-        renderer.RenderFrame(job.project, Frame(f), job.request.scale));
+        job.is_reel ? renderer.RenderReel(job.project, frame,
+                                          job.request.scale, &videos)
+                    : renderer.RenderFrame(job.project, frame,
+                                           job.request.scale));
     if (!added) {
       return added;
     }
@@ -83,7 +92,7 @@ QString ExportManager::WhyNoExport(VideoFormat format) const {
   assert(playback_ != nullptr);
   const Project& project = history_->current();
   const bool is_busy = worker_.isRunning();
-  const bool is_empty = TotalLength(project).index() == 0;
+  const bool is_empty = ExportLength().index() == 0;
   const bool wants_song =
       format == VideoFormat::kMp4 && !project.song.isEmpty();
   const bool is_song_missing = wants_song && playback_->song() == nullptr;
@@ -91,7 +100,7 @@ QString ExportManager::WhyNoExport(VideoFormat format) const {
     return Tr("An export is already running.");
   }
   if (is_empty) {
-    return Tr("Add a shot first.");
+    return Tr("Add a shot or a clip first.");
   }
   if (is_song_missing) {
     return playback_->IsLoadingSong()
@@ -112,7 +121,7 @@ Result<void> ExportManager::Start(const ExportRequest& request) {
   }
   const Project& project = history_->current();
   ExportRequest range = request;
-  const Frame total = TotalLength(project);
+  const Frame total = ExportLength();
   range.end = range.end.index() == 0 ? total : std::min(range.end, total);
   const bool is_valid = !range.path.isEmpty() && range.start < range.end &&
                         range.scale > 0.0 && range.scale <= 1.0;
@@ -137,10 +146,43 @@ Result<void> ExportManager::Start(const ExportRequest& request) {
   total_ = range.end.index() - range.start.index();
   path_ = range.path;
   worker_.setFuture(QtConcurrent::run(
-      RunExport, ExportJob{project, range, settings, cancel_, done_}));
+      RunExport,
+      ExportJob{project, range, settings, IsReelExport(), cancel_, done_}));
   progress_timer_.start();
   emit Progress(0, total_);
   return {};
+}
+
+bool ExportManager::IsReelExport() const {
+  assert(history_ != nullptr);
+  assert(playback_ != nullptr);
+  return !IsReelEmpty(history_->current().reel);
+}
+
+Frame ExportManager::ExportLength() const {
+  assert(history_ != nullptr);
+  const Project& project = history_->current();
+  const Frame length =
+      IsReelExport() ? ReelLength(project) : TotalLength(project);
+  assert(length.index() >= 0);
+  return length;
+}
+
+QString ExportManager::WhyNoLoop() const {
+  assert(history_ != nullptr);
+  assert(playback_ != nullptr);
+  const bool has_loop = playback_->HasLoop();
+  if (!has_loop) {
+    return Tr("Set a loop range first.");
+  }
+  const Timeline exported =
+      IsReelExport() ? Timeline::kReel : Timeline::kShots;
+  const bool is_elsewhere = playback_->timeline() != exported;
+  if (is_elsewhere) {
+    return IsReelExport() ? Tr("The loop is on the shots, not the video.")
+                          : Tr("The loop is on the video, not the shots.");
+  }
+  return QString();
 }
 
 void ExportManager::Cancel() {

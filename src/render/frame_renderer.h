@@ -7,6 +7,7 @@
 #include "base/frame.h"
 #include "model/project.h"
 #include "render/image_cache.h"
+#include "render/video_frames.h"
 
 namespace snapper {
 
@@ -19,6 +20,12 @@ class FrameRenderer final {
   // scale is the output size against the canvas: 1 for export, less
   // for a faster preview. Past the last shot the frame is black.
   QImage RenderFrame(const Project& project, Frame master, double scale);
+  // The reel (the final video) at frame: each track's clip, bottom
+  // first, a shot clip drawn as its shot alone and a video fitted to the
+  // canvas. Where nothing plays the frame is black. videos supplies the
+  // video pictures; with nullptr, videos are left out.
+  QImage RenderReel(const Project& project, Frame frame, double scale,
+                    VideoFrames* videos);
   // One shot on its own, at a frame of its own.
   QImage RenderShot(const Project& project, const Shot& shot, Frame local,
                     double scale);

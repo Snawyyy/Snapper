@@ -6,7 +6,6 @@
 
 #include <cassert>
 
-#include "anim/master_timeline.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "ui/export_dialog.h"
@@ -30,8 +29,10 @@ QString ExportDialog::WhyNotReady() const {
   const ExportRequest request = Request();
   const QString busy = managers_.exporter->WhyNoExport(request.format);
   const bool has_path = !request.path.isEmpty();
-  const bool is_loop_missing =
-      range_.currentIndex() == kLoop && !managers_.playback->HasLoop();
+  const QString no_loop = range_.currentIndex() == kLoop
+                              ? managers_.exporter->WhyNoLoop()
+                              : QString();
+  const bool is_loop_missing = !no_loop.isEmpty();
   const bool is_range_empty =
       range_.currentIndex() == kCustom && !(request.start < request.end);
   const bool is_blocked = !busy.isEmpty();
@@ -39,7 +40,7 @@ QString ExportDialog::WhyNotReady() const {
     return busy;
   }
   if (is_loop_missing) {
-    return tr("Set a loop range on the timeline first.");
+    return no_loop;
   }
   if (is_range_empty) {
     return tr("The last frame must come after the first.");
@@ -83,8 +84,11 @@ void ExportDialog::Refresh() {
   const bool is_custom = range_.currentIndex() == kCustom;
   layout_.setRowVisible(&from_, is_custom);
   layout_.setRowVisible(&to_, is_custom);
-  const int last = std::max(
-      0, TotalLength(managers_.history->current()).index() - 1);
+  const int last =
+      std::max(0, managers_.exporter->ExportLength().index() - 1);
+  range_.setItemText(kWhole, managers_.exporter->IsReelExport()
+                                 ? tr("Whole final video")
+                                 : tr("Whole master track"));
   {
     const QSignalBlocker quiet_from(from_);
     const QSignalBlocker quiet_to(to_);
