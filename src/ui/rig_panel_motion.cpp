@@ -14,6 +14,8 @@ namespace snapper {
 namespace {
 
 QString MotionLabel(WarpMotionKind kind) {
+  assert(static_cast<int>(kind) >= 0 &&
+         static_cast<int>(kind) < kWarpMotionKindCount);
   switch (kind) {
     case WarpMotionKind::kNone:
       return RigPanel::tr("None");
@@ -33,6 +35,8 @@ QString MotionLabel(WarpMotionKind kind) {
 }
 
 QString EdgeLabel(WarpEdge edge) {
+  assert(static_cast<int>(edge) >= 0 &&
+         static_cast<int>(edge) < kWarpEdgeCount);
   switch (edge) {
     case WarpEdge::kTop:
       return RigPanel::tr("Top");
@@ -111,6 +115,10 @@ void RigPanel::WireMotion() {
 }
 
 void RigPanel::RefreshMotion(const RigPiece* rig) {
+  // The lists are indexed by kind and edge, so BuildMotion must have
+  // filled them.
+  assert(motion_.count() == kWarpMotionKindCount);
+  assert(motion_edge_.count() == kWarpEdgeCount);
   const bool has_grid = rig != nullptr && rig->warp.IsOn();
   const QString no_grid = rig == nullptr ? tr("Pick a piece first.")
                           : has_grid     ? QString()

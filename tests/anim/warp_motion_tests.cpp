@@ -1,5 +1,6 @@
 #include <QTest>
 
+#include <cassert>
 #include <cmath>
 
 #include "anim/warp_motion.h"
@@ -35,6 +36,10 @@ void WarpMotionTests::StillWhenOff() {
 // One cycle of 24 frames, 10 pixels, on a grid one cell across and two
 // down: points 0-1 on top, 2-3 in the middle, 4-5 at the bottom.
 WarpMotion Motion(WarpMotionKind kind, WarpEdge edge = WarpEdge::kTop) {
+  // Every test here checks a motion that moves, on a real edge.
+  assert(kind != WarpMotionKind::kNone);
+  assert(static_cast<int>(edge) >= 0 &&
+         static_cast<int>(edge) < kWarpEdgeCount);
   WarpMotion motion;
   motion.kind = kind;
   motion.size = 10.0;

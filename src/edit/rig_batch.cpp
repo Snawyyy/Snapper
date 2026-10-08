@@ -42,6 +42,7 @@ template <typename Change>
 Result<Project> EachMotion(const Project& project, const QString& doll,
                            const std::vector<QString>& pieces,
                            Change change) {
+  assert(!doll.isEmpty());
   assert(pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   return WithRig(project, doll, [&](Rig* rig) {
     return EachPiece(rig, doll, pieces, [&](RigPiece* piece) {
@@ -51,6 +52,10 @@ Result<Project> EachMotion(const Project& project, const QString& doll,
             Tr("Tick \"Bend with a grid\" for %1 first.").arg(piece->name)}));
       }
       change(&piece->warp_motion);
+      // MotionPushes divides by the cycle, so no change may leave it out
+      // of range.
+      assert(piece->warp_motion.cycle >= kMinWarpCycle &&
+             piece->warp_motion.cycle <= kMaxWarpCycle);
       return Result<void>();
     });
   });

@@ -113,6 +113,7 @@ WarpMotion MotionFromJson(const QJsonValue& value, JsonIssues* issues) {
                     : WarpMotion().size;
   motion.cycle = std::clamp(object.value("cycle").toInt(motion.cycle),
                             kMinWarpCycle, kMaxWarpCycle);
+  assert(motion.size >= 0.0 && motion.size <= kMaxWarpMotionSize);
   return motion;
 }
 

@@ -55,13 +55,19 @@ double Along(QPointF spot, WarpEdge edge) {
 
 // Sideways to edge: the way something hanging from it swings.
 QPointF Across(WarpEdge edge) {
+  assert(static_cast<int>(edge) >= 0 &&
+         static_cast<int>(edge) < kWarpEdgeCount);
   const bool is_level = edge == WarpEdge::kTop || edge == WarpEdge::kBottom;
-  return is_level ? QPointF(1.0, 0.0) : QPointF(0.0, 1.0);
+  const QPointF across = is_level ? QPointF(1.0, 0.0) : QPointF(0.0, 1.0);
+  assert(across.manhattanLength() == 1.0);
+  return across;
 }
 
 // A ripple that leaves the anchor edge and runs to the far side,
 // swinging wider as it goes, like hair or a flag.
 QPointF Wave(const WarpMotion& motion, double phase, QPointF spot) {
+  assert(phase >= 0.0 && phase < 1.0);
+  assert(motion.size >= 0.0 && motion.size <= kMaxWarpMotionSize);
   const double along = Along(spot, motion.edge);
   const double swing = std::sin(kTurn * (phase - along));
   return Across(motion.edge) * (motion.size * along * swing);
@@ -70,6 +76,8 @@ QPointF Wave(const WarpMotion& motion, double phase, QPointF spot) {
 // The whole piece swings to and fro together from the anchor edge,
 // bending most at the free end, like a skirt or a tail.
 QPointF Sway(const WarpMotion& motion, double phase, QPointF spot) {
+  assert(phase >= 0.0 && phase < 1.0);
+  assert(motion.size >= 0.0 && motion.size <= kMaxWarpMotionSize);
   const double along = Along(spot, motion.edge);
   const double swing = std::sin(kTurn * phase);
   return Across(motion.edge) * (motion.size * along * along * swing);
@@ -92,14 +100,19 @@ double Bump(double phase, double centre, double width) {
 
 // Two quick swells and a rest, lub-dub, like a heart.
 QPointF Pulse(const WarpMotion& motion, double phase, QPointF spot) {
+  assert(motion.size >= 0.0 && motion.size <= kMaxWarpMotionSize);
   const double beat =
       Bump(phase, 0.08, 0.05) + 0.6 * Bump(phase, 0.28, 0.05);
+  // The two swells barely overlap, so the beat never tops the lub.
+  assert(beat >= 0.0 && beat <= 1.0 + 1e-6);
   return Outward(spot) * (motion.size * beat);
 }
 
 // Swells out from the middle and falls back, smooth all the way.
 QPointF Breathe(const WarpMotion& motion, double phase, QPointF spot) {
+  assert(motion.size >= 0.0 && motion.size <= kMaxWarpMotionSize);
   const double swell = (1.0 - std::cos(kTurn * phase)) / 2.0;
+  assert(swell >= 0.0 && swell <= 1.0);
   return Outward(spot) * (motion.size * swell);
 }
 
