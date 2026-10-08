@@ -72,19 +72,19 @@ const Link* LinkBox::Shown() const {
   return nullptr;
 }
 
+bool LinkBox::IsLinked() const {
+  assert(managers_.history != nullptr);
+  assert(managers_.selection != nullptr);
+  return Shown() != nullptr;
+}
+
 void LinkBox::Refresh() {
   assert(managers_.links != nullptr);
   assert(managers_.selection != nullptr);
   const Link* link = Shown();
   const bool is_linked = link != nullptr;
-  const QString why_not =
-      is_linked ? QString()
-                      : tr("Right-click something on the stage to link the "
-                           "picked things' movement to it.");
-  Explain(&strength_, why_not);
-  Explain(&unlink_, why_not);
+  // Unlinked, the inspector hides the box, so there is nothing to show.
   if (!is_linked) {
-    follows_.setText(tr("Follows nothing."));
     return;
   }
   follows_.setText(

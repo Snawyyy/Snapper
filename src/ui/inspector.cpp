@@ -71,11 +71,12 @@ void Inspector::Refresh() {
   camera_.setVisible(has_shot && !has_pick);
   pose_.setVisible(has_pick);
   motion_.setVisible(has_pick);
-  link_.setVisible(has_pick);
+  link_.setVisible(has_pick && link_.IsLinked());
   layer_.setVisible(has_pick && selection.layer().IsValid());
   poses_.setVisible(is_doll);
   drag_.setVisible(has_pick && selection.dot().has_value());
   assert(!(shot_.isVisibleTo(this) && pose_.isVisibleTo(this)));
+  assert(has_pick || !link_.isVisibleTo(this));
 }
 
 Inspector::~Inspector() {

@@ -329,7 +329,7 @@ difference.
 The side panel shows only the settings of what is picked: the shot
 and its camera with nothing picked on the stage; pose, layer, motion
 and saved poses for picked pieces or layers; the drag node panel for
-a picked warp dot, and the Link box for what the picks follow
+a picked warp dot, and the Link box only while a pick follows something
 (`Inspector::Refresh`).
 
 ## Errors

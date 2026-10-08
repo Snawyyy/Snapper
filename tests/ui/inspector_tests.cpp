@@ -8,11 +8,13 @@
 
 #include "anim/doll_pose.h"
 #include "bench.h"
+#include "edit/link_manager.h"
 #include "ui/drag_box.h"
 #include "ui/inspector.h"
 #include "ui/shot_box.h"
 #include "ui/keyed_boxes.h"
 #include "ui/layer_box.h"
+#include "ui/link_box.h"
 #include "ui/motion_box.h"
 
 namespace snapper {
@@ -71,6 +73,7 @@ class InspectorTests final : public QObject {
   void DragBoxTunesThePickedDot();
   void OnlyWhatIsPickedShows();
   void ShotBoxChangesThePickedShots();
+  void LinkBoxShowsOnlyWhenLinked();
 };
 
 void InspectorTests::TypedPoseNumbersKeyAtThePlayhead() {
@@ -251,6 +254,23 @@ void InspectorTests::ShotBoxChangesThePickedShots() {
   name->setText("Chorus");
   emit name->editingFinished();
   QCOMPARE(bench.history.current().shots[1]->name, QString("Chorus"));
+}
+
+void InspectorTests::LinkBoxShowsOnlyWhenLinked() {
+  Bench bench;
+  Stage(&bench);
+  Inspector inspector(bench.All());
+  const auto* link = inspector.findChild<LinkBox*>();
+  QVERIFY(link != nullptr);
+  // Bob's head is picked but follows nothing: no Link box.
+  QVERIFY(!link->isVisibleTo(&inspector));
+  const LinkEnd head{LayerId(1), "head"};
+  QVERIFY(bench.links
+              .LinkTo(kShot, {head}, LinkEnd{LayerId(2), {}}, Frame(0))
+              .has_value());
+  QVERIFY(link->isVisibleTo(&inspector));
+  QVERIFY(bench.links.Unlink(kShot, {head}).has_value());
+  QVERIFY(!link->isVisibleTo(&inspector));
 }
 
 }  // namespace snapper
