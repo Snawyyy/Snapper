@@ -2,8 +2,8 @@
 
 Snapper is a puppet animator for music videos in the style of Execution
 Clap. Dolls are drawn in Krita, rigged and posed in Snapper, cut into
-shots, dressed with camera moves, text and effects, and exported as MP4
-or GIF. Everything is finished inside Snapper.
+shots, dressed with camera moves, text and effects, laid out with video
+files (a speedpaint) on the reel, and exported as MP4 or GIF. Everything is finished inside Snapper.
 
 This file is the map. Each section is a rule the code keeps. When code
 and this file disagree, one of them is a bug.
@@ -19,11 +19,11 @@ source of truth.
 | Module   | Owns                                              | Uses          |
 |----------|---------------------------------------------------|---------------|
 | `base`   | Ids, frame time, errors, `Tr` for messages        | Qt Core       |
-| `model`  | Plain data: dolls, project, shots, keys           | base          |
+| `model`  | Plain data: dolls, project, shots, keys, reel     | base          |
 | `anim`   | Pure math: sampling keys, pose, IK, warp, presets | model         |
 | `io`     | Reading and writing doll and project files        | model         |
-| `media`  | FFmpeg and audio: decode, play, encode            | base          |
-| `render` | One frame of the master track to pixels           | anim          |
+| `media`  | FFmpeg and audio: decode, play, encode, read video | base         |
+| `render` | One frame of the master track or reel to pixels   | anim          |
 | `edit`   | Managers: every change to the project             | render, io, media |
 | `ui`     | Widgets: show state, turn input into manager calls | edit         |
 | `app`    | `main`, the composition root                      | ui            |
@@ -36,8 +36,8 @@ What each layer may not do:
   This is where the hard math lives, so it is where most tests live.
 - `io` turns bytes into model values and back. It never decides
   anything about editing.
-- `media` knows nothing about dolls or shots. It decodes audio, plays
-  it, and encodes frames it is handed.
+- `media` knows nothing about dolls or shots. It decodes audio and
+  video files, plays audio, and encodes frames it is handed.
 - `render` draws; it never edits. Preview and export call the same
   renderer, so what you see is what you export.
 - `edit` holds all editing logic. A rule about how keys move, how a pose
@@ -102,6 +102,11 @@ History keeps at most `kMaxUndoSteps` steps and drops the oldest.
   keys move one frame) and animation mode (they jump to the next frame
   where the picture changes: a key, a shot's start, or each frame of
   an ease; `PoseChanges`).
+- The playhead runs on one of two timelines: the shots one after
+  another (Pose and Rig tabs) or the reel (Video tab). Each keeps its
+  own place, and posing always works at the shots' playhead
+  (`PlaybackManager::FrameOn`). On the reel, animation mode jumps from
+  cut to cut (`ReelCuts`).
 - Playback is driven by the audio clock, so picture never drifts from
   the song. Without a song or a sound card it falls back to elapsed
   time.
@@ -190,6 +195,28 @@ Every animated value is a channel of keys, and every channel uses the
 same key type and the same sampling code, whether it moves an arm, the
 camera, or a glitch amount.
 
+## The reel
+
+The reel is the final video: tracks of clips, bottom to top, cut on the
+Video tab. A clip shows a stretch of its source from `in` for `length`
+frames, starting at reel frame `start`. Its source is either
+
+- a video file (a speedpaint, a recorded take), played as it is, or
+- a shot, played as a finished video. A shot clip is a link, not a
+  copy: fixing the shot on the Pose tab fixes every clip of it. A shot
+  made shorter since leaves the clip's tail empty (hatched); a removed
+  shot leaves an empty clip. Nothing inside a shot is edited on the
+  reel.
+
+Clips on a track are sorted and never overlap (`HasRoom`). A frame
+shows each track's clip, bottom first, so a shot on a higher track
+covers the speedpaint below while it plays (`ReelAt`). The song plays
+under the reel as it does under the shots. Once the reel has a clip it
+is what gets exported; until then the shots are, one after another.
+
+Drags on the reel snap to other clips' cuts, the playhead and frame 0
+(`SnapDelta`, `SnapFrame`).
+
 ## Rendering
 
 `FrameRenderer` draws on the CPU with `QPainter` into a `QImage`, so it
@@ -198,6 +225,13 @@ test. Warped pieces are drawn by `WarpImage`, which maps each grid cell
 as two triangles back into the drawing. Each renderer has its own
 `ImageCache`; nothing is shared across threads. Preview may render at a
 smaller scale; effects scale their sizes with it so they look the same.
+
+`RenderReel` draws a reel frame: shot clips through `RenderShot`, video
+clips fitted to the canvas, keeping their shape. Pictures of video files
+come through the `VideoFrames` hook, so drawing never opens a file; the
+`edit` side's `VideoFileFrames` reads them with `VideoReader`, keeping
+each file open so playing forward decodes each picture once. Like the
+renderer, each thread has its own.
 
 The CPU is enough for flat-colour dolls at 1080p. If preview at full
 size ever drops below 24 fps, the upgrade is to move `FrameRenderer`
@@ -216,13 +250,14 @@ are destroyed in reverse.
 | `DollLibraryManager`   | Doll folders, loading, reload on re-export     |
 | `RigManager`           | Rig edits: parent, pivot, order, IK, warp grid |
 | `ShotManager`          | Shots on the master track, transitions         |
+| `ReelManager`          | The reel: clips of shots and videos, tracks    |
 | `StageManager`         | What is in a shot: actors, props, text, effects |
-| `SelectionManager`     | What is picked: shots, layers, pieces, keys    |
+| `SelectionManager`     | What is picked: shots, layers, pieces, keys, clips |
 | `PoseManager`          | Pose edits, IK drags, copy, paste, mirror      |
 | `KeyManager`           | Keys on the timeline: move, space, ease, retime |
 | `PresetManager`        | Motion presets and saved poses                 |
-| `PlaybackManager`      | Playhead, play, pause, loop, song loading      |
-| `ExportManager`        | MP4 and GIF export on a worker thread          |
+| `PlaybackManager`      | Playhead on either timeline, play, loop, song  |
+| `ExportManager`        | MP4 and GIF export of the final video, threaded |
 
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.
@@ -230,7 +265,7 @@ at 400 lines.
 ## Picking many
 
 Every list of things (stage pieces and layers, the layer list, timeline
-keys, shots, rig pieces, library dolls) picks the same way: click picks
+keys, shots, reel clips, rig pieces, library dolls) picks the same way: click picks
 one, Shift adds, Ctrl flips one in or out, a box on empty space picks
 what it touches (Shift adds, Ctrl takes out), Ctrl+A picks all, Escape
 or a click on empty space clears. `Combine` in `selection_manager.h` is
@@ -267,7 +302,8 @@ an undo, the undone thing's id may be given out again.
 - `anim` and `io` are tested as pure functions.
 - Managers are tested headless, through their public methods.
 - `render` is tested by rendering offscreen and checking pixels.
-- `media` is tested by encoding a clip and decoding it back.
+- `media` is tested by encoding a clip and decoding it back, sound and
+  pictures.
 - CTest also runs the Snawy's Law linter and the layer check.
 
 ## Folder layout
