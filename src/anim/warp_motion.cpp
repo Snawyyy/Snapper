@@ -116,6 +116,8 @@ QPointF Shiver(const WarpMotion& motion, int point, Frame frame) {
 }  // namespace
 
 bool HangsFromEdge(WarpMotionKind kind) {
+  assert(static_cast<int>(kind) >= 0 &&
+         static_cast<int>(kind) < kWarpMotionKindCount);
   switch (kind) {
     case WarpMotionKind::kNone:
     case WarpMotionKind::kPulse:
