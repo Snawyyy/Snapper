@@ -86,6 +86,7 @@ class RenderTests final : public QObject {
   void SwipesPushTheShotOff();
   void PastTheEndIsBlack();
   void ReelDrawsTracksBottomFirst();
+  void ReelSkipsRemovedShots();
   void WarpStretchesTheDrawing();
   void TextDrawsCentred();
   void MissingImagesDrawNothing();
@@ -201,6 +202,18 @@ void RenderTests::ReelDrawsTracksBottomFirst() {
   QCOMPARE(At(past, 50, 50), QColor(Qt::black));
   const QImage blind = renderer.RenderReel(project, Frame(10), 1.0, nullptr);
   QCOMPARE(At(blind, 50, 50), QColor(Qt::black));
+}
+
+void RenderTests::ReelSkipsRemovedShots() {
+  QTemporaryDir dir;
+  Project project = ShotOverVideo(dir);
+  project.shots.clear();
+  FrameRenderer renderer;
+  GreenVideos videos;
+  // The removed shot's clip shows nothing, so the video below shows.
+  const QImage frame = renderer.RenderReel(project, Frame(60), 1.0, &videos);
+  QCOMPARE(At(frame, 50, 50), QColor(Qt::green));
+  QCOMPARE(videos.asked, Frame(65));
 }
 
 void RenderTests::WarpStretchesTheDrawing() {

@@ -176,7 +176,11 @@ QImage FrameRenderer::RenderReel(const Project& project, Frame frame,
     }
     const Shot* shot =
         FindShot(project, std::get<ShotSource>(piece.clip->source).shot);
-    assert(shot != nullptr);
+    // A clip can outlive its shot; like the timeline, it shows nothing.
+    const bool is_shot_gone = shot == nullptr;
+    if (is_shot_gone) {
+      continue;
+    }
     QPainter painter(&out);
     painter.drawImage(0, 0, RenderShot(project, *shot, piece.source, scale));
   }
