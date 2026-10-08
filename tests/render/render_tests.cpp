@@ -4,6 +4,7 @@
 
 #include "render/effects.h"
 #include "render/frame_renderer.h"
+#include "render/stage_geometry.h"
 #include "render/stage_hit.h"
 #include "render/warp_raster.h"
 
@@ -53,6 +54,7 @@ class RenderTests final : public QObject {
   void EffectsChangeWhatIsBelow();
   void SwipesPushTheShotOff();
   void PastTheEndIsBlack();
+  void LinksMoveWhatIsDrawnAndClicked();
   void WarpStretchesTheDrawing();
   void TextDrawsCentred();
   void MissingImagesDrawNothing();
@@ -145,6 +147,34 @@ void RenderTests::PastTheEndIsBlack() {
   const QImage frame =
       renderer.RenderFrame(RedDollProject(dir), Frame(500), 1.0);
   QCOMPARE(At(frame, 50, 50), QColor(Qt::black));
+}
+
+void RenderTests::LinksMoveWhatIsDrawnAndClicked() {
+  QTemporaryDir dir;
+  Project project = RedDollProject(dir);
+  Shot& shot = FirstShot(&project);
+  // An unseen leader slides 30 pixels right over ten frames.
+  Layer leader;
+  leader.id = LayerId(2);
+  leader.content = ImageLayer{"/nowhere.png"};
+  SetKey(&leader.transform, {Frame(0), PiecePose(), Ease::kLinear});
+  PiecePose moved;
+  moved.offset = QPointF(30, 0);
+  SetKey(&leader.transform, {Frame(10), moved, Ease::kStep});
+  shot.layers.push_back(leader);
+  shot.links = {Link{{LayerId(1), {}}, {LayerId(2), {}}, Frame(0), 1.0}};
+  FrameRenderer renderer;
+  const QImage frame = renderer.RenderFrame(project, Frame(10), 1.0);
+  QCOMPARE(At(frame, 80, 50), QColor(Qt::red));
+  QCOMPARE(At(frame, 50, 50), QColor(Qt::white));
+  const auto hit = HitTest(project, *project.shots[0], Frame(10),
+                           QPointF(80, 50), 1.0, renderer.cache());
+  QVERIFY(hit.has_value());
+  QCOMPARE(hit->layer, LayerId(1));
+  const auto body = PieceOnScreen(project, *project.shots[0], LayerId(1),
+                                  "body", Frame(10), 1.0);
+  QVERIFY(body.has_value());
+  QCOMPARE(body->pivot, QPointF(80, 50));
 }
 
 void RenderTests::WarpStretchesTheDrawing() {
