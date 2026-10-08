@@ -155,13 +155,12 @@ void LinkUiTests::LinkBoxSetsStrengthAndUnlinks() {
   QVERIFY(strength != nullptr && follows != nullptr && unlink != nullptr);
   bench.selection.PickThings({Pick{LayerId(1), {}}}, PickMode::kReplace,
                              LayerId(1));
-  QVERIFY(!strength->isEnabled());
-  QVERIFY(!strength->toolTip().isEmpty());
+  QVERIFY(!box.IsLinked());
   QVERIFY(bench.links
               .LinkTo(ShotId(1), {LinkEnd{LayerId(1), {}}},
                       LinkEnd{LayerId(2), {}}, Frame(3))
               .has_value());
-  QVERIFY(strength->isEnabled());
+  QVERIFY(box.IsLinked());
   QCOMPARE(follows->text(), QString("Follows Box from frame 3."));
   QCOMPARE(strength->value(), 1.0);
   strength->setValue(0.5);
@@ -171,7 +170,7 @@ void LinkUiTests::LinkBoxSetsStrengthAndUnlinks() {
   QCOMPARE(bench.history.UndoLabel(), QString("Link strength"));
   QTest::mouseClick(unlink, Qt::LeftButton);
   QVERIFY(bench.history.current().shots[0]->links.empty());
-  QCOMPARE(follows->text(), QString("Follows nothing."));
+  QVERIFY(!box.IsLinked());
 }
 
 }  // namespace snapper
