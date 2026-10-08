@@ -64,7 +64,7 @@ snapper_module(ui
           layer_box_commits.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
           rig_canvas_input.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp
           shot_strip.cpp
-          stage_view.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
+          stage_menu.cpp stage_view.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
           timeline_view.cpp
   MODULES edit
   LIBS Qt6::Widgets)
@@ -94,7 +94,7 @@ if(BUILD_TESTING)
                             selection_tests.cpp stage_tests.cpp
                             timeline_tests.cpp track_tests.cpp)
   snapper_test(ui SOURCES cast_panel_tests.cpp export_dialog_tests.cpp
-                          inspector_tests.cpp
+                          inspector_tests.cpp link_ui_tests.cpp
                           pose_tool_tests.cpp rig_ui_tests.cpp
                           shot_strip_tests.cpp
                           theme_tests.cpp
