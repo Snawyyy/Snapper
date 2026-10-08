@@ -21,7 +21,11 @@ Frame FrameOf(double frames) {
 
 // NaN or negative seconds (media files can report them) mean none.
 bool IsUsable(double seconds) {
-  return std::isfinite(seconds) && seconds > 0.0;
+  // A positive rate keeps usable seconds a count of frames above 0.
+  static_assert(kFramesPerSecond > 0, "frames per second must be positive");
+  const bool is_usable = std::isfinite(seconds) && seconds > 0.0;
+  assert(!is_usable || seconds * kFramesPerSecond > 0.0);
+  return is_usable;
 }
 
 }  // namespace
@@ -31,7 +35,11 @@ Frame FrameAtSeconds(double seconds) {
   if (!is_usable) {
     return Frame(0);
   }
-  return FrameOf(std::floor(seconds * kFramesPerSecond));
+  const double frames = std::floor(seconds * kFramesPerSecond);
+  // FrameOf needs a real count of frames, never NaN or below 0.
+  assert(!std::isnan(frames));
+  assert(frames >= 0.0);
+  return FrameOf(frames);
 }
 
 Frame FramesNearSeconds(double seconds) {
@@ -39,7 +47,11 @@ Frame FramesNearSeconds(double seconds) {
   if (!is_usable) {
     return Frame(0);
   }
-  return FrameOf(std::round(seconds * kFramesPerSecond));
+  const double frames = std::round(seconds * kFramesPerSecond);
+  // FrameOf needs a real count of frames, never NaN or below 0.
+  assert(!std::isnan(frames));
+  assert(frames >= 0.0);
+  return FrameOf(frames);
 }
 
 double SecondsAtFrame(Frame frame) {
