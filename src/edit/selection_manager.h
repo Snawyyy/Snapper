@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "edit/track_ref.h"
+#include "model/reel.h"
 #include "model/shot.h"
 
 namespace snapper {
@@ -63,7 +64,7 @@ std::set<T> Combine(const std::set<T>& set, const std::set<T>& items,
 }
 
 // What the user has picked: shots, layers and pieces in the current
-// shot, and keys. Many can be picked at once; the focus is the one the
+// shot, keys, and clips on the reel. Many can be picked at once; the focus is the one the
 // panels show. Picking is not an edit, so it has no undo; after every
 // edit or undo anything picked that no longer exists is dropped.
 class SelectionManager final : public QObject {
@@ -85,6 +86,7 @@ class SelectionManager final : public QObject {
   // One channel per picked thing: its piece, or the layer's own move.
   std::vector<TrackRef> PickedTracks() const;
   const std::set<KeyRef>& keys() const { return keys_; }
+  const std::set<ClipId>& clips() const { return clips_; }
   // The picked warp dot, while its piece is picked and the dot is still
   // on its grid.
   std::optional<WarpDot> dot() const;
@@ -101,6 +103,7 @@ class SelectionManager final : public QObject {
   void SelectKeys(const std::set<KeyRef>& keys, bool add);
   void PickKeys(const std::set<KeyRef>& keys, PickMode mode);
   void ClearKeys();
+  void PickClips(const std::set<ClipId>& clips, PickMode mode);
   // Picks a warp dot of a picked piece; nothing drops it.
   void PickDot(std::optional<WarpDot> dot);
   void Clear();
@@ -120,6 +123,7 @@ class SelectionManager final : public QObject {
   LayerId focus_;
   std::set<Pick> picks_;
   std::set<KeyRef> keys_;
+  std::set<ClipId> clips_;
   std::optional<WarpDot> dot_;
 };
 

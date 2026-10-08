@@ -36,11 +36,13 @@ struct ShotSource final {
   bool operator==(const ShotSource&) const = default;
 };
 
+using ClipSource = std::variant<VideoSource, ShotSource>;
+
 // A stretch of a source placed on the reel. It shows the source from
 // in for length frames, starting at reel frame start.
 struct Clip final {
   ClipId id;
-  std::variant<VideoSource, ShotSource> source;
+  ClipSource source;
   Frame start;
   Frame in;
   Frame length = Frame(1);

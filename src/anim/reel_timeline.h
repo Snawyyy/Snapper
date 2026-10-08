@@ -26,6 +26,8 @@ Frame ShownLength(const Project& project, const Clip& clip);
 std::vector<ReelPiece> ReelAt(const Project& project, Frame frame);
 // From the first frame to the end of the last clip.
 Frame ReelLength(const Project& project);
+// Where track's last clip ends: the first frame free for good after it.
+Frame TrackEnd(const Project& project, int track);
 // Every frame where a clip starts or ends, for jumping cut to cut.
 std::set<Frame> ReelCuts(const Project& project);
 

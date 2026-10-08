@@ -60,6 +60,13 @@ Frame ReelLength(const Project& project) {
   return end;
 }
 
+Frame TrackEnd(const Project& project, int track) {
+  assert(track >= 0);
+  assert(track < static_cast<int>(project.reel.tracks.size()));
+  const auto& clips = project.reel.tracks[static_cast<size_t>(track)].clips;
+  return clips.empty() ? Frame(0) : clips.back().end();
+}
+
 std::set<Frame> ReelCuts(const Project& project) {
   assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
   assert(kMaxClipsPerTrack > 0);
