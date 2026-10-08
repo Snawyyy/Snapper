@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "anim/doll_drag.h"
 #include "anim/doll_pose.h"
 #include "base/frame.h"
 #include "model/project.h"
@@ -47,6 +48,9 @@ class LinkSolver final {
   QPointF Carried(const LinkEnd& end, Frame frame);
   const PoseMap& BasePoses(const Doll& doll, const Layer& layer,
                            Frame frame);
+  // How far links carry each of layer's drag-node pieces, frame 0 to
+  // frame, so their trails feel the links too.
+  LinkShifts Shifts(const Doll& doll, const Layer& layer, Frame frame);
 
   const Project& project_;
   const Shot& shot_;

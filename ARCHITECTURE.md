@@ -220,8 +220,10 @@ jumping.
 `LinkManager` refuses links within one doll (its pieces already move
 together) and links that would loop back into themselves (`WouldLoop`);
 a loop in a file counts as no push. Links drop with their layers and
-follow a duplicated shot's own layers. Drag nodes ignore links on
-purpose.
+follow a duplicated shot's own layers. Drag nodes feel links: the
+solver hands `DraggedPoses` how far links carry each drag-node piece
+frame by frame (`LinkShifts`), so a linked doll's warp points trail on
+its own beat as if it had moved by itself.
 
 Every animated value is a channel of keys, and every channel uses the
 same key type and the same sampling code, whether it moves an arm, the

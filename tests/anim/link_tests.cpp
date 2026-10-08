@@ -1,3 +1,4 @@
+#include <QLineF>
 #include <QTest>
 
 #include <cassert>
@@ -108,6 +109,20 @@ QPointF ArmJoint(const Project& project, LinkSolver* links, int frame) {
       .map(placed.at("arm").map(QPointF(0, 4)));
 }
 
+// How far the drag node on Bob's arm trails at frame, links included.
+double ArmTrail(const Project& project, int frame) {
+  assert(frame >= 0);
+  const Shot& shot = *project.shots[0];
+  const Layer* bob = FindLayer(shot, LayerId(3));
+  assert(bob != nullptr);
+  LinkSolver links(project, shot);
+  const Doll& doll = *project.dolls.at("Bob");
+  const PoseMap poses = links.Poses(doll, *bob, Frame(frame));
+  const auto arm = poses.find("arm");
+  const bool has_warp = arm != poses.end() && arm->second.warp.size() > 3;
+  return has_warp ? QLineF(QPointF(), arm->second.warp[3]).length() : 0.0;
+}
+
 }  // namespace
 
 class LinkTests final : public QObject {
@@ -120,6 +135,7 @@ class LinkTests final : public QObject {
   void PiecesFollowInShotSpace();
   void ChainsPassMovesOn();
   void LoopsAreFound();
+  void DragNodesFeelLinks();
 };
 
 void LinkTests::UnlinkedThingsStayPut() {
@@ -203,6 +219,28 @@ void LinkTests::LoopsAreFound() {
   LinkSolver links(project, *project.shots[0]);
   const QPointF origin = OriginOf(&links, *project.shots[0], 2, 10);
   QVERIFY(std::isfinite(origin.x()) && std::isfinite(origin.y()));
+}
+
+void LinkTests::DragNodesFeelLinks() {
+  Doll doll = Body();
+  RigPiece* arm = nullptr;
+  for (RigPiece& rig : doll.rig.pieces) {
+    arm = rig.name == "arm" ? &rig : arm;
+  }
+  QVERIFY(arm != nullptr);
+  arm->warp = {2, 2};
+  arm->drag_nodes = {{3, 0.5, 0.5}};
+  Project project = Stage();
+  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
+  // Bob stands still, so on his own his arm's node never trails.
+  QVERIFY(ArmTrail(project, 5) < kClose);
+  // Following the rising box, the node lags behind the move.
+  OnlyShot(&project).links = {
+      Link{{LayerId(3), {}}, {LayerId(1), {}}, Frame(0), 1.0}};
+  QVERIFY(ArmTrail(project, 5) > 1.0);
+  OnlyShot(&project).links = {
+      Link{{LayerId(3), "arm"}, {LayerId(1), {}}, Frame(0), 1.0}};
+  QVERIFY(ArmTrail(project, 5) > 1.0);
 }
 
 }  // namespace snapper

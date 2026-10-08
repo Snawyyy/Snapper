@@ -301,10 +301,11 @@ PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double lean,
   return leaned;
 }
 
-PoseMap ShownPoses(const Doll& doll, const Layer& layer, Frame frame) {
+PoseMap ShownPoses(const Doll& doll, const Layer& layer, Frame frame,
+                   const LinkShifts& shifts) {
   assert(frame.index() >= 0);
   assert(std::holds_alternative<DollLayer>(layer.content));
-  const PoseMap keyed = DraggedPoses(doll, layer, frame);
+  const PoseMap keyed = DraggedPoses(doll, layer, frame, shifts);
   const PiecePose own = Sample(layer.transform, frame, PiecePose());
   const bool is_turned = std::isfinite(own.lean) &&
                          std::isfinite(own.swivel) &&

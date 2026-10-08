@@ -1,6 +1,7 @@
 #include "anim/doll_drag.h"
 
 #include <QPointF>
+#include <QTransform>
 
 #include <cassert>
 #include <cmath>
@@ -127,9 +128,20 @@ std::vector<Spring> SpringsOf(const Doll& doll) {
   return springs;
 }
 
+// How far links carry piece at frame, in shot space.
+QPointF ShiftOf(const LinkShifts& shifts, const QString& piece, int frame) {
+  assert(frame >= 0);
+  assert(!piece.isEmpty());
+  const auto found = shifts.find(piece);
+  const bool is_shifted = found != shifts.end() &&
+                          static_cast<size_t>(frame) < found->second.size();
+  return is_shifted ? found->second[static_cast<size_t>(frame)] : QPointF();
+}
+
 // Runs the springs from the shot's first frame to frame; returns where
 // each node's point is carried at frame.
 std::vector<Carry> Run(const Doll& doll, const Layer& layer, Frame frame,
+                       const LinkShifts& shifts,
                        std::vector<Spring>* springs) {
   assert(springs != nullptr);
   assert(frame.index() >= 0);
@@ -143,6 +155,14 @@ std::vector<Carry> Run(const Doll& doll, const Layer& layer, Frame frame,
     for (size_t i = 0; i < springs->size(); ++i) {
       Spring& spring = (*springs)[i];
       carried[i] = Carried(doll, layer, keyed, placed, spring, Frame(f));
+      // A link only slides the piece, so the point moves and the map
+      // back to the drawing keeps its turn.
+      const bool is_carried = carried[i].has_value();
+      if (is_carried) {
+        const QPointF shift = ShiftOf(shifts, spring.piece, f);
+        carried[i]->first += shift;
+        carried[i]->second *= QTransform::fromTranslate(shift.x(), shift.y());
+      }
       const bool is_moving = carried[i].has_value() && f > 0;
       if (!is_moving) {
         spring.at = carried[i] ? carried[i]->first : spring.at;
@@ -218,7 +238,8 @@ void AddTrail(const Doll& doll, const Spring& spring, const Carry& carried,
 
 }  // namespace
 
-PoseMap DraggedPoses(const Doll& doll, const Layer& layer, Frame frame) {
+PoseMap DraggedPoses(const Doll& doll, const Layer& layer, Frame frame,
+                     const LinkShifts& shifts) {
   assert(frame.index() >= 0);
   assert(std::holds_alternative<DollLayer>(layer.content));
   PoseMap poses = SamplePoses(std::get<DollLayer>(layer.content), frame);
@@ -226,7 +247,8 @@ PoseMap DraggedPoses(const Doll& doll, const Layer& layer, Frame frame) {
   std::vector<Spring> springs = SpringsOf(doll);
   const bool has_springs = !springs.empty();
   if (has_springs) {
-    const std::vector<Carry> carried = Run(doll, layer, beat, &springs);
+    const std::vector<Carry> carried =
+        Run(doll, layer, beat, shifts, &springs);
     for (size_t i = 0; i < springs.size(); ++i) {
       AddTrail(doll, springs[i], carried[i], &poses);
     }
