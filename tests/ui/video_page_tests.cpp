@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QPushButton>
 #include <QTest>
 
 #include "anim/reel_timeline.h"
@@ -66,6 +67,7 @@ class VideoPageTests final : public QObject {
   void RulerSeeksTheReel();
   void KeysSplitAndRemove();
   void ImportedVideosQueueOnTheBottom();
+  void MarkCutDropsAMarkerAtThePlayhead();
 };
 
 void VideoPageTests::BinListsShotsToDrag() {
@@ -187,6 +189,21 @@ void VideoPageTests::ImportedVideosQueueOnTheBottom() {
   QCOMPARE(clips.size(), size_t{2});
   QCOMPARE(clips[1].start, clips[0].end());
   QCOMPARE(bench.selection.clips().size(), size_t{2});
+}
+
+void VideoPageTests::MarkCutDropsAMarkerAtThePlayhead() {
+  Bench bench;
+  AddShot(&bench);
+  QVERIFY(bench.reel.AddShot(ShotId(1), 0, Frame(0)).has_value());
+  VideoPage page(bench.All());
+  auto* mark = page.findChild<QPushButton*>("mark_cut");
+  QCOMPARE(mark->shortcut(), QKeySequence(Qt::Key_M));
+  bench.playback.Seek(Frame(30));
+  mark->click();
+  QCOMPARE(bench.history.current().reel.markers,
+           (std::vector<Frame>{Frame(30)}));
+  mark->click();
+  QVERIFY(bench.history.current().reel.markers.empty());
 }
 
 }  // namespace snapper

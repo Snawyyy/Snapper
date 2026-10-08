@@ -17,7 +17,7 @@ namespace snapper {
 
 // The Video tab, where the final video is cut: the shot list to drag
 // from and the preview on top, the reel's timeline below, and buttons
-// to bring in video files, split clips and add tracks.
+// to bring in video files, split clips, mark cuts and add tracks.
 class VideoPage final : public QWidget {
   Q_OBJECT
 
@@ -52,6 +52,7 @@ class VideoPage final : public QWidget {
   ReelPreview preview_;
   QPushButton import_;
   QPushButton split_button_;
+  QPushButton mark_;
   QPushButton add_track_;
   ReelTimeline timeline_;
 };

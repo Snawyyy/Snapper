@@ -49,6 +49,9 @@ class ReelManager final {
   // Only an empty track goes, and the reel keeps at least one.
   Result<void> RemoveTrack(int track);
 
+  // Drops a cut marker at at, or takes away the one already there.
+  Result<void> ToggleMarker(Frame at);
+
   // Why each can't act now, for greyed-out controls; empty when it can.
   QString WhyNoSplit(const std::vector<ClipId>& clips, Frame at) const;
   QString WhyNoAddTrack() const;

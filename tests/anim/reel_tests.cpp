@@ -53,6 +53,7 @@ class ReelTests final : public QObject {
   void GoneShotShowsNothing();
   void LengthAndCutsFollowClips();
   void DragsSnapToCutsAndThePlayhead();
+  void DragsSnapToCutMarkers();
 };
 
 void ReelTests::NewReelHasEmptyTracks() {
@@ -144,6 +145,13 @@ void ReelTests::DragsSnapToCutsAndThePlayhead() {
   QCOMPARE(SnapFrame(project, Frame(52), 3, {}, Frame(500)), Frame(50));
   QCOMPARE(SnapFrame(project, Frame(52), 3, shot, Frame(500)), Frame(52));
   QCOMPARE(SnapFrame(project, Frame(2), 3, shot, Frame(500)), Frame(0));
+}
+
+void ReelTests::DragsSnapToCutMarkers() {
+  Project project = PaintWithShot();
+  QCOMPARE(SnapFrame(project, Frame(150), 3, {}, Frame(500)), Frame(150));
+  project.reel.markers = {Frame(152)};
+  QCOMPARE(SnapFrame(project, Frame(150), 3, {}, Frame(500)), Frame(152));
 }
 
 }  // namespace snapper

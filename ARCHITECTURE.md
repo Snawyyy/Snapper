@@ -214,8 +214,14 @@ covers the speedpaint below while it plays (`ReelAt`). The song plays
 under the reel as it does under the shots. Once the reel has a clip it
 is what gets exported; until then the shots are, one after another.
 
-Drags on the reel snap to other clips' cuts, the playhead and frame 0
-(`SnapDelta`, `SnapFrame`).
+Drags on the reel snap to other clips' cuts, cut markers, the playhead
+and frame 0 (`SnapDelta`, `SnapFrame`).
+
+Cut markers are where cuts should fall, marked by ear: Mark cut (M)
+drops one at the reel's playhead while the song plays, or takes away
+the one there. The reel's playhead runs at least the song's length, so
+cuts can be marked before any clip is placed. Markers are saved with
+the reel (`cut_markers` in the project file).
 
 ## Rendering
 

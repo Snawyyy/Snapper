@@ -82,6 +82,7 @@ Project FullProject() {
   intro.length = Frame(72);
   PlaceClip(&project.reel.tracks[0], paint);
   PlaceClip(&project.reel.tracks[2], intro);
+  project.reel.markers = {Frame(24), Frame(96)};
   return project;
 }
 

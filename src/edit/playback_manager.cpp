@@ -231,8 +231,13 @@ Frame PlaybackManager::LastFrame() const {
   assert(history_ != nullptr);
   const Project& project = history_->current();
   const bool is_reel = timeline_ == Timeline::kReel;
-  const int total =
-      (is_reel ? ReelLength(project) : TotalLength(project)).index();
+  // The reel runs at least as long as the song, so cuts can be marked
+  // over the music before any clip is placed.
+  const Frame song =
+      song_ != nullptr ? FrameAtSeconds(song_->Seconds()) : Frame(0);
+  const int total = (is_reel ? std::max(ReelLength(project), song)
+                             : TotalLength(project))
+                        .index();
   assert(total >= 0);
   return Frame(std::max(total - 1, 0));
 }

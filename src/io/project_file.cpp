@@ -77,6 +77,7 @@ Result<Project> ReadProject(const QString& path) {
   ReadDolls(read->value("dolls").toArray(), &project, &issues);
   ReadShots(read->value("shots").toArray(), &project, &issues);
   project.reel = ReelFromJson(read->value("reel"), &issues);
+  project.reel.markers = MarkersFromJson(read->value("cut_markers"), &issues);
   const bool is_damaged = issues.HasIssue() || !IsValidCanvas(project.canvas);
   if (is_damaged) {
     const QString why = issues.HasIssue() ? issues.first() : Tr("bad size");
@@ -112,7 +113,8 @@ Result<void> WriteProject(const QString& path, const Project& project) {
       {"next_clip_id", project.next_clip_id},
       {"dolls", dolls},
       {"shots", shots},
-      {"reel", ReelToJson(project.reel)}};
+      {"reel", ReelToJson(project.reel)},
+      {"cut_markers", MarkersToJson(project.reel.markers)}};
   return WriteJsonFile(path, object);
 }
 

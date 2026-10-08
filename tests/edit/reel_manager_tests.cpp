@@ -62,6 +62,7 @@ class ReelManagerTests final : public QObject {
   void SplitCutsInTwo();
   void RemovedClipsLeaveThePick();
   void TracksComeAndGo();
+  void MarkersToggleAtTheirFrame();
 };
 
 void ReelManagerTests::ShotsAndVideosGoOnWhole() {
@@ -213,6 +214,20 @@ void ReelManagerTests::TracksComeAndGo() {
   QCOMPARE(f.history.current().reel.tracks.size(), size_t{kMaxReelTracks});
   QVERIFY(!f.reel.AddTrack().has_value());
   QVERIFY(!f.reel.WhyNoAddTrack().isEmpty());
+}
+
+void ReelManagerTests::MarkersToggleAtTheirFrame() {
+  Fixture f;
+  QVERIFY(f.reel.ToggleMarker(Frame(48)).has_value());
+  QVERIFY(f.reel.ToggleMarker(Frame(12)).has_value());
+  QCOMPARE(f.history.UndoLabel(), QString("Add cut marker"));
+  QCOMPARE(f.history.current().reel.markers,
+           (std::vector<Frame>{Frame(12), Frame(48)}));
+  QVERIFY(f.reel.ToggleMarker(Frame(48)).has_value());
+  QCOMPARE(f.history.UndoLabel(), QString("Remove cut marker"));
+  QCOMPARE(f.history.current().reel.markers, (std::vector<Frame>{Frame(12)}));
+  f.history.Undo();
+  QCOMPARE(f.history.current().reel.markers.size(), size_t{2});
 }
 
 }  // namespace snapper

@@ -25,10 +25,11 @@ namespace snapper {
 // Drop a shot from the shot list or a video file onto a track to place
 // it there. Click a clip to pick it (Shift adds, Ctrl flips); drag it
 // to move it, along or to another track; drag its ends to trim it.
-// Drags snap to other clips' cuts and the playhead. Click or drag the
-// ruler to move the playhead. S splits the picked clip at the playhead,
-// Delete removes the picked clips; right-click for the same and for
-// tracks. The wheel scrolls, Ctrl zooms. Shots here are finished
+// Drags snap to other clips' cuts, cut markers and the playhead. Click
+// or drag the ruler to move the playhead. Cut markers (Mark cut on the
+// Video tab) show as yellow notches and dashed lines. S splits the
+// picked clip at the playhead, Delete removes the picked clips;
+// right-click for the same and for tracks. The wheel scrolls, Ctrl zooms. Shots here are finished
 // videos: what is inside them is edited on the Pose tab.
 class ReelTimeline final : public QWidget {
   Q_OBJECT
@@ -75,6 +76,7 @@ class ReelTimeline final : public QWidget {
   void PaintTracks(QPainter* painter) const;
   void PaintClip(QPainter* painter, const Clip& clip) const;
   void PaintDrop(QPainter* painter) const;
+  void PaintMarkers(QPainter* painter) const;
   void PaintPlayhead(QPainter* painter) const;
   // Seconds between ruler numbers at the current zoom.
   int LabelStep() const;

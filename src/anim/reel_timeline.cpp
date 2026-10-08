@@ -111,6 +111,7 @@ std::set<Frame> SnapPoints(const Project& project,
   assert(playhead.index() >= 0);
   assert(ignore.size() < 1000000);
   std::set<Frame> points = ReelCuts(project, ignore);
+  points.insert(project.reel.markers.begin(), project.reel.markers.end());
   points.insert(playhead);
   points.insert(Frame(0));
   return points;

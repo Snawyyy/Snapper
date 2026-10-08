@@ -2,6 +2,7 @@
 
 #include <QJsonObject>
 
+#include <algorithm>
 #include <cassert>
 #include <variant>
 
@@ -107,6 +108,35 @@ Reel ReelFromJson(const QJsonValue& value, JsonIssues* issues) {
     reel.tracks.push_back(TrackFromJson(track.toArray(), issues));
   }
   return reel;
+}
+
+QJsonArray MarkersToJson(const std::vector<Frame>& markers) {
+  assert(markers.size() <= static_cast<size_t>(kMaxCutMarkers));
+  assert(std::is_sorted(markers.begin(), markers.end()));
+  QJsonArray array;
+  for (const Frame marker : markers) {
+    array.append(marker.index());
+  }
+  return array;
+}
+
+std::vector<Frame> MarkersFromJson(const QJsonValue& value,
+                                   JsonIssues* issues) {
+  assert(issues != nullptr);
+  assert(kMaxCutMarkers > 0);
+  std::vector<Frame> markers;
+  const QJsonArray array = value.toArray();
+  const bool is_too_many = array.size() > kMaxCutMarkers;
+  if (is_too_many) {
+    issues->Note(Tr("too many cut markers"));
+    return markers;
+  }
+  for (const QJsonValue& item : array) {
+    markers.push_back(Frame(item.toInt()));
+  }
+  std::sort(markers.begin(), markers.end());
+  markers.erase(std::unique(markers.begin(), markers.end()), markers.end());
+  return markers;
 }
 
 }  // namespace snapper

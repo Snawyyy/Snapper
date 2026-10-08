@@ -52,7 +52,8 @@ class PlaybackManager final : public QObject {
   void Play();
   void Pause();
   void Toggle();
-  // Clamped to the current timeline.
+  // Clamped to the current timeline; the reel lasts at least as long as
+  // the song.
   void Seek(Frame frame);
   // delta frames, or in animation mode delta pose changes (shots) or
   // clip cuts (reel).

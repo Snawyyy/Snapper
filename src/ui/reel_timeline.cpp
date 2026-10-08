@@ -2,6 +2,7 @@
 
 #include <QFileInfo>
 #include <QPainter>
+#include <QPolygonF>
 
 #include <algorithm>
 #include <array>
@@ -133,6 +134,7 @@ void ReelTimeline::paintEvent(QPaintEvent* event) {
   PaintTracks(&painter);
   PaintDrop(&painter);
   PaintRuler(&painter);
+  PaintMarkers(&painter);
   PaintPlayhead(&painter);
 }
 
@@ -245,6 +247,27 @@ void ReelTimeline::PaintDrop(QPainter* painter) const {
   painter->setPen(QPen(theme::kHandle, 1.0, Qt::DashLine));
   painter->setBrush(Qt::NoBrush);
   painter->drawRect(box);
+}
+
+void ReelTimeline::PaintMarkers(QPainter* painter) const {
+  assert(painter != nullptr);
+  assert(managers_.history != nullptr);
+  const Reel& reel = managers_.history->current().reel;
+  for (const Frame marker : reel.markers) {
+    const double x = XOf(marker);
+    const bool is_shown = x >= kHeaderWidth && x <= width();
+    if (!is_shown) {
+      continue;
+    }
+    // A notch in the ruler and a faint line down through the tracks.
+    painter->setPen(QPen(theme::kHandle, 1.0, Qt::DashLine));
+    painter->drawLine(QPointF(x, kRulerHeight), QPointF(x, height()));
+    const QPolygonF notch({QPointF(x - 4, 0), QPointF(x + 4, 0),
+                           QPointF(x, kRulerHeight / 2)});
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(theme::kHandle);
+    painter->drawPolygon(notch);
+  }
 }
 
 void ReelTimeline::PaintPlayhead(QPainter* painter) const {

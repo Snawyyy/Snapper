@@ -15,6 +15,7 @@ namespace snapper {
 constexpr int kDefaultReelTracks = 3;
 constexpr int kMaxReelTracks = 8;
 constexpr int kMaxClipsPerTrack = 1024;
+constexpr int kMaxCutMarkers = 2048;
 
 struct ClipTag;
 using ClipId = Id<ClipTag>;
@@ -64,6 +65,10 @@ struct ReelTrack final {
 struct Reel final {
   std::vector<ReelTrack> tracks =
       std::vector<ReelTrack>(static_cast<size_t>(kDefaultReelTracks));
+  // Where cuts should fall, marked by ear while the song plays: sorted,
+  // each frame at most once. Clips snap to them, and the stretch
+  // between two is a slot a clip can be fitted into.
+  std::vector<Frame> markers{};
 
   bool operator==(const Reel&) const = default;
 };

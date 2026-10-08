@@ -179,6 +179,12 @@ void PlaybackTests::SongsLoadInTheBackground() {
   QTRY_VERIFY_WITH_TIMEOUT(playback.song() != nullptr, 5000);
   QVERIFY(std::abs(playback.song()->Seconds() - 2.0) < 0.05);
   QVERIFY(playback.song_error().isEmpty());
+  // An empty reel still runs the song's length, to mark cuts over it.
+  playback.SetTimeline(Timeline::kReel);
+  playback.Seek(Frame(100));
+  QCOMPARE(playback.frame(), Frame(47));
+  playback.Seek(Frame(30));
+  QCOMPARE(playback.frame(), Frame(30));
   project.song = QDir(dir.path()).filePath("gone.wav");
   history.Commit("Bad song", project);
   QTRY_VERIFY_WITH_TIMEOUT(!playback.song_error().isEmpty(), 5000);

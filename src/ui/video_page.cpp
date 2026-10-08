@@ -25,6 +25,7 @@ VideoPage::VideoPage(const Managers& managers)
       preview_(managers),
       import_(tr("Import video...")),
       split_button_(tr("Split at playhead")),
+      mark_(tr("Mark cut")),
       add_track_(tr("Add track")),
       timeline_(managers) {
   assert(managers_.IsComplete());
@@ -36,6 +37,7 @@ VideoPage::VideoPage(const Managers& managers)
   bar_layout_.setContentsMargins(4, 2, 4, 2);
   bar_layout_.addWidget(&import_);
   bar_layout_.addWidget(&split_button_);
+  bar_layout_.addWidget(&mark_);
   bar_layout_.addWidget(&add_track_);
   bar_layout_.addStretch(1);
   bottom_layout_.setContentsMargins(0, 0, 0, 0);
@@ -53,6 +55,17 @@ VideoPage::VideoPage(const Managers& managers)
     Report(ProblemOf(managers_.reel->SplitAll(
         std::vector<ClipId>(managers_.selection->clips().begin(),
                             managers_.selection->clips().end()),
+        managers_.playback->FrameOn(Timeline::kReel))));
+  });
+  // M works while the song plays, so cuts can be marked by ear; the
+  // button never takes the focus, so it never stops playback keys.
+  mark_.setObjectName("mark_cut");
+  mark_.setShortcut(Qt::Key_M);
+  mark_.setFocusPolicy(Qt::NoFocus);
+  mark_.setToolTip(tr("Drops a cut marker at the playhead, or takes away "
+                      "the one there (M). Clips snap to markers."));
+  connect(&mark_, &QPushButton::clicked, this, [this] {
+    Report(ProblemOf(managers_.reel->ToggleMarker(
         managers_.playback->FrameOn(Timeline::kReel))));
   });
   connect(&add_track_, &QPushButton::clicked, this,

@@ -33,7 +33,8 @@ Frame TrackEnd(const Project& project, int track);
 std::set<Frame> ReelCuts(const Project& project,
                          const std::set<ClipId>& ignore = {});
 // Snapping while dragging: the nearest of the other clips' cuts, the
-// playhead and frame 0 within reach frames of at, else at.
+// cut markers, the playhead and frame 0 within reach frames of at, else
+// at.
 Frame SnapFrame(const Project& project, Frame at, int reach,
                 const std::set<ClipId>& ignore, Frame playhead);
 // The same for clips moved by delta frames: delta nudged so the edge of

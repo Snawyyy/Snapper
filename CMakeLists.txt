@@ -49,7 +49,7 @@ snapper_module(edit
           history_manager.cpp key_clipboard.cpp key_manager.cpp
           playback_manager.cpp pose_clipboard.cpp pose_manager.cpp
           preset_manager.cpp saved_poses.cpp
-          project_edits.cpp reel_batch.cpp reel_manager.cpp rig_batch.cpp
+          project_edits.cpp reel_batch.cpp reel_manager.cpp reel_markers.cpp rig_batch.cpp
           rig_manager.cpp rig_mirror.cpp
           selection_manager.cpp selection_prune.cpp shot_batch.cpp
           shot_manager.cpp stage_batch.cpp stage_manager.cpp
