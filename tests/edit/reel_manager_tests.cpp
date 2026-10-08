@@ -171,6 +171,16 @@ void ReelManagerTests::SplitCutsInTwo() {
   QCOMPARE(f.history.UndoLabel(), QString("Split clip"));
   f.history.Undo();
   QCOMPARE(f.history.current().reel.tracks[0].clips.size(), size_t{1});
+  // Many at once: only the clips the cut is inside split.
+  const ClipId other = *f.reel.AddShot(f.shot, 1, Frame(40));
+  QVERIFY(!f.reel.WhyNoSplit({}, Frame(30)).isEmpty());
+  QVERIFY(!f.reel.WhyNoSplit({other}, Frame(30)).isEmpty());
+  QVERIFY(f.reel.WhyNoSplit({clip, other}, Frame(30)).isEmpty());
+  const auto halves = f.reel.SplitAll({clip, other}, Frame(30));
+  QVERIFY(halves.has_value());
+  QCOMPARE(halves->size(), size_t{1});
+  QCOMPARE(f.history.current().reel.tracks[1].clips.size(), size_t{1});
+  QVERIFY(!f.reel.SplitAll({other}, Frame(30)).has_value());
 }
 
 void ReelManagerTests::RemovedClipsLeaveThePick() {
@@ -194,12 +204,15 @@ void ReelManagerTests::TracksComeAndGo() {
            size_t{kDefaultReelTracks + 1});
   QVERIFY(f.reel.AddShot(f.shot, 0, Frame(0)).has_value());
   QVERIFY(!f.reel.RemoveTrack(0).has_value());
+  QVERIFY(!f.reel.WhyNoRemoveTrack(0).isEmpty());
+  QVERIFY(f.reel.WhyNoRemoveTrack(1).isEmpty());
   QVERIFY(f.reel.RemoveTrack(1).has_value());
   for (int i = 0; i < kMaxReelTracks; ++i) {
     f.reel.AddTrack();
   }
   QCOMPARE(f.history.current().reel.tracks.size(), size_t{kMaxReelTracks});
   QVERIFY(!f.reel.AddTrack().has_value());
+  QVERIFY(!f.reel.WhyNoAddTrack().isEmpty());
 }
 
 }  // namespace snapper

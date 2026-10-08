@@ -46,6 +46,7 @@ MainWindow::MainWindow(const Managers& managers)
       rig_split_(Qt::Horizontal),
       rig_canvas_(managers),
       rig_panel_(managers),
+      video_page_(managers),
       cast_dock_(tr("Cast")),
       cast_(managers),
       inspector_dock_(tr("Inspector")),
@@ -60,6 +61,7 @@ MainWindow::MainWindow(const Managers& managers)
   BuildMenus();
   modes_.addTab(tr("Pose"));
   modes_.addTab(tr("Rig"));
+  modes_.addTab(tr("Video"));
   modes_.setExpanding(false);
   pose_split_.addWidget(&stage_);
   pose_split_.addWidget(&timeline_);
@@ -75,6 +77,7 @@ MainWindow::MainWindow(const Managers& managers)
   rig_split_.setStretchFactor(0, 3);
   rig_split_.setStretchFactor(1, 1);
   pages_.addWidget(&rig_split_);
+  pages_.addWidget(&video_page_);
   connect(&rig_panel_, &RigPanel::DollPicked, &rig_canvas_,
           &RigCanvas::SetDoll);
   connect(&rig_panel_, &RigPanel::PickChanged, &rig_canvas_,
@@ -95,6 +98,7 @@ MainWindow::MainWindow(const Managers& managers)
     statusBar()->showMessage(hint);
   });
   connect(&rig_panel_, &RigPanel::Problem, this, show_problem);
+  connect(&video_page_, &VideoPage::Problem, this, show_problem);
   cast_dock_.setObjectName(QStringLiteral("cast"));
   cast_dock_.setWidget(&cast_);
   addDockWidget(Qt::LeftDockWidgetArea, &cast_dock_);
@@ -109,8 +113,7 @@ MainWindow::MainWindow(const Managers& managers)
   center_layout_.addWidget(&modes_);
   center_layout_.addWidget(&pages_, 1);
   setCentralWidget(&center_);
-  connect(&modes_, &QTabBar::currentChanged, &pages_,
-          &QStackedWidget::setCurrentIndex);
+  connect(&modes_, &QTabBar::currentChanged, this, &MainWindow::ShowMode);
   connect(managers_.history, &HistoryManager::Changed, this,
           &MainWindow::Refresh);
   connect(managers_.document, &DocumentManager::PathChanged, this,
@@ -132,9 +135,36 @@ void MainWindow::Start() {
   file_menu_.OfferRecovery();
 }
 
+void MainWindow::ShowMode(int index) {
+  assert(index >= 0 && index <= static_cast<int>(Mode::kVideo));
+  assert(managers_.playback != nullptr);
+  const bool was_video =
+      pages_.currentIndex() == static_cast<int>(Mode::kVideo);
+  const bool is_video = index == static_cast<int>(Mode::kVideo);
+  pages_.setCurrentIndex(index);
+  managers_.playback->SetTimeline(is_video ? Timeline::kReel
+                                           : Timeline::kShots);
+  const bool is_entering = is_video && !was_video;
+  if (is_entering) {
+    was_cast_open_ = cast_dock_.isVisible();
+    was_inspector_open_ = inspector_dock_.isVisible();
+    cast_dock_.hide();
+    inspector_dock_.hide();
+  }
+  const bool is_leaving = was_video && !is_video;
+  if (is_leaving) {
+    cast_dock_.setVisible(was_cast_open_);
+    inspector_dock_.setVisible(was_inspector_open_);
+  }
+}
+
 void MainWindow::FollowPlayhead() {
   assert(managers_.playback != nullptr);
   assert(managers_.selection != nullptr);
+  const bool is_on_shots = managers_.playback->timeline() == Timeline::kShots;
+  if (!is_on_shots) {
+    return;
+  }
   const Project& project = managers_.history->current();
   const ShotMoment moment =
       Locate(project, managers_.playback->FrameOn(Timeline::kShots));

@@ -52,6 +52,7 @@ class ReelTests final : public QObject {
   void ShortenedShotLeavesTheTailEmpty();
   void GoneShotShowsNothing();
   void LengthAndCutsFollowClips();
+  void DragsSnapToCutsAndThePlayhead();
 };
 
 void ReelTests::NewReelHasEmptyTracks() {
@@ -127,6 +128,22 @@ void ReelTests::LengthAndCutsFollowClips() {
   const std::set<Frame> expected = {Frame(0),   Frame(50),  Frame(98),
                                     Frame(200), Frame(250), Frame(260)};
   QCOMPARE(cuts, expected);
+}
+
+void ReelTests::DragsSnapToCutsAndThePlayhead() {
+  const Project project = PaintWithShot();
+  const std::set<ClipId> shot = {ClipId(2)};
+  // The shot (50 to 98) dragged 99 frames: its start (149) is 3 from
+  // nothing, its end (197) 3 from the speedpaint's end (200).
+  QCOMPARE(SnapDelta(project, shot, 99, 4, Frame(500)), 102);
+  QCOMPARE(SnapDelta(project, shot, 99, 2, Frame(500)), 99);
+  // The playhead is a snap point too, and the nearest one wins.
+  QCOMPARE(SnapDelta(project, shot, 99, 4, Frame(150)), 100);
+  // A clip never snaps to its own cuts.
+  QCOMPARE(SnapDelta(project, shot, 1, 4, Frame(500)), 1);
+  QCOMPARE(SnapFrame(project, Frame(52), 3, {}, Frame(500)), Frame(50));
+  QCOMPARE(SnapFrame(project, Frame(52), 3, shot, Frame(500)), Frame(52));
+  QCOMPARE(SnapFrame(project, Frame(2), 3, shot, Frame(500)), Frame(0));
 }
 
 }  // namespace snapper

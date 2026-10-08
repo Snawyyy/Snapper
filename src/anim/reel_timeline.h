@@ -29,7 +29,17 @@ Frame ReelLength(const Project& project);
 // Where track's last clip ends: the first frame free for good after it.
 Frame TrackEnd(const Project& project, int track);
 // Every frame where a clip starts or ends, for jumping cut to cut.
-std::set<Frame> ReelCuts(const Project& project);
+// Clips in ignore are left out.
+std::set<Frame> ReelCuts(const Project& project,
+                         const std::set<ClipId>& ignore = {});
+// Snapping while dragging: the nearest of the other clips' cuts, the
+// playhead and frame 0 within reach frames of at, else at.
+Frame SnapFrame(const Project& project, Frame at, int reach,
+                const std::set<ClipId>& ignore, Frame playhead);
+// The same for clips moved by delta frames: delta nudged so the edge of
+// a moved clip nearest a snap point lands on it.
+int SnapDelta(const Project& project, const std::set<ClipId>& moving,
+              int delta, int reach, Frame playhead);
 
 }  // namespace snapper
 

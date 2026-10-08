@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
 #include <variant>
 
 namespace snapper {
@@ -67,17 +68,91 @@ Frame TrackEnd(const Project& project, int track) {
   return clips.empty() ? Frame(0) : clips.back().end();
 }
 
-std::set<Frame> ReelCuts(const Project& project) {
+std::set<Frame> ReelCuts(const Project& project,
+                         const std::set<ClipId>& ignore) {
   assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
-  assert(kMaxClipsPerTrack > 0);
+  assert(ignore.size() < 1000000);
   std::set<Frame> cuts;
   for (const ReelTrack& track : project.reel.tracks) {
     for (const Clip& clip : track.clips) {
-      cuts.insert(clip.start);
-      cuts.insert(clip.end());
+      const bool is_ignored = ignore.contains(clip.id);
+      if (!is_ignored) {
+        cuts.insert(clip.start);
+        cuts.insert(clip.end());
+      }
     }
   }
   return cuts;
+}
+
+namespace {
+
+// How far edge is from the nearest of points within reach, or 0 with
+// *found false when none is.
+int Pull(const std::set<Frame>& points, int edge, int reach, bool* found) {
+  assert(found != nullptr);
+  assert(reach >= 0);
+  int best = 0;
+  *found = false;
+  for (const Frame point : points) {
+    const int gap = point.index() - edge;
+    const bool is_nearer = std::abs(gap) <= reach &&
+                           (!*found || std::abs(gap) < std::abs(best));
+    if (is_nearer) {
+      best = gap;
+      *found = true;
+    }
+  }
+  return best;
+}
+
+std::set<Frame> SnapPoints(const Project& project,
+                           const std::set<ClipId>& ignore, Frame playhead) {
+  assert(playhead.index() >= 0);
+  assert(ignore.size() < 1000000);
+  std::set<Frame> points = ReelCuts(project, ignore);
+  points.insert(playhead);
+  points.insert(Frame(0));
+  return points;
+}
+
+}  // namespace
+
+Frame SnapFrame(const Project& project, Frame at, int reach,
+                const std::set<ClipId>& ignore, Frame playhead) {
+  assert(reach >= 0);
+  assert(at.index() >= 0);
+  bool found = false;
+  const int pull = Pull(SnapPoints(project, ignore, playhead), at.index(),
+                        reach, &found);
+  return Frame(at.index() + pull);
+}
+
+int SnapDelta(const Project& project, const std::set<ClipId>& moving,
+              int delta, int reach, Frame playhead) {
+  assert(reach >= 0);
+  assert(moving.size() < 1000000);
+  const std::set<Frame> points = SnapPoints(project, moving, playhead);
+  int best = 0;
+  bool has_best = false;
+  for (const ClipId id : moving) {
+    const Clip* clip = ClipOf(project.reel, id);
+    const bool is_present = clip != nullptr;
+    if (!is_present) {
+      continue;
+    }
+    for (const int edge : {clip->start.index(), clip->end().index()}) {
+      bool found = false;
+      const int pull = Pull(points, edge + delta, reach, &found);
+      const bool is_better =
+          found && (!has_best || std::abs(pull) < std::abs(best));
+      if (is_better) {
+        best = pull;
+        has_best = true;
+      }
+    }
+  }
+  return delta + best;
 }
 
 }  // namespace snapper

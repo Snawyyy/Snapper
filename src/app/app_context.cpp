@@ -12,6 +12,7 @@ AppContext::AppContext(const QString& data_folder)
       library_(&history_, QDir(data_folder).filePath("dolls")),
       rig_(&history_),
       shots_(&history_),
+      reel_(&history_),
       stage_(&history_),
       selection_(&history_),
       pose_(&history_),
@@ -21,7 +22,7 @@ AppContext::AppContext(const QString& data_folder)
       exporter_(&history_, &playback_),
       window_(Managers{&history_, &document_, &library_, &rig_, &shots_,
                        &stage_, &selection_, &pose_, &keys_, &presets_,
-                       &playback_, &exporter_}) {
+                       &playback_, &exporter_, &reel_}) {
   assert(!data_folder.isEmpty());
   assert(!history_.IsDirty());
 }

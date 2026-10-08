@@ -89,13 +89,12 @@ Result<void> ReelManager::RemoveAll(const std::vector<ClipId>& clips) {
 
 Result<void> ReelManager::AddTrack() {
   assert(history_ != nullptr);
-  Project next = history_->current();
-  const bool is_full =
-      next.reel.tracks.size() >= static_cast<size_t>(kMaxReelTracks);
-  if (is_full) {
-    return std::unexpected(
-        Error{Tr("The video holds at most %1 tracks.").arg(kMaxReelTracks)});
+  const QString why_not = WhyNoAddTrack();
+  const bool can_add = why_not.isEmpty();
+  if (!can_add) {
+    return std::unexpected(Error{why_not});
   }
+  Project next = history_->current();
   next.reel.tracks.emplace_back();
   assert(next.reel.tracks.back().clips.empty());
   return history_->Apply(Tr("Add track"), std::move(next));
@@ -104,18 +103,12 @@ Result<void> ReelManager::AddTrack() {
 Result<void> ReelManager::RemoveTrack(int track) {
   assert(history_ != nullptr);
   assert(track >= -1);
-  Project next = history_->current();
-  const int count = static_cast<int>(next.reel.tracks.size());
-  const bool is_track = track >= 0 && track < count;
-  if (!is_track) {
-    return std::unexpected(Error{Tr("That track no longer exists.")});
-  }
-  const bool can_go =
-      count > 1 && next.reel.tracks[static_cast<size_t>(track)].clips.empty();
+  const QString why_not = WhyNoRemoveTrack(track);
+  const bool can_go = why_not.isEmpty();
   if (!can_go) {
-    return std::unexpected(
-        Error{Tr("Only an empty track can go, and one must stay.")});
+    return std::unexpected(Error{why_not});
   }
+  Project next = history_->current();
   next.reel.tracks.erase(next.reel.tracks.begin() + track);
   return history_->Apply(Tr("Remove track"), std::move(next));
 }

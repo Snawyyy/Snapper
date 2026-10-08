@@ -11,6 +11,7 @@ class KeyManager;
 class PlaybackManager;
 class PoseManager;
 class PresetManager;
+class ReelManager;
 class RigManager;
 class SelectionManager;
 class ShotManager;
@@ -31,10 +32,12 @@ struct Managers final {
   PresetManager* presets = nullptr;
   PlaybackManager* playback = nullptr;
   ExportManager* exporter = nullptr;
+  ReelManager* reel = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&
-           selection && pose && keys && presets && playback && exporter;
+           selection && pose && keys && presets && playback && exporter &&
+           reel;
   }
 };
 

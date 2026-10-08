@@ -39,11 +39,20 @@ class ReelManager final {
   // Cuts the clip in two at reel frame at, strictly inside it. Returns
   // the new right half.
   Result<ClipId> Split(ClipId clip, Frame at);
+  // Splits each of clips that at is inside, as one step; returns the
+  // new right halves.
+  Result<std::vector<ClipId>> SplitAll(const std::vector<ClipId>& clips,
+                                       Frame at);
   Result<void> RemoveAll(const std::vector<ClipId>& clips);
   // A new empty track on top.
   Result<void> AddTrack();
   // Only an empty track goes, and the reel keeps at least one.
   Result<void> RemoveTrack(int track);
+
+  // Why each can't act now, for greyed-out controls; empty when it can.
+  QString WhyNoSplit(const std::vector<ClipId>& clips, Frame at) const;
+  QString WhyNoAddTrack() const;
+  QString WhyNoRemoveTrack(int track) const;
 
  private:
   HistoryManager* history_;
