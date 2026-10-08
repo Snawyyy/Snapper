@@ -1,7 +1,6 @@
 #ifndef SNAPPER_UI_SHOT_BOX_H_
 #define SNAPPER_UI_SHOT_BOX_H_
 
-#include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGroupBox>
@@ -19,9 +18,9 @@
 
 namespace snapper {
 
-// The picked shots' settings: name, length, background, and how each
-// hands over to the next. Shows the focused shot; changes go to every
-// picked shot (lengths by the same difference).
+// The picked shots' settings: name, length and background. Shows the
+// focused shot; changes go to every picked shot (lengths by the same
+// difference). Transitions live on the reel's cuts (Video tab).
 class ShotBox final : public QGroupBox {
   Q_OBJECT
 
@@ -36,7 +35,6 @@ class ShotBox final : public QGroupBox {
   const Shot* Focused() const;
   std::vector<ShotId> Picked() const;
   void PickBackground();
-  void SetTransition(TransitionKind kind, int frames);
 
   Managers managers_;
   QFormLayout layout_;
@@ -46,8 +44,6 @@ class ShotBox final : public QGroupBox {
   QSpinBox length_;
   QDoubleSpinBox length_seconds_;
   QPushButton background_;
-  QComboBox transition_;
-  QSpinBox transition_length_;
 };
 
 }  // namespace snapper

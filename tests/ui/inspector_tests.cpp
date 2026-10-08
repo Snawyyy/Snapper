@@ -270,10 +270,7 @@ void InspectorTests::ShotBoxChangesThePickedShots() {
   bench.selection.SelectShot(kShot);
   ShotBox box(bench.All());
   auto* length = box.findChild<QSpinBox*>("shot_length");
-  auto* kind = box.findChild<QComboBox*>("transition");
-  auto* overlap = box.findChild<QSpinBox*>("transition_length");
   QCOMPARE(length->value(), 48);
-  QVERIFY(!overlap->isEnabled());
   length->setValue(36);
   emit length->editingFinished();
   QCOMPARE(bench.history.current().shots[0]->length, Frame(36));
@@ -283,17 +280,9 @@ void InspectorTests::ShotBoxChangesThePickedShots() {
   emit seconds->editingFinished();
   QCOMPARE(bench.history.current().shots[0]->length, Frame(61));
   QCOMPARE(length->value(), 61);
-  kind->setCurrentIndex(static_cast<int>(TransitionKind::kCrossfade));
-  emit kind->activated(kind->currentIndex());
-  QCOMPARE(bench.history.current().shots[0]->transition,
-           (Transition{TransitionKind::kCrossfade, Frame(4)}));
-  QVERIFY(overlap->isEnabled());
-  overlap->setValue(6);
-  emit overlap->editingFinished();
-  QCOMPARE(bench.history.current().shots[0]->transition.length, Frame(6));
-  // The last shot hands over to nothing.
+  // Transitions moved to the reel: the box has none.
+  QVERIFY(box.findChild<QComboBox*>("transition") == nullptr);
   bench.selection.SelectShot(bench.history.current().shots[1]->id);
-  QVERIFY(!kind->isEnabled());
   auto* name = box.findChild<QLineEdit*>("shot_name");
   name->setText("Chorus");
   emit name->editingFinished();

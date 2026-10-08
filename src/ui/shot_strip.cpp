@@ -9,7 +9,6 @@
 #include <QPainter>
 
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <cmath>
 
@@ -28,7 +27,6 @@ constexpr double kMinBlock = 56.0;
 constexpr double kAddWidth = 28.0;
 constexpr double kEdgeReach = 5.0;
 constexpr int kStripHeight = 40;
-constexpr std::array<int, 4> kTransitionLengths = {2, 4, 6, 8};
 
 double WidthOf(const Shot& shot) {
   assert(shot.length.index() >= 1);
@@ -90,14 +88,9 @@ void ShotStrip::paintEvent(QPaintEvent* event) {
     painter.drawText(block.rect.adjusted(10, 2, -4, -2),
                      Qt::AlignLeft | Qt::AlignTop, shot.name);
     painter.setPen(theme::kTextOff);
-    const bool has_transition = shot.transition.kind != TransitionKind::kCut;
-    painter.drawText(
-        block.rect.adjusted(10, 2, -4, -2), Qt::AlignLeft | Qt::AlignBottom,
-        tr("%1 f%2").arg(shot.length.index())
-            .arg(has_transition
-                     ? QStringLiteral(" > ") +
-                           TransitionName(shot.transition.kind)
-                     : QString()));
+    painter.drawText(block.rect.adjusted(10, 2, -4, -2),
+                     Qt::AlignLeft | Qt::AlignBottom,
+                     tr("%1 f").arg(shot.length.index()));
   }
   const QRectF add = AddBlock();
   painter.fillRect(add, theme::kFace);
@@ -241,7 +234,7 @@ void ShotStrip::Pick(ShotId shot) {
   managers_.selection->SelectShot(shot);
   const bool is_found = index >= 0;
   if (is_found) {
-    managers_.playback->Seek(ShotOwnStart(project, index));
+    managers_.playback->Seek(ShotStart(project, index));
   }
 }
 
@@ -275,18 +268,6 @@ void ShotStrip::Menu(ShotId shot, QPoint where) {
                   managers_.shots->SetBackgroundAll(PickedShots(), picked)));
             }
           });
-  QMenu& into = *menu.addMenu(tr("Transition into next"));
-  for (int kind = 0; kind < kTransitionKindCount; ++kind) {
-    const auto chosen = static_cast<TransitionKind>(kind);
-    QMenu& lengths = *into.addMenu(TransitionName(chosen));
-    for (const int frames : kTransitionLengths) {
-      connect(lengths.addAction(tr("%1 frames").arg(frames)),
-              &QAction::triggered, this, [this, chosen, frames] {
-                Report(ProblemOf(managers_.shots->SetTransitionAll(
-                    PickedShots(), {chosen, Frame(frames)})));
-              });
-    }
-  }
   connect(menu.addAction(tr("Duplicate")), &QAction::triggered, this,
           [this] {
             Report(ProblemOf(managers_.shots->DuplicateAll(PickedShots())));

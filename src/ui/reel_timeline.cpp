@@ -30,6 +30,7 @@ constexpr std::array<int, 10> kLabelSteps = {1,  2,   5,   10,  15,
 constexpr QColor kShotClip{0x4b, 0x5a, 0x8f};
 constexpr QColor kVideoClip{0x2f, 0x77, 0x6a};
 constexpr QColor kMissing{0x7d, 0x2c, 0x2c};
+constexpr QColor kMixShade{0xff, 0xff, 0xff, 0x40};
 
 }  // namespace
 
@@ -126,10 +127,12 @@ void ReelTimeline::paintEvent(QPaintEvent* event) {
   QPainter painter(this);
   painter.fillRect(rect(), theme::kFaceDark);
   PaintTracks(&painter);
+  PaintJoints(&painter);
   PaintDrop(&painter);
   PaintRuler(&painter);
   PaintMarkers(&painter);
   PaintPlayhead(&painter);
+  PaintBox(&painter);
 }
 
 void ReelTimeline::PaintRuler(QPainter* painter) const {
@@ -274,6 +277,54 @@ void ReelTimeline::PaintPlayhead(QPainter* painter) const {
     painter->setPen(QPen(theme::kPick, 1.0));
     painter->drawLine(QPointF(x, 0), QPointF(x, height()));
   }
+}
+
+void ReelTimeline::PaintJoints(QPainter* painter) const {
+  assert(painter != nullptr);
+  assert(zoom_ > 0.0);
+  const Reel& reel = managers_.history->current().reel;
+  painter->save();
+  painter->setClipRect(QRectF(kHeaderWidth, kRulerHeight, width(), height()));
+  for (const ReelTrack& track : reel.tracks) {
+    for (const Clip& clip : track.clips) {
+      const bool is_joined = NextTouching(track, clip) != nullptr;
+      if (!is_joined) {
+        continue;
+      }
+      const QRectF box = ClipRect(clip.id);
+      const double x = box.right();
+      const int used = UsedTransition(track, clip).index();
+      const bool has_mix = used > 0;
+      if (has_mix) {
+        // The span mixed over, faded towards the cut.
+        const double from = XOf(Frame(clip.end().index() - used));
+        const QRectF span(from, box.top(), x - from, box.height());
+        painter->fillRect(span, kMixShade);
+        painter->setPen(QPen(theme::kText, 1.0));
+        painter->drawLine(span.bottomLeft(), span.topRight());
+      }
+      // A small diamond on the cut says it can be double-clicked.
+      const double mid = box.bottom() - 6.0;
+      const QPolygonF mark({QPointF(x, mid - 4), QPointF(x + 4, mid),
+                            QPointF(x, mid + 4), QPointF(x - 4, mid)});
+      painter->setPen(Qt::NoPen);
+      painter->setBrush(has_mix ? theme::kText : theme::kTextOff);
+      painter->drawPolygon(mark);
+    }
+  }
+  painter->restore();
+}
+
+void ReelTimeline::PaintBox(QPainter* painter) const {
+  assert(painter != nullptr);
+  assert(zoom_ > 0.0);
+  const bool is_boxing = drag_ == Drag::kBox;
+  if (!is_boxing) {
+    return;
+  }
+  painter->setPen(QPen(theme::kPick, 1.0, Qt::DashLine));
+  painter->setBrush(Qt::NoBrush);
+  painter->drawRect(QRectF(press_, box_to_).normalized());
 }
 
 }  // namespace snapper

@@ -10,9 +10,6 @@
 namespace snapper {
 namespace {
 
-constexpr std::array<const char*, kTransitionKindCount> kTransitionNames = {
-    "cut",        "swipe_left", "swipe_right", "swipe_up",
-    "swipe_down", "flash",      "crossfade"};
 constexpr std::array<const char*, kEffectKindCount> kEffectNames = {
     "flash", "fill", "invert", "zoom_punch", "halftone", "glitch",
     "posterize"};
@@ -224,10 +221,6 @@ QJsonObject ShotToJson(const Shot& shot) {
       {"length", shot.length.index()},
       {"background", ColorToJson(shot.background)},
       {"camera", ChannelToJson(shot.camera)},
-      {"transition",
-       QJsonObject{{"kind", EnumToJson(static_cast<int>(shot.transition.kind),
-                                       kTransitionNames)},
-                   {"length", shot.transition.length.index()}}},
       {"layers", layers},
       {"links", LinksToJson(shot.links)}};
 }
@@ -241,10 +234,8 @@ Shot ShotFromJson(const QJsonObject& object, JsonIssues* issues) {
   shot.background =
       ColorFromJson(object.value("background"), shot.background, issues);
   shot.camera = ChannelFromJson(object.value("camera"), CameraPose(), issues);
-  const QJsonObject transition = object.value("transition").toObject();
-  shot.transition.kind = static_cast<TransitionKind>(
-      EnumFromJson(transition.value("kind"), kTransitionNames, issues));
-  shot.transition.length = Frame(transition.value("length").toInt());
+  // A "transition" left from before transitions moved to the reel is
+  // read by MoveShotTransitions.
   const QJsonArray layers = object.value("layers").toArray();
   const bool is_too_many = layers.size() > kMaxLayersPerShot;
   if (is_too_many) {

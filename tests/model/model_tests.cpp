@@ -4,7 +4,9 @@
 #include "model/key.h"
 #include "model/layer.h"
 #include "model/project.h"
+#include "model/reel.h"
 #include "model/shot.h"
+#include "model/transition.h"
 
 namespace snapper {
 namespace {
@@ -35,7 +37,8 @@ class ModelTests final : public QObject {
   void ParentingRefusesLoops();
   void DrawingFallsBackToRigThenArtDefault();
   void LayersShowOnlyInTheirRange();
-  void TransitionNeverEatsAWholeShot();
+  void TransitionNeverEatsAWholeClip();
+  void ClipsTouchWhereOneEndsAndTheNextStarts();
   void ProjectFindsShotsAndDolls();
   void LinksToGoneLayersDrop();
 };
@@ -110,16 +113,32 @@ void ModelTests::LayersShowOnlyInTheirRange() {
   QVERIFY(!IsLayerLive(layer, Frame(7), Frame(20)));
 }
 
-void ModelTests::TransitionNeverEatsAWholeShot() {
-  Shot a;
+void ModelTests::TransitionNeverEatsAWholeClip() {
+  const Transition swipe{TransitionKind::kSwipeLeft, Frame(30)};
+  QCOMPARE(UsableLength(swipe, Frame(10), Frame(4)), Frame(3));
+  QCOMPARE(UsableLength(swipe, Frame(100), Frame(100)), Frame(30));
+  QCOMPARE(UsableLength(swipe, Frame(1), Frame(100)), Frame(0));
+  const Transition cut{TransitionKind::kCut, Frame(6)};
+  QCOMPARE(UsableLength(cut, Frame(100), Frame(100)), Frame(0));
+}
+
+void ModelTests::ClipsTouchWhereOneEndsAndTheNextStarts() {
+  ReelTrack track;
+  Clip a;
+  a.id = ClipId(1);
   a.length = Frame(10);
-  a.transition = {TransitionKind::kSwipeLeft, Frame(30)};
-  Shot b;
-  b.length = Frame(4);
-  QCOMPARE(UsableTransition(a, &b), Frame(3));
-  QCOMPARE(UsableTransition(a, nullptr), Frame(0));
-  a.transition.kind = TransitionKind::kCut;
-  QCOMPARE(UsableTransition(a, &b), Frame(0));
+  Clip b = a;
+  b.id = ClipId(2);
+  b.start = Frame(10);
+  Clip c = a;
+  c.id = ClipId(3);
+  c.start = Frame(25);
+  PlaceClip(&track, a);
+  PlaceClip(&track, c);
+  PlaceClip(&track, b);
+  QCOMPARE(NextTouching(track, a)->id, ClipId(2));
+  QVERIFY(NextTouching(track, b) == nullptr);
+  QVERIFY(NextTouching(track, c) == nullptr);
 }
 
 void ModelTests::ProjectFindsShotsAndDolls() {

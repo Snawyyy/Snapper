@@ -63,7 +63,6 @@ Project FullProject() {
   shot.name = "Intro";
   shot.length = Frame(72);
   shot.background = Qt::black;
-  shot.transition = {TransitionKind::kSwipeUp, Frame(6)};
   CameraPose zoomed;
   zoomed.zoom = 1.5;
   zoomed.shake = 4.0;
@@ -80,6 +79,7 @@ Project FullProject() {
   paint.source = VideoSource{"/takes/paint.mp4", Frame(900)};
   paint.in = Frame(30);
   paint.length = Frame(600);
+  paint.out = {TransitionKind::kSwipeUp, Frame(6)};
   Clip intro;
   intro.id = ClipId(3);
   intro.source = ShotSource{ShotId(2)};
@@ -111,6 +111,7 @@ class ProjectFileTests final : public QObject {
   void BadLinkIdsAreDropped();
   void OldFilesGetAnEmptyReel();
   void OverlappingClipsAreDamage();
+  void OldShotTransitionsMoveToTheReel();
   void PosesSurviveARoundTrip();
 };
 
@@ -140,7 +141,7 @@ void ProjectFileTests::DamagedFilesSayWhy() {
   const QString path = QDir(dir.path()).filePath("bad.snapper");
   QFile file(path);
   QVERIFY(file.open(QIODevice::WriteOnly));
-  file.write("{ not json");
+  file.write("not json at all");
   file.close();
   const auto read = ReadProject(path);
   QVERIFY(!read.has_value());
@@ -194,6 +195,40 @@ void ProjectFileTests::OverlappingClipsAreDamage() {
   const auto read = ReadProject(path);
   QVERIFY(!read.has_value());
   QVERIFY(read.error().message.contains("overlap"));
+}
+
+void ProjectFileTests::OldShotTransitionsMoveToTheReel() {
+  QTemporaryDir dir;
+  const QString path = QDir(dir.path()).filePath("shots.snapper");
+  const QJsonObject fade{{"kind", "crossfade"}, {"length", 4}};
+  const QJsonObject flash{{"kind", "flash"}, {"length", 2}};
+  const QJsonObject one{{"id", 1}, {"length", 48}, {"transition", fade}};
+  const QJsonObject two{{"id", 2}, {"length", 48}, {"transition", flash}};
+  const QJsonArray shots{one, two};
+  // Shot 1 meets shot 2 on the bottom track and stands alone above;
+  // shot 2 has nothing after it.
+  const QJsonObject a{{"id", 1}, {"start", 0}, {"length", 48}, {"shot", 1}};
+  const QJsonObject b{{"id", 2}, {"start", 48}, {"length", 48}, {"shot", 2}};
+  const QJsonObject c{{"id", 3}, {"start", 200}, {"length", 48},
+                      {"shot", 1}};
+  const QJsonArray bottom{a, b};
+  const QJsonArray top{c};
+  QVERIFY(WriteObject(path, {{"format", "snapper-project"},
+                             {"version", 2},
+                             {"canvas", QJsonArray{1920, 1080}},
+                             {"shots", shots},
+                             {"reel", QJsonArray{bottom, top}}}));
+  const auto read = ReadProject(path);
+  QVERIFY(read.has_value());
+  QCOMPARE(ClipOf(read->reel, ClipId(1))->out,
+           (Transition{TransitionKind::kCrossfade, Frame(4)}));
+  QCOMPARE(ClipOf(read->reel, ClipId(2))->out, Transition());
+  QCOMPARE(ClipOf(read->reel, ClipId(3))->out, Transition());
+  // Saved again, the shots carry no transition.
+  QVERIFY(WriteProject(path, *read).has_value());
+  QFile saved(path);
+  QVERIFY(saved.open(QIODevice::ReadOnly));
+  QVERIFY(!saved.readAll().contains("flash"));
 }
 
 void ProjectFileTests::PosesSurviveARoundTrip() {

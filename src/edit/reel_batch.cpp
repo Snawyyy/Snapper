@@ -7,37 +7,10 @@
 
 #include "base/text.h"
 #include "edit/history_manager.h"
+#include "edit/reel_edits.h"
 #include "edit/reel_manager.h"
 
 namespace snapper {
-namespace {
-
-struct Lifted final {
-  int track = -1;
-  Clip clip;
-};
-
-// Takes every clip in ids off its track, or says which is gone.
-Result<std::vector<Lifted>> Lift(Project* project,
-                                 const std::set<ClipId>& ids) {
-  assert(project != nullptr);
-  assert(ids.size() <= static_cast<size_t>(kMaxReelTracks) *
-                           kMaxClipsPerTrack);
-  std::vector<Lifted> lifted;
-  for (const ClipId id : ids) {
-    const ClipSpot spot = FindClip(project->reel, id);
-    const bool is_present = spot.IsValid();
-    if (!is_present) {
-      return std::unexpected(Error{Tr("That clip no longer exists.")});
-    }
-    auto& clips = project->reel.tracks[static_cast<size_t>(spot.track)].clips;
-    lifted.push_back({spot.track, clips[static_cast<size_t>(spot.index)]});
-    clips.erase(clips.begin() + spot.index);
-  }
-  return lifted;
-}
-
-}  // namespace
 
 Result<void> ReelManager::MoveAll(const std::vector<ClipId>& clips,
                                   int tracks, int frames) {
@@ -61,12 +34,13 @@ Result<void> ReelManager::MoveAll(const std::vector<ClipId>& clips,
     ReelTrack& row = next.reel.tracks[static_cast<size_t>(track)];
     const bool has_room = HasRoom(row, item.clip);
     if (!has_room) {
-      return std::unexpected(Error{Tr("There's a clip in the way.")});
+      return std::unexpected(InTheWay());
     }
     PlaceClip(&row, std::move(item.clip));
   }
-  return history_->Apply(ids.size() == 1 ? Tr("Move clip") : Tr("Move clips"),
-                         std::move(next));
+  return history_->Apply(
+      CountLabel(ids.size(), Tr("Move clip"), Tr("Move clips")),
+      std::move(next));
 }
 
 Result<void> ReelManager::RemoveAll(const std::vector<ClipId>& clips) {
@@ -83,7 +57,7 @@ Result<void> ReelManager::RemoveAll(const std::vector<ClipId>& clips) {
     return std::unexpected(lifted.error());
   }
   return history_->Apply(
-      ids.size() == 1 ? Tr("Remove clip") : Tr("Remove clips"),
+      CountLabel(ids.size(), Tr("Remove clip"), Tr("Remove clips")),
       std::move(next));
 }
 

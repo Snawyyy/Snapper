@@ -28,6 +28,49 @@ Frame ShownLength(const Project& project, const Clip& clip) {
   return Frame(std::min(left, clip.length.index()));
 }
 
+Frame UsedTransition(const ReelTrack& track, const Clip& clip) {
+  assert(clip.length.index() >= 1);
+  assert(track.clips.size() <= static_cast<size_t>(kMaxClipsPerTrack));
+  const Clip* next = NextTouching(track, clip);
+  const bool is_joined = next != nullptr;
+  return is_joined ? UsableLength(clip.out, clip.length, next->length)
+                   : Frame(0);
+}
+
+Frame LongestTransition(const ReelTrack& track, const Clip& clip) {
+  assert(clip.length.index() >= 1);
+  assert(track.clips.size() <= static_cast<size_t>(kMaxClipsPerTrack));
+  const Transition widest{TransitionKind::kCrossfade, Frame(kMaxFrame)};
+  const Clip* next = NextTouching(track, clip);
+  const bool is_joined = next != nullptr;
+  return is_joined ? UsableLength(widest, clip.length, next->length)
+                   : Frame(0);
+}
+
+namespace {
+
+// Fills in piece's mix when into (frames into its clip) falls in the
+// clip's transition into the next one on track.
+void MixInto(const ReelTrack& track, int into, ReelPiece* piece) {
+  assert(piece != nullptr && piece->clip != nullptr);
+  assert(into >= 0);
+  const Clip& clip = *piece->clip;
+  const int used = UsedTransition(track, clip).index();
+  const int into_mix = into - (clip.length.index() - used);
+  const bool is_mixing = used > 0 && into_mix >= 0;
+  if (!is_mixing) {
+    return;
+  }
+  const Clip* next = NextTouching(track, clip);
+  const int before_cut = used - into_mix;
+  piece->next = next;
+  piece->next_source = Frame(std::max(next->in.index() - before_cut, 0));
+  piece->kind = clip.out.kind;
+  piece->mix = (into_mix + 1.0) / (used + 1.0);
+}
+
+}  // namespace
+
 std::vector<ReelPiece> ReelAt(const Project& project, Frame frame) {
   assert(frame.index() >= 0);
   assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
@@ -39,7 +82,12 @@ std::vector<ReelPiece> ReelAt(const Project& project, Frame frame) {
       const bool is_shown =
           into >= 0 && into < ShownLength(project, clip).index();
       if (is_shown) {
-        pieces.push_back({t, &clip, Frame(clip.in.index() + into)});
+        ReelPiece piece;
+        piece.track = t;
+        piece.clip = &clip;
+        piece.source = Frame(clip.in.index() + into);
+        MixInto(project.reel.tracks[static_cast<size_t>(t)], into, &piece);
+        pieces.push_back(piece);
         break;
       }
     }
@@ -84,6 +132,39 @@ std::set<Frame> ReelCuts(const Project& project,
     }
   }
   return cuts;
+}
+
+std::set<ClipId> AllClips(const Reel& reel) {
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(kMaxClipsPerTrack > 0);
+  std::set<ClipId> all;
+  for (const ReelTrack& track : reel.tracks) {
+    for (const Clip& clip : track.clips) {
+      all.insert(clip.id);
+    }
+  }
+  return all;
+}
+
+std::set<ClipId> ClipsIn(const Reel& reel, int low, int high, Frame first,
+                         Frame last) {
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(first.index() >= 0 && last.index() >= 0);
+  const int count = static_cast<int>(reel.tracks.size());
+  const int bottom = std::clamp(std::min(low, high), 0, count);
+  const int top = std::clamp(std::max(low, high), -1, count - 1);
+  const Frame from = std::min(first, last);
+  const Frame to = std::max(first, last);
+  std::set<ClipId> caught;
+  for (int t = bottom; t <= top; ++t) {
+    for (const Clip& clip : reel.tracks[static_cast<size_t>(t)].clips) {
+      const bool is_touched = !(to < clip.start) && from < clip.end();
+      if (is_touched) {
+        caught.insert(clip.id);
+      }
+    }
+  }
+  return caught;
 }
 
 namespace {

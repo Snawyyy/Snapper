@@ -16,14 +16,16 @@ namespace snapper {
 // thread makes its own (with its own image cache).
 class FrameRenderer final {
  public:
-  // The master track at frame: shots, their transitions and effects.
+  // The master track at frame: the shots one after another, with their
+  // effects.
   // scale is the output size against the canvas: 1 for export, less
   // for a faster preview. Past the last shot the frame is black.
   QImage RenderFrame(const Project& project, Frame master, double scale);
   // The reel (the final video) at frame: each track's clip, bottom
   // first, a shot clip drawn as its shot alone and a video fitted to the
-  // canvas. Where nothing plays the frame is black. videos supplies the
-  // video pictures; with nullptr, videos are left out.
+  // canvas. Where nothing plays the frame is black. Over a transition
+  // the clip and the next one are mixed. videos supplies the video
+  // pictures; with nullptr, videos are left out.
   QImage RenderReel(const Project& project, Frame frame, double scale,
                     VideoFrames* videos);
   // One shot on its own, at a frame of its own.
@@ -38,6 +40,11 @@ class FrameRenderer final {
   ImageCache* cache() { return &cache_; }
 
  private:
+  // Draws clip's source at source over out: a shot whole, a video
+  // fitted to the canvas.
+  void DrawClip(const Project& project, const Clip& clip, Frame source,
+                double scale, VideoFrames* videos, QImage* out);
+
   ImageCache cache_;
 };
 

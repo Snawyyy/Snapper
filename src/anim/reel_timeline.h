@@ -15,7 +15,22 @@ struct ReelPiece final {
   int track = -1;
   const Clip* clip = nullptr;
   Frame source;
+  // During a transition into the next clip on the track: that clip, the
+  // frame of its source shown (the frames leading up to its in point,
+  // its first frame held where the source has none), the kind, and how
+  // far it has mixed in (0 to 1). next is nullptr otherwise.
+  const Clip* next = nullptr;
+  Frame next_source;
+  TransitionKind kind = TransitionKind::kCut;
+  double mix = 0.0;
 };
+
+// How many frames clip's transition into the next clip on track runs:
+// 0 for a cut or when no clip touches its end.
+Frame UsedTransition(const ReelTrack& track, const Clip& clip);
+// The longest transition clip can have into the clip touching its end;
+// 0 when none touches.
+Frame LongestTransition(const ReelTrack& track, const Clip& clip);
 
 // How long clip's source is: the whole video file, or the shot as it is
 // now; 0 when its shot is gone.
@@ -33,6 +48,12 @@ Frame TrackEnd(const Project& project, int track);
 // Clips in ignore are left out.
 std::set<Frame> ReelCuts(const Project& project,
                          const std::set<ClipId>& ignore = {});
+// Every clip on the reel, for picking all.
+std::set<ClipId> AllClips(const Reel& reel);
+// The clips a box touches: on tracks low to high (either order) and
+// showing any frame from first to last (either order).
+std::set<ClipId> ClipsIn(const Reel& reel, int low, int high, Frame first,
+                         Frame last);
 // Snapping while dragging: the nearest of the other clips' cuts, the
 // cut markers, the playhead and frame 0 within reach frames of at, else
 // at.

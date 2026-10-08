@@ -195,9 +195,10 @@ Each shot has its own stage:
 
 - a background colour, and layers bottom to top: dolls, pictures,
   text for lyrics, and effects,
-- a camera (pan, zoom, rotate, shake),
-- a transition into the next shot (cut, swipes, flash, crossfade).
-  The next shot starts that many frames early and the two are mixed.
+- a camera (pan, zoom, rotate, shake).
+
+On the master track the shots follow each other with plain cuts;
+transitions belong to the reel.
 
 An effect layer (flash, fill, invert, zoom punch, halftone, glitch,
 posterize) changes everything drawn below it, like an adjustment
@@ -256,6 +257,31 @@ is what gets exported; until then the shots are, one after another.
 Drags on the reel snap to other clips' cuts, cut markers, the playhead
 and frame 0 (`SnapDelta`, `SnapFrame`).
 
+The reel's timeline edits like the shots' one: clips pick as every
+list does (a box picks what it touches, `ClipsIn`), drags move and
+trim them, S splits at the playhead (the picked clips, or with none
+picked whatever the playhead is in, `SplitTargets`), Delete removes,
+Shift+Delete removes and closes the gap on each track
+(`RippleDeleteAll`). Ctrl+C, Ctrl+X and Ctrl+V copy, cut and paste:
+`ReelManager` keeps the clipboard, and a paste lays the copies down at
+the playhead on the tracks they came from, keeping their spacing.
+Ctrl+D lays copies right after the picked clips. The helpers these
+edits share are in `edit/reel_edits.h`.
+
+A transition (swipes, flash, crossfade) lives on the cut between two
+clips that touch on one track, stored on the left clip (`Clip::out`).
+The two are mixed over the last frames before the cut, so the reel's
+timing never changes; the right clip shows the frames leading up to
+its in point there, holding its first frame where its source has
+none (`ReelAt`). Its length is bounded by both clips, each keeping a
+frame of its own (`UsableLength`). Pulled apart, the clips just cut;
+touching again, the transition is back. Splitting a clip leaves the
+transition on the right half. Double-clicking the cut picks it
+(`TransitionPicker`, `ReelManager::SetTransition`). Files from before
+kept a transition on each shot into the next one: on load it moves
+onto the cut where a clip of that shot meets the next clip on its
+track, and is dropped where there is none (`MoveShotTransitions`).
+
 Cut markers are where cuts should fall, marked by ear: Mark cut (M)
 drops one at the reel's playhead while the song plays, or takes away
 the one there. The reel's playhead runs at least the song's length, so
@@ -280,11 +306,12 @@ as two triangles back into the drawing. Each renderer has its own
 smaller scale; effects scale their sizes with it so they look the same.
 
 `RenderReel` draws a reel frame: shot clips through `RenderShot`, video
-clips fitted to the canvas, keeping their shape. Pictures of video files
-come through the `VideoFrames` hook, so drawing never opens a file; the
-`edit` side's `VideoFileFrames` reads them with `VideoReader`, keeping
-each file open so playing forward decodes each picture once. Like the
-renderer, each thread has its own.
+clips fitted to the canvas, keeping their shape. Over a transition both
+clips are drawn over the tracks below and mixed by `Combine`. Pictures
+of video files come through the `VideoFrames` hook, so drawing never
+opens a file; the `edit` side's `VideoFileFrames` reads them with
+`VideoReader`, keeping each file open so playing forward decodes each
+picture once. Like the renderer, each thread has its own.
 
 The CPU is enough for flat-colour dolls at 1080p. If preview at full
 size ever drops below 24 fps, the upgrade is to move `FrameRenderer`
@@ -302,8 +329,8 @@ are destroyed in reverse.
 | `DocumentManager`      | New, open, save, autosave, recent files        |
 | `DollLibraryManager`   | Doll folders, loading, reload on re-export     |
 | `RigManager`           | Rig edits: joints, IK, warp grids, their dots  |
-| `ShotManager`          | Shots on the master track, transitions         |
-| `ReelManager`          | The reel: clips of shots and videos, tracks    |
+| `ShotManager`          | Shots on the master track: order, length, look |
+| `ReelManager`          | The reel: clips, tracks, cuts, transitions     |
 | `StageManager`         | What is in a shot: actors, props, text, effects |
 | `LinkManager`          | Which things copy another's movement, how much |
 | `SelectionManager`     | What is picked: shots, layers, pieces, keys, clips |

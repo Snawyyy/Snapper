@@ -22,26 +22,6 @@ constexpr double kMaxLinkStrength = 4.0;
 struct ShotTag;
 using ShotId = Id<ShotTag>;
 
-enum class TransitionKind {
-  kCut,
-  kSwipeLeft,
-  kSwipeRight,
-  kSwipeUp,
-  kSwipeDown,
-  kFlash,
-  kCrossfade,
-};
-constexpr int kTransitionKindCount = 7;
-
-// How a shot hands over to the next one. The next shot starts length
-// frames before this one ends, and the two are mixed over that overlap.
-struct Transition final {
-  TransitionKind kind = TransitionKind::kCut;
-  Frame length;
-
-  bool operator==(const Transition&) const = default;
-};
-
 // One end of a link: a whole layer (empty piece) or one piece of a doll.
 struct LinkEnd final {
   LayerId layer;
@@ -74,7 +54,6 @@ struct Shot final {
   // Bottom to top.
   std::vector<Layer> layers;
   Channel<CameraPose> camera;
-  Transition transition;
   // At most one per follower.
   std::vector<Link> links;
 
@@ -88,9 +67,6 @@ Layer* FindLayer(Shot* shot, LayerId id);
 const Link* FindLink(const Shot& shot, const LinkEnd& follower);
 // Drops links whose follower or leader layer is gone.
 void DropDeadLinks(Shot* shot);
-
-// The overlap actually used: never more than either shot can give.
-Frame UsableTransition(const Shot& shot, const Shot* next);
 
 }  // namespace snapper
 

@@ -16,11 +16,13 @@
 #include "edit/selection_manager.h"
 #include "ui/reel_timeline.h"
 #include "ui/slot_picker.h"
+#include "ui/transition_picker.h"
 
 namespace snapper {
 namespace {
 
-constexpr double kEdgeReach = 6.0;
+// Ends are drawn 3 pixels wide but grab from further in.
+constexpr double kEdgeReach = 8.0;
 constexpr double kSnapPixels = 8.0;
 // Pixels the mouse goes before a press on a clip becomes a drag.
 constexpr double kDragStart = 3.0;
@@ -36,6 +38,27 @@ ClipId ReelTimeline::ClipAt(QPointF at) const {
       if (is_hit) {
         return clip.id;
       }
+    }
+  }
+  return ClipId();
+}
+
+ClipId ReelTimeline::JointAt(QPointF at) const {
+  assert(managers_.history != nullptr);
+  assert(std::isfinite(at.x()) && std::isfinite(at.y()));
+  const int track = TrackAt(at.y());
+  const bool is_on_track = track >= 0 && at.x() >= kHeaderWidth;
+  if (!is_on_track) {
+    return ClipId();
+  }
+  const ReelTrack& row =
+      managers_.history->current().reel.tracks[static_cast<size_t>(track)];
+  for (const Clip& clip : row.clips) {
+    const bool is_near =
+        std::abs(XOf(clip.end()) - at.x()) <= kEdgeReach &&
+        NextTouching(row, clip) != nullptr;
+    if (is_near) {
+      return clip.id;
     }
   }
   return ClipId();
@@ -154,10 +177,14 @@ void ReelTimeline::mousePressEvent(QMouseEvent* event) {
   const ClipId clip = ClipAt(at);
   const bool is_on_clip = clip.IsValid();
   if (!is_on_clip) {
-    const bool is_plain = event->modifiers() == Qt::NoModifier;
-    if (is_plain) {
-      managers_.selection->PickClips({}, PickMode::kReplace);
-    }
+    // Empty space starts a box; Shift adds, Ctrl takes out.
+    const Qt::KeyboardModifiers mods = event->modifiers();
+    drag_ = Drag::kBox;
+    press_ = at;
+    box_to_ = at;
+    box_mode_ = mods.testFlag(Qt::ShiftModifier)     ? PickMode::kAdd
+                : mods.testFlag(Qt::ControlModifier) ? PickMode::kRemove
+                                                     : PickMode::kReplace;
     return;
   }
   is_plain_press_ = event->modifiers() == Qt::NoModifier;
@@ -178,9 +205,18 @@ void ReelTimeline::mouseMoveEvent(QMouseEvent* event) {
   const bool is_trimming =
       drag_ == Drag::kTrimStart || drag_ == Drag::kTrimEnd;
   setCursor(is_edge || is_trimming ? Qt::SizeHorCursor : Qt::ArrowCursor);
+  const bool is_joint = JointAt(at).IsValid();
+  setToolTip(is_joint ? tr("Double-click to pick the transition here.")
+                      : QString());
   const bool is_seeking = drag_ == Drag::kSeek;
   if (is_seeking) {
     SeekTo(at.x());
+    return;
+  }
+  const bool is_boxing = drag_ == Drag::kBox;
+  if (is_boxing) {
+    box_to_ = at;
+    update();
     return;
   }
   const bool is_dragging = drag_ != Drag::kNone;
@@ -191,6 +227,10 @@ void ReelTimeline::mouseMoveEvent(QMouseEvent* event) {
 
 void ReelTimeline::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  const bool is_boxing = drag_ == Drag::kBox;
+  if (is_boxing) {
+    FinishBox();
+  }
   const bool was_click =
       drag_ == Drag::kMove && !has_moved_ && is_plain_press_;
   // Leaving the scope lands the drag as one step.
@@ -204,6 +244,32 @@ void ReelTimeline::mouseReleaseEvent(QMouseEvent* event) {
   assert(scope_ == nullptr);
 }
 
+void ReelTimeline::FinishBox() {
+  assert(drag_ == Drag::kBox);
+  assert(managers_.selection != nullptr);
+  drag_ = Drag::kNone;
+  update();
+  const QRectF box = QRectF(press_, box_to_).normalized();
+  const bool is_click = box.width() < kDragStart && box.height() < kDragStart;
+  if (is_click) {
+    const bool is_plain = box_mode_ == PickMode::kReplace;
+    if (is_plain) {
+      managers_.selection->PickClips({}, PickMode::kReplace);
+    }
+    return;
+  }
+  const int count =
+      static_cast<int>(managers_.history->current().reel.tracks.size());
+  // Above the tracks is the top one; below them, the bottom one.
+  const int high = box.top() < kRulerHeight ? count - 1 : TrackAt(box.top());
+  const int low = TrackAt(box.bottom());
+  const std::set<ClipId> caught = ClipsIn(
+      managers_.history->current().reel, low < 0 ? 0 : low,
+      high, FrameAt(std::max(box.left(), kHeaderWidth)),
+      FrameAt(std::max(box.right(), kHeaderWidth)));
+  managers_.selection->PickClips(caught, box_mode_);
+}
+
 void ReelTimeline::mouseDoubleClickEvent(QMouseEvent* event) {
   assert(event != nullptr);
   assert(managers_.history != nullptr);
@@ -215,10 +281,37 @@ void ReelTimeline::mouseDoubleClickEvent(QMouseEvent* event) {
     QWidget::mouseDoubleClickEvent(event);
     return;
   }
-  // The first click may have opened a drag; the gap is picked instead.
+  // The first click may have opened a drag; this picks instead.
   scope_.reset();
   drag_ = Drag::kNone;
+  const ClipId joint = JointAt(at);
+  const bool is_joint = joint.IsValid();
+  if (is_joint) {
+    EditTransition(joint);
+    return;
+  }
   FillGap(track, FrameAt(at.x()));
+}
+
+void ReelTimeline::EditTransition(ClipId clip) {
+  assert(clip.IsValid());
+  assert(managers_.reel != nullptr);
+  const QString why_not = managers_.reel->WhyNoTransition(clip);
+  const bool can_edit = why_not.isEmpty();
+  if (!can_edit) {
+    Report(why_not);
+    return;
+  }
+  const Reel& reel = managers_.history->current().reel;
+  const ReelTrack& track =
+      reel.tracks[static_cast<size_t>(FindClip(reel, clip).track)];
+  const Clip& left = *ClipOf(reel, clip);
+  TransitionPicker picker(left.out, LongestTransition(track, left), this);
+  const bool is_chosen = picker.exec() == QDialog::Accepted;
+  if (is_chosen) {
+    Report(ProblemOf(
+        managers_.reel->SetTransition(clip, picker.transition())));
+  }
 }
 
 void ReelTimeline::FillGap(int track, Frame at) {

@@ -21,18 +21,8 @@ std::optional<PlayheadSpot> SpotOf(const Managers& managers) {
   if (!is_on_shot) {
     return std::nullopt;
   }
-  // In a hand-over, edits go to whichever side is picked.
-  const bool is_next_picked =
-      moment.next_shot >= 0 &&
-      project.shots[static_cast<size_t>(moment.next_shot)]->id ==
-          managers.selection->shot();
-  return is_next_picked
-             ? PlayheadSpot{project.shots[static_cast<size_t>(
-                                moment.next_shot)]->id,
-                            moment.next_local}
-             : PlayheadSpot{
-                   project.shots[static_cast<size_t>(moment.shot)]->id,
-                   moment.local};
+  return PlayheadSpot{project.shots[static_cast<size_t>(moment.shot)]->id,
+                      moment.local};
 }
 
 std::optional<TrackRef> PickedTrack(const Managers& managers, ShotId shot) {

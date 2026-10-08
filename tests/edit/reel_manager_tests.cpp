@@ -180,7 +180,9 @@ void ReelManagerTests::SplitCutsInTwo() {
   QCOMPARE(f.history.current().reel.tracks[0].clips.size(), size_t{1});
   // Many at once: only the clips the cut is inside split.
   const ClipId other = *f.reel.AddShot(f.shot, 1, Frame(40));
-  QVERIFY(!f.reel.WhyNoSplit({}, Frame(30)).isEmpty());
+  // Nothing picked: the clip the playhead is in.
+  QVERIFY(f.reel.WhyNoSplit({}, Frame(30)).isEmpty());
+  QVERIFY(!f.reel.WhyNoSplit({}, Frame(500)).isEmpty());
   QVERIFY(!f.reel.WhyNoSplit({other}, Frame(30)).isEmpty());
   QVERIFY(f.reel.WhyNoSplit({clip, other}, Frame(30)).isEmpty());
   const auto halves = f.reel.SplitAll({clip, other}, Frame(30));

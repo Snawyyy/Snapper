@@ -13,8 +13,9 @@
 namespace snapper {
 namespace {
 
-// 2 added the reel; 1 files open with an empty one.
-constexpr int kProjectVersion = 2;
+// 3 moved transitions from shots to the reel's cuts; 2 added the reel;
+// 1 files open with an empty one.
+constexpr int kProjectVersion = 3;
 
 void ReadDolls(const QJsonArray& dolls, Project* project, JsonIssues* issues) {
   assert(project != nullptr);
@@ -77,6 +78,8 @@ Result<Project> ReadProject(const QString& path) {
   ReadDolls(read->value("dolls").toArray(), &project, &issues);
   ReadShots(read->value("shots").toArray(), &project, &issues);
   project.reel = ReelFromJson(read->value("reel"), &issues);
+  MoveShotTransitions(read->value("shots").toArray(), &project.reel,
+                      &issues);
   project.reel.markers = MarkersFromJson(read->value("cut_markers"), &issues);
   const bool is_damaged = issues.HasIssue() || !IsValidCanvas(project.canvas);
   if (is_damaged) {

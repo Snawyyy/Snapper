@@ -30,7 +30,7 @@ QImage Blank(const Project& project, double scale, QColor color) {
   return image;
 }
 
-// Mixes the next shot in over a transition; mix runs 0 to 1.
+// Mixes the next clip in over a transition; mix runs 0 to 1.
 QImage Combine(TransitionKind kind, double mix, const QImage& from,
                const QImage& to) {
   assert(from.size() == to.size());
@@ -148,14 +148,35 @@ QImage FrameRenderer::RenderFrame(const Project& project, Frame master,
     return Blank(project, scale, Qt::black);
   }
   const Shot& shot = *project.shots[static_cast<size_t>(moment.shot)];
-  QImage frame = RenderShot(project, shot, moment.local, scale);
-  const bool is_mixing = moment.next_shot >= 0;
-  if (is_mixing) {
-    const Shot& next = *project.shots[static_cast<size_t>(moment.next_shot)];
-    frame = Combine(shot.transition.kind, moment.mix, frame,
-                    RenderShot(project, next, moment.next_local, scale));
+  return RenderShot(project, shot, moment.local, scale);
+}
+
+void FrameRenderer::DrawClip(const Project& project, const Clip& clip,
+                             Frame source, double scale, VideoFrames* videos,
+                             QImage* out) {
+  assert(out != nullptr);
+  assert(scale > 0.0);
+  const auto* video = std::get_if<VideoSource>(&clip.source);
+  const bool is_video = video != nullptr;
+  if (is_video) {
+    const QImage picture = videos != nullptr
+                               ? videos->Picture(video->path, source)
+                               : QImage();
+    const bool has_picture = !picture.isNull();
+    if (has_picture) {
+      DrawFitted(picture, out);
+    }
+    return;
   }
-  return frame;
+  const Shot* shot =
+      FindShot(project, std::get<ShotSource>(clip.source).shot);
+  // A clip can outlive its shot; like the timeline, it shows nothing.
+  const bool is_shot_gone = shot == nullptr;
+  if (is_shot_gone) {
+    return;
+  }
+  QPainter painter(out);
+  painter.drawImage(0, 0, RenderShot(project, *shot, source, scale));
 }
 
 QImage FrameRenderer::RenderReel(const Project& project, Frame frame,
@@ -164,27 +185,17 @@ QImage FrameRenderer::RenderReel(const Project& project, Frame frame,
   assert(frame.index() >= 0);
   QImage out = Blank(project, scale, Qt::black);
   for (const ReelPiece& piece : ReelAt(project, frame)) {
-    const auto* video = std::get_if<VideoSource>(&piece.clip->source);
-    const bool is_video = video != nullptr;
-    if (is_video) {
-      const QImage picture =
-          videos != nullptr ? videos->Picture(video->path, piece.source)
-                            : QImage();
-      const bool has_picture = !picture.isNull();
-      if (has_picture) {
-        DrawFitted(picture, &out);
-      }
+    const bool is_mixing = piece.next != nullptr;
+    if (!is_mixing) {
+      DrawClip(project, *piece.clip, piece.source, scale, videos, &out);
       continue;
     }
-    const Shot* shot =
-        FindShot(project, std::get<ShotSource>(piece.clip->source).shot);
-    // A clip can outlive its shot; like the timeline, it shows nothing.
-    const bool is_shot_gone = shot == nullptr;
-    if (is_shot_gone) {
-      continue;
-    }
-    QPainter painter(&out);
-    painter.drawImage(0, 0, RenderShot(project, *shot, piece.source, scale));
+    // Both sides are drawn over what lies below, then mixed.
+    QImage from = out.copy();
+    DrawClip(project, *piece.clip, piece.source, scale, videos, &from);
+    QImage to = out.copy();
+    DrawClip(project, *piece.next, piece.next_source, scale, videos, &to);
+    out = Combine(piece.kind, piece.mix, from, to);
   }
   return out;
 }

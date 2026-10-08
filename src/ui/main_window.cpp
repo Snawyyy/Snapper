@@ -37,7 +37,7 @@ MainWindow::MainWindow(const Managers& managers)
       edit_menu_(tr("&Edit")),
       undo_action_(tr("&Undo")),
       redo_action_(tr("&Redo")),
-      center_layout_(&center_),
+      modes_bar_(tr("Modes")),
       pose_layout_(&pose_page_),
       strip_(managers),
       pose_split_(Qt::Vertical),
@@ -59,25 +59,7 @@ MainWindow::MainWindow(const Managers& managers)
       back_action_(tr("Pre&vious frame")) {
   assert(managers_.IsComplete());
   BuildMenus();
-  modes_.addTab(tr("Pose"));
-  modes_.addTab(tr("Rig"));
-  modes_.addTab(tr("Video"));
-  modes_.setExpanding(false);
-  pose_split_.addWidget(&stage_);
-  pose_split_.addWidget(&timeline_);
-  pose_split_.setStretchFactor(0, 3);
-  pose_split_.setStretchFactor(1, 1);
-  pose_layout_.setContentsMargins(0, 0, 0, 0);
-  pose_layout_.setSpacing(0);
-  pose_layout_.addWidget(&strip_);
-  pose_layout_.addWidget(&pose_split_, 1);
-  pages_.addWidget(&pose_page_);
-  rig_split_.addWidget(&rig_canvas_);
-  rig_split_.addWidget(&rig_panel_);
-  rig_split_.setStretchFactor(0, 3);
-  rig_split_.setStretchFactor(1, 1);
-  pages_.addWidget(&rig_split_);
-  pages_.addWidget(&video_page_);
+  BuildPages();
   connect(&rig_panel_, &RigPanel::DollPicked, &rig_canvas_,
           &RigCanvas::SetDoll);
   connect(&rig_panel_, &RigPanel::PickChanged, &rig_canvas_,
@@ -108,12 +90,7 @@ MainWindow::MainWindow(const Managers& managers)
   addDockWidget(Qt::RightDockWidgetArea, &inspector_dock_);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
           &MainWindow::FollowPlayhead);
-  center_layout_.setContentsMargins(0, 0, 0, 0);
-  center_layout_.setSpacing(0);
-  center_layout_.addWidget(&modes_);
-  center_layout_.addWidget(&pages_, 1);
-  setCentralWidget(&center_);
-  connect(&modes_, &QTabBar::currentChanged, this, &MainWindow::ShowMode);
+  BuildModes();
   connect(managers_.history, &HistoryManager::Changed, this,
           &MainWindow::Refresh);
   connect(managers_.document, &DocumentManager::PathChanged, this,
@@ -168,13 +145,7 @@ void MainWindow::FollowPlayhead() {
   const Project& project = managers_.history->current();
   const ShotMoment moment =
       Locate(project, managers_.playback->FrameOn(Timeline::kShots));
-  const bool is_on_shot = moment.shot >= 0;
-  // In a hand-over the picked shot may be either side; keep it.
-  const bool is_next_picked =
-      moment.next_shot >= 0 &&
-      project.shots[static_cast<size_t>(moment.next_shot)]->id ==
-          managers_.selection->shot();
-  const bool is_moving_on = is_on_shot && !is_next_picked;
+  const bool is_moving_on = moment.shot >= 0;
   if (is_moving_on) {
     managers_.selection->SelectShot(
         project.shots[static_cast<size_t>(moment.shot)]->id);
@@ -190,6 +161,47 @@ void MainWindow::closeEvent(QCloseEvent* event) {
   } else {
     event->ignore();
   }
+}
+
+void MainWindow::BuildPages() {
+  assert(pages_.count() == 0);
+  assert(managers_.IsComplete());
+  pose_split_.addWidget(&stage_);
+  pose_split_.addWidget(&timeline_);
+  pose_split_.setStretchFactor(0, 3);
+  pose_split_.setStretchFactor(1, 1);
+  pose_layout_.setContentsMargins(0, 0, 0, 0);
+  pose_layout_.setSpacing(0);
+  pose_layout_.addWidget(&strip_);
+  pose_layout_.addWidget(&pose_split_, 1);
+  pages_.addWidget(&pose_page_);
+  rig_split_.addWidget(&rig_canvas_);
+  rig_split_.addWidget(&rig_panel_);
+  rig_split_.setStretchFactor(0, 3);
+  rig_split_.setStretchFactor(1, 1);
+  pages_.addWidget(&rig_split_);
+  pages_.addWidget(&video_page_);
+  setCentralWidget(&pages_);
+  assert(pages_.count() == static_cast<int>(Mode::kVideo) + 1);
+}
+
+void MainWindow::BuildModes() {
+  assert(modes_.count() == 0);
+  assert(pages_.count() == static_cast<int>(Mode::kVideo) + 1);
+  modes_.addTab(tr("Pose"));
+  modes_.addTab(tr("Rig"));
+  modes_.addTab(tr("Video"));
+  modes_.setObjectName(QStringLiteral("modes"));
+  modes_.setExpanding(false);
+  modes_bar_.setObjectName(QStringLiteral("modes_bar"));
+  modes_bar_.setMovable(false);
+  modes_bar_.setFloatable(false);
+  // The tabs are the only way between modes, so they cannot be hidden.
+  modes_bar_.toggleViewAction()->setVisible(false);
+  modes_bar_.addWidget(&modes_);
+  addToolBar(Qt::TopToolBarArea, &modes_bar_);
+  connect(&modes_, &QTabBar::currentChanged, this, &MainWindow::ShowMode);
+  assert(modes_.count() == pages_.count());
 }
 
 void MainWindow::BuildMenus() {

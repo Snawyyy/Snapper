@@ -6,23 +6,16 @@
 
 namespace snapper {
 
-// Where the master track is at one frame. During a transition the next
-// shot shows too, mixed in by mix (0 = only this shot, 1 = only next).
+// Where the master track is at one frame. The shots play one after
+// another with plain cuts; transitions live on the reel.
 struct ShotMoment final {
   // -1 when the project has no shots or the frame is past the end.
   int shot = -1;
   Frame local;
-  int next_shot = -1;
-  Frame next_local;
-  double mix = 0.0;
 };
 
-// First master frame of the shot at index; each shot starts where the
-// one before ends, less its transition overlap.
+// First master frame of the shot at index: where the one before ends.
 Frame ShotStart(const Project& project, int index);
-// First master frame that belongs to the shot at index alone: past the
-// overlap where the shot before is still handing over to it.
-Frame ShotOwnStart(const Project& project, int index);
 Frame TotalLength(const Project& project);
 ShotMoment Locate(const Project& project, Frame master);
 

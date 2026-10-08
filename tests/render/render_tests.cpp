@@ -165,18 +165,36 @@ void RenderTests::SwipesPushTheShotOff() {
   a.id = ShotId(1);
   a.length = Frame(10);
   a.background = Qt::red;
-  a.transition = {TransitionKind::kSwipeLeft, Frame(3)};
   Shot b = a;
   b.id = ShotId(2);
   b.background = Qt::blue;
   project.shots = {std::make_shared<const Shot>(a),
                    std::make_shared<const Shot>(b)};
+  // The two meet on the reel, swiping over the last 3 frames before
+  // the cut at 10.
+  Clip first;
+  first.id = ClipId(1);
+  first.source = ShotSource{a.id};
+  first.length = Frame(10);
+  first.out = {TransitionKind::kSwipeLeft, Frame(3)};
+  Clip second = first;
+  second.id = ClipId(2);
+  second.source = ShotSource{b.id};
+  second.start = Frame(10);
+  second.out = Transition();
+  PlaceClip(&project.reel.tracks[0], first);
+  PlaceClip(&project.reel.tracks[0], second);
   FrameRenderer renderer;
-  const QImage mid = renderer.RenderFrame(project, Frame(8), 1.0);
+  const QImage before = renderer.RenderReel(project, Frame(6), 1.0, nullptr);
+  QCOMPARE(At(before, 75, 50), QColor(Qt::red));
+  const QImage mid = renderer.RenderReel(project, Frame(8), 1.0, nullptr);
   QCOMPARE(At(mid, 25, 50), QColor(Qt::red));
   QCOMPARE(At(mid, 75, 50), QColor(Qt::blue));
-  QCOMPARE(At(renderer.RenderFrame(project, Frame(12), 1.0), 50, 50),
+  QCOMPARE(At(renderer.RenderReel(project, Frame(12), 1.0, nullptr), 50, 50),
            QColor(Qt::blue));
+  // The shots' own track has no transitions: a plain cut.
+  QCOMPARE(At(renderer.RenderFrame(project, Frame(8), 1.0), 75, 50),
+           QColor(Qt::red));
 }
 
 void RenderTests::PastTheEndIsBlack() {

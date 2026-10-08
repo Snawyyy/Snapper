@@ -92,14 +92,4 @@ Result<void> ShotManager::SetBackgroundAll(const std::vector<ShotId>& shots,
                 [color](Shot* shot) { shot->background = color; }));
 }
 
-Result<void> ShotManager::SetTransitionAll(const std::vector<ShotId>& shots,
-                                           Transition transition) {
-  assert(history_ != nullptr);
-  assert(static_cast<int>(transition.kind) < kTransitionKindCount);
-  return history_->Apply(
-      Tr("Change transition"),
-      WithShots(history_->current(), shots,
-                [transition](Shot* shot) { shot->transition = transition; }));
-}
-
 }  // namespace snapper

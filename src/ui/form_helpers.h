@@ -1,6 +1,7 @@
 #ifndef SNAPPER_UI_FORM_HELPERS_H_
 #define SNAPPER_UI_FORM_HELPERS_H_
 
+#include <QAction>
 #include <QColor>
 #include <QDoubleSpinBox>
 #include <QSpinBox>
@@ -57,6 +58,8 @@ QString TimeText(Frame frame);
 void Explain(QWidget* widget, const QString& why_not);
 // The same, but an enabled widget keeps help as its tooltip.
 void Explain(QWidget* widget, const QString& why_not, const QString& help);
+// The same for a menu entry.
+void Explain(QAction* action, const QString& why_not);
 
 }  // namespace snapper
 
