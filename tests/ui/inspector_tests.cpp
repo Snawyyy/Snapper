@@ -230,6 +230,12 @@ void InspectorTests::ShotBoxChangesThePickedShots() {
   length->setValue(36);
   emit length->editingFinished();
   QCOMPARE(bench.history.current().shots[0]->length, Frame(36));
+  auto* seconds = box.findChild<QDoubleSpinBox*>("shot_seconds");
+  QCOMPARE(seconds->value(), 1.5);
+  seconds->setValue(2.53);
+  emit seconds->editingFinished();
+  QCOMPARE(bench.history.current().shots[0]->length, Frame(61));
+  QCOMPARE(length->value(), 61);
   kind->setCurrentIndex(static_cast<int>(TransitionKind::kCrossfade));
   emit kind->activated(kind->currentIndex());
   QCOMPARE(bench.history.current().shots[0]->transition,

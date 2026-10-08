@@ -4,14 +4,11 @@
 #include <cmath>
 
 namespace snapper {
+namespace {
 
-Frame FrameAtSeconds(double seconds) {
-  // Media files can report NaN or negative times; they mean the start.
-  const bool is_usable = std::isfinite(seconds) && seconds > 0.0;
-  if (!is_usable) {
-    return Frame(0);
-  }
-  const double frames = std::floor(seconds * kFramesPerSecond);
+// A count of frames worked out from seconds, kept to 0 to kMaxFrame.
+Frame FrameOf(double frames) {
+  assert(std::isfinite(frames));
   assert(frames >= 0.0);
   const bool is_past_end = frames >= static_cast<double>(kMaxFrame);
   if (is_past_end) {
@@ -20,6 +17,29 @@ Frame FrameAtSeconds(double seconds) {
   const Frame frame(static_cast<int>(frames));
   assert(frame.index() < kMaxFrame);
   return frame;
+}
+
+// NaN or negative seconds (media files can report them) mean none.
+bool IsUsable(double seconds) {
+  return std::isfinite(seconds) && seconds > 0.0;
+}
+
+}  // namespace
+
+Frame FrameAtSeconds(double seconds) {
+  const bool is_usable = IsUsable(seconds);
+  if (!is_usable) {
+    return Frame(0);
+  }
+  return FrameOf(std::floor(seconds * kFramesPerSecond));
+}
+
+Frame FramesNearSeconds(double seconds) {
+  const bool is_usable = IsUsable(seconds);
+  if (!is_usable) {
+    return Frame(0);
+  }
+  return FrameOf(std::round(seconds * kFramesPerSecond));
 }
 
 double SecondsAtFrame(Frame frame) {

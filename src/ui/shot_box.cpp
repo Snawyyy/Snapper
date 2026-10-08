@@ -32,13 +32,22 @@ ShotBox::ShotBox(const Managers& managers)
   transition_length_.setObjectName("transition_length");
   length_.setRange(1, kMaxFrame);
   length_.setSuffix(tr(" frames"));
+  length_seconds_.setObjectName("shot_seconds");
+  length_seconds_.setDecimals(2);
+  length_seconds_.setRange(SecondsAtFrame(Frame(1)),
+                           SecondsAtFrame(Frame(kMaxFrame)));
+  length_seconds_.setSingleStep(0.5);
+  length_seconds_.setSuffix(tr(" s"));
+  length_seconds_.setToolTip(
+      tr("Length in seconds, rounded to the nearest frame."));
   transition_length_.setRange(1, kFramesPerSecond * 4);
   transition_length_.setSuffix(tr(" frames"));
   for (int kind = 0; kind < kTransitionKindCount; ++kind) {
     transition_.addItem(TransitionName(static_cast<TransitionKind>(kind)));
   }
   layout_.addRow(tr("Name"), &name_);
-  layout_.addRow(tr("Length"), &length_);
+  AddPair(&layout_, tr("Length"), &length_row_, &length_,
+          &length_seconds_);
   layout_.addRow(tr("Background"), &background_);
   layout_.addRow(tr("Into next"), &transition_);
   layout_.addRow(tr("Overlap"), &transition_length_);
@@ -56,6 +65,15 @@ ShotBox::ShotBox(const Managers& managers)
     if (has_shot) {
       emit Problem(ProblemOf(managers_.shots->ShiftLength(
           Picked(), length_.value() - shot->length.index())));
+    }
+  });
+  MakeLive(&length_seconds_, &live_, tr("Shot length"), this, [this] {
+    const Shot* shot = Focused();
+    const bool has_shot = shot != nullptr;
+    if (has_shot) {
+      const Frame typed = FramesNearSeconds(length_seconds_.value());
+      emit Problem(ProblemOf(managers_.shots->ShiftLength(
+          Picked(), std::max(1, typed.index()) - shot->length.index())));
     }
   });
   connect(&background_, &QPushButton::clicked, this,
@@ -139,6 +157,7 @@ void ShotBox::Refresh() {
     transition_.setCurrentIndex(static_cast<int>(shot->transition.kind));
   }
   ShowNumber(&length_, shot->length.index());
+  ShowNumber(&length_seconds_, SecondsAtFrame(shot->length));
   ShowNumber(&transition_length_,
              std::max(1, shot->transition.length.index()));
   ShowColour(&background_, shot->background);

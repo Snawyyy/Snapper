@@ -32,6 +32,8 @@ class Frame final {
 // covers the sound from its start, so this rounds down.
 Frame FrameAtSeconds(double seconds);
 double SecondsAtFrame(Frame frame);
+// A length typed in seconds, as the nearest whole frame.
+Frame FramesNearSeconds(double seconds);
 
 }  // namespace snapper
 

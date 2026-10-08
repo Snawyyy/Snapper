@@ -91,7 +91,9 @@ History keeps at most `kMaxUndoSteps` steps and drops the oldest.
 ## Time
 
 - One clock: whole frames at 24 fps (`Frame`). Seconds exist only where
-  audio and video files are read or written (`media`).
+  audio and video files are read or written (`media`), and as a way to
+  type a shot's length, which becomes the nearest frame
+  (`FramesNearSeconds`).
 - Keys hold by default (step). A key can instead ease or move linearly
   into the next one.
 - Poses are usually on 2s or 3s; the timeline offers both as a hold
