@@ -60,6 +60,36 @@ struct DragNode final {
   bool operator==(const DragNode&) const = default;
 };
 
+// Moves a warp grid by itself, on top of its keys and drag nodes: hair
+// that waves, a heart that beats.
+enum class WarpMotionKind {
+  kNone,
+};
+constexpr int kWarpMotionKindCount = 1;
+
+// The edge a motion hangs from: dots there stay put and the far side
+// moves most.
+enum class WarpEdge { kTop, kLeft, kBottom, kRight };
+constexpr int kWarpEdgeCount = 4;
+
+// Frames one cycle of a warp motion may take, 24 being a second.
+constexpr int kMinWarpCycle = 2;
+constexpr int kMaxWarpCycle = 240;
+// The farthest a warp motion pushes a dot, in drawing pixels.
+constexpr double kMaxWarpMotionSize = 500.0;
+
+struct WarpMotion final {
+  WarpMotionKind kind = WarpMotionKind::kNone;
+  // How far the dots move at most, in drawing pixels.
+  double size = 8.0;
+  // Frames one cycle takes.
+  int cycle = 24;
+  WarpEdge edge = WarpEdge::kTop;
+
+  bool IsOn() const { return kind != WarpMotionKind::kNone; }
+  bool operator==(const WarpMotion&) const = default;
+};
+
 // How Snapper moves a piece: rig.json.
 struct RigPiece final {
   QString name;
@@ -85,6 +115,8 @@ struct RigPiece final {
   std::vector<double> warp_reach{};
   // Grid points that drag behind, each at most once.
   std::vector<DragNode> drag_nodes{};
+  // How the warp grid moves by itself; off by default.
+  WarpMotion warp_motion{};
 
   bool operator==(const RigPiece&) const = default;
 };
