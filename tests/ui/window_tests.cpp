@@ -4,6 +4,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QPushButton>
+#include <QTabBar>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -41,6 +42,7 @@ class WindowTests final : public QObject {
   void NewProjectDialogChecksItsFields();
   void DrawsInTheTheme();
   void VideoTabRunsTheReel();
+  void TabsStayPutInEveryMode();
 };
 
 void WindowTests::TitleShowsNameDirtAndPlace() {
@@ -134,6 +136,26 @@ void WindowTests::VideoTabRunsTheReel() {
   window.SetMode(MainWindow::Mode::kPose);
   QCOMPARE(rig.playback.timeline(), Timeline::kShots);
   QVERIFY(cast->isVisible());
+}
+
+void WindowTests::TabsStayPutInEveryMode() {
+  Bench rig;
+  MainWindow window(rig.All());
+  window.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&window));
+  auto* tabs = window.findChild<QTabBar*>("modes");
+  QVERIFY(tabs != nullptr);
+  const QPoint pose_at = tabs->mapTo(&window, QPoint(0, 0));
+  constexpr MainWindow::Mode kModes[] = {
+      MainWindow::Mode::kRig, MainWindow::Mode::kVideo,
+      MainWindow::Mode::kPose};
+  for (const MainWindow::Mode mode : kModes) {
+    window.SetMode(mode);
+    // Docks hide and show through the layout, so let it settle.
+    QCoreApplication::processEvents();
+    QCOMPARE(window.mode(), mode);
+    QCOMPARE(tabs->mapTo(&window, QPoint(0, 0)), pose_at);
+  }
 }
 
 }  // namespace snapper
