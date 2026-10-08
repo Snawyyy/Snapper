@@ -1,6 +1,7 @@
 #ifndef SNAPPER_ANIM_DOLL_LEAN_H_
 #define SNAPPER_ANIM_DOLL_LEAN_H_
 
+#include "anim/doll_drag.h"
 #include "anim/doll_pose.h"
 #include "base/frame.h"
 #include "model/doll.h"
@@ -35,9 +36,11 @@ PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double lean,
                   double swivel = 0.0);
 
 // The poses a doll layer shows at frame: its pieces' keys, drag nodes
-// trailing (DraggedPoses), turned by its own move's lean and swivel.
-// Everything that draws or hit-tests a doll on stage uses this.
-PoseMap ShownPoses(const Doll& doll, const Layer& layer, Frame frame);
+// trailing (DraggedPoses, carried by shifts), turned by its own move's
+// lean and swivel. Everything that draws or hit-tests a doll on stage
+// uses this.
+PoseMap ShownPoses(const Doll& doll, const Layer& layer, Frame frame,
+                   const LinkShifts& shifts = {});
 
 }  // namespace snapper
 

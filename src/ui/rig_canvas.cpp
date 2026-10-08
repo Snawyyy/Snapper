@@ -110,7 +110,8 @@ void RigCanvas::paintEvent(QPaintEvent* event) {
                           canvas),
                    Qt::white);
   painter.resetTransform();
-  PaintLayer(project, RestLayer(doll_), Frame(0), world, &cache_, &painter);
+  PaintLayer(project, RestLayer(doll_), Frame(0), world, nullptr, &cache_,
+             &painter);
   painter.setRenderHint(QPainter::Antialiasing);
   PaintOverlay(&painter);
   if (is_boxing_) {

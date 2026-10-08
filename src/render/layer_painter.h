@@ -7,6 +7,7 @@
 #include <QTransform>
 
 #include "anim/doll_pose.h"
+#include "anim/links.h"
 #include "base/frame.h"
 #include "model/layer.h"
 #include "model/project.h"
@@ -20,10 +21,11 @@ QRectF TextBox(const TextLayer& text);
 QFont TextFont(const TextLayer& text);
 
 // Draws one picture layer (doll, image or text) through view, which
-// maps shot space to the output. Effect layers are not drawn here: they
-// change what is already drawn.
+// maps shot space to the output, moved by its shot's links (links may
+// be nullptr for a layer outside any shot). Effect layers are not drawn
+// here: they change what is already drawn.
 void PaintLayer(const Project& project, const Layer& layer, Frame frame,
-                const QTransform& view, ImageCache* cache,
+                const QTransform& view, LinkSolver* links, ImageCache* cache,
                 QPainter* painter);
 
 }  // namespace snapper

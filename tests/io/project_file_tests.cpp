@@ -3,6 +3,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include "io/layer_json.h"
 #include "io/pose_file.h"
 #include "io/project_file.h"
 
@@ -64,6 +65,8 @@ Project FullProject() {
   SetKey(&shot.camera, {Frame(3), zoomed, Ease::kEaseInOut});
   shot.layers = {MakeLayer(4, posed), MakeLayer(5, ImageLayer{"/bg.png"}),
                  MakeLayer(6, words), MakeLayer(7, flash)};
+  shot.links = {Link{{LayerId(4), "head"}, {LayerId(5), {}}, Frame(12), 0.75},
+                Link{{LayerId(6), {}}, {LayerId(4), "head"}, Frame(0), 2.0}};
   project.shots.push_back(std::make_shared<const Shot>(shot));
   return project;
 }
@@ -76,6 +79,7 @@ class ProjectFileTests final : public QObject {
  private slots:
   void EverythingSurvivesARoundTrip();
   void DamagedFilesSayWhy();
+  void BadLinkIdsAreDropped();
   void PosesSurviveARoundTrip();
 };
 
@@ -109,6 +113,25 @@ void ProjectFileTests::DamagedFilesSayWhy() {
   QVERIFY(!read.has_value());
   QVERIFY(read.error().message.contains("damaged"));
   QVERIFY(!ReadProject(QDir(dir.path()).filePath("none")).has_value());
+}
+
+void ProjectFileTests::BadLinkIdsAreDropped() {
+  Shot shot;
+  shot.id = ShotId(1);
+  shot.layers = {MakeLayer(1, ImageLayer{"/a.png"}),
+                 MakeLayer(2, ImageLayer{"/b.png"})};
+  shot.links = {Link{{LayerId(1), {}}, {LayerId(2), {}}, Frame(0), 1.0}};
+  QJsonObject object = ShotToJson(shot);
+  QJsonArray links = object.value("links").toArray();
+  QCOMPARE(links.size(), 1);
+  QJsonObject link = links[0].toObject();
+  link["follower"] = QJsonObject{{"layer", -5}, {"piece", ""}};
+  links[0] = link;
+  object["links"] = links;
+  JsonIssues issues;
+  const Shot read = ShotFromJson(object, &issues);
+  QCOMPARE(read.layers.size(), size_t{2});
+  QVERIFY(read.links.empty());
 }
 
 void ProjectFileTests::PosesSurviveARoundTrip() {

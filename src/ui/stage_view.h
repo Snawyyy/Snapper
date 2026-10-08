@@ -3,6 +3,7 @@
 
 #include <QImage>
 #include <QString>
+#include <QMenu>
 #include <QWidget>
 
 #include <optional>
@@ -20,7 +21,8 @@ namespace snapper {
 // swivel handles on its right side and below it. A picked piece with a
 // warp grid shows it as faint lines with yellow dots to drag; clicking
 // a dot picks it, and the wheel then sets how far it pulls its
-// neighbours.
+// neighbours. Right-clicking something offers to link the picked
+// things' movement to it, or to unlink them.
 class StageView final : public QWidget {
   Q_OBJECT
 
@@ -43,6 +45,7 @@ class StageView final : public QWidget {
   void mouseDoubleClickEvent(QMouseEvent* event) override;
   void wheelEvent(QWheelEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
+  void contextMenuEvent(QContextMenuEvent* event) override;
 
  private:
   void PaintHandles(const StageFrame& frame, QPainter* painter);
@@ -54,6 +57,9 @@ class StageView final : public QWidget {
   void ReportTool();
   // Ctrl+A: every piece of the picked doll, or every layer.
   void PickAll();
+  // The right-click menu's link actions, for the thing at point; empty
+  // when there is nothing to offer.
+  void AddLinkActions(QMenu* menu, QPointF point, const StageFrame& frame);
 
   Managers managers_;
   FrameRenderer renderer_;

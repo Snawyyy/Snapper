@@ -9,6 +9,7 @@
 #include "edit/export_manager.h"
 #include "edit/history_manager.h"
 #include "edit/key_manager.h"
+#include "edit/link_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/preset_manager.h"
@@ -29,6 +30,7 @@ struct Bench final {
   RigManager rig{&history};
   ShotManager shots{&history};
   StageManager stage{&history};
+  LinkManager links{&history};
   SelectionManager selection{&history};
   PoseManager pose{&history};
   KeyManager keys{&history};
@@ -38,7 +40,8 @@ struct Bench final {
 
   Managers All() {
     return {&history, &document, &library, &rig, &shots, &stage,
-            &selection, &pose, &keys, &presets, &playback, &exporter};
+            &selection, &pose, &keys, &presets, &playback, &exporter,
+            &links};
   }
 };
 

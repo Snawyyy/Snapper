@@ -20,6 +20,7 @@ Inspector::Inspector(const Managers& managers)
       camera_(managers),
       layer_(managers),
       motion_(managers),
+      link_(managers),
       poses_(managers) {
   assert(managers.IsComplete());
   layout_.setContentsMargins(4, 4, 4, 4);
@@ -33,6 +34,7 @@ Inspector::Inspector(const Managers& managers)
   layout_.addWidget(&layer_);
   layout_.addWidget(&camera_);
   layout_.addWidget(&motion_);
+  layout_.addWidget(&link_);
   layout_.addWidget(&poses_);
   layout_.addStretch(1);
   connect(&pose_, &PoseBox::Problem, this, &Inspector::Problem);
@@ -41,6 +43,7 @@ Inspector::Inspector(const Managers& managers)
   connect(&camera_, &CameraBox::Problem, this, &Inspector::Problem);
   connect(&layer_, &LayerBox::Problem, this, &Inspector::Problem);
   connect(&motion_, &MotionBox::Problem, this, &Inspector::Problem);
+  connect(&link_, &LinkBox::Problem, this, &Inspector::Problem);
   connect(&poses_, &PosesBox::Problem, this, &Inspector::Problem);
   setWidgetResizable(true);
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -68,10 +71,12 @@ void Inspector::Refresh() {
   camera_.setVisible(has_shot && !has_pick);
   pose_.setVisible(has_pick);
   motion_.setVisible(has_pick);
+  link_.setVisible(has_pick && link_.IsLinked());
   layer_.setVisible(has_pick && selection.layer().IsValid());
   poses_.setVisible(is_doll);
   drag_.setVisible(has_pick && selection.dot().has_value());
   assert(!(shot_.isVisibleTo(this) && pose_.isVisibleTo(this)));
+  assert(has_pick || !link_.isVisibleTo(this));
 }
 
 Inspector::~Inspector() {
