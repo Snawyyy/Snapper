@@ -147,7 +147,7 @@ A piece can:
   yellow dots; dragging a dot keys that point's push. Each dot has a
   rubber reach in grid cells, kept in the rig (0 by default): pulling
   the dot drags its neighbours along, fading out at the reach. Clicking
-  a dot picks it (orange, with its reach drawn) and the wheel then
+  a dot picks it (Teto red, with its reach drawn) and the wheel then
   sets the reach instead of turning the piece.
   Pressing D on a picked dot makes it a drag node (ringed): a spring
   that trails where the pose and the layer carry it, then bounces back,

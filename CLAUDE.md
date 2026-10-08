@@ -40,7 +40,7 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 - A control that cannot act is greyed out with a tooltip saying why.
 - Undo and redo name what they undo ("Undo Rotate head").
 - New things appear where they cause no jump.
-- Selected things get an orange outline; draggable handles are yellow.
+- Selected things get a Teto red outline; draggable handles are yellow.
 - Handles look small and grab big.
 - Right click changes a node's mode; double click on empty space adds
   one; Delete removes the picked ones; Shift adds to the pick.
