@@ -1,5 +1,7 @@
 #include <QApplication>
 #include <QContextMenuEvent>
+#include <QDoubleSpinBox>
+#include <QLabel>
 #include <QMenu>
 #include <QTest>
 #include <QTimer>
@@ -7,6 +9,8 @@
 #include <functional>
 
 #include "bench.h"
+#include "edit/link_manager.h"
+#include "ui/link_box.h"
 #include "ui/stage_view.h"
 
 namespace snapper {
@@ -88,6 +92,7 @@ class LinkUiTests final : public QObject {
  private slots:
   void RightClickLinksThePick();
   void LinkingToItselfIsGreyedOut();
+  void LinkBoxSetsStrengthAndUnlinks();
 };
 
 void LinkUiTests::RightClickLinksThePick() {
@@ -134,6 +139,35 @@ void LinkUiTests::LinkingToItselfIsGreyedOut() {
     QVERIFY(!whole->toolTip().isEmpty());
     QVERIFY(Find(menu, "Unlink movement") == nullptr);
   });
+}
+
+void LinkUiTests::LinkBoxSetsStrengthAndUnlinks() {
+  Bench bench;
+  Stage(&bench);
+  LinkBox box(bench.All());
+  auto* strength = box.findChild<QDoubleSpinBox*>("strength");
+  auto* follows = box.findChild<QLabel*>("follows");
+  auto* unlink = box.findChild<QPushButton*>("unlink");
+  QVERIFY(strength != nullptr && follows != nullptr && unlink != nullptr);
+  bench.selection.PickThings({Pick{LayerId(1), {}}}, PickMode::kReplace,
+                             LayerId(1));
+  QVERIFY(!strength->isEnabled());
+  QVERIFY(!strength->toolTip().isEmpty());
+  QVERIFY(bench.links
+              .LinkTo(ShotId(1), {LinkEnd{LayerId(1), {}}},
+                      LinkEnd{LayerId(2), {}}, Frame(3))
+              .has_value());
+  QVERIFY(strength->isEnabled());
+  QCOMPARE(follows->text(), QString("Follows Box from frame 3."));
+  QCOMPARE(strength->value(), 1.0);
+  strength->setValue(0.5);
+  emit strength->editingFinished();
+  const Shot& shot = *bench.history.current().shots[0];
+  QCOMPARE(FindLink(shot, LinkEnd{LayerId(1), {}})->strength, 0.5);
+  QCOMPARE(bench.history.UndoLabel(), QString("Link strength"));
+  QTest::mouseClick(unlink, Qt::LeftButton);
+  QVERIFY(bench.history.current().shots[0]->links.empty());
+  QCOMPARE(follows->text(), QString("Follows nothing."));
 }
 
 }  // namespace snapper
