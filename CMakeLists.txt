@@ -36,7 +36,7 @@ snapper_module(io
   MODULES model)
 snapper_module(media
   SOURCES audio_clip.cpp audio_player.cpp ffmpeg_handles.cpp
-          video_encoder.cpp video_streams.cpp
+          video_encoder.cpp video_reader.cpp video_streams.cpp
   MODULES base
   LIBS Qt6::Gui Qt6::Multimedia PkgConfig::FFMPEG)
 snapper_module(render
@@ -80,7 +80,7 @@ if(BUILD_TESTING)
   snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp lean_tests.cpp
                     drag_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
-  snapper_test(media SOURCES media_tests.cpp)
+  snapper_test(media SOURCES media_tests.cpp video_reader_tests.cpp)
   snapper_test(render SOURCES render_tests.cpp)
   snapper_test(edit SOURCES document_tests.cpp export_tests.cpp
                             history_tests.cpp
