@@ -1,10 +1,12 @@
 // ReelTimeline's mouse: picking, moving, trimming and seeking.
 
+#include <QFileDialog>
 #include <QMouseEvent>
 
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <optional>
 #include <set>
 
 #include "anim/reel_timeline.h"
@@ -13,6 +15,7 @@
 #include "edit/reel_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/reel_timeline.h"
+#include "ui/slot_picker.h"
 
 namespace snapper {
 namespace {
@@ -192,6 +195,58 @@ void ReelTimeline::mouseReleaseEvent(QMouseEvent* event) {
   drag_ = Drag::kNone;
   dragged_ = ClipId();
   has_moved_ = false;
+}
+
+void ReelTimeline::mouseDoubleClickEvent(QMouseEvent* event) {
+  assert(event != nullptr);
+  assert(managers_.history != nullptr);
+  const QPointF at = event->position();
+  const int track = TrackAt(at.y());
+  const bool is_on_track = event->button() == Qt::LeftButton &&
+                           track >= 0 && at.x() >= kHeaderWidth;
+  if (!is_on_track) {
+    QWidget::mouseDoubleClickEvent(event);
+    return;
+  }
+  // The first click may have opened a drag; the gap is picked instead.
+  scope_.reset();
+  drag_ = Drag::kNone;
+  FillGap(track, FrameAt(at.x()));
+}
+
+void ReelTimeline::FillGap(int track, Frame at) {
+  assert(track >= 0);
+  assert(managers_.reel != nullptr);
+  const Project& project = managers_.history->current();
+  const Slot slot = SlotAt(project.reel, at);
+  const bool is_gap = slot.IsValid();
+  if (!is_gap) {
+    Report(tr("Mark a cut on both sides of the gap first (M)."));
+    return;
+  }
+  std::optional<SlotFill> fill = SlotFillAt(project, track, at);
+  const bool has_video = fill.has_value();
+  if (!has_video) {
+    const QString path = QFileDialog::getOpenFileName(
+        this, tr("Fill the gap from"), QString(),
+        tr("Videos (*.mp4 *.mov *.mkv *.webm *.avi *.m4v);;All files (*)"));
+    const bool is_cancelled = path.isEmpty();
+    if (is_cancelled) {
+      return;
+    }
+    const auto video = managers_.reel->ReadVideo(path);
+    if (!video) {
+      Report(video.error().message);
+      return;
+    }
+    fill = SlotFill{*video, Frame(0)};
+  }
+  SlotPicker picker(managers_, slot, *fill, this);
+  const bool is_chosen = picker.exec() == QDialog::Accepted;
+  if (is_chosen) {
+    Report(ProblemOf(managers_.reel->FillSlot(track, at, picker.source(),
+                                              picker.in())));
+  }
 }
 
 }  // namespace snapper

@@ -54,6 +54,7 @@ class ReelTests final : public QObject {
   void LengthAndCutsFollowClips();
   void DragsSnapToCutsAndThePlayhead();
   void DragsSnapToCutMarkers();
+  void GapsLieBetweenMarkers();
 };
 
 void ReelTests::NewReelHasEmptyTracks() {
@@ -152,6 +153,33 @@ void ReelTests::DragsSnapToCutMarkers() {
   QCOMPARE(SnapFrame(project, Frame(150), 3, {}, Frame(500)), Frame(150));
   project.reel.markers = {Frame(152)};
   QCOMPARE(SnapFrame(project, Frame(150), 3, {}, Frame(500)), Frame(152));
+}
+
+void ReelTests::GapsLieBetweenMarkers() {
+  Project project;
+  project.reel.markers = {Frame(24), Frame(72)};
+  QVERIFY(SlotAt(project.reel, Frame(5)).start == Frame(0));
+  QVERIFY(SlotAt(project.reel, Frame(5)).end == Frame(24));
+  QCOMPARE(SlotAt(project.reel, Frame(24)).start, Frame(24));
+  QCOMPARE(SlotAt(project.reel, Frame(71)).length(), Frame(48));
+  QVERIFY(!SlotAt(project.reel, Frame(72)).IsValid());
+  // A track with nothing has nothing to fill from.
+  QVERIFY(!SlotFillAt(project, 0, Frame(30)).has_value());
+  // A long video from frame 10 fills the gap with what plays there.
+  Clip paint;
+  paint.id = ClipId(1);
+  paint.source = VideoSource{"/paint.mp4", Frame(240)};
+  paint.start = Frame(10);
+  paint.in = Frame(5);
+  paint.length = Frame(200);
+  PlaceClip(&project.reel.tracks[0], paint);
+  const auto fill = SlotFillAt(project, 0, Frame(30));
+  QVERIFY(fill.has_value());
+  QCOMPARE(fill->in, Frame(19));
+  QCOMPARE(fill->source, paint.source);
+  QCOMPARE(LastSlotIn(project, paint.source, SlotAt(project.reel, Frame(30))),
+           192);
+  QVERIFY(!SlotFillAt(project, 0, Frame(80)).has_value());
 }
 
 }  // namespace snapper

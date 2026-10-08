@@ -223,6 +223,14 @@ the one there. The reel's playhead runs at least the song's length, so
 cuts can be marked before any clip is placed. Markers are saved with
 the reel (`cut_markers` in the project file).
 
+The stretch between two markers (the first starts at frame 0) is a
+gap of fixed length (`SlotAt`). Double-clicking a track inside one
+asks which part of a video plays there (`SlotPicker`): it starts from
+what the track's video would play there (`SlotFillAt`) and a slider
+slides the video under the gap. `ReelManager::FillSlot` re-picks the
+clip already filling the gap, or cuts away what is under it and lays
+a new clip over it, as one undo step.
+
 ## Rendering
 
 `FrameRenderer` draws on the CPU with `QPainter` into a `QImage`, so it

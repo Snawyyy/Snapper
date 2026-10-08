@@ -1,6 +1,7 @@
 #ifndef SNAPPER_ANIM_REEL_TIMELINE_H_
 #define SNAPPER_ANIM_REEL_TIMELINE_H_
 
+#include <optional>
 #include <set>
 #include <vector>
 
@@ -41,6 +42,38 @@ Frame SnapFrame(const Project& project, Frame at, int reach,
 // a moved clip nearest a snap point lands on it.
 int SnapDelta(const Project& project, const std::set<ClipId>& moving,
               int delta, int reach, Frame playhead);
+
+// The stretch between two cut markers (the first one starts at the
+// reel's start): a fixed length a clip can be fitted into.
+struct Slot final {
+  Frame start;
+  Frame end;
+
+  bool IsValid() const { return end > start; }
+  Frame length() const { return Frame(end.index() - start.index()); }
+};
+// The slot at falls in; invalid when no marker comes after at.
+Slot SlotAt(const Reel& reel, Frame at);
+
+// The clip on track spanning exactly slot, or nullptr.
+const Clip* SlotClip(const Reel& reel, int track, Slot slot);
+
+// What fills a slot: a source and the frame of it shown first.
+struct SlotFill final {
+  ClipSource source;
+  Frame in;
+};
+// What the slot at at on track would be filled from, to start a picker:
+// the clip filling it exactly as it is, else the part of the track's
+// video that would play there (the video clip nearest at; its start
+// when the slot is outside it), kept inside the source. nullopt when
+// there is no slot or the track has no video to fill it from.
+std::optional<SlotFill> SlotFillAt(const Project& project, int track,
+                                   Frame at);
+// The furthest in can go for source to still cover slot; -1 when the
+// source is shorter than the slot.
+int LastSlotIn(const Project& project, const ClipSource& source,
+               Slot slot);
 
 }  // namespace snapper
 

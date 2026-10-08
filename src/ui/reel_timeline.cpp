@@ -14,6 +14,7 @@
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/form_helpers.h"
 #include "ui/theme.h"
 
 namespace snapper {
@@ -29,15 +30,6 @@ constexpr std::array<int, 10> kLabelSteps = {1,  2,   5,   10,  15,
 constexpr QColor kShotClip{0x4b, 0x5a, 0x8f};
 constexpr QColor kVideoClip{0x2f, 0x77, 0x6a};
 constexpr QColor kMissing{0x7d, 0x2c, 0x2c};
-
-QString TimeText(Frame frame) {
-  assert(frame.index() >= 0);
-  assert(kFramesPerSecond > 0);
-  const int seconds = frame.index() / kFramesPerSecond;
-  return QStringLiteral("%1:%2")
-      .arg(seconds / 60)
-      .arg(seconds % 60, 2, 10, QLatin1Char('0'));
-}
 
 }  // namespace
 

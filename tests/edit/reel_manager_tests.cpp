@@ -63,6 +63,7 @@ class ReelManagerTests final : public QObject {
   void RemovedClipsLeaveThePick();
   void TracksComeAndGo();
   void MarkersToggleAtTheirFrame();
+  void FillingAGapCutsItIn();
 };
 
 void ReelManagerTests::ShotsAndVideosGoOnWhole() {
@@ -228,6 +229,34 @@ void ReelManagerTests::MarkersToggleAtTheirFrame() {
   QCOMPARE(f.history.current().reel.markers, (std::vector<Frame>{Frame(12)}));
   f.history.Undo();
   QCOMPARE(f.history.current().reel.markers.size(), size_t{2});
+}
+
+void ReelManagerTests::FillingAGapCutsItIn() {
+  Fixture f;
+  const VideoSource paint{"/paint.mp4", Frame(240)};
+  QVERIFY(!f.reel.FillSlot(0, Frame(30), paint, Frame(0)).has_value());
+  QVERIFY(f.reel.ToggleMarker(Frame(24)).has_value());
+  QVERIFY(f.reel.ToggleMarker(Frame(72)).has_value());
+  // Laid over the shot (0 to 48): it is cut back to the first marker.
+  QVERIFY(f.reel.AddShot(f.shot, 0, Frame(0)).has_value());
+  const auto filled = f.reel.FillSlot(0, Frame(30), paint, Frame(100));
+  QVERIFY(filled.has_value());
+  QCOMPARE(f.history.UndoLabel(), QString("Fill gap"));
+  const auto& clips = f.history.current().reel.tracks[0].clips;
+  QCOMPARE(clips.size(), size_t{2});
+  QCOMPARE(clips[0].end(), Frame(24));
+  QCOMPARE(clips[1].id, *filled);
+  QCOMPARE(clips[1].start, Frame(24));
+  QCOMPARE(clips[1].length, Frame(48));
+  QCOMPARE(clips[1].in, Frame(100));
+  // Again on the same gap re-picks the part; in is kept inside.
+  QCOMPARE(*f.reel.FillSlot(0, Frame(50), paint, Frame(999)), *filled);
+  QCOMPARE(f.ClipAt(0, 1).in, Frame(192));
+  const VideoSource tiny{"/tiny.mp4", Frame(10)};
+  QVERIFY(!f.reel.FillSlot(0, Frame(30), tiny, Frame(0)).has_value());
+  f.history.Undo();
+  f.history.Undo();
+  QCOMPARE(f.ClipAt(0, 0).length, Frame(48));
 }
 
 }  // namespace snapper

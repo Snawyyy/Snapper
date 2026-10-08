@@ -63,7 +63,7 @@ snapper_module(ui
           layer_box_commits.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
           rig_canvas_input.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp
           reel_preview.cpp reel_timeline.cpp reel_timeline_drop.cpp
-          reel_timeline_input.cpp shot_bin.cpp shot_strip.cpp
+          reel_timeline_input.cpp shot_bin.cpp shot_strip.cpp slot_picker.cpp
           stage_view.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
           timeline_view.cpp video_page.cpp
   MODULES edit
@@ -97,7 +97,7 @@ if(BUILD_TESTING)
   snapper_test(ui SOURCES cast_panel_tests.cpp export_dialog_tests.cpp
                           inspector_tests.cpp
                           pose_tool_tests.cpp rig_ui_tests.cpp
-                          shot_strip_tests.cpp
+                          shot_strip_tests.cpp slot_picker_tests.cpp
                           theme_tests.cpp
                           timeline_view_tests.cpp video_page_tests.cpp
                           window_tests.cpp)

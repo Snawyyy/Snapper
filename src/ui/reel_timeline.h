@@ -27,9 +27,11 @@ namespace snapper {
 // to move it, along or to another track; drag its ends to trim it.
 // Drags snap to other clips' cuts, cut markers and the playhead. Click
 // or drag the ruler to move the playhead. Cut markers (Mark cut on the
-// Video tab) show as yellow notches and dashed lines. S splits the
-// picked clip at the playhead, Delete removes the picked clips;
-// right-click for the same and for tracks. The wheel scrolls, Ctrl zooms. Shots here are finished
+// Video tab) show as yellow notches and dashed lines; double-click a
+// track between two of them to pick which part of a video plays in
+// that gap (SlotPicker). S splits the picked clip at the playhead,
+// Delete removes the picked clips; right-click for the same and for
+// tracks. The wheel scrolls, Ctrl zooms. Shots here are finished
 // videos: what is inside them is edited on the Pose tab.
 class ReelTimeline final : public QWidget {
   Q_OBJECT
@@ -57,6 +59,7 @@ class ReelTimeline final : public QWidget {
   void mousePressEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;
+  void mouseDoubleClickEvent(QMouseEvent* event) override;
   void contextMenuEvent(QContextMenuEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
   void wheelEvent(QWheelEvent* event) override;
@@ -90,6 +93,9 @@ class ReelTimeline final : public QWidget {
   void Pick(ClipId clip, Qt::KeyboardModifiers modifiers);
   std::vector<ClipId> Picked() const;
   void SplitPicked();
+  // Asks which part of a video fills the gap between the cut markers
+  // around at on track, then fills it.
+  void FillGap(int track, Frame at);
   void ClipMenu(QPoint where);
   void TrackMenu(int track, QPoint where);
   void SeekTo(double x);

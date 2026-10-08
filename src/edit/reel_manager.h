@@ -23,6 +23,15 @@ class ReelManager final {
 
   // A whole video file onto track at start. Its length is read now.
   Result<ClipId> AddVideo(const QString& path, int track, Frame start);
+  // A video file as a clip source, its length read now.
+  Result<VideoSource> ReadVideo(const QString& path) const;
+  // Fits source into the slot around at (between two cut markers) on
+  // track, showing it from in (kept so the source covers the slot). The
+  // clip already filling exactly that slot gets the new source and in;
+  // otherwise whatever is on track inside the slot is cut away (clips
+  // crossing its ends are split) and a new clip is laid over it.
+  Result<ClipId> FillSlot(int track, Frame at, const ClipSource& source,
+                          Frame in);
   // A whole shot onto track at start.
   Result<ClipId> AddShot(ShotId shot, int track, Frame start);
   // Moves every clip in clips by tracks rows and frames frames from

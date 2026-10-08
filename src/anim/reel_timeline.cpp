@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
+#include <iterator>
 #include <variant>
 
 namespace snapper {
@@ -154,6 +155,105 @@ int SnapDelta(const Project& project, const std::set<ClipId>& moving,
     }
   }
   return delta + best;
+}
+
+Slot SlotAt(const Reel& reel, Frame at) {
+  assert(at.index() >= 0);
+  assert(reel.markers.size() <= static_cast<size_t>(kMaxCutMarkers));
+  const auto after =
+      std::upper_bound(reel.markers.begin(), reel.markers.end(), at);
+  const bool has_end = after != reel.markers.end();
+  if (!has_end) {
+    return Slot();
+  }
+  const bool is_first = after == reel.markers.begin();
+  return Slot{is_first ? Frame(0) : *std::prev(after), *after};
+}
+
+const Clip* SlotClip(const Reel& reel, int track, Slot slot) {
+  assert(slot.IsValid());
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  const bool is_track =
+      track >= 0 && track < static_cast<int>(reel.tracks.size());
+  if (!is_track) {
+    return nullptr;
+  }
+  for (const Clip& clip : reel.tracks[static_cast<size_t>(track)].clips) {
+    const bool is_filling =
+        clip.start == slot.start && clip.end() == slot.end;
+    if (is_filling) {
+      return &clip;
+    }
+  }
+  return nullptr;
+}
+
+int LastSlotIn(const Project& project, const ClipSource& source,
+               Slot slot) {
+  assert(slot.IsValid());
+  assert(project.shots.size() <= static_cast<size_t>(kMaxShots));
+  Clip probe;
+  probe.source = source;
+  return SourceLength(project, probe).index() - slot.length().index();
+}
+
+namespace {
+
+// How many frames at is from clip's span; 0 inside it.
+int DistanceTo(const Clip& clip, Frame at) {
+  assert(clip.length.index() >= 1);
+  assert(at.index() >= 0);
+  const int before = clip.start.index() - at.index();
+  const int after = at.index() - (clip.end().index() - 1);
+  return std::max({before, after, 0});
+}
+
+// The video clip on track nearest at, or nullptr when it has none.
+const Clip* NearestVideo(const ReelTrack& track, Frame at) {
+  assert(track.clips.size() <= static_cast<size_t>(kMaxClipsPerTrack));
+  assert(at.index() >= 0);
+  const Clip* nearest = nullptr;
+  for (const Clip& clip : track.clips) {
+    const bool is_video = std::holds_alternative<VideoSource>(clip.source);
+    const bool is_nearer =
+        is_video && (nearest == nullptr ||
+                     DistanceTo(clip, at) < DistanceTo(*nearest, at));
+    if (is_nearer) {
+      nearest = &clip;
+    }
+  }
+  return nearest;
+}
+
+}  // namespace
+
+std::optional<SlotFill> SlotFillAt(const Project& project, int track,
+                                   Frame at) {
+  assert(at.index() >= 0);
+  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  const Slot slot = SlotAt(project.reel, at);
+  const bool is_track =
+      track >= 0 && track < static_cast<int>(project.reel.tracks.size());
+  const bool can_fill = slot.IsValid() && is_track;
+  if (!can_fill) {
+    return std::nullopt;
+  }
+  const Clip* filling = SlotClip(project.reel, track, slot);
+  const bool is_filled = filling != nullptr;
+  if (is_filled) {
+    return SlotFill{filling->source, filling->in};
+  }
+  const ReelTrack& row = project.reel.tracks[static_cast<size_t>(track)];
+  const Clip* video = NearestVideo(row, at);
+  const bool has_video = video != nullptr;
+  if (!has_video) {
+    return std::nullopt;
+  }
+  const int played =
+      video->in.index() + slot.start.index() - video->start.index();
+  const int last = LastSlotIn(project, video->source, slot);
+  return SlotFill{video->source, Frame(std::clamp(played, 0,
+                                                  std::max(last, 0)))};
 }
 
 }  // namespace snapper
