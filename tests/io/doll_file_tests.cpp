@@ -5,6 +5,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <cmath>
+
 #include "io/doll_file.h"
 #include "io/json_file.h"
 
@@ -45,6 +47,7 @@ class DollFileTests final : public QObject {
   void ReadsTheOldExporterFormat();
   void RefusesForeignFiles();
   void KeepsTheOldSnappersRig();
+  void SpreadsAnOldPieceMotionOverItsPoints();
 };
 
 void DollFileTests::ReadsArtAndGivesNewPiecesADefaultRig() {
@@ -156,6 +159,45 @@ void DollFileTests::KeepsTheOldSnappersRig() {
   QCOMPARE(arm->order, 3);
   QCOMPARE(arm->rest_rotation, 15.0);
   QVERIFY(loaded->report.added.isEmpty());
+}
+
+void DollFileTests::SpreadsAnOldPieceMotionOverItsPoints() {
+  QTemporaryDir dir;
+  // Before point motions, a motion moved a piece's whole grid.
+  const QJsonObject wave{{"kind", "wave"}, {"size", 10.0}, {"cycle", 30},
+                         {"edge", "top"}};
+  const QJsonObject pulse{{"kind", "pulse"}, {"size", 4.0}, {"cycle", 24},
+                          {"edge", "left"}};
+  const QJsonObject rig{
+      {"format", "snapper-rig"},
+      {"version", 1},
+      {"pieces",
+       QJsonArray{QJsonObject{{"name", "hair"}, {"warp", QJsonArray{1, 2}},
+                              {"motion", wave}},
+                  QJsonObject{{"name", "heart"}, {"warp", QJsonArray{2, 2}},
+                              {"motion", pulse}}}}};
+  Write(QDir(dir.path()).filePath("rig.json"), rig);
+  const auto read = ReadRig(dir.path());
+  QVERIFY(read.has_value());
+  // The top row hangs still; lower rows swing wider and later.
+  const std::vector<PointMotion>& hair = read->pieces[0].point_motions;
+  QCOMPARE(hair.size(), size_t{4});
+  QCOMPARE(hair[0], (PointMotion{2, WarpMotionKind::kWave, 5.0, 30, 0.0,
+                                 0.5}));
+  QCOMPARE(hair[3], (PointMotion{5, WarpMotionKind::kWave, 10.0, 30, 0.0,
+                                 1.0}));
+  // The middle stays; the rest beat out from it.
+  const std::vector<PointMotion>& heart = read->pieces[1].point_motions;
+  QCOMPARE(heart.size(), size_t{8});
+  QCOMPARE(heart[0].point, 0);
+  QCOMPARE(heart[0].angle, -135.0);
+  QVERIFY(std::abs(heart[0].size - 4.0 * std::sqrt(2.0)) < 1e-9);
+  QCOMPARE(heart[4].point, 5);
+  QCOMPARE(heart[4].angle, 0.0);
+  QCOMPARE(heart[4].size, 4.0);
+  // Saved again, the file holds point motions only.
+  QVERIFY(WriteRig(dir.path(), *read).has_value());
+  QCOMPARE(ReadRig(dir.path())->pieces[1].point_motions, heart);
 }
 
 }  // namespace snapper
