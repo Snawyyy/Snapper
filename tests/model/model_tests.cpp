@@ -37,6 +37,7 @@ class ModelTests final : public QObject {
   void LayersShowOnlyInTheirRange();
   void TransitionNeverEatsAWholeShot();
   void ProjectFindsShotsAndDolls();
+  void LinksToGoneLayersDrop();
 };
 
 void ModelTests::DefaultProjectIsFullHd() {
@@ -135,6 +136,24 @@ void ModelTests::ProjectFindsShotsAndDolls() {
   QVERIFY(FindLayer(*FindShot(project, ShotId(7)), LayerId(3)) != nullptr);
   QVERIFY(FindDoll(project, "Bob") != nullptr);
   QVERIFY(FindDoll(project, "Ann") == nullptr);
+}
+
+void ModelTests::LinksToGoneLayersDrop() {
+  Shot shot;
+  Layer a;
+  a.id = LayerId(1);
+  Layer b;
+  b.id = LayerId(2);
+  shot.layers = {a, b};
+  shot.links = {Link{{LayerId(1), {}}, {LayerId(2), {}}, Frame(0), 1.0},
+                Link{{LayerId(2), "arm"}, {LayerId(3), {}}, Frame(0), 1.0}};
+  QVERIFY(FindLink(shot, {LayerId(1), {}}) != nullptr);
+  QVERIFY(FindLink(shot, {LayerId(1), "arm"}) == nullptr);
+  DropDeadLinks(&shot);
+  QCOMPARE(shot.links.size(), size_t{1});
+  shot.layers.pop_back();
+  DropDeadLinks(&shot);
+  QVERIFY(shot.links.empty());
 }
 
 }  // namespace snapper

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <map>
 
 #include "edit/history_manager.h"
 #include "edit/project_edits.h"
@@ -71,8 +72,16 @@ Result<ShotId> ShotManager::Duplicate(ShotId shot) {
   Shot copy = *next.shots[static_cast<size_t>(index)];
   copy.id = TakeShotId(&next);
   copy.name = Tr("%1 copy").arg(copy.name);
+  std::map<LayerId, LayerId> renamed;
   for (Layer& layer : copy.layers) {
-    layer.id = TakeLayerId(&next);
+    const LayerId fresh = TakeLayerId(&next);
+    renamed[layer.id] = fresh;
+    layer.id = fresh;
+  }
+  // Links in the copy join the copy's own layers.
+  for (Link& link : copy.links) {
+    link.follower.layer = renamed[link.follower.layer];
+    link.leader.layer = renamed[link.leader.layer];
   }
   next.shots.insert(next.shots.begin() + index + 1,
                     std::make_shared<const Shot>(copy));

@@ -64,6 +64,8 @@ Project FullProject() {
   SetKey(&shot.camera, {Frame(3), zoomed, Ease::kEaseInOut});
   shot.layers = {MakeLayer(4, posed), MakeLayer(5, ImageLayer{"/bg.png"}),
                  MakeLayer(6, words), MakeLayer(7, flash)};
+  shot.links = {Link{{LayerId(4), "head"}, {LayerId(5), {}}, Frame(12), 0.75},
+                Link{{LayerId(6), {}}, {LayerId(4), "head"}, Frame(0), 2.0}};
   project.shots.push_back(std::make_shared<const Shot>(shot));
   return project;
 }

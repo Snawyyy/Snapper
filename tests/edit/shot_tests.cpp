@@ -49,16 +49,25 @@ void ShotTests::DuplicateCopiesWithFreshIds() {
   shot.name = "Intro";
   Layer layer;
   layer.id = LayerId(1);
-  shot.layers = {layer};
+  Layer box;
+  box.id = LayerId(2);
+  shot.layers = {layer, box};
+  shot.links = {Link{{LayerId(1), "arm"}, {LayerId(2), {}}, Frame(3), 0.5}};
   project.shots = {std::make_shared<const Shot>(shot)};
   project.next_shot_id = 2;
-  project.next_layer_id = 2;
+  project.next_layer_id = 3;
   HistoryManager history(project);
   ShotManager shots(&history);
   const auto copy = shots.Duplicate(ShotId(1));
   QVERIFY(copy.has_value());
   QCOMPARE(Names(history.current()), QStringList({"Intro", "Intro copy"}));
-  QCOMPARE(history.current().shots[1]->layers[0].id, LayerId(2));
+  const Shot& copied = *history.current().shots[1];
+  QCOMPARE(copied.layers[0].id, LayerId(3));
+  // The copy's link joins the copy's own layers.
+  QCOMPARE(copied.links.size(), size_t{1});
+  QCOMPARE(copied.links[0].follower, (LinkEnd{LayerId(3), "arm"}));
+  QCOMPARE(copied.links[0].leader, (LinkEnd{LayerId(4), {}}));
+  QCOMPARE(copied.links[0].strength, 0.5);
   QVERIFY(!shots.Duplicate(ShotId(9)).has_value());
 }
 

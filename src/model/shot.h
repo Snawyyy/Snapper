@@ -15,6 +15,9 @@
 namespace snapper {
 
 constexpr int kMaxLayersPerShot = 256;
+constexpr int kMaxLinksPerShot = 256;
+// 1 copies the leader's movement, 0 ignores it, above 1 exaggerates it.
+constexpr double kMaxLinkStrength = 4.0;
 
 struct ShotTag;
 using ShotId = Id<ShotTag>;
@@ -39,6 +42,27 @@ struct Transition final {
   bool operator==(const Transition&) const = default;
 };
 
+// One end of a link: a whole layer (empty piece) or one piece of a doll.
+struct LinkEnd final {
+  LayerId layer;
+  QString piece;
+
+  auto operator<=>(const LinkEnd&) const = default;
+  bool operator==(const LinkEnd&) const = default;
+};
+
+// follower copies how far leader has moved (in x and y) since frame
+// from, times strength, on top of its own keys. It never jumps onto the
+// leader: at frame from it is where its keys put it.
+struct Link final {
+  LinkEnd follower;
+  LinkEnd leader;
+  Frame from;
+  double strength = 1.0;
+
+  bool operator==(const Link&) const = default;
+};
+
 // One shot: its own stage, camera and length, placed on the master
 // track by order.
 struct Shot final {
@@ -51,12 +75,19 @@ struct Shot final {
   std::vector<Layer> layers;
   Channel<CameraPose> camera;
   Transition transition;
+  // At most one per follower.
+  std::vector<Link> links;
 
   bool operator==(const Shot&) const = default;
 };
 
 const Layer* FindLayer(const Shot& shot, LayerId id);
 Layer* FindLayer(Shot* shot, LayerId id);
+
+// The link follower has, or nullptr.
+const Link* FindLink(const Shot& shot, const LinkEnd& follower);
+// Drops links whose follower or leader layer is gone.
+void DropDeadLinks(Shot* shot);
 
 // The overlap actually used: never more than either shot can give.
 Frame UsableTransition(const Shot& shot, const Shot* next);
