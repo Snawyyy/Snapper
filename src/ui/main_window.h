@@ -8,6 +8,7 @@
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTabBar>
+#include <QToolBar>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -46,6 +47,10 @@ class MainWindow final : public QMainWindow {
 
  private:
   void BuildMenus();
+  // Puts the Pose, Rig and Video pages in the stack.
+  void BuildPages();
+  // Puts the mode tabs in their fixed bar and ties them to the pages.
+  void BuildModes();
   // Pulls title, undo and redo state from the history.
   void Refresh();
   // Keeps the picked shot on the one under the playhead.
@@ -59,8 +64,9 @@ class MainWindow final : public QMainWindow {
   QMenu edit_menu_;
   QAction undo_action_;
   QAction redo_action_;
-  QWidget center_;
-  QVBoxLayout center_layout_;
+  // The tabs sit in a fixed bar across the top, above the docks, so
+  // hiding the docks on the Video tab does not slide them sideways.
+  QToolBar modes_bar_;
   QTabBar modes_;
   QStackedWidget pages_;
   // Containers come before what they hold, so the held widgets leave
