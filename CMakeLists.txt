@@ -32,7 +32,7 @@ snapper_module(anim
 snapper_module(io
   SOURCES doll_file.cpp doll_json.cpp json_file.cpp json_values.cpp
           layer_json.cpp legacy_doll.cpp pose_file.cpp project_file.cpp
-          reconcile.cpp
+          reconcile.cpp reel_json.cpp
   MODULES model)
 snapper_module(media
   SOURCES audio_clip.cpp audio_player.cpp ffmpeg_handles.cpp
