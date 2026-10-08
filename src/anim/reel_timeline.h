@@ -33,6 +33,12 @@ Frame TrackEnd(const Project& project, int track);
 // Clips in ignore are left out.
 std::set<Frame> ReelCuts(const Project& project,
                          const std::set<ClipId>& ignore = {});
+// Every clip on the reel, for picking all.
+std::set<ClipId> AllClips(const Reel& reel);
+// The clips a box touches: on tracks low to high (either order) and
+// showing any frame from first to last (either order).
+std::set<ClipId> ClipsIn(const Reel& reel, int low, int high, Frame first,
+                         Frame last);
 // Snapping while dragging: the nearest of the other clips' cuts, the
 // cut markers, the playhead and frame 0 within reach frames of at, else
 // at.

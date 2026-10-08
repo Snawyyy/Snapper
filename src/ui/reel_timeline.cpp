@@ -130,6 +130,7 @@ void ReelTimeline::paintEvent(QPaintEvent* event) {
   PaintRuler(&painter);
   PaintMarkers(&painter);
   PaintPlayhead(&painter);
+  PaintBox(&painter);
 }
 
 void ReelTimeline::PaintRuler(QPainter* painter) const {
@@ -274,6 +275,18 @@ void ReelTimeline::PaintPlayhead(QPainter* painter) const {
     painter->setPen(QPen(theme::kPick, 1.0));
     painter->drawLine(QPointF(x, 0), QPointF(x, height()));
   }
+}
+
+void ReelTimeline::PaintBox(QPainter* painter) const {
+  assert(painter != nullptr);
+  assert(zoom_ > 0.0);
+  const bool is_boxing = drag_ == Drag::kBox;
+  if (!is_boxing) {
+    return;
+  }
+  painter->setPen(QPen(theme::kPick, 1.0, Qt::DashLine));
+  painter->setBrush(Qt::NoBrush);
+  painter->drawRect(QRectF(press_, box_to_).normalized());
 }
 
 }  // namespace snapper

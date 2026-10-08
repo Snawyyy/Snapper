@@ -86,6 +86,39 @@ std::set<Frame> ReelCuts(const Project& project,
   return cuts;
 }
 
+std::set<ClipId> AllClips(const Reel& reel) {
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(kMaxClipsPerTrack > 0);
+  std::set<ClipId> all;
+  for (const ReelTrack& track : reel.tracks) {
+    for (const Clip& clip : track.clips) {
+      all.insert(clip.id);
+    }
+  }
+  return all;
+}
+
+std::set<ClipId> ClipsIn(const Reel& reel, int low, int high, Frame first,
+                         Frame last) {
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(first.index() >= 0 && last.index() >= 0);
+  const int count = static_cast<int>(reel.tracks.size());
+  const int bottom = std::clamp(std::min(low, high), 0, count);
+  const int top = std::clamp(std::max(low, high), -1, count - 1);
+  const Frame from = std::min(first, last);
+  const Frame to = std::max(first, last);
+  std::set<ClipId> caught;
+  for (int t = bottom; t <= top; ++t) {
+    for (const Clip& clip : reel.tracks[static_cast<size_t>(t)].clips) {
+      const bool is_touched = !(to < clip.start) && from < clip.end();
+      if (is_touched) {
+        caught.insert(clip.id);
+      }
+    }
+  }
+  return caught;
+}
+
 namespace {
 
 // How far edge is from the nearest of points within reach, or 0 with

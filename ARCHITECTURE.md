@@ -217,6 +217,17 @@ is what gets exported; until then the shots are, one after another.
 Drags on the reel snap to other clips' cuts, cut markers, the playhead
 and frame 0 (`SnapDelta`, `SnapFrame`).
 
+The reel's timeline edits like the shots' one: clips pick as every
+list does (a box picks what it touches, `ClipsIn`), drags move and
+trim them, S splits at the playhead (the picked clips, or with none
+picked whatever the playhead is in, `SplitTargets`), Delete removes,
+Shift+Delete removes and closes the gap on each track
+(`RippleDeleteAll`). Ctrl+C, Ctrl+X and Ctrl+V copy, cut and paste:
+`ReelManager` keeps the clipboard, and a paste lays the copies down at
+the playhead on the tracks they came from, keeping their spacing.
+Ctrl+D lays copies right after the picked clips. The helpers these
+edits share are in `edit/reel_edits.h`.
+
 Cut markers are where cuts should fall, marked by ear: Mark cut (M)
 drops one at the reel's playhead while the song plays, or takes away
 the one there. The reel's playhead runs at least the song's length, so
@@ -264,7 +275,7 @@ are destroyed in reverse.
 | `DollLibraryManager`   | Doll folders, loading, reload on re-export     |
 | `RigManager`           | Rig edits: parent, pivot, order, IK, warp grid |
 | `ShotManager`          | Shots on the master track, transitions         |
-| `ReelManager`          | The reel: clips of shots and videos, tracks    |
+| `ReelManager`          | The reel: clips, tracks, cuts, clip clipboard  |
 | `StageManager`         | What is in a shot: actors, props, text, effects |
 | `SelectionManager`     | What is picked: shots, layers, pieces, keys, clips |
 | `PoseManager`          | Pose edits, IK drags, copy, paste, mirror      |

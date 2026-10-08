@@ -1,6 +1,7 @@
 #ifndef SNAPPER_UI_FORM_HELPERS_H_
 #define SNAPPER_UI_FORM_HELPERS_H_
 
+#include <QAction>
 #include <QColor>
 #include <QDoubleSpinBox>
 #include <QSpinBox>
@@ -55,6 +56,8 @@ QString TimeText(Frame frame);
 
 // Greys widget out with why_not as its tooltip, or enables it.
 void Explain(QWidget* widget, const QString& why_not);
+// The same for a menu entry.
+void Explain(QAction* action, const QString& why_not);
 
 }  // namespace snapper
 
