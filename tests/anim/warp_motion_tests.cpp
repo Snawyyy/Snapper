@@ -13,6 +13,7 @@ class WarpMotionTests final : public QObject {
   void StillWhenOff();
   void WaveRunsFromTheAnchor();
   void PulseBeatsFromTheMiddle();
+  void BreatheSwellsAndFalls();
 };
 
 void WarpMotionTests::StillWhenOff() {
@@ -77,6 +78,21 @@ void WarpMotionTests::PulseBeatsFromTheMiddle() {
           1e-3);
   QVERIFY(!HangsFromEdge(WarpMotionKind::kPulse));
   QVERIFY(HangsFromEdge(WarpMotionKind::kWave));
+}
+
+void WarpMotionTests::BreatheSwellsAndFalls() {
+  const QSize size(20, 20);
+  const WarpGrid grid{2, 2};
+  const WarpMotion breathe = Motion(WarpMotionKind::kBreathe);
+  const auto corner = [&](int frame) {
+    return MotionPushes(size, grid, breathe, Frame(frame))[8];
+  };
+  QCOMPARE(corner(0), QPointF());
+  QVERIFY(std::abs(corner(6).x() - 5.0) < 1e-9);
+  QVERIFY(std::abs(corner(12).y() - 10.0) < 1e-9);
+  QVERIFY(std::abs(corner(18).x() - 5.0) < 1e-9);
+  QCOMPARE(MotionPushes(size, grid, breathe, Frame(12))[4], QPointF());
+  QVERIFY(!HangsFromEdge(WarpMotionKind::kBreathe));
 }
 
 }  // namespace snapper

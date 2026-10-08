@@ -80,12 +80,19 @@ QPointF Pulse(const WarpMotion& motion, double phase, QPointF spot) {
   return Outward(spot) * (motion.size * beat);
 }
 
+// Swells out from the middle and falls back, smooth all the way.
+QPointF Breathe(const WarpMotion& motion, double phase, QPointF spot) {
+  const double swell = (1.0 - std::cos(kTurn * phase)) / 2.0;
+  return Outward(spot) * (motion.size * swell);
+}
+
 }  // namespace
 
 bool HangsFromEdge(WarpMotionKind kind) {
   switch (kind) {
     case WarpMotionKind::kNone:
     case WarpMotionKind::kPulse:
+    case WarpMotionKind::kBreathe:
       return false;
     case WarpMotionKind::kWave:
       return true;
@@ -115,6 +122,9 @@ std::vector<QPointF> MotionPushes(QSize size, WarpGrid grid,
         break;
       case WarpMotionKind::kPulse:
         push = Pulse(motion, phase, spot);
+        break;
+      case WarpMotionKind::kBreathe:
+        push = Breathe(motion, phase, spot);
         break;
     }
   }

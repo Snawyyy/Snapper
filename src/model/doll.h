@@ -64,10 +64,11 @@ struct DragNode final {
 // that waves, a heart that beats.
 enum class WarpMotionKind {
   kNone,
-  kWave,   // A ripple running from the anchor edge, for hair.
-  kPulse,  // A lub-dub beat swelling from the middle, for a heart.
+  kWave,     // A ripple running from the anchor edge, for hair.
+  kPulse,    // A lub-dub beat swelling from the middle, for a heart.
+  kBreathe,  // A slow smooth swell and fall, for a chest.
 };
-constexpr int kWarpMotionKindCount = 3;
+constexpr int kWarpMotionKindCount = 4;
 
 // The edge a motion hangs from: dots there stay put and the far side
 // moves most.
