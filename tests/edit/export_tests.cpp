@@ -4,6 +4,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <cassert>
 #include <cmath>
 
 #include "edit/export_manager.h"
@@ -27,6 +28,7 @@ Project Lasting(int length) {
 
 // Lasting(length) on the reel from frame 6, after six black frames.
 Project LateOnTheReel(int length) {
+  assert(length >= 1);
   Project project = Lasting(length);
   Clip clip;
   clip.id = ClipId(1);
@@ -34,6 +36,7 @@ Project LateOnTheReel(int length) {
   clip.start = Frame(6);
   clip.length = Frame(length);
   PlaceClip(&project.reel.tracks[1], clip);
+  assert(project.reel.tracks[1].clips.size() == 1);
   return project;
 }
 

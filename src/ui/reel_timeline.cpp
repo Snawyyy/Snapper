@@ -86,6 +86,7 @@ int ReelTimeline::TrackAt(double y) const {
   assert(std::isfinite(y));
   const int count =
       static_cast<int>(managers_.history->current().reel.tracks.size());
+  assert(count <= kMaxReelTracks);
   const int row = static_cast<int>(std::floor((y - kRulerHeight) /
                                               kTrackHeight));
   const bool is_on_tracks = y >= kRulerHeight && row >= 0 && row < count;
@@ -94,6 +95,7 @@ int ReelTimeline::TrackAt(double y) const {
 
 QRectF ReelTimeline::ClipRect(ClipId clip) const {
   assert(clip.value() >= 0);
+  assert(managers_.history != nullptr);
   const Reel& reel = managers_.history->current().reel;
   const ClipSpot spot = FindClip(reel, clip);
   const bool is_present = spot.IsValid();
@@ -163,6 +165,7 @@ void ReelTimeline::PaintTracks(QPainter* painter) const {
   assert(painter != nullptr);
   const Reel& reel = managers_.history->current().reel;
   const int count = static_cast<int>(reel.tracks.size());
+  assert(count <= kMaxReelTracks);
   for (int t = 0; t < count; ++t) {
     const double top = TrackTop(t);
     painter->fillRect(QRectF(kHeaderWidth, top, width(), kTrackHeight - 1),

@@ -3,6 +3,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <cassert>
+
 #include "edit/video_file_frames.h"
 #include "media/video_encoder.h"
 
@@ -11,16 +13,19 @@ namespace {
 
 // A second of video, red for frames before 12 and blue after.
 QString WriteTake(const QTemporaryDir& dir, const QString& name) {
+  assert(dir.isValid());
   const QString path = QDir(dir.path()).filePath(name);
   VideoEncoder encoder;
-  const bool is_open =
+  bool is_ok =
       encoder.Open({path, VideoFormat::kMp4, 32, 32, nullptr}).has_value();
-  for (int i = 0; is_open && i < kFramesPerSecond; ++i) {
+  for (int i = 0; is_ok && i < kFramesPerSecond; ++i) {
     QImage image(32, 32, QImage::Format_ARGB32);
     image.fill(i < kFramesPerSecond / 2 ? Qt::red : Qt::blue);
-    encoder.AddFrame(image);
+    is_ok = encoder.AddFrame(image).has_value();
   }
-  const bool is_done = is_open && encoder.Finish().has_value();
+  const bool is_done = is_ok && encoder.Finish().has_value();
+  // A finished take is on disk.
+  assert(!is_done || QFile::exists(path));
   return is_done ? path : QString();
 }
 

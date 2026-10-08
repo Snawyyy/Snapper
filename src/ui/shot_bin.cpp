@@ -70,11 +70,11 @@ void ShotBin::Refresh() {
   clear();
   std::map<std::shared_ptr<const Shot>, QIcon> kept;
   for (const auto& shot : project.shots) {
-    auto* item = new QListWidgetItem(
-        Thumbnail(shot),
-        tr("%1\n%2 s").arg(shot->name).arg(
-            SecondsAtFrame(shot->length), 0, 'f', 1),
-        this);
+    // The list owns its items: add one, then dress it.
+    addItem(tr("%1\n%2 s").arg(shot->name).arg(
+        SecondsAtFrame(shot->length), 0, 'f', 1));
+    QListWidgetItem* item = this->item(count() - 1);
+    item->setIcon(Thumbnail(shot));
     item->setData(kShotRole, shot->id.value());
     kept[shot] = thumbnails_[shot];
   }
@@ -97,7 +97,9 @@ QMimeData* ShotBin::mimeData(const QList<QListWidgetItem*>& items) const {
   if (!is_one) {
     return nullptr;
   }
-  auto* dragged = new QMimeData();
+  // The base makes the mime data the drag then owns; it adds the shot.
+  QMimeData* dragged = QListWidget::mimeData(items);
+  assert(dragged != nullptr);
   dragged->setData(kShotMime,
                    QByteArray::number(items.front()->data(kShotRole).toInt()));
   return dragged;

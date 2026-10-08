@@ -40,7 +40,8 @@ bool HasRoom(const ReelTrack& track, const Clip& clip) {
     const bool is_self = other.id == clip.id;
     const bool is_overlap =
         other.start < clip.end() && clip.start < other.end();
-    if (!is_self && is_overlap) {
+    const bool is_blocked = !is_self && is_overlap;
+    if (is_blocked) {
       return false;
     }
   }

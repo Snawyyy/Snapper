@@ -118,7 +118,8 @@ Result<void> VideoReader::Open(const QString& path) {
   peek_.reset(av_frame_alloc());
   const bool has_memory =
       packet_ != nullptr && shown_ != nullptr && peek_ != nullptr;
-  if (!is_decoding || !has_memory) {
+  const bool can_decode = is_decoding && has_memory;
+  if (!can_decode) {
     return std::unexpected(
         Error{Tr("Can't decode the video in %1.").arg(path)});
   }

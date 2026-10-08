@@ -1,5 +1,6 @@
 #include <QTest>
 
+#include <cassert>
 #include <memory>
 
 #include "anim/reel_timeline.h"
@@ -10,6 +11,8 @@ namespace snapper {
 namespace {
 
 Clip VideoClip(int id, int start, int length, int in = 0) {
+  assert(start >= 0 && in >= 0);
+  assert(length >= 1);
   Clip clip;
   clip.id = ClipId(id);
   clip.source = VideoSource{"/takes/paint.mp4", Frame(1000)};
@@ -20,6 +23,8 @@ Clip VideoClip(int id, int start, int length, int in = 0) {
 }
 
 Clip ShotClip(int id, ShotId shot, int start, int length) {
+  assert(shot.IsValid());
+  assert(start >= 0 && length >= 1);
   Clip clip;
   clip.id = ClipId(id);
   clip.source = ShotSource{shot};
@@ -35,8 +40,10 @@ Project PaintWithShot() {
   shot.id = ShotId(1);
   shot.length = Frame(48);
   project.shots.push_back(std::make_shared<const Shot>(shot));
+  assert(project.reel.tracks.size() >= 2);
   PlaceClip(&project.reel.tracks[0], VideoClip(1, 0, 200, 10));
   PlaceClip(&project.reel.tracks[1], ShotClip(2, ShotId(1), 50, 48));
+  assert(ReelLength(project) == Frame(200));
   return project;
 }
 

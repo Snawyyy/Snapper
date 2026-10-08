@@ -6,6 +6,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <cassert>
+
 #include "io/pose_file.h"
 #include "io/project_file.h"
 
@@ -87,6 +89,8 @@ Project FullProject() {
 
 // Writes object as a project file at path.
 bool WriteObject(const QString& path, const QJsonObject& object) {
+  assert(!path.isEmpty());
+  assert(!object.isEmpty());
   QFile file(path);
   const bool is_open = file.open(QIODevice::WriteOnly);
   return is_open && file.write(QJsonDocument(object).toJson()) > 0;

@@ -2,6 +2,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <cassert>
+
 #include "render/effects.h"
 #include "render/frame_renderer.h"
 #include "render/stage_hit.h"
@@ -69,8 +71,10 @@ Project ShotOverVideo(const QTemporaryDir& dir) {
   shot.source = ShotSource{ShotId(1)};
   shot.start = Frame(50);
   shot.length = Frame(48);
+  assert(project.reel.tracks.size() >= 2);
   PlaceClip(&project.reel.tracks[0], paint);
   PlaceClip(&project.reel.tracks[1], shot);
+  assert(project.reel.tracks[1].clips.size() == 1);
   return project;
 }
 
