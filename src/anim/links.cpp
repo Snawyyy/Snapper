@@ -43,7 +43,36 @@ const PoseMap& LinkSolver::BasePoses(const Doll& doll, const Layer& layer,
   if (is_known) {
     return found->second;
   }
-  return poses_[key] = ShownPoses(doll, layer, frame);
+  return poses_[key] = ShownPoses(doll, layer, frame, Shifts(doll, layer,
+                                                              frame));
+}
+
+LinkShifts LinkSolver::Shifts(const Doll& doll, const Layer& layer,
+                              Frame frame) {
+  assert(frame.index() >= 0);
+  assert(doll.rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+  LinkShifts shifts;
+  for (const RigPiece& rig : doll.rig.pieces) {
+    const LinkEnd end{layer.id, rig.name};
+    const std::vector<LinkEnd> carriers = CarriersOf(project_, shot_, end);
+    const bool is_linked =
+        !rig.drag_nodes.empty() &&
+        std::any_of(carriers.begin(), carriers.end(),
+                    [this](const LinkEnd& carrier) {
+                      return FindLink(shot_, carrier) != nullptr;
+                    });
+    if (!is_linked) {
+      continue;
+    }
+    // ponytail: a push per frame up to frame, and a dragging leader runs
+    // its springs for each, so frames x frames; cache by beat if slow.
+    std::vector<QPointF>& path = shifts[rig.name];
+    path.reserve(static_cast<size_t>(frame.index()) + 1);
+    for (int f = 0; f <= frame.index(); ++f) {
+      path.push_back(Carried(end, Frame(f)));
+    }
+  }
+  return shifts;
 }
 
 QTransform LinkSolver::LayerTransform(const Layer& layer, Frame frame) {
