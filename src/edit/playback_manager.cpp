@@ -7,8 +7,10 @@
 #include <cstdlib>
 #include <iterator>
 #include <set>
+#include <utility>
 
 #include "anim/master_timeline.h"
+#include "anim/reel_timeline.h"
 #include "edit/history_manager.h"
 #include "edit/timeline_rows.h"
 
@@ -100,7 +102,9 @@ void PlaybackManager::Step(int delta) {
     Seek(Frame(frame_.index() + delta));
     return;
   }
-  const std::set<Frame> changes = PoseChanges(history_->current());
+  const bool is_reel = timeline_ == Timeline::kReel;
+  const std::set<Frame> changes = is_reel ? ReelCuts(history_->current())
+                                          : PoseChanges(history_->current());
   Frame at = frame_;
   for (int i = 0; i < std::abs(delta); ++i) {
     const bool is_forward = delta > 0;
@@ -126,6 +130,22 @@ void PlaybackManager::SetStepMode(StepMode mode) {
     emit StepModeChanged(mode);
   }
   assert(step_mode_ == mode);
+}
+
+void PlaybackManager::SetTimeline(Timeline timeline) {
+  assert(history_ != nullptr);
+  assert(timeline == Timeline::kShots || timeline == Timeline::kReel);
+  const bool is_new = timeline != timeline_;
+  if (!is_new) {
+    return;
+  }
+  Pause();
+  ClearLoop();
+  std::swap(frame_, parked_);
+  timeline_ = timeline;
+  frame_ = std::min(frame_, LastFrame());
+  emit TimelineChanged(timeline_);
+  emit FrameChanged(frame_);
 }
 
 void PlaybackManager::SetLoop(Frame start, Frame end) {
@@ -209,7 +229,10 @@ void PlaybackManager::SongLoaded() {
 
 Frame PlaybackManager::LastFrame() const {
   assert(history_ != nullptr);
-  const int total = TotalLength(history_->current()).index();
+  const Project& project = history_->current();
+  const bool is_reel = timeline_ == Timeline::kReel;
+  const int total =
+      (is_reel ? ReelLength(project) : TotalLength(project)).index();
   assert(total >= 0);
   return Frame(std::max(total - 1, 0));
 }

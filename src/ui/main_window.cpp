@@ -136,7 +136,8 @@ void MainWindow::FollowPlayhead() {
   assert(managers_.playback != nullptr);
   assert(managers_.selection != nullptr);
   const Project& project = managers_.history->current();
-  const ShotMoment moment = Locate(project, managers_.playback->frame());
+  const ShotMoment moment =
+      Locate(project, managers_.playback->FrameOn(Timeline::kShots));
   const bool is_on_shot = moment.shot >= 0;
   // In a hand-over the picked shot may be either side; keep it.
   const bool is_next_picked =
