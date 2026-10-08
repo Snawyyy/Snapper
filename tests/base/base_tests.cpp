@@ -66,6 +66,10 @@ void BaseTests::TypedSecondsRoundToTheNearestFrame() {
   QCOMPARE(FramesNearSeconds(-1.0), Frame(0));
   QCOMPARE(FramesNearSeconds(qQNaN()), Frame(0));
   QCOMPARE(FramesNearSeconds(1e12), Frame(kMaxFrame));
+  // Finite seconds whose frame count overflows to infinity still clamp.
+  const double huge = std::numeric_limits<double>::max();
+  QCOMPARE(FramesNearSeconds(huge), Frame(kMaxFrame));
+  QCOMPARE(FrameAtSeconds(huge), Frame(kMaxFrame));
 }
 
 }  // namespace snapper

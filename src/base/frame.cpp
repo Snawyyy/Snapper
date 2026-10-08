@@ -7,8 +7,10 @@ namespace snapper {
 namespace {
 
 // A count of frames worked out from seconds, kept to 0 to kMaxFrame.
+// Huge finite seconds times the rate can overflow to infinity, which the
+// clamp below handles like any count past the end.
 Frame FrameOf(double frames) {
-  assert(std::isfinite(frames));
+  assert(!std::isnan(frames));
   assert(frames >= 0.0);
   const bool is_past_end = frames >= static_cast<double>(kMaxFrame);
   if (is_past_end) {
