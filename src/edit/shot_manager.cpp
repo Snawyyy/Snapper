@@ -78,11 +78,16 @@ Result<ShotId> ShotManager::Duplicate(ShotId shot) {
     renamed[layer.id] = fresh;
     layer.id = fresh;
   }
-  // Links in the copy join the copy's own layers.
+  // Links in the copy join the copy's own layers. A link to a layer the
+  // shot no longer has stays dead in the copy, so DropDeadLinks clears it.
   for (Link& link : copy.links) {
-    link.follower.layer = renamed[link.follower.layer];
-    link.leader.layer = renamed[link.leader.layer];
+    const auto follower = renamed.find(link.follower.layer);
+    const auto leader = renamed.find(link.leader.layer);
+    link.follower.layer =
+        follower != renamed.end() ? follower->second : LayerId();
+    link.leader.layer = leader != renamed.end() ? leader->second : LayerId();
   }
+  DropDeadLinks(&copy);
   next.shots.insert(next.shots.begin() + index + 1,
                     std::make_shared<const Shot>(copy));
   auto applied = history_->Apply(Tr("Duplicate shot"), std::move(next));

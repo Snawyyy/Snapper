@@ -22,6 +22,7 @@ class ShotTests final : public QObject {
  private slots:
   void AddInsertsWithFreshIds();
   void DuplicateCopiesWithFreshIds();
+  void DuplicateDropsDeadLinks();
   void MoveAndRemoveReorder();
   void SettingsCheckTheirValues();
 };
@@ -69,6 +70,25 @@ void ShotTests::DuplicateCopiesWithFreshIds() {
   QCOMPARE(copied.links[0].leader, (LinkEnd{LayerId(4), {}}));
   QCOMPARE(copied.links[0].strength, 0.5);
   QVERIFY(!shots.Duplicate(ShotId(9)).has_value());
+}
+
+void ShotTests::DuplicateDropsDeadLinks() {
+  Shot shot;
+  shot.id = ShotId(1);
+  Layer layer;
+  layer.id = LayerId(1);
+  shot.layers = {layer};
+  // The leader layer 7 is gone: the copy must not point at no layer.
+  shot.links = {Link{{LayerId(1), {}}, {LayerId(7), {}}, Frame(0), 1.0}};
+  Project project;
+  project.shots = {std::make_shared<const Shot>(shot)};
+  project.next_shot_id = 2;
+  project.next_layer_id = 8;
+  HistoryManager history(project);
+  ShotManager shots(&history);
+  QVERIFY(shots.Duplicate(ShotId(1)).has_value());
+  QCOMPARE(history.current().shots.size(), size_t{2});
+  QVERIFY(history.current().shots[1]->links.empty());
 }
 
 void ShotTests::MoveAndRemoveReorder() {
