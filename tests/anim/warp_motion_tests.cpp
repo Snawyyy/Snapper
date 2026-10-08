@@ -1,5 +1,7 @@
 #include <QTest>
 
+#include <cmath>
+
 #include "anim/warp_motion.h"
 
 namespace snapper {
@@ -10,6 +12,7 @@ class WarpMotionTests final : public QObject {
  private slots:
   void StillWhenOff();
   void WaveRunsFromTheAnchor();
+  void PulseBeatsFromTheMiddle();
 };
 
 void WarpMotionTests::StillWhenOff() {
@@ -53,6 +56,27 @@ void WarpMotionTests::WaveRunsFromTheAnchor() {
   QCOMPARE(sideways[0], QPointF());
   QCOMPARE(sideways[1].x(), 0.0);
   QCOMPARE(sideways[1].y(), 10.0);
+}
+
+void WarpMotionTests::PulseBeatsFromTheMiddle() {
+  const QSize size(20, 20);
+  const WarpGrid grid{2, 2};
+  WarpMotion pulse = Motion(WarpMotionKind::kPulse);
+  pulse.cycle = 50;
+  // The first swell tops out 8% into the cycle: frame 4 of 50.
+  const std::vector<QPointF> lub = MotionPushes(size, grid, pulse, Frame(4));
+  QCOMPARE(lub[4], QPointF());
+  QVERIFY(std::abs(lub[0].x() + 10.0) < 1e-3);
+  QVERIFY(std::abs(lub[8].y() - 10.0) < 1e-3);
+  QCOMPARE(lub[1].y(), lub[0].y());
+  QCOMPARE(lub[1].x(), 0.0);
+  // A smaller second swell, then rest until the next beat.
+  const double dub = MotionPushes(size, grid, pulse, Frame(14))[8].y();
+  QVERIFY(dub > 5.0 && dub < 7.0);
+  QVERIFY(std::abs(MotionPushes(size, grid, pulse, Frame(30))[8].y()) <
+          1e-3);
+  QVERIFY(!HangsFromEdge(WarpMotionKind::kPulse));
+  QVERIFY(HangsFromEdge(WarpMotionKind::kWave));
 }
 
 }  // namespace snapper

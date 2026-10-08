@@ -58,7 +58,41 @@ QPointF Wave(const WarpMotion& motion, double phase, QPointF spot) {
   return Across(motion.edge) * (motion.size * along * swing);
 }
 
+// From the middle of the drawing out to spot, -1 to 1 each way.
+QPointF Outward(QPointF spot) {
+  assert(spot.x() >= 0.0 && spot.x() <= 1.0);
+  assert(spot.y() >= 0.0 && spot.y() <= 1.0);
+  return (spot - QPointF(0.5, 0.5)) * 2.0;
+}
+
+// A soft bump of width around centre on the cycle, 1 at its top.
+double Bump(double phase, double centre, double width) {
+  assert(width > 0.0);
+  assert(phase >= 0.0 && phase < 1.0);
+  const double from = (phase - centre) / width;
+  return std::exp(-from * from);
+}
+
+// Two quick swells and a rest, lub-dub, like a heart.
+QPointF Pulse(const WarpMotion& motion, double phase, QPointF spot) {
+  const double beat =
+      Bump(phase, 0.08, 0.05) + 0.6 * Bump(phase, 0.28, 0.05);
+  return Outward(spot) * (motion.size * beat);
+}
+
 }  // namespace
+
+bool HangsFromEdge(WarpMotionKind kind) {
+  switch (kind) {
+    case WarpMotionKind::kNone:
+    case WarpMotionKind::kPulse:
+      return false;
+    case WarpMotionKind::kWave:
+      return true;
+  }
+  assert(false);
+  return false;
+}
 
 std::vector<QPointF> MotionPushes(QSize size, WarpGrid grid,
                                   const WarpMotion& motion, Frame frame) {
@@ -78,6 +112,9 @@ std::vector<QPointF> MotionPushes(QSize size, WarpGrid grid,
         break;
       case WarpMotionKind::kWave:
         push = Wave(motion, phase, spot);
+        break;
+      case WarpMotionKind::kPulse:
+        push = Pulse(motion, phase, spot);
         break;
     }
   }

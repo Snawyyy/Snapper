@@ -178,6 +178,11 @@ void RigUiTests::AnimationWaitsForAGrid() {
   emit motion->activated(motion->currentIndex());
   QCOMPARE(FindRig(BobRig(bench), "arm")->warp_motion.kind,
            WarpMotionKind::kWave);
+  auto* anchor = panel.findChild<QComboBox*>("warp_anchor");
+  QVERIFY(anchor->isEnabled());
+  motion->setCurrentIndex(static_cast<int>(WarpMotionKind::kPulse));
+  emit motion->activated(motion->currentIndex());
+  QVERIFY(!anchor->isEnabled());
 }
 
 void RigUiTests::ShiftPickedJointsDragTogether() {

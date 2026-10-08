@@ -18,6 +18,10 @@ namespace snapper {
 std::vector<QPointF> MotionPushes(QSize size, WarpGrid grid,
                                   const WarpMotion& motion, Frame frame);
 
+// True when kind hangs from its anchor edge; the rest grow from the
+// middle and pay the edge no mind.
+bool HangsFromEdge(WarpMotionKind kind);
+
 }  // namespace snapper
 
 #endif  // SNAPPER_ANIM_WARP_MOTION_H_

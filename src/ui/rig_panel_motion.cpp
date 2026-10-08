@@ -3,6 +3,7 @@
 
 #include <cassert>
 
+#include "anim/warp_motion.h"
 #include "edit/rig_manager.h"
 #include "ui/form_helpers.h"
 #include "ui/live_edit.h"
@@ -18,6 +19,8 @@ QString MotionLabel(WarpMotionKind kind) {
       return RigPanel::tr("None");
     case WarpMotionKind::kWave:
       return RigPanel::tr("Wave");
+    case WarpMotionKind::kPulse:
+      return RigPanel::tr("Pulse");
   }
   assert(false);
   return QString();
@@ -50,6 +53,7 @@ void RigPanel::BuildMotion() {
     motion_edge_.addItem(EdgeLabel(static_cast<WarpEdge>(edge)));
   }
   motion_.setObjectName("warp_motion");
+  motion_edge_.setObjectName("warp_anchor");
   motion_.setToolTip(tr("Moves the grid by itself, on top of its keys: "
                         "hair that waves, a heart that beats."));
   motion_edge_.setToolTip(tr("The edge that stays put; the far side "
@@ -121,6 +125,12 @@ void RigPanel::RefreshMotion(const RigPiece* rig) {
                          static_cast<QWidget*>(&motion_size_),
                          static_cast<QWidget*>(&motion_cycle_)}) {
     Explain(field, no_motion);
+  }
+  const bool is_hanging = HangsFromEdge(motion.kind);
+  const bool is_middle = motion.IsOn() && !is_hanging;
+  if (is_middle) {
+    Explain(&motion_edge_, tr("%1 grows from the middle, not an edge.")
+                               .arg(MotionLabel(motion.kind)));
   }
   const QSignalBlocker quiet_kind(motion_);
   const QSignalBlocker quiet_edge(motion_edge_);
