@@ -8,13 +8,10 @@
 namespace snapper {
 namespace {
 
-std::shared_ptr<const Shot> MakeShot(int id, int length,
-                                     TransitionKind kind = TransitionKind::kCut,
-                                     int overlap = 0) {
+std::shared_ptr<const Shot> MakeShot(int id, int length) {
   Shot shot;
   shot.id = ShotId(id);
   shot.length = Frame(length);
-  shot.transition = {kind, Frame(overlap)};
   return std::make_shared<const Shot>(shot);
 }
 
@@ -29,7 +26,6 @@ class SamplerTests final : public QObject {
   void EmptyChannelGivesFallback();
   void DrawingsSwapWithoutBlending();
   void ShotsFollowEachOther();
-  void TransitionsOverlapShots();
   void PresetsLoopOnTheirHold();
   void ShakeIsTheSameEveryTime();
   void MirrorNamesSwapSides();
@@ -84,26 +80,8 @@ void SamplerTests::ShotsFollowEachOther() {
   const ShotMoment moment = Locate(project, Frame(12));
   QCOMPARE(moment.shot, 1);
   QCOMPARE(moment.local, Frame(2));
-  QCOMPARE(moment.next_shot, -1);
   QCOMPARE(Locate(project, Frame(30)).shot, -1);
   QCOMPARE(TotalLength(Project()), Frame(0));
-}
-
-void SamplerTests::TransitionsOverlapShots() {
-  Project project;
-  project.shots = {MakeShot(1, 10, TransitionKind::kSwipeLeft, 4),
-                   MakeShot(2, 20)};
-  QCOMPARE(ShotStart(project, 1), Frame(6));
-  QCOMPARE(TotalLength(project), Frame(26));
-  const ShotMoment before = Locate(project, Frame(5));
-  QCOMPARE(before.next_shot, -1);
-  const ShotMoment moment = Locate(project, Frame(7));
-  QCOMPARE(moment.shot, 0);
-  QCOMPARE(moment.local, Frame(7));
-  QCOMPARE(moment.next_shot, 1);
-  QCOMPARE(moment.next_local, Frame(1));
-  QCOMPARE(moment.mix, 0.4);
-  QCOMPARE(Locate(project, Frame(10)).shot, 1);
 }
 
 void SamplerTests::PresetsLoopOnTheirHold() {

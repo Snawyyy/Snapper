@@ -22,7 +22,7 @@ snapper_module(base
   SOURCES frame.cpp text.cpp
   LIBS Qt6::Core)
 snapper_module(model
-  SOURCES doll.cpp layer.cpp project.cpp reel.cpp shot.cpp
+  SOURCES doll.cpp layer.cpp project.cpp reel.cpp shot.cpp transition.cpp
   MODULES base
   LIBS Qt6::Gui)
 snapper_module(anim
@@ -50,7 +50,8 @@ snapper_module(edit
           playback_manager.cpp pose_clipboard.cpp pose_manager.cpp
           preset_manager.cpp saved_poses.cpp
           project_edits.cpp reel_batch.cpp reel_clipboard.cpp reel_cuts.cpp
-          reel_edits.cpp reel_manager.cpp reel_markers.cpp rig_batch.cpp
+          reel_edits.cpp reel_manager.cpp reel_markers.cpp
+          reel_transitions.cpp rig_batch.cpp
           rig_manager.cpp rig_mirror.cpp
           selection_manager.cpp selection_prune.cpp shot_batch.cpp
           shot_manager.cpp stage_batch.cpp stage_manager.cpp
@@ -67,7 +68,7 @@ snapper_module(ui
           reel_timeline_commands.cpp reel_timeline_input.cpp
           shot_bin.cpp shot_strip.cpp slot_picker.cpp
           stage_view.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
-          timeline_view.cpp video_page.cpp
+          timeline_view.cpp transition_picker.cpp video_page.cpp
   MODULES edit
   LIBS Qt6::Widgets)
 
@@ -91,6 +92,7 @@ if(BUILD_TESTING)
                             key_tests.cpp library_tests.cpp posing_tests.cpp
                             playback_tests.cpp preset_tests.cpp
                             reel_editing_tests.cpp reel_manager_tests.cpp
+                            reel_transition_tests.cpp
                             rig_tests.cpp
                             shot_tests.cpp
                             selection_tests.cpp stage_tests.cpp

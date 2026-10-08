@@ -3,13 +3,39 @@
 #include <QJsonObject>
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <variant>
 
 #include "base/text.h"
+#include "model/project.h"
 
 namespace snapper {
 namespace {
+
+constexpr std::array<const char*, kTransitionKindCount> kTransitionNames = {
+    "cut",        "swipe_left", "swipe_right", "swipe_up",
+    "swipe_down", "flash",      "crossfade"};
+
+QJsonObject TransitionToJson(const Transition& transition) {
+  assert(static_cast<int>(transition.kind) < kTransitionKindCount);
+  assert(transition.length.index() >= 0);
+  return QJsonObject{
+      {"kind",
+       EnumToJson(static_cast<int>(transition.kind), kTransitionNames)},
+      {"length", transition.length.index()}};
+}
+
+Transition TransitionFromJson(const QJsonValue& value, JsonIssues* issues) {
+  assert(issues != nullptr);
+  assert(kTransitionNames.size() == kTransitionKindCount);
+  const QJsonObject object = value.toObject();
+  Transition transition;
+  transition.kind = static_cast<TransitionKind>(
+      EnumFromJson(object.value("kind"), kTransitionNames, issues));
+  transition.length = Frame(std::max(object.value("length").toInt(), 0));
+  return transition;
+}
 
 QJsonObject ClipToJson(const Clip& clip) {
   assert(clip.id.IsValid());
@@ -25,6 +51,10 @@ QJsonObject ClipToJson(const Clip& clip) {
     object.insert("video_length", video->length.index());
   } else {
     object.insert("shot", std::get<ShotSource>(clip.source).shot.value());
+  }
+  const bool has_transition = clip.out.kind != TransitionKind::kCut;
+  if (has_transition) {
+    object.insert("transition", TransitionToJson(clip.out));
   }
   return object;
 }
@@ -43,6 +73,10 @@ Clip ClipFromJson(const QJsonObject& object, JsonIssues* issues) {
                               Frame(object.value("video_length").toInt())};
   } else {
     clip.source = ShotSource{ShotId(object.value("shot").toInt())};
+  }
+  const bool has_transition = object.contains("transition");
+  if (has_transition) {
+    clip.out = TransitionFromJson(object.value("transition"), issues);
   }
   const bool is_valid = clip.id.IsValid() && clip.length.index() >= 1;
   if (!is_valid) {
@@ -137,6 +171,36 @@ std::vector<Frame> MarkersFromJson(const QJsonValue& value,
   std::sort(markers.begin(), markers.end());
   markers.erase(std::unique(markers.begin(), markers.end()), markers.end());
   return markers;
+}
+
+void MoveShotTransitions(const QJsonArray& shots, Reel* reel,
+                         JsonIssues* issues) {
+  assert(reel != nullptr);
+  assert(issues != nullptr);
+  const bool is_too_many = shots.size() > kMaxShots;
+  if (is_too_many) {
+    return;
+  }
+  for (const QJsonValue& item : shots) {
+    const QJsonObject shot = item.toObject();
+    const bool is_old = shot.contains("transition");
+    if (!is_old) {
+      continue;
+    }
+    const Transition transition =
+        TransitionFromJson(shot.value("transition"), issues);
+    const ShotSource source{ShotId(shot.value("id").toInt())};
+    for (ReelTrack& track : reel->tracks) {
+      for (Clip& clip : track.clips) {
+        const bool is_its_cut = clip.source == ClipSource(source) &&
+                                NextTouching(track, clip) != nullptr &&
+                                clip.out.kind == TransitionKind::kCut;
+        if (is_its_cut) {
+          clip.out = transition;
+        }
+      }
+    }
+  }
 }
 
 }  // namespace snapper

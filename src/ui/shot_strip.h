@@ -21,7 +21,7 @@ namespace snapper {
 // Click picks a shot and jumps the playhead to it; drag a shot to
 // reorder it, drag its right edge to change its length; the + block
 // adds a shot after the picked one; right-click for rename, copy,
-// colour, transition and delete.
+// colour and delete. Transitions live on the reel (Video tab).
 class ShotStrip final : public QWidget {
   Q_OBJECT
 

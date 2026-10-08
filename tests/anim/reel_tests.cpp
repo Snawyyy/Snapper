@@ -62,6 +62,7 @@ class ReelTests final : public QObject {
   void DragsSnapToCutsAndThePlayhead();
   void DragsSnapToCutMarkers();
   void GapsLieBetweenMarkers();
+  void TransitionsMixBeforeTheCut();
 };
 
 void ReelTests::NewReelHasEmptyTracks() {
@@ -187,6 +188,40 @@ void ReelTests::GapsLieBetweenMarkers() {
   QCOMPARE(LastSlotIn(project, paint.source, SlotAt(project.reel, Frame(30))),
            192);
   QVERIFY(!SlotFillAt(project, 0, Frame(80)).has_value());
+}
+
+void ReelTests::TransitionsMixBeforeTheCut() {
+  Project project;
+  Clip first = VideoClip(1, 0, 20);
+  first.out = {TransitionKind::kCrossfade, Frame(4)};
+  // The next clip shows its video from 10, so 4 frames lead up to it.
+  PlaceClip(&project.reel.tracks[0], first);
+  PlaceClip(&project.reel.tracks[0], VideoClip(2, 20, 30, 10));
+  const ReelTrack& track = project.reel.tracks[0];
+  QCOMPARE(UsedTransition(track, track.clips[0]), Frame(4));
+  QCOMPARE(LongestTransition(track, track.clips[0]), Frame(19));
+  QCOMPARE(LongestTransition(track, track.clips[1]), Frame(0));
+  QVERIFY(ReelAt(project, Frame(15)).front().next == nullptr);
+  const ReelPiece start = ReelAt(project, Frame(16)).front();
+  QCOMPARE(start.next->id, ClipId(2));
+  QCOMPARE(start.next_source, Frame(6));
+  QCOMPARE(start.kind, TransitionKind::kCrossfade);
+  QCOMPARE(start.mix, 0.2);
+  const ReelPiece last = ReelAt(project, Frame(19)).front();
+  QCOMPARE(last.source, Frame(19));
+  QCOMPARE(last.next_source, Frame(9));
+  QCOMPARE(last.mix, 0.8);
+  QVERIFY(ReelAt(project, Frame(20)).front().next == nullptr);
+  // With nothing before its in point, the next clip holds its first
+  // frame.
+  project.reel.tracks[0].clips[1].in = Frame(1);
+  QCOMPARE(ReelAt(project, Frame(16)).front().next_source, Frame(0));
+  // Pulled apart, the two just cut.
+  project.reel.tracks[0].clips[1].start = Frame(21);
+  QCOMPARE(UsedTransition(project.reel.tracks[0],
+                          project.reel.tracks[0].clips[0]),
+           Frame(0));
+  QVERIFY(ReelAt(project, Frame(18)).front().next == nullptr);
 }
 
 }  // namespace snapper

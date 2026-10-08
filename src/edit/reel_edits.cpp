@@ -65,7 +65,11 @@ Result<ClipId> SplitIn(Project* project, ClipId id, Frame at) {
   right.in = Frame(found->in.index() + cut);
   right.length = Frame(found->length.index() - cut);
   ReelTrack& track = TrackOf(project, spot.track);
-  track.clips[static_cast<size_t>(spot.index)].length = Frame(cut);
+  Clip& left = track.clips[static_cast<size_t>(spot.index)];
+  left.length = Frame(cut);
+  // The right half ends where the clip did, so it keeps the transition
+  // out; the new cut between the halves is a plain one.
+  left.out = Transition();
   const ClipId made = right.id;
   PlaceClip(&track, std::move(right));
   return made;
@@ -116,6 +120,7 @@ Result<void> PlaceCopies(Project* project, const std::vector<Lifted>& copies,
                      .clips[static_cast<size_t>(
                          FindClip(project->reel, id).index)];
     clip.in = copy.clip.in;
+    clip.out = copy.clip.out;
     made->push_back(id);
   }
   return {};

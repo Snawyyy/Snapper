@@ -35,13 +35,14 @@ namespace snapper {
 // Click or drag the ruler to move the playhead. Cut markers (Mark cut
 // on the Video tab) show as yellow notches and dashed lines;
 // double-click a track between two of them to pick which part of a
-// video plays in that gap (SlotPicker). Keys: S splits at the playhead
-// (the picked clips, or with none picked what the playhead is in),
-// Delete removes, Shift+Delete removes and closes the gap, Ctrl+C, Ctrl+X and
-// Ctrl+V copy, cut and paste at the playhead, Ctrl+D duplicates;
-// right-click for the same and for tracks. The wheel scrolls, Ctrl
-// zooms. Shots here are finished videos: what is inside them is edited
-// on the Pose tab.
+// video plays in that gap (SlotPicker). Double-click the cut between
+// two touching clips to pick its transition (TransitionPicker).
+// Keys: S splits at the playhead (the picked clips, or with none
+// picked what the playhead is in), Delete removes, Shift+Delete
+// removes and closes the gap, Ctrl+C, Ctrl+X and Ctrl+V copy, cut and
+// paste at the playhead, Ctrl+D duplicates; right-click for the same
+// and for tracks. The wheel scrolls, Ctrl zooms. Shots here are
+// finished videos: what is inside them is edited on the Pose tab.
 class ReelTimeline final : public QWidget {
   Q_OBJECT
 
@@ -50,6 +51,9 @@ class ReelTimeline final : public QWidget {
 
   // Where clip is drawn; empty when it is gone.
   QRectF ClipRect(ClipId clip) const;
+  // The clip whose end at is on, where the next clip on its track
+  // starts: the cut a transition lives on. Invalid elsewhere.
+  ClipId JointAt(QPointF at) const;
   // The track drawn at y, or -1 off the tracks.
   int TrackAt(double y) const;
   // The reel frame at x, never before 0.
@@ -102,6 +106,9 @@ class ReelTimeline final : public QWidget {
   void PaintMarkers(QPainter* painter) const;
   void PaintPlayhead(QPainter* painter) const;
   void PaintBox(QPainter* painter) const;
+  // Each cut between touching clips: a mark to double-click, and the
+  // span its transition mixes over.
+  void PaintJoints(QPainter* painter) const;
   // Seconds between ruler numbers at the current zoom.
   int LabelStep() const;
 
@@ -125,6 +132,8 @@ class ReelTimeline final : public QWidget {
   // Asks which part of a video fills the gap between the cut markers
   // around at on track, then fills it.
   void FillGap(int track, Frame at);
+  // Asks how clip hands over to the next one, then sets it.
+  void EditTransition(ClipId clip);
   void ClipMenu(QPoint where);
   void TrackMenu(int track, QPoint where);
   void SeekTo(double x);

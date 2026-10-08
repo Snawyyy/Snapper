@@ -15,7 +15,22 @@ struct ReelPiece final {
   int track = -1;
   const Clip* clip = nullptr;
   Frame source;
+  // During a transition into the next clip on the track: that clip, the
+  // frame of its source shown (the frames leading up to its in point,
+  // its first frame held where the source has none), the kind, and how
+  // far it has mixed in (0 to 1). next is nullptr otherwise.
+  const Clip* next = nullptr;
+  Frame next_source;
+  TransitionKind kind = TransitionKind::kCut;
+  double mix = 0.0;
 };
+
+// How many frames clip's transition into the next clip on track runs:
+// 0 for a cut or when no clip touches its end.
+Frame UsedTransition(const ReelTrack& track, const Clip& clip);
+// The longest transition clip can have into the clip touching its end;
+// 0 when none touches.
+Frame LongestTransition(const ReelTrack& track, const Clip& clip);
 
 // How long clip's source is: the whole video file, or the shot as it is
 // now; 0 when its shot is gone.

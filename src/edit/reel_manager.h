@@ -15,6 +15,8 @@ namespace snapper {
 
 class HistoryManager;
 
+QString TransitionName(TransitionKind kind);
+
 // The reel, the final video: which clips are on which track, where and
 // how much of their source each shows. A shot clip is a finished video
 // here; what is inside it is edited only on the shot itself.
@@ -77,6 +79,10 @@ class ReelManager final {
   // Only an empty track goes, and the reel keeps at least one.
   Result<void> RemoveTrack(int track);
 
+  // How clip hands over to the clip touching its end on its track:
+  // a cut, or a mix 1 to LongestTransition frames long.
+  Result<void> SetTransition(ClipId clip, Transition transition);
+
   // Drops a cut marker at at, or takes away the one already there.
   Result<void> ToggleMarker(Frame at);
 
@@ -86,6 +92,7 @@ class ReelManager final {
   QString WhyNoPick(const std::vector<ClipId>& clips) const;
   QString WhyNoPaste(Frame at) const;
   QString WhyNoDuplicate(const std::vector<ClipId>& clips) const;
+  QString WhyNoTransition(ClipId clip) const;
   QString WhyNoAddTrack() const;
   QString WhyNoRemoveTrack(int track) const;
 

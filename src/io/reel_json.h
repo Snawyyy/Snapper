@@ -21,6 +21,13 @@ QJsonArray MarkersToJson(const std::vector<Frame>& markers);
 std::vector<Frame> MarkersFromJson(const QJsonValue& value,
                                    JsonIssues* issues);
 
+// Files from before transitions moved to the reel kept one on each
+// shot, into the next shot. Each moves onto the reel's cut where a clip
+// of that shot ends and the next clip on its track starts; a shot with
+// no such cut loses it.
+void MoveShotTransitions(const QJsonArray& shots, Reel* reel,
+                         JsonIssues* issues);
+
 }  // namespace snapper
 
 #endif  // SNAPPER_IO_REEL_JSON_H_

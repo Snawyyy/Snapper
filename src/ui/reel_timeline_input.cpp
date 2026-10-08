@@ -16,6 +16,7 @@
 #include "edit/selection_manager.h"
 #include "ui/reel_timeline.h"
 #include "ui/slot_picker.h"
+#include "ui/transition_picker.h"
 
 namespace snapper {
 namespace {
@@ -37,6 +38,27 @@ ClipId ReelTimeline::ClipAt(QPointF at) const {
       if (is_hit) {
         return clip.id;
       }
+    }
+  }
+  return ClipId();
+}
+
+ClipId ReelTimeline::JointAt(QPointF at) const {
+  assert(managers_.history != nullptr);
+  assert(std::isfinite(at.x()) && std::isfinite(at.y()));
+  const int track = TrackAt(at.y());
+  const bool is_on_track = track >= 0 && at.x() >= kHeaderWidth;
+  if (!is_on_track) {
+    return ClipId();
+  }
+  const ReelTrack& row =
+      managers_.history->current().reel.tracks[static_cast<size_t>(track)];
+  for (const Clip& clip : row.clips) {
+    const bool is_near =
+        std::abs(XOf(clip.end()) - at.x()) <= kEdgeReach &&
+        NextTouching(row, clip) != nullptr;
+    if (is_near) {
+      return clip.id;
     }
   }
   return ClipId();
@@ -183,6 +205,9 @@ void ReelTimeline::mouseMoveEvent(QMouseEvent* event) {
   const bool is_trimming =
       drag_ == Drag::kTrimStart || drag_ == Drag::kTrimEnd;
   setCursor(is_edge || is_trimming ? Qt::SizeHorCursor : Qt::ArrowCursor);
+  const bool is_joint = JointAt(at).IsValid();
+  setToolTip(is_joint ? tr("Double-click to pick the transition here.")
+                      : QString());
   const bool is_seeking = drag_ == Drag::kSeek;
   if (is_seeking) {
     SeekTo(at.x());
@@ -256,10 +281,37 @@ void ReelTimeline::mouseDoubleClickEvent(QMouseEvent* event) {
     QWidget::mouseDoubleClickEvent(event);
     return;
   }
-  // The first click may have opened a drag; the gap is picked instead.
+  // The first click may have opened a drag; this picks instead.
   scope_.reset();
   drag_ = Drag::kNone;
+  const ClipId joint = JointAt(at);
+  const bool is_joint = joint.IsValid();
+  if (is_joint) {
+    EditTransition(joint);
+    return;
+  }
   FillGap(track, FrameAt(at.x()));
+}
+
+void ReelTimeline::EditTransition(ClipId clip) {
+  assert(clip.IsValid());
+  assert(managers_.reel != nullptr);
+  const QString why_not = managers_.reel->WhyNoTransition(clip);
+  const bool can_edit = why_not.isEmpty();
+  if (!can_edit) {
+    Report(why_not);
+    return;
+  }
+  const Reel& reel = managers_.history->current().reel;
+  const ReelTrack& track =
+      reel.tracks[static_cast<size_t>(FindClip(reel, clip).track)];
+  const Clip& left = *ClipOf(reel, clip);
+  TransitionPicker picker(left.out, LongestTransition(track, left), this);
+  const bool is_chosen = picker.exec() == QDialog::Accepted;
+  if (is_chosen) {
+    Report(ProblemOf(
+        managers_.reel->SetTransition(clip, picker.transition())));
+  }
 }
 
 void ReelTimeline::FillGap(int track, Frame at) {

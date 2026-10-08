@@ -8,28 +8,6 @@
 
 namespace snapper {
 
-QString TransitionName(TransitionKind kind) {
-  assert(static_cast<int>(kind) < kTransitionKindCount);
-  assert(kTransitionKindCount == 7);
-  switch (kind) {
-    case TransitionKind::kCut:
-      return Tr("Cut");
-    case TransitionKind::kSwipeLeft:
-      return Tr("Swipe left");
-    case TransitionKind::kSwipeRight:
-      return Tr("Swipe right");
-    case TransitionKind::kSwipeUp:
-      return Tr("Swipe up");
-    case TransitionKind::kSwipeDown:
-      return Tr("Swipe down");
-    case TransitionKind::kFlash:
-      return Tr("Flash");
-    case TransitionKind::kCrossfade:
-      return Tr("Crossfade");
-  }
-  return QString();
-}
-
 ShotManager::ShotManager(HistoryManager* history) : history_(history) {
   assert(history_ != nullptr);
   assert(!history_->IsScopeOpen());
@@ -153,17 +131,6 @@ Result<void> ShotManager::SetBackground(ShotId shot, QColor color) {
       Tr("Change background"),
       WithShot(history_->current(), shot, [color](Shot* edited) {
         edited->background = color;
-        return Result<void>();
-      }));
-}
-
-Result<void> ShotManager::SetTransition(ShotId shot, Transition transition) {
-  assert(history_ != nullptr);
-  assert(static_cast<int>(transition.kind) < kTransitionKindCount);
-  return history_->Apply(
-      Tr("Change transition"),
-      WithShot(history_->current(), shot, [transition](Shot* edited) {
-        edited->transition = transition;
         return Result<void>();
       }));
 }

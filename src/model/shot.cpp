@@ -21,17 +21,4 @@ Layer* FindLayer(Shot* shot, LayerId id) {
   return const_cast<Layer*>(layer);
 }
 
-Frame UsableTransition(const Shot& shot, const Shot* next) {
-  assert(shot.length.index() >= 0);
-  assert(next == nullptr || next->length.index() >= 0);
-  const bool is_cut =
-      next == nullptr || shot.transition.kind == TransitionKind::kCut;
-  if (is_cut) {
-    return Frame(0);
-  }
-  // Each shot keeps at least one frame of its own.
-  const int room = std::min(shot.length.index(), next->length.index()) - 1;
-  return Frame(std::min(shot.transition.length.index(), std::max(room, 0)));
-}
-
 }  // namespace snapper

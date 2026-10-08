@@ -87,13 +87,10 @@ void ShotTests::SettingsCheckTheirValues() {
   QVERIFY(shots.Rename(id, " Chorus ").has_value());
   QVERIFY(!shots.SetBackground(id, QColor()).has_value());
   QVERIFY(shots.SetBackground(id, Qt::black).has_value());
-  QVERIFY(shots.SetTransition(id, {TransitionKind::kFlash, Frame(4)})
-              .has_value());
   const Shot& shot = *history.current().shots[0];
   QCOMPARE(shot.length, Frame(12));
   QCOMPARE(shot.name, QString("Chorus"));
   QCOMPARE(shot.background, QColor(Qt::black));
-  QCOMPARE(shot.transition.kind, TransitionKind::kFlash);
 }
 
 }  // namespace snapper

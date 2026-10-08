@@ -55,17 +55,10 @@ void ShotStripTests::ClickPicksAndSeeks() {
                     Middle(strip.Blocks()[1].rect));
   QCOMPARE(bench.selection.shot(), ShotId(2));
   QCOMPARE(bench.playback.frame(), Frame(48));
-  // Fading into the second shot: the click lands past the fade, on the
-  // first frame that is the second shot's own.
-  QVERIFY(bench.shots
-              .SetTransition(ShotId(1), {TransitionKind::kCrossfade, Frame(4)})
-              .has_value());
   QTest::mouseClick(&strip, Qt::LeftButton, {},
                     Middle(strip.Blocks()[0].rect));
-  QTest::mouseClick(&strip, Qt::LeftButton, {},
-                    Middle(strip.Blocks()[1].rect));
-  QCOMPARE(bench.playback.frame(), Frame(48));
-  QCOMPARE(Locate(bench.history.current(), bench.playback.frame()).shot, 1);
+  QCOMPARE(bench.playback.frame(), Frame(0));
+  QCOMPARE(Locate(bench.history.current(), bench.playback.frame()).shot, 0);
 }
 
 void ShotStripTests::DraggingTheEdgeChangesLength() {

@@ -65,4 +65,15 @@ bool IsReelEmpty(const Reel& reel) {
       reel.tracks, [](const ReelTrack& track) { return track.clips.empty(); });
 }
 
+const Clip* NextTouching(const ReelTrack& track, const Clip& clip) {
+  assert(track.clips.size() <= static_cast<size_t>(kMaxClipsPerTrack));
+  assert(clip.length.index() >= 1);
+  const auto touching = std::ranges::find_if(
+      track.clips, [&clip](const Clip& other) {
+        return other.start == clip.end() && other.id != clip.id;
+      });
+  const bool is_found = touching != track.clips.end();
+  return is_found ? &*touching : nullptr;
+}
+
 }  // namespace snapper

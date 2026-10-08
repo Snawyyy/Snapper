@@ -9,6 +9,7 @@
 #include "base/frame.h"
 #include "base/id.h"
 #include "model/shot.h"
+#include "model/transition.h"
 
 namespace snapper {
 
@@ -47,6 +48,9 @@ struct Clip final {
   Frame start;
   Frame in;
   Frame length = Frame(1);
+  // Into the next clip on the track. It plays only while that clip
+  // starts where this one ends; pulled apart, the two just cut.
+  Transition out;
 
   Frame end() const { return Frame(start.index() + length.index()); }
   bool operator==(const Clip&) const = default;
@@ -89,6 +93,9 @@ bool HasRoom(const ReelTrack& track, const Clip& clip);
 // Puts clip into track at its place by start; the caller checked room.
 void PlaceClip(ReelTrack* track, Clip clip);
 bool IsReelEmpty(const Reel& reel);
+// The clip on track starting where clip ends, or nullptr: the two
+// touch, and clip's transition plays between them.
+const Clip* NextTouching(const ReelTrack& track, const Clip& clip);
 
 }  // namespace snapper
 

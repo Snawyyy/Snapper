@@ -1,4 +1,6 @@
+#include <QComboBox>
 #include <QSignalSpy>
+#include <QSpinBox>
 #include <QTest>
 
 #include <cassert>
@@ -7,6 +9,7 @@
 #include "anim/reel_timeline.h"
 #include "bench.h"
 #include "ui/reel_timeline.h"
+#include "ui/transition_picker.h"
 
 namespace snapper {
 namespace {
@@ -43,6 +46,8 @@ class ReelTimelineTests final : public QObject {
   void KeysCopyPasteAndDuplicate();
   void ShiftDeleteClosesTheGap();
   void KeysThatCantActSayWhy();
+  void JointsAreWhereTouchingClipsMeet();
+  void PickerOffersKindAndLength();
 };
 
 void ReelTimelineTests::BoxPicksAndEmptyClickClears() {
@@ -121,6 +126,35 @@ void ReelTimelineTests::KeysThatCantActSayWhy() {
   QCOMPARE(problems.size(), 2);
   QCOMPARE(s.bench.history.current().reel.tracks[0].clips.size(),
            size_t{1});
+}
+
+void ReelTimelineTests::JointsAreWhereTouchingClipsMeet() {
+  Scene s;
+  const ClipId next = *s.bench.reel.AddShot(ShotId(1), 0, Frame(48));
+  QVERIFY(next.IsValid());
+  const QPoint cut = s.At(Frame(48), 0);
+  QCOMPARE(s.timeline.JointAt(cut), s.low);
+  QCOMPARE(s.timeline.JointAt(cut + QPoint(4, 0)), s.low);
+  QVERIFY(!s.timeline.JointAt(cut + QPoint(30, 0)).IsValid());
+  // The lone clip's end on track 1 meets nothing.
+  QVERIFY(!s.timeline.JointAt(s.At(Frame(148), 1)).IsValid());
+}
+
+void ReelTimelineTests::PickerOffersKindAndLength() {
+  TransitionPicker picker(Transition(), Frame(9));
+  auto* kind = picker.findChild<QComboBox*>("transition_kind");
+  auto* length = picker.findChild<QSpinBox*>("transition_length");
+  QCOMPARE(kind->count(), kTransitionKindCount);
+  QVERIFY(!length->isEnabled());
+  QCOMPARE(picker.transition(), Transition());
+  kind->setCurrentIndex(static_cast<int>(TransitionKind::kFlash));
+  QVERIFY(length->isEnabled());
+  QCOMPARE(length->maximum(), 9);
+  QCOMPARE(picker.transition(),
+           (Transition{TransitionKind::kFlash, Frame(4)}));
+  TransitionPicker tight(Transition{TransitionKind::kCrossfade, Frame(1)},
+                         Frame(1));
+  QCOMPARE(tight.findChild<QSpinBox*>("transition_length")->maximum(), 1);
 }
 
 }  // namespace snapper

@@ -14,10 +14,7 @@ namespace snapper {
 
 class HistoryManager;
 
-QString TransitionName(TransitionKind kind);
-
-// The master track: which shots there are, in what order, how long,
-// and how each hands over to the next.
+// The master track: which shots there are, in what order and how long.
 class ShotManager final {
  public:
   explicit ShotManager(HistoryManager* history);
@@ -33,8 +30,6 @@ class ShotManager final {
   Result<void> SetLength(ShotId shot, Frame length);
   Result<void> Rename(ShotId shot, const QString& name);
   Result<void> SetBackground(ShotId shot, QColor color);
-  // How shot hands over to the one after it.
-  Result<void> SetTransition(ShotId shot, Transition transition);
 
   // The same change to many shots at once, as one undo step; lengths
   // are added to each shot's own.
@@ -43,8 +38,6 @@ class ShotManager final {
   Result<void> ShiftLength(const std::vector<ShotId>& shots, int delta);
   Result<void> SetBackgroundAll(const std::vector<ShotId>& shots,
                                 QColor color);
-  Result<void> SetTransitionAll(const std::vector<ShotId>& shots,
-                                Transition transition);
 
  private:
   HistoryManager* history_;
