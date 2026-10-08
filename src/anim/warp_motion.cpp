@@ -20,14 +20,19 @@ double Phase(const WarpMotion& motion, Frame frame) {
   return static_cast<double>(frame.index() % motion.cycle) / motion.cycle;
 }
 
-// Where point sits on grid, 0 to 1 across and down.
+// Where point sits on grid, 0 to 1 across and down. Never divides by
+// zero: a grid that is not on has no points, so no point can reach
+// here, and a loaded half grid such as 3 by 0 is not on.
 QPointF Spot(WarpGrid grid, int point) {
-  assert(grid.IsOn());
+  assert(grid.columns > 0 && grid.rows > 0);
   assert(point >= 0 && point < grid.PointCount());
   const int column = point % (grid.columns + 1);
   const int row = point / (grid.columns + 1);
-  return QPointF(static_cast<double>(column) / grid.columns,
-                 static_cast<double>(row) / grid.rows);
+  const QPointF spot(static_cast<double>(column) / grid.columns,
+                     static_cast<double>(row) / grid.rows);
+  assert(spot.x() >= 0.0 && spot.x() <= 1.0);
+  assert(spot.y() >= 0.0 && spot.y() <= 1.0);
+  return spot;
 }
 
 // How far spot is from edge, 0 on it to 1 on the far side.

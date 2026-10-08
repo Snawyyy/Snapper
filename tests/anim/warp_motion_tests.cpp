@@ -26,6 +26,8 @@ void WarpMotionTests::StillWhenOff() {
   WarpMotion on;
   on.kind = static_cast<WarpMotionKind>(kWarpMotionKindCount - 1);
   QVERIFY(MotionPushes(size, WarpGrid(), on, Frame(5)).empty());
+  // A half grid, as a hand-edited file can hold, is off too.
+  QVERIFY(MotionPushes(size, WarpGrid{3, 0}, on, Frame(5)).empty());
   QCOMPARE(MotionPushes(QSize(), grid, on, Frame(5)),
            std::vector<QPointF>(15, QPointF()));
 }
