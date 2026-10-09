@@ -52,10 +52,27 @@ struct WarpGrid final {
 // A warp grid point that trails behind when the doll moves and bounces
 // back, like hair or a chest. lag is how far it trails and bounce how
 // much it wobbles before settling, both 0 to 1.
+//
+// With physics on it is a physics node instead: a point of cloth or
+// soft flesh. Points of the grid next to each other that are physics
+// nodes hang together like cloth; the other points of the grid carry
+// them. lag and bounce are then not used; the settings below are, each
+// 0 to 1.
 struct DragNode final {
   int point = 0;
   double lag = 0.5;
   double bounce = 0.5;
+  bool physics = false;
+  // 0 keeps the cloth its length between linked points, 1 is rubbery.
+  double stretch = 0.2;
+  // How much it keeps moving when the doll stops or turns.
+  double inertia = 0.6;
+  // How fast its motion dies down.
+  double air = 0.5;
+  // A steady pull down in shot space, so cloth hangs and sags.
+  double gravity = 0.3;
+  // A spring back to its drawn shape: 0 none (cloth), 1 very springy.
+  double spring = 0.2;
 
   bool operator==(const DragNode&) const = default;
 };

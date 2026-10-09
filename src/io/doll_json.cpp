@@ -47,9 +47,19 @@ QJsonArray DragToJson(const std::vector<DragNode>& nodes) {
   assert(nodes.size() <= static_cast<size_t>(kMaxWarpPoints));
   QJsonArray array;
   for (const DragNode& node : nodes) {
-    array.append(QJsonObject{{"point", node.point},
-                             {"lag", node.lag},
-                             {"bounce", node.bounce}});
+    QJsonObject object{{"point", node.point},
+                       {"lag", node.lag},
+                       {"bounce", node.bounce}};
+    const bool is_physics = node.physics;
+    if (is_physics) {
+      object.insert("physics", true);
+      object.insert("stretch", node.stretch);
+      object.insert("inertia", node.inertia);
+      object.insert("air", node.air);
+      object.insert("gravity", node.gravity);
+      object.insert("spring", node.spring);
+    }
+    array.append(object);
   }
   assert(array.size() == static_cast<qsizetype>(nodes.size()));
   return array;
@@ -72,8 +82,16 @@ std::vector<DragNode> DragFromJson(const QJsonValue& value, WarpGrid grid) {
         std::none_of(nodes.begin(), nodes.end(),
                      [point](const DragNode& n) { return n.point == point; });
     if (is_new) {
-      nodes.push_back({point, unit(object.value("lag"), 0.5),
-                       unit(object.value("bounce"), 0.5)});
+      const DragNode kDefault;
+      nodes.push_back(
+          {point, unit(object.value("lag"), kDefault.lag),
+           unit(object.value("bounce"), kDefault.bounce),
+           object.value("physics").toBool(false),
+           unit(object.value("stretch"), kDefault.stretch),
+           unit(object.value("inertia"), kDefault.inertia),
+           unit(object.value("air"), kDefault.air),
+           unit(object.value("gravity"), kDefault.gravity),
+           unit(object.value("spring"), kDefault.spring)});
     }
   }
   assert(nodes.size() <= static_cast<size_t>(kMaxWarpPoints));

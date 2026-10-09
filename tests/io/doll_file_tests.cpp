@@ -48,6 +48,8 @@ class DollFileTests final : public QObject {
   void RefusesForeignFiles();
   void KeepsTheOldSnappersRig();
   void SpreadsAnOldPieceMotionOverItsPoints();
+  void PhysicsNodesRoundTrip();
+  void OldDragNodesLoadAsPlainDrags();
 };
 
 void DollFileTests::ReadsArtAndGivesNewPiecesADefaultRig() {
@@ -198,6 +200,41 @@ void DollFileTests::SpreadsAnOldPieceMotionOverItsPoints() {
   // Saved again, the file holds point motions only.
   QVERIFY(WriteRig(dir.path(), *read).has_value());
   QCOMPARE(ReadRig(dir.path())->pieces[1].point_motions, heart);
+}
+
+void DollFileTests::PhysicsNodesRoundTrip() {
+  QTemporaryDir dir;
+  Rig rig;
+  rig.pieces = {{"shirt", "", {0, 0}, 0, -1, {2, 2}}};
+  rig.pieces[0].drag_nodes = {
+      {4, 0.5, 0.5, true, 0.1, 0.7, 0.4, 0.9, 0.3},
+      {5, 0.25, 0.75, false, 0.2, 0.6, 0.5, 0.3, 0.2}};
+  QVERIFY(WriteRig(dir.path(), rig).has_value());
+  const auto read = ReadRig(dir.path());
+  QVERIFY(read.has_value());
+  QCOMPARE(*read, rig);
+  QVERIFY(read->pieces[0].drag_nodes[0].physics);
+  QVERIFY(!read->pieces[0].drag_nodes[1].physics);
+}
+
+void DollFileTests::OldDragNodesLoadAsPlainDrags() {
+  QTemporaryDir dir;
+  const QJsonObject node{{"point", 4}, {"lag", 0.25}, {"bounce", 0.75}};
+  const QJsonObject rig{
+      {"format", "snapper-rig"},
+      {"version", 1},
+      {"pieces", QJsonArray{QJsonObject{{"name", "hair"},
+                                        {"warp", QJsonArray{2, 2}},
+                                        {"drag", QJsonArray{node}}}}}};
+  Write(QDir(dir.path()).filePath("rig.json"), rig);
+  const auto read = ReadRig(dir.path());
+  QVERIFY(read.has_value());
+  const std::vector<DragNode>& nodes = read->pieces[0].drag_nodes;
+  QCOMPARE(nodes.size(), size_t{1});
+  QVERIFY(!nodes[0].physics);
+  QCOMPARE(nodes[0].lag, 0.25);
+  QCOMPARE(nodes[0].bounce, 0.75);
+  QCOMPARE(nodes[0].inertia, DragNode().inertia);
 }
 
 }  // namespace snapper
