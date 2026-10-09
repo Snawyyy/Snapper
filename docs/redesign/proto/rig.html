@@ -1,0 +1,2452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snapper Rig Tab</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  /* Page layout and rig-only pieces. Controls come from kit.css. */
+  main { max-width: 1280px; margin: 0 auto; padding: 0 var(--gutter) 120px; }
+  .proto-nav {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+    padding: 6px 0; margin: 0 0 10px; font-size: var(--fs-small);
+    border-bottom: 1px solid var(--face-dark);
+  }
+  .proto-nav a { color: var(--text-dim); text-decoration: none; padding: 1px 4px; }
+  .proto-nav a:hover { color: var(--handle); }
+  .proto-nav a[aria-current="page"] { color: #fff; background: var(--pick); }
+  .proto-nav .grow { flex: 1; }
+  .proto-nav .lbl { color: var(--text-off); }
+  .page-head { margin: 4px 0 10px; }
+  .page-head h1 { font: 20px/1.2 var(--font-pixel); color: var(--pick); margin: 0 0 4px; }
+  .page-head p { margin: 0; color: var(--text-dim); max-width: 860px; }
+  .page-head kbd { font: 11px var(--font-mono); color: var(--text); }
+
+  .app-strip { display: flex; align-items: flex-end; justify-content: space-between;
+    flex-wrap: wrap; gap: 6px; padding-top: 4px; border-bottom: 2px solid var(--row-hover); }
+  .app-strip .row { display: flex; align-items: center; gap: 4px; padding-bottom: 3px; }
+  a.tab { text-decoration: none; }
+
+  .rig-split {
+    display: grid; gap: 0; margin-top: 4px; min-height: 0;
+    grid-template-columns: minmax(0, var(--left, 3fr)) 8px minmax(270px, var(--right, 1fr));
+  }
+  .splitter { cursor: col-resize; background: var(--face); box-shadow: var(--bevel-thin);
+    position: relative; touch-action: none; }
+  .splitter::after { content: ""; position: absolute; left: 3px; top: 50%; width: 2px;
+    height: 28px; margin-top: -14px; background: var(--face-light); }
+  .splitter:hover::after, .splitter.is-dragging::after { background: var(--handle); }
+  .rig-left { display: flex; flex-direction: column; min-width: 0; padding-right: 4px; }
+  .canvas-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 2px; }
+  .canvas-bar .counter { font: 12px var(--font-mono); padding: 2px 8px; }
+  .canvas-bar .grow { flex: 1; }
+  .rig-wrap { position: relative; overflow: auto; height: 520px; background: var(--paper);
+    box-shadow: var(--bevel-sunken); outline: none; touch-action: none; }
+  .rig-wrap:focus-visible { box-shadow: var(--bevel-sunken), 0 0 0 1px var(--handle-dark); }
+  #rigSvg { display: block; width: 100%; height: 100%; min-width: 340px; min-height: 400px;
+    user-select: none; touch-action: none; }
+  #rigSvg.cur-grab { cursor: grab; }
+  #rigSvg.cur-grabbing { cursor: grabbing; }
+  #rigSvg.cur-pointer { cursor: pointer; }
+  #rigSvg.cur-cross { cursor: crosshair; }
+  #rigSvg.cur-alias { cursor: alias; }
+  .rig-empty { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px;
+    align-items: center; justify-content: center; color: #555; text-align: center; padding: 16px;
+    background: var(--paper); }
+  .rig-empty p { margin: 0; font-size: 13px; }
+  .hint-line { font-size: var(--fs-small); color: var(--text-dim); padding: 4px 2px 0; }
+  .hint-line b { color: var(--handle); font-weight: normal; }
+
+  .rig-right { min-width: 0; padding-left: 4px; }
+  .rig-panel { height: 576px; overflow: auto; display: flex; flex-direction: column; gap: 4px;
+    padding: 2px; background: var(--face-dark); box-shadow: var(--bevel-sunken); }
+  .rig-panel .dock-pad { display: flex; flex-direction: column; gap: 6px; }
+  .rig-panel .group-grid { grid-template-columns: auto minmax(0, 1fr); }
+  .rig-panel .combo { min-width: 0; width: 100%; }
+  .rig-panel .num-input { width: 64px; }
+  .lbl-dim { color: var(--text-dim); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .piece-list { height: 196px; }
+  .ik-list { height: 74px; }
+  .piece-list .list-row .grip { color: var(--text-off); font-family: var(--font-mono); margin-right: 2px; }
+  .piece-list.is-stack .list-row { cursor: grab;
+    transition: translate var(--t-pop) var(--ease-out), background-color var(--t-hover) var(--ease-out); }
+  .piece-list.is-stack .list-row.is-lifted { transition: none; z-index: 2;
+    background: var(--row-hover); box-shadow: var(--drop); }
+  .piece-list .list-row .field { height: 18px; padding: 0 4px; width: 100%; }
+  .swatch { width: 9px; height: 9px; flex: none; box-shadow: 0 0 0 1px var(--shadow); }
+  .small-note { font-size: var(--fs-tiny); color: var(--text-off); margin: 0; }
+  .removed { font-size: var(--fs-small); color: var(--text-dim); padding: 6px;
+    box-shadow: var(--bevel-etched); }
+  .tag-r { display: inline-block; font: 10px/14px var(--font-mono); padding: 0 4px;
+    color: var(--pick); box-shadow: inset 0 0 0 1px var(--pick); margin-right: 4px; }
+  .save-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 4px; }
+  .save-state { font-size: var(--fs-small); color: var(--text-off); }
+  .save-state.is-dirty { color: var(--handle); }
+
+  /* Dot move tiles: tiny looping previews, still when motion is off */
+  .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; }
+  .tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 3px 2px 2px; border: 0; background: var(--face); box-shadow: var(--bevel-raised);
+    color: var(--text); font-size: var(--fs-tiny); cursor: pointer;
+    transition: translate var(--t-hover) var(--ease-out), filter var(--t-hover) var(--ease-out); }
+  .tile:hover { filter: brightness(1.12); translate: 0 var(--lift-px); }
+  .tile:active { box-shadow: var(--bevel-pressed); translate: 0 1px; }
+  .tile[aria-pressed="true"] { background: var(--pick-soft); box-shadow: var(--bevel-pressed),
+    inset 0 -2px var(--pick); color: #fff; }
+  .tile[aria-disabled="true"]:hover { translate: 0 0; }
+  .tile-view { position: relative; width: 34px; height: 18px; background: var(--field);
+    box-shadow: var(--bevel-thin-in); overflow: hidden; }
+  .tile-view i { position: absolute; left: 14px; top: 6px; width: 6px; height: 6px;
+    background: var(--handle); }
+  .tile[aria-disabled="true"] .tile-view i { background: var(--text-off); animation: none; }
+  .tile[data-kind="wave"] .tile-view i { animation: t-bob 900ms ease-in-out infinite alternate; }
+  .tile[data-kind="wave"] .tile-view i:nth-child(1) { left: 4px; }
+  .tile[data-kind="wave"] .tile-view i:nth-child(2) { animation-delay: 150ms; }
+  .tile[data-kind="wave"] .tile-view i:nth-child(3) { left: 24px; animation-delay: 300ms; }
+  .tile[data-kind="pulse"] .tile-view i { animation: t-pulse 900ms ease-out infinite; }
+  .tile[data-kind="breathe"] .tile-view i { animation: t-breathe 1800ms ease-in-out infinite alternate; }
+  .tile[data-kind="sway"] .tile-view i { animation: t-sway 1100ms ease-in-out infinite alternate; }
+  .tile[data-kind="shiver"] .tile-view i { animation: t-shiver 240ms steps(4) infinite; }
+  @keyframes t-bob { from { translate: 0 -4px; } to { translate: 0 4px; } }
+  @keyframes t-pulse { 0%, 70%, 100% { translate: 0 0; } 80% { translate: 0 -5px; } }
+  @keyframes t-breathe { from { scale: 0.6; } to { scale: 1.6; } }
+  @keyframes t-sway { from { translate: -9px 0; } to { translate: 9px 0; } }
+  @keyframes t-shiver { 0% { translate: 1px 0; } 25% { translate: -1px 1px; }
+    50% { translate: 1px -1px; } 75% { translate: -1px 0; } }
+  .spring { width: 22px; height: 30px; flex: none; transform-origin: 50% 0; }
+  .spring.wob { animation: wob var(--wob-ms, 400ms) var(--ease-out); }
+  @keyframes wob { 0% { scale: 1 1; } 25% { scale: 1 0.7; } 50% { scale: 1 1.18; }
+    75% { scale: 1 0.94; } 100% { scale: 1 1; } }
+
+  .statusbar { display: flex; gap: 8px; margin-top: 4px; padding: 2px 6px; min-height: 20px;
+    font-size: var(--fs-small); }
+  .statusbar .msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .statusbar .msg.is-hint { color: var(--handle); }
+  .statusbar .msg.is-error { color: #ff8a9c; }
+  .statusbar .info { color: var(--text-off); white-space: nowrap; }
+
+  /* Save burst: rare and big is fine */
+  .stamp { position: absolute; left: 50%; top: 42%; z-index: 5; pointer-events: none;
+    padding: 6px 12px; font: 16px var(--font-pixel); color: var(--pick);
+    box-shadow: inset 0 0 0 3px var(--pick); background: rgba(233, 228, 216, 0.85);
+    rotate: -8deg; translate: -50% -50%; animation: stamp 900ms var(--ease-back) forwards; }
+  @keyframes stamp { 0% { scale: 2; opacity: 0; } 18% { scale: 1; opacity: 1; }
+    80% { scale: 1; opacity: 1; } 100% { scale: 1; opacity: 0; } }
+  .px { position: absolute; width: 6px; height: 6px; background: var(--pick); z-index: 4;
+    pointer-events: none; transition: translate 500ms var(--ease-out), opacity 500ms var(--ease-in); }
+  .why-anchor { position: absolute; width: 1px; height: 1px; pointer-events: none; }
+
+  .covered { margin-top: 16px; background: var(--face); box-shadow: var(--bevel-raised); padding: 6px 10px; }
+  .covered summary { cursor: pointer; font: 12px var(--font-pixel); color: var(--handle); padding: 2px 0; }
+  .covered ul { margin: 6px 0 4px; padding-left: 18px; columns: 2 380px; column-gap: 28px; }
+  .covered li { margin: 0 0 5px; break-inside: avoid; font-size: var(--fs-small); color: var(--text-dim); }
+  .covered li b { color: var(--text); font-family: var(--font-mono); font-weight: normal; }
+
+  @media (max-width: 800px) {
+    .rig-split { grid-template-columns: minmax(0, 1fr); }
+    .splitter { display: none; }
+    .rig-left { padding-right: 0; }
+    .rig-right { padding-left: 0; margin-top: 6px; }
+    .rig-wrap { height: 420px; }
+    .rig-panel { height: auto; max-height: 640px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <nav class="proto-nav" aria-label="Prototype pages">
+    <a href="index.html">Hub</a><a href="shell.html">Shell</a><a href="stage.html">Stage</a>
+    <a href="timeline.html">Timeline</a><a href="inspector.html">Inspector</a>
+    <a href="rig.html" aria-current="page">Rig</a><a href="video.html">Video</a><a href="kit.html">Kit</a>
+    <span class="grow"></span>
+    <span class="lbl">Scenario</span>
+    <span class="seg" role="group" aria-label="Scenario" id="scenarioSeg">
+      <button aria-pressed="true" data-value="doll" data-tip="Two dolls in the project, Tetodoll picked.">Doll imported</button>
+      <button aria-pressed="false" data-value="empty" data-tip="A new project with no doll yet.">No doll yet</button>
+    </span>
+    <span class="lbl">Motion</span>
+    <span class="seg" role="group" aria-label="Motion">
+      <button data-kit-motion="full" data-tip="Full: pops, overshoot, bounces.">Full</button>
+      <button data-kit-motion="calm" data-tip="Calm: shorter, no overshoot.">Calm</button>
+      <button data-kit-motion="off" data-tip="Off: everything jumps straight to the end.">Off</button>
+    </span>
+    <button class="toggle" data-kit-sound aria-pressed="false" data-tip="Tiny clicks and ticks. Off by default.">
+      <span class="toggle-track"><span class="toggle-knob"></span></span>Sound</button>
+  </nav>
+
+  <header class="page-head">
+    <h1>Rig tab</h1>
+    <p>Rig a doll by touching it. Click a piece, drag its <b>yellow joint</b> to move the pivot (it catches the
+      piece centre and edges), drag the small <b>rope hook</b> onto the part it hangs from, drag rows in
+      <b>Stack</b> view to restack. Pick the Skirt and click a grid dot: <kbd>D</kbd> makes it drag behind,
+      the wheel grows its reach, a Moves tile animates it and its neighbours follow. <kbd>Ctrl+Z</kbd> undoes
+      any of it by name.</p>
+  </header>
+
+  <div class="win" id="appWin">
+    <div class="win-title">
+      <span class="win-title-text"><span class="win-dirty" id="dirtyDot" hidden data-tip="Unsaved changes"></span><span id="titleText">teto_song (~/snaps/teto_song.snap) - Snapper</span></span>
+      <span class="win-btns">
+        <button class="win-btn min" aria-label="Minimize" data-tip="Minimize"></button>
+        <button class="win-btn max" aria-label="Maximize" data-tip="Maximize"></button>
+        <button class="win-btn close" aria-label="Close" data-tip="Close" id="closeBtn"></button>
+      </span>
+    </div>
+    <div class="menubar" role="menubar">
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">File</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-action="other"><span>New project...</span><kbd class="menu-key">Ctrl+N</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="other"><span>Open...</span><kbd class="menu-key">Ctrl+O</kbd></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" data-action="save-project"><span>Save</span><kbd class="menu-key">Ctrl+S</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="other"><span>Save as...</span><kbd class="menu-key">Ctrl+Shift+S</kbd></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" data-action="other"><span>Export...</span><kbd class="menu-key">Ctrl+E</kbd></button>
+        </div>
+      </div>
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">Edit</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-action="undo" id="menuUndo"><span>Undo</span><kbd class="menu-key">Ctrl+Z</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="redo" id="menuRedo"><span>Redo</span><kbd class="menu-key">Ctrl+Shift+Z</kbd></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" data-action="pick-all" id="menuAll"><span>Pick every piece</span><kbd class="menu-key">Ctrl+A</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="clear-pick" id="menuClear"><span>Clear the pick</span><kbd class="menu-key">Esc</kbd></button>
+        </div>
+      </div>
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">Play</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-action="preview"><span>Play / pause dot moves</span><kbd class="menu-key">Space</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="lean"><span>Lean test</span><kbd class="menu-key">L</kbd></button>
+        </div>
+      </div>
+    </div>
+    <div class="app-strip">
+      <div class="tabs" role="tablist" aria-label="Mode">
+        <a class="tab" role="tab" aria-selected="false" tabindex="-1" href="stage.html" data-tip="Pose: shot strip, stage, keyframe timeline.">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="3" r="2"/><path d="M8 5v6M4 8h8M8 11l-3 4M8 11l3 4"/></svg>Pose</a>
+        <button class="tab" role="tab" aria-selected="true" data-tip="Rig: the rig canvas and the rig panel side by side.">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="3" cy="13" r="2"/><circle cx="13" cy="3" r="2"/><path d="M4.5 11.5l7-7"/></svg>Rig</button>
+        <a class="tab" role="tab" aria-selected="false" tabindex="-1" href="video.html" data-tip="Video: shot bin, reel preview and reel timeline.">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="14" height="10"/><path d="M4 3v10M12 3v10"/></svg>Video</a>
+      </div>
+      <div class="row">
+        <button class="btn small" id="undoBtn" data-key="Ctrl+Z">Undo</button>
+        <button class="btn small" id="redoBtn" data-key="Ctrl+Shift+Z">Redo</button>
+      </div>
+    </div>
+
+    <div class="rig-split" id="rigSplit">
+      <div class="rig-left">
+        <div class="canvas-bar">
+          <button class="tool" id="playTool" aria-pressed="true" data-tip="Play the dot moves on the canvas" data-key="Space" aria-label="Play dot moves">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6z"/></svg></button>
+          <span class="counter sunken" id="frameCounter">F 000</span>
+          <span class="tool-sep"></span>
+          <button class="btn small" id="leanBtn" data-tip="Lean the doll for a moment: pieces without Keep shape squash." data-key="L">Lean test</button>
+          <span class="grow"></span>
+          <span class="dim" id="canvasInfo" style="font-size: var(--fs-small)"></span>
+        </div>
+        <div class="rig-wrap" id="rigWrap" tabindex="0" aria-label="Rig canvas">
+          <svg id="rigSvg" viewBox="100 30 360 400" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Doll at rest"></svg>
+          <div class="rig-empty" id="rigEmpty" hidden>
+            <p>Import a doll from the Cast panel to rig it.</p>
+            <button class="btn primary" id="importBtn">Import a doll...</button>
+          </div>
+        </div>
+        <div class="hint-line" id="hintLine">Drag a <b>yellow dot</b> to move a joint. Drag a <b>rope</b> to hang it. Drag a <b>square</b> to move an IK tip.</div>
+      </div>
+      <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" aria-label="Canvas and panel divider" tabindex="0" data-tip="Drag to share the room. Double-click: back to 3 : 1."></div>
+      <div class="rig-right">
+        <div class="rig-panel" id="rigPanel">
+
+          <div class="dock" data-dock-id="rig-doll">
+            <div class="dock-head"><button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title">Doll and pieces</span></button></div>
+            <div class="dock-body"><div class="dock-inner"><div class="dock-pad">
+              <div class="group-grid">
+                <span class="lbl-dim">Doll</span>
+                <div class="combo" id="dollCombo" data-tip="Which doll to rig">
+                  <button class="combo-btn" aria-haspopup="listbox" aria-expanded="false"><span class="combo-value">Tetodoll</span><span class="combo-arrow"></span></button>
+                  <div class="menu" role="listbox" hidden></div>
+                </div>
+              </div>
+              <div class="row" style="justify-content: space-between">
+                <span class="seg" role="group" aria-label="Pieces view" id="viewSeg">
+                  <button aria-pressed="true" data-value="tree" data-tip="Pieces under the part they hang from.">Tree</button>
+                  <button aria-pressed="false" data-value="stack" data-tip="Front to back. Drag a row to restack.">Stack</button>
+                </span>
+                <span class="small-note" id="pickCount">0 picked</span>
+              </div>
+              <div class="list piece-list" id="pieceList" role="listbox" aria-multiselectable="true" aria-label="Pieces" tabindex="0"></div>
+              <p class="small-note" id="listHint">Shift or Ctrl adds. Double-click a name (or F2) to rename.</p>
+            </div></div></div>
+          </div>
+
+          <div class="dock" data-dock-id="rig-joint">
+            <div class="dock-head"><button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title">Joint</span></button></div>
+            <div class="dock-body"><div class="dock-inner"><div class="dock-pad">
+              <div class="group-grid">
+                <span class="lbl-dim">Hangs from</span>
+                <div class="combo" id="hangCombo">
+                  <button class="combo-btn" aria-haspopup="listbox" aria-expanded="false"><span class="combo-value">-</span><span class="combo-arrow"></span></button>
+                  <div class="menu" role="listbox" hidden></div>
+                </div>
+                <span class="lbl-dim">Drawing</span>
+                <div class="combo" id="drawCombo">
+                  <button class="combo-btn" aria-haspopup="listbox" aria-expanded="false"><span class="combo-value">As in Krita</span><span class="combo-arrow"></span></button>
+                  <div class="menu" role="listbox" hidden></div>
+                </div>
+              </div>
+              <span class="num" id="nTurn" data-name="Rest turn" data-value="0" data-min="-180" data-max="180" data-wrap data-unit="deg" data-tip="Turns the piece at rest. Drag the label."><span class="num-label">Rest turn</span><input class="num-input" aria-label="Rest turn in degrees"><span class="num-unit">deg</span></span>
+              <span class="num" id="nOrder" data-name="Draw order" data-value="0" data-min="-1000" data-max="1000" data-tip="Higher draws in front. Or drag rows in Stack view."><span class="num-label">Draw order</span><input class="num-input" aria-label="Draw order"><span class="num-unit">higher = front</span></span>
+              <label class="check" id="chkKeepL" data-tip="The piece never squashes when the doll leans or swivels. Try Lean test."><input type="checkbox" id="chkKeep"><span class="check-box"></span>Keep shape when leaning</label>
+            </div></div></div>
+          </div>
+
+          <div class="dock" data-dock-id="rig-warp">
+            <div class="dock-head"><button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title">Warp grid</span></button></div>
+            <div class="dock-body"><div class="dock-inner"><div class="dock-pad">
+              <label class="check" id="chkWarpL" data-tip="Lay a grid of dots over the piece so it can bend."><input type="checkbox" id="chkWarp"><span class="check-box"></span>Bend with a grid</label>
+              <div class="row">
+                <span class="num" id="nCols" data-name="Warp grid" data-value="2" data-min="1" data-max="8"><span class="num-label">Cells across</span><input class="num-input" aria-label="Cells across" style="width: 40px"></span>
+                <span class="num" id="nRows" data-name="Warp grid" data-value="2" data-min="1" data-max="8"><span class="num-label">Down</span><input class="num-input" aria-label="Cells down" style="width: 40px"></span>
+              </div>
+              <div class="removed"><span class="tag-r">REMOVED</span>The old whole-piece warp motion rows (Moves, Size and Cycle for the whole grid) are gone. Motions live on dots now: pick a dot below and give it a move; its reach spreads it to the neighbours.</div>
+            </div></div></div>
+          </div>
+
+          <div class="dock" data-dock-id="rig-dot">
+            <div class="dock-head"><button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title" id="dotTitle">Warp dot</span></button></div>
+            <div class="dock-body"><div class="dock-inner"><div class="dock-pad">
+              <p class="small-note" id="dotHint">Click a grid dot of a picked piece. Wheel over the canvas grows its reach (Shift: fine).</p>
+              <div class="row">
+                <label class="check" id="chkDragL" data-tip="The dot trails behind and bounces." data-key="D"><input type="checkbox" id="chkDrag"><span class="check-box"></span>Drags behind (D)</label>
+              </div>
+              <div class="row" style="flex-wrap: nowrap">
+                <div class="col" style="display: flex; flex-direction: column; gap: 6px">
+                  <span class="num" id="nLag" data-name="Lag" data-value="0.3" data-min="0" data-max="1" data-step="0.05" data-tip="How far it trails"><span class="num-label">Lag</span><input class="num-input" aria-label="Lag"></span>
+                  <span class="num" id="nBounce" data-name="Bounce" data-value="0.4" data-min="0" data-max="1" data-step="0.05" data-tip="How much it wobbles"><span class="num-label">Bounce</span><input class="num-input" aria-label="Bounce"></span>
+                </div>
+                <svg class="spring" id="springSvg" viewBox="0 0 22 30" aria-hidden="true"><path d="M11 0v4l-7 3 14 4-14 4 14 4-14 4 7 3" fill="none" stroke="#f2c230" stroke-width="1.5"/><rect x="7" y="26" width="8" height="4" fill="#d8304f"/></svg>
+              </div>
+              <span class="lbl-dim">Moves</span>
+              <div class="tiles" id="tiles" role="group" aria-label="How the dot moves"></div>
+              <div class="group-grid">
+                <span class="num" id="nSize" data-name="Dot size" data-value="6" data-min="0" data-max="40" data-unit="px" data-tip="How far the dot moves"><span class="num-label">Size</span><input class="num-input" aria-label="Size"><span class="num-unit">px</span></span><span></span>
+                <span class="num" id="nCycle" data-name="Dot cycle" data-value="24" data-min="2" data-max="240" data-unit="f" data-tip="Frames per cycle"><span class="num-label">Cycle every</span><input class="num-input" aria-label="Cycle in frames"><span class="num-unit">f</span></span><span></span>
+                <span class="num" id="nDir" data-name="Dot direction" data-value="90" data-min="-180" data-max="180" data-wrap data-unit="deg" data-tip="Which way it moves. 0 is right, 90 is up."><span class="num-label">Direction</span><input class="num-input" aria-label="Direction in degrees"><span class="num-unit">deg</span></span><span></span>
+                <span class="num" id="nDelay" data-name="Dot delay" data-value="0" data-min="0" data-max="1" data-step="0.05" data-tip="Where in its cycle it starts"><span class="num-label">Delay</span><input class="num-input" aria-label="Delay"></span><span></span>
+                <span class="num" id="nReach" data-name="Reach" data-value="1.5" data-min="0.5" data-max="5" data-step="0.05" data-unit="cells" data-tip="How far its pull spreads. The wheel does this too."><span class="num-label">Reach</span><input class="num-input" aria-label="Reach in cells"><span class="num-unit">cells</span></span><span></span>
+              </div>
+            </div></div></div>
+          </div>
+
+          <div class="dock" data-dock-id="rig-mirror">
+            <div class="dock-head"><button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title">Mirror</span></button></div>
+            <div class="dock-body"><div class="dock-inner"><div class="dock-pad">
+              <div class="row">
+                <button class="btn" id="btnMirror" data-tip="Copy the picked pieces' rig to their twins (Arm L to Arm R).">Copy to other side</button>
+                <button class="btn" id="btnMirrorSide" data-tip="Copy every piece on the picked piece's side to the other side.">Copy whole side</button>
+              </div>
+            </div></div></div>
+          </div>
+
+          <div class="dock" data-dock-id="rig-ik">
+            <div class="dock-head"><button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title">IK chains</span></button></div>
+            <div class="dock-body"><div class="dock-inner"><div class="dock-pad">
+              <div class="list ik-list" id="ikList" role="listbox" aria-label="IK chains" tabindex="0"></div>
+              <div class="row">
+                <button class="btn small" id="btnIkAdd" data-tip="Add a chain from the picked piece up to the part it hangs from.">Add for piece</button>
+                <button class="btn small" id="btnIkFlip" data-tip="Bend the other way. Or click the bend mark on the canvas.">Flip bend</button>
+                <button class="btn small" id="btnIkRemove" data-tip="Remove the chain" data-key="Delete">Remove</button>
+              </div>
+            </div></div></div>
+          </div>
+
+          <div class="save-row">
+            <button class="btn primary" id="btnSave" data-tip="Write this rig back to the doll library so new projects get it.">Save rig to library</button>
+            <span class="save-state" id="saveState">Saved</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="statusbar sunken" role="status">
+      <span class="msg" id="statusMsg">Ready.</span>
+      <span class="info" id="statusInfo"></span>
+    </div>
+  </div>
+
+  <details class="covered" id="covered">
+    <summary>Covered: 51 inventory items (#3, #5, #12, #70-#73, #84, #85, #92, #95, #97, #167-#174, #202-#232) plus 1 removal</summary>
+    <ul>
+      <li><b>#3</b> Status bar: hang-mode hint stays until you leave it; errors (rope onto a child, D with no dot) stay 6 s. Double-click a joint.</li>
+      <li><b>#5</b> Rig tab: canvas and panel side by side. Pose and Video tabs go to their pages.</li>
+      <li><b>#12</b> Divider between canvas and panel: 3 : 1, drag it (chip shows the split), double-click resets. Stacks on a phone.</li>
+      <li><b>#70</b> Warp grid of a picked piece: pick Skirt; faint lines, small yellow dots.</li>
+      <li><b>#71</b> Drag-node dots: yellow ring plus a short tail on the side they trail. Skirt's right dot starts as one; press D on another.</li>
+      <li><b>#72</b> Dots that move by themselves: yellow square that breathes (Full motion only). Skirt's middle bottom dot sways.</li>
+      <li><b>#73</b> Picked dot: red ring, dashed reach ring, label "reach N.N"; neighbours inside get faint rings.</li>
+      <li><b>#84</b> Drag a dot: chip "4, -2 px", the grid bends live, neighbours in reach follow; one undo "Warp Skirt".</li>
+      <li><b>#85</b> Click a dot without dragging: picks it; click again drops it.</li>
+      <li><b>#92</b> Wheel over the canvas with a dot picked: reach grows or shrinks, Shift is fine; one undo "Reach".</li>
+      <li><b>#95</b> Escape drops the picked dot before it clears the pick.</li>
+      <li><b>#97</b> D toggles "drags behind" on the picked dot; with no dot: "Click a warp dot of a picked piece first." Also right-click a dot.</li>
+      <li><b>#167-#169</b> Warp dot box: Drags behind (D), Lag and Bounce (greyed until ticked; the spring wobbles as you scrub).</li>
+      <li><b>#170-#174</b> Moves tiles (None, Wave, Pulse, Breathe, Sway, Shiver) with looping previews; Size, Cycle every N f, Direction (greyed for Shiver), Delay. Watch the canvas.</li>
+      <li><b>#202</b> Empty state: pick "No doll yet" above the window; the canvas says "Import a doll from the Cast panel to rig it." with an Import button.</li>
+      <li><b>#203</b> Doll at rest on paper: yellow joints (bigger when picked), dashed yellow bones to parents, red outline on picked pieces, yellow IK tip squares.</li>
+      <li><b>#204</b> Hang mode: dashed red line from the joint to the cursor, crosshair cursor.</li>
+      <li><b>#205</b> Box select: dashed red rectangle with light fill, live hover outlines, chip "3 picked".</li>
+      <li><b>#206-#208</b> Click a piece picks; Shift+click adds; Ctrl+click toggles. Its tree row lights up too, and hover is shared both ways.</li>
+      <li><b>#209</b> Drag a yellow joint: chip "x 12, y -3", ghost at the start, catches the centre and edges with a flash, 2 px settle. Picked several? They all move: "Move 3 joints".</li>
+      <li><b>#210</b> Drag a yellow IK square (Hand L): chip "x 0, y 24", ghost; undo "Move IK tip of Hand L".</li>
+      <li><b>#211</b> Drag on empty paper: box select replaces; Shift adds (chip "+"), Ctrl removes (chip "-"); a click on empty paper clears.</li>
+      <li><b>#212-#213</b> Double-click a joint: hang mode; click a piece to hang from it, empty paper to make a root. Or drag the rope hook next to a picked joint (rope onto its own child turns grey and shakes).</li>
+      <li><b>#214</b> Escape: leaves hang mode, else cancels a drag (snaps back), else drops the dot, else clears the pick.</li>
+      <li><b>#215</b> Ctrl+A picks every piece (Edit menu too).</li>
+      <li><b>#216</b> Doll combo: Tetodoll or Mikudoll; greyed with why when no doll.</li>
+      <li><b>#217</b> Pieces list: indented tree, Shift / Ctrl multi-pick, synced with the canvas, rename in place.</li>
+      <li><b>#218</b> Hangs from combo: "(nothing: a root piece)" or a parent; own children greyed with why; greyed "Pick a piece first.".</li>
+      <li><b>#219</b> Rest turn: scrub the label or type math; the piece turns live; one undo "Rest turn Arm R".</li>
+      <li><b>#220</b> Draw order: scrub or type; "Restack". Or Stack view: drag rows, others slide aside, drop bounces.</li>
+      <li><b>#221</b> Drawing combo: Head (Smile, Wink, Shout) and Hands (Open, Fist) change on the canvas; one-drawing pieces greyed.</li>
+      <li><b>#222</b> Keep shape when leaning: tick it, then Lean test (L); ticked pieces turn without squashing.</li>
+      <li><b>#223-#224</b> Bend with a grid; Cells across / down scrub and the grid redraws live; undo "Warp grid"; greyed 'Tick "Bend with a grid" first.'.</li>
+      <li><b>#225</b> Copy to other side: mirrors the picked pieces to their twins, twin flashes, toast with Undo; greyed with why (no pick, no twin).</li>
+      <li><b>#226</b> Copy whole side: the side of the picked piece; the copied side flashes; toast with Undo; greyed with why.</li>
+      <li><b>#227</b> IK chains list: click a chain to light its bones.</li>
+      <li><b>#228</b> Add for piece: pick Hand R; bones draw in from the root (200 ms); greyed "A chain needs the piece to hang from one." on Body.</li>
+      <li><b>#229</b> Flip bend: button, or click the bend mark on the canvas; greyed "Pick an IK chain first.".</li>
+      <li><b>#230</b> Remove (or Delete): bones fade 120 ms, toast with Undo; same greying.</li>
+      <li><b>#231</b> Save rig to library: stamp "Saved to library", red pixel burst, 70 ms hit-stop; greyed "Import a doll first.".</li>
+      <li><b>#232</b> Hint line under the canvas: "Drag a yellow dot to move a joint. Drag a rope to hang it. Drag a square to move an IK tip.".</li>
+      <li><b>Removed</b> Whole-piece warp motion rows: note in the Warp grid box; motions live on dots.</li>
+    </ul>
+  </details>
+</main>
+
+<script src="kit.js"></script>
+<script>
+(function () {
+  "use strict";
+  const K = window.Kit;
+  const kCx = 280;
+  const kGrab = 12;
+  const kSnap = 6;
+  const kMaxPieces = 64;
+  const kKinds = ["none", "wave", "pulse", "breathe", "sway", "shiver"];
+  const kKindName = { none: "None", wave: "Wave", pulse: "Pulse", breathe: "Breathe",
+    sway: "Sway", shiver: "Shiver" };
+  const kChainColors = ["#3d7fc4", "#4f9a2a", "#a050c8", "#d0702a"];
+  const kNoPick = "Pick a piece first.";
+  const kNoDot = "Click a warp dot of a picked piece first.";
+  const kNoDoll = "Import a doll first.";
+  const kNoChain = "Pick an IK chain first.";
+  const kChildWhy = "A piece cannot hang from its own child.";
+
+  const $ = (id) => document.getElementById(id);
+  const svg = $("rigSvg");
+  const wrap = $("rigWrap");
+  const panel = $("rigPanel");
+
+  /* ---------- Model: dolls, pieces, dots, chains ---------- */
+  function dotDefault() {
+    return { dx: 0, dy: 0, reach: 1.5, drag: { on: false, lag: 0.3, bounce: 0.4 },
+      anim: { kind: "none", size: 6, cycle: 24, dir: 90, delay: 0 } };
+  }
+  function mk(id, name, parent, r, pv, order, color, extra) {
+    return Object.assign({ id: id, name: name, parent: parent,
+      rect: { x: r[0], y: r[1], w: r[2], h: r[3] }, rx: 0, color: color,
+      pivot: { x: pv[0], y: pv[1] }, turn: 0, order: order,
+      drawings: ["As in Krita"], drawing: "As in Krita", keep: false,
+      warp: { on: false, cols: 2, rows: 2, dots: {} } }, extra || {});
+  }
+  function makeDoll(id) {
+    const miku = id === "miku";
+    const pal = miku
+      ? { skin: "#f3dcc8", top: "#d9dde2", hair: "#2fb8b0", sleeve: "#3a3a40", leg: "#2a2a30", skirt: "#3a4048" }
+      : { skin: "#f1d3bd", top: "#3a3a40", hair: "#c4304f", sleeve: "#55555c", leg: "#2a2a30", skirt: "#d8304f" };
+    const tail = miku ? "Tail" : "Drill";
+    const face = ["As in Krita", "Smile", "Wink", "Shout"];
+    const hand = ["As in Krita", "Open", "Fist"];
+    const pieces = [
+      mk("body", "Body", "", [245, 150, 70, 105], [280, 250], 0, pal.top, { rx: 6 }),
+      mk("head", "Head", "body", [240, 58, 80, 92], [280, 146], 10, pal.skin, { rx: 30, drawings: face }),
+      mk("tailL", tail + " L", "head", [200, 80, 38, 120], [236, 96], 5, pal.hair, { rx: 17 }),
+      mk("tailR", tail + " R", "head", [322, 80, 38, 120], [324, 96], 5, pal.hair, { rx: 17 }),
+      mk("armL", "Arm L", "body", [214, 156, 28, 82], [236, 164], 20, pal.sleeve, { rx: 8 }),
+      mk("armR", "Arm R", "body", [318, 156, 28, 82], [324, 164], 20, pal.sleeve, { rx: 8 }),
+      mk("handL", "Hand L", "armL", [212, 234, 32, 28], [228, 238], 21, pal.skin, { rx: 12, drawings: hand }),
+      mk("handR", "Hand R", "armR", [316, 234, 32, 28], [332, 238], 21, pal.skin, { rx: 12, drawings: hand }),
+      mk("legL", "Leg L", "body", [252, 268, 26, 118], [265, 272], -10, pal.leg, { rx: 6 }),
+      mk("legR", "Leg R", "body", [282, 268, 26, 118], [295, 272], -10, pal.leg, { rx: 6 }),
+      mk("skirt", "Skirt", "body", [234, 236, 92, 64], [280, 242], 8, pal.skirt,
+        { warp: { on: true, cols: 4, rows: 2, dots: {} } })
+    ];
+    const skirt = pieces[10];
+    const sway = dotDefault();
+    sway.anim = { kind: "sway", size: 8, cycle: 24, dir: 0, delay: 0 };
+    sway.reach = 2;
+    skirt.warp.dots["12"] = sway;
+    const trail = dotDefault();
+    trail.drag.on = true;
+    trail.drag.lag = 0.6;
+    trail.drag.bounce = 0.7;
+    skirt.warp.dots["14"] = trail;
+    return { id: id, name: miku ? "Mikudoll" : "Tetodoll", pieces: pieces,
+      chains: [{ id: "c1", piece: "handL", flip: false, tip: { x: 228, y: 262 }, color: 0 }],
+      nextChain: 2 };
+  }
+
+  const S = {
+    dolls: {}, order: [], cur: "", pick: new Set(), anchor: "", dot: null,
+    hover: "", hoverHandle: null, chain: "", hang: null, rope: null, box: null,
+    ghost: null, view: "tree", frame: 0, playing: true, lean: 0, needs: true,
+    fx: [], born: {}, springs: {}, handles: [], cache: null, saved: {},
+    syncing: false, pending: {}, dragging: false, lastPt: { x: 0, y: 0 },
+    freezeUntil: 0, wheel: null, renaming: ""
+  };
+
+  function doll() { return S.dolls[S.cur] || null; }
+  function byId(d, id) {
+    if (!d || !id) return null;
+    for (let i = 0; i < d.pieces.length; i++) if (d.pieces[i].id === id) return d.pieces[i];
+    return null;
+  }
+  function nm(id) { const p = byId(doll(), id); return p ? p.name : id; }
+  function picked() {
+    const d = doll();
+    if (!d) return [];
+    return d.pieces.filter((p) => S.pick.has(p.id));
+  }
+  /* True when maybeChild hangs (at any depth) under ancestor. */
+  function isUnder(d, maybeChild, ancestor) {
+    let cur = byId(d, maybeChild);
+    for (let n = 0; cur && n < kMaxPieces; n++) {
+      if (cur.parent === ancestor) return true;
+      cur = byId(d, cur.parent);
+    }
+    return false;
+  }
+  function sideOf(p) {
+    const m = / ([LR])$/.exec(p.name);
+    return m ? m[1] : "";
+  }
+  function twinOf(d, p) {
+    const side = sideOf(p);
+    if (!side) return null;
+    const want = p.name.slice(0, -1) + (side === "L" ? "R" : "L");
+    return d.pieces.find((q) => q.name === want) || null;
+  }
+  function chainFor(d, pieceId) { return d.chains.find((c) => c.piece === pieceId) || null; }
+  function dotKey(p, i) { return S.cur + ":" + p.id + ":" + i; }
+  function dotAt(p, i) { return p.warp.dots[String(i)] || null; }
+  function ensureDot(p, i) {
+    const k = String(i);
+    if (!p.warp.dots[k]) p.warp.dots[k] = dotDefault();
+    return p.warp.dots[k];
+  }
+
+  /* ---------- History: one snapshot per step ---------- */
+  const hist = new K.UndoStack(200);
+  function snap() { return JSON.stringify({ dolls: S.dolls, order: S.order, cur: S.cur }); }
+  function restore(text) {
+    const o = JSON.parse(text);
+    S.dolls = o.dolls;
+    S.order = o.order;
+    const has_cur = Boolean(S.dolls[S.cur]);
+    if (!has_cur) S.cur = o.cur || S.order[0] || "";
+    const d = doll();
+    S.pick.forEach((id) => { if (!byId(d, id)) S.pick.delete(id); });
+    const dot_ok = S.dot && d && byId(d, S.dot.piece) && byId(d, S.dot.piece).warp.on &&
+      S.dot.i < gridCount(byId(d, S.dot.piece));
+    if (!dot_ok) S.dot = null;
+    const chain_ok = d && d.chains.some((c) => c.id === S.chain);
+    if (!chain_ok) S.chain = "";
+    refresh();
+  }
+  function commit(name, before, ids) {
+    const after = snap();
+    const same = after === before;
+    S.pending = {};
+    if (same) { refresh(); return false; }
+    const flashIds = ids || [];
+    hist.push(name, () => { restore(before); fxFlash(flashIds); },
+      () => { restore(after); fxFlash(flashIds); });
+    refresh();
+    return true;
+  }
+  function undoIfTop(name) {
+    return () => { if (hist.undoName === name) hist.undo(); };
+  }
+
+  /* ---------- Status bar: hints stay, errors last 6 s ---------- */
+  const Status = {
+    timer: 0, hintText: "",
+    paint(text, cls) {
+      const el = $("statusMsg");
+      el.textContent = text;
+      el.className = "msg" + (cls ? " " + cls : "");
+    },
+    hint(text) { this.hintText = text; window.clearTimeout(this.timer); this.paint(text, "is-hint"); },
+    clearHint() { this.hintText = ""; this.paint("Ready.", ""); },
+    error(text) {
+      window.clearTimeout(this.timer);
+      this.paint(text, "is-error");
+      this.timer = window.setTimeout(() => {
+        const back = this.hintText;
+        this.paint(back || "Ready.", back ? "is-hint" : "");
+      }, 6000);
+    },
+    say(text) {
+      const is_hint_up = Boolean(this.hintText);
+      if (is_hint_up) return;
+      window.clearTimeout(this.timer);
+      this.paint(text, "");
+      this.timer = window.setTimeout(() => this.paint("Ready.", ""), 6000);
+    }
+  };
+
+  /* Why bubble at a canvas point (a routine "no" gets no shake). */
+  function whyAt(pt, text, shakeIt) {
+    const host = document.createElement("div");
+    host.className = "why-anchor";
+    const w = toWrap(pt);
+    host.style.left = w.x + "px";
+    host.style.top = w.y + "px";
+    wrap.appendChild(host);
+    if (shakeIt) K.shake(host, text);
+    else {
+      K.chip.show(text, w.cx, w.cy);
+      window.setTimeout(() => K.chip.hide(), 1500);
+    }
+    window.setTimeout(() => host.remove(), 2600);
+  }
+
+  /* ---------- Geometry ---------- */
+  function svgPt(cx, cy) {
+    const m = svg.getScreenCTM();
+    if (!m) return { x: 0, y: 0 };
+    const p = new DOMPoint(cx, cy).matrixTransform(m.inverse());
+    return { x: p.x, y: p.y };
+  }
+  function scale() { const m = svg.getScreenCTM(); return m ? m.a || 1 : 1; }
+  function toWrap(pt) {
+    const m = svg.getScreenCTM();
+    const s = m ? new DOMPoint(pt.x, pt.y).matrixTransform(m) : { x: 0, y: 0 };
+    const r = wrap.getBoundingClientRect();
+    return { x: s.x - r.left + wrap.scrollLeft, y: s.y - r.top + wrap.scrollTop, cx: s.x, cy: s.y };
+  }
+  function lineage(d, p) {
+    const out = [];
+    let cur = p;
+    for (let n = 0; cur && n < kMaxPieces; n++) {
+      out.unshift(cur);
+      cur = byId(d, cur.parent);
+    }
+    return out;
+  }
+  function worldOf(d, p) {
+    let m = new DOMMatrix();
+    const list = lineage(d, p);
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      const lean = i === 0 ? S.lean : 0;
+      m = m.translate(c.pivot.x, c.pivot.y).rotate(c.turn + lean).translate(-c.pivot.x, -c.pivot.y);
+    }
+    return m;
+  }
+  function parentWorld(d, p) {
+    const par = byId(d, p.parent);
+    return par ? cached(par).world : new DOMMatrix();
+  }
+  function drawOf(p, world) {
+    const squash = p.keep ? 1 : 1 - Math.abs(S.lean) / 60;
+    const is_squashed = squash !== 1;
+    if (!is_squashed) return world;
+    return world.translate(p.pivot.x, p.pivot.y).scale(1 + (1 - squash) * 0.6, squash)
+      .translate(-p.pivot.x, -p.pivot.y);
+  }
+  function tp(m, x, y) { const q = m.transformPoint(new DOMPoint(x, y)); return { x: q.x, y: q.y }; }
+  function mstr(m) {
+    return "matrix(" + [m.a, m.b, m.c, m.d, m.e, m.f].map((v) => v.toFixed(4)).join(",") + ")";
+  }
+  function esc(t) {
+    return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function gridCount(p) { return (p.warp.cols + 1) * (p.warp.rows + 1); }
+  function gridBase(p, i) {
+    const c = i % (p.warp.cols + 1);
+    const r = Math.floor(i / (p.warp.cols + 1));
+    return { x: p.rect.x + c * p.rect.w / p.warp.cols, y: p.rect.y + r * p.rect.h / p.warp.rows, c: c, r: r };
+  }
+  function gridDist(p, i, j) {
+    const a = gridBase(p, i);
+    const b = gridBase(p, j);
+    return Math.hypot(a.c - b.c, a.r - b.r);
+  }
+
+  /* ---------- Dot motion: moves, reach spread, drag-node springs ---------- */
+  function hash(a, b) {
+    let h = (a * 374761393 + b * 668265263) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+  }
+  function animAt(a, frame, lagCycles, q) {
+    const kind = a.kind;
+    if (kind === "none") return { x: 0, y: 0 };
+    if (kind === "shiver") {
+      const f = Math.floor(frame);
+      return { x: (hash(f, q) * 2 - 1) * a.size, y: (hash(f + 7, q) * 2 - 1) * a.size };
+    }
+    const ph = (frame / Math.max(1, a.cycle) + a.delay - lagCycles) * Math.PI * 2;
+    let v = Math.sin(ph);
+    if (kind === "pulse") v = Math.pow(Math.max(0, Math.sin(ph)), 6);
+    if (kind === "breathe") v = 0.5 - 0.5 * Math.cos(ph);
+    const rad = a.dir * Math.PI / 180;
+    return { x: Math.cos(rad) * v * a.size, y: -Math.sin(rad) * v * a.size };
+  }
+  function warpTargets(p, frame) {
+    const n = gridCount(p);
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const d = dotAt(p, i);
+      out.push({ x: d ? d.dx : 0, y: d ? d.dy : 0 });
+    }
+    const keys = Object.keys(p.warp.dots);
+    for (let k = 0; k < keys.length && k < 200; k++) {
+      const si = Number(keys[k]);
+      const s = p.warp.dots[keys[k]];
+      const moves = s.anim.kind !== "none" && si < n;
+      if (!moves) continue;
+      for (let q = 0; q < n; q++) {
+        const dist = gridDist(p, si, q);
+        const w = q === si ? 1 : Math.max(0, 1 - dist / s.reach);
+        if (w <= 0) continue;
+        const lag = s.anim.kind === "wave" ? dist * 0.18 : 0;
+        const o = animAt(s.anim, frame, lag, q);
+        out[q].x += o.x * w;
+        out[q].y += o.y * w;
+      }
+    }
+    return out;
+  }
+  function stepSpring(key, tgt, d, dt) {
+    let sp = S.springs[key];
+    if (!sp) { sp = { x: tgt.x, y: tgt.y, vx: 0, vy: 0 }; S.springs[key] = sp; }
+    const k = 0.03 + 0.45 * Math.pow(1 - d.drag.lag, 2);
+    const damp = 0.6 + 0.35 * d.drag.bounce;
+    const steps = Math.max(1, Math.min(6, Math.round(dt / 16)));
+    for (let i = 0; i < steps; i++) {
+      sp.vx = sp.vx * damp + (tgt.x - sp.x) * k;
+      sp.vy = sp.vy * damp + (tgt.y - sp.y) * k;
+      sp.x += sp.vx;
+      sp.y += sp.vy;
+    }
+    return sp;
+  }
+  function warpPoints(p, dt) {
+    const tg = warpTargets(p, S.frame);
+    const pts = [];
+    let moving = false;
+    for (let i = 0; i < tg.length; i++) {
+      const b = gridBase(p, i);
+      const d = dotAt(p, i);
+      const trails = d && d.drag.on;
+      let off = tg[i];
+      if (trails) {
+        const sp = dt > 0 ? stepSpring(dotKey(p, i), tg[i], d, dt) : (S.springs[dotKey(p, i)] || tg[i]);
+        const still = Math.abs(sp.vx || 0) + Math.abs(sp.vy || 0) < 0.02;
+        if (!still) moving = true;
+        off = { x: sp.x, y: sp.y, vx: sp.vx || 0, vy: sp.vy || 0 };
+      }
+      pts.push({ x: b.x + off.x, y: b.y + off.y, vx: off.vx || 0, vy: off.vy || 0 });
+    }
+    return { pts: pts, moving: moving };
+  }
+  function hasMoves(d) {
+    if (!d) return false;
+    return d.pieces.some((p) => p.warp.on &&
+      Object.keys(p.warp.dots).some((k) => p.warp.dots[k].anim.kind !== "none"));
+  }
+
+  /* ---------- Per-frame cache ---------- */
+  function buildCache(dt) {
+    const d = doll();
+    S.cache = { map: {}, moving: false };
+    if (!d) return;
+    for (let i = 0; i < d.pieces.length; i++) {
+      const p = d.pieces[i];
+      const world = worldOf(d, p);
+      const draw = drawOf(p, world);
+      const entry = { world: world, draw: draw, pts: null, wpts: null };
+      if (p.warp.on) {
+        const w = warpPoints(p, dt);
+        if (w.moving) S.cache.moving = true;
+        entry.pts = w.pts;
+        entry.wpts = w.pts.map((q) => tp(draw, q.x, q.y));
+      }
+      S.cache.map[p.id] = entry;
+    }
+  }
+  function cached(p) {
+    const has = S.cache && S.cache.map[p.id];
+    if (!has) buildCache(0);
+    return S.cache.map[p.id];
+  }
+  function pivotWorld(d, p) { return tp(parentWorld(d, p), p.pivot.x, p.pivot.y); }
+  function outlinePts(p) {
+    const c = cached(p);
+    if (c.wpts) {
+      const cols = p.warp.cols;
+      const rows = p.warp.rows;
+      const at = (cc, rr) => c.wpts[rr * (cols + 1) + cc];
+      const out = [];
+      for (let x = 0; x <= cols; x++) out.push(at(x, 0));
+      for (let y = 1; y <= rows; y++) out.push(at(cols, y));
+      for (let x = cols - 1; x >= 0; x--) out.push(at(x, rows));
+      for (let y = rows - 1; y >= 1; y--) out.push(at(0, y));
+      return out;
+    }
+    const r = p.rect;
+    return [tp(c.draw, r.x, r.y), tp(c.draw, r.x + r.w, r.y), tp(c.draw, r.x + r.w, r.y + r.h), tp(c.draw, r.x, r.y + r.h)];
+  }
+  function inPoly(pt, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i];
+      const b = poly[j];
+      const crosses = (a.y > pt.y) !== (b.y > pt.y) &&
+        pt.x < (b.x - a.x) * (pt.y - a.y) / (b.y - a.y + 1e-9) + a.x;
+      if (crosses) inside = !inside;
+    }
+    return inside;
+  }
+  function stackOrder(d) {
+    const idx = {};
+    d.pieces.forEach((p, i) => { idx[p.id] = i; });
+    return d.pieces.slice().sort((a, b) => (a.order - b.order) || (idx[a.id] - idx[b.id]));
+  }
+  function hitPiece(pt, skip) {
+    const d = doll();
+    if (!d) return null;
+    const list = stackOrder(d).reverse();
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i];
+      const skipped = skip && skip.indexOf(p.id) >= 0;
+      if (skipped) continue;
+      if (inPoly(pt, outlinePts(p))) return p;
+    }
+    return null;
+  }
+  function hitHandle(pt) {
+    const grab = kGrab / scale();
+    let best = null;
+    let bestD = grab + 0.001;
+    for (let i = 0; i < S.handles.length && i < 2000; i++) {
+      const h = S.handles[i];
+      const dd = Math.hypot(h.x - pt.x, h.y - pt.y);
+      const closer = dd <= bestD;
+      if (closer) { best = h; bestD = dd; }
+    }
+    return best;
+  }
+
+  /* ---------- Effects drawn by the canvas ---------- */
+  function fxAdd(kind, data, msName) {
+    const dur = K.ms(msName);
+    if (dur <= 0) return;
+    S.fx.push(Object.assign({ kind: kind, t0: performance.now(), dur: dur }, data));
+    S.needs = true;
+  }
+  function fxFlash(ids) { if (ids && ids.length) fxAdd("flash", { ids: ids.slice() }, 300); }
+  function fxK(f) { return Math.min(1, (performance.now() - f.t0) / f.dur); }
+
+  /* ---------- Canvas render ---------- */
+  function pieceSvg(p, out) {
+    const c = cached(p);
+    const r = p.rect;
+    if (c.wpts) {
+      const cols = p.warp.cols;
+      const at = (cc, rr) => c.wpts[rr * (cols + 1) + cc];
+      let path = "";
+      for (let y = 0; y < p.warp.rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const a = at(x, y); const b = at(x + 1, y); const e = at(x + 1, y + 1); const f = at(x, y + 1);
+          path += "M" + a.x.toFixed(1) + " " + a.y.toFixed(1) + "L" + b.x.toFixed(1) + " " + b.y.toFixed(1) +
+            "L" + e.x.toFixed(1) + " " + e.y.toFixed(1) + "L" + f.x.toFixed(1) + " " + f.y.toFixed(1) + "Z";
+        }
+      }
+      out.push('<path d="' + path + '" fill="' + p.color + '" stroke="' + p.color + '" stroke-width="0.8" stroke-linejoin="round"/>');
+      const pleat = [];
+      for (let x = 1; x < cols; x++) {
+        const a = at(x, 0); const b = at(x, p.warp.rows);
+        pleat.push("M" + a.x.toFixed(1) + " " + a.y.toFixed(1) + "L" + b.x.toFixed(1) + " " + b.y.toFixed(1));
+      }
+      if (pleat.length) out.push('<path d="' + pleat.join("") + '" stroke="rgba(0,0,0,0.18)" stroke-width="1" fill="none"/>');
+    } else {
+      out.push('<g transform="' + mstr(c.draw) + '"><rect x="' + r.x + '" y="' + r.y + '" width="' + r.w +
+        '" height="' + r.h + '" rx="' + p.rx + '" fill="' + p.color + '" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>' +
+        glyph(p) + "</g>");
+    }
+  }
+  function glyph(p) {
+    const cx = p.rect.x + p.rect.w / 2;
+    const map = { "Smile": "^ ^", "Wink": "^ -", "Shout": "O O", "As in Krita": "- -", "Open": "w", "Fist": "@" };
+    const is_head = p.id === "head";
+    const is_hand = p.id === "handL" || p.id === "handR";
+    if (!is_head && !is_hand) return "";
+    const text = is_hand && p.drawing === "As in Krita" ? "" : map[p.drawing] || "";
+    const y = is_head ? p.rect.y + 52 : p.rect.y + 19;
+    const mouth = is_head ? '<text x="' + cx + '" y="' + (y + 18) + '" text-anchor="middle" font-size="12" fill="#5a2a2a" font-family="monospace">' +
+      (p.drawing === "Shout" ? "O" : p.drawing === "Smile" || p.drawing === "Wink" ? "u" : "-") + "</text>" : "";
+    return '<text x="' + cx + '" y="' + y + '" text-anchor="middle" font-size="13" fill="#3a2020" font-family="monospace">' + text + "</text>" + mouth;
+  }
+  function polyStr(pts) { return pts.map((q) => q.x.toFixed(1) + "," + q.y.toFixed(1)).join(" "); }
+  function outlinesSvg(d, out) {
+    const boxIn = S.box ? S.box.inside : [];
+    d.pieces.forEach((p) => {
+      const hovering = S.hover === p.id || boxIn.indexOf(p.id) >= 0 ||
+        (S.rope && S.rope.target === p.id) || (S.hang && S.hang.target === p.id);
+      const is_picked = S.pick.has(p.id);
+      if (!hovering && !is_picked) return;
+      const poly = polyStr(outlinePts(p));
+      if (hovering) out.push('<polygon points="' + poly + '" fill="none" stroke="#1c1c1f" stroke-width="1" stroke-dasharray="3 3"/>');
+      if (is_picked) {
+        out.push('<polygon points="' + poly + '" fill="none" stroke="#fff" stroke-width="4" opacity="0.9"/>');
+        out.push('<polygon points="' + poly + '" fill="none" stroke="#d8304f" stroke-width="2"/>');
+      }
+    });
+    S.fx.forEach((f) => {
+      if (f.kind !== "flash") return;
+      const k = fxK(f);
+      f.ids.forEach((id) => {
+        const p = byId(d, id);
+        if (!p) return;
+        out.push('<polygon points="' + polyStr(outlinePts(p)) + '" fill="rgba(255,255,255,' + (0.75 * (1 - k)).toFixed(2) +
+          ')" stroke="rgba(216,48,79,' + (1 - k).toFixed(2) + ')" stroke-width="3"/>');
+      });
+    });
+  }
+  function bonesSvg(d, out) {
+    const lines = [];
+    d.pieces.forEach((p) => {
+      const par = byId(d, p.parent);
+      if (!par) return;
+      const a = pivotWorld(d, p);
+      const b = pivotWorld(d, par);
+      lines.push("M" + a.x.toFixed(1) + " " + a.y.toFixed(1) + "L" + b.x.toFixed(1) + " " + b.y.toFixed(1));
+    });
+    const path = lines.join("");
+    out.push('<path d="' + path + '" stroke="#5a4708" stroke-width="3" fill="none" opacity="0.55"/>');
+    out.push('<path d="' + path + '" stroke="#f2c230" stroke-width="1.5" stroke-dasharray="4 3" fill="none"/>');
+  }
+  function chainGeom(d, c) {
+    const p = byId(d, c.piece);
+    const par = p ? byId(d, p.parent) : null;
+    if (!p || !par) return null;
+    const root = pivotWorld(d, par);
+    const elbow = pivotWorld(d, p);
+    const tip = tp(cached(p).draw, c.tip.x, c.tip.y);
+    const ux = elbow.x - root.x;
+    const uy = elbow.y - root.y;
+    const len = Math.hypot(ux, uy) || 1;
+    const side = c.flip ? -1 : 1;
+    const bend = { x: elbow.x + (-uy / len) * side * 14, y: elbow.y + (ux / len) * side * 14 };
+    return { root: root, elbow: elbow, tip: tip, bend: bend, side: side, p: p };
+  }
+  function chainsSvg(d, out) {
+    d.chains.forEach((c) => {
+      const g = chainGeom(d, c);
+      if (!g) return;
+      const color = kChainColors[c.color % kChainColors.length];
+      const path = "M" + g.root.x.toFixed(1) + " " + g.root.y.toFixed(1) + "L" + g.elbow.x.toFixed(1) + " " +
+        g.elbow.y.toFixed(1) + "L" + g.tip.x.toFixed(1) + " " + g.tip.y.toFixed(1);
+      const lit = S.chain === c.id;
+      const born = S.born[c.id];
+      let dash = "";
+      if (born) {
+        const k = Math.min(1, (performance.now() - born) / Math.max(1, K.ms("move")));
+        const total = Math.hypot(g.elbow.x - g.root.x, g.elbow.y - g.root.y) + Math.hypot(g.tip.x - g.elbow.x, g.tip.y - g.elbow.y);
+        dash = ' stroke-dasharray="' + total.toFixed(1) + '" stroke-dashoffset="' + (total * (1 - k)).toFixed(1) + '"';
+        if (k >= 1) delete S.born[c.id];
+      }
+      out.push('<path d="' + path + '" stroke="' + color + '" stroke-width="' + (lit ? 6 : 4) + '" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="' + (lit ? 0.9 : 0.6) + '"' + dash + "/>");
+      const bx = g.bend.x - g.elbow.x;
+      const by = g.bend.y - g.elbow.y;
+      out.push('<path d="M' + (g.elbow.x + by * 0.6).toFixed(1) + " " + (g.elbow.y - bx * 0.6).toFixed(1) + " Q" +
+        (g.bend.x + bx * 0.4).toFixed(1) + " " + (g.bend.y + by * 0.4).toFixed(1) + " " + (g.elbow.x - by * 0.6).toFixed(1) + " " +
+        (g.elbow.y + bx * 0.6).toFixed(1) + '" stroke="' + color + '" stroke-width="2" fill="none"/>');
+      const hot = S.hoverHandle && S.hoverHandle.kind === "bend" && S.hoverHandle.chain === c.id;
+      out.push('<circle cx="' + g.bend.x.toFixed(1) + '" cy="' + g.bend.y.toFixed(1) + '" r="' + (hot ? 4 : 3) + '" fill="' + color + '" stroke="#fff" stroke-width="1"/>');
+      S.handles.push({ kind: "bend", chain: c.id, x: g.bend.x, y: g.bend.y });
+    });
+    S.fx.forEach((f) => {
+      if (f.kind !== "chainfade") return;
+      out.push('<path d="' + f.path + '" stroke="' + f.color + '" stroke-width="4" fill="none" opacity="' + (0.6 * (1 - fxK(f))).toFixed(2) + '"/>');
+    });
+  }
+  function warpSvg(d, out) {
+    d.pieces.forEach((p) => {
+      const show = p.warp.on && S.pick.has(p.id);
+      if (!show) return;
+      const c = cached(p);
+      const cols = p.warp.cols;
+      const rows = p.warp.rows;
+      const at = (cc, rr) => c.wpts[rr * (cols + 1) + cc];
+      let path = "";
+      for (let y = 0; y <= rows; y++) for (let x = 0; x < cols; x++) {
+        const a = at(x, y); const b = at(x + 1, y);
+        path += "M" + a.x.toFixed(1) + " " + a.y.toFixed(1) + "L" + b.x.toFixed(1) + " " + b.y.toFixed(1);
+      }
+      for (let x = 0; x <= cols; x++) for (let y = 0; y < rows; y++) {
+        const a = at(x, y); const b = at(x, y + 1);
+        path += "M" + a.x.toFixed(1) + " " + a.y.toFixed(1) + "L" + b.x.toFixed(1) + " " + b.y.toFixed(1);
+      }
+      out.push('<path d="' + path + '" stroke="rgba(255,255,255,0.55)" stroke-width="1" fill="none"/>');
+      dotsSvg(p, c, out);
+    });
+  }
+  function dotsSvg(p, c, out) {
+    const pickedDot = S.dot && S.dot.piece === p.id ? S.dot.i : -1;
+    const breathe = K.motion.mode === "full" ? 1 + 0.15 * Math.sin(performance.now() / 420) : 1;
+    if (pickedDot >= 0) {
+      const dd = dotAt(p, pickedDot) || dotDefault();
+      const n = gridCount(p);
+      for (let q = 0; q < n; q++) {
+        if (q === pickedDot) continue;
+        const w = Math.max(0, 1 - gridDist(p, pickedDot, q) / dd.reach);
+        if (w <= 0) continue;
+        const pt = c.wpts[q];
+        out.push('<circle cx="' + pt.x.toFixed(1) + '" cy="' + pt.y.toFixed(1) + '" r="' + (3 + 6 * w).toFixed(1) +
+          '" fill="none" stroke="#d8304f" stroke-width="1" stroke-dasharray="2 2" opacity="' + (0.25 + 0.6 * w).toFixed(2) + '"/>');
+      }
+      const b = gridBase(p, pickedDot);
+      const cw = p.rect.w / p.warp.cols;
+      const ch = p.rect.h / p.warp.rows;
+      const lp = c.pts[pickedDot];
+      out.push('<g transform="' + mstr(c.draw) + '"><ellipse cx="' + lp.x.toFixed(1) + '" cy="' + lp.y.toFixed(1) + '" rx="' +
+        (dd.reach * cw).toFixed(1) + '" ry="' + (dd.reach * ch).toFixed(1) + '" fill="rgba(216,48,79,0.06)" stroke="#d8304f" stroke-width="1.2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/></g>');
+      const wp = c.wpts[pickedDot];
+      out.push('<text x="' + (wp.x + 10).toFixed(1) + '" y="' + (wp.y - 10).toFixed(1) + '" font-size="11" fill="#7a1428" font-family="monospace">reach ' + dd.reach.toFixed(1) + "</text>");
+      void b;
+    }
+    for (let i = 0; i < c.wpts.length; i++) {
+      const pt = c.wpts[i];
+      const d = dotAt(p, i);
+      const hot = S.hoverHandle && S.hoverHandle.kind === "dot" && S.hoverHandle.id === p.id && S.hoverHandle.i === i;
+      const x = pt.x.toFixed(1);
+      const y = pt.y.toFixed(1);
+      const moves = d && d.anim.kind !== "none";
+      if (moves) {
+        const s = 6 * breathe;
+        out.push('<rect x="' + (pt.x - s).toFixed(1) + '" y="' + (pt.y - s).toFixed(1) + '" width="' + (2 * s).toFixed(1) + '" height="' + (2 * s).toFixed(1) + '" fill="none" stroke="#f2c230" stroke-width="1.5"/>');
+      }
+      if (d && d.drag.on) {
+        const v = c.pts[i];
+        const sp = Math.hypot(v.vx, v.vy);
+        const len = Math.min(12, 3 + sp * 6);
+        const ux = sp > 0.05 ? -v.vx / sp : 0;
+        const uy = sp > 0.05 ? -v.vy / sp : 1;
+        out.push('<path d="M' + x + " " + y + "L" + (pt.x + ux * (6 + len)).toFixed(1) + " " + (pt.y + uy * (6 + len)).toFixed(1) + '" stroke="#f2c230" stroke-width="2" stroke-linecap="round"/>');
+        out.push('<circle cx="' + x + '" cy="' + y + '" r="6" fill="none" stroke="#f2c230" stroke-width="1.5"/>');
+      }
+      const is_pick = i === S.dot?.i && S.dot?.piece === p.id;
+      if (is_pick) out.push('<circle cx="' + x + '" cy="' + y + '" r="7.5" fill="none" stroke="#d8304f" stroke-width="2"/>');
+      out.push('<circle cx="' + x + '" cy="' + y + '" r="' + (hot ? 3.6 : 3) + '" fill="#f2c230" stroke="#1c1c1f" stroke-width="1"' +
+        (hot ? ' style="filter: drop-shadow(0 0 2px rgba(242,194,48,0.9))"' : "") + "/>");
+      S.handles.push({ kind: "dot", id: p.id, i: i, x: pt.x, y: pt.y });
+    }
+  }
+  function settleOffset(id) {
+    for (let i = 0; i < S.fx.length; i++) {
+      const f = S.fx[i];
+      const hit = f.kind === "settle" && f.ids.indexOf(id) >= 0;
+      if (!hit) continue;
+      const k = fxK(f);
+      const s = Math.sin(Math.PI * k) * 2;
+      return { x: f.ux * s, y: f.uy * s };
+    }
+    return { x: 0, y: 0 };
+  }
+  function handlesSvg(d, out) {
+    d.pieces.forEach((p) => {
+      const a = pivotWorld(d, p);
+      const off = settleOffset(p.id);
+      const x = a.x + off.x;
+      const y = a.y + off.y;
+      const is_picked = S.pick.has(p.id);
+      const hot = S.hoverHandle && S.hoverHandle.kind === "joint" && S.hoverHandle.id === p.id;
+      const r = (is_picked ? 5.5 : 4) * (hot ? 1.15 : 1);
+      if (hot) out.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (r + 3) + '" fill="rgba(242,194,48,0.45)"/>');
+      out.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + r.toFixed(1) + '" fill="#f2c230" stroke="#1c1c1f" stroke-width="1"/>');
+      S.handles.push({ kind: "joint", id: p.id, x: a.x, y: a.y });
+      if (p.keep) {
+        out.push('<g transform="translate(' + (x + 7).toFixed(1) + " " + (y - 13).toFixed(1) + ')"><rect width="7" height="6" y="3" fill="#1c1c1f"/><path d="M1.5 3.5v-1.5a2 2 0 0 1 4 0v1.5" stroke="#1c1c1f" fill="none"/></g>');
+      }
+      const ropeKnob = is_picked && !S.hang && !S.rope;
+      if (ropeKnob) {
+        const kx = a.x + 13;
+        const ky = a.y + 13;
+        const khot = S.hoverHandle && S.hoverHandle.kind === "rope" && S.hoverHandle.id === p.id;
+        out.push('<path d="M' + a.x.toFixed(1) + " " + a.y.toFixed(1) + "L" + kx.toFixed(1) + " " + ky.toFixed(1) + '" stroke="#d8304f" stroke-width="1" stroke-dasharray="2 2"/>');
+        out.push('<circle cx="' + kx.toFixed(1) + '" cy="' + ky.toFixed(1) + '" r="' + (khot ? 4.6 : 4) + '" fill="#fff" stroke="#d8304f" stroke-width="2"/>');
+        S.handles.push({ kind: "rope", id: p.id, x: kx, y: ky });
+      }
+    });
+    d.chains.forEach((c) => {
+      const g = chainGeom(d, c);
+      if (!g) return;
+      const hot = S.hoverHandle && S.hoverHandle.kind === "tip" && S.hoverHandle.chain === c.id;
+      const s = hot ? 4.6 : 4;
+      out.push('<rect x="' + (g.tip.x - s).toFixed(1) + '" y="' + (g.tip.y - s).toFixed(1) + '" width="' + 2 * s + '" height="' + 2 * s + '" fill="#f2c230" stroke="#1c1c1f" stroke-width="1"/>');
+      S.handles.push({ kind: "tip", chain: c.id, x: g.tip.x, y: g.tip.y });
+    });
+  }
+  function overlaySvg(d, out) {
+    const g = S.ghost;
+    if (g) {
+      const shape = g.square
+        ? '<rect x="' + (g.x - 4) + '" y="' + (g.y - 4) + '" width="8" height="8"'
+        : '<circle cx="' + g.x + '" cy="' + g.y + '" r="5"';
+      out.push(shape + ' fill="none" stroke="#777" stroke-width="1" stroke-dasharray="2 2"/>');
+    }
+    S.fx.forEach((f) => {
+      const k = fxK(f);
+      if (f.kind === "snap") {
+        out.push('<path d="M' + (f.x - 9) + " " + f.y + "h18M" + f.x + " " + (f.y - 9) + 'v18" stroke="#d8304f" stroke-width="1.5" opacity="' + (1 - k).toFixed(2) + '"/>');
+      }
+      if (f.kind === "ropeok") {
+        out.push('<path d="M' + f.ax + " " + f.ay + "L" + f.bx + " " + f.by + '" stroke="#d8304f" stroke-width="2" opacity="' + (1 - k).toFixed(2) + '"/>');
+      }
+      if (f.kind === "ropebad") {
+        const jit = Math.sin(k * Math.PI * 8) * 4 * (1 - k);
+        out.push('<path d="M' + f.ax + " " + f.ay + "L" + (f.bx + jit) + " " + f.by + '" stroke="#888" stroke-width="2" stroke-dasharray="4 3" opacity="' + (1 - k * 0.7).toFixed(2) + '"/>');
+      }
+    });
+    if (S.rope) {
+      const r = S.rope;
+      const mx = (r.ax + r.to.x) / 2;
+      const my = Math.max(r.ay, r.to.y) + 30;
+      const color = r.bad ? "#888" : "#d8304f";
+      out.push('<path d="M' + r.ax.toFixed(1) + " " + r.ay.toFixed(1) + " Q" + mx.toFixed(1) + " " + my.toFixed(1) + " " + r.to.x.toFixed(1) + " " + r.to.y.toFixed(1) +
+        '" stroke="' + color + '" stroke-width="2" stroke-dasharray="4 3" fill="none"/>');
+      out.push('<circle cx="' + r.to.x.toFixed(1) + '" cy="' + r.to.y.toFixed(1) + '" r="4" fill="#fff" stroke="' + color + '" stroke-width="2"/>');
+    }
+    if (S.hang) {
+      S.hang.from.forEach((a) => {
+        out.push('<path d="M' + a.x.toFixed(1) + " " + a.y.toFixed(1) + "L" + S.hang.to.x.toFixed(1) + " " + S.hang.to.y.toFixed(1) +
+          '" stroke="#d8304f" stroke-width="1.5" stroke-dasharray="5 4"/>');
+      });
+    }
+    if (S.box) {
+      const b = S.box;
+      const x = Math.min(b.x0, b.x);
+      const y = Math.min(b.y0, b.y);
+      out.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.abs(b.x - b.x0).toFixed(1) + '" height="' + Math.abs(b.y - b.y0).toFixed(1) +
+        '" fill="rgba(216,48,79,0.08)" stroke="#d8304f" stroke-width="1" stroke-dasharray="4 3"/>');
+    }
+    void d;
+  }
+  function renderCanvas(dt) {
+    const d = doll();
+    $("rigEmpty").hidden = Boolean(d);
+    S.handles = [];
+    if (!d) { svg.innerHTML = ""; return; }
+    buildCache(dt || 0);
+    const now = performance.now();
+    S.fx = S.fx.filter((f) => now - f.t0 < f.dur);
+    const out = ['<rect x="-400" y="-400" width="1400" height="1400" fill="#e9e4d8"/>',
+      '<path d="M' + kCx + ' 20V480" stroke="rgba(0,0,0,0.07)" stroke-dasharray="6 6"/>',
+      '<path d="M120 392H440" stroke="rgba(0,0,0,0.12)"/>'];
+    stackOrder(d).forEach((p) => pieceSvg(p, out));
+    outlinesSvg(d, out);
+    bonesSvg(d, out);
+    chainsSvg(d, out);
+    warpSvg(d, out);
+    handlesSvg(d, out);
+    overlaySvg(d, out);
+    svg.innerHTML = out.join("");
+    $("frameCounter").textContent = "F " + String(Math.floor(S.frame) % 1000).padStart(3, "0");
+  }
+
+  /* ---------- Main loop ---------- */
+  let lastT = performance.now();
+  function loop(now) {
+    const dt = Math.min(100, now - lastT);
+    lastT = now;
+    const frozen = now < S.freezeUntil;
+    const anim = S.playing && hasMoves(doll());
+    if (anim && !frozen) S.frame += dt * 24 / 1000;
+    const busy = anim || (S.cache && S.cache.moving) || S.fx.length > 0 || S.lean !== 0 ||
+      Object.keys(S.born).length > 0 || S.needs;
+    if (busy && !frozen) { renderCanvas(dt); S.needs = false; }
+    window.requestAnimationFrame(loop);
+  }
+
+  /* ---------- Picking ---------- */
+  function setPick(ids, why) {
+    const before = Array.from(S.pick);
+    S.pick = new Set(ids);
+    const still = S.dot && S.pick.has(S.dot.piece);
+    if (!still) S.dot = null;
+    const changed = before.join() !== Array.from(S.pick).join();
+    if (changed && why !== "quiet") K.sound.click();
+    refresh();
+  }
+  function pickWith(id, ev) {
+    const add = ev && ev.shiftKey;
+    const toggle = ev && (ev.ctrlKey || ev.metaKey);
+    const next = new Set(S.pick);
+    if (toggle) {
+      if (next.has(id)) next.delete(id); else next.add(id);
+    } else if (add) {
+      next.add(id);
+    } else {
+      next.clear();
+      next.add(id);
+    }
+    S.anchor = id;
+    setPick(Array.from(next));
+  }
+  function pickAll() {
+    const d = doll();
+    if (!d) { Status.error("Import a doll from the Cast panel first."); return; }
+    setPick(d.pieces.map((p) => p.id));
+    Status.say("Picked all " + d.pieces.length + " pieces.");
+  }
+  function clearPick() {
+    S.dot = null;
+    setPick([]);
+  }
+
+  /* ---------- Rig edits (each one undo step) ---------- */
+  function hangFrom(ids, parentId, pt) {
+    const d = doll();
+    const before = snap();
+    const bad = ids.find((id) => id === parentId || (parentId && isUnder(d, parentId, id)));
+    if (bad) {
+      Status.error(kChildWhy);
+      whyAt(pt, kChildWhy, true);
+      return false;
+    }
+    ids.forEach((id) => { byId(d, id).parent = parentId; });
+    const who = ids.length === 1 ? nm(ids[0]) : ids.length + " pieces";
+    const name = parentId ? "Hang " + who + " from " + nm(parentId) : "Make " + who + " a root";
+    commit(name, before, ids);
+    Status.say(parentId ? who + " now hangs from " + nm(parentId) + "." : who + " is now a root piece.");
+    return true;
+  }
+  function enterHang(ids, pt) {
+    const d = doll();
+    S.hang = { ids: ids, to: pt, target: "", from: ids.map((id) => pivotWorld(d, byId(d, id))) };
+    const who = ids.length === 1 ? nm(ids[0]) : ids.length <= 2 ? ids.map(nm).join(" and ") : "these " + ids.length + " pieces";
+    Status.hint("Click the part " + who + " hangs from; click empty space to make it a root; Escape cancels.");
+    svg.classList.add("cur-cross");
+    S.needs = true;
+  }
+  function leaveHang() {
+    S.hang = null;
+    Status.clearHint();
+    svg.classList.remove("cur-cross");
+    S.needs = true;
+  }
+  function mirrorPieces(list, label) {
+    const d = doll();
+    const before = snap();
+    const touched = [];
+    list.forEach((p) => {
+      const t = twinOf(d, p);
+      if (!t) return;
+      t.pivot = { x: 2 * kCx - p.pivot.x, y: p.pivot.y };
+      t.turn = -p.turn;
+      t.order = p.order;
+      t.keep = p.keep;
+      const ptwin = byId(d, p.parent) ? twinOf(d, byId(d, p.parent)) : null;
+      t.parent = ptwin ? ptwin.id : p.parent;
+      if (t.drawings.indexOf(p.drawing) >= 0) t.drawing = p.drawing;
+      t.warp = mirrorWarp(p.warp);
+      const pc = chainFor(d, p.id);
+      const tc = chainFor(d, t.id);
+      if (pc && !tc) {
+        d.chains.push({ id: "c" + d.nextChain++, piece: t.id, flip: !pc.flip,
+          tip: { x: 2 * kCx - pc.tip.x, y: pc.tip.y }, color: (d.chains.length) % kChainColors.length });
+      } else if (pc && tc) {
+        tc.flip = !pc.flip;
+        tc.tip = { x: 2 * kCx - pc.tip.x, y: pc.tip.y };
+      }
+      touched.push(t.id);
+    });
+    const did = commit(label, before, touched);
+    fxFlash(touched);
+    if (did) K.toast(label + ".", undoIfTop(label));
+    else Status.say("The other side already matches.");
+  }
+  function mirrorWarp(w) {
+    const out = { on: w.on, cols: w.cols, rows: w.rows, dots: {} };
+    Object.keys(w.dots).forEach((k) => {
+      const i = Number(k);
+      const c = i % (w.cols + 1);
+      const r = Math.floor(i / (w.cols + 1));
+      const j = r * (w.cols + 1) + (w.cols - c);
+      const d = JSON.parse(JSON.stringify(w.dots[k]));
+      d.dx = -d.dx;
+      d.anim.dir = 180 - d.anim.dir;
+      const wraps = d.anim.dir > 180;
+      if (wraps) d.anim.dir -= 360;
+      out.dots[String(j)] = d;
+    });
+    return out;
+  }
+  function addChain() {
+    const d = doll();
+    const p = picked()[0];
+    const before = snap();
+    const c = { id: "c" + d.nextChain++, piece: p.id, flip: false,
+      tip: { x: p.rect.x + p.rect.w / 2, y: p.rect.y + p.rect.h }, color: d.chains.length % kChainColors.length };
+    d.chains.push(c);
+    S.chain = c.id;
+    if (K.ms("move") > 0) S.born[c.id] = performance.now();
+    commit("Add IK " + p.name, before, [p.id]);
+    K.pop($("ikList").querySelector('[data-id="' + c.id + '"]'), 1.2);
+  }
+  function flipChain(id) {
+    const d = doll();
+    const c = d.chains.find((x) => x.id === id);
+    if (!c) return;
+    const before = snap();
+    c.flip = !c.flip;
+    commit("Flip bend of IK " + nm(c.piece), before, [c.piece]);
+    Status.say("IK " + nm(c.piece) + " now bends the other way.");
+  }
+  function removeChain(id) {
+    const d = doll();
+    const idx = d.chains.findIndex((x) => x.id === id);
+    if (idx < 0) return;
+    const c = d.chains[idx];
+    const g = chainGeom(d, c);
+    const before = snap();
+    if (g) {
+      fxAdd("chainfade", { color: kChainColors[c.color % kChainColors.length],
+        path: "M" + g.root.x + " " + g.root.y + "L" + g.elbow.x + " " + g.elbow.y + "L" + g.tip.x + " " + g.tip.y }, "puff");
+    }
+    const row = $("ikList").querySelector('[data-id="' + id + '"]');
+    const label = "Remove IK " + nm(c.piece);
+    const finish = () => {
+      d.chains.splice(d.chains.indexOf(c), 1);
+      S.chain = "";
+      commit(label, before, [c.piece]);
+      K.toast("Removed IK " + nm(c.piece) + ".", undoIfTop(label));
+    };
+    if (row) K.puff(row, false, finish); else finish();
+  }
+  function setDotDrag(on) {
+    const d = doll();
+    const p = byId(d, S.dot.piece);
+    const before = snap();
+    ensureDot(p, S.dot.i).drag.on = on;
+    delete S.springs[dotKey(p, S.dot.i)];
+    commit(on ? "Drags behind on" : "Drags behind off", before, [p.id]);
+    Status.say(on ? "The dot trails and bounces now." : "The dot sticks to its place again.");
+  }
+  function toggleDotDrag(pt) {
+    const has_dot = Boolean(S.dot);
+    if (!has_dot) {
+      Status.error(kNoDot);
+      if (pt) whyAt(pt, kNoDot, false); else K.shake($("chkDragL"), kNoDot);
+      return;
+    }
+    const p = byId(doll(), S.dot.piece);
+    const cur = dotAt(p, S.dot.i);
+    setDotDrag(!(cur && cur.drag.on));
+    K.pop($("chkDragL").querySelector(".check-box"), 1.3);
+  }
+  function setDotKind(kind) {
+    const p = byId(doll(), S.dot.piece);
+    const before = snap();
+    ensureDot(p, S.dot.i).anim.kind = kind;
+    commit("Dot moves " + kKindName[kind], before, [p.id]);
+    const should_play = kind !== "none" && !S.playing;
+    if (should_play) setPlaying(true);
+  }
+  function saveRig() {
+    const d = doll();
+    S.saved[d.id] = JSON.stringify(d);
+    S.freezeUntil = performance.now() + 70;
+    window.setTimeout(burst, 70);
+    refreshPanel();
+  }
+  function burst() {
+    K.toast("Rig saved to the library. New projects get it.", null, { kind: "done" });
+    if (!K.motion.on) { Status.say("Saved to library."); return; }
+    const stamp = document.createElement("div");
+    stamp.className = "stamp";
+    stamp.textContent = "Saved to library";
+    stamp.style.left = (wrap.scrollLeft + wrap.clientWidth / 2) + "px";
+    stamp.style.top = (wrap.scrollTop + wrap.clientHeight * 0.42) + "px";
+    wrap.appendChild(stamp);
+    const cx = wrap.scrollLeft + wrap.clientWidth / 2;
+    const cy = wrap.scrollTop + wrap.clientHeight * 0.42;
+    for (let i = 0; i < 22; i++) {
+      const px = document.createElement("div");
+      px.className = "px";
+      px.style.left = cx + "px";
+      px.style.top = cy + "px";
+      wrap.appendChild(px);
+      const a = (i / 22) * Math.PI * 2 + Math.random() * 0.3;
+      const r = 70 + Math.random() * 90;
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+        px.style.translate = (Math.cos(a) * r).toFixed(0) + "px " + (Math.sin(a) * r).toFixed(0) + "px";
+        px.style.opacity = "0";
+      }));
+      window.setTimeout(() => px.remove(), 600);
+    }
+    window.setTimeout(() => stamp.remove(), 950);
+  }
+  function setPlaying(on) {
+    S.playing = on;
+    $("playTool").setAttribute("aria-pressed", String(on));
+    $("playTool").dataset.tip = on ? "Pause the dot moves" : "Play the dot moves on the canvas";
+    S.needs = true;
+  }
+  function leanTest() {
+    if (!doll()) { Status.error(kNoDoll); return; }
+    const t0 = performance.now();
+    const dur = 1100;
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / dur);
+      S.lean = Math.sin(k * Math.PI) * 18;
+      S.needs = true;
+      if (k < 1) window.requestAnimationFrame(step);
+      else { S.lean = 0; S.needs = true; }
+    };
+    window.requestAnimationFrame(step);
+    Status.say("Leaning 18 deg: pieces with Keep shape turn without squashing.");
+  }
+
+  /* ---------- Canvas pointer ---------- */
+  function cursorFor(h, overPiece) {
+    svg.classList.remove("cur-grab", "cur-pointer", "cur-alias", "cur-grabbing");
+    if (S.hang) return;
+    if (!h) { if (overPiece) svg.classList.add("cur-pointer"); return; }
+    const map = { joint: "cur-grab", tip: "cur-grab", dot: "cur-grab", bend: "cur-pointer", rope: "cur-alias" };
+    svg.classList.add(map[h.kind]);
+  }
+  function hoverInfo(h, p) {
+    const d = doll();
+    if (!d) return "";
+    if (h && h.kind === "joint") return "Joint of " + nm(h.id) + ": drag to move it, double-click to hang it.";
+    if (h && h.kind === "rope") return "Rope of " + nm(h.id) + ": drag it onto the part it hangs from.";
+    if (h && h.kind === "tip") { const c = d.chains.find((x) => x.id === h.chain); return "IK tip of " + nm(c.piece) + ": drag to move it."; }
+    if (h && h.kind === "bend") return "Click to flip the bend.";
+    if (h && h.kind === "dot") return "Warp dot " + (gridBase(byId(d, h.id), h.i).c + 1) + ", " + (gridBase(byId(d, h.id), h.i).r + 1) + ": click to pick, drag to pull.";
+    if (p) return p.name + (p.parent ? ", hangs from " + nm(p.parent) : ", a root piece") + ", draw order " + p.order;
+    return "";
+  }
+  function setHover(id) {
+    if (S.hover === id) return;
+    S.hover = id;
+    document.querySelectorAll("#pieceList .list-row").forEach((r) => r.classList.toggle("is-hover", r.dataset.id === id));
+    S.needs = true;
+  }
+  svg.addEventListener("pointermove", (e) => {
+    const pt = svgPt(e.clientX, e.clientY);
+    S.lastPt = pt;
+    if (S.dragging || !doll()) return;
+    if (S.hang) {
+      S.hang.to = pt;
+      const t = hitPiece(pt, S.hang.ids);
+      S.hang.target = t ? t.id : "";
+      S.needs = true;
+      return;
+    }
+    const h = hitHandle(pt);
+    const p = h ? null : hitPiece(pt);
+    const same = JSON.stringify(h) === JSON.stringify(S.hoverHandle);
+    if (!same) { S.hoverHandle = h; S.needs = true; }
+    setHover(p ? p.id : (h && h.id) || "");
+    cursorFor(h, p);
+    $("statusInfo").textContent = hoverInfo(h, p);
+  });
+  svg.addEventListener("pointerleave", () => {
+    if (S.dragging) return;
+    S.hoverHandle = null;
+    setHover("");
+    $("statusInfo").textContent = "";
+  });
+
+  function dragStart(s) {
+    const d = doll();
+    const h = s.hit;
+    if (h.kind === "joint") {
+      s.ids = S.pick.has(h.id) && S.pick.size > 1 ? Array.from(S.pick) : [h.id];
+      s.orig = {};
+      s.ids.forEach((id) => { const p = byId(d, id); s.orig[id] = { x: p.pivot.x, y: p.pivot.y }; });
+      const a = pivotWorld(d, byId(d, h.id));
+      S.ghost = { x: a.x, y: a.y };
+      s.snapAt = null;
+    } else if (h.kind === "tip") {
+      const c = d.chains.find((x) => x.id === h.chain);
+      s.chain = c;
+      S.chain = c.id;
+      S.ghost = { x: h.x, y: h.y, square: true };
+    } else if (h.kind === "rope") {
+      const ids = S.pick.has(h.id) ? Array.from(S.pick) : [h.id];
+      const a = pivotWorld(d, byId(d, h.id));
+      S.rope = { ids: ids, ax: a.x, ay: a.y, to: s.pt0, target: "", bad: false };
+    } else if (h.kind === "dot") {
+      const p = byId(d, h.id);
+      S.dot = { piece: p.id, i: h.i };
+      s.piece = p;
+      s.orig = {};
+      for (let i = 0; i < gridCount(p); i++) {
+        const dd = dotAt(p, i);
+        s.orig[i] = { x: dd ? dd.dx : 0, y: dd ? dd.dy : 0 };
+      }
+      s.reach = (dotAt(p, h.i) || dotDefault()).reach;
+      S.ghost = { x: h.x, y: h.y };
+    } else if (h.kind === "empty") {
+      S.box = { x0: s.pt0.x, y0: s.pt0.y, x: s.pt0.x, y: s.pt0.y, inside: [], mode: "set" };
+    }
+    svg.classList.add("cur-grabbing");
+    S.needs = true;
+  }
+  function moveJoint(s, pt) {
+    const d = doll();
+    const p = byId(d, s.hit.id);
+    const inv = parentWorld(d, p).inverse();
+    let lp = tp(inv, pt.x, pt.y);
+    const r = p.rect;
+    const cands = [
+      { x: r.x + r.w / 2, y: r.y + r.h / 2, n: "centre" }, { x: r.x + r.w / 2, y: r.y, n: "top edge" },
+      { x: r.x + r.w / 2, y: r.y + r.h, n: "bottom edge" }, { x: r.x, y: r.y + r.h / 2, n: "left edge" },
+      { x: r.x + r.w, y: r.y + r.h / 2, n: "right edge" }];
+    const catchR = kSnap / scale();
+    let hit = null;
+    for (let i = 0; i < cands.length; i++) {
+      const w = tp(parentWorld(d, p), cands[i].x, cands[i].y);
+      const near = Math.hypot(w.x - pt.x, w.y - pt.y) <= catchR;
+      if (near && !s.alt) { hit = cands[i]; hit.w = w; break; }
+    }
+    const entered = hit && (!s.snapAt || s.snapAt.n !== hit.n);
+    if (entered) { fxAdd("snap", { x: hit.w.x, y: hit.w.y }, 300); K.sound.tick(); }
+    s.snapAt = hit;
+    s.snapped = Boolean(hit);
+    if (hit) lp = { x: hit.x, y: hit.y };
+    const dx = lp.x - s.orig[p.id].x;
+    const dy = lp.y - s.orig[p.id].y;
+    s.ids.forEach((id) => {
+      const q = byId(d, id);
+      q.pivot = { x: Math.round((s.orig[id].x + dx) * 10) / 10, y: Math.round((s.orig[id].y + dy) * 10) / 10 };
+    });
+    s.ux = s.mx; s.uy = s.my;
+    const rx = Math.round(p.pivot.x - (r.x + r.w / 2));
+    const ry = Math.round(p.pivot.y - (r.y + r.h / 2));
+    s.chipText = (s.ids.length > 1 ? s.ids.length + " joints, " : "") + "x " + rx + ", y " + ry + (hit ? "  " + hit.n : "");
+  }
+  function moveDot(s, pt) {
+    const p = s.piece;
+    const lp = tp(cached(p).draw.inverse(), pt.x, pt.y);
+    const b = gridBase(p, s.hit.i);
+    const dx = lp.x - b.x - s.orig[s.hit.i].x;
+    const dy = lp.y - b.y - s.orig[s.hit.i].y;
+    const n = gridCount(p);
+    for (let q = 0; q < n; q++) {
+      const w = q === s.hit.i ? 1 : Math.max(0, 1 - gridDist(p, s.hit.i, q) / s.reach);
+      if (w <= 0) continue;
+      const dd = ensureDot(p, q);
+      dd.dx = Math.round((s.orig[q].x + dx * w) * 10) / 10;
+      dd.dy = Math.round((s.orig[q].y + dy * w) * 10) / 10;
+    }
+    const me = dotAt(p, s.hit.i);
+    s.chipText = Math.round(me.dx) + ", " + Math.round(me.dy) + " px";
+  }
+  function moveBox(s, pt) {
+    const b = S.box;
+    b.x = pt.x; b.y = pt.y;
+    b.mode = s.ctrl ? "remove" : s.shift ? "add" : "set";
+    const x0 = Math.min(b.x0, b.x); const x1 = Math.max(b.x0, b.x);
+    const y0 = Math.min(b.y0, b.y); const y1 = Math.max(b.y0, b.y);
+    const d = doll();
+    b.inside = d.pieces.filter((p) => {
+      const c = tp(cached(p).draw, p.rect.x + p.rect.w / 2, p.rect.y + p.rect.h / 2);
+      return c.x >= x0 && c.x <= x1 && c.y >= y0 && c.y <= y1;
+    }).map((p) => p.id);
+    const n = b.inside.length;
+    s.chipText = b.mode === "add" ? "+" + n : b.mode === "remove" ? "-" + n : n + " picked";
+  }
+  function dragMove(s) {
+    const pt = svgPt(s.x, s.y);
+    S.lastPt = pt;
+    const h = s.hit;
+    const d = doll();
+    if (h.kind === "joint") moveJoint(s, pt);
+    if (h.kind === "tip") {
+      const p = byId(d, s.chain.piece);
+      const lp = tp(cached(p).draw.inverse(), pt.x, pt.y);
+      s.chain.tip = { x: Math.round(lp.x), y: Math.round(lp.y) };
+      s.chipText = "x " + Math.round(lp.x - p.pivot.x) + ", y " + Math.round(lp.y - p.pivot.y);
+    }
+    if (h.kind === "rope") {
+      const r = S.rope;
+      r.to = pt;
+      const t = hitPiece(pt, r.ids);
+      r.target = t ? t.id : "";
+      r.bad = Boolean(t && r.ids.some((id) => isUnder(d, t.id, id)));
+      s.chipText = r.bad ? "Cannot: " + t.name + " hangs from it" : t ? "Hang from " + t.name : "Make a root";
+    }
+    if (h.kind === "dot") moveDot(s, pt);
+    if (h.kind === "empty") moveBox(s, pt);
+    S.needs = true;
+  }
+  function dragEnd(s) {
+    const h = s.hit;
+    const d = doll();
+    S.ghost = null;
+    if (h.kind === "joint") {
+      const name = s.ids.length > 1 ? "Move " + s.ids.length + " joints" : "Move pivot of " + nm(h.id);
+      commit(name, s.before, []);
+      const len = Math.hypot(s.ux || 0, s.uy || 0) || 1;
+      fxAdd("settle", { ids: s.ids, ux: (s.ux || 0) / len, uy: (s.uy || 0) / len }, "pop");
+    }
+    if (h.kind === "tip") commit("Move IK tip of " + nm(s.chain.piece), s.before, []);
+    if (h.kind === "rope") {
+      const r = S.rope;
+      S.rope = null;
+      if (r.bad) {
+        fxAdd("ropebad", { ax: r.ax, ay: r.ay, bx: r.to.x, by: r.to.y }, 300);
+        Status.error(kChildWhy);
+        whyAt(r.to, kChildWhy, true);
+      } else {
+        const ok = hangFrom(r.ids, r.target, r.to);
+        if (ok) {
+          const tgt = r.target ? pivotWorld(d, byId(d, r.target)) : r.to;
+          fxAdd("ropeok", { ax: r.ax, ay: r.ay, bx: tgt.x, by: tgt.y }, "move");
+        }
+      }
+    }
+    if (h.kind === "dot") commit("Warp " + s.piece.name, s.before, []);
+    if (h.kind === "empty") {
+      const b = S.box;
+      S.box = null;
+      const next = b.mode === "set" ? new Set() : new Set(S.pick);
+      b.inside.forEach((id) => { if (b.mode === "remove") next.delete(id); else next.add(id); });
+      setPick(Array.from(next));
+    }
+    S.needs = true;
+  }
+  function dragCancel(s) {
+    const h = s.hit;
+    S.ghost = null;
+    S.rope = null;
+    S.box = null;
+    const restores = h.kind === "joint" || h.kind === "tip" || h.kind === "dot";
+    if (restores) restore(s.before);
+    Status.say("Drag cancelled.");
+    S.needs = true;
+  }
+  function canvasClick(s) {
+    const d = doll();
+    const h = s.hit;
+    const ev = s.event;
+    if (h.kind === "hang") {
+      const t = hitPiece(s.pt0, S.hang.ids);
+      const ids = S.hang.ids;
+      leaveHang();
+      hangFrom(ids, t ? t.id : "", s.pt0);
+      return;
+    }
+    if (h.kind === "bend") { S.chain = h.chain; flipChain(h.chain); return; }
+    if (h.kind === "dot") {
+      const same = S.dot && S.dot.piece === h.id && S.dot.i === h.i;
+      S.dot = same ? null : { piece: h.id, i: h.i };
+      if (!same) { const w = toWrap(s.pt0); K.ring(wrap, w.x, w.y); }
+      refresh();
+      return;
+    }
+    if (h.kind === "tip") { S.chain = h.chain; refresh(); return; }
+    if (h.kind === "joint" || h.kind === "rope") {
+      const keep = S.pick.has(h.id) && !ev.shiftKey && !ev.ctrlKey && !ev.metaKey;
+      if (!keep) pickWith(h.id, ev);
+      return;
+    }
+    if (h.kind === "piece") { pickWith(h.id, ev); return; }
+    const mods = ev.shiftKey || ev.ctrlKey || ev.metaKey;
+    if (!mods) clearPick();
+    void d;
+  }
+  K.drag(svg, {
+    filter: () => Boolean(doll()),
+    onDown: (s) => {
+      wrap.focus({ preventScroll: true });
+      S.dragging = true;
+      const pt = svgPt(s.x0, s.y0);
+      s.pt0 = pt;
+      s.before = snap();
+      if (S.hang) { s.hit = { kind: "hang" }; return; }
+      const h = hitHandle(pt);
+      const p = h ? null : hitPiece(pt);
+      s.hit = h || (p ? { kind: "piece", id: p.id } : { kind: "empty" });
+    },
+    onStart: (s) => {
+      const draggable = ["joint", "tip", "rope", "dot", "empty"].indexOf(s.hit.kind) >= 0;
+      if (!draggable) { s.hit = { kind: "none" }; return; }
+      dragStart(s);
+    },
+    onMove: (s) => { if (s.hit.kind !== "none") dragMove(s); },
+    chip: (s) => s.chipText || "",
+    onEnd: (s) => { S.dragging = false; svg.classList.remove("cur-grabbing"); if (s.hit.kind !== "none") dragEnd(s); },
+    onCancel: (s) => { S.dragging = false; svg.classList.remove("cur-grabbing"); dragCancel(s); },
+    onClick: (s) => { S.dragging = false; canvasClick(s); }
+  });
+  svg.addEventListener("dblclick", (e) => {
+    const d = doll();
+    if (!d || S.hang) return;
+    const pt = svgPt(e.clientX, e.clientY);
+    const h = hitHandle(pt);
+    const on_joint = h && h.kind === "joint";
+    if (!on_joint) return;
+    const ids = S.pick.has(h.id) ? Array.from(S.pick) : [h.id];
+    if (!S.pick.has(h.id)) setPick([h.id], "quiet");
+    enterHang(ids, pt);
+  });
+  svg.addEventListener("wheel", (e) => {
+    const has_dot = Boolean(S.dot);
+    if (!has_dot) return;
+    e.preventDefault();
+    const p = byId(doll(), S.dot.piece);
+    if (!S.wheel) S.wheel = { before: snap(), timer: 0 };
+    const dd = ensureDot(p, S.dot.i);
+    const step = e.shiftKey ? 0.05 : 0.25;
+    dd.reach = Math.round(Math.min(5, Math.max(0.5, dd.reach + (e.deltaY < 0 ? step : -step))) * 100) / 100;
+    K.chip.show("reach " + dd.reach.toFixed(2), e.clientX, e.clientY);
+    S.needs = true;
+    refreshPanel();
+    window.clearTimeout(S.wheel.timer);
+    S.wheel.timer = window.setTimeout(() => {
+      const w = S.wheel;
+      S.wheel = null;
+      K.chip.hide();
+      commit("Reach", w.before, []);
+    }, 450);
+  }, { passive: false });
+  svg.addEventListener("contextmenu", (e) => {
+    const d = doll();
+    if (!d) return;
+    e.preventDefault();
+    const pt = svgPt(e.clientX, e.clientY);
+    const h = hitHandle(pt);
+    const is_dot = h && h.kind === "dot";
+    if (is_dot) {
+      S.dot = { piece: h.id, i: h.i };
+      refresh();
+      const p = byId(d, h.id);
+      const dd = dotAt(p, h.i);
+      const items = [{ head: "Warp dot" },
+        { label: "Drags behind", key: "D", checked: Boolean(dd && dd.drag.on), run: () => setDotDrag(!(dd && dd.drag.on)) },
+        { sep: true }, { head: "Moves" }];
+      kKinds.forEach((k) => items.push({ label: kKindName[k], checked: (dd ? dd.anim.kind : "none") === k, run: () => setDotKind(k) }));
+      K.contextMenu(e.clientX, e.clientY, items);
+      return;
+    }
+    const p = h && h.id ? byId(d, h.id) : hitPiece(pt);
+    if (!p) return;
+    if (!S.pick.has(p.id)) setPick([p.id], "quiet");
+    const twin = twinOf(d, p);
+    K.contextMenu(e.clientX, e.clientY, [
+      { head: p.name },
+      { label: "Hang from...", run: () => enterHang(Array.from(S.pick), pt) },
+      { label: "Make a root piece", why: p.parent ? "" : p.name + " is already a root piece.", run: () => hangFrom(Array.from(S.pick), "", pt) },
+      { sep: true },
+      { label: "Copy to other side", why: twin ? "" : p.name + " has no twin on the other side.", run: () => mirrorPieces(picked(), "Copy " + p.name + " to " + (twin ? twin.name : "")) },
+      { label: "Add IK chain", why: whyAddChain(), run: addChain }
+    ]);
+  });
+
+  /* ---------- Splitter: 3 : 1, drag to share ---------- */
+  (function () {
+    const split = $("rigSplit");
+    const bar = $("splitter");
+    let left = 3;
+    const set = (l) => {
+      left = Math.min(5.5, Math.max(1.2, l));
+      split.style.setProperty("--left", left.toFixed(2) + "fr");
+      split.style.setProperty("--right", "1fr");
+      S.needs = true;
+    };
+    K.drag(bar, {
+      threshold: 1,
+      onStart: (s) => { s.from = left; s.w = split.clientWidth; },
+      onMove: (s) => {
+        const r = split.getBoundingClientRect();
+        const frac = Math.min(0.85, Math.max(0.5, (s.x - r.left) / r.width));
+        set(frac / (1 - frac));
+      },
+      chip: () => "canvas " + Math.round(left / (left + 1) * 100) + " %",
+      onCancel: (s) => set(s.from)
+    });
+    bar.addEventListener("dblclick", () => { set(3); K.flash(bar); Status.say("Back to 3 : 1."); });
+    bar.addEventListener("keydown", (e) => {
+      const dir = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+      if (!dir) return;
+      e.preventDefault();
+      set(left + dir * 0.25);
+    });
+  })();
+
+  /* ---------- Panel ---------- */
+  function setOff(el, why) {
+    const off = Boolean(why);
+    if (off) { el.setAttribute("aria-disabled", "true"); el.dataset.why = why; }
+    else { el.removeAttribute("aria-disabled"); delete el.dataset.why; }
+    const input = el.querySelector("input");
+    if (input && el.classList.contains("num")) input.readOnly = off;
+    if (input && el.classList.contains("check")) input.tabIndex = off ? -1 : 0;
+    const btn = el.querySelector(".combo-btn");
+    if (btn) btn.tabIndex = off ? -1 : 0;
+  }
+  function setNum(id, v, mixed) {
+    const num = $(id);
+    const focused = num.contains(document.activeElement);
+    if (focused || S.pending[id]) return;
+    S.syncing = true;
+    if (mixed) {
+      num.setAttribute("data-mixed", "");
+      num.dataset.value = String(v);
+      const input = num.querySelector(".num-input");
+      input.value = "";
+      input.placeholder = "Mixed";
+    } else {
+      K.num.set(num, v, false);
+    }
+    S.syncing = false;
+  }
+  function setCheck(id, on, mixed) {
+    const input = $(id);
+    input.checked = Boolean(on);
+    input.indeterminate = Boolean(mixed);
+  }
+  function fillCombo(id, items, value, label) {
+    const combo = $(id);
+    const menu = combo.querySelector(".menu");
+    const open = K.menus.open_menu === menu;
+    if (!open) {
+      menu.innerHTML = "";
+      items.forEach((it) => {
+        const b = document.createElement("button");
+        b.className = "menu-item";
+        b.setAttribute("role", "option");
+        b.dataset.value = it.value;
+        b.setAttribute("aria-checked", String(it.value === value));
+        if (it.why) { b.setAttribute("aria-disabled", "true"); b.dataset.why = it.why; }
+        const s = document.createElement("span");
+        s.textContent = it.label;
+        b.appendChild(s);
+        menu.appendChild(b);
+      });
+    }
+    combo.dataset.value = value;
+    combo.querySelector(".combo-value").textContent = label;
+  }
+  function common(list, fn) {
+    if (!list.length) return { v: undefined, mixed: false };
+    const v = fn(list[0]);
+    const mixed = list.some((p) => JSON.stringify(fn(p)) !== JSON.stringify(v));
+    return { v: v, mixed: mixed };
+  }
+  function whyAddChain() {
+    const d = doll();
+    if (!d) return kNoDoll;
+    const list = picked();
+    if (!list.length) return kNoPick;
+    if (list.length > 1) return "Pick one piece to add a chain for.";
+    if (!list[0].parent) return "A chain needs the piece to hang from one.";
+    if (chainFor(d, list[0].id)) return list[0].name + " already has a chain.";
+    return "";
+  }
+  function whyMirror() {
+    const d = doll();
+    if (!d) return kNoDoll;
+    const list = picked();
+    if (!list.length) return kNoPick;
+    const twins = list.filter((p) => twinOf(d, p));
+    if (!twins.length) return list.length === 1 ? list[0].name + " has no twin on the other side." : "None of the picked pieces has a twin.";
+    return "";
+  }
+  function sideToCopy() {
+    const list = picked();
+    const sides = Array.from(new Set(list.map(sideOf).filter(Boolean)));
+    return sides.length === 1 ? sides[0] : sides.length > 1 ? "both" : "";
+  }
+  function whyMirrorSide() {
+    if (!doll()) return kNoDoll;
+    const side = sideToCopy();
+    if (!side) return "Pick a left or right piece to say which side to copy.";
+    if (side === "both") return "The pick has both sides. Pick pieces from one side.";
+    return "";
+  }
+  function refreshDollBox(d) {
+    const dolls = S.order.map((id) => ({ value: id, label: S.dolls[id].name }));
+    fillCombo("dollCombo", dolls, S.cur, d ? d.name : "(no doll)");
+    setOff($("dollCombo"), d ? "" : "Import a doll from the Cast panel first.");
+    $("pickCount").textContent = S.pick.size + " picked";
+    renderList(d);
+  }
+  function renderList(d) {
+    const list = $("pieceList");
+    const renaming = list.querySelector("input.field");
+    if (renaming) return;
+    list.classList.toggle("is-stack", S.view === "stack");
+    list.innerHTML = "";
+    if (!d) {
+      const row = document.createElement("div");
+      row.className = "list-row";
+      row.setAttribute("aria-disabled", "true");
+      row.dataset.why = "Import a doll first.";
+      row.textContent = "No pieces yet.";
+      list.appendChild(row);
+      return;
+    }
+    const rows = S.view === "stack" ? stackOrder(d).reverse().map((p) => ({ p: p, depth: 0 })) : treeRows(d);
+    rows.forEach((r) => {
+      const row = document.createElement("div");
+      row.className = "list-row";
+      row.dataset.id = r.p.id;
+      row.setAttribute("role", "option");
+      row.setAttribute("aria-selected", String(S.pick.has(r.p.id)));
+      row.style.paddingLeft = (10 + r.depth * 14) + "px";
+      if (S.hover === r.p.id) row.classList.add("is-hover");
+      const grip = S.view === "stack" ? '<span class="grip">::</span>' : "";
+      row.innerHTML = grip + '<span class="swatch" style="background:' + r.p.color + '"></span><span class="pname">' + esc(r.p.name) +
+        '</span><span class="row-meta">' + (S.view === "stack" ? "order " + r.p.order : r.p.parent ? "" : "root") + "</span>";
+      list.appendChild(row);
+    });
+  }
+  function treeRows(d) {
+    const out = [];
+    const stack = d.pieces.filter((p) => !byId(d, p.parent)).reverse().map((p) => ({ p: p, depth: 0 }));
+    for (let n = 0; stack.length && n < kMaxPieces * 2; n++) {
+      const top = stack.pop();
+      out.push(top);
+      const kids = d.pieces.filter((q) => q.parent === top.p.id).reverse();
+      kids.forEach((k) => stack.push({ p: k, depth: top.depth + 1 }));
+    }
+    return out;
+  }
+  function refreshJoint(d, list) {
+    const why = !d ? kNoDoll : list.length ? "" : kNoPick;
+    ["hangCombo", "nTurn", "nOrder", "chkKeepL"].forEach((id) => setOff($(id), why));
+    if (why) {
+      fillCombo("hangCombo", [], "", "-");
+      fillCombo("drawCombo", [], "", "-");
+      setOff($("drawCombo"), why);
+      setCheck("chkKeep", false, false);
+      return;
+    }
+    const par = common(list, (p) => p.parent);
+    const ids = list.map((p) => p.id);
+    const items = [{ value: "_root", label: "(nothing: a root piece)" }];
+    d.pieces.forEach((q) => {
+      if (ids.indexOf(q.id) >= 0) return;
+      const child = ids.some((id) => isUnder(d, q.id, id));
+      items.push({ value: q.id, label: q.name, why: child ? kChildWhy : "" });
+    });
+    const label = par.mixed ? "Mixed" : par.v ? nm(par.v) : "(nothing: a root piece)";
+    fillCombo("hangCombo", items, par.mixed ? "" : par.v || "_root", label);
+    const turn = common(list, (p) => p.turn);
+    setNum("nTurn", turn.v, turn.mixed);
+    const order = common(list, (p) => p.order);
+    setNum("nOrder", order.v, order.mixed);
+    const keep = common(list, (p) => p.keep);
+    setCheck("chkKeep", keep.v, keep.mixed);
+    const draws = common(list, (p) => p.drawings);
+    const dr = common(list, (p) => p.drawing);
+    let dwhy = "";
+    if (draws.mixed) dwhy = "Pick one kind of piece to choose its drawing.";
+    else if (draws.v.length < 2) dwhy = "This piece has only one drawing.";
+    setOff($("drawCombo"), dwhy);
+    fillCombo("drawCombo", draws.mixed ? [] : draws.v.map((x) => ({ value: x, label: x })),
+      dr.mixed ? "" : dr.v, dr.mixed ? "Mixed" : dr.v);
+  }
+  function refreshWarp(d, list) {
+    const why = !d ? kNoDoll : list.length ? "" : kNoPick;
+    setOff($("chkWarpL"), why);
+    const on = common(list, (p) => p.warp.on);
+    setCheck("chkWarp", on.v, on.mixed);
+    const anyOn = list.some((p) => p.warp.on);
+    const cwhy = why || (anyOn ? "" : 'Tick "Bend with a grid" first.');
+    setOff($("nCols"), cwhy);
+    setOff($("nRows"), cwhy);
+    const warped = list.filter((p) => p.warp.on);
+    const cols = common(warped, (p) => p.warp.cols);
+    const rows = common(warped, (p) => p.warp.rows);
+    setNum("nCols", cols.v || 2, cols.mixed);
+    setNum("nRows", rows.v || 2, rows.mixed);
+  }
+  function refreshDot(d) {
+    const p = S.dot ? byId(d, S.dot.piece) : null;
+    const dd = p ? (dotAt(p, S.dot.i) || dotDefault()) : dotDefault();
+    const why = p ? "" : kNoDot;
+    if (p) {
+      const b = gridBase(p, S.dot.i);
+      $("dotTitle").textContent = "Warp dot: " + p.name + " " + (b.c + 1) + ", " + (b.r + 1);
+    } else {
+      $("dotTitle").textContent = "Warp dot";
+    }
+    $("dotHint").hidden = Boolean(p);
+    setOff($("chkDragL"), why);
+    setCheck("chkDrag", dd.drag.on, false);
+    const lwhy = why || (dd.drag.on ? "" : 'Tick "Drags behind" first.');
+    setOff($("nLag"), lwhy);
+    setOff($("nBounce"), lwhy);
+    setNum("nLag", dd.drag.lag, false);
+    setNum("nBounce", dd.drag.bounce, false);
+    $("springSvg").style.opacity = lwhy ? "0.35" : "1";
+    const tiles = $("tiles");
+    if (!tiles.children.length) buildTiles();
+    tiles.querySelectorAll(".tile").forEach((t) => {
+      t.setAttribute("aria-pressed", String(t.dataset.kind === dd.anim.kind));
+      setOff(t, why);
+    });
+    const kwhy = why || (dd.anim.kind === "none" ? "Pick how the dot moves first." : "");
+    ["nSize", "nCycle", "nDelay"].forEach((id) => setOff($(id), kwhy));
+    setOff($("nDir"), kwhy || (dd.anim.kind === "shiver" ? "Shiver shakes every way, so it has no direction." : ""));
+    setOff($("nReach"), why);
+    setNum("nSize", dd.anim.size, false);
+    setNum("nCycle", dd.anim.cycle, false);
+    setNum("nDir", dd.anim.dir, false);
+    setNum("nDelay", dd.anim.delay, false);
+    setNum("nReach", dd.reach, false);
+  }
+  function buildTiles() {
+    const tiles = $("tiles");
+    kKinds.forEach((k) => {
+      const b = document.createElement("button");
+      b.className = "tile";
+      b.dataset.kind = k;
+      b.dataset.tip = k === "none" ? "The dot stays put." : kKindName[k] + ": click to give the picked dot this move.";
+      b.setAttribute("aria-pressed", "false");
+      const dots = k === "wave" ? "<i></i><i></i><i></i>" : k === "none" ? "<i></i>" : "<i></i>";
+      b.innerHTML = '<span class="tile-view">' + dots + "</span>" + kKindName[k];
+      tiles.appendChild(b);
+    });
+  }
+  function refreshIk(d) {
+    const list = $("ikList");
+    list.innerHTML = "";
+    if (d) {
+      d.chains.forEach((c) => {
+        const row = document.createElement("div");
+        row.className = "list-row";
+        row.dataset.id = c.id;
+        row.setAttribute("role", "option");
+        row.setAttribute("aria-selected", String(S.chain === c.id));
+        row.innerHTML = '<span class="swatch" style="background:' + kChainColors[c.color % kChainColors.length] + '"></span>IK ' +
+          esc(nm(c.piece)) + '<span class="row-meta">' + (c.flip ? "bends in" : "bends out") + "</span>";
+        list.appendChild(row);
+      });
+      if (!d.chains.length) list.innerHTML = '<div class="list-row" aria-disabled="true" data-why="Pick a piece that hangs from another, then Add for piece.">No chains yet.</div>';
+    }
+    setOff($("btnIkAdd"), whyAddChain());
+    const cwhy = !d ? kNoDoll : S.chain ? "" : kNoChain;
+    setOff($("btnIkFlip"), cwhy);
+    setOff($("btnIkRemove"), cwhy);
+  }
+  function refreshPanel() {
+    const d = doll();
+    const list = picked();
+    refreshDollBox(d);
+    refreshJoint(d, list);
+    refreshWarp(d, list);
+    refreshDot(d);
+    setOff($("btnMirror"), whyMirror());
+    setOff($("btnMirrorSide"), whyMirrorSide());
+    refreshIk(d);
+    setOff($("btnSave"), d ? "" : kNoDoll);
+    setOff($("playTool"), d ? "" : kNoDoll);
+    setOff($("leanBtn"), d ? "" : kNoDoll);
+    const saved = d && S.saved[d.id] === JSON.stringify(d);
+    const st = $("saveState");
+    st.textContent = !d ? "" : saved ? "Saved in the library" : "Changed since the library copy";
+    st.classList.toggle("is-dirty", Boolean(d && !saved));
+    $("canvasInfo").textContent = d ? d.name + ", " + d.pieces.length + " pieces" : "";
+    $("menuAll").setAttribute("aria-disabled", String(!d));
+    $("menuAll").dataset.why = "Import a doll first.";
+    $("menuClear").setAttribute("aria-disabled", String(!S.pick.size));
+    $("menuClear").dataset.why = "Nothing is picked.";
+  }
+  function refresh() {
+    refreshPanel();
+    S.needs = true;
+    const dirty = hist.done.length > 0 && S.projectSavedAt !== hist.done.length;
+    $("dirtyDot").hidden = !dirty;
+    $("titleText").textContent = "teto_song" + (dirty ? "*" : "") + " (~/snaps/teto_song.snap) - Snapper";
+  }
+
+  /* Panel events */
+  const numApply = {
+    nTurn: (v) => picked().forEach((p) => { p.turn = v; }),
+    nOrder: (v) => picked().forEach((p) => { p.order = v; }),
+    nCols: (v) => picked().forEach((p) => { if (p.warp.on) { p.warp.cols = v; p.warp.dots = {}; } }),
+    nRows: (v) => picked().forEach((p) => { if (p.warp.on) { p.warp.rows = v; p.warp.dots = {}; } }),
+    nLag: (v) => { dotNow().drag.lag = v; wobble(); },
+    nBounce: (v) => { dotNow().drag.bounce = v; wobble(); },
+    nSize: (v) => { dotNow().anim.size = v; },
+    nCycle: (v) => { dotNow().anim.cycle = v; },
+    nDir: (v) => { dotNow().anim.dir = v; },
+    nDelay: (v) => { dotNow().anim.delay = v; },
+    nReach: (v) => { dotNow().reach = v; }
+  };
+  const numName = {
+    nTurn: () => "Rest turn " + whoPicked(), nOrder: () => "Restack", nCols: () => "Warp grid", nRows: () => "Warp grid",
+    nLag: () => "Lag", nBounce: () => "Bounce", nSize: () => "Dot size", nCycle: () => "Dot cycle",
+    nDir: () => "Dot direction", nDelay: () => "Dot delay", nReach: () => "Reach"
+  };
+  function whoPicked() { const l = picked(); return l.length === 1 ? l[0].name : l.length + " pieces"; }
+  function dotNow() { return ensureDot(byId(doll(), S.dot.piece), S.dot.i); }
+  function wobble() {
+    const sp = $("springSvg");
+    const b = S.dot ? dotNow().drag.bounce : 0.4;
+    sp.style.setProperty("--wob-ms", Math.round(250 + b * 700) + "ms");
+    K.play(sp, "wob", 250 + b * 700);
+  }
+  panel.addEventListener("kit:change", (e) => {
+    if (S.syncing) return;
+    const t = e.target;
+    const id = t.id;
+    if (numApply[id]) {
+      const first = !S.pending[id];
+      if (first) S.pending[id] = { before: snap(), dots: gridSnapshot() };
+      numApply[id](e.detail.value);
+      S.needs = true;
+      return;
+    }
+    if (id === "dollCombo") {
+      S.cur = e.detail.value;
+      S.pick.clear();
+      S.dot = null;
+      S.chain = "";
+      refresh();
+      Status.say("Rigging " + doll().name + ".");
+      return;
+    }
+    if (id === "hangCombo") {
+      const v = e.detail.value === "_root" ? "" : e.detail.value;
+      hangFrom(picked().map((p) => p.id), v, S.lastPt);
+      return;
+    }
+    if (id === "drawCombo") {
+      const before = snap();
+      picked().forEach((p) => { p.drawing = e.detail.value; });
+      commit("Drawing " + e.detail.value + " for " + whoPicked(), before, picked().map((p) => p.id));
+      return;
+    }
+    if (id === "viewSeg" || t.closest("#viewSeg")) {
+      S.view = e.detail.value;
+      renderList(doll());
+      $("listHint").textContent = S.view === "stack" ? "Front at the top. Drag a row to restack." : "Shift or Ctrl adds. Double-click a name (or F2) to rename.";
+    }
+  });
+  function gridSnapshot() { return picked().map((p) => ({ id: p.id, n: Object.keys(p.warp.dots).length })); }
+  panel.addEventListener("kit:commit", (e) => {
+    const id = e.target.id;
+    const pend = S.pending[id];
+    if (!numApply[id] || !pend) return;
+    delete S.pending[id];
+    const name = numName[id]();
+    const lostDots = (id === "nCols" || id === "nRows") && pend.dots.some((x) => x.n > 0);
+    const did = commit(name, pend.before, picked().map((p) => p.id));
+    if (did && lostDots) K.toast("Grid resized: the dot moves on it were reset.", undoIfTop(name));
+  });
+  panel.addEventListener("change", (e) => {
+    const t = e.target;
+    const label = t.closest(".check");
+    const blocked = label && label.getAttribute("aria-disabled") === "true";
+    if (blocked) { t.checked = !t.checked; return; }
+    const before = snap();
+    if (t.id === "chkKeep") {
+      picked().forEach((p) => { p.keep = t.checked; });
+      commit(t.checked ? "Keep shape on" : "Keep shape off", before, picked().map((p) => p.id));
+    }
+    if (t.id === "chkWarp") {
+      picked().forEach((p) => { p.warp.on = t.checked; });
+      if (!t.checked && S.dot && S.pick.has(S.dot.piece)) S.dot = null;
+      commit("Warp grid", before, picked().map((p) => p.id));
+    }
+    if (t.id === "chkDrag") setDotDrag(t.checked);
+  });
+  $("tiles").addEventListener("click", (e) => {
+    const tile = e.target.closest(".tile");
+    if (!tile) return;
+    setDotKind(tile.dataset.kind);
+    K.pop(tile, 0.9);
+  });
+  $("btnMirror").addEventListener("click", () => {
+    const d = doll();
+    const list = picked().filter((p) => twinOf(d, p));
+    const label = list.length === 1 ? "Copy " + list[0].name + " to " + twinOf(d, list[0]).name : "Copy " + list.length + " pieces to the other side";
+    mirrorPieces(list, label);
+  });
+  $("btnMirrorSide").addEventListener("click", () => {
+    const d = doll();
+    const side = sideToCopy();
+    const list = d.pieces.filter((p) => sideOf(p) === side);
+    mirrorPieces(list, side === "L" ? "Copy the left side to the right" : "Copy the right side to the left");
+  });
+  $("btnIkAdd").addEventListener("click", addChain);
+  $("btnIkFlip").addEventListener("click", () => flipChain(S.chain));
+  $("btnIkRemove").addEventListener("click", () => removeChain(S.chain));
+  $("btnSave").addEventListener("click", saveRig);
+  $("ikList").addEventListener("click", (e) => {
+    const row = e.target.closest(".list-row[data-id]");
+    if (!row) return;
+    S.chain = S.chain === row.dataset.id ? "" : row.dataset.id;
+    refresh();
+  });
+  $("ikList").addEventListener("keydown", (e) => {
+    const del = (e.key === "Delete" || e.key === "Backspace") && S.chain;
+    if (del) { e.preventDefault(); removeChain(S.chain); }
+  });
+
+  /* Piece list: pick, shared hover, rename, stack drag */
+  const listEl = $("pieceList");
+  listEl.addEventListener("pointerover", (e) => {
+    const row = e.target.closest(".list-row[data-id]");
+    setHover(row ? row.dataset.id : "");
+  });
+  listEl.addEventListener("pointerleave", () => setHover(""));
+  function pickRow(row, ev) {
+    const d = doll();
+    const id = row.dataset.id;
+    const range = ev.shiftKey && S.anchor && !(ev.ctrlKey || ev.metaKey);
+    if (!range) { pickWith(id, ev); return; }
+    const ids = Array.from(listEl.querySelectorAll(".list-row[data-id]")).map((r) => r.dataset.id);
+    const a = ids.indexOf(S.anchor);
+    const b = ids.indexOf(id);
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    const next = new Set(S.pick);
+    for (let i = lo; i <= hi && i < ids.length; i++) next.add(ids[i]);
+    setPick(Array.from(next));
+    void d;
+  }
+  K.drag(listEl, {
+    filter: (e) => Boolean(e.target.closest(".list-row[data-id]")) && !e.target.closest("input"),
+    ghost: true,
+    ghostOf: (s) => s.row,
+    onDown: (s) => { s.row = s.target.closest(".list-row[data-id]"); },
+    onStart: (s) => {
+      const is_stack = S.view === "stack";
+      if (!is_stack) { s.noop = true; return; }
+      s.rows = Array.from(listEl.querySelectorAll(".list-row[data-id]"));
+      s.from = s.rows.indexOf(s.row);
+      s.to = s.from;
+      s.h = s.row.offsetHeight;
+      s.row.classList.add("is-lifted");
+    },
+    onMove: (s) => {
+      if (s.noop) return;
+      s.row.style.translate = "0 " + s.dy + "px";
+      s.to = Math.max(0, Math.min(s.rows.length - 1, s.from + Math.round(s.dy / s.h)));
+      s.rows.forEach((r, j) => {
+        if (r === s.row) return;
+        let shift = 0;
+        if (s.from < s.to && j > s.from && j <= s.to) shift = -s.h;
+        if (s.from > s.to && j >= s.to && j < s.from) shift = s.h;
+        r.style.translate = "0 " + shift + "px";
+      });
+    },
+    chip: (s) => s.noop ? "" : "draw " + (s.to + 1) + " of " + s.rows.length + " from the front",
+    onEnd: (s) => {
+      if (s.noop) return;
+      const ids = s.rows.map((r) => r.dataset.id);
+      const moved = ids.splice(s.from, 1)[0];
+      ids.splice(s.to, 0, moved);
+      const d = doll();
+      const before = snap();
+      const n = ids.length;
+      ids.forEach((id, i) => { byId(d, id).order = (n - 1 - i) * 5 - 20; });
+      commit("Restack", before, [moved]);
+      const row = listEl.querySelector('[data-id="' + moved + '"]');
+      K.bounce(row, 0, s.my || 1);
+    },
+    onCancel: (s) => {
+      if (s.noop) return;
+      s.rows.forEach((r) => { r.style.translate = ""; r.classList.remove("is-lifted"); });
+    },
+    onClick: (s) => { if (s.row) pickRow(s.row, s.event); }
+  });
+  function startRename(id) {
+    const row = listEl.querySelector('.list-row[data-id="' + id + '"]');
+    const p = byId(doll(), id);
+    if (!row || !p) return;
+    const name = row.querySelector(".pname");
+    const input = document.createElement("input");
+    input.className = "field";
+    input.value = p.name;
+    input.setAttribute("aria-label", "Rename " + p.name);
+    name.replaceWith(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = (keep) => {
+      if (done) return;
+      done = true;
+      const text = input.value.trim();
+      const empty = keep && !text;
+      if (empty) { input.remove(); K.toast("A piece needs a name. Kept " + p.name + ".", null, { kind: "error" }); refresh(); return; }
+      input.remove();
+      const changed = keep && text !== p.name;
+      if (changed) {
+        const before = snap();
+        const old = p.name;
+        p.name = text;
+        commit("Rename " + old + " to " + text, before, [id]);
+      } else {
+        refresh();
+      }
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); finish(true); }
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(false); }
+    });
+    input.addEventListener("blur", () => finish(true));
+  }
+  listEl.addEventListener("dblclick", (e) => {
+    const row = e.target.closest(".list-row[data-id]");
+    if (row && !e.target.closest("input")) startRename(row.dataset.id);
+  });
+
+  /* ---------- Menus, toolbar, keys ---------- */
+  hist.bindButtons($("undoBtn"), $("redoBtn"));
+  hist.bindKeys(document);
+  hist.onChange((kind, st) => {
+    const u = $("menuUndo");
+    const r = $("menuRedo");
+    u.querySelector("span").textContent = st.undoName ? "Undo " + st.undoName : "Undo";
+    r.querySelector("span").textContent = st.redoName ? "Redo " + st.redoName : "Redo";
+    u.setAttribute("aria-disabled", String(!st.undoName));
+    u.dataset.why = "Nothing to undo yet.";
+    r.setAttribute("aria-disabled", String(!st.redoName));
+    r.dataset.why = "Nothing to redo.";
+    if (kind === "undo" || kind === "redo") Status.say((kind === "undo" ? "Undid " : "Redid ") + (kind === "undo" ? st.redoName : st.undoName) + ".");
+    if (kind !== "init") refresh();
+  });
+  document.addEventListener("kit:menu", (e) => {
+    const a = e.detail.action;
+    if (a === "undo") hist.undo();
+    if (a === "redo") hist.redo();
+    if (a === "pick-all") pickAll();
+    if (a === "clear-pick") clearPick();
+    if (a === "preview") setPlaying(!S.playing);
+    if (a === "lean") leanTest();
+    if (a === "save-project") { S.projectSavedAt = hist.done.length; refresh(); K.toast("Saved teto_song.snap.", null, { kind: "done" }); }
+    if (a === "other") K.toast("File menu lives on the Shell page.", null);
+  });
+  $("playTool").addEventListener("kit:change", (e) => setPlaying(e.detail.value));
+  $("leanBtn").addEventListener("click", leanTest);
+  $("closeBtn").addEventListener("click", () => K.toast("The close dialog lives on the Shell page.", null));
+  $("importBtn").addEventListener("click", (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    K.contextMenu(r.left, r.bottom + 2, [{ head: "Cast" },
+      { label: "Tetodoll", run: () => importDoll("teto") }, { label: "Mikudoll", run: () => importDoll("miku") }]);
+  });
+  function importDoll(id) {
+    const before = snap();
+    S.dolls[id] = makeDoll(id);
+    if (S.order.indexOf(id) < 0) S.order.push(id);
+    S.cur = id;
+    S.pick.clear();
+    commit("Import " + S.dolls[id].name, before, S.dolls[id].pieces.map((p) => p.id));
+    K.pop(svg, 0.95);
+  }
+  $("scenarioSeg").addEventListener("kit:change", (e) => {
+    const empty = e.detail.value === "empty";
+    S.dolls = {};
+    S.order = [];
+    S.pick.clear();
+    S.dot = null;
+    S.chain = "";
+    S.saved = {};
+    if (!empty) {
+      S.dolls.teto = makeDoll("teto");
+      S.dolls.miku = makeDoll("miku");
+      S.order = ["teto", "miku"];
+      S.saved.teto = JSON.stringify(S.dolls.teto);
+      S.saved.miku = JSON.stringify(S.dolls.miku);
+    }
+    S.cur = S.order[0] || "";
+    hist.done.length = 0;
+    hist.undone.length = 0;
+    hist.changed("init");
+    S.projectSavedAt = 0;
+    leaveHang();
+    refresh();
+  });
+
+  function nudge(dx, dy) {
+    const d = doll();
+    const list = picked();
+    if (!list.length) return;
+    const before = snap();
+    list.forEach((p) => {
+      const inv = parentWorld(d, p).inverse();
+      const a = pivotWorld(d, p);
+      const l = tp(inv, a.x + dx, a.y + dy);
+      p.pivot = { x: Math.round(l.x * 10) / 10, y: Math.round(l.y * 10) / 10 };
+    });
+    commit(list.length === 1 ? "Nudge pivot of " + list[0].name : "Nudge " + list.length + " joints", before, []);
+  }
+  document.addEventListener("keydown", (e) => {
+    const t = e.target;
+    const typing = t.closest && t.closest("input, textarea");
+    if (typing || K.menus.open_menu || e.defaultPrevented) return;
+    const mod = e.ctrlKey || e.metaKey;
+    const k = e.key;
+    if (mod && k.toLowerCase() === "a") { e.preventDefault(); pickAll(); return; }
+    if (mod) return;
+    if (k === "Escape") {
+      if (S.hang) { leaveHang(); Status.say("Hang cancelled."); return; }
+      if (S.dot) { S.dot = null; refresh(); return; }
+      if (S.pick.size) clearPick();
+      return;
+    }
+    if (!doll()) return;
+    const on_button = t.closest && t.closest("button, .list, [role='tab'], .splitter");
+    if (k === " " && !on_button) { e.preventDefault(); setPlaying(!S.playing); return; }
+    if (k === "d" || k === "D") { toggleDotDrag(S.lastPt); return; }
+    if (k === "l" || k === "L") { leanTest(); return; }
+    if (k === "F2" && S.pick.size) { e.preventDefault(); startRename(Array.from(S.pick)[0]); return; }
+    const in_canvas = t === wrap;
+    const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    const a = arrows[k];
+    if (a && in_canvas && S.pick.size) {
+      e.preventDefault();
+      const m = e.shiftKey ? 10 : 1;
+      nudge(a[0] * m, a[1] * m);
+      return;
+    }
+    const del = (k === "Delete" || k === "Backspace") && in_canvas && S.chain;
+    if (del) { e.preventDefault(); removeChain(S.chain); }
+  });
+
+  /* ---------- Start ---------- */
+  S.dolls.teto = makeDoll("teto");
+  S.dolls.miku = makeDoll("miku");
+  S.order = ["teto", "miku"];
+  S.cur = "teto";
+  S.saved.teto = JSON.stringify(S.dolls.teto);
+  S.saved.miku = JSON.stringify(S.dolls.miku);
+  S.projectSavedAt = 0;
+  S.pick = new Set(["skirt"]);
+  S.dot = { piece: "skirt", i: 12 };
+  refresh();
+  window.requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

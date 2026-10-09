@@ -1,0 +1,1021 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snapper UI Kit</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  /* Gallery layout only. Controls come from kit.css. */
+  main { max-width: 1100px; margin: 0 auto; padding: 0 var(--gutter) 140px; }
+  .hero { padding: 28px 0 8px; }
+  .hero h1 { font: 28px/1.1 var(--font-pixel); color: var(--pick); margin: 0 0 6px; }
+  .hero p { margin: 0; max-width: 720px; color: var(--text-dim); }
+  .bar {
+    position: sticky; top: 0; z-index: 40; display: flex; flex-wrap: wrap;
+    align-items: center; gap: 8px 14px; padding: 6px 10px; margin: 14px calc(var(--gutter) * -1) 0;
+    background: var(--face); box-shadow: var(--bevel-raised), 0 4px 10px rgba(0, 0, 0, 0.35);
+  }
+  .bar .grow { flex: 1; }
+  .bar-label { color: var(--text-off); font-size: var(--fs-small); }
+  .toc { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 12px 0 0; font-size: var(--fs-small); }
+  .toc a { color: var(--handle); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  section.card { margin: 18px 0; padding: 14px; background: var(--face); box-shadow: var(--bevel-raised); }
+  section.card > h2 { font: 16px/1.2 var(--font-pixel); margin: 0 0 4px; color: var(--text);
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  section.card > h2 code { font: 11px var(--font-mono); color: var(--handle); }
+  .note { color: var(--text-off); margin: 0 0 10px; max-width: 760px; }
+  .note kbd, .note code { font: 11px var(--font-mono); color: var(--text-dim); }
+  .states { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-start; margin: 8px 0; }
+  .state { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; min-width: 0; max-width: 100%; }
+  .state > small { font: 10px var(--font-pixel); color: var(--text-off); letter-spacing: 0.5px; }
+  .state.live > small { color: var(--handle); }
+  .sub { font: 12px var(--font-pixel); color: var(--handle); margin: 16px 0 4px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .col { display: flex; flex-direction: column; gap: 6px; }
+  .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+  .sw { display: flex; gap: 8px; align-items: center; font-size: var(--fs-small); }
+  .sw i { width: 28px; height: 28px; flex: none; box-shadow: 0 0 0 1px var(--shadow); }
+  .sw code { display: block; color: var(--text-off); font: 10px var(--font-mono); }
+  .mtable { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+  .mtable td { padding: 4px 6px; border-bottom: 1px solid var(--face-dark); vertical-align: middle; }
+  .mtable td:first-child { width: 70px; color: var(--handle); font-family: var(--font-pixel); }
+  .mtable td:nth-child(2) { width: 120px; font-family: var(--font-mono); }
+  .lane-demo { position: relative; height: 18px; min-width: 120px; background: var(--field); box-shadow: var(--bevel-sunken); }
+  .lane-demo b { position: absolute; top: 4px; left: 4px; width: 10px; height: 10px; background: var(--pick); }
+  .bevels { display: flex; flex-wrap: wrap; gap: 10px; }
+  .bevels > div { width: 96px; height: 48px; display: flex; align-items: center; justify-content: center;
+    font-size: var(--fs-small); color: var(--text-dim); }
+  .app { min-width: 600px; }
+  .app .toolbar { margin-top: 2px; }
+  .app-strip { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px;
+    padding-top: 4px; border-bottom: 2px solid var(--row-hover); }
+  .counter { font: 12px var(--font-mono); padding: 2px 8px; }
+  .panelbox { padding: 12px; margin-top: 4px; min-height: 64px; background: var(--row-hover); }
+  .menu.static { position: relative; display: inline-flex; }
+  .ctx-zone { height: 90px; display: flex; align-items: center; justify-content: center;
+    color: var(--text-off); text-align: center; padding: 8px; }
+  .stage-wrap { overflow-x: auto; }
+  #stage { height: 300px; min-width: 560px; outline: none; }
+  #stage:focus-visible { box-shadow: var(--bevel-sunken), 0 0 0 1px var(--handle-dark); }
+  .piece { background: #c4455a; box-shadow: inset -2px -2px rgba(0, 0, 0, 0.25), inset 2px 2px rgba(255, 255, 255, 0.2);
+    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px;
+    transform-origin: 50% 50%; }
+  .piece.blue { background: #3d6fa8; }
+  .piece.paper { background: var(--paper); color: #333; }
+  .piece .handle { left: 50%; top: -20px; }
+  .piece .handle-stem { position: absolute; left: 50%; top: -16px; width: 1px; height: 16px;
+    background: var(--handle); pointer-events: none; }
+  .stage-hint { position: absolute; left: 8px; bottom: 6px; color: rgba(255, 255, 255, 0.55);
+    font-size: var(--fs-tiny); pointer-events: none; }
+  .hist { min-height: 120px; max-height: 180px; }
+  .hist .list-row { font-size: var(--fs-small); }
+  .list-demo { width: 100%; max-width: 320px; height: 176px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .docks { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; align-items: start; }
+  .insp-head { display: flex; align-items: center; gap: 6px; padding: 4px 2px 6px; font-weight: bold; }
+  .insp-head .dim { font-weight: normal; }
+  .why-demo { display: inline-flex; flex-direction: column; gap: 6px; }
+  footer { color: var(--text-off); font-size: var(--fs-small); margin-top: 24px; }
+  @media (max-width: 560px) {
+    .hero h1 { font-size: 22px; }
+    .mtable td:nth-child(2) { width: 90px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <h1>Snapper UI Kit</h1>
+    <p>Every shared control in every state, live. Dark Win98 bevels, sharp corners, Teto red for
+      picks and active things, yellow for anything you can drag. Hover, press, drag and break
+      things: each one answers on the same frame.</p>
+    <nav class="toc" aria-label="Sections">
+      <a href="#tokens">Tokens</a><a href="#window">Window</a><a href="#menus">Menus</a>
+      <a href="#tabs">Tabs</a><a href="#tools">Toolbar</a><a href="#buttons">Buttons</a>
+      <a href="#switches">Switches</a><a href="#combo">Combo</a><a href="#numbers">Numbers</a>
+      <a href="#slider">Slider</a><a href="#docks">Docks</a><a href="#lists">Lists</a>
+      <a href="#tips">Tips and why</a><a href="#toasts">Toasts</a><a href="#canvas">Canvas</a>
+      <a href="#dialog">Dialog</a>
+    </nav>
+  </header>
+
+  <div class="bar" role="toolbar" aria-label="Kit settings">
+    <span class="bar-label">Motion</span>
+    <span class="seg" role="group" aria-label="Motion">
+      <button data-kit-motion="full" data-tip="Full: pops, overshoot, bounces.">Full</button>
+      <button data-kit-motion="calm" data-tip="Calm: shorter, no overshoot.">Calm</button>
+      <button data-kit-motion="off" data-tip="Off: everything jumps straight to the end.">Off</button>
+    </span>
+    <button class="toggle" data-kit-sound aria-pressed="false" data-tip="Tiny clicks and ticks. Off by default.">
+      <span class="toggle-track"><span class="toggle-knob"></span></span>Sound
+    </button>
+    <span class="grow"></span>
+    <span class="row" style="flex-wrap: nowrap; gap: 6px">
+      <button class="btn small" id="undoBtn" data-key="Ctrl+Z">Undo</button>
+      <button class="btn small" id="redoBtn" data-key="Ctrl+Shift+Z">Redo</button>
+    </span>
+  </div>
+
+  <!-- Tokens -->
+  <section class="card" id="tokens">
+    <h2>Tokens <code>:root vars</code></h2>
+    <p class="note">Colors, bevels, fonts and the motion table. Every screen uses these vars, never raw values.</p>
+    <div class="swatches">
+      <div class="sw"><i style="background: var(--pick)"></i><div>Pick, active<code>--pick</code></div></div>
+      <div class="sw"><i style="background: var(--handle)"></i><div>Handle, drag<code>--handle</code></div></div>
+      <div class="sw"><i style="background: var(--face)"></i><div>Face<code>--face</code></div></div>
+      <div class="sw"><i style="background: var(--face-light)"></i><div>Light edge<code>--face-light</code></div></div>
+      <div class="sw"><i style="background: var(--face-dark)"></i><div>Dark edge<code>--face-dark</code></div></div>
+      <div class="sw"><i style="background: var(--field)"></i><div>Field<code>--field</code></div></div>
+      <div class="sw"><i style="background: var(--page)"></i><div>Page<code>--page</code></div></div>
+      <div class="sw"><i style="background: var(--stage)"></i><div>Stage<code>--stage</code></div></div>
+      <div class="sw"><i style="background: var(--text)"></i><div>Text<code>--text</code></div></div>
+      <div class="sw"><i style="background: var(--text-off)"></i><div>Text off<code>--text-off</code></div></div>
+      <div class="sw"><i style="background: var(--ok)"></i><div>Done<code>--ok</code></div></div>
+      <div class="sw"><i style="background: var(--info)"></i><div>Info<code>--info</code></div></div>
+    </div>
+
+    <h3 class="sub">Motion table</h3>
+    <p class="note">Click a row to play it. Pops use the overshoot curve (about 10 %); Calm drops the overshoot, Off drops all of it.</p>
+    <div class="scrollbox">
+      <table class="mtable" id="mtable">
+        <tr data-t="--t-press" data-e="--ease-out"><td>Press</td><td>80 ms, out</td><td><div class="lane-demo"><b></b></div></td></tr>
+        <tr data-t="--t-hover" data-e="--ease-out"><td>Hover</td><td>100 ms, out</td><td><div class="lane-demo"><b></b></div></td></tr>
+        <tr data-t="--t-pop" data-e="--ease-back"><td>Pop</td><td>150 ms, back</td><td><div class="lane-demo"><b></b></div></td></tr>
+        <tr data-t="--t-move" data-e="--ease-back"><td>Move</td><td>200 ms, back</td><td><div class="lane-demo"><b></b></div></td></tr>
+        <tr data-t="--t-max" data-e="--ease-out"><td>Max</td><td>300 ms, cap</td><td><div class="lane-demo"><b></b></div></td></tr>
+      </table>
+    </div>
+
+    <h3 class="sub">Bevels and type</h3>
+    <div class="bevels">
+      <div class="raised">raised</div>
+      <div class="sunken">sunken</div>
+      <div style="box-shadow: var(--bevel-pressed); background: var(--face)">pressed</div>
+      <div style="box-shadow: var(--bevel-thin); background: var(--face)">thin</div>
+      <div class="etched">etched</div>
+    </div>
+    <div class="row" style="margin-top: 10px">
+      <span class="pixel" style="font-size: 14px">Silkscreen for tabs and titles</span>
+      <span>Tahoma for everything you read</span>
+      <span class="mono">Mono for numbers 12.5</span>
+    </div>
+  </section>
+
+  <!-- Window -->
+  <section class="card" id="window">
+    <h2>Window and title bar <code>.win .win-title .win-btn</code></h2>
+    <p class="note">The main window with its menu bar, tabs, transport and toolbar. The white dot means unsaved changes. Wide mocks scroll in their own box.</p>
+    <div class="scrollbox">
+      <div class="win app">
+        <div class="win-title">
+          <span class="win-title-text"><span class="win-dirty" data-tip="Unsaved changes"></span>Snapper - teto_song.snap</span>
+          <span class="win-btns">
+            <button class="win-btn min" aria-label="Minimize" data-tip="Minimize"></button>
+            <button class="win-btn max" aria-label="Maximize" data-tip="Maximize"></button>
+            <button class="win-btn close" aria-label="Close" data-tip="Close"></button>
+          </span>
+        </div>
+        <div class="menubar" role="menubar">
+          <div class="menubar-slot">
+            <button class="menubar-item" aria-haspopup="true" aria-expanded="false">File</button>
+            <div class="menu" role="menu" hidden>
+              <button class="menu-item" role="menuitem"><span>New</span><kbd class="menu-key">Ctrl+N</kbd></button>
+              <button class="menu-item" role="menuitem"><span>Open...</span><kbd class="menu-key">Ctrl+O</kbd></button>
+              <button class="menu-item" role="menuitem" aria-disabled="true" data-why="No recent files yet."><span>Open recent</span></button>
+              <div class="menu-sep"></div>
+              <button class="menu-item" role="menuitem" data-action="save"><span>Save</span><kbd class="menu-key">Ctrl+S</kbd></button>
+              <button class="menu-item" role="menuitem"><span>Save as...</span><kbd class="menu-key">Ctrl+Shift+S</kbd></button>
+              <div class="menu-sep"></div>
+              <button class="menu-item" role="menuitem"><span>Choose song...</span></button>
+              <button class="menu-item" role="menuitem" aria-disabled="true" data-why="There is no song yet."><span>Remove song</span></button>
+              <div class="menu-sep"></div>
+              <button class="menu-item" role="menuitem" data-action="export"><span>Export...</span><kbd class="menu-key">Ctrl+E</kbd></button>
+              <button class="menu-item" role="menuitem"><span>Quit</span><kbd class="menu-key">Ctrl+Q</kbd></button>
+            </div>
+          </div>
+          <div class="menubar-slot">
+            <button class="menubar-item" aria-haspopup="true" aria-expanded="false">Edit</button>
+            <div class="menu" role="menu" hidden>
+              <button class="menu-item" role="menuitem" data-action="undo"><span>Undo</span><kbd class="menu-key">Ctrl+Z</kbd></button>
+              <button class="menu-item" role="menuitem" data-action="redo"><span>Redo</span><kbd class="menu-key">Ctrl+Shift+Z</kbd></button>
+              <div class="menu-sep"></div>
+              <button class="menu-item" role="menuitem" aria-checked="true"><span>Snap to guides</span></button>
+              <button class="menu-item" role="menuitem" aria-checked="false"><span>Show grab zones</span></button>
+            </div>
+          </div>
+          <div class="menubar-slot">
+            <button class="menubar-item" aria-haspopup="true" aria-expanded="false">Play</button>
+            <div class="menu" role="menu" hidden>
+              <button class="menu-item" role="menuitem"><span>Play / pause</span><kbd class="menu-key">Space</kbd></button>
+              <button class="menu-item" role="menuitem"><span>Next frame</span><kbd class="menu-key">Right</kbd></button>
+              <button class="menu-item" role="menuitem"><span>Previous frame</span><kbd class="menu-key">Left</kbd></button>
+            </div>
+          </div>
+        </div>
+        <div class="app-strip">
+          <div class="tabs" role="tablist" aria-label="Mode">
+            <button class="tab" role="tab" aria-selected="true" aria-controls="p-pose">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="3" r="2"/><path d="M8 5v6M4 8h8M8 11l-3 4M8 11l3 4"/></svg>Pose</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="p-rig" tabindex="-1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="3" cy="13" r="2"/><circle cx="13" cy="3" r="2"/><path d="M4.5 11.5l7-7"/></svg>Rig</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="p-video" tabindex="-1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="14" height="10"/><path d="M4 3v10M12 3v10"/></svg>Video</button>
+          </div>
+          <div class="row" style="padding-bottom: 3px">
+            <button class="tool" aria-label="First frame" data-tip="First frame" data-key="Home">|&lt;</button>
+            <button class="tool" aria-label="Previous frame" data-tip="Previous frame" data-key="Left">&lt;</button>
+            <button class="tool" id="playBtn" aria-label="Play" data-tip="Play" data-key="Space">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6z"/></svg></button>
+            <button class="tool" aria-label="Next frame" data-tip="Next frame" data-key="Right">&gt;</button>
+            <button class="tool" aria-label="Last frame" data-tip="Last frame" data-key="End">&gt;|</button>
+            <span class="counter sunken" id="counter">F 024</span>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button class="tool" aria-pressed="true" data-group="mode" data-tip="Move" data-key="V">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 1v14M1 8h14M8 1L6 3M8 1l2 2M8 15l-2-2M8 15l2-2M1 8l2-2M1 8l2 2M15 8l-2-2M15 8l-2 2"/></svg></button>
+          <button class="tool" aria-pressed="false" data-group="mode" data-tip="Turn" data-key="R">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 8a5 5 0 1 1-2-4M11 1v3h3"/></svg></button>
+          <button class="tool" aria-pressed="false" data-group="mode" data-tip="Scale" data-key="S">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="6" width="8" height="8"/><path d="M8 2h6v6M14 2l-6 6"/></svg></button>
+          <span class="tool-sep"></span>
+          <button class="tool" aria-pressed="false" data-tip="Onion skin" data-key="O">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="8" r="4"/><circle cx="10" cy="8" r="4" opacity="0.5"/></svg></button>
+          <button class="tool" aria-disabled="true" data-why="Pick a doll on the stage first." aria-label="Flip">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 1v14M6 4L2 12h4zM10 4l4 8h-4z"/></svg></button>
+        </div>
+        <div id="p-pose" class="tab-panel panelbox sunken" role="tabpanel">Pose stage goes here. Arrow keys switch tabs too.</div>
+        <div id="p-rig" class="tab-panel panelbox sunken" role="tabpanel" hidden>Rig canvas goes here.</div>
+        <div id="p-video" class="tab-panel panelbox sunken" role="tabpanel" hidden>Video editor goes here.</div>
+      </div>
+    </div>
+    <div class="states" style="margin-top: 14px">
+      <div class="state"><small>Inactive</small>
+        <div class="win is-inactive" style="width: 220px"><div class="win-title"><span class="win-title-text">Inspector</span>
+          <span class="win-btns"><button class="win-btn close" aria-label="Close"></button></span></div>
+          <div class="win-body dim">Behind another window.</div></div></div>
+      <div class="state"><small>Not saved yet</small>
+        <div class="win" style="width: 220px"><div class="win-title"><span class="win-title-text">Snapper - <span style="opacity: .7">not saved yet</span></span>
+          <span class="win-btns"><button class="win-btn close" aria-label="Close"></button></span></div>
+          <div class="win-body dim">A new project.</div></div></div>
+      <div class="state"><small>Title buttons</small>
+        <div class="row"><button class="win-btn min" aria-label="Minimize"></button>
+          <button class="win-btn max is-hover" aria-label="Maximize"></button>
+          <button class="win-btn close is-down" aria-label="Close"></button></div>
+        <span class="dim" style="font-size: 10px">normal, hover, pressed</span></div>
+    </div>
+  </section>
+
+  <!-- Menus -->
+  <section class="card" id="menus">
+    <h2>Menus and context menu <code>.menubar .menu .menu-item</code></h2>
+    <p class="note">The menus in the window above are live: click File, then slide across to Edit. Arrow keys and Escape work. Greyed entries still show why.</p>
+    <div class="states">
+      <div class="state"><small>Every item state</small>
+        <div class="menu static" role="menu">
+          <div class="menu-head">Key</div>
+          <button class="menu-item" role="menuitem"><span>Normal</span><kbd class="menu-key">Ctrl+C</kbd></button>
+          <button class="menu-item is-hover" role="menuitem"><span>Hover</span><kbd class="menu-key">Ctrl+V</kbd></button>
+          <button class="menu-item" role="menuitem" aria-checked="true"><span>Checked</span></button>
+          <button class="menu-item has-sub" role="menuitem"><span>Ease</span></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" aria-disabled="true" data-why="Pick two keys to space them."><span>Space evenly</span></button>
+        </div></div>
+      <div class="state live" style="flex: 1; min-width: 220px"><small>Live: right click</small>
+        <div class="ctx-zone sunken" id="ctxZone" tabindex="0">Right click (or long press, or Shift+F10) here for a key menu.</div></div>
+    </div>
+  </section>
+
+  <!-- Tabs -->
+  <section class="card" id="tabs">
+    <h2>Mode tabs <code>.tabs .tab .tabs-bar</code></h2>
+    <p class="note">Chunky pixel tabs. The red bar slides under the active one (200 ms, back ease); the page fades in.</p>
+    <div class="states">
+      <div class="state"><small>States</small>
+        <div class="tabs" style="pointer-events: none">
+          <span class="tab">Normal</span><span class="tab is-hover">Hover</span><span class="tab is-down">Pressed</span>
+          <span class="tab" aria-selected="true">Active</span>
+          <span class="tab" aria-disabled="true">Off</span>
+        </div></div>
+      <div class="state live"><small>Live</small>
+        <div class="tabs" role="tablist" aria-label="Demo tabs">
+          <button class="tab" role="tab" aria-selected="true">Shots</button>
+          <button class="tab" role="tab" aria-selected="false" tabindex="-1">Clips</button>
+          <button class="tab" role="tab" aria-selected="false" tabindex="-1">Library</button>
+          <button class="tab" role="tab" aria-selected="false" tabindex="-1" aria-disabled="true" data-why="Choose a song first.">Song</button>
+        </div></div>
+    </div>
+  </section>
+
+  <!-- Toolbar -->
+  <section class="card" id="tools">
+    <h2>Toolbar buttons <code>.toolbar .tool</code></h2>
+    <p class="note">Flat until hovered, then a thin bevel and a 1 px lift. Latched tools sink and get a red underline. Tools in one group act like radio buttons.</p>
+    <div class="states">
+      <div class="state"><small>Normal</small><button class="tool" aria-label="Turn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 8a5 5 0 1 1-2-4M11 1v3h3"/></svg></button></div>
+      <div class="state"><small>Hover</small><button class="tool is-hover" aria-label="Turn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 8a5 5 0 1 1-2-4M11 1v3h3"/></svg></button></div>
+      <div class="state"><small>Pressed</small><button class="tool is-down" aria-label="Turn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 8a5 5 0 1 1-2-4M11 1v3h3"/></svg></button></div>
+      <div class="state"><small>On</small><button class="tool is-picked" aria-label="Turn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 8a5 5 0 1 1-2-4M11 1v3h3"/></svg></button></div>
+      <div class="state"><small>Off, why</small><button class="tool" aria-disabled="true" data-why="Nothing picked to turn." aria-label="Turn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 8a5 5 0 1 1-2-4M11 1v3h3"/></svg></button></div>
+      <div class="state live"><small>Live group</small>
+        <div class="toolbar raised">
+          <button class="tool" aria-pressed="true" data-group="demo" data-tip="Step" data-key="1">Step</button>
+          <button class="tool" aria-pressed="false" data-group="demo" data-tip="Ease" data-key="2">Ease</button>
+          <button class="tool" aria-pressed="false" data-group="demo" data-tip="Line" data-key="3">Line</button>
+          <span class="tool-sep"></span>
+          <button class="tool" aria-pressed="false" data-tip="Loop the shot">Loop</button>
+        </div></div>
+    </div>
+  </section>
+
+  <!-- Buttons -->
+  <section class="card" id="buttons">
+    <h2>Push buttons <code>.btn .btn.primary .btn.small</code></h2>
+    <p class="note">Hover lifts 1 px and brightens. Press sinks 1 px and squashes 4 %, always for at least one frame, then springs back with overshoot.</p>
+    <div class="states">
+      <div class="state"><small>Normal</small><button class="btn">Apply</button></div>
+      <div class="state"><small>Hover</small><button class="btn is-hover">Apply</button></div>
+      <div class="state"><small>Pressed</small><button class="btn is-down">Apply</button></div>
+      <div class="state"><small>Picked</small><button class="btn is-picked">On 2s</button></div>
+      <div class="state"><small>Default</small><button class="btn primary">Save</button></div>
+      <div class="state"><small>Off, why</small><button class="btn" aria-disabled="true" data-why="Pick a doll on the stage first.">Copy to other side</button></div>
+      <div class="state"><small>Error</small><button class="btn k-shake" id="errBtn" style="animation-iteration-count: infinite; animation-duration: 900ms">Export</button></div>
+    </div>
+    <div class="states">
+      <div class="state live"><small>Live</small>
+        <div class="row">
+          <button class="btn primary" id="poseBtn">Pose at playhead</button>
+          <button class="btn" id="exportBtn">Export</button>
+          <button class="btn small">Small</button>
+          <button class="btn" aria-disabled="true" data-why="Pick a doll on the stage first.">Copy to other side</button>
+        </div></div>
+    </div>
+  </section>
+
+  <!-- Switches -->
+  <section class="card" id="switches">
+    <h2>Toggle, segmented, checkbox, radio <code>.toggle .seg .check</code></h2>
+    <p class="note">Knobs slide with overshoot; ticks pop in. The red track means on.</p>
+    <div class="states">
+      <div class="state"><small>Toggle off</small><button class="toggle" aria-pressed="false"><span class="toggle-track"><span class="toggle-knob"></span></span>Loop</button></div>
+      <div class="state"><small>Hover</small><button class="toggle is-hover" aria-pressed="false"><span class="toggle-track"><span class="toggle-knob"></span></span>Loop</button></div>
+      <div class="state"><small>Pressed</small><button class="toggle is-down" aria-pressed="false"><span class="toggle-track"><span class="toggle-knob"></span></span>Loop</button></div>
+      <div class="state"><small>On</small><button class="toggle" aria-pressed="true"><span class="toggle-track"><span class="toggle-knob"></span></span>Loop</button></div>
+      <div class="state"><small>Off, why</small><button class="toggle" aria-pressed="false" aria-disabled="true" data-why="This shot has no song to loop."><span class="toggle-track"><span class="toggle-knob"></span></span>Loop</button></div>
+    </div>
+    <div class="states">
+      <div class="state"><small>Segmented</small>
+        <span class="seg" role="group" aria-label="Timing"><button aria-pressed="false">On 1s</button><button aria-pressed="true">On 2s</button><button aria-pressed="false">On 3s</button></span></div>
+      <div class="state"><small>Checkboxes</small>
+        <div class="col">
+          <label class="check"><input type="checkbox"><span class="check-box"></span>Normal</label>
+          <label class="check is-hover"><input type="checkbox"><span class="check-box"></span>Hover</label>
+          <label class="check"><input type="checkbox" checked><span class="check-box"></span>Ticked</label>
+          <label class="check"><input type="checkbox" id="mixedCheck"><span class="check-box"></span>Mixed</label>
+          <label class="check" aria-disabled="true" data-why="Warp needs a picked piece."><input type="checkbox" tabindex="-1"><span class="check-box"></span>Warp grid</label>
+        </div></div>
+      <div class="state"><small>Radio</small>
+        <div class="col">
+          <label class="check radio"><input type="radio" name="side" checked><span class="check-box"></span>Left side</label>
+          <label class="check radio"><input type="radio" name="side"><span class="check-box"></span>Right side</label>
+          <label class="check radio" aria-disabled="true" data-why="This doll has no middle pieces."><input type="radio" name="side" tabindex="-1"><span class="check-box"></span>Middle</label>
+        </div></div>
+    </div>
+  </section>
+
+  <!-- Combo -->
+  <section class="card" id="combo">
+    <h2>Combo <code>.combo .combo-btn .menu</code></h2>
+    <p class="note">Click to open, or focus it and press Up / Down to step through without opening.</p>
+    <div class="states">
+      <div class="state"><small>Normal</small>
+        <div class="combo"><button class="combo-btn"><span class="combo-value">Ease</span><span class="combo-arrow"></span></button></div></div>
+      <div class="state"><small>Hover</small>
+        <div class="combo is-hover"><button class="combo-btn"><span class="combo-value">Ease</span><span class="combo-arrow"></span></button></div></div>
+      <div class="state"><small>Off, why</small>
+        <div class="combo" aria-disabled="true" data-why="Pick a key first."><button class="combo-btn" tabindex="-1"><span class="combo-value">Ease</span><span class="combo-arrow"></span></button></div></div>
+      <div class="state"><small>Error</small>
+        <div class="combo is-error"><button class="combo-btn"><span class="combo-value">(missing)</span><span class="combo-arrow"></span></button></div></div>
+      <div class="state live"><small>Live</small>
+        <div class="combo" data-value="ease" id="easeCombo">
+          <button class="combo-btn" aria-haspopup="listbox" aria-expanded="false"><span class="combo-value">Ease</span><span class="combo-arrow"></span></button>
+          <div class="menu" role="listbox" hidden>
+            <button class="menu-item" role="option" data-value="step" aria-checked="false"><span>Step</span></button>
+            <button class="menu-item" role="option" data-value="ease" aria-checked="true"><span>Ease</span></button>
+            <button class="menu-item" role="option" data-value="line" aria-checked="false"><span>Line</span></button>
+            <button class="menu-item" role="option" data-value="bounce" aria-disabled="true" data-why="Bounce needs three keys or more."><span>Bounce</span></button>
+          </div>
+        </div></div>
+    </div>
+  </section>
+
+  <!-- Numbers -->
+  <section class="card" id="numbers">
+    <h2>Number fields <code>.num .num-label .num-input</code></h2>
+    <p class="note">Drag a <b>label</b> left or right: 4 px dead zone, then 1 per px; <kbd>Shift</kbd> x10, <kbd>Alt</kbd> (or <kbd>Ctrl</kbd>) x0.1; <kbd>Escape</kbd> puts it back. Or click the field and type a sum:
+      <code>12*2</code>, <code>90/2</code>; a leading <code>*2</code> or <code>+15</code> works on the current value. <kbd>Up</kbd> / <kbd>Down</kbd> nudge. Each change is one undo step.</p>
+    <div class="states">
+      <div class="state"><small>Normal</small><span class="num" data-value="34" data-unit="deg"><span class="num-label">Turn</span><input class="num-input" aria-label="Turn"><span class="num-unit">deg</span></span></div>
+      <div class="state"><small>Hover label</small><span class="num is-hover" data-value="34"><span class="num-label">Turn</span><input class="num-input" aria-label="Turn"><span class="num-unit">deg</span></span></div>
+      <div class="state"><small>Scrubbing</small><span class="num is-scrubbing" data-value="41"><span class="num-label">Turn</span><input class="num-input" aria-label="Turn"><span class="num-unit">deg</span></span></div>
+      <div class="state"><small>Mixed</small><span class="num" data-mixed data-value="0"><span class="num-label">Turn</span><input class="num-input" aria-label="Turn"><span class="num-unit">deg</span></span></div>
+      <div class="state"><small>Off, why</small><span class="num" aria-disabled="true" data-why="Turn needs a picked piece." data-value="0"><span class="num-label">Turn</span><input class="num-input" aria-label="Turn"><span class="num-unit">deg</span></span></div>
+      <div class="state"><small>Error</small><span class="num is-error" data-value="0"><span class="num-label">Turn</span><input class="num-input" aria-label="Turn" value="12**"><span class="num-unit">deg</span></span></div>
+    </div>
+    <div class="states" id="liveNums">
+      <div class="state live"><small>Live</small>
+        <div class="group-grid">
+          <span class="num" data-name="Turn" data-value="34" data-min="-180" data-max="180" data-wrap data-unit="deg"><span class="num-label">Turn</span><input class="num-input" aria-label="Turn in degrees"><span class="num-unit">deg</span></span>
+          <svg id="dial" width="28" height="28" viewBox="-14 -14 28 28" aria-hidden="true"><circle r="12" fill="#1c1c1f" stroke="#5c5c62"/><line id="needle" x1="0" y1="0" x2="11" y2="0" stroke="#d8304f" stroke-width="3"/></svg>
+          <span class="num" data-name="Move x" data-value="12" data-unit="px"><span class="num-label">Move x</span><input class="num-input" aria-label="Move x"><span class="num-unit">px</span></span><span></span>
+          <span class="num" data-name="Scale" data-value="1" data-step="0.01" data-min="0.05" data-max="10" data-unit="x"><span class="num-label">Scale</span><input class="num-input" aria-label="Scale"><span class="num-unit">x</span></span><span></span>
+          <span class="num" data-name="Frames" data-value="24" data-min="1" data-max="240" data-unit="f"><span class="num-label">Frames</span><input class="num-input" aria-label="Frames"><span class="num-unit">f</span></span><span></span>
+        </div></div>
+    </div>
+  </section>
+
+  <!-- Slider -->
+  <section class="card" id="slider">
+    <h2>Slider <code>.slider</code></h2>
+    <p class="note">Red fill is the amount, the yellow thumb is the handle. Click the track to jump; drag for a chip; it catches on ticks within 6 px (tick flashes, thumb settles). Hold <kbd>Alt</kbd> to move free. Arrows step, <kbd>Shift</kbd> x10.</p>
+    <div class="states">
+      <div class="state live"><small>Live, snaps 0, 50, 100</small>
+        <div class="row"><span class="dim">Bounce</span><div class="slider" id="bounceSlider" data-name="Bounce" data-min="0" data-max="100" data-value="30" data-unit="%" data-snaps="0,50,100" aria-label="Bounce"></div><span class="mono" id="bounceOut">30 %</span></div></div>
+      <div class="state"><small>Hover</small><div class="slider is-hover" data-value="60" aria-label="Demo"></div></div>
+      <div class="state"><small>Dragging</small><div class="slider is-down" data-value="75" aria-label="Demo"></div></div>
+      <div class="state"><small>Off, why</small><div class="slider" aria-disabled="true" data-why="Lag needs a drag node." data-value="20" aria-label="Lag"></div></div>
+    </div>
+  </section>
+
+  <!-- Docks -->
+  <section class="card" id="docks">
+    <h2>Docks and group boxes <code>.dock .dock-head .group</code></h2>
+    <p class="note">Click a dock title to fold it (150 ms). The fold state is remembered across reloads.</p>
+    <div class="docks">
+      <div class="dock" data-dock-id="inspector">
+        <div class="dock-head"><button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title">Inspector</span></button>
+          <button class="win-btn close" aria-label="Close dock" data-tip="Close. Bring it back from the View menu."></button></div>
+        <div class="dock-body"><div class="dock-inner"><div class="dock-pad">
+          <div class="insp-head"><span class="dot" style="background: var(--pick)"></span>Head <span class="dim">frame 24</span></div>
+          <fieldset class="group"><legend>Transform</legend>
+            <div class="group-grid">
+              <span class="num" data-name="Turn" data-value="0" data-min="-180" data-max="180" data-wrap data-unit="deg"><span class="num-label">Turn</span><input class="num-input" aria-label="Turn"><span class="num-unit">deg</span></span><span></span>
+              <span class="num" data-name="Lean" data-value="5" data-unit="deg"><span class="num-label">Lean</span><input class="num-input" aria-label="Lean"><span class="num-unit">deg</span></span><span></span>
+            </div></fieldset>
+          <fieldset class="group"><legend>Motion</legend>
+            <div class="col">
+              <label class="check"><input type="checkbox" checked><span class="check-box"></span>Follow the leader</label>
+              <div class="row"><span class="dim">Ease</span>
+                <div class="combo" style="min-width: 110px"><button class="combo-btn"><span class="combo-value">Step</span><span class="combo-arrow"></span></button>
+                  <div class="menu" role="listbox" hidden>
+                    <button class="menu-item" role="option" aria-checked="true"><span>Step</span></button>
+                    <button class="menu-item" role="option" aria-checked="false"><span>Ease</span></button>
+                    <button class="menu-item" role="option" aria-checked="false"><span>Line</span></button>
+                  </div></div></div>
+            </div></fieldset>
+        </div></div></div>
+      </div>
+      <div class="dock is-collapsed" data-dock-id="cast">
+        <div class="dock-head"><button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title">Cast (folded)</span></button></div>
+        <div class="dock-body"><div class="dock-inner"><div class="dock-pad">
+          <p class="dim" style="margin: 0">Teto, Miku and the camera live here.</p>
+        </div></div></div>
+      </div>
+      <div class="dock">
+        <div class="dock-head"><button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title">History (undo stack)</span></button></div>
+        <div class="dock-body"><div class="dock-inner"><div class="dock-pad">
+          <div class="list hist" id="hist" role="list"></div>
+        </div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lists -->
+  <section class="card" id="lists">
+    <h2>List rows <code>.list .list-row</code></h2>
+    <p class="note">Hover lightens; a pick gets the red bar. Click picks, <kbd>Shift</kbd> or <kbd>Ctrl</kbd> adds, <kbd>Delete</kbd> puffs them out with an Undo toast.</p>
+    <div class="split">
+      <div class="state"><small>States</small>
+        <div class="list" style="width: 100%">
+          <div class="list-row"><span class="dot" style="background: #c4455a"></span>Normal</div>
+          <div class="list-row is-hover"><span class="dot" style="background: #c4455a"></span>Hover</div>
+          <div class="list-row is-picked"><span class="dot" style="background: #c4455a"></span>Picked<span class="row-meta">frame 24</span></div>
+          <div class="list-row is-picked is-focus"><span class="dot" style="background: #c4455a"></span>Picked, focused</div>
+          <div class="list-row" aria-disabled="true" data-why="This doll's art is missing."><span class="dot" style="background: var(--text-off)"></span>Off, why</div>
+          <div class="list-row is-error"><span class="dot" style="background: var(--pick)"></span>Error<span class="row-meta">(art missing)</span></div>
+        </div></div>
+      <div class="state live"><small>Live</small>
+        <div class="list list-demo" id="castList" tabindex="0" role="listbox" aria-multiselectable="true" aria-label="Cast"></div></div>
+    </div>
+  </section>
+
+  <!-- Tips -->
+  <section class="card" id="tips">
+    <h2>Tooltips, disabled and errors <code>.tip .why .k-shake</code></h2>
+    <p class="note">Tooltips wait 450 ms, then show at once while you glide between controls. A greyed control keeps its tooltip, which says why. Clicking it anyway shakes it 4 px for 200 ms and puts the reason right next to it.</p>
+    <div class="states">
+      <div class="state"><small>Tooltip</small><div class="tip is-static">Play <span class="tip-key">Space</span></div></div>
+      <div class="state"><small>Why</small><div class="why is-static">Pick a doll on the stage first.</div></div>
+      <div class="state live"><small>Live: hover these</small>
+        <div class="row">
+          <button class="btn" data-tip="Key the picked pieces here" data-key="K">Key</button>
+          <button class="btn" data-tip="Copy the picked keys" data-key="Ctrl+C">Copy</button>
+          <button class="btn" aria-disabled="true" data-why="Copy a key first.">Paste</button>
+        </div></div>
+      <div class="state live"><small>Live: blocked</small>
+        <div class="why-demo">
+          <button class="btn" id="spaceBtn">Space evenly</button>
+          <span class="dim" style="font-size: 10px">Looks enabled, but refuses: Kit.shake(el, why)</span>
+        </div></div>
+    </div>
+  </section>
+
+  <!-- Toasts -->
+  <section class="card" id="toasts">
+    <h2>Toasts with Undo <code>Kit.toast(msg, undoFn, opts)</code></h2>
+    <p class="note">Rise from the bottom edge, last 4 s, pause while hovered, at most 4 stacked. Undo runs the step back and says so.</p>
+    <div class="states">
+      <div class="state"><small>Static</small>
+        <div class="toast" style="animation: none; position: relative"><span class="toast-msg">Deleted 3 keys</span><button class="btn small">Undo</button><button class="btn small toast-x" aria-label="Close">x</button><div class="toast-time" style="scale: 0.6 1"></div></div></div>
+      <div class="state live"><small>Live</small>
+        <div class="row">
+          <button class="btn" id="tInfo">Info</button>
+          <button class="btn" id="tUndo">With Undo</button>
+          <button class="btn" id="tDone">Done</button>
+          <button class="btn" id="tErr">Error</button>
+        </div></div>
+    </div>
+  </section>
+
+  <!-- Canvas -->
+  <section class="card" id="canvas">
+    <h2>Canvas: hover, drag, snap, chip <code>Kit.drag Kit.snapper Kit.hoverOutline</code></h2>
+    <p class="note">Hover a piece: dashed outline. Click picks it (red), <kbd>Shift</kbd> adds. Drag: nothing moves until 4 px, then it jumps to the cursor, a ghost holds the start and a chip says how far. Centres and edges catch within 6 px (red guide flashes, the piece settles with a 2 px bounce). <kbd>Shift</kbd> locks the axis. The yellow handle turns it; <kbd>Shift</kbd> snaps 15 deg. <kbd>Escape</kbd> mid-drag snaps back. Double-click empty space adds a piece; <kbd>Delete</kbd> removes; arrows nudge 1 px, <kbd>Shift</kbd> 10.</p>
+    <div class="row" style="margin-bottom: 8px">
+      <label class="check"><input type="checkbox" id="grabZones"><span class="check-box"></span>Show grab zones</label>
+    </div>
+    <div class="stage-wrap">
+      <div class="stage" id="stage" tabindex="0" aria-label="Demo stage">
+        <div class="snap-guide is-v" id="guideV"></div>
+        <div class="snap-guide is-h" id="guideH"></div>
+        <div class="stage-hint">Double-click to add a piece</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dialog -->
+  <section class="card" id="dialog">
+    <h2>Dialog <code>.dialog</code> on a native dialog</h2>
+    <p class="note">Pops in from 94 %, red default button, Escape cancels, Enter takes the default.</p>
+    <div class="row"><button class="btn" data-open-dialog="unsaved">Close project...</button></div>
+    <dialog class="dialog" id="unsaved" aria-labelledby="unsavedTitle">
+      <div class="win-title"><span class="win-title-text" id="unsavedTitle">Unsaved changes</span>
+        <span class="win-btns"><button class="win-btn close" aria-label="Cancel" data-close="cancel"></button></span></div>
+      <div class="dialog-body"><div class="dialog-icon is-ask">?</div>
+        <div><p style="margin: 0 0 4px"><b>Save teto_song.snap before closing?</b></p>
+          <p class="dim" style="margin: 0">You changed 12 things since the last save.</p></div></div>
+      <div class="dialog-btns">
+        <button class="btn primary" data-close="save" autofocus>Save</button>
+        <button class="btn" data-close="discard">Don't save</button>
+        <button class="btn" data-close="cancel">Cancel</button>
+      </div>
+    </dialog>
+  </section>
+
+  <footer>Kit files: kit.css (tokens and controls), kit.js (window.Kit helpers). Screens link both and add only their own layout.</footer>
+</main>
+
+<script src="kit.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const undo = new Kit.UndoStack(100);
+  undo.bindButtons($("#undoBtn"), $("#redoBtn"));
+  undo.bindKeys(document);
+
+  /* History list mirrors the undo stack. */
+  undo.onChange((kind, st) => {
+    const box = $("#hist");
+    box.textContent = "";
+    const rows = st.done.slice(-8).reverse();
+    if (!rows.length) {
+      const r = document.createElement("div");
+      r.className = "list-row dim";
+      r.textContent = "Nothing done yet.";
+      box.appendChild(r);
+    }
+    rows.forEach((step, i) => {
+      const r = document.createElement("div");
+      r.className = "list-row" + (i === 0 ? " is-picked" : "");
+      r.textContent = step.name;
+      box.appendChild(r);
+      if (i === 0 && kind === "push") Kit.pop(r, 1.1);
+    });
+  });
+
+  /* Menus wired to the stack. */
+  document.addEventListener("kit:menu", (e) => {
+    const a = e.detail.action;
+    if (a === "undo") undo.undo();
+    else if (a === "redo") undo.redo();
+    else if (a === "save") Kit.toast("Saved teto_song.snap", null, { kind: "done" });
+    else if (a === "export") Kit.toast("Export needs a shot in the reel.", null, { kind: "error" });
+  });
+
+  /* Motion table rows. */
+  $("#mtable").addEventListener("click", (e) => {
+    const tr = e.target.closest("tr");
+    if (!tr) return;
+    const b = tr.querySelector("b");
+    const lane = tr.querySelector(".lane-demo");
+    const far = lane.clientWidth - 18;
+    const is_out = b.dataset.out === "1";
+    b.style.transition = "left var(" + tr.dataset.t + ") var(" + tr.dataset.e + ")";
+    b.style.left = (is_out ? 4 : far) + "px";
+    b.dataset.out = is_out ? "0" : "1";
+  });
+
+  /* Transport: play toggles, frame counter bumps. */
+  let frame = 24;
+  let playing = 0;
+  $("#playBtn").addEventListener("click", () => {
+    const btn = $("#playBtn");
+    const was = playing;
+    if (was) { window.clearInterval(playing); playing = 0; }
+    else playing = window.setInterval(() => {
+      frame = frame >= 48 ? 1 : frame + 1;
+      const c = $("#counter");
+      c.textContent = "F " + String(frame).padStart(3, "0");
+      Kit.pop(c, 1.08);
+    }, 125);
+    btn.classList.toggle("is-picked", !was);
+    btn.dataset.tip = was ? "Play" : "Pause";
+  });
+
+  /* Buttons. */
+  $("#poseBtn").addEventListener("click", () => {
+    undo.push("Pose at playhead", () => {}, () => {});
+    Kit.toast("Posed Teto at frame 24", () => undo.undo());
+  });
+  $("#exportBtn").addEventListener("click", (e) => Kit.shake(e.currentTarget, "Add a shot to the reel first."));
+  $("#errBtn").addEventListener("click", (e) => Kit.shake(e.currentTarget, "Add a shot to the reel first."));
+  $("#spaceBtn").addEventListener("click", (e) => Kit.shake(e.currentTarget, "Pick two keys to space them."));
+  $("#mixedCheck").indeterminate = true;
+  document.addEventListener("DOMContentLoaded", () => {
+    document.querySelector(".num.is-error .num-input").value = "12**";
+  });
+
+  /* Toast demos. */
+  $("#tInfo").addEventListener("click", () => Kit.toast("Recovered unsaved work"));
+  $("#tUndo").addEventListener("click", () => {
+    undo.push("Delete 3 keys", () => {}, () => {});
+    Kit.toast("Deleted 3 keys", () => undo.undo());
+  });
+  $("#tDone").addEventListener("click", () => Kit.toast("Saved teto_song.mp4", null, { kind: "done" }));
+  $("#tErr").addEventListener("click", () => Kit.toast("Autosave failed: the disk is full.", null, { kind: "error", ms: 6000 }));
+
+  /* Context menu. */
+  const ctxZone = $("#ctxZone");
+  const openCtx = (x, y) => Kit.contextMenu(x, y, [
+    { head: "Key at frame 24" },
+    { label: "Step", checked: true, run: () => Kit.toast("Ease set to Step") },
+    { label: "Ease", checked: false, run: () => Kit.toast("Ease set to Ease") },
+    { sep: true },
+    { label: "Copy", key: "Ctrl+C", run: () => Kit.toast("Copied 1 key") },
+    { label: "Paste here", key: "Ctrl+V", why: "Copy a key first." },
+    { label: "Space evenly", why: "Pick two keys to space them." },
+    { sep: true },
+    { label: "Delete", key: "Del", run: () => {
+      undo.push("Delete key", () => {}, () => {});
+      Kit.toast("Deleted 1 key", () => undo.undo());
+    } }
+  ]);
+  ctxZone.addEventListener("contextmenu", (e) => { e.preventDefault(); openCtx(e.clientX, e.clientY); });
+  ctxZone.addEventListener("keydown", (e) => {
+    const is_menu_key = e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey);
+    if (!is_menu_key) return;
+    e.preventDefault();
+    const r = ctxZone.getBoundingClientRect();
+    const m = openCtx(r.left + 20, r.top + 20);
+    Kit.menus.step(m, 1);
+  });
+
+  /* Numbers: every commit is one undo step; Turn drives the dial. */
+  const needle = () => {
+    const turn = document.querySelector('#liveNums .num[data-name="Turn"]');
+    $("#needle").setAttribute("transform", "rotate(" + Kit.num.value(turn) + ")");
+  };
+  document.addEventListener("kit:change", (e) => {
+    const in_live = e.target.closest && e.target.closest("#liveNums");
+    if (in_live) needle();
+    if (e.target.id === "bounceSlider") $("#bounceOut").textContent = e.detail.value + " %";
+  });
+  document.addEventListener("kit:commit", (e) => {
+    const el = e.target;
+    const d = e.detail;
+    const is_slider = el.classList.contains("slider");
+    const setTo = (v) => {
+      if (is_slider) Kit.slider.set(el, v, false);
+      else Kit.num.set(el, v, false);
+      Kit.flash(is_slider ? el.querySelector(".slider-thumb") : el.querySelector(".num-input"));
+      needle();
+    };
+    undo.push(String(d.name).trim(), () => setTo(d.from), () => setTo(d.to));
+  });
+  needle();
+
+  /* Cast list. */
+  const cast = $("#castList");
+  const people = [["Teto", "#c4455a"], ["Miku", "#3fb6a8"], ["Neru", "#e0b93a"],
+    ["Rin", "#e6a24a"], ["Len", "#d6c25a"], ["Camera", "#808086"]];
+  people.forEach((p, i) => {
+    const r = document.createElement("div");
+    r.className = "list-row";
+    r.setAttribute("role", "option");
+    r.setAttribute("aria-selected", i === 0 ? "true" : "false");
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    dot.style.background = p[1];
+    const name = document.createElement("span");
+    name.textContent = p[0];
+    const meta = document.createElement("span");
+    meta.className = "row-meta";
+    meta.textContent = i === 5 ? "camera" : "doll";
+    r.append(dot, name, meta);
+    cast.appendChild(r);
+  });
+  cast.addEventListener("click", (e) => {
+    const row = e.target.closest(".list-row");
+    if (!row) return;
+    const add = e.shiftKey || e.ctrlKey || e.metaKey;
+    if (!add) cast.querySelectorAll(".list-row").forEach((r) => r.setAttribute("aria-selected", "false"));
+    const now = add ? row.getAttribute("aria-selected") !== "true" : true;
+    row.setAttribute("aria-selected", String(now));
+    cast.querySelectorAll(".list-row").forEach((r) => r.classList.toggle("is-focus", r === row));
+  });
+  cast.addEventListener("keydown", (e) => {
+    const is_delete = e.key === "Delete" || e.key === "Backspace";
+    if (!is_delete) return;
+    const picked = Array.from(cast.querySelectorAll('.list-row[aria-selected="true"]'));
+    if (!picked.length) { Kit.shake(cast, "Pick a row first."); return; }
+    const saved = picked.map((r) => ({ row: r, next: r.nextSibling }));
+    const remove = () => saved.forEach((s) => Kit.puff(s.row, false));
+    const restore = () => saved.slice().reverse().forEach((s) => {
+      s.row.hidden = false;
+      cast.insertBefore(s.row, s.next);
+      Kit.pop(s.row, 0.8);
+    });
+    const name = "Delete " + picked.length + (picked.length === 1 ? " doll" : " dolls");
+    undo.run(name, remove, restore);
+    Kit.toast("Deleted " + picked.length + (picked.length === 1 ? " doll" : " dolls"), () => undo.undo());
+  });
+
+  /* ---------- Canvas demo ---------- */
+  const stage = $("#stage");
+  const guideV = $("#guideV");
+  const guideH = $("#guideH");
+  let next_id = 1;
+  const pieceState = (p) => ({ x: +p.dataset.x, y: +p.dataset.y, rot: +p.dataset.rot });
+  const place = (p, s) => {
+    p.dataset.x = s.x; p.dataset.y = s.y; p.dataset.rot = s.rot;
+    p.style.left = s.x + "px"; p.style.top = s.y + "px"; p.style.rotate = s.rot + "deg";
+  };
+  const makePiece = (x, y, w, h, label, cls) => {
+    const p = document.createElement("div");
+    p.className = "item piece " + (cls || "");
+    p.dataset.id = String(next_id++);
+    p.dataset.name = label;
+    p.style.width = w + "px";
+    p.style.height = h + "px";
+    p.textContent = label;
+    place(p, { x: x, y: y, rot: 0 });
+    stage.appendChild(p);
+    return p;
+  };
+  makePiece(60, 70, 90, 120, "body", "");
+  makePiece(220, 110, 40, 110, "arm", "blue");
+  makePiece(360, 60, 130, 90, "frame", "paper");
+
+  const picked = () => Array.from(stage.querySelectorAll(".item.is-picked"));
+  const showHandle = () => {
+    stage.querySelectorAll(".handle, .handle-stem").forEach((h) => h.remove());
+    const p = picked();
+    if (p.length !== 1) return;
+    const stem = document.createElement("div");
+    stem.className = "handle-stem";
+    const h = document.createElement("div");
+    h.className = "handle";
+    h.dataset.tip = "Drag to turn. Shift snaps 15 deg.";
+    p[0].append(stem, h);
+    Kit.pop(h, 1.6);
+  };
+  const pick = (p, add) => {
+    if (!add) picked().forEach((q) => { if (q !== p) q.classList.remove("is-picked"); });
+    if (p) {
+      const was = p.classList.contains("is-picked");
+      p.classList.toggle("is-picked", add ? !was : true);
+    }
+    showHandle();
+  };
+  const hover = Kit.hoverOutline(stage, { items: ".item", handles: ".handle" });
+  $("#grabZones").addEventListener("change", (e) => stage.classList.toggle("show-grab", e.target.checked));
+
+  let mode = "";
+  let starts = [];
+  let ghosts = [];
+  let lastMove = { x: 0, y: 0 };
+  let snapped = false;
+  const snapX = Kit.snapper();
+  const snapY = Kit.snapper();
+  let turn0 = 0;
+  let lastStep = null;
+
+  const centreOf = (p) => {
+    const r = p.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  };
+
+  Kit.drag(stage, {
+    onDown(s) {
+      stage.focus({ preventScroll: true });
+      const h = Kit.nearest(stage, ".handle", s.x0, s.y0, 12);
+      const under = h ? null : s.target.closest(".item");
+      mode = h ? "turn" : (under ? "move" : "");
+      if (h) return;
+      if (under) {
+        const add = s.event.shiftKey;
+        const keep = !add && under.classList.contains("is-picked");
+        if (!keep) pick(under, add);
+      }
+    },
+    onStart(s) {
+      snapped = false;
+      snapX.reset(); snapY.reset();
+      starts = picked().map((p) => ({ p: p, s: pieceState(p) }));
+      if (mode === "move") {
+        ghosts = starts.map((st) => {
+          const g = Kit.ghost(st.p);
+          g.querySelectorAll(".handle, .handle-stem").forEach((n) => n.remove());
+          return g;
+        });
+      }
+      if (mode === "turn") {
+        const c = centreOf(starts[0].p);
+        turn0 = Math.atan2(s.y0 - c.y, s.x0 - c.x) * 180 / Math.PI;
+        lastStep = null;
+      }
+      hover.clear();
+    },
+    onMove(s) {
+      if (mode === "move") moveBy(s);
+      if (mode === "turn") turnTo(s);
+    },
+    chip(s) {
+      if (mode === "move") {
+        const d = starts.length ? pieceState(starts[0].p) : { x: 0, y: 0 };
+        const dx = d.x - starts[0].s.x;
+        const dy = d.y - starts[0].s.y;
+        const sg = (v) => (v > 0 ? "+" : "") + v;
+        s.snapped = snapped;
+        return sg(dx) + ", " + sg(dy) + " px";
+      }
+      if (mode === "turn") {
+        s.snapped = s.shift;
+        return pieceState(starts[0].p).rot + " deg";
+      }
+      return "";
+    },
+    onEnd() {
+      ghosts.forEach((g) => g.remove());
+      ghosts = [];
+      guideV.classList.remove("is-on");
+      guideH.classList.remove("is-on");
+      if (!mode || !starts.length) return;
+      const ends = starts.map((st) => ({ p: st.p, s: pieceState(st.p) }));
+      const moved = ends.some((en, i) => en.s.x !== starts[i].s.x || en.s.y !== starts[i].s.y || en.s.rot !== starts[i].s.rot);
+      if (!moved) return;
+      if (snapped || mode === "turn") ends.forEach((en) => Kit.bounce(en.p, lastMove.x, lastMove.y));
+      const before = starts.slice();
+      const label = mode === "turn" ? "Turn " + before[0].p.dataset.name
+        : "Move " + (before.length === 1 ? before[0].p.dataset.name : before.length + " pieces");
+      undo.push(label, () => before.forEach((st) => { place(st.p, st.s); Kit.flash(st.p); }),
+        () => ends.forEach((en) => { place(en.p, en.s); Kit.flash(en.p); }));
+    },
+    onCancel() {
+      ghosts.forEach((g) => g.remove());
+      ghosts = [];
+      guideV.classList.remove("is-on");
+      guideH.classList.remove("is-on");
+      starts.forEach((st) => {
+        st.p.style.transition = "left var(--t-pop) var(--ease-out), top var(--t-pop) var(--ease-out), rotate var(--t-pop) var(--ease-out)";
+        place(st.p, st.s);
+        window.setTimeout(() => { st.p.style.transition = ""; }, Kit.ms("pop") + 30);
+      });
+    },
+    onClick(s) {
+      const on_item = s.target.closest(".item, .handle");
+      if (!on_item) pick(null, false);
+    }
+  });
+
+  function moveBy(s) {
+    let dx = s.dx;
+    let dy = s.dy;
+    if (s.shift) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
+    lastMove = { x: s.mx, y: s.my };
+    const lead = starts[0];
+    const w = lead.p.offsetWidth;
+    const h = lead.p.offsetHeight;
+    const others = Array.from(stage.querySelectorAll(".item:not(.ghost)")).filter((p) => !starts.some((st) => st.p === p));
+    const tx = [{ at: stage.clientWidth / 2, el: guideV }];
+    const ty = [{ at: stage.clientHeight / 2, el: guideH }];
+    others.forEach((o) => {
+      const os = pieceState(o);
+      tx.push({ at: os.x + o.offsetWidth / 2, el: guideV });
+      ty.push({ at: os.y + o.offsetHeight / 2, el: guideH });
+    });
+    const cx = lead.s.x + dx + w / 2;
+    const cy = lead.s.y + dy + h / 2;
+    const rx = snapX.test(cx, tx);
+    const ry = snapY.test(cy, ty);
+    if (rx.hit) { dx = rx.value - w / 2 - lead.s.x; guideV.style.left = rx.value + "px"; }
+    if (ry.hit) { dy = ry.value - h / 2 - lead.s.y; guideH.style.top = ry.value + "px"; }
+    guideV.classList.toggle("is-on", Boolean(rx.hit));
+    guideH.classList.toggle("is-on", Boolean(ry.hit));
+    snapped = Boolean(rx.hit || ry.hit);
+    starts.forEach((st) => place(st.p, { x: Math.round(st.s.x + dx), y: Math.round(st.s.y + dy), rot: st.s.rot }));
+  }
+
+  function turnTo(s) {
+    const st = starts[0];
+    const c = centreOf(st.p);
+    const a = Math.atan2(s.y - c.y, s.x - c.x) * 180 / Math.PI;
+    let rot = Math.round(st.s.rot + a - turn0);
+    rot = ((rot + 180) % 360 + 360) % 360 - 180;
+    if (s.shift) {
+      rot = Math.round(rot / 15) * 15;
+      const changed = lastStep !== rot;
+      if (changed && lastStep !== null) { Kit.flash(st.p.querySelector(".handle")); Kit.sound.tick(); }
+      lastStep = rot;
+    }
+    lastMove = { x: s.mx, y: s.my };
+    place(st.p, { x: st.s.x, y: st.s.y, rot: rot });
+  }
+
+  stage.addEventListener("dblclick", (e) => {
+    const on_item = e.target.closest(".item");
+    if (on_item) return;
+    const r = stage.getBoundingClientRect();
+    const x = Math.round(e.clientX - r.left);
+    const y = Math.round(e.clientY - r.top);
+    let p = null;
+    undo.run("Add piece", () => {
+      p = p || makePiece(x - 25, y - 25, 50, 50, "new", "");
+      stage.appendChild(p);
+      p.hidden = false;
+      Kit.pop(p, 1.4);
+      Kit.ring(stage, x, y);
+      pick(p, false);
+    }, () => { p.classList.remove("is-picked"); showHandle(); Kit.puff(p, false); });
+  });
+
+  stage.addEventListener("keydown", (e) => {
+    const p = picked();
+    const is_delete = e.key === "Delete" || e.key === "Backspace";
+    if (is_delete) {
+      e.preventDefault();
+      if (!p.length) { Kit.shake(stage, "Nothing picked. Click a piece first."); return; }
+      const n = p.length;
+      undo.run(n === 1 ? "Delete " + p[0].dataset.name : "Delete " + n + " pieces",
+        () => { p.forEach((q) => q.classList.remove("is-picked")); showHandle(); p.forEach((q) => Kit.puff(q, false)); },
+        () => { p.forEach((q) => { q.hidden = false; Kit.pop(q, 0.8); }); });
+      Kit.toast(n === 1 ? "Deleted " + p[0].dataset.name : "Deleted " + n + " pieces", () => undo.undo());
+      return;
+    }
+    const dirs = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    const d = dirs[e.key];
+    if (!d) return;
+    e.preventDefault();
+    if (!p.length) return;
+    const step = e.shiftKey ? 10 : 1;
+    const before = p.map((q) => ({ p: q, s: pieceState(q) }));
+    const after = before.map((b) => ({ p: b.p, s: { x: b.s.x + d[0] * step, y: b.s.y + d[1] * step, rot: b.s.rot } }));
+    undo.run("Nudge " + (p.length === 1 ? p[0].dataset.name : p.length + " pieces"),
+      () => after.forEach((a) => place(a.p, a.s)), () => before.forEach((b) => place(b.p, b.s)));
+  });
+
+  /* Dialog result. */
+  $("#unsaved").addEventListener("close", (e) => {
+    const v = e.target.returnValue;
+    if (v === "save") Kit.toast("Saved teto_song.snap", null, { kind: "done" });
+    else if (v === "discard") Kit.toast("Closed without saving");
+  });
+})();
+</script>
+</body>
+</html>

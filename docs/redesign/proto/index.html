@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snapper Prototype Hub</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  body { background: var(--face-dark); color: var(--text); margin: 0;
+         padding: 24px 16px; }
+  .hub { max-width: 760px; margin: 0 auto; }
+  .hub h1 { font-size: 20px; margin: 0 0 6px; }
+  .hub p { margin: 0 0 18px; opacity: .85; }
+  .cards { display: grid; gap: 12px;
+           grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .card { display: block; padding: 14px; text-decoration: none;
+          color: var(--text); background: var(--face);
+          box-shadow: inset 1px 1px var(--face-light),
+                      inset -1px -1px var(--shadow);
+          transition: transform 100ms ease-out; }
+  .card:hover { transform: translateY(-1px); background: var(--face-mid); }
+  .card:active { transform: translateY(1px) scale(.98); }
+  .card b { display: block; margin-bottom: 4px; }
+  .card span { font-size: 13px; opacity: .8; }
+</style>
+</head>
+<body>
+<div class="hub">
+  <h1>Snapper redesign: playable prototype</h1>
+  <p>Win98 but juicier. Every control from the real app is on one of these
+  pages; each page ends with a Covered list saying where to try each one.</p>
+  <div class="cards">
+    <a class="card" href="kit.html"><b>Kit</b><span>Every shared control
+      in every state, plus the Motion and sound settings.</span></a>
+    <a class="card" href="shell.html"><b>Window, menus, dialogs</b>
+      <span>Menu bar, tabs, docks, new project, export, system
+      dialogs.</span></a>
+    <a class="card" href="stage.html"><b>Stage</b><span>Pick, drag, turn,
+      warp dots, drag nodes, dot animations, links.</span></a>
+    <a class="card" href="timeline.html"><b>Timeline and shots</b>
+      <span>Keys, eases, playhead, loop, shot strip.</span></a>
+    <a class="card" href="inspector.html"><b>Inspector and cast</b>
+      <span>Every panel, scrub fields, typed math, Mixed, dolls.</span></a>
+    <a class="card" href="rig.html"><b>Rig</b><span>Joints, parents, draw
+      order, warp grids, reach, mirror.</span></a>
+    <a class="card" href="video.html"><b>Video</b><span>Reel editing,
+      split, trim, ripple, transitions on cuts, fill the gap.</span></a>
+  </div>
+</div>
+</body>
+</html>

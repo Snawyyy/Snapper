@@ -1,0 +1,2318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snapper Timeline Prototype</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  /* Page layout and the timeline and shot strip drawing. Controls come
+     from kit.css; only things the kit has no piece for live here. */
+  .protonav { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 6px var(--gutter);
+    background: var(--face-dark); box-shadow: var(--bevel-thin); font-size: var(--fs-small); }
+  .protonav b { font: 10px var(--font-pixel); color: var(--text-off); }
+  .protonav a { color: var(--handle); text-decoration: none; }
+  .protonav a:hover { text-decoration: underline; }
+  .protonav a[aria-current="page"] { color: var(--text); font-weight: bold; }
+  main { max-width: 1200px; margin: 0 auto; padding: 12px var(--gutter) 120px; }
+  .intro h1 { font: 22px/1.1 var(--font-pixel); color: var(--pick); margin: 6px 0 4px; }
+  .intro p { margin: 0 0 10px; color: var(--text-dim); max-width: 860px; }
+  .intro kbd, .covered kbd { font: 11px var(--font-mono); color: var(--text); }
+  .app { width: 100%; }
+  .app-strip { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+    gap: 4px 8px; padding-top: 4px; border-bottom: 2px solid var(--row-hover); }
+  .transport { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding-bottom: 3px; }
+  .counter { font: 12px var(--font-mono); padding: 2px 8px; min-width: 56px; text-align: center;
+    display: inline-block; }
+  .counter.k-bump { animation: k-bump var(--t-pop) var(--ease-back); }
+  .tsep { width: 6px; }
+  .pane { padding: 4px; background: var(--row-hover); display: flex; flex-direction: column; gap: 0; }
+  .label-small { font: 10px var(--font-pixel); color: var(--text-off); }
+
+  /* Shot strip */
+  .strip-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .strip { position: relative; display: flex; align-items: stretch; flex: 1 1 320px; min-width: 0;
+    padding: 6px 8px 8px; overflow-x: auto; overflow-y: hidden; background: var(--face-dark);
+    box-shadow: var(--bevel-sunken); min-height: 78px; outline: none; touch-action: pan-x; }
+  .strip:focus-visible { box-shadow: var(--bevel-sunken), inset 0 0 0 1px var(--handle); }
+  .shot { position: relative; flex: none; height: 62px; display: flex; flex-direction: column;
+    background: var(--face); box-shadow: var(--bevel-raised); cursor: pointer; user-select: none;
+    touch-action: none; transition: translate var(--t-hover) var(--ease-out); }
+  .shot:hover, .shot.is-hover { translate: 0 var(--lift-px); filter: brightness(1.08); }
+  .shot.is-picked { box-shadow: var(--bevel-raised), inset 0 0 0 2px var(--pick); }
+  .shot.is-focus { box-shadow: var(--bevel-raised), inset 0 0 0 3px var(--pick); }
+  .shot.is-dragging { z-index: 5; translate: 0 -3px; box-shadow: var(--bevel-raised), var(--drop),
+    inset 0 0 0 2px var(--pick); }
+  .shot.ghost { z-index: 4; }
+  .shot.k-lift { animation: k-lift var(--t-pop) var(--ease-back); }
+  @keyframes k-lift { 0% { translate: 0 0; } 50% { translate: 0 -4px; } 100% { translate: 0 0; } }
+  .shot-tab { position: absolute; left: 0; top: 0; bottom: 0; width: 7px; background: var(--c);
+    box-shadow: inset -1px 0 var(--shadow); cursor: pointer; }
+  .shot-tab:hover { filter: brightness(1.35); }
+  .shot-thumb { margin: 4px 4px 0 11px; height: 28px; overflow: hidden; background: var(--c);
+    box-shadow: var(--bevel-thin-in); }
+  .shot-thumb svg { display: block; width: 100%; height: 100%; }
+  .shot-name { margin: 2px 4px 0 11px; font-size: var(--fs-small); white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; line-height: 14px; }
+  .shot-name .field { width: 100%; height: 16px; padding: 0 3px; font-size: var(--fs-small); }
+  .shot-len { margin: 0 4px 0 11px; font: 10px/12px var(--font-mono); color: var(--text-dim);
+    white-space: nowrap; overflow: hidden; }
+  .shot-grip { position: absolute; top: 0; bottom: 0; right: -6px; width: 12px; z-index: 3;
+    cursor: ew-resize; touch-action: none; }
+  .shot-grip::after { content: ""; position: absolute; left: 4px; top: 18px; bottom: 18px; width: 4px;
+    background: transparent; box-shadow: none; transition: background-color var(--t-hover) var(--ease-out); }
+  .shot:hover .shot-grip::after, .shot-grip.is-on::after { background: var(--handle);
+    box-shadow: 0 0 0 1px #222; }
+  .shot-add { flex: none; width: 40px; height: 62px; margin-left: 6px; font: 18px var(--font-pixel);
+    padding: 0; }
+  .strip-note { flex: 0 1 260px; font-size: var(--fs-small); color: var(--text-off); line-height: 1.3; }
+  .tag-removed { font: 9px var(--font-pixel); color: #fff; background: var(--pick-dark); padding: 1px 4px;
+    margin-right: 4px; }
+  .swatch { width: 14px; height: 14px; box-shadow: 0 0 0 1px var(--shadow); margin-left: 12px; flex: none; }
+
+  /* Stage and splitter */
+  .stagebox { position: relative; height: var(--stage-h, 150px); overflow: hidden; background: var(--stage);
+    box-shadow: var(--bevel-sunken); min-height: 80px; }
+  .floor { position: absolute; inset: 0; background-image:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 40px),
+    linear-gradient(180deg, transparent 72%, rgba(0, 0, 0, 0.22) 72%); }
+  .camframe { position: absolute; inset: 8px 10%; border: 1px dashed transparent; pointer-events: none;
+    transition: border-color var(--t-hover) var(--ease-out); }
+  .camframe.is-hover { border-color: var(--hover-line); }
+  .camframe.is-picked { border: 2px solid var(--pick); }
+  .doll { width: 44px; height: 92px; margin-left: -22px; bottom: 12px; cursor: default; }
+  .doll svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .doll .pc { transition: opacity var(--t-hover) var(--ease-out); }
+  .doll .pc.is-hot { stroke: #fff; stroke-width: 1.5; stroke-dasharray: 3 2; }
+  .stage-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--text-off); text-align: center; padding: 10px; }
+  .stage-label { position: absolute; left: 6px; top: 4px; font: 10px var(--font-pixel); color: var(--text-off); }
+  .splitter { position: relative; height: 12px; margin: -4px 0; z-index: 4; cursor: ns-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 0; right: 0; top: 4px; height: 4px;
+    background: var(--face-mid); box-shadow: var(--bevel-thin); transition: background-color var(--t-hover) var(--ease-out); }
+  .splitter:hover::before, .splitter.is-dragging::before { background: var(--face-light); }
+
+  /* Timeline */
+  .tl { --names: 124px; position: relative; background: var(--field); box-shadow: var(--bevel-sunken);
+    padding: 2px; user-select: none; outline: none; margin-top: 4px; }
+  .tl:focus-visible { box-shadow: var(--bevel-sunken), inset 0 0 0 1px var(--handle); }
+  .tl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 3px 4px;
+    background: var(--face); }
+  .tl-head .grow { flex: 1; }
+  .tl-head .seg > button { padding: 2px 6px; display: inline-flex; align-items: center; }
+  .tl-head .seg svg { width: 14px; height: 14px; }
+  .shot-label { font-size: var(--fs-small); color: var(--text); white-space: nowrap; }
+  .shot-label i { font-style: normal; color: var(--text-off); font-family: var(--font-mono); }
+  .loopchip.is-off { opacity: 0.55; }
+  .tl-grid { position: relative; }
+  .tl-row { display: grid; grid-template-columns: var(--names) minmax(0, 1fr); height: 24px; }
+  .tl-row.piece { height: 18px; }
+  .tl-name { display: flex; align-items: center; gap: 4px; padding: 0 6px; min-width: 0;
+    background: var(--face); border-bottom: 1px solid var(--face-dark); box-shadow: inset -1px 0 var(--shadow);
+    font-size: var(--fs-small); white-space: nowrap; overflow: hidden; cursor: pointer;
+    transition: background-color var(--t-hover) var(--ease-out); }
+  .tl-name span { overflow: hidden; text-overflow: ellipsis; }
+  .tl-name .dot { width: 8px; height: 8px; flex: none; background: var(--c); box-shadow: 0 0 0 1px var(--shadow); }
+  .tl-row.piece .tl-name { padding-left: 26px; color: var(--text-dim); background: var(--face-mid); font-size: 10px; }
+  .tl-row.is-hover .tl-name { background: var(--face-light); }
+  .tl-row.is-focus .tl-name { background: var(--row-hover); color: #fff; }
+  .caret { width: 14px; height: 14px; flex: none; border: 0; padding: 0; background: none; color: var(--text-dim);
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+  .caret::before { content: ""; border: 4px solid transparent; border-left: 5px solid currentColor;
+    margin-left: 3px; transition: rotate var(--t-pop) var(--ease-back); transform-origin: 2px 4px; }
+  .caret[aria-expanded="true"]::before { rotate: 90deg; }
+  .caret:hover { color: var(--handle); }
+  .tl-lane { position: relative; overflow: hidden; border-bottom: 1px solid var(--face-dark); touch-action: none; }
+  .tl-row.is-hover .tl-lane { background: rgba(255, 255, 255, 0.035); }
+  .tl-row.is-focus .tl-lane { background: rgba(216, 48, 79, 0.06); }
+  .tl-row.piece .tl-lane { background: rgba(0, 0, 0, 0.18); }
+  .tl-ruler-row { height: 28px; }
+  .tl-ruler-row .tl-name, .tl-song-row .tl-name { cursor: default; color: var(--text-off); font: 10px var(--font-pixel); }
+  .tl-ruler { background: var(--face-dark); cursor: pointer; }
+  .tl-song-row { height: 22px; }
+  .tl-song { background: #19191c; cursor: pointer; }
+  .tl-lane canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .nosong { position: absolute; inset: 0; display: flex; align-items: center; gap: 8px; padding-left: 8px;
+    color: var(--text-off); font-size: var(--fs-small); }
+  .nosong .btn { height: 18px; }
+  .tl-below { height: 34px; }
+  .tl-below .tl-name { background: transparent; box-shadow: none; border: 0; cursor: default; }
+  .tl-below .tl-lane { border: 0; }
+  .tl-focusbar { position: absolute; left: 0; width: 3px; background: var(--pick); z-index: 3; pointer-events: none;
+    transition: top var(--t-pop) var(--ease-back), height var(--t-pop) var(--ease-back); }
+  .tl-focusbar.is-instant { transition: none; }
+
+  .key { position: absolute; top: 50%; width: 0; height: 0; z-index: 2;
+    transition: scale var(--t-hover) var(--ease-back); }
+  .key i { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; rotate: 45deg;
+    background: #d6d6dc; box-shadow: 0 0 0 1px #111; }
+  .key.cam i { background: #7fb8e0; }
+  .key.sub i { left: -3px; top: -3px; width: 6px; height: 6px; background: #8e8e96; }
+  .key.is-hover, .key.in-box { scale: 1.15; }
+  .key.is-hover i, .key.in-box i { filter: brightness(1.25); box-shadow: 0 0 0 1px #fff; }
+  .key.is-picked i { background: var(--pick); box-shadow: 0 0 0 1px #fff; }
+  .key.sub.is-picked i { background: var(--pick-dark); box-shadow: 0 0 0 1px var(--pick); }
+  .key.ghost { z-index: 1; }
+  .tl-grid.is-sliding .key { transition: left var(--t-puff) var(--ease-out), scale var(--t-hover) var(--ease-back); }
+  .seg-hold, .seg-line, .seg-ease { position: absolute; pointer-events: auto; }
+  .seg-hold { top: calc(50% - 2px); height: 4px; background: #7a7a82; }
+  .seg-hold.tail { background: #56565c; }
+  .seg-line { top: calc(50% - 0.5px); height: 1px; background: #a0a0a8; }
+  .seg-ease { top: calc(50% - 6px); height: 12px; }
+  .seg-ease svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .tl-row.piece .seg-hold { height: 2px; top: calc(50% - 1px); opacity: 0.7; }
+
+  .tl-over { position: absolute; top: 0; bottom: 0; left: var(--names); right: 0; pointer-events: none;
+    overflow: hidden; z-index: 4; }
+  .ph-line { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--pick);
+    transition: left var(--t-move) var(--ease-back); }
+  .ph-tag { position: absolute; top: 9px; padding: 0 4px; translate: -50% 0; background: var(--pick);
+    color: #fff; font: 10px/14px var(--font-mono); white-space: nowrap;
+    transition: left var(--t-move) var(--ease-back); }
+  .is-live .ph-line, .is-live .ph-tag { transition: none; }
+  .hatch { position: absolute; top: 0; bottom: 0; right: 0; background:
+    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.45) 0 3px, rgba(0, 0, 0, 0.15) 3px 7px); }
+  .box-sel { position: absolute; border: 1px dashed #fff; background: rgba(255, 255, 255, 0.07); }
+  .tick-flash { position: absolute; top: 0; height: 28px; width: 2px; margin-left: -1px; background: #fff; opacity: 0; }
+  .tick-flash.k-tick { animation: k-tick var(--t-flash) linear; }
+  @keyframes k-tick { from { opacity: 1; } to { opacity: 0; } }
+  .loop { position: absolute; top: 0; height: 7px; background: rgba(216, 48, 79, 0.55); cursor: grab;
+    pointer-events: auto; box-shadow: inset 0 -1px var(--pick); }
+  .loop.is-off { background: rgba(255, 255, 255, 0.16); box-shadow: inset 0 -1px #777; }
+  .loop-h { top: 4px; pointer-events: auto; cursor: ew-resize; }
+  .chipbar { position: absolute; z-index: 6; display: flex; gap: 2px; padding: 2px; pointer-events: auto;
+    background: var(--face); box-shadow: var(--bevel-raised), var(--drop); white-space: nowrap; translate: -50% 0; }
+  .chipbar .btn.small, .chipbar .seg > button { min-height: 18px; height: 18px; padding: 0 6px; font-size: var(--fs-tiny); }
+  .tl-empty { padding: 34px 12px; text-align: center; color: var(--text-off); }
+  .tl-scroll { position: relative; height: 10px; margin-left: var(--names); background: var(--face-dark);
+    box-shadow: var(--bevel-thin-in); touch-action: none; }
+  .tl-thumb { position: absolute; top: 1px; bottom: 1px; min-width: 16px; background: var(--face-light);
+    box-shadow: var(--bevel-thin); cursor: grab; }
+  .tl-thumb:hover, .tl-thumb.is-dragging { background: #6e6e75; }
+
+  .covered { margin-top: 20px; background: var(--face); box-shadow: var(--bevel-raised); padding: 8px 12px; }
+  .covered summary { cursor: pointer; font: 12px var(--font-pixel); color: var(--handle); }
+  .covered table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); margin-top: 8px; }
+  .covered td { padding: 3px 6px; border-bottom: 1px solid var(--face-dark); vertical-align: top; }
+  .covered td:first-child { white-space: nowrap; color: var(--handle); font-family: var(--font-mono); width: 80px; }
+  .covered td:nth-child(2) { color: var(--text-dim); width: 34%; }
+
+  @media (max-width: 640px) {
+    .tl { --names: 84px; }
+    .tl-head .hide-sm { display: none; }
+    .strip-note { flex-basis: 100%; }
+  }
+</style>
+</head>
+<body>
+<nav class="protonav" aria-label="Prototype pages">
+  <b>PROTOTYPE</b>
+  <a href="index.html">Hub</a>
+  <a href="shell.html">Shell</a>
+  <a href="stage.html">Stage</a>
+  <a href="timeline.html" aria-current="page">Timeline</a>
+  <a href="inspector.html">Inspector</a>
+  <a href="rig.html">Rig</a>
+  <a href="video.html">Video</a>
+  <a href="kit.html">Kit</a>
+</nav>
+
+<main>
+  <div class="intro">
+    <h1>Timeline and shot strip</h1>
+    <p>Everything here is live. Click a shot, scrub the ruler, double-click a row to key, drag keys
+      (<kbd>Alt</kbd> copies, <kbd>Esc</kbd> cancels), drag empty space to box pick
+      (<kbd>Shift</kbd> adds, <kbd>Ctrl</kbd> removes), right-click keys, rows, shots and the ruler.
+      <kbd>Space</kbd> plays, <kbd>Left</kbd> <kbd>Right</kbd> step, <kbd>L</kbd> loops,
+      <kbd>Ctrl+wheel</kbd> zooms. Every edit is one undo step. The list of covered items is at the bottom.</p>
+  </div>
+
+  <div class="win app" id="app">
+    <div class="win-title">
+      <span class="win-title-text"><span class="win-dirty" id="dirtyDot" data-tip="Unsaved changes" hidden></span>Snapper - teto_song.snap</span>
+      <span class="win-btns">
+        <button class="win-btn min" aria-label="Minimize" data-tip="Minimize"></button>
+        <button class="win-btn max" aria-label="Maximize" data-tip="Maximize"></button>
+        <button class="win-btn close" aria-label="Close" data-tip="Close"></button>
+      </span>
+    </div>
+    <div class="menubar" role="menubar">
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">File</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-action="song-choose"><span>Choose song...</span></button>
+          <button class="menu-item" role="menuitem" data-action="song-remove" id="miRemoveSong"><span>Remove song</span></button>
+        </div>
+      </div>
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">Edit</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-action="undo" id="miUndo"><span>Undo</span><kbd class="menu-key">Ctrl+Z</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="redo" id="miRedo"><span>Redo</span><kbd class="menu-key">Ctrl+Shift+Z</kbd></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" data-action="copy" id="miCopy"><span>Copy keys</span><kbd class="menu-key">Ctrl+C</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="paste" id="miPaste"><span>Paste keys at playhead</span><kbd class="menu-key">Ctrl+V</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="delete" id="miDelete"><span>Delete keys</span><kbd class="menu-key">Del</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="all" id="miAll"><span>Pick every key</span><kbd class="menu-key">Ctrl+A</kbd></button>
+        </div>
+      </div>
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">Play</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-action="play" id="miPlay"><span>Play / pause</span><kbd class="menu-key">Space</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="next"><span>Next frame</span><kbd class="menu-key">Right  .</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="prev"><span>Previous frame</span><kbd class="menu-key">Left  ,</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="first"><span>First frame</span><kbd class="menu-key">Home</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="last"><span>Last frame</span><kbd class="menu-key">End</kbd></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" data-action="loop" id="miLoop" aria-checked="false"><span>Loop range</span><kbd class="menu-key">L</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="mode-scrub" id="miScrub" aria-checked="true"><span>Arrows step one frame</span></button>
+          <button class="menu-item" role="menuitem" data-action="mode-anim" id="miAnim" aria-checked="false"><span>Arrows jump to the next change</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-strip">
+      <div class="tabs" role="tablist" aria-label="Mode">
+        <button class="tab" role="tab" aria-selected="true" data-tab="pose">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="3" r="2"/><path d="M8 5v6M4 8h8M8 11l-3 4M8 11l3 4"/></svg>Pose</button>
+        <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="rig" data-tip="Opens the Rig page of the prototype">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="3" cy="13" r="2"/><circle cx="13" cy="3" r="2"/><path d="M4.5 11.5l7-7"/></svg>Rig</button>
+        <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="video" data-tip="Opens the Video page of the prototype">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="14" height="10"/><path d="M4 3v10M12 3v10"/></svg>Video</button>
+      </div>
+      <div class="transport" aria-label="Transport">
+        <button class="tool" id="tFirst" aria-label="First frame" data-tip="First frame" data-key="Home">|&lt;</button>
+        <button class="tool" id="tPrev" aria-label="Previous frame" data-tip="Previous frame" data-key="Left">&lt;</button>
+        <button class="tool" id="tPlay" aria-label="Play" data-tip="Play" data-key="Space">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6z"/></svg></button>
+        <button class="tool" id="tNext" aria-label="Next frame" data-tip="Next frame" data-key="Right">&gt;</button>
+        <button class="tool" id="tLast" aria-label="Last frame" data-tip="Last frame" data-key="End">&gt;|</button>
+        <button class="tool" id="tLoop" aria-pressed="false" aria-label="Loop" data-tip="Loop the range on the ruler" data-key="L">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 9V7a3 3 0 0 1 3-3h7M11 2l2 2-2 2M13 7v2a3 3 0 0 1-3 3H3M5 14l-2-2 2-2"/></svg></button>
+        <span class="counter sunken" id="counter" data-tip="Frame in this shot">F 001</span>
+        <span class="counter sunken" id="clock" data-tip="Time in this shot">0:00.04</span>
+        <span class="tsep"></span>
+        <button class="btn small" id="undoBtn" data-key="Ctrl+Z">Undo</button>
+        <button class="btn small" id="redoBtn" data-key="Ctrl+Shift+Z">Redo</button>
+      </div>
+    </div>
+
+    <div class="pane">
+      <div class="strip-wrap">
+        <div class="strip" id="strip" tabindex="0" aria-label="Shot strip"></div>
+        <div class="strip-note"><span class="tag-removed">REMOVED</span>No transitions between shots any more:
+          shots sit edge to edge. Transitions moved to cuts in the Video tab (#61).</div>
+      </div>
+      <div class="stagebox" id="stage" aria-label="Stage preview">
+        <div class="floor" id="floor"></div>
+        <div class="camframe" id="camframe"></div>
+        <span class="stage-label">STAGE</span>
+        <div class="stage-empty" id="stageEmpty" hidden>No shot here. Add one in the shot strip above.</div>
+      </div>
+      <div class="splitter" id="splitter" data-tip="Drag to resize. Double-click puts it back."></div>
+
+      <div class="tl" id="tl" tabindex="0" aria-label="Keyframe timeline">
+        <div class="tl-head">
+          <span class="seg" id="modeSeg" role="group" aria-label="Step mode">
+            <button aria-pressed="true" data-value="scrub" aria-label="Scrub mode" data-tip="Scrub mode: arrow keys move one frame">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12"/><path d="M5 2v12M11 2v12M2 5h3M2 8h3M2 11h3M11 5h3M11 8h3M11 11h3"/></svg></button>
+            <button aria-pressed="false" data-value="anim" aria-label="Animation mode" data-tip="Animation mode: arrow keys jump to the next change (a key, a shot start, each frame of an ease)">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l7 7-7 7-7-7z"/></svg></button>
+          </span>
+          <span class="shot-label" id="shotLabel">Shot</span>
+          <span class="grow"></span>
+          <button class="btn small loopchip" id="loopChip" data-tip="Loop range. Click to loop it; drag the bar on the ruler to change it." data-key="L">Loop 1 - 24</button>
+          <button class="tool" id="zoomOut" aria-label="Zoom out" data-tip="Zoom out" data-key="Ctrl+wheel">-</button>
+          <button class="tool" id="zoomIn" aria-label="Zoom in" data-tip="Zoom in" data-key="Ctrl+wheel">+</button>
+          <button class="btn small hide-sm" id="zoomFit" data-tip="Fit the whole shot">Fit</button>
+        </div>
+        <div class="tl-grid" id="grid">
+          <div class="tl-row tl-ruler-row"><div class="tl-name">FRAME</div>
+            <div class="tl-lane tl-ruler" id="ruler"><canvas id="rulerCv"></canvas>
+              <div class="loop" id="loop" data-tip="Loop range: drag to move, click to turn looping on or off"></div>
+              <span class="handle loop-h" id="loopA" data-tip="Loop start"></span>
+              <span class="handle loop-h" id="loopB" data-tip="Loop end"></span>
+            </div></div>
+          <div class="tl-row tl-song-row"><div class="tl-name">SONG</div>
+            <div class="tl-lane tl-song" id="song"><canvas id="songCv"></canvas>
+              <div class="nosong" id="noSong" hidden>No song <button class="btn small" id="chooseSong">Choose song</button></div>
+            </div></div>
+          <div id="field">
+            <div id="rows"></div>
+            <div class="tl-row tl-below" id="below"><div class="tl-name"></div><div class="tl-lane"></div></div>
+          </div>
+          <div class="tl-focusbar is-instant" id="focusbar"></div>
+          <div class="tl-over" id="over">
+            <div class="hatch" id="hatch"></div>
+            <div class="tick-flash" id="tick"></div>
+            <div class="box-sel" id="boxSel" hidden></div>
+            <div class="ph-line" id="phLine"></div>
+            <div class="ph-tag" id="phTag">1, 0.04 s</div>
+            <div class="chipbar" id="chipbar" hidden>
+              <span class="seg" id="easeSeg">
+                <button aria-pressed="false" data-ease="step" data-tip="Hold until the next key (the default)">Step</button>
+                <button aria-pressed="false" data-ease="inout" data-tip="Ease in and out to the next key">Ease</button>
+                <button aria-pressed="false" data-ease="linear" data-tip="Move evenly to the next key">Line</button>
+              </span>
+              <button class="btn small" data-space="2" data-tip="Space the picked keys on 2s">On 2s</button>
+              <button class="btn small" data-space="3" data-tip="Space the picked keys on 3s">On 3s</button>
+              <button class="btn small" data-nudge="-1" data-tip="One frame earlier">-1 f</button>
+              <button class="btn small" data-nudge="1" data-tip="One frame later">+1 f</button>
+            </div>
+          </div>
+          <div class="tl-empty" id="tlEmpty" hidden>No shot picked. Click a shot in the strip above.</div>
+        </div>
+        <div class="tl-scroll" id="tlScroll"><div class="tl-thumb" id="tlThumb" data-tip="Scroll frames (or use the wheel)"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <details class="covered" id="covered">
+    <summary>Covered: 58 inventory items, and where to try each</summary>
+    <table>
+      <tbody id="coveredRows"></tbody>
+    </table>
+  </details>
+</main>
+
+<script src="kit.js"></script>
+<script>
+(function () {
+  "use strict";
+  const K = window.Kit;
+
+  /* ---------- Constants ---------- */
+  const kFps = 24;
+  const kMinFw = 3;
+  const kMaxFw = 48;
+  const kStripPx = 1.6;
+  const kSnapPx = 10;
+  const kGrab = 10;
+  const kTail = 24;
+  const kMinSf = -1;
+  const kLayers = [
+    { id: "teto", name: "Teto", kind: "doll", color: "#d8304f",
+      pieces: ["Head", "Body", "Arm L", "Arm R", "Legs"] },
+    { id: "miku", name: "Miku", kind: "doll", color: "#3fb7b0",
+      pieces: ["Head", "Body", "Arm L", "Arm R", "Legs"] },
+    { id: "cam", name: "Camera", kind: "camera", color: "#7fb8e0", pieces: [] }
+  ];
+  const kEaseNames = { step: "Hold (step)", linear: "Linear", in: "Ease in",
+    out: "Ease out", inout: "Ease in and out" };
+  const kColors = [
+    { name: "Plum", c: "#6a4c93" }, { name: "Sea", c: "#2a6f97" },
+    { name: "Moss", c: "#4f772d" }, { name: "Clay", c: "#9c6644" },
+    { name: "Berry", c: "#8d3b72" }, { name: "Slate", c: "#3d5a80" },
+    { name: "Olive", c: "#7a7a2e" }, { name: "Grey", c: "#5c5c62" }
+  ];
+
+  let next_id = 1;
+  function uid(p) { next_id += 1; return p + next_id; }
+  function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+  function plural(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }
+  function secs(f) { return (f / kFps).toFixed(2); }
+  function lenText(len) {
+    const s = len / kFps;
+    const st = Number.isInteger(s * 2) ? String(s) : s.toFixed(2);
+    return len + " f, " + st + " s";
+  }
+  function layerOf(id) { return kLayers.find((l) => l.id === id); }
+
+  /* ---------- Fake data ---------- */
+  function rng(seed) {
+    let x = seed * 9301 + 49297;
+    return () => { x = (x * 9301 + 49297) % 233280; return x / 233280; };
+  }
+  function makeKeys(seed, len, kind) {
+    const r = rng(seed);
+    const out = [];
+    let f = 1;
+    for (let i = 0; i < 40 && f <= len - 2; i++) {
+      const ease = r() < 0.7 ? "step" : (r() < 0.5 ? "inout" : "linear");
+      const v = kind === "camera" ? Math.round(r() * 40 - 20) : Math.round(15 + r() * 70);
+      out.push({ id: uid("k"), f: f, v: v, e: ease, pm: 1 + Math.floor(r() * 31) });
+      f += [6, 8, 12, 12, 16][Math.floor(r() * 5)];
+    }
+    return out;
+  }
+  function makeShot(name, len, color, seed) {
+    const keys = {};
+    kLayers.forEach((l, i) => {
+      keys[l.id] = l.kind === "camera" ? makeKeys(seed * 7 + i, len, "camera").slice(0, 3)
+        : makeKeys(seed * 7 + i, len, "doll");
+    });
+    return { id: uid("s"), name: name, len: len, color: color, keys: keys,
+      la: 1, lb: Math.min(len, 24) };
+  }
+
+  /* ---------- State ---------- */
+  const S = {
+    shots: [
+      makeShot("Intro", 48, "#6a4c93", 1),
+      makeShot("Chorus", 60, "#2a6f97", 2),
+      makeShot("Bridge", 36, "#4f772d", 3),
+      makeShot("Outro", 40, "#9c6644", 4)
+    ],
+    song: true,
+    cur: null,
+    shotPick: new Set(),
+    pick: new Set(),
+    focusRow: "teto",
+    expanded: new Set(),
+    ph: 1,
+    playing: false,
+    loopOn: false,
+    mode: "scrub",
+    fw: 12,
+    sf: kMinSf,
+    clip: null,
+    region: "timeline",
+    dirty: false
+  };
+  S.cur = S.shots[1].id;
+  S.shotPick.add(S.cur);
+  S.shots[1].la = 13;
+  S.shots[1].lb = 36;
+
+  const fresh = new Set();
+  const restored = new Set();
+  const freshShots = new Set();
+
+  function shot() { return S.shots.find((s) => s.id === S.cur) || null; }
+  function rowKeys(sh, layer) {
+    return sh.keys[layer].slice().sort((a, b) => a.f - b.f);
+  }
+  function findKey(id) {
+    const sh = shot();
+    if (!sh) return null;
+    for (let i = 0; i < kLayers.length; i++) {
+      const list = sh.keys[kLayers[i].id];
+      const k = list.find((x) => x.id === id);
+      if (k) return { k: k, layer: kLayers[i].id, list: list };
+    }
+    return null;
+  }
+  function pickedKeys() {
+    const out = [];
+    S.pick.forEach((id) => { const f = findKey(id); if (f) out.push(f); });
+    return out;
+  }
+  function keyAt(layer, f) {
+    const sh = shot();
+    return sh ? sh.keys[layer].find((k) => k.f === f) || null : null;
+  }
+  function easeT(e, t) {
+    if (e === "linear") return t;
+    if (e === "in") return t * t;
+    if (e === "out") return 1 - (1 - t) * (1 - t);
+    if (e === "inout") return t * t * (3 - 2 * t);
+    return 0;
+  }
+  function sample(sh, layer, f) {
+    const list = rowKeys(sh, layer);
+    if (!list.length) return layer === "cam" ? 0 : 50;
+    let a = null;
+    let b = null;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].f <= f) a = list[i];
+      else { b = list[i]; break; }
+    }
+    if (!a) return list[0].v;
+    const has_next = b !== null && a.e !== "step";
+    if (!has_next) return a.v;
+    const t = (f - a.f) / (b.f - a.f);
+    return a.v + (b.v - a.v) * easeT(a.e, t);
+  }
+
+  /* ---------- Undo: snapshots of the project data ---------- */
+  const undo = new K.UndoStack(200);
+  function snap() { return JSON.stringify({ shots: S.shots, song: S.song }); }
+  function lastStep() { return undo.done[undo.done.length - 1] || null; }
+  function commit(name, before) {
+    const after = snap();
+    const same = after === before;
+    if (same) return null;
+    undo.push(name, () => restore(before), () => restore(after));
+    S.dirty = true;
+    return lastStep();
+  }
+  function keyFrames() {
+    const m = new Map();
+    S.shots.forEach((s) => Object.keys(s.keys).forEach((l) => s.keys[l].forEach((k) => m.set(k.id, k.f + ":" + l))));
+    return m;
+  }
+  function restore(json) {
+    const was = keyFrames();
+    const d = JSON.parse(json);
+    S.shots = d.shots;
+    S.song = d.song;
+    const now = keyFrames();
+    now.forEach((v, id) => { if (was.get(id) !== v) restored.add(id); });
+    const has_cur = S.shots.some((s) => s.id === S.cur);
+    S.shotPick = new Set(Array.from(S.shotPick).filter((id) => S.shots.some((s) => s.id === id)));
+    if (!has_cur && S.shots.length) { S.cur = S.shots[0].id; S.shotPick = new Set([S.cur]); }
+    S.pick = new Set(Array.from(S.pick).filter((id) => findKey(id)));
+    S.dirty = true;
+    els.grid.classList.add("is-sliding");
+    window.setTimeout(() => els.grid.classList.remove("is-sliding"), 200);
+    renderAll(true);
+  }
+  function toastUndo(msg, step) {
+    K.toast(msg, () => { if (lastStep() === step) undo.undo(); });
+  }
+
+  /* ---------- Elements ---------- */
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    strip: $("strip"), stage: $("stage"), floor: $("floor"), camframe: $("camframe"),
+    stageEmpty: $("stageEmpty"), tl: $("tl"), grid: $("grid"), rows: $("rows"),
+    field: $("field"), below: $("below"), ruler: $("ruler"), rulerCv: $("rulerCv"),
+    song: $("song"), songCv: $("songCv"), noSong: $("noSong"), over: $("over"),
+    phLine: $("phLine"), phTag: $("phTag"), hatch: $("hatch"), boxSel: $("boxSel"),
+    tick: $("tick"), chipbar: $("chipbar"), focusbar: $("focusbar"), empty: $("tlEmpty"),
+    loop: $("loop"), loopA: $("loopA"), loopB: $("loopB"), counter: $("counter"),
+    clock: $("clock"), play: $("tPlay"), loopBtn: $("tLoop"), loopChip: $("loopChip"),
+    shotLabel: $("shotLabel"), zoomIn: $("zoomIn"), zoomOut: $("zoomOut"),
+    zoomFit: $("zoomFit"), scroll: $("tlScroll"), thumb: $("tlThumb"),
+    splitter: $("splitter"), modeSeg: $("modeSeg"), easeSeg: $("easeSeg")
+  };
+
+  /* ---------- Geometry ---------- */
+  function laneW() { return Math.max(40, els.ruler.clientWidth); }
+  function xOf(f) { return (f - 1 - S.sf) * S.fw + S.fw / 2; }
+  function fAt(x) { return Math.floor(x / S.fw + S.sf) + 1; }
+  function laneX(clientX) { return clientX - els.ruler.getBoundingClientRect().left; }
+  function maxSf() {
+    const sh = shot();
+    const total = sh ? sh.len + kTail : 60;
+    return Math.max(0, total - laneW() / S.fw);
+  }
+
+  /* ---------- Rows ---------- */
+  let rowEls = [];
+  let rowsSig = "";
+  const domKeys = new Map();
+  function rowList() {
+    const out = [];
+    kLayers.forEach((l) => {
+      out.push({ layer: l, piece: -1, key: l.id });
+      const open = S.expanded.has(l.id);
+      if (open) l.pieces.forEach((p, i) => out.push({ layer: l, piece: i, key: l.id + "." + i }));
+    });
+    return out;
+  }
+  function buildRows() {
+    const sig = S.cur + "|" + Array.from(S.expanded).sort().join(",");
+    if (sig === rowsSig) return;
+    rowsSig = sig;
+    domKeys.forEach((el) => el.remove());
+    domKeys.clear();
+    els.rows.textContent = "";
+    rowEls = rowList().map((r) => {
+      const row = document.createElement("div");
+      row.className = "tl-row" + (r.piece >= 0 ? " piece" : "");
+      row.dataset.layer = r.layer.id;
+      row.dataset.piece = String(r.piece);
+      const name = document.createElement("div");
+      name.className = "tl-name";
+      const is_doll = r.layer.kind === "doll" && r.piece < 0;
+      if (is_doll) {
+        const c = document.createElement("button");
+        c.className = "caret";
+        c.setAttribute("aria-label", "Show pieces of " + r.layer.name);
+        c.setAttribute("aria-expanded", String(S.expanded.has(r.layer.id)));
+        c.dataset.tip = S.expanded.has(r.layer.id) ? "Hide the piece rows" : "Show a row per piece (where each piece changes)";
+        name.appendChild(c);
+      }
+      if (r.piece < 0) {
+        const dot = document.createElement("i");
+        dot.className = "dot";
+        dot.style.setProperty("--c", r.layer.color);
+        name.appendChild(dot);
+      }
+      const label = document.createElement("span");
+      label.textContent = r.piece >= 0 ? r.layer.pieces[r.piece] : r.layer.name;
+      name.appendChild(label);
+      name.dataset.tip = r.piece >= 0 ? "A key is always the whole doll. This row shows where the "
+        + r.layer.pieces[r.piece] + " changes." : (r.layer.kind === "camera" ? "Camera row: double-click to key the camera"
+        : "Click to focus " + r.layer.name + ". Double-click a frame to key the whole pose.");
+      const lane = document.createElement("div");
+      lane.className = "tl-lane";
+      row.appendChild(name);
+      row.appendChild(lane);
+      els.rows.appendChild(row);
+      return { r: r, el: row, lane: lane };
+    });
+    els.focusbar.classList.add("is-instant");
+  }
+  function rowAtY(clientY) {
+    for (let i = 0; i < rowEls.length; i++) {
+      const b = rowEls[i].el.getBoundingClientRect();
+      const inside = clientY >= b.top && clientY < b.bottom;
+      if (inside) return rowEls[i];
+    }
+    return null;
+  }
+
+  /* ---------- Timeline drawing ---------- */
+  function segEl(cls, x0, x1, tip) {
+    const s = document.createElement("div");
+    s.className = cls;
+    s.style.left = x0 + "px";
+    s.style.width = Math.max(0, x1 - x0) + "px";
+    if (tip) s.dataset.tip = tip;
+    return s;
+  }
+  function easeSvg(e) {
+    let d = "";
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10;
+      d += (i ? "L" : "M") + (t * 100).toFixed(1) + " " + (10 - easeT(e, t) * 10).toFixed(1);
+    }
+    return '<svg viewBox="0 -1 100 12" preserveAspectRatio="none"><path d="' + d
+      + '" fill="none" stroke="#a0a0a8" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>';
+  }
+  function drawSegs(row, list, sh) {
+    row.lane.querySelectorAll(".seg-hold, .seg-line, .seg-ease").forEach((s) => s.remove());
+    const sub = row.r.piece >= 0;
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      const b = list[i + 1];
+      const x0 = xOf(a.f) + 5;
+      if (!b) {
+        const end = xOf(sh.len) + S.fw / 2;
+        const is_past = a.f >= sh.len;
+        if (!is_past) row.lane.appendChild(segEl("seg-hold tail", x0, end, "Holds to the shot end"));
+        continue;
+      }
+      const x1 = xOf(b.f) - 5;
+      const n = b.f - a.f;
+      const tip = (a.e === "step" ? "Holds " : kEaseNames[a.e] + " over ") + n + " f (" + secs(n) + " s)";
+      if (sub || a.e === "step") row.lane.appendChild(segEl("seg-hold", x0, x1, tip));
+      else if (a.e === "linear") row.lane.appendChild(segEl("seg-line", x0, x1, tip));
+      else {
+        const s = segEl("seg-ease", x0, x1, tip);
+        s.innerHTML = easeSvg(a.e);
+        row.lane.appendChild(s);
+      }
+    }
+  }
+  function placeKey(row, k, slot) {
+    let el = domKeys.get(slot);
+    const is_new = !el;
+    if (is_new) {
+      el = document.createElement("div");
+      el.className = "key";
+      el.appendChild(document.createElement("i"));
+      row.lane.appendChild(el);
+      domKeys.set(slot, el);
+    }
+    el.dataset.id = k.id;
+    el.dataset.layer = row.r.layer.id;
+    el.dataset.slot = slot;
+    el.classList.toggle("cam", row.r.layer.kind === "camera");
+    el.classList.toggle("sub", row.r.piece >= 0);
+    el.classList.toggle("is-picked", S.pick.has(k.id));
+    el.style.left = xOf(k.f) + "px";
+    if (is_new && fresh.has(k.id)) {
+      K.pop(el, 1.4);
+      K.ring(row.lane, xOf(k.f), row.lane.clientHeight / 2);
+    }
+    if (restored.has(k.id)) K.flash(el.firstChild);
+    return el;
+  }
+  function renderKeys() {
+    const sh = shot();
+    const seen = new Set();
+    if (sh) {
+      rowEls.forEach((row) => {
+        let list = rowKeys(sh, row.r.layer.id);
+        if (row.r.piece >= 0) {
+          const bit = 1 << row.r.piece;
+          list = list.filter((k, i) => i === 0 || (k.pm & bit));
+        }
+        list.forEach((k) => {
+          const slot = k.id + "|" + row.r.key;
+          placeKey(row, k, slot);
+          seen.add(slot);
+        });
+        drawSegs(row, list, sh);
+        row.el.classList.toggle("is-focus", row.r.piece < 0 && row.r.layer.id === S.focusRow);
+      });
+    }
+    domKeys.forEach((el, slot) => {
+      if (seen.has(slot)) return;
+      domKeys.delete(slot);
+      K.puff(el);
+    });
+    fresh.clear();
+    restored.clear();
+  }
+  function rulerStep() {
+    const steps = [1, 2, 4, 6, 12, 24, 48, 96];
+    for (let i = 0; i < steps.length; i++) if (steps[i] * S.fw >= 30) return steps[i];
+    return 96;
+  }
+  let last_step = 0;
+  let step_at = 0;
+  function sizeCanvas(cv) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = cv.clientWidth;
+    const h = cv.clientHeight;
+    const want_w = Math.round(w * dpr);
+    const want_h = Math.round(h * dpr);
+    if (cv.width !== want_w || cv.height !== want_h) { cv.width = want_w; cv.height = want_h; }
+    const ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    return { ctx: ctx, w: w, h: h };
+  }
+  function drawRuler() {
+    const sh = shot();
+    const c = sizeCanvas(els.rulerCv);
+    if (!sh) return;
+    const step = rulerStep();
+    const now = performance.now();
+    if (step !== last_step) { last_step = step; step_at = now; }
+    const fade = K.motion.on ? clamp((now - step_at) / K.ms("pop"), 0, 1) : 1;
+    const f0 = Math.max(1, Math.floor(S.sf));
+    const f1 = Math.ceil(S.sf + c.w / S.fw) + 1;
+    c.ctx.font = "10px Tahoma, sans-serif";
+    c.ctx.textBaseline = "top";
+    for (let f = f0; f <= f1 && f < f0 + 3000; f++) {
+      const x = Math.round(xOf(f)) + 0.5;
+      const is_sec = f % kFps === 0;
+      const is_two = f % 2 === 0;
+      const has_small = S.fw >= 5;
+      let h = 0;
+      if (is_sec) h = 12; else if (is_two) h = S.fw >= 3 ? 6 : 0; else if (has_small) h = 3;
+      c.ctx.strokeStyle = f > sh.len ? "#55555b" : (is_sec ? "#c8c8ce" : "#808086");
+      if (h) { c.ctx.beginPath(); c.ctx.moveTo(x, c.h); c.ctx.lineTo(x, c.h - h); c.ctx.stroke(); }
+      const has_num = f === 1 || f % step === 0;
+      if (has_num) {
+        c.ctx.globalAlpha = fade;
+        c.ctx.fillStyle = f > sh.len ? "#6a6a70" : "#b4b4ba";
+        c.ctx.fillText(String(f), x + 2, 10);
+        c.ctx.globalAlpha = 1;
+      }
+    }
+    const fading = fade < 1;
+    if (fading) window.requestAnimationFrame(drawRuler);
+  }
+  let song_wipe = 1;
+  function shotStart(sh) {
+    let off = 0;
+    for (let i = 0; i < S.shots.length && S.shots[i].id !== sh.id; i++) off += S.shots[i].len;
+    return off;
+  }
+  function amp(g) {
+    const a = Math.abs(Math.sin(g * 0.37) * Math.sin(g * 0.11 + 1));
+    const b = Math.abs(Math.sin(g * 1.7 + 2));
+    return 0.18 + 0.82 * (0.65 * a + 0.35 * b);
+  }
+  function drawSong() {
+    const sh = shot();
+    const c = sizeCanvas(els.songCv);
+    els.noSong.hidden = S.song || !sh;
+    if (!sh || !S.song) return;
+    const off = shotStart(sh);
+    const f0 = Math.max(1, Math.floor(S.sf));
+    const f1 = Math.min(sh.len, Math.ceil(S.sf + c.w / S.fw) + 1);
+    const limit = c.w * song_wipe;
+    const bw = Math.max(1, S.fw - 1);
+    for (let f = f0; f <= f1; f++) {
+      const x = xOf(f) - S.fw / 2;
+      if (x > limit) break;
+      const h = amp(off + f) * (c.h - 4);
+      c.ctx.fillStyle = f <= S.ph ? "#9a1c36" : "#77777e";
+      c.ctx.fillRect(x, (c.h - h) / 2, bw, h);
+    }
+  }
+  function wipeSong() {
+    song_wipe = 0;
+    const t0 = performance.now();
+    const dur = K.ms("move");
+    const step = () => {
+      song_wipe = dur > 0 ? clamp((performance.now() - t0) / dur, 0, 1) : 1;
+      drawSong();
+      if (song_wipe < 1) window.requestAnimationFrame(step);
+    };
+    step();
+  }
+  function renderPlayhead(live) {
+    const sh = shot();
+    els.grid.classList.toggle("is-live", Boolean(live));
+    if (!sh) return;
+    const x = xOf(S.ph);
+    els.phLine.style.left = x + "px";
+    els.phTag.textContent = S.ph + ", " + secs(S.ph) + " s";
+    const half = els.phTag.offsetWidth / 2 + 1;
+    els.phTag.style.left = clamp(x, half, Math.max(half, laneW() - half)) + "px";
+    const fr = "F " + String(S.ph).padStart(3, "0");
+    const changed = els.counter.textContent !== fr;
+    els.counter.textContent = fr;
+    const t = S.ph / kFps;
+    els.clock.textContent = Math.floor(t / 60) + ":" + (t % 60).toFixed(2).padStart(5, "0");
+    if (changed && !live) K.play(els.counter, "k-bump", "pop");
+  }
+  function renderLoop() {
+    const sh = shot();
+    if (!sh) { els.loopChip.textContent = "Loop"; return; }
+    const x0 = xOf(sh.la) - S.fw / 2;
+    const x1 = xOf(sh.lb) + S.fw / 2;
+    els.loop.style.left = x0 + "px";
+    els.loop.style.width = (x1 - x0) + "px";
+    els.loopA.style.left = x0 + "px";
+    els.loopB.style.left = x1 + "px";
+    els.loop.classList.toggle("is-off", !S.loopOn);
+    els.loopChip.textContent = "Loop " + sh.la + " - " + sh.lb;
+    els.loopChip.classList.toggle("is-off", !S.loopOn);
+    els.loopChip.classList.toggle("is-picked", S.loopOn);
+  }
+  function renderScroll() {
+    const sh = shot();
+    const total = sh ? sh.len + kTail : 60;
+    const w = els.scroll.clientWidth;
+    const view = laneW() / S.fw;
+    const tw = clamp(w * view / total, 16, w);
+    const left = (w - tw) * (maxSf() > 0 ? S.sf / maxSf() : 0);
+    els.thumb.style.width = tw + "px";
+    els.thumb.style.left = clamp(left, 0, w - tw) + "px";
+  }
+  function renderChipbar() {
+    const picked = pickedKeys();
+    const sh = shot();
+    const show = picked.length > 0 && sh !== null;
+    els.chipbar.hidden = !show;
+    if (!show) return;
+    let top_row = null;
+    let min_x = Infinity;
+    let max_x = -Infinity;
+    picked.forEach((p) => {
+      const row = rowEls.find((r) => r.r.piece < 0 && r.r.layer.id === p.layer);
+      if (!row) return;
+      if (!top_row || row.el.offsetTop < top_row.el.offsetTop) top_row = row;
+      min_x = Math.min(min_x, xOf(p.k.f));
+      max_x = Math.max(max_x, xOf(p.k.f));
+    });
+    if (!top_row) { els.chipbar.hidden = true; return; }
+    const w = els.chipbar.offsetWidth;
+    const cx = clamp((min_x + max_x) / 2, w / 2 + 2, laneW() - w / 2 - 2);
+    els.chipbar.style.left = cx + "px";
+    els.chipbar.style.top = Math.max(0, top_row.el.offsetTop - 26) + "px";
+    const eases = new Set(picked.map((p) => (p.k.e === "in" || p.k.e === "out") ? "inout" : p.k.e));
+    els.easeSeg.querySelectorAll("button").forEach((b) => {
+      b.setAttribute("aria-pressed", String(eases.size === 1 && eases.has(b.dataset.ease)));
+    });
+    const space_why = spaceWhy();
+    els.chipbar.querySelectorAll("[data-space]").forEach((b) => setOff(b, space_why));
+    els.chipbar.querySelectorAll("[data-nudge]").forEach((b) => setOff(b, nudgeWhy(Number(b.dataset.nudge))));
+  }
+  function setOff(el, why) {
+    el.setAttribute("aria-disabled", String(Boolean(why)));
+    if (why) el.dataset.why = why; else delete el.dataset.why;
+  }
+  function renderFocusbar() {
+    const row = rowEls.find((r) => r.r.piece < 0 && r.r.layer.id === S.focusRow);
+    els.focusbar.hidden = !row || !shot();
+    if (!row) return;
+    els.focusbar.style.top = row.el.offsetTop + "px";
+    els.focusbar.style.height = row.el.offsetHeight + "px";
+    window.requestAnimationFrame(() => els.focusbar.classList.remove("is-instant"));
+  }
+  function renderTimeline() {
+    const sh = shot();
+    const has_shot = sh !== null;
+    els.empty.hidden = has_shot;
+    els.field.hidden = !has_shot;
+    els.over.hidden = !has_shot;
+    els.grid.querySelectorAll(".tl-ruler-row, .tl-song-row").forEach((r) => { r.hidden = !has_shot; });
+    els.scroll.hidden = !has_shot;
+    buildRows();
+    if (has_shot) {
+      S.sf = clamp(S.sf, kMinSf, Math.max(0, maxSf()));
+      const end = xOf(sh.len) + S.fw / 2;
+      els.hatch.style.left = Math.max(0, end) + "px";
+    }
+    renderKeys();
+    drawRuler();
+    drawSong();
+    renderPlayhead(false);
+    renderLoop();
+    renderScroll();
+    renderChipbar();
+    renderFocusbar();
+    renderHead();
+  }
+  function renderHead() {
+    const sh = shot();
+    els.shotLabel.innerHTML = "";
+    const b = document.createElement("b");
+    b.textContent = sh ? sh.name : "No shot";
+    els.shotLabel.appendChild(b);
+    if (sh) {
+      const i = document.createElement("i");
+      i.textContent = "  " + lenText(sh.len);
+      els.shotLabel.appendChild(i);
+    }
+    setOff(els.zoomIn, S.fw >= kMaxFw ? "Zoomed in all the way." : (sh ? "" : "Pick a shot first."));
+    setOff(els.zoomOut, S.fw <= kMinFw ? "Zoomed out all the way." : (sh ? "" : "Pick a shot first."));
+    setOff(els.zoomFit, sh ? "" : "Pick a shot first.");
+    setOff(els.loopChip, sh ? "" : "Pick a shot first.");
+  }
+
+  /* ---------- Stage preview ---------- */
+  const dollEls = {};
+  function dollSvg(color) {
+    return '<svg viewBox="-22 -6 44 98">'
+      + '<g class="pc" data-piece="4" stroke="' + color + '" stroke-width="5" stroke-linecap="square">'
+      + '<path class="legs" d="M-5 58 L-8 88 M5 58 L8 88" fill="none"/></g>'
+      + '<g class="pc" data-piece="1"><rect x="-10" y="22" width="20" height="38" fill="' + color + '"/></g>'
+      + '<g class="pc arm" data-piece="2"><rect x="-17" y="24" width="6" height="28" fill="#e9e4d8"/></g>'
+      + '<g class="pc arm" data-piece="3"><rect x="11" y="24" width="6" height="28" fill="#e9e4d8"/></g>'
+      + '<g class="pc" data-piece="0"><circle cx="0" cy="10" r="11" fill="#e9e4d8"/>'
+      + '<rect x="-12" y="-3" width="24" height="8" fill="' + color + '"/></g></svg>';
+  }
+  function buildStage() {
+    kLayers.forEach((l) => {
+      if (l.kind !== "doll") return;
+      const d = document.createElement("div");
+      d.className = "item doll";
+      d.dataset.layer = l.id;
+      d.innerHTML = dollSvg(l.color);
+      els.stage.appendChild(d);
+      dollEls[l.id] = d;
+    });
+  }
+  function renderStage() {
+    const sh = shot();
+    els.stageEmpty.hidden = sh !== null;
+    Object.keys(dollEls).forEach((id) => { dollEls[id].hidden = !sh; });
+    els.camframe.hidden = !sh;
+    if (!sh) { els.stage.style.background = ""; return; }
+    els.stage.style.background = "linear-gradient(180deg, " + sh.color + "55, var(--stage))";
+    const cam = sample(sh, "cam", S.ph);
+    els.floor.style.backgroundPosition = (-cam * 4) + "px 0";
+    const w = els.stage.clientWidth;
+    Object.keys(dollEls).forEach((id) => {
+      const v = sample(sh, id, S.ph);
+      const d = dollEls[id];
+      d.style.left = (v / 100 * w - cam * 4) + "px";
+      const arms = d.querySelectorAll(".arm");
+      arms[0].setAttribute("transform", "rotate(" + ((v * 4) % 90 - 20).toFixed(1) + " -14 26)");
+      arms[1].setAttribute("transform", "rotate(" + (-((v * 3) % 80) + 20).toFixed(1) + " 14 26)");
+      d.classList.toggle("is-picked", S.focusRow === id);
+    });
+    els.camframe.classList.toggle("is-picked", S.focusRow === "cam");
+  }
+  function stageHover(layer, piece) {
+    Object.keys(dollEls).forEach((id) => {
+      const d = dollEls[id];
+      d.classList.toggle("is-hover", id === layer && piece < 0);
+      d.querySelectorAll(".pc").forEach((g) => {
+        g.classList.toggle("is-hot", id === layer && Number(g.dataset.piece) === piece);
+      });
+    });
+    els.camframe.classList.toggle("is-hover", layer === "cam");
+  }
+
+  /* ---------- Shot strip ---------- */
+  function thumbSvg(sh) {
+    let s = '<svg viewBox="0 0 100 28" preserveAspectRatio="none">'
+      + '<rect width="100" height="28" fill="rgba(0,0,0,0.25)"/><rect y="22" width="100" height="6" fill="rgba(0,0,0,0.3)"/>';
+    kLayers.forEach((l) => {
+      if (l.kind !== "doll") return;
+      const x = sample(sh, l.id, 1);
+      s += '<rect x="' + (x - 2.5).toFixed(1) + '" y="9" width="5" height="13" fill="' + l.color + '"/>'
+        + '<rect x="' + (x - 2).toFixed(1) + '" y="4" width="4" height="5" fill="#e9e4d8"/>';
+    });
+    return s + "</svg>";
+  }
+  function shotEl(sh) {
+    const el = document.createElement("div");
+    el.className = "shot";
+    el.dataset.id = sh.id;
+    el.style.setProperty("--c", sh.color);
+    el.style.width = Math.max(84, Math.round(sh.len * kStripPx)) + "px";
+    el.classList.toggle("is-picked", S.shotPick.has(sh.id));
+    el.classList.toggle("is-focus", S.cur === sh.id);
+    el.classList.toggle("is-dragging", strip_drag.has(sh.id));
+    el.innerHTML = '<span class="shot-tab" data-tip="Background colour (all picked shots)"></span>'
+      + '<div class="shot-thumb">' + thumbSvg(sh) + "</div>"
+      + '<div class="shot-name" data-tip="Double-click to rename"></div>'
+      + '<div class="shot-len"></div>'
+      + '<span class="shot-grip" data-tip="Drag to change the length (Shift: half seconds)"></span>';
+    el.querySelector(".shot-name").textContent = sh.name;
+    el.querySelector(".shot-len").textContent = lenText(sh.len);
+    return el;
+  }
+  const strip_drag = new Set();
+  function renderStrip(flip) {
+    const old = new Map();
+    if (flip) els.strip.querySelectorAll(".shot, .shot-add").forEach((el) => {
+      old.set(el.dataset.id, el.getBoundingClientRect().left);
+    });
+    els.strip.querySelectorAll(".shot:not(.ghost), .shot-add").forEach((el) => el.remove());
+    S.shots.forEach((sh) => els.strip.appendChild(shotEl(sh)));
+    const add = document.createElement("button");
+    add.className = "btn shot-add";
+    add.dataset.id = "add";
+    add.textContent = "+";
+    add.setAttribute("aria-label", "Add shot");
+    add.dataset.tip = "Add a shot after the focused one";
+    els.strip.appendChild(add);
+    if (!flip) return;
+    els.strip.querySelectorAll(".shot:not(.ghost), .shot-add").forEach((el) => {
+      const was = old.get(el.dataset.id);
+      const is_fresh = freshShots.has(el.dataset.id);
+      if (is_fresh) { K.pop(el, 0.6); return; }
+      if (was === undefined || !K.motion.on) return;
+      const dx = was - el.getBoundingClientRect().left;
+      if (Math.abs(dx) > 0.5) {
+        el.animate([{ transform: "translateX(" + dx + "px)" }, { transform: "translateX(0)" }],
+          { duration: K.ms("pop"), easing: "cubic-bezier(0.33, 1, 0.68, 1)" });
+      }
+    });
+    freshShots.clear();
+  }
+  function chipOf(id) { return els.strip.querySelector('.shot[data-id="' + id + '"]:not(.ghost)'); }
+
+  /* ---------- Render all ---------- */
+  function renderAll(flip) {
+    renderStrip(flip);
+    renderTimeline();
+    renderStage();
+    refreshUI();
+  }
+  function refreshUI() {
+    const sh = shot();
+    const picked = S.pick.size;
+    setOff($("miCopy"), picked ? "" : "Pick keys first.");
+    setOff($("miDelete"), picked ? "" : "Pick keys first.");
+    setOff($("miPaste"), S.clip ? (sh ? "" : "Pick a shot first.") : "Copy keys first (Ctrl+C).");
+    setOff($("miAll"), sh ? "" : "Pick a shot first.");
+    setOff($("miRemoveSong"), S.song ? "" : "There is no song yet.");
+    $("miLoop").setAttribute("aria-checked", String(S.loopOn));
+    $("miScrub").setAttribute("aria-checked", String(S.mode === "scrub"));
+    $("miAnim").setAttribute("aria-checked", String(S.mode === "anim"));
+    els.loopBtn.setAttribute("aria-pressed", String(S.loopOn));
+    const why_shot = sh ? "" : "Pick a shot first.";
+    ["tFirst", "tPrev", "tNext", "tLast", "tPlay", "tLoop"].forEach((id) => setOff($(id), why_shot));
+    els.play.innerHTML = S.playing
+      ? '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h4v12H3zM9 2h4v12H9z"/></svg>'
+      : '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6z"/></svg>';
+    els.play.dataset.tip = S.playing ? "Pause" : "Play";
+    els.play.setAttribute("aria-label", S.playing ? "Pause" : "Play");
+    $("dirtyDot").hidden = !S.dirty;
+  }
+
+  /* ---------- Playhead and transport ---------- */
+  let scroll_anim = 0;
+  function scrollTo(target, eased) {
+    const to = clamp(target, kMinSf, Math.max(0, maxSf()));
+    window.cancelAnimationFrame(scroll_anim);
+    const dur = eased === false ? 0 : K.ms("move");
+    if (dur <= 0) { S.sf = to; renderView(); return; }
+    const from = S.sf;
+    const t0 = performance.now();
+    const step = () => {
+      const t = clamp((performance.now() - t0) / dur, 0, 1);
+      S.sf = from + (to - from) * (1 - Math.pow(1 - t, 3));
+      if (t < 1) { renderView(); scroll_anim = window.requestAnimationFrame(step); }
+      else if (!S.playing) renderTimeline();
+      else renderView();
+    };
+    scroll_anim = window.requestAnimationFrame(step);
+  }
+  function renderView() {
+    const sh = shot();
+    if (!sh) return;
+    const end = xOf(sh.len) + S.fw / 2;
+    els.hatch.style.left = Math.max(0, end) + "px";
+    els.grid.classList.add("is-live");
+    renderKeys();
+    drawRuler();
+    drawSong();
+    renderPlayhead(true);
+    renderLoop();
+    renderScroll();
+    renderChipbar();
+  }
+  function keepVisible() {
+    const x = xOf(S.ph);
+    const w = laneW();
+    const out = x < 16 || x > w - 16;
+    if (out) scrollTo(S.ph - 1 - (w / S.fw) / 3);
+  }
+  function setPh(f, how) {
+    const sh = shot();
+    if (!sh) return;
+    const nf = clamp(Math.round(f), 1, sh.len);
+    const same = nf === S.ph;
+    S.ph = nf;
+    const live = how === "scrub" || how === "play";
+    renderPlayhead(live);
+    drawSong();
+    renderStage();
+    if (!same || !live) keepVisible();
+  }
+  function goShot(id, f, follow) {
+    S.cur = id;
+    S.shotPick = new Set([id]);
+    S.pick.clear();
+    S.ph = f;
+    renderAll(false);
+    const vis = laneW() / S.fw;
+    const target = f > vis ? f - vis / 3 : kMinSf;
+    scrollTo(target);
+    const chip = chipOf(id);
+    if (chip) {
+      if (follow) K.play(chip, "k-lift", "pop");
+      chip.scrollIntoView({ block: "nearest", inline: "nearest", behavior: K.motion.on ? "smooth" : "auto" });
+    }
+  }
+  function changeFrames(sh) {
+    const set = new Set([1]);
+    kLayers.forEach((l) => {
+      const list = rowKeys(sh, l.id);
+      list.forEach((k, i) => {
+        set.add(k.f);
+        const b = list[i + 1];
+        const eased = b && k.e !== "step";
+        if (eased) for (let f = k.f + 1; f < b.f && f < k.f + 500; f++) set.add(f);
+      });
+    });
+    return Array.from(set).sort((a, b) => a - b);
+  }
+  function step(dir) {
+    const sh = shot();
+    if (!sh) return;
+    let target = S.ph + dir;
+    if (S.mode === "anim") {
+      const list = changeFrames(sh);
+      const next = dir > 0 ? list.find((f) => f > S.ph) : list.slice().reverse().find((f) => f < S.ph);
+      target = next === undefined ? (dir > 0 ? sh.len + 1 : 0) : next;
+    }
+    const i = S.shots.indexOf(sh);
+    const past_end = target > sh.len;
+    const before_start = target < 1;
+    if (past_end && i < S.shots.length - 1) { goShot(S.shots[i + 1].id, 1, true); return; }
+    if (before_start && i > 0) { goShot(S.shots[i - 1].id, S.shots[i - 1].len, true); return; }
+    const blocked = (past_end || before_start);
+    if (blocked) { K.shake(dir > 0 ? $("tNext") : $("tPrev"), dir > 0 ? "This is the last frame." : "This is the first frame."); return; }
+    setPh(target, "step");
+  }
+  let play_raf = 0;
+  let play_last = 0;
+  let play_acc = 0;
+  function playTick(now) {
+    if (!S.playing) return;
+    play_acc += now - play_last;
+    play_last = now;
+    const per = 1000 / kFps;
+    for (let i = 0; i < 6 && play_acc >= per; i++) {
+      play_acc -= per;
+      advance();
+      if (!S.playing) return;
+    }
+    play_raf = window.requestAnimationFrame(playTick);
+  }
+  function advance() {
+    const sh = shot();
+    if (!sh) { setPlaying(false); return; }
+    let f = S.ph + 1;
+    const in_loop = S.loopOn && S.ph >= sh.la && S.ph <= sh.lb;
+    if (in_loop && f > sh.lb) f = sh.la;
+    if (f > sh.len) {
+      const i = S.shots.indexOf(sh);
+      if (i < S.shots.length - 1) { goShot(S.shots[i + 1].id, 1, true); return; }
+      setPlaying(false);
+      K.toast("Reached the end of the last shot.", null, { ms: 1800 });
+      return;
+    }
+    setPh(f, "play");
+  }
+  function setPlaying(on) {
+    const sh = shot();
+    if (on && !sh) { K.shake(els.play, "Pick a shot first."); return; }
+    S.playing = on;
+    window.cancelAnimationFrame(play_raf);
+    if (on) {
+      if (S.loopOn && sh && (S.ph < sh.la || S.ph >= sh.lb)) setPh(sh.la, "step");
+      play_last = performance.now();
+      play_acc = 0;
+      play_raf = window.requestAnimationFrame(playTick);
+    } else {
+      renderPlayhead(false);
+    }
+    refreshUI();
+  }
+  function toggleLoop() {
+    if (!shot()) { K.shake(els.loopBtn, "Pick a shot first."); return; }
+    S.loopOn = !S.loopOn;
+    renderLoop();
+    refreshUI();
+    K.flash(els.loop);
+  }
+
+  /* ---------- Key edits (one undo step each) ---------- */
+  const Keys = {
+    pickAt(layer, id, mode) {
+      const has = S.pick.has(id);
+      if (mode === "replace") S.pick = new Set([id]);
+      else if (mode === "add") S.pick.add(id);
+      else if (has) S.pick.delete(id);
+      else S.pick.add(id);
+      S.focusRow = layer;
+    },
+    add(layer, f) {
+      const sh = shot();
+      const exists = keyAt(layer, f);
+      if (exists) { S.pick = new Set([exists.id]); renderTimeline(); return; }
+      const before = snap();
+      const base = Math.round(sample(sh, layer, f));
+      const v = layer === "cam" ? ((base + 26) % 40) - 20 : 15 + ((base + 2) % 70);
+      const k = { id: uid("k"), f: f, v: v, e: "step", pm: 31 };
+      sh.keys[layer].push(k);
+      fresh.add(k.id);
+      S.pick = new Set([k.id]);
+      S.focusRow = layer;
+      commit(layer === "cam" ? "Key camera" : "Key " + layerOf(layer).name, before);
+      renderTimeline();
+      renderStage();
+      refreshUI();
+    },
+    resolve(layer, keep) {
+      const sh = shot();
+      const by = new Map();
+      sh.keys[layer].slice().sort((a, b) => (keep.has(a.id) ? 1 : 0) - (keep.has(b.id) ? 1 : 0)).forEach((k) => by.set(k.f, k));
+      const kept = new Set(Array.from(by.values()).map((k) => k.id));
+      sh.keys[layer] = sh.keys[layer].filter((k) => kept.has(k.id));
+    },
+    move(ids, df, copy, name) {
+      const sh = shot();
+      const before = name ? snap() : null;
+      const touched = new Set();
+      const keep = new Set();
+      const made = [];
+      ids.forEach((id) => {
+        const p = findKey(id);
+        if (!p) return;
+        touched.add(p.layer);
+        if (copy) {
+          const c = { id: uid("k"), f: p.k.f + df, v: p.k.v, e: p.k.e, pm: p.k.pm };
+          sh.keys[p.layer].push(c);
+          fresh.add(c.id);
+          keep.add(c.id);
+          made.push(c.id);
+        } else {
+          p.k.f = clamp(p.k.f + df, 1, sh.len);
+          keep.add(id);
+        }
+      });
+      touched.forEach((l) => this.resolve(l, keep));
+      if (copy) S.pick = new Set(made);
+      return before ? commit(name, before) : null;
+    },
+    remove(ids) {
+      const sh = shot();
+      if (!sh || !ids.length) return null;
+      const before = snap();
+      const gone = new Set(ids);
+      kLayers.forEach((l) => { sh.keys[l.id] = sh.keys[l.id].filter((k) => !gone.has(k.id)); });
+      S.pick.clear();
+      return commit(ids.length === 1 ? "Delete key" : "Delete " + ids.length + " keys", before);
+    },
+    ease(ids, e) {
+      const before = snap();
+      ids.forEach((id) => { const p = findKey(id); if (p) p.k.e = e; });
+      commit(e === "step" ? "Hold keys" : "Ease keys: " + kEaseNames[e], before);
+    },
+    space(n) {
+      const sh = shot();
+      const before = snap();
+      kLayers.forEach((l) => {
+        const list = rowKeys(sh, l.id);
+        const picked = list.filter((k) => S.pick.has(k.id));
+        if (picked.length < 2) return;
+        const last_old = picked[picked.length - 1].f;
+        picked.forEach((k, i) => { k.f = Math.min(sh.len, picked[0].f + i * n); });
+        const shift = picked[picked.length - 1].f - last_old;
+        list.forEach((k) => { if (!S.pick.has(k.id) && k.f > last_old) k.f += shift; });
+        this.resolve(l.id, S.pick);
+      });
+      commit("Space keys on " + n + "s", before);
+    },
+    hold(layer, f, dir) {
+      const sh = shot();
+      const before = snap();
+      sh.keys[layer].forEach((k) => { if (k.f > f) k.f += dir; });
+      this.resolve(layer, new Set());
+      commit(dir > 0 ? "Hold one frame longer" : "Hold one frame shorter", before);
+    },
+    copy() {
+      const picked = pickedKeys();
+      if (!picked.length) return false;
+      const f0 = Math.min.apply(null, picked.map((p) => p.k.f));
+      S.clip = picked.map((p) => ({ layer: p.layer, df: p.k.f - f0, v: p.k.v, e: p.k.e, pm: p.k.pm }));
+      return true;
+    },
+    paste(layer, f) {
+      const sh = shot();
+      const before = snap();
+      const layers = new Set(S.clip.map((c) => c.layer));
+      const one_row = layers.size === 1;
+      const made = new Set();
+      const touched = new Set();
+      S.clip.forEach((c) => {
+        const target = one_row ? layer : c.layer;
+        const k = { id: uid("k"), f: clamp(f + c.df, 1, sh.len), v: c.v, e: c.e, pm: c.pm };
+        sh.keys[target].push(k);
+        made.add(k.id);
+        fresh.add(k.id);
+        touched.add(target);
+      });
+      touched.forEach((l) => this.resolve(l, made));
+      S.pick = made;
+      return commit(made.size === 1 ? "Paste key" : "Paste " + made.size + " keys", before);
+    },
+    all() {
+      const sh = shot();
+      S.pick = new Set();
+      kLayers.forEach((l) => sh.keys[l.id].forEach((k) => S.pick.add(k.id)));
+    }
+  };
+  function spaceWhy() {
+    const sh = shot();
+    if (!sh) return "Pick a shot first.";
+    const ok = kLayers.some((l) => sh.keys[l.id].filter((k) => S.pick.has(k.id)).length >= 2);
+    return ok ? "" : "Pick two keys in a row to space them.";
+  }
+  function nudgeWhy(df) {
+    const sh = shot();
+    const picked = pickedKeys();
+    if (!sh || !picked.length) return "Pick keys first.";
+    const at_edge = picked.some((p) => p.k.f + df < 1 || p.k.f + df > sh.len);
+    if (at_edge) return df < 0 ? "A picked key is on frame 1 already." : "A picked key is on the last frame.";
+    const blocked = picked.some((p) => {
+      const other = keyAt(p.layer, p.k.f + df);
+      return other && !S.pick.has(other.id);
+    });
+    return blocked ? "Another key is in the way." : "";
+  }
+  function holdWhy(layer, f, dir) {
+    const sh = shot();
+    const after = sh.keys[layer].some((k) => k.f > f);
+    if (!after) return "No key after this frame to " + (dir > 0 ? "push." : "pull in.");
+    if (dir > 0) {
+      const last = Math.max.apply(null, sh.keys[layer].map((k) => k.f));
+      return last >= sh.len ? "The last key is on the shot end." : "";
+    }
+    const tight = keyAt(layer, f) && keyAt(layer, f + 1);
+    return tight ? "This hold is one frame already." : "";
+  }
+  function afterKeyEdit() {
+    renderTimeline();
+    renderStage();
+    renderStrip(false);
+    refreshUI();
+  }
+  function deletePicked() {
+    const ids = Array.from(S.pick);
+    if (!ids.length) { K.shake(els.tl, "Pick keys first."); return; }
+    const step = Keys.remove(ids);
+    afterKeyEdit();
+    toastUndo(ids.length === 1 ? "Deleted 1 key" : "Deleted " + ids.length + " keys", step);
+  }
+  function copyPicked() {
+    const ok = Keys.copy();
+    if (!ok) { K.shake(els.tl, "Pick keys first."); return; }
+    K.toast("Copied " + plural(S.clip.length, "key") + ". Ctrl+V pastes at the playhead.", null, { ms: 2200 });
+    refreshUI();
+  }
+  function pasteAt(layer, f) {
+    if (!S.clip) { K.shake(els.tl, "Copy keys first (Ctrl+C)."); return; }
+    if (!shot()) { K.shake(els.tl, "Pick a shot first."); return; }
+    Keys.paste(layer, f);
+    afterKeyEdit();
+  }
+  function nudge(df) {
+    const why = nudgeWhy(df);
+    if (why) { K.shake(els.chipbar.querySelector('[data-nudge="' + df + '"]'), why); return; }
+    Keys.move(Array.from(S.pick), df, false, "Nudge keys " + (df > 0 ? "+" : "") + df + " f");
+    afterKeyEdit();
+    S.pick.forEach((id) => {
+      document.querySelectorAll('.key[data-id="' + id + '"]').forEach((el) => K.bounce(el, df, 0));
+    });
+  }
+
+  /* ---------- Timeline mouse: keys, box pick, empty space ---------- */
+  function liveKey(s) {
+    const in_lane = laneX(s.x) >= 0;
+    return in_lane ? K.nearest(els.field, ".key:not(.ghost):not(.k-puff)", s.x, s.y, kGrab) : null;
+  }
+  function clearBox() {
+    els.boxSel.hidden = true;
+    els.field.querySelectorAll(".key.in-box").forEach((k) => k.classList.remove("in-box"));
+  }
+  function keysInBox(s) {
+    const x0 = Math.min(s.x0, s.x);
+    const x1 = Math.max(s.x0, s.x);
+    const y0 = Math.min(s.y0, s.y);
+    const y1 = Math.max(s.y0, s.y);
+    const ids = new Set();
+    els.field.querySelectorAll(".key:not(.ghost):not(.k-puff)").forEach((el) => {
+      const b = el.getBoundingClientRect();
+      const inside = b.left >= x0 && b.left <= x1 && b.top >= y0 && b.top <= y1;
+      el.classList.toggle("in-box", inside);
+      if (inside) ids.add(el.dataset.id);
+    });
+    return ids;
+  }
+  const key_snap = K.snapper({ catch: kSnapPx });
+  function keyDragStart(s) {
+    const is_picked = S.pick.has(s.keyId);
+    if (!is_picked) { s.mode = "none"; return; }
+    s.before = snap();
+    s.orig = new Map();
+    pickedKeys().forEach((p) => s.orig.set(p.k.id, p.k.f));
+    s.g0 = s.orig.get(s.keyId);
+    s.df = 0;
+    s.grab_off = laneX(s.x0) - xOf(s.g0);
+    s.ghosts = [];
+    S.pick.forEach((id) => {
+      document.querySelectorAll('.key[data-id="' + id + '"]:not(.ghost)').forEach((el) => s.ghosts.push(K.ghost(el)));
+    });
+    key_snap.reset();
+  }
+  function keyDragMove(s) {
+    const sh = shot();
+    const w = laneW();
+    const lx = laneX(s.x);
+    const near_edge = lx > w - 24 || lx < 24;
+    if (near_edge) { S.sf = clamp(S.sf + (lx > w - 24 ? 0.6 : -0.6), kMinSf, maxSf()); }
+    const raw = lx - s.grab_off;
+    const targets = [
+      { at: xOf(S.ph), el: els.phLine }, { at: xOf(1) }, { at: xOf(sh.len) },
+      { at: xOf(sh.la) }, { at: xOf(sh.lb) }
+    ];
+    const hit = key_snap.test(raw, targets);
+    let df = fAt(hit.hit ? hit.value : raw) - s.g0;
+    const fs = Array.from(s.orig.values());
+    const lo = 1 - Math.min.apply(null, fs);
+    const hi = sh.len - Math.max.apply(null, fs);
+    s.clamped = df < lo || df > hi;
+    df = clamp(df, lo, hi);
+    s.snapped = Boolean(hit.hit);
+    if (df !== s.df) {
+      s.df = df;
+      els.tick.style.left = xOf(s.g0 + df) + "px";
+      K.play(els.tick, "k-tick", "flash");
+    }
+    s.orig.forEach((f0, id) => { const p = findKey(id); if (p) p.k.f = f0 + df; });
+    renderView();
+  }
+  function keyDragEnd(s, cancelled) {
+    s.ghosts.forEach((g) => g.remove());
+    s.orig.forEach((f0, id) => { const p = findKey(id); if (p) p.k.f = f0; });
+    els.grid.classList.remove("is-live");
+    if (cancelled || s.df === 0) { renderTimeline(); return; }
+    const copy = Boolean(s.alt);
+    Keys.move(Array.from(s.orig.keys()), s.df, copy, "");
+    const n = s.orig.size;
+    const name = copy ? (n === 1 ? "Copy key" : "Copy " + n + " keys") : (n === 1 ? "Move key" : "Move keys");
+    const after = snap();
+    const before = s.before;
+    if (after !== before) { undo.push(name, () => restore(before), () => restore(after)); S.dirty = true; }
+    afterKeyEdit();
+    S.pick.forEach((id) => {
+      document.querySelectorAll('.key[data-id="' + id + '"]').forEach((el) => K.bounce(el, s.df, 0));
+    });
+  }
+  function fieldDown(s) {
+    S.region = "timeline";
+    els.tl.focus({ preventScroll: true });
+    const e = s.event;
+    s.mods = { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey };
+    const keyEl = liveKey(s);
+    if (keyEl) {
+      s.mode = "key";
+      s.keyId = keyEl.dataset.id;
+      s.layer = keyEl.dataset.layer;
+      const is_picked = S.pick.has(s.keyId);
+      if (s.mods.shift) Keys.pickAt(s.layer, s.keyId, "add");
+      else if (s.mods.ctrl) Keys.pickAt(s.layer, s.keyId, "toggle");
+      else if (!is_picked) Keys.pickAt(s.layer, s.keyId, "replace");
+      renderTimeline();
+      renderStage();
+      refreshUI();
+      return;
+    }
+    const row = rowAtY(s.y);
+    s.mode = row ? "empty" : "below";
+    s.row = row;
+  }
+  function fieldClick(s) {
+    const sh = shot();
+    if (s.mode === "key") {
+      const plain = !s.mods.shift && !s.mods.ctrl;
+      if (plain) {
+        Keys.pickAt(s.layer, s.keyId, "replace");
+        const p = findKey(s.keyId);
+        if (p) setPh(p.k.f, "step");
+      }
+      renderTimeline();
+      refreshUI();
+      return;
+    }
+    if (s.mode === "below") { S.pick.clear(); afterPick(); return; }
+    if (s.mode === "empty" && sh) {
+      const keep = s.mods.shift || s.mods.ctrl;
+      if (!keep) S.pick.clear();
+      S.focusRow = s.row.r.layer.id;
+      setPh(fAt(laneX(s.x)), "step");
+      afterPick();
+    }
+  }
+  function afterPick() { renderTimeline(); renderStage(); refreshUI(); }
+  /* Our own double click: a re-render between the two clicks swaps the
+     element under the mouse, so the browser's dblclick never arrives. */
+  function doubleTap(memo, s) {
+    const now = performance.now();
+    const near = memo.t > 0 && now - memo.t < 400 && Math.hypot(s.x - memo.x, s.y - memo.y) < 6;
+    memo.t = near ? 0 : now;
+    memo.x = s.x;
+    memo.y = s.y;
+    return near;
+  }
+  const field_tap = { t: 0, x: 0, y: 0 };
+  const strip_tap = { t: 0, x: 0, y: 0 };
+  function fieldDouble(s) {
+    const sh = shot();
+    const row = rowAtY(s.y);
+    if (!sh || !row) return;
+    const f = fAt(laneX(s.x));
+    const past = f > sh.len || f < 1;
+    if (past) { K.shake(row.lane, "Past the shot end. Lengthen the shot in the strip first."); return; }
+    Keys.add(row.r.layer.id, f);
+    setPh(f, "step");
+  }
+  K.drag(els.field, {
+    filter: (e) => shot() !== null && !e.target.closest(".tl-name"),
+    onDown: fieldDown,
+    chip: (s) => {
+      if (s.mode === "key") return (s.alt ? "Copy " : "") + (s.df > 0 ? "+" : "") + s.df + " f" + (s.clamped ? " (end)" : "");
+      if (s.mode === "box") return (s.shift ? "+" : (s.ctrl ? "-" : "")) + plural(s.boxIds ? s.boxIds.size : 0, "key");
+      return "";
+    },
+    onStart: (s) => {
+      if (s.mode === "key") { keyDragStart(s); return; }
+      if (s.mode === "empty" || s.mode === "below") { s.mode = "box"; els.boxSel.hidden = false; }
+    },
+    onMove: (s) => {
+      if (s.mode === "key") { keyDragMove(s); return; }
+      if (s.mode !== "box") return;
+      const o = els.over.getBoundingClientRect();
+      els.boxSel.style.left = (Math.min(s.x0, s.x) - o.left) + "px";
+      els.boxSel.style.top = (Math.min(s.y0, s.y) - o.top) + "px";
+      els.boxSel.style.width = Math.abs(s.x - s.x0) + "px";
+      els.boxSel.style.height = Math.abs(s.y - s.y0) + "px";
+      s.boxIds = keysInBox(s);
+    },
+    onEnd: (s) => {
+      if (s.mode === "key") { keyDragEnd(s, false); return; }
+      if (s.mode !== "box") return;
+      const ids = s.boxIds || new Set();
+      if (s.ctrl) ids.forEach((id) => S.pick.delete(id));
+      else if (s.shift) ids.forEach((id) => S.pick.add(id));
+      else S.pick = new Set(ids);
+      clearBox();
+      afterPick();
+    },
+    onCancel: (s) => {
+      if (s.mode === "key") { keyDragEnd(s, true); return; }
+      clearBox();
+    },
+    onClick: (s) => {
+      const is_double = doubleTap(field_tap, s) && s.mode !== "below";
+      if (is_double) fieldDouble(s); else fieldClick(s);
+    }
+  });
+  const hover = K.hoverOutline(els.field, {
+    items: ".tl-row", handles: ".key:not(.ghost):not(.k-puff)", grab: kGrab,
+    onChange: (cur) => {
+      els.field.querySelectorAll(".tl-row.is-hover").forEach((r) => { if (r !== cur) r.classList.remove("is-hover"); });
+      if (!cur) { stageHover(null, -1); return; }
+      const row = cur.closest(".tl-row");
+      stageHover(row.dataset.layer, Number(row.dataset.piece));
+      if (cur.classList.contains("key")) row.classList.add("is-hover");
+    }
+  });
+
+  /* Names column: focus a layer, expand piece rows. */
+  els.rows.addEventListener("click", (e) => {
+    const caret = e.target.closest(".caret");
+    const name = e.target.closest(".tl-name");
+    if (!name) return;
+    const row = name.closest(".tl-row");
+    const layer = row.dataset.layer;
+    if (caret) {
+      const open = S.expanded.has(layer);
+      if (open) S.expanded.delete(layer); else S.expanded.add(layer);
+      hover.clear();
+      renderTimeline();
+      return;
+    }
+    S.focusRow = layer;
+    S.region = "timeline";
+    renderTimeline();
+    renderStage();
+  });
+
+  /* ---------- Context menus ---------- */
+  function keyMenu(x, y) {
+    const picked = pickedKeys();
+    const sh = shot();
+    const eases = new Set(picked.map((p) => p.k.e));
+    const all_last = picked.every((p) => rowKeys(sh, p.layer).slice(-1)[0].id === p.k.id);
+    const ease_why = all_last ? "No next key to ease into." : "";
+    const items = [{ head: plural(picked.length, "key") + " picked. Ease to next key" }];
+    Object.keys(kEaseNames).forEach((e) => {
+      items.push({ label: kEaseNames[e], checked: eases.size === 1 && eases.has(e), why: ease_why,
+        run: () => { Keys.ease(Array.from(S.pick), e); afterKeyEdit(); } });
+    });
+    items.push({ sep: true }, { head: "Space evenly" });
+    const sw = spaceWhy();
+    [1, 2, 3, 4].forEach((n) => items.push({ label: "On " + n + "s", why: sw,
+      run: () => { Keys.space(n); afterKeyEdit(); } }));
+    items.push({ sep: true });
+    items.push({ label: "Copy keys", key: "Ctrl+C", run: copyPicked });
+    items.push({ label: "Delete keys", key: "Del", run: deletePicked });
+    K.contextMenu(x, y, items);
+  }
+  function emptyMenu(x, y, layer, f) {
+    const sh = shot();
+    const nf = clamp(f, 1, sh.len);
+    const items = [{ head: layerOf(layer).name + ", frame " + nf }];
+    items.push({ label: "Paste keys here", key: "Ctrl+V", why: S.clip ? "" : "Copy keys first (Ctrl+C).",
+      run: () => pasteAt(layer, nf) });
+    items.push({ label: "Key here", key: "Double-click", why: keyAt(layer, nf) ? "There is a key here already." : "",
+      run: () => { Keys.add(layer, nf); setPh(nf, "step"); } });
+    items.push({ sep: true });
+    items.push({ label: "Hold one frame longer", why: holdWhy(layer, nf, 1),
+      run: () => { Keys.hold(layer, nf, 1); afterKeyEdit(); } });
+    items.push({ label: "Hold one frame shorter", why: holdWhy(layer, nf, -1),
+      run: () => { Keys.hold(layer, nf, -1); afterKeyEdit(); } });
+    K.contextMenu(x, y, items);
+  }
+  els.field.addEventListener("contextmenu", (e) => {
+    const sh = shot();
+    if (!sh) return;
+    e.preventDefault();
+    S.region = "timeline";
+    const keyEl = liveKey({ x: e.clientX, y: e.clientY });
+    if (keyEl) {
+      const outside = !S.pick.has(keyEl.dataset.id);
+      if (outside) Keys.pickAt(keyEl.dataset.layer, keyEl.dataset.id, "replace");
+      afterPick();
+      keyMenu(e.clientX, e.clientY);
+      return;
+    }
+    const row = rowAtY(e.clientY) || rowEls.find((r) => r.r.layer.id === S.focusRow);
+    emptyMenu(e.clientX, e.clientY, row.r.layer.id, fAt(laneX(e.clientX)));
+  });
+  els.ruler.addEventListener("contextmenu", (e) => {
+    const sh = shot();
+    if (!sh) return;
+    e.preventDefault();
+    const f = clamp(fAt(laneX(e.clientX)), 1, sh.len);
+    const set = (a, b, name) => {
+      const before = snap();
+      sh.la = a; sh.lb = b;
+      commit(name, before);
+      renderLoop(); refreshUI(); K.flash(els.loop);
+    };
+    K.contextMenu(e.clientX, e.clientY, [
+      { head: "Loop range, frame " + f },
+      { label: "Loop from here", why: f >= sh.lb ? "Must be before the loop end (" + sh.lb + ")." : "",
+        run: () => set(f, sh.lb, "Set loop start") },
+      { label: "Loop to here", why: f <= sh.la ? "Must be after the loop start (" + sh.la + ")." : "",
+        run: () => set(sh.la, f, "Set loop end") },
+      { label: "Loop the whole shot", run: () => set(1, sh.len, "Loop the whole shot") },
+      { sep: true },
+      { label: "Loop on", key: "L", checked: S.loopOn, run: toggleLoop }
+    ]);
+  });
+
+  /* ---------- Ruler and song band: scrub ---------- */
+  const scrub_snap = K.snapper({ catch: 6 });
+  function scrubTo(s) {
+    const sh = shot();
+    const lx = laneX(s.x);
+    const targets = [];
+    kLayers.forEach((l) => sh.keys[l.id].forEach((k) => targets.push(xOf(k.f))));
+    const hit = scrub_snap.test(lx, targets);
+    setPh(hit.hit ? fAt(hit.value) : fAt(lx), "scrub");
+  }
+  [els.ruler, els.song].forEach((band) => {
+    K.drag(band, {
+      threshold: 0,
+      filter: (e) => shot() !== null && !e.target.closest(".loop, .loop-h, .btn"),
+      onDown: (s) => { S.region = "timeline"; scrub_snap.reset(); scrubTo(s); },
+      onMove: scrubTo,
+      onEnd: () => { renderPlayhead(false); },
+      onClick: () => { renderPlayhead(false); }
+    });
+  });
+
+  /* ---------- Loop range handles ---------- */
+  function loopDrag(el, which) {
+    K.drag(el, {
+      threshold: which === "body" ? 4 : 0,
+      onDown: (s) => { const sh = shot(); s.before = snap(); s.a0 = sh.la; s.b0 = sh.lb; },
+      chip: () => { const sh = shot(); return "Loop " + sh.la + " - " + sh.lb + " (" + (sh.lb - sh.la + 1) + " f)"; },
+      onMove: (s) => {
+        const sh = shot();
+        const f = fAt(laneX(s.x));
+        if (which === "a") sh.la = clamp(f, 1, sh.lb - 1);
+        else if (which === "b") sh.lb = clamp(f, sh.la + 1, sh.len);
+        else {
+          const df = clamp(Math.round(s.dx / S.fw), 1 - s.a0, sh.len - s.b0);
+          sh.la = s.a0 + df; sh.lb = s.b0 + df;
+        }
+        renderLoop();
+      },
+      onEnd: (s) => { commit("Change loop range", s.before); refreshUI(); },
+      onCancel: (s) => { const sh = shot(); sh.la = s.a0; sh.lb = s.b0; renderLoop(); },
+      onClick: () => { if (which === "body") toggleLoop(); }
+    });
+  }
+  loopDrag(els.loopA, "a");
+  loopDrag(els.loopB, "b");
+  loopDrag(els.loop, "body");
+
+  /* ---------- Wheel: scroll and zoom ---------- */
+  let wheel_target = null;
+  els.grid.addEventListener("wheel", (e) => {
+    const sh = shot();
+    if (!sh) return;
+    e.preventDefault();
+    const zoom = e.ctrlKey || e.metaKey;
+    if (zoom) { zoomAt(e.deltaY < 0 ? 1.25 : 0.8, laneX(e.clientX)); return; }
+    const d = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) / S.fw;
+    const busy = wheel_target !== null;
+    wheel_target = clamp((busy ? wheel_target : S.sf) + d, kMinSf, maxSf());
+    scrollTo(wheel_target);
+    window.clearTimeout(els.grid._wt);
+    els.grid._wt = window.setTimeout(() => { wheel_target = null; renderTimeline(); }, K.ms("move") + 40);
+  }, { passive: false });
+  function zoomAt(factor, mx) {
+    const nf = clamp(S.fw * factor, kMinFw, kMaxFw);
+    const same = Math.abs(nf - S.fw) < 0.01;
+    if (same) { K.shake(factor > 1 ? els.zoomIn : els.zoomOut, factor > 1 ? "Zoomed in all the way." : "Zoomed out all the way."); return; }
+    const fm = mx / S.fw + S.sf;
+    S.fw = nf;
+    S.sf = clamp(fm - mx / S.fw, kMinSf, maxSf());
+    renderTimeline();
+  }
+  els.zoomIn.addEventListener("click", () => zoomAt(1.25, laneW() / 2));
+  els.zoomOut.addEventListener("click", () => zoomAt(0.8, laneW() / 2));
+  els.zoomFit.addEventListener("click", () => {
+    const sh = shot();
+    S.fw = clamp(laneW() / (sh.len + 3), kMinFw, kMaxFw);
+    S.sf = kMinSf;
+    renderTimeline();
+  });
+  K.drag(els.thumb, {
+    threshold: 0,
+    onDown: (s) => { s.sf0 = S.sf; },
+    onMove: (s) => {
+      const sh = shot();
+      const per = (sh.len + kTail) / els.scroll.clientWidth;
+      S.sf = clamp(s.sf0 + s.dx * per, kMinSf, maxSf());
+      renderView();
+    },
+    onEnd: () => renderTimeline()
+  });
+
+  /* ---------- Chip bar ---------- */
+  els.chipbar.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.ease) { Keys.ease(Array.from(S.pick), b.dataset.ease); afterKeyEdit(); return; }
+    if (b.dataset.space) { Keys.space(Number(b.dataset.space)); afterKeyEdit(); return; }
+    if (b.dataset.nudge) nudge(Number(b.dataset.nudge));
+  });
+  els.chipbar.addEventListener("pointerdown", (e) => e.stopPropagation());
+
+  /* ---------- Shot strip mouse ---------- */
+  function pickShot(id, mode) {
+    if (mode === "replace") S.shotPick = new Set([id]);
+    else if (mode === "add") S.shotPick.add(id);
+    else if (S.shotPick.has(id)) S.shotPick.delete(id);
+    else S.shotPick.add(id);
+    const in_pick = S.shotPick.has(id);
+    if (in_pick) {
+      const changed = S.cur !== id;
+      S.cur = id;
+      if (changed || mode === "replace") { S.ph = 1; S.pick.clear(); scrollTo(kMinSf); }
+    } else if (S.cur === id) {
+      const rest = Array.from(S.shotPick);
+      S.cur = rest.length ? rest[rest.length - 1] : null;
+      S.pick.clear();
+    }
+    renderAll(false);
+  }
+  function stripDown(s) {
+    S.region = "strip";
+    els.strip.focus({ preventScroll: true });
+    const t = s.event.target;
+    const chip = t.closest(".shot");
+    s.mods = { shift: s.event.shiftKey, ctrl: s.event.ctrlKey || s.event.metaKey };
+    if (t.closest(".shot-add")) { s.mode = "add"; return; }
+    if (!chip) { s.mode = "none"; return; }
+    s.id = chip.dataset.id;
+    if (t.closest(".shot-grip")) { s.mode = "grip"; t.closest(".shot-grip").classList.add("is-on"); return; }
+    if (t.closest(".shot-tab")) { s.mode = "tab"; return; }
+    s.mode = "body";
+    const in_pick = S.shotPick.has(s.id);
+    if (s.mods.shift) { pickShot(s.id, "add"); K.pop(chipOf(s.id), 1.05); }
+    else if (s.mods.ctrl) pickShot(s.id, "toggle");
+    else if (!in_pick) pickShot(s.id, "replace");
+  }
+  function stripStart(s) {
+    s.before = snap();
+    if (s.mode === "body") {
+      if (!S.shotPick.has(s.id)) { s.mode = "none"; return; }
+      s.order0 = S.shots.map((x) => x.id);
+      S.shotPick.forEach((id) => strip_drag.add(id));
+      renderStrip(false);
+      return;
+    }
+    if (s.mode === "grip") {
+      const ids = S.shotPick.has(s.id) ? Array.from(S.shotPick) : [s.id];
+      s.lens = new Map();
+      ids.forEach((id) => s.lens.set(id, S.shots.find((x) => x.id === id).len));
+    }
+  }
+  function stripReorder(s) {
+    const group = S.shots.filter((x) => strip_drag.has(x.id));
+    const rest = S.shots.filter((x) => !strip_drag.has(x.id));
+    let idx = rest.length;
+    for (let i = 0; i < rest.length; i++) {
+      const el = chipOf(rest[i].id);
+      const b = el.getBoundingClientRect();
+      if (s.x < b.left + b.width / 2) { idx = i; break; }
+    }
+    const next = rest.slice(0, idx).concat(group, rest.slice(idx));
+    const changed = next.map((x) => x.id).join() !== S.shots.map((x) => x.id).join();
+    if (!changed) return;
+    S.shots = next;
+    renderStrip(true);
+  }
+  function stripGrip(s) {
+    const own = s.lens.get(s.id);
+    let df = Math.round(s.dx / kStripPx);
+    if (s.shift) df = Math.max(1, Math.round((own + df) / 12) * 12) - own;
+    s.atMin = false;
+    s.lens.forEach((l0, id) => {
+      const sh = S.shots.find((x) => x.id === id);
+      const want = l0 + df;
+      if (want < 1) s.atMin = true;
+      sh.len = Math.max(1, want);
+      sh.lb = Math.min(sh.lb, sh.len);
+      sh.la = Math.min(sh.la, Math.max(1, sh.lb - 1));
+    });
+    s.snapped = Boolean(s.shift);
+    renderStrip(false);
+    renderTimeline();
+  }
+  K.drag(els.strip, {
+    filter: (e) => !e.target.closest("input"),
+    onDown: stripDown,
+    chip: (s) => {
+      if (s.mode === "grip") {
+        const sh = S.shots.find((x) => x.id === s.id);
+        return s.atMin ? "1 f min" : lenText(sh.len).split(", ").reverse().join(", ");
+      }
+      if (s.mode === "body") return strip_drag.size > 1 ? "Move " + strip_drag.size + " shots" : "";
+      return "";
+    },
+    ghost: true,
+    ghostOf: (s) => (s.mode === "body" && chipOf(s.id)) || els.strip.querySelector(".shot-add"),
+    onStart: (s) => {
+      stripStart(s);
+      const no_ghost = s.mode !== "body" && s.ghost;
+      if (no_ghost) { s.ghost.remove(); s.ghost = null; }
+    },
+    onMove: (s) => {
+      if (s.mode === "body") stripReorder(s);
+      else if (s.mode === "grip") stripGrip(s);
+    },
+    onEnd: (s) => {
+      els.strip.querySelectorAll(".shot-grip.is-on").forEach((g) => g.classList.remove("is-on"));
+      if (s.mode === "body") {
+        strip_drag.clear();
+        commit(S.shotPick.size > 1 ? "Reorder shots" : "Move shot", s.before);
+        renderAll(false);
+      } else if (s.mode === "grip") {
+        commit("Change shot length", s.before);
+        renderAll(false);
+        if (s.atMin) K.bounce(chipOf(s.id), 1, 0);
+      }
+    },
+    onCancel: (s) => {
+      strip_drag.clear();
+      els.strip.querySelectorAll(".shot-grip.is-on").forEach((g) => g.classList.remove("is-on"));
+      const d = JSON.parse(s.before);
+      S.shots = d.shots;
+      renderAll(true);
+    },
+    onClick: (s) => {
+      els.strip.querySelectorAll(".shot-grip.is-on").forEach((g) => g.classList.remove("is-on"));
+      if (s.mode === "add") { addShot(); return; }
+      if (s.mode === "tab") { colourMenu(s.x, s.y, s.id); return; }
+      if (s.mode === "grip") { pickShot(s.id, "replace"); return; }
+      const on_name = s.mode === "body" && s.target.closest(".shot-name");
+      const is_double = doubleTap(strip_tap, s) && on_name;
+      if (is_double) { rename(s.id); return; }
+      const plain_in_pick = s.mode === "body" && !s.mods.shift && !s.mods.ctrl;
+      if (plain_in_pick) pickShot(s.id, "replace");
+    }
+  });
+  els.strip.addEventListener("click", (e) => {
+    const by_keyboard = e.detail === 0 && e.target.closest(".shot-add");
+    if (by_keyboard) addShot();
+  });
+  els.strip.addEventListener("contextmenu", (e) => {
+    const chip = e.target.closest(".shot");
+    if (!chip) return;
+    e.preventDefault();
+    S.region = "strip";
+    const id = chip.dataset.id;
+    if (!S.shotPick.has(id)) pickShot(id, "replace");
+    shotMenu(e.clientX, e.clientY, id);
+  });
+  function shotMenu(x, y, id) {
+    const n = S.shotPick.size;
+    const sh = S.shots.find((s) => s.id === id);
+    K.contextMenu(x, y, [
+      { head: n > 1 ? n + " shots picked" : sh.name + ", " + lenText(sh.len) },
+      { label: "Rename...", key: "F2", run: () => rename(id) },
+      { label: "Background colour...", run: () => colourMenu(x, y, id) },
+      { label: n > 1 ? "Duplicate " + n + " shots" : "Duplicate", key: "Ctrl+D", run: duplicateShots },
+      { label: n > 1 ? "Delete " + n + " shots" : "Delete", key: "Del", run: deleteShots }
+    ]);
+  }
+  function colourMenu(x, y, id) {
+    if (!S.shotPick.has(id)) pickShot(id, "replace");
+    const sh = S.shots.find((s) => s.id === id);
+    const n = S.shotPick.size;
+    const items = [{ head: n > 1 ? "Background for " + n + " shots" : "Background colour" }];
+    kColors.forEach((c) => items.push({ label: c.name, checked: sh.color === c.c, action: c.c, run: () => {
+      const before = snap();
+      S.shots.forEach((s) => { if (S.shotPick.has(s.id)) s.color = c.c; });
+      commit(n > 1 ? "Colour " + n + " shots" : "Shot colour", before);
+      renderAll(false);
+      S.shotPick.forEach((pid) => K.flash(chipOf(pid)));
+    } }));
+    const m = K.contextMenu(x, y, items);
+    m.querySelectorAll(".menu-item").forEach((b) => {
+      const sw = document.createElement("i");
+      sw.className = "swatch";
+      sw.style.background = b.dataset.action;
+      b.appendChild(sw);
+    });
+  }
+  function rename(id) {
+    const chip = chipOf(id);
+    if (!chip) return;
+    const name = chip.querySelector(".shot-name");
+    const sh = S.shots.find((s) => s.id === id);
+    const input = document.createElement("input");
+    input.className = "field";
+    input.value = sh.name;
+    input.setAttribute("aria-label", "Shot name");
+    name.textContent = "";
+    name.appendChild(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = (keep) => {
+      if (done) return;
+      done = true;
+      const v = input.value.trim();
+      const empty = keep && !v;
+      if (empty) K.toast("A shot needs a name. Kept \"" + sh.name + "\".", null, { ms: 2200, kind: "error" });
+      const changed = keep && v && v !== sh.name;
+      if (changed) {
+        const before = snap();
+        sh.name = v.slice(0, 40);
+        commit("Rename shot", before);
+      }
+      renderAll(false);
+      els.strip.focus({ preventScroll: true });
+    };
+    input.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") finish(true);
+      if (e.key === "Escape") { e.preventDefault(); finish(false); }
+    });
+    input.addEventListener("blur", () => finish(true));
+    input.addEventListener("pointerdown", (e) => e.stopPropagation());
+  }
+  function addShot() {
+    const before = snap();
+    const i = S.cur ? S.shots.findIndex((s) => s.id === S.cur) : S.shots.length - 1;
+    const sh = makeShot("Shot " + (S.shots.length + 1), 48, kColors[S.shots.length % kColors.length].c, S.shots.length + 7);
+    S.shots.splice(i + 1, 0, sh);
+    freshShots.add(sh.id);
+    commit("Add shot", before);
+    S.cur = sh.id;
+    S.shotPick = new Set([sh.id]);
+    S.pick.clear();
+    S.ph = 1;
+    renderAll(true);
+    scrollTo(kMinSf);
+    const chip = chipOf(sh.id);
+    if (chip) chip.scrollIntoView({ block: "nearest", inline: "nearest", behavior: K.motion.on ? "smooth" : "auto" });
+  }
+  function cloneShot(sh) {
+    const c = JSON.parse(JSON.stringify(sh));
+    c.id = uid("s");
+    c.name = sh.name + " copy";
+    Object.keys(c.keys).forEach((l) => c.keys[l].forEach((k) => { k.id = uid("k"); }));
+    return c;
+  }
+  function duplicateShots() {
+    if (!S.shotPick.size) { K.shake(els.strip, "Pick a shot first."); return; }
+    const before = snap();
+    const out = [];
+    const made = [];
+    S.shots.forEach((s) => {
+      out.push(s);
+      if (S.shotPick.has(s.id)) { const c = cloneShot(s); out.push(c); made.push(c.id); freshShots.add(c.id); }
+    });
+    S.shots = out;
+    commit(made.length > 1 ? "Duplicate " + made.length + " shots" : "Duplicate shot", before);
+    S.shotPick = new Set(made);
+    S.cur = made[made.length - 1];
+    S.pick.clear();
+    S.ph = 1;
+    renderAll(true);
+  }
+  function deleteShots() {
+    const ids = Array.from(S.shotPick);
+    if (!ids.length) { K.shake(els.strip, "Pick a shot first."); return; }
+    const chips = ids.map(chipOf).filter(Boolean);
+    let left = chips.length;
+    const go = () => {
+      const before = snap();
+      const i = S.shots.findIndex((s) => s.id === ids[0]);
+      S.shots = S.shots.filter((s) => !S.shotPick.has(s.id));
+      const step = commit(ids.length > 1 ? "Delete " + ids.length + " shots" : "Delete shot", before);
+      const nxt = S.shots[Math.min(i, S.shots.length - 1)];
+      S.cur = nxt ? nxt.id : null;
+      S.shotPick = new Set(nxt ? [nxt.id] : []);
+      S.pick.clear();
+      S.ph = 1;
+      renderAll(true);
+      toastUndo(ids.length > 1 ? ids.length + " shots removed" : "Shot removed", step);
+    };
+    if (!chips.length) { go(); return; }
+    chips.forEach((c) => K.puff(c, false, () => { left -= 1; if (left === 0) go(); }));
+  }
+
+  /* ---------- Menus, transport buttons, tabs ---------- */
+  function chooseSong() {
+    const before = snap();
+    S.song = true;
+    commit("Choose song", before);
+    els.noSong.hidden = true;
+    wipeSong();
+    refreshUI();
+    K.toast("Song: teto_song.ogg", null, { ms: 2000 });
+  }
+  function removeSong() {
+    if (!S.song) { K.shake($("miRemoveSong"), "There is no song yet."); return; }
+    const before = snap();
+    S.song = false;
+    const step = commit("Remove song", before);
+    drawSong();
+    refreshUI();
+    toastUndo("Song removed", step);
+  }
+  function setMode(mode) {
+    S.mode = mode;
+    els.modeSeg.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.value === mode)));
+    refreshUI();
+    K.toast(mode === "scrub" ? "Scrub mode: arrows move one frame." : "Animation mode: arrows jump to the next change.", null, { ms: 1800 });
+  }
+  els.modeSeg.addEventListener("kit:change", (e) => setMode(e.detail.value));
+  $("chooseSong").addEventListener("click", chooseSong);
+  $("tFirst").addEventListener("click", () => setPh(1, "step"));
+  $("tLast").addEventListener("click", () => { const sh = shot(); if (sh) setPh(sh.len, "step"); });
+  $("tPrev").addEventListener("click", () => step(-1));
+  $("tNext").addEventListener("click", () => step(1));
+  els.play.addEventListener("click", () => setPlaying(!S.playing));
+  els.loopBtn.addEventListener("kit:change", toggleLoop);
+  els.loopChip.addEventListener("click", toggleLoop);
+  document.addEventListener("kit:menu", (e) => {
+    const a = e.detail.action;
+    const acts = {
+      "song-choose": chooseSong, "song-remove": removeSong,
+      undo: () => undo.undo(), redo: () => undo.redo(),
+      copy: copyPicked, paste: () => pasteAt(S.focusRow, S.ph), delete: deletePicked,
+      all: () => { if (shot()) { Keys.all(); afterPick(); } },
+      play: () => setPlaying(!S.playing), next: () => step(1), prev: () => step(-1),
+      first: () => setPh(1, "step"), last: () => { const sh = shot(); if (sh) setPh(sh.len, "step"); },
+      loop: toggleLoop, "mode-scrub": () => setMode("scrub"), "mode-anim": () => setMode("anim")
+    };
+    if (acts[a]) acts[a]();
+  });
+  document.addEventListener("kit:tab", (e) => {
+    const t = e.detail.tab;
+    const away = t === "rig" || t === "video";
+    if (away) window.setTimeout(() => { window.location.href = t + ".html"; }, 160);
+  });
+  undo.bindButtons($("undoBtn"), $("redoBtn"));
+  undo.bindKeys(document);
+  undo.onChange((kind, st) => {
+    $("miUndo").querySelector("span").textContent = st.undoName ? "Undo " + st.undoName : "Undo";
+    $("miRedo").querySelector("span").textContent = st.redoName ? "Redo " + st.redoName : "Redo";
+    setOff($("miUndo"), st.undoName ? "" : "Nothing to undo yet.");
+    setOff($("miRedo"), st.redoName ? "" : "Nothing to redo.");
+  });
+
+  /* ---------- Keyboard ---------- */
+  function keyMenuFromKeyboard() {
+    const first = els.field.querySelector(".key.is-picked");
+    if (!first) { K.shake(els.tl, "Pick keys first."); return; }
+    const b = first.getBoundingClientRect();
+    keyMenu(b.left + 6, b.bottom + 6);
+  }
+  function timelineKeys(e, mod, k) {
+    if (k === "delete" || k === "backspace") { e.preventDefault(); deletePicked(); return true; }
+    if (mod && k === "c") { e.preventDefault(); copyPicked(); return true; }
+    if (mod && k === "v") { e.preventDefault(); pasteAt(S.focusRow, S.ph); return true; }
+    if (mod && k === "a") { e.preventDefault(); if (shot()) { Keys.all(); afterPick(); } return true; }
+    const is_menu = (e.shiftKey && k === "f10") || k === "contextmenu";
+    if (is_menu) { e.preventDefault(); keyMenuFromKeyboard(); return true; }
+    return false;
+  }
+  function stripKeys(e, mod, k) {
+    if (k === "delete" || k === "backspace") { e.preventDefault(); deleteShots(); return true; }
+    if (mod && k === "a") { e.preventDefault(); S.shotPick = new Set(S.shots.map((s) => s.id)); renderAll(false); return true; }
+    if (mod && k === "d") { e.preventDefault(); duplicateShots(); return true; }
+    if (k === "f2" && S.cur) { e.preventDefault(); rename(S.cur); return true; }
+    return false;
+  }
+  document.addEventListener("keydown", (e) => {
+    const typing = e.target.closest && e.target.closest("input, textarea");
+    if (typing || K.menus.open_menu) return;
+    const mod = e.ctrlKey || e.metaKey;
+    const k = e.key.toLowerCase();
+    const on_tab = e.target.closest && e.target.closest(".tab");
+    const done = S.region === "strip" ? stripKeys(e, mod, k) : timelineKeys(e, mod, k);
+    if (done) return;
+    const on_button = e.target.closest && e.target.closest("button");
+    if (k === " " && !on_button) { e.preventDefault(); setPlaying(!S.playing); return; }
+    if (mod || on_tab) return;
+    if (k === "arrowright" || k === ".") { e.preventDefault(); step(1); return; }
+    if (k === "arrowleft" || k === ",") { e.preventDefault(); step(-1); return; }
+    if (k === "home") { e.preventDefault(); setPh(1, "step"); return; }
+    if (k === "end") { e.preventDefault(); const sh = shot(); if (sh) setPh(sh.len, "step"); return; }
+    if (k === "l") { toggleLoop(); return; }
+    if (k === "escape" && S.pick.size) { S.pick.clear(); afterPick(); }
+  });
+  els.strip.addEventListener("focusin", () => { S.region = "strip"; });
+  els.tl.addEventListener("focusin", () => { S.region = "timeline"; });
+
+  /* ---------- Splitter: stage over timeline ---------- */
+  const kStageH = 150;
+  const split_tap = { t: 0, x: 0, y: 0 };
+  K.drag(els.splitter, {
+    threshold: 2,
+    onDown: (s) => { s.h0 = els.stage.offsetHeight; },
+    chip: (s) => Math.round(s.h) + " px",
+    onMove: (s) => { s.h = clamp(s.h0 + s.dy, 80, 360); els.stage.style.setProperty("--stage-h", s.h + "px"); renderStage(); },
+    onCancel: (s) => { els.stage.style.setProperty("--stage-h", s.h0 + "px"); renderStage(); },
+    onClick: (s) => {
+      const is_double = doubleTap(split_tap, s);
+      if (!is_double) return;
+      els.stage.style.setProperty("--stage-h", kStageH + "px");
+      renderStage();
+      K.flash(els.splitter);
+    }
+  });
+
+  /* ---------- Covered list ---------- */
+  const kCovered = [
+    ["#14", "Playhead follow", "Press Space and let it play past the end of Chorus: Bridge gets picked, its chip lifts. Right at the last frame does the same."],
+    ["#21, #22", "Choose / Remove song", "File menu. Remove greys the band to \"No song\" with a Choose song button; choosing wipes the waveform in left to right."],
+    ["#26, #27", "Undo / Redo named", "Top bar buttons and Edit menu read \"Undo Move keys\"; greyed with why when empty. Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y."],
+    ["#28", "Play / pause", "Play button or Space. With Loop on (L, the loop chip, or the transport loop button) it cycles the red range."],
+    ["#29, #30", "Next / previous frame", "Right or . and Left or , and the transport arrows. In Animation mode they jump to the next change."],
+    ["#49", "Shot chip", "Colour tab, first-frame picture, name, length in frames and seconds. Picked: red outline; focused: thicker."],
+    ["#50", "+ block", "Adds a shot after the focused one, picks it, seeks to frame 1; the others slide aside."],
+    ["#51", "Click a shot", "Picks just it and seeks to its start."],
+    ["#52", "Shift+click shot", "Adds it to the pick; the chip pops 5 %."],
+    ["#53", "Ctrl+click shot", "Toggles it. Toggle the last one off to see the timeline empty state."],
+    ["#54", "Click inside a bigger pick", "Shift-pick two shots, then click one: the group stays for a drag, a plain click picks just it."],
+    ["#55", "Reorder by drag", "Drag a chip body: ghost at the start, others slide aside, Escape puts it back. One undo step."],
+    ["#56", "Edge hover", "Hover a chip's right edge: yellow grip, resize cursor, 12 px grab."],
+    ["#57", "Edge drag length", "Drag the grip: chip says \"2.5 s, 60 f\"; Shift catches half seconds; below 1 f it stops at \"1 f min\" and bounces. All picked shots change by the same frames."],
+    ["#58", "Right-click shot", "Picks it if outside the pick, opens the shot menu."],
+    ["#59, #292", "Rename", "Menu Rename..., F2, or double-click the name: rename in place (no dialog). Enter keeps, Escape cancels."],
+    ["#60", "Background colour", "Menu, or click the colour tab: swatches apply to all picked shots."],
+    ["#61", "Transition into next", "REMOVED: see the note next to the strip. Transitions live on cuts in the Video tab."],
+    ["#62", "Duplicate", "Shot menu or Ctrl+D with the strip focused: copies pop in after the originals."],
+    ["#63, #64", "Delete shots", "Shot menu, or Delete / Backspace with the strip focused: chips puff, neighbours close the gap, toast with Undo."],
+    ["#65", "Ctrl+A in strip", "Click the strip, press Ctrl+A: every shot picked."],
+    ["#98", "Step mode switch", "Two-icon switch at the timeline's top left (film frame, diamond). Tooltips say what the arrows do. Also in the Play menu."],
+    ["#99", "Ruler", "Tall ticks at seconds, mid ticks on 2s, numbers at a step that fits the zoom (they fade to the new step); past the shot end is hatched."],
+    ["#100", "Song band", "Grey waveform, the played part dark red; \"No song\" with a Choose song button when removed."],
+    ["#101", "Rows", "One row per doll (Teto, Miku) plus Camera. Caret opens piece rows that show where each piece changes."],
+    ["#102", "Keys and holds", "Diamonds (red when picked); thick bar = hold, thin line = linear, curve = ease. Hover a bar for its length."],
+    ["#103", "Playhead", "Red line with a \"24, 1.00 s\" tag; settles with a small overshoot; the counter bumps."],
+    ["#104", "Empty state", "Ctrl+click the focused shot off: \"No shot picked. Click a shot in the strip above.\""],
+    ["#105", "Scrub", "Click or drag the ruler or song band; the playhead catches keys within 6 px."],
+    ["#106", "Focus a layer", "Click a row name or plain row space: the red bar slides to it, the doll gets a red outline on stage."],
+    ["#107", "Click key", "Picks the key and seeks to it. Hovering grows it 15 %; grab reaches 10 px around it."],
+    ["#108", "Shift+click key", "Adds to the pick."],
+    ["#109", "Ctrl+click key", "Toggles it in the pick."],
+    ["#110", "Drag keys", "Moves all picked keys by whole frames: ghost at the start, \"+3 f\" chip, ruler tick flashes, snaps to playhead, shot start and end and loop ends within 10 px, settles with a bounce. Alt+drag copies (new). Escape cancels."],
+    ["#111", "Click empty row space", "Clears the pick and seeks there; Shift or Ctrl click keeps the pick."],
+    ["#112", "Box pick", "Drag on empty space: keys inside grow, chip counts them. Shift adds, Ctrl removes."],
+    ["#113", "Click below the rows", "Clears the key pick."],
+    ["#114", "Double-click to key", "Double-click a row: the new key pops with a red ring. On the Camera row it keys the camera; on a piece row it keys the whole doll."],
+    ["#115", "Wheel", "Scrolls frames, eased 200 ms. The bar under the rows scrolls too (for touch)."],
+    ["#116", "Ctrl+wheel", "Zooms around the mouse; also the - / + / Fit buttons, greyed with why at the limits."],
+    ["#117", "Right-click key", "Picks it if outside the pick, opens the key menu."],
+    ["#118", "Ease to next key", "Hold (step), Linear, Ease in, Ease out, Ease in and out. Also Step / Ease / Line on the chip bar over picked keys. Greyed when no key follows."],
+    ["#119", "Space evenly", "On 1s to 4s in the menu, On 2s / On 3s on the chip bar; greyed \"Pick two keys in a row to space them.\""],
+    ["#120, #127", "Copy keys", "Key menu, Edit menu or Ctrl+C."],
+    ["#121, #126", "Delete keys", "Key menu, Edit menu, Delete or Backspace: keys puff, toast \"Deleted 3 keys\" with Undo; undo flashes them back."],
+    ["#122", "Right-click empty row", "Opens the row menu at that frame."],
+    ["#123", "Paste keys here", "Greyed \"Copy keys first\" until something is copied."],
+    ["#124, #125", "Hold one frame longer / shorter", "Row menu: retimes the row from that frame by +1 / -1; greyed with why when it cannot."],
+    ["#128", "Ctrl+V", "Pastes at the playhead on the focused layer; pasted keys pop."],
+    ["#129", "Ctrl+A in timeline", "Picks every key of the shot."]
+  ];
+  const tb = $("coveredRows");
+  kCovered.forEach((row) => {
+    const tr = document.createElement("tr");
+    row.forEach((cell) => { const td = document.createElement("td"); td.textContent = cell; tr.appendChild(td); });
+    tb.appendChild(tr);
+  });
+
+  /* ---------- Start ---------- */
+  buildStage();
+  window.addEventListener("resize", () => { renderTimeline(); renderStage(); });
+  renderAll(false);
+  undo.onChange(() => { $("dirtyDot").hidden = !S.dirty; });
+})();
+</script>
+</body>
+</html>

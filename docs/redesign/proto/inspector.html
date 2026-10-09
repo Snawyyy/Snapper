@@ -1,0 +1,2597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inspector and Cast</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  /* Page layout and page-only pieces. Controls come from kit.css. */
+  body { padding: 0 var(--gutter) 48px; }
+  .pnav { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px;
+    max-width: 1320px; margin: 0 auto; padding: 6px 0; font-size: var(--fs-small); }
+  .pnav b { font: 11px var(--font-pixel); color: var(--pick); margin-right: 8px; font-weight: 400; }
+  .pnav a { color: var(--text-dim); text-decoration: none; padding: 2px 6px; }
+  .pnav a:hover { color: var(--handle); }
+  .pnav a[aria-current="page"] { color: #fff; box-shadow: inset 0 -2px var(--pick); }
+  .app { max-width: 1320px; margin: 0 auto; }
+  .app-strip { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+    gap: 4px 8px; padding-top: 4px; border-bottom: 2px solid var(--row-hover); }
+  .app-strip .row { display: flex; align-items: center; gap: 4px; padding-bottom: 3px; flex-wrap: wrap; }
+  .try { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 4px; padding: 5px 4px;
+    box-shadow: inset 0 -1px var(--face-dark); }
+  .try .lbl { color: var(--text-off); font-size: var(--fs-small); margin-right: 2px; }
+  .try kbd { font: 10px var(--font-mono); color: var(--text-off); margin-left: 2px; }
+  .try .sep { width: 2px; align-self: stretch; margin: 2px 4px;
+    box-shadow: inset 1px 0 var(--face-dark), inset -1px 0 var(--face-light); }
+  .work { display: grid; gap: 4px; padding-top: 4px; align-items: start;
+    grid-template-columns: 260px minmax(0, 1fr) 312px; grid-template-areas: "cast center insp"; }
+  .cast { grid-area: cast; } .center { grid-area: center; min-width: 0; } .insp { grid-area: insp; }
+  @media (max-width: 1060px) {
+    .work { grid-template-columns: minmax(0, 1fr) 312px; grid-template-areas: "center insp" "cast cast"; }
+  }
+  @media (max-width: 700px) {
+    .work { grid-template-columns: minmax(0, 1fr); grid-template-areas: "center" "insp" "cast"; }
+  }
+  .dock.is-shut { display: none; }
+
+  /* Shot strip */
+  .strip { display: flex; align-items: stretch; gap: 2px; padding: 3px; overflow-x: auto; min-height: 38px; }
+  .shot-chip { flex: none; min-width: 44px; padding: 3px 6px; border: 0; text-align: left; cursor: pointer;
+    background: var(--face); box-shadow: var(--bevel-raised); color: var(--text); overflow: hidden;
+    transition: width var(--t-hover) var(--ease-out), filter var(--t-hover) var(--ease-out); }
+  .shot-chip:hover { filter: brightness(1.12); }
+  .shot-chip[aria-selected="true"] { background: var(--pick-soft); outline: 2px solid var(--pick); outline-offset: -2px; color: #fff; }
+  .shot-chip b { display: block; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shot-chip small { color: var(--text-off); font-size: var(--fs-tiny); white-space: nowrap; }
+  .shot-chip i { display: inline-block; width: 8px; height: 8px; margin-right: 4px; box-shadow: 0 0 0 1px var(--shadow); }
+  .strip-empty { color: var(--text-off); display: flex; align-items: center; gap: 8px; padding: 0 6px; }
+
+  /* Stage thumbnail */
+  .stage-wrap { position: relative; margin-top: 4px; touch-action: none; user-select: none; outline: none;
+    box-shadow: var(--bevel-sunken); padding: 2px; background: var(--field);
+    transition: box-shadow var(--t-hover) var(--ease-out); }
+  .stage-wrap:focus-visible { box-shadow: var(--bevel-sunken), 0 0 0 1px var(--handle-dark); }
+  .stage-wrap.is-drop { box-shadow: var(--bevel-sunken), 0 0 0 2px var(--handle), 0 0 14px var(--handle-glow); }
+  .stage-wrap svg { display: block; width: 100%; height: auto; cursor: default; }
+  .stage-wrap [data-thing] { cursor: move; }
+  .stage-wrap .warp-hit { fill: transparent; }
+  .stage-msg { position: absolute; inset: 2px; display: flex; flex-direction: column; gap: 8px;
+    align-items: center; justify-content: center; text-align: center; padding: 12px;
+    background: rgba(20, 20, 24, 0.72); color: var(--text-dim); }
+  .box { position: absolute; pointer-events: none; }
+  .box.pick { outline: 2px solid var(--pick); outline-offset: 1px; }
+  .box.hover { outline: 1px dashed var(--hover-line); outline-offset: 2px; }
+  .stage-hint { position: absolute; left: 6px; bottom: 4px; pointer-events: none;
+    font-size: var(--fs-tiny); color: rgba(255, 255, 255, 0.6); text-shadow: 1px 1px 0 #000; }
+  #rope { transition: stroke var(--t-hover) var(--ease-out); }
+  #rope.is-lit { stroke: #fff; filter: drop-shadow(0 0 3px var(--info)); }
+
+  /* Mini timeline */
+  .tl { margin-top: 4px; }
+  .tl-scroll { overflow-x: auto; }
+  .tl-grid { min-width: 420px; display: grid; grid-template-columns: 88px minmax(0, 1fr); }
+  .tl-name { height: 20px; display: flex; align-items: center; padding: 0 6px; font-size: var(--fs-small);
+    color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    box-shadow: inset 0 -1px var(--face-dark); }
+  .tl-name.is-picked { color: #fff; box-shadow: inset 3px 0 var(--pick), inset 0 -1px var(--face-dark); }
+  .tl-tracks { position: relative; cursor: ew-resize; touch-action: none; }
+  .tl-row { position: relative; height: 20px; box-shadow: inset 0 -1px var(--face-dark); }
+  .tl-ruler { height: 16px; position: relative; font: 9px var(--font-mono); color: var(--text-off); }
+  .tl-ruler span { position: absolute; top: 2px; translate: -50% 0; }
+  .tl-bar { position: absolute; top: 4px; height: 12px; background: rgba(79, 163, 216, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(79, 163, 216, 0.6); transition: left var(--t-hover) var(--ease-out), width var(--t-hover) var(--ease-out); }
+  .tl-key { position: absolute; top: 5px; width: 9px; height: 9px; margin-left: -4.5px; rotate: 45deg;
+    background: var(--pick); box-shadow: 0 0 0 1px #000; }
+  .tl-key.cam { background: var(--info); }
+  .tl-off { position: absolute; top: 0; bottom: 0; right: 0; pointer-events: none;
+    background: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.35) 0 4px, rgba(0, 0, 0, 0.1) 4px 8px); }
+  .tl-head { position: absolute; top: 0; bottom: 0; width: 1px; margin-left: -0.5px; background: var(--pick); pointer-events: none; }
+  .tl-head::before { content: ""; position: absolute; top: 0; left: -5px; width: 11px; height: 10px; background: var(--handle);
+    clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%); }
+  .tl-foot { display: flex; align-items: center; gap: 8px; padding: 3px 4px; font-size: var(--fs-small); color: var(--text-off); flex-wrap: wrap; }
+  .counter { font: 12px var(--font-mono); padding: 2px 8px; color: var(--text); }
+
+  /* Inspector */
+  .insp-body { max-height: 78vh; overflow-y: auto; padding: 4px; }
+  @media (max-width: 700px) { .insp-body { max-height: none; } }
+  .insp-head { display: flex; align-items: center; gap: 6px; padding: 2px 2px 6px; flex-wrap: wrap; }
+  .insp-head .dotc { width: 9px; height: 9px; flex: none; background: var(--pick); box-shadow: 0 0 0 1px var(--shadow); }
+  .insp-head b { font-weight: bold; }
+  .insp-head .grow { flex: 1; }
+  .insp-tip { color: var(--text-off); font-size: var(--fs-tiny); margin: 0 2px 4px; }
+  .isect { display: grid; grid-template-rows: 1fr; opacity: 1;
+    transition: grid-template-rows var(--t-move) var(--ease-out), opacity var(--t-move) var(--ease-out), margin var(--t-move) var(--ease-out); margin-top: 4px; }
+  .isect.is-gone { grid-template-rows: 0fr; opacity: 0; margin-top: 0; }
+  .isect-in { min-height: 0; overflow: hidden; }
+  .isect .dock { box-shadow: var(--bevel-etched); padding: 1px; }
+  .isect .dock-head { background: var(--face-mid); }
+  .isect .dock-head .meta { font-weight: normal; color: var(--text-off); font-size: var(--fs-tiny); white-space: nowrap; }
+  .isect.is-off .dock-title { color: var(--text-off); }
+  .frow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 6px; }
+  .frow:last-child { margin-bottom: 0; }
+  .frow .num-label { min-width: 46px; }
+  .frow .num + .num .num-label { min-width: 0; }
+  .num .num-input { width: 58px; }
+  .num.short .num-input { width: 46px; }
+  .num.has-fill .num-input { background: linear-gradient(90deg, rgba(216, 48, 79, 0.42) var(--fill, 0%), var(--field) var(--fill, 0%)); }
+  .sub-h { font-size: var(--fs-tiny); color: var(--text-off); text-transform: uppercase; letter-spacing: 0.5px; margin: 8px 0 4px; }
+  .note-gone { font-size: var(--fs-small); color: var(--text-off); margin: 4px 0 0; padding: 4px 6px; box-shadow: var(--bevel-etched); }
+  .note-gone a { color: var(--handle); }
+  .note-gone .tag { font: 9px var(--font-pixel); color: #fff; background: var(--pick-dark); padding: 1px 4px; margin-right: 4px; }
+  .field.wide { width: 100%; min-width: 0; }
+  .fname { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .fname > span { min-width: 46px; color: var(--text-dim); }
+  .fname .field { flex: 1; min-width: 0; }
+  textarea.field { height: auto; min-height: 44px; padding: 3px 5px; resize: vertical; width: 100%; font-family: var(--font-ui); }
+  .field[aria-disabled="true"] { background: var(--face-dark); color: var(--text-off); }
+  .calc { font-size: var(--fs-tiny); color: var(--text-off); }
+
+  /* Dial */
+  .dial { display: inline-block; width: 24px; height: 24px; cursor: grab; touch-action: none; flex: none; }
+  .dial svg { width: 24px; height: 24px; display: block; }
+  .dial-face { fill: var(--field); stroke: var(--face-light); }
+  .dial-needle { stroke: var(--pick); stroke-width: 2; stroke-linecap: square; }
+  .dial-hub { fill: var(--handle); }
+  .dial:hover .dial-face { stroke: var(--handle); }
+  .dial[aria-disabled="true"] .dial-needle { stroke: var(--text-off); }
+  .dial[aria-disabled="true"] .dial-hub { fill: var(--face-light); }
+
+  /* Colour swatch button and popover */
+  .swatch { min-width: 0; width: 34px; padding: 0; }
+  .swatch i { width: 18px; height: 12px; box-shadow: 0 0 0 1px var(--shadow);
+    background: linear-gradient(var(--c), var(--c)), repeating-conic-gradient(#888 0 25%, #ccc 0 50%) 0 0 / 6px 6px; }
+  .swatch.is-mixed i { background: repeating-linear-gradient(45deg, #888 0 3px, #444 3px 6px); }
+  .cpop { position: fixed; z-index: 70; padding: 6px; width: 188px; background: var(--face);
+    box-shadow: var(--bevel-raised), var(--drop); animation: k-menu-in var(--t-pop) var(--ease-back); }
+  .cpop-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
+  .cpop-grid button { height: 22px; border: 0; cursor: pointer; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+    transition: scale var(--t-pop) var(--ease-back); }
+  .cpop-grid button:hover, .cpop-grid button:focus-visible { scale: 1.15; outline: 2px solid var(--handle); outline-offset: 0; }
+  .cpop-grid button[aria-pressed="true"] { outline: 2px solid var(--pick); }
+  .cpop-alpha { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: var(--fs-small); color: var(--text-dim); }
+  .cpop-alpha .slider { width: 130px; }
+  .cpop small { display: block; margin-top: 5px; color: var(--text-off); font-size: var(--fs-tiny); }
+
+  /* Tiles with tiny looping previews */
+  .tiles { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tile { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; width: 48px; padding: 4px 2px 3px;
+    border: 0; cursor: pointer; color: var(--text); font-size: var(--fs-tiny); background: var(--face); box-shadow: var(--bevel-raised);
+    transition: translate var(--t-hover) var(--ease-out), scale var(--t-pop) var(--ease-back), filter var(--t-hover) var(--ease-out); }
+  .tile:hover { translate: 0 var(--lift-px); filter: brightness(1.12); }
+  .tile:active, .tile.is-down { scale: 0.92 0.86; box-shadow: var(--bevel-pressed); transition-duration: var(--t-press); }
+  .tile[aria-pressed="true"] { background: var(--field); box-shadow: var(--bevel-pressed); outline: 1px solid var(--pick); outline-offset: -1px; color: #fff; }
+  .tile[aria-disabled="true"]:hover, .tile[aria-disabled="true"]:active { translate: 0 0; scale: 1; box-shadow: var(--bevel-raised); }
+  .tile .pv { position: relative; width: 26px; height: 20px; display: block; rotate: var(--dir, 0deg); }
+  .tile .pv i { position: absolute; left: 9px; top: 6px; width: 8px; height: 8px; background: var(--pick); transform-origin: 50% 100%;
+    animation-duration: var(--dur, 1s); animation-iteration-count: infinite; animation-timing-function: steps(var(--steps, 6), jump-none);
+    animation-delay: var(--delay, 0s); }
+  .tile[aria-disabled="true"] .pv i { background: var(--face-light); animation-play-state: paused; }
+  .tile.fx .pv i { background: var(--info); }
+  .lp-Bob i { animation-name: lp-bob; } .lp-Bounce i { animation-name: lp-bounce; }
+  .lp-Shake i { animation-name: lp-shake; } .lp-Nod i { animation-name: lp-nod; }
+  .lp-Sway i { animation-name: lp-sway; } .lp-Wave i { animation-name: lp-wave; }
+  .lp-Pulse i { animation-name: lp-pulse; } .lp-Breathe i { animation-name: lp-breathe; }
+  .lp-Shiver i { animation-name: lp-shiver; } .lp-None i { animation: none; }
+  @keyframes lp-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 calc(var(--amt, 4px) * -1); } }
+  @keyframes lp-bounce { 0%, 100% { translate: 0 0; scale: 1.2 0.8; } 50% { translate: 0 calc(var(--amt, 4px) * -1.4); scale: 0.9 1.1; } }
+  @keyframes lp-shake { 0%, 100% { translate: 0 0; } 25% { translate: calc(var(--amt, 4px) * -0.8) 0; } 75% { translate: calc(var(--amt, 4px) * 0.8) 0; } }
+  @keyframes lp-nod { 0%, 100% { rotate: 0deg; } 50% { rotate: 25deg; } }
+  @keyframes lp-sway { 0%, 100% { rotate: -18deg; } 50% { rotate: 18deg; } }
+  @keyframes lp-wave { 0%, 100% { translate: calc(var(--amt, 4px) * -1) 0; } 50% { translate: var(--amt, 4px) 0; } }
+  @keyframes lp-pulse { 0%, 100% { scale: 0.7; } 50% { scale: 1.3; } }
+  @keyframes lp-breathe { 0%, 100% { scale: 0.92; } 50% { scale: 1.1; } }
+  @keyframes lp-shiver { 0%, 100% { translate: 0 0; } 20% { translate: 1px -1px; } 40% { translate: -1px 1px; } 60% { translate: 1px 1px; } 80% { translate: -1px -1px; } }
+  .spring { width: 64px; height: 20px; flex: none; }
+  .spring polyline { fill: none; stroke: var(--handle); stroke-width: 1.5; }
+  .spring.is-off polyline { stroke: var(--face-light); }
+  .link-line { padding: 4px 6px; margin-bottom: 6px; cursor: help; box-shadow: var(--bevel-etched);
+    transition: background-color var(--t-hover) var(--ease-out); }
+  .link-line:hover { background: rgba(79, 163, 216, 0.18); }
+  .link-line b { color: var(--info); }
+  .poses-list { height: 92px; margin-bottom: 6px; }
+  .poses-list .list-row.is-error { color: var(--pick); }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 4px; }
+  .btn-row .btn { min-width: 0; }
+  .hint-box { padding: 12px 8px; text-align: center; color: var(--text-dim); display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .fxi { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -2px; box-shadow: 0 0 0 1px #000; }
+
+  /* Cast */
+  .cast-body { padding: 4px; }
+  .lib-head { display: flex; align-items: center; gap: 6px; margin: 2px 0 4px; }
+  .lib-head b { font-weight: normal; color: var(--text-dim); }
+  .badge { font: 9px/13px var(--font-pixel); padding: 0 4px; color: #fff; background: var(--pick); white-space: nowrap; }
+  .badge.y { background: var(--handle); color: #222; }
+  .badge.dim { background: var(--face-dark); color: var(--text-off); }
+  .badge.pulse { animation: badge-pulse 900ms var(--ease-out) 2; }
+  @keyframes badge-pulse { 50% { box-shadow: 0 0 0 3px var(--handle-glow); scale: 1.12; } }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 4px; padding: 3px; touch-action: none; }
+  .card { position: relative; padding: 3px; background: var(--face); box-shadow: var(--bevel-raised); cursor: grab; outline: none;
+    transition: translate var(--t-hover) var(--ease-out), filter var(--t-hover) var(--ease-out); min-width: 0; }
+  .card:hover { translate: 0 -2px; filter: brightness(1.08); }
+  .card:focus-visible { outline: 1px dotted var(--text); outline-offset: -4px; }
+  .card[aria-selected="true"] { outline: 2px solid var(--pick); outline-offset: -2px; background: var(--row-hover); }
+  .card.is-out { opacity: 0.6; }
+  .card .thumb { display: block; width: 100%; height: 58px; background: var(--stage); box-shadow: var(--bevel-thin-in); }
+  .card .thumb svg { width: 100%; height: 100%; display: block; }
+  .card:hover .thumb .breathe { animation: card-breathe 1.6s var(--ease-out) infinite; transform-origin: 0 0; }
+  @keyframes card-breathe { 50% { scale: 1.03 0.97; } }
+  .card .cname { display: block; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .badges { display: flex; flex-wrap: wrap; gap: 2px; min-height: 13px; }
+  .card .reload { position: absolute; top: 4px; right: 4px; min-width: 0; width: 20px; height: 20px; padding: 0; }
+  .card.k-flash .thumb { filter: brightness(2); }
+  .cast-btns { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 8px; }
+  .cast-btns .btn { min-width: 0; }
+  .lib-empty { padding: 12px 8px; text-align: center; color: var(--text-dim); display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .floater { position: fixed; z-index: 85; width: 52px; height: 64px; pointer-events: none; opacity: 0.85;
+    margin: -32px 0 0 -26px; filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, 0.4)); }
+  .layers-head { display: flex; align-items: center; gap: 4px; margin: 6px 0 3px; }
+  .layers-head .grow { flex: 1; color: var(--text-dim); }
+  .layer-list { min-height: 60px; max-height: 210px; position: relative; touch-action: none; }
+  .lrow { gap: 5px; padding-left: 6px; }
+  .lrow.is-hidden .lname, .lrow.is-hidden .kchip { opacity: 0.45; }
+  .lrow .eye { min-width: 0; width: 20px; height: 18px; padding: 0; }
+  .lrow .eye svg { width: 14px; height: 14px; }
+  .kchip { font: 9px/13px var(--font-pixel); padding: 0 3px; min-width: 18px; text-align: center; background: var(--face-dark); color: var(--text-dim); }
+  .lname { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lrow .field { height: 18px; flex: 1; min-width: 0; }
+  .lrow.k-in { animation: row-in var(--t-move) var(--ease-out); }
+  @keyframes row-in { from { opacity: 0; translate: -10px 0; } to { opacity: 1; translate: 0 0; } }
+  .ins-line { position: absolute; left: 2px; right: 2px; height: 2px; background: var(--handle); pointer-events: none;
+    box-shadow: 0 0 4px var(--handle-glow); }
+  .addpop { position: fixed; z-index: 70; padding: 6px; width: 236px; background: var(--face); box-shadow: var(--bevel-raised), var(--drop);
+    animation: k-menu-in var(--t-pop) var(--ease-back); }
+  .addpop .tiles { justify-content: flex-start; }
+  .addpop .tile { width: 66px; }
+  .addpop .big .pv i { animation: none; }
+  .addpop .sub-h { margin-top: 6px; }
+
+  /* Dialog lists */
+  .file-list { height: 132px; margin-top: 6px; }
+  .dlg-pad { padding: 4px 12px 0; }
+  .dlg-pad .dim { font-size: var(--fs-small); }
+
+  /* Covered list */
+  .covered { max-width: 1320px; margin: 14px auto 0; background: var(--face); box-shadow: var(--bevel-raised); padding: 6px 10px; }
+  .covered summary { cursor: pointer; font: 12px var(--font-pixel); color: var(--handle); padding: 4px 0; }
+  .covered .scrollbox { margin-top: 6px; }
+  .cov { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+  .cov td, .cov th { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--face-dark); vertical-align: top; }
+  .cov th { color: var(--text-off); font-weight: normal; }
+  .cov td:first-child { font-family: var(--font-mono); color: var(--handle); white-space: nowrap; }
+  .cov tr.gone td:nth-child(2) { color: var(--text-off); }
+  .cov .h td { color: var(--text); background: var(--face-dark); font-family: var(--font-pixel); }
+</style>
+</head>
+<body>
+<nav class="pnav" aria-label="Prototype pages">
+  <b>Snapper prototype</b>
+  <a href="index.html">Hub</a><a href="shell.html">Shell</a><a href="stage.html">Stage</a>
+  <a href="timeline.html">Timeline</a><a href="inspector.html" aria-current="page">Inspector</a>
+  <a href="rig.html">Rig</a><a href="video.html">Video</a><a href="kit.html">Kit</a>
+</nav>
+
+<div class="win app" id="app">
+  <div class="win-title">
+    <span class="win-title-text"><span class="win-dirty" id="dirty" hidden data-tip="Unsaved changes"></span>Snapper - teto_song.snap</span>
+    <span class="win-btns">
+      <button class="win-btn min" aria-label="Minimize" data-tip="Minimize"></button>
+      <button class="win-btn max" aria-label="Maximize" data-tip="Maximize"></button>
+      <button class="win-btn close" aria-label="Close" data-tip="Close"></button>
+    </span>
+  </div>
+  <div class="menubar" role="menubar">
+    <div class="menubar-slot">
+      <button class="menubar-item" aria-haspopup="true" aria-expanded="false">File</button>
+      <div class="menu" role="menu" hidden>
+        <button class="menu-item" role="menuitem" data-action="save"><span>Save</span><kbd class="menu-key">Ctrl+S</kbd></button>
+        <button class="menu-item" role="menuitem" aria-disabled="true" data-why="The Shell page has the full File menu."><span>Export...</span><kbd class="menu-key">Ctrl+E</kbd></button>
+      </div>
+    </div>
+    <div class="menubar-slot">
+      <button class="menubar-item" aria-haspopup="true" aria-expanded="false">Edit</button>
+      <div class="menu" role="menu" hidden>
+        <button class="menu-item" role="menuitem" id="mUndo" data-action="undo"><span>Undo</span><kbd class="menu-key">Ctrl+Z</kbd></button>
+        <button class="menu-item" role="menuitem" id="mRedo" data-action="redo"><span>Redo</span><kbd class="menu-key">Ctrl+Shift+Z</kbd></button>
+        <div class="menu-sep"></div>
+        <button class="menu-item" role="menuitem" id="mDelete" data-action="delete"><span>Delete picked layers</span><kbd class="menu-key">Delete</kbd></button>
+        <button class="menu-item" role="menuitem" data-action="pick-none"><span>Pick nothing</span><kbd class="menu-key">Esc</kbd></button>
+      </div>
+    </div>
+    <div class="menubar-slot">
+      <button class="menubar-item" aria-haspopup="true" aria-expanded="false">View</button>
+      <div class="menu" role="menu" hidden>
+        <button class="menu-item" role="menuitem" id="mAll" data-action="show-all" aria-checked="false"><span>Show every box</span><kbd class="menu-key">B</kbd></button>
+        <div class="menu-sep"></div>
+        <button class="menu-item" role="menuitem" id="mCast" data-action="dock-cast" aria-checked="true"><span>Cast dock</span></button>
+        <button class="menu-item" role="menuitem" id="mInsp" data-action="dock-insp" aria-checked="true"><span>Inspector dock</span></button>
+        <div class="menu-sep"></div>
+        <button class="menu-item" role="menuitem" data-action="fold-all"><span>Fold every box</span></button>
+        <button class="menu-item" role="menuitem" data-action="open-all"><span>Open every box</span></button>
+      </div>
+    </div>
+    <div class="menubar-slot">
+      <button class="menubar-item" aria-haspopup="true" aria-expanded="false">Pick</button>
+      <div class="menu" role="menu" hidden id="pickMenu"></div>
+    </div>
+  </div>
+  <div class="app-strip">
+    <div class="tabs" role="tablist" aria-label="Mode">
+      <button class="tab" role="tab" aria-selected="true">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="3" r="2"/><path d="M8 5v6M4 8h8M8 11l-3 4M8 11l3 4"/></svg>Pose</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-href="rig.html">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="3" cy="13" r="2"/><circle cx="13" cy="3" r="2"/><path d="M4.5 11.5l7-7"/></svg>Rig</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-href="video.html">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="14" height="10"/><path d="M4 3v10M12 3v10"/></svg>Video</button>
+    </div>
+    <div class="row">
+      <button class="btn small" id="undoBtn" data-key="Ctrl+Z">Undo</button>
+      <button class="btn small" id="redoBtn" data-key="Ctrl+Shift+Z">Redo</button>
+      <span class="seg" role="group" aria-label="Motion">
+        <button data-kit-motion="full" data-tip="Motion: full pops and bounces.">Full</button>
+        <button data-kit-motion="calm" data-tip="Motion: shorter, no overshoot.">Calm</button>
+        <button data-kit-motion="off" data-tip="Motion: off, things jump to the end.">Off</button>
+      </span>
+    </div>
+  </div>
+  <div class="try" id="tryBar" role="toolbar" aria-label="Try a pick"></div>
+
+  <div class="work">
+    <!-- Cast dock -->
+    <section class="dock cast" id="castDock" data-dock-id="proto-cast">
+      <div class="dock-head"><button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title">Cast</span></button>
+        <button class="win-btn close" data-close-dock="cast" aria-label="Close Cast" data-tip="Close. Bring it back from the View menu."></button></div>
+      <div class="dock-body"><div class="dock-inner"><div class="cast-body">
+        <div class="lib-head"><b>Doll library</b><span class="badge y" id="oldBadge" tabindex="0"
+          data-tip="2 old dolls not converted: kaito.kra has no rig layer; len_v1.kra was made with Snapper 0.3. Export them again from Krita.">2 OLD</span></div>
+        <div class="sunken" style="padding: 0"><div class="cards" id="cards" role="listbox" aria-label="Doll library" aria-multiselectable="true"></div></div>
+        <div class="cast-btns">
+          <button class="btn small" id="bImport" data-tip="Bring the picked dolls into the project.">Import</button>
+          <button class="btn small" id="bReload" data-tip="Load the newest art from Krita for the picked dolls.">Reload</button>
+          <button class="btn small primary" id="bPut" data-tip="Add the picked dolls to the shot. Or drag a card onto the stage.">Put on stage</button>
+        </div>
+        <div class="layers-head"><span class="grow">Layers (top first)</span>
+          <button class="btn small" id="bAdd" data-tip="Add a picture, text or effect layer.">+</button></div>
+        <div class="list layer-list" id="layerList" role="listbox" aria-label="Layers" aria-multiselectable="true"></div>
+        <div class="cast-btns">
+          <button class="btn small" id="bCopy">Copy</button>
+          <button class="btn small" id="bDel" data-key="Delete">Delete</button>
+          <button class="btn small" id="bUp" aria-label="Move up">Up</button>
+          <button class="btn small" id="bDown" aria-label="Move down">Down</button>
+        </div>
+      </div></div></div>
+    </section>
+
+    <!-- Center: strip, stage, timeline -->
+    <section class="center">
+      <div class="sunken strip" id="strip" aria-label="Shots"></div>
+      <div class="stage-wrap" id="stageWrap" tabindex="0" aria-label="Stage. Click to pick, double-click a doll to pick it whole, drag to move, arrows nudge.">
+        <svg id="stageSvg" viewBox="0 0 320 200" role="img" aria-label="Stage thumbnail"></svg>
+        <div id="boxes"></div>
+        <div class="stage-hint" id="stageHint">Click a part. Double-click picks the whole doll. Shift adds.</div>
+        <div class="stage-msg" id="stageMsg" hidden></div>
+      </div>
+      <div class="tl sunken">
+        <div class="tl-scroll"><div class="tl-grid" id="tl"></div></div>
+        <div class="tl-foot"><span class="counter sunken" id="counter">F 024</span>
+          <span id="tlNote">Drag the playhead. It snaps to keys.</span></div>
+      </div>
+    </section>
+
+    <!-- Inspector dock -->
+    <section class="dock insp" id="inspDock" data-dock-id="proto-insp">
+      <div class="dock-head"><button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title">Inspector</span></button>
+        <button class="win-btn close" data-close-dock="insp" aria-label="Close Inspector" data-tip="Close. Bring it back from the View menu."></button></div>
+      <div class="dock-body"><div class="dock-inner"><div class="insp-body" id="insp"></div></div></div>
+    </section>
+  </div>
+</div>
+
+<details class="covered" id="covered">
+  <summary>Covered: inventory #130 to #201 (Cast and Inspector)</summary>
+  <div class="scrollbox"><table class="cov" id="covTable"></table></div>
+</details>
+
+<dialog class="dialog" id="picDlg" aria-labelledby="picTitle">
+  <div class="win-title"><span class="win-title-text" id="picTitle">Add picture</span>
+    <span class="win-btns"><button class="win-btn close" data-close="cancel" aria-label="Close"></button></span></div>
+  <div class="dlg-pad"><div class="dim">Pictures: png, jpg, jpeg, webp, bmp. In ~/Pictures/teto_song</div>
+    <div class="list file-list" id="fileList" role="listbox" aria-label="Files"></div></div>
+  <div class="dialog-btns"><button class="btn primary" id="picOk" data-close="ok">Add</button><button class="btn" data-close="cancel">Cancel</button></div>
+</dialog>
+<dialog class="dialog" id="textDlg" aria-labelledby="textTitle">
+  <div class="win-title"><span class="win-title-text" id="textTitle">Add text</span>
+    <span class="win-btns"><button class="win-btn close" data-close="cancel" aria-label="Close"></button></span></div>
+  <div class="dlg-pad"><div class="dim">Words for the new text layer. Enter makes a new line.</div>
+    <textarea class="field" id="textWords" rows="3" style="width: 100%; margin-top: 6px">YAY</textarea></div>
+  <div class="dialog-btns"><button class="btn primary" id="textOk" data-close="ok">Add</button><button class="btn" data-close="cancel">Cancel</button></div>
+</dialog>
+
+<script src="kit.js"></script>
+<script>
+(function () {
+  "use strict";
+  const K = window.Kit;
+  const kFps = 24;
+  const kMaxLoop = 500;
+  const $ = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  const undo = new K.UndoStack(200);
+
+  function esc(t) {
+    return String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+  function round4(v) { return Math.round(v * 10000) / 10000; }
+  function fmt(v, d) {
+    const s = Number(v).toFixed(Math.max(0, d));
+    return d > 0 ? s.replace(/\.?0+$/, "") : s;
+  }
+  function uniq(a) { return a.filter((v, i) => a.indexOf(v) === i); }
+  function pad3(n) { return String(n).padStart(3, "0"); }
+
+  /* ---------- Fake project ---------- */
+  const ART = {
+    teto: { name: "Teto", hair: "#d8304f", body: "#7a1428", skin: "#e9e4d8", drills: true },
+    bob: { name: "Bob", hair: "#5c4030", body: "#3d6fa8", skin: "#e2c9a6", hat: true },
+    miku: { name: "Miku", hair: "#39c5bb", body: "#2f3a44", skin: "#e9e4d8", drills: true },
+    rin: { name: "Rin", hair: "#f2c230", body: "#e9e4d8", skin: "#f0dcc0" }
+  };
+  const P = (o) => Object.assign({ x: 0, y: 0, sx: 1, sy: 1, turn: 0, skew: 0, op: 1, lean: 0, swivel: 0 }, o || {});
+  const CAM = () => ({ x: 160, y: 100, zoom: 1, turn: 0, shake: 0 });
+  const S = {
+    noShot: false, showAll: false, emptyLib: false, posesBroken: false,
+    shots: [
+      { id: "s1", name: "Intro", len: 48, bg: "#4a4a52", cam: CAM() },
+      { id: "s2", name: "Chorus", len: 72, bg: "#3b4656", cam: CAM() },
+      { id: "s3", name: "Outro", len: 36, bg: "#4d3d47", cam: CAM() }
+    ],
+    shotPick: ["s1"], focusShot: "s1", frame: 24, nextShot: 4,
+    things: {
+      teto: { id: "teto", kind: "doll", name: "Teto", layer: "teto", base: { x: 100, y: 156 }, pose: P(), drawings: ["Rig default"], drawing: "Rig default" },
+      teto_head: { id: "teto_head", kind: "piece", name: "Teto's head", layer: "teto", pose: P(), drawings: ["Rig default", "Wink", "Shout"], drawing: "Rig default" },
+      dot: { id: "dot", kind: "dot", name: "Teto's hair dot", layer: "teto", pose: P(), drawings: ["Rig default"], drawing: "Rig default",
+        drag: { on: false, lag: 0.3, bounce: 0.4 }, anim: { moves: "Wave", size: 4, cycle: 24, dir: 0, delay: 0 } },
+      bob: { id: "bob", kind: "doll", name: "Bob", layer: "bob", base: { x: 222, y: 156 }, pose: P({ sx: 1.08 }), drawings: ["Rig default"], drawing: "Rig default" },
+      bob_arm: { id: "bob_arm", kind: "piece", name: "Bob's arm", layer: "bob", pose: P(), drawings: ["Rig default", "Fist", "Point"], drawing: "Rig default" },
+      bob_hat: { id: "bob_hat", kind: "piece", name: "Bob's hat", layer: "bob", pose: P(), drawings: ["Rig default"], drawing: "Rig default",
+        link: { leader: "teto", from: 12, strength: 1 } },
+      title: { id: "title", kind: "text", name: "Title text", layer: "title", base: { x: 160, y: 40 }, pose: P(), drawings: ["Rig default"], drawing: "Rig default" },
+      fx: { id: "fx", kind: "effect", name: "Glitch FX", layer: "fx", base: { x: 160, y: 100 }, pose: P(), drawings: ["Rig default"], drawing: "Rig default" }
+    },
+    layers: ["title", "fx", "bob", "teto"],
+    L: {
+      title: { id: "title", kind: "text", name: "Title text", from: 0, len: 0, eye: true, thing: "title",
+        words: "TETO TIME", size: 22, bold: true, fill: "#ffffff", fillA: 1, line: "#d8304f", lineA: 1, outline: 2 },
+      fx: { id: "fx", kind: "effect", name: "Glitch FX", from: 12, len: 24, eye: true, thing: "fx", fx: "Glitch", color: "#4fa3d8", strength: 0.5 },
+      bob: { id: "bob", kind: "doll", name: "Bob", from: 0, len: 0, eye: true, thing: "bob", art: "bob", mirror: false, parts: { arm: "bob_arm", hat: "bob_hat" } },
+      teto: { id: "teto", kind: "doll", name: "Teto", from: 0, len: 0, eye: true, thing: "teto", art: "teto", mirror: false, parts: { head: "teto_head", dot: "dot" } }
+    },
+    nextId: 1, layerPick: [], layerFocus: null, pick: [], hover: null,
+    keys: { camera: [0], teto: [0, 24], bob: [0, 36], title: [0], fx: [12] }, fresh: [],
+    poses: [
+      { id: "p1", name: "Wave hello", pose: P({ turn: -8, lean: 4, sy: 1.03 }) },
+      { id: "p2", name: "Lean back", pose: P({ lean: -14, y: -2 }) },
+      { id: "p3", name: "Hop", pose: P({ y: -16, sx: 0.94, sy: 1.08 }) }
+    ],
+    posePick: null, poseName: "", nextPose: 4,
+    motion: { amount: 10, timing: 2, len: 24 },
+    lib: [
+      { id: "teto", inProject: true, newArt: false },
+      { id: "bob", inProject: true, newArt: false },
+      { id: "miku", inProject: true, newArt: true },
+      { id: "rin", inProject: false, newArt: false }
+    ],
+    libPick: [], pulsed: false, lastMir: {}, squash: null, wob: null
+  };
+
+  /* ---------- Lookups ---------- */
+  function shots() { return S.noShot ? [] : S.shots; }
+  function shot() { return shots().find((s) => s.id === S.focusShot) || null; }
+  function onShot() { const s = shot(); return Boolean(s) && S.frame < s.len; }
+  function picks() { return S.pick.map((id) => S.things[id]).filter(Boolean); }
+  function wholeDolls() { return picks().filter((t) => t.kind === "doll"); }
+  function dots() { return picks().filter((t) => t.kind === "dot"); }
+  function linked() { return picks().filter((t) => t.link); }
+  function focusLayer() { return S.L[S.layerFocus] || null; }
+  function inRange(L) { const end = L.len > 0 ? L.from + L.len : Infinity; return S.frame >= L.from && S.frame < end; }
+  function dollLayers() { return S.layers.map((id) => S.L[id]).filter((L) => L.kind === "doll"); }
+  function inShot(art) { return Boolean(shot()) && dollLayers().some((L) => L.art === art); }
+  function pickLabel() {
+    const ps = picks();
+    if (ps.length === 1) return ps[0].name;
+    if (ps.length > 1) return ps.length + " picks";
+    return "";
+  }
+  function targets(g) {
+    if (g === "shot") return shots().filter((s) => S.shotPick.includes(s.id));
+    if (g === "cam") { const s = shot(); return s ? [s.cam] : []; }
+    if (g === "pose") return picks().map((t) => t.pose);
+    if (g === "drag") return dots().map((t) => t.drag);
+    if (g === "anim") return dots().map((t) => t.anim);
+    if (g === "layer") { const l = focusLayer(); return l ? [l] : []; }
+    if (g === "link") return linked().map((t) => t.link);
+    if (g === "motion") return [S.motion];
+    return [];
+  }
+
+  /* ---------- Undo with a toast ---------- */
+  let last_toast = null;
+  let last_toast_name = "";
+  function record(name, undoFn, redoFn, msg) {
+    undo.push(name, () => { undoFn(); renderAll(); K.flash($("#stageWrap")); },
+      () => { redoFn(); renderAll(); });
+    const step = undo.done[undo.done.length - 1];
+    const same_as_last = last_toast && last_toast_name === name;
+    if (same_as_last) last_toast.close();
+    last_toast_name = name;
+    last_toast = K.toast(msg || name, () => {
+      const is_top = undo.done[undo.done.length - 1] === step;
+      if (is_top) { undo.undo(); return; }
+      K.toast("Undo the newer changes first (Ctrl+Z).", null, { kind: "error" });
+    }, { ms: 3600 });
+    $("#dirty").hidden = false;
+  }
+  function addKeys(rows, frames) {
+    const added = [];
+    rows.forEach((r) => {
+      const k = S.keys[r] || (S.keys[r] = []);
+      frames.forEach((f) => {
+        const is_new = !k.includes(f);
+        if (is_new) { k.push(f); added.push([r, f]); }
+      });
+    });
+    S.fresh = S.fresh.concat(added);
+    return added;
+  }
+  function dropKeys(added) {
+    added.forEach((p) => {
+      const k = S.keys[p[0]] || [];
+      const i = k.indexOf(p[1]);
+      if (i >= 0) k.splice(i, 1);
+    });
+  }
+  function readdKeys(added) {
+    added.forEach((p) => {
+      const k = S.keys[p[0]] || (S.keys[p[0]] = []);
+      if (!k.includes(p[1])) k.push(p[1]);
+    });
+    S.fresh = S.fresh.concat(added);
+  }
+  function rowsForPicks() { return uniq(picks().map((t) => t.layer)); }
+
+  /* ---------- Picking ---------- */
+  function setPick(ids, keepLayer) {
+    S.pick = uniq(ids.filter((id) => S.things[id]));
+    S.layerPick = uniq(S.pick.map((id) => S.things[id].layer));
+    const lastId = S.pick[S.pick.length - 1];
+    if (!keepLayer) S.layerFocus = lastId ? S.things[lastId].layer : null;
+    renderAll();
+  }
+  function togglePick(id) {
+    const has = S.pick.includes(id);
+    setPick(has ? S.pick.filter((p) => p !== id) : S.pick.concat([id]));
+  }
+  function base() {
+    const was_off = S.noShot || !shot();
+    S.noShot = false;
+    if (!shot()) S.focusShot = S.shots.length ? S.shots[0].id : null;
+    S.shotPick = S.focusShot ? [S.focusShot] : [];
+    if (was_off || !onShot()) S.frame = Math.min(24, shot() ? shot().len - 1 : 24);
+    S.pick = []; S.layerPick = []; S.layerFocus = null;
+  }
+  const SCEN = [
+    { key: "1", label: "Pick nothing", run: () => { base(); setPick([]); } },
+    { key: "2", label: "Pick Bob's arm", run: () => { base(); setPick(["bob_arm"]); } },
+    { key: "3", label: "Pick Bob whole", run: () => { base(); setPick(["bob"]); } },
+    { key: "4", label: "Pick two dolls", run: () => { base(); setPick(["teto", "bob"]); } },
+    { key: "5", label: "Pick a warp dot", run: () => { base(); setPick(["dot"]); } },
+    { key: "6", label: "Pick Bob's hat (linked)", run: () => {
+      base(); setPick(["bob_hat"]);
+      if (!S.things.bob_hat.link) K.toast("The hat is unlinked now, so the Link box stays away. Undo the unlink to bring it back.");
+    } },
+    { key: "7", label: "Pick title text", run: () => { base(); setPick(["title"]); } },
+    { key: "8", label: "Pick the effect", run: () => { base(); setPick(["fx"]); if (!inRange(S.L.fx)) S.frame = S.L.fx.from + 2; renderAll(); } },
+    { key: "9", label: "Pick two shots", run: () => { base(); S.shotPick = ["s1", "s2"].filter((id) => S.shots.some((s) => s.id === id)); renderAll(); } },
+    { key: "0", label: "No shot", run: () => { S.noShot = true; S.pick = []; S.layerPick = []; S.layerFocus = null; renderAll(); } },
+    { key: "o", label: "Playhead off the shot", run: () => { base(); S.frame = shot().len + 10; renderAll(); } }
+  ];
+
+  /* ---------- Stage drawing ---------- */
+  function partT(t, pv, extra) {
+    const p = t.pose;
+    const ex = extra || { x: 0, y: 0 };
+    return "translate(" + (pv.x + p.x + ex.x) + " " + (pv.y + p.y + ex.y) + ") rotate(" + p.turn + ") skewX(" + p.skew +
+      ") scale(" + p.sx + " " + p.sy + ") translate(" + (-pv.x) + " " + (-pv.y) + ")";
+  }
+  function wobOf(id) {
+    const w = S.wob;
+    const has = w && w.ids.includes(id);
+    return has ? w.cur : { x: 0, y: 0, r: 0 };
+  }
+  function linkOffset(t) {
+    const l = t.link;
+    if (!l) return { x: 0, y: 0 };
+    const lead = S.things[l.leader];
+    return { x: lead.pose.x * l.strength, y: lead.pose.y * l.strength };
+  }
+  /* wrap(name, pivot, svg) lets the stage tag parts as pickable while
+     the cast thumbnails reuse the same drawing untagged. */
+  function dollInner(a, wrap, drawings) {
+    const d = drawings || {};
+    let g = "";
+    if (a.drills) g += '<circle cx="-16" cy="-68" r="6" fill="' + a.hair + '"/>';
+    g += '<rect x="-9" y="-30" width="7" height="30" fill="#202024"/><rect x="2" y="-30" width="7" height="30" fill="#202024"/>';
+    g += '<rect x="-12" y="-62" width="24" height="34" fill="' + a.body + '"/>';
+    g += '<rect x="-25" y="-59" width="14" height="6" fill="' + a.skin + '"/>';
+    let hand = '<circle cx="38" cy="-56" r="4" fill="' + a.skin + '"/>';
+    if (d.arm === "Fist") hand = '<rect x="34" y="-61" width="9" height="9" fill="' + a.skin + '" stroke="#333" stroke-width="0.8"/>';
+    if (d.arm === "Point") hand = '<rect x="34" y="-58" width="16" height="3" fill="' + a.skin + '"/><circle cx="36" cy="-56" r="3.5" fill="' + a.skin + '"/>';
+    g += wrap("arm", { x: 12, y: -56 }, '<rect x="11" y="-59" width="25" height="6" fill="' + a.skin + '"/>' + hand);
+    let face = '<rect x="-6" y="-79" width="3" height="3" fill="#222"/><rect x="3" y="-79" width="3" height="3" fill="#222"/>';
+    if (d.head === "Wink") face = '<rect x="-6" y="-79" width="3" height="3" fill="#222"/><rect x="2" y="-78" width="5" height="1.5" fill="#222"/>';
+    if (d.head === "Shout") face += '<ellipse cx="0" cy="-70" rx="3" ry="2.5" fill="#7a1428"/>';
+    let head = '<circle cx="0" cy="-76" r="12" fill="' + a.skin + '"/>' + face +
+      '<rect x="-12" y="-91" width="24" height="7" fill="' + a.hair + '"/>';
+    const drill = '<circle cx="16" cy="-68" r="6" fill="' + a.hair + '"/>';
+    if (a.drills) head += wrap("dot", { x: 16, y: -62 }, drill);
+    g += wrap("head", { x: 0, y: -64 }, head);
+    if (a.hat) g += wrap("hat", { x: 0, y: -92 }, '<rect x="-15" y="-92" width="30" height="5" fill="#2a2a2e"/><rect x="-9" y="-106" width="18" height="14" fill="#2a2a2e"/><rect x="-9" y="-96" width="18" height="2" fill="#d8304f"/>');
+    return g;
+  }
+  function drawDoll(L) {
+    const t = S.things[L.thing];
+    const a = ART[L.art];
+    const p = t.pose;
+    const w = wobOf(t.id);
+    const sw = Math.cos(p.swivel * Math.PI / 180);
+    const T = "translate(" + (t.base.x + p.x + w.x) + " " + (t.base.y + p.y + w.y) + ") rotate(" + (p.lean + w.r) +
+      ") translate(0 -46) rotate(" + p.turn + ") skewX(" + p.skew + ") scale(" + (p.sx * sw) + " " + p.sy + ") translate(0 46)";
+    const parts = L.parts || {};
+    const draws = {};
+    Object.keys(parts).forEach((k) => { draws[k] = S.things[parts[k]] ? S.things[parts[k]].drawing : ""; });
+    const wrap = (name, pv, svg) => {
+      const id = parts[name];
+      const pt = id ? S.things[id] : null;
+      if (!pt) return "<g>" + svg + "</g>";
+      const pw = wobOf(id);
+      const ex = name === "hat" ? linkOffset(pt) : { x: 0, y: 0 };
+      ex.x += pw.x; ex.y += pw.y;
+      let inner = svg;
+      if (name === "dot") {
+        inner = '<g id="dotAnim">' + svg + '<g data-thing="' + id + '"><circle class="warp-hit" cx="16" cy="-62" r="7"/>' +
+          '<rect x="13.5" y="-64.5" width="5" height="5" fill="#f2c230" stroke="#222" stroke-width="0.8"/></g></g>';
+        return '<g transform="' + partT(pt, pv, ex) + '" opacity="' + pt.pose.op + '">' + inner + "</g>";
+      }
+      return '<g data-thing="' + id + '" transform="' + partT(pt, pv, ex) + '" opacity="' + pt.pose.op + '">' + inner + "</g>";
+    };
+    const m = L.mirror ? -1 : 1;
+    return '<g data-thing="' + t.id + '" data-layer="' + L.id + '" transform="' + T + '" opacity="' + p.op + '">' +
+      '<g class="mir" data-mir="' + L.id + '" style="transform: scaleX(' + m + ')">' + dollInner(a, wrap, draws) + "</g></g>";
+  }
+  function baseT(t) {
+    const p = t.pose;
+    const w = wobOf(t.id);
+    return "translate(" + (t.base.x + p.x + w.x) + " " + (t.base.y + p.y + w.y) + ") rotate(" + (p.turn + w.r) + ") skewX(" + p.skew +
+      ") scale(" + p.sx + " " + p.sy + ")";
+  }
+  function rgba(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+  }
+  function drawText(L) {
+    const t = S.things[L.thing];
+    const lines = String(L.words || " ").split("\n").slice(0, 6);
+    const lh = L.size * 1.1;
+    const y0 = -((lines.length - 1) * lh) / 2;
+    const spans = lines.map((ln, i) => '<tspan x="0" y="' + (y0 + i * lh) + '">' + esc(ln || " ") + "</tspan>").join("");
+    return '<g data-thing="' + t.id + '" data-layer="' + L.id + '" transform="' + baseT(t) + '" opacity="' + t.pose.op + '">' +
+      '<text text-anchor="middle" dominant-baseline="middle" font-family="Silkscreen, Tahoma, monospace" font-size="' + L.size +
+      '" font-weight="' + (L.bold ? 700 : 400) + '" fill="' + rgba(L.fill, L.fillA) + '" stroke="' + rgba(L.line, L.lineA) +
+      '" stroke-width="' + L.outline + '" paint-order="stroke" stroke-linejoin="round">' + spans + "</text></g>";
+  }
+  function drawPicture(L) {
+    const t = S.things[L.thing];
+    return '<g data-thing="' + t.id + '" data-layer="' + L.id + '" transform="' + baseT(t) + '" opacity="' + t.pose.op + '">' +
+      '<rect x="-24" y="-18" width="48" height="36" fill="#e9e4d8" stroke="#222"/><path d="M-18 12 L-6 -4 L2 6 L8 0 L18 12 Z" fill="#4fa3d8"/>' +
+      '<circle cx="10" cy="-8" r="4" fill="#f2c230"/><text x="0" y="28" text-anchor="middle" font-size="7" fill="#fff">' + esc(L.file || "") + "</text></g>";
+  }
+  function wrapEffect(inner, L) {
+    const t = S.things[L.thing];
+    const s = clamp(L.strength * t.pose.op, 0, 1);
+    const cover = (fill, op) => '<rect x="-600" y="-500" width="1520" height="1200" fill="' + fill + '" opacity="' + op + '" pointer-events="none"/>';
+    if (L.fx === "Flash") return '<g style="filter: brightness(' + (1 + 1.6 * s) + ')">' + inner + "</g>" + cover(L.color, s * 0.3);
+    if (L.fx === "Fill") return inner + cover(L.color, s * 0.85);
+    if (L.fx === "Invert") return '<g style="filter: invert(' + s + ')">' + inner + "</g>";
+    if (L.fx === "Zoom punch") return '<g transform="translate(160 100) scale(' + (1 + 0.3 * s) + ') translate(-160 -100)">' + inner + "</g>";
+    if (L.fx === "Halftone") return inner + cover("url(#halftone)", s);
+    if (L.fx === "Posterize") return '<g style="filter: contrast(' + (1 + 2.5 * s) + ") saturate(" + (1 + 2 * s) + ')">' + inner + "</g>";
+    return '<g style="filter: drop-shadow(' + (4 * s) + 'px 0 0 rgba(255,0,90,0.85)) drop-shadow(' + (-4 * s) + "px 0 0 " +
+      rgba(L.color, 0.9) + ") hue-rotate(" + Math.round(s * 70) + 'deg)">' + inner + "</g>";
+  }
+  function ropeSvg() {
+    const hat = S.things.bob_hat;
+    const has = hat && hat.link && S.layers.includes("bob") && S.layers.includes("teto") && S.L.bob.eye && S.L.teto.eye;
+    if (!has) return "";
+    const te = S.things.teto, bo = S.things.bob;
+    const off = linkOffset(hat);
+    const ax = te.base.x + te.pose.x, ay = te.base.y + te.pose.y - 92;
+    const bx = bo.base.x + bo.pose.x + hat.pose.x + off.x, by = bo.base.y + bo.pose.y + hat.pose.y + off.y - 104;
+    const mx = (ax + bx) / 2, my = Math.max(ay, by) + 22;
+    return '<path id="rope" d="M' + ax + " " + ay + " Q" + mx + " " + my + " " + bx + " " + by +
+      '" fill="none" stroke="#4fa3d8" stroke-width="' + (0.8 + hat.link.strength * 0.9) + '" stroke-dasharray="4 2" pointer-events="none"/>';
+  }
+  function drawStage() {
+    const svg = $("#stageSvg");
+    const s = shot();
+    const defs = '<defs><pattern id="halftone" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.6" fill="#000"/></pattern></defs>';
+    if (!s) {
+      svg.innerHTML = defs + '<rect width="320" height="200" fill="#2a2a2e"/>';
+      paintStageMsg();
+      return;
+    }
+    const c = s.cam;
+    let inner = '<rect x="-600" y="156" width="1520" height="300" fill="rgba(0,0,0,0.2)"/>';
+    const bottom_first = S.layers.slice().reverse();
+    let fxChip = "";
+    bottom_first.forEach((id) => {
+      const L = S.L[id];
+      const shown = L.eye && inRange(L);
+      if (!shown) return;
+      if (L.kind === "effect") {
+        inner = wrapEffect(inner, L);
+        fxChip = '<g data-thing="' + L.thing + '" data-layer="' + L.id + '"><rect x="272" y="5" width="44" height="11" fill="rgba(0,0,0,0.6)" stroke="#4fa3d8" stroke-width="0.6"/>' +
+          '<text x="294" y="12.8" text-anchor="middle" font-size="6" fill="#fff">FX ' + esc(L.fx) + "</text></g>";
+        return;
+      }
+      if (L.kind === "doll") inner += drawDoll(L);
+      else if (L.kind === "text") inner += drawText(L);
+      else inner += drawPicture(L);
+    });
+    inner += ropeSvg();
+    svg.innerHTML = defs + '<rect width="320" height="200" fill="' + s.bg + '"/>' +
+      '<g id="world" transform="translate(160 100) rotate(' + (-c.turn) + ") scale(" + c.zoom + ") translate(" + (-c.x) + " " + (-c.y) + ')">' +
+      '<g id="shakeG">' + inner + "</g></g>" + fxChip;
+    afterDraw();
+    paintStageMsg();
+  }
+  function afterDraw() {
+    dollLayers().forEach((L) => {
+      const prev = S.lastMir[L.id];
+      const m = L.mirror ? -1 : 1;
+      const el = $('.mir[data-mir="' + L.id + '"]');
+      S.lastMir[L.id] = L.mirror;
+      if (!el || !el.animate) return;
+      const flipped = prev !== undefined && prev !== L.mirror;
+      if (flipped && K.ms("pop") > 0) el.animate([{ transform: "scaleX(" + (-m) + ")" }, { transform: "scaleX(" + m + ")" }],
+        { duration: K.ms("pop"), easing: "cubic-bezier(0.33, 1, 0.68, 1)" });
+      const squash = S.squash === L.id;
+      if (squash && K.ms("move") > 0) el.animate([{ transform: "scale(" + (m * 1.1) + ", 0.88)" }, { transform: "scale(" + m + ", 1)" }],
+        { duration: K.ms("move"), easing: "cubic-bezier(0.34, 1.56, 0.64, 1)" });
+    });
+    S.squash = null;
+  }
+  function paintStageMsg() {
+    const msg = $("#stageMsg");
+    const s = shot();
+    if (!s) {
+      msg.hidden = false;
+      msg.innerHTML = "<div>No shot yet. Add one in the strip above, then drag a doll here from the Cast.</div>" +
+        '<button class="btn small primary" data-act="add-shot">Add shot</button>';
+      return;
+    }
+    if (!onShot()) {
+      msg.hidden = false;
+      msg.innerHTML = "<div>No shot at frame " + S.frame + ". " + esc(s.name) + " ends at frame " + (s.len - 1) + ".</div>" +
+        '<button class="btn small" data-act="back-on">Move the playhead back</button>';
+      return;
+    }
+    msg.hidden = true;
+  }
+
+  /* Boxes over the stage: red for picks, white dashed for hover. */
+  function paintBoxes() {
+    const wrap = $("#stageWrap");
+    const host = $("#boxes");
+    const wr = wrap.getBoundingClientRect();
+    const want = S.pick.map((id) => ({ id: id, cls: "pick" }));
+    const has_hover = S.hover && !S.pick.includes(S.hover);
+    if (has_hover) want.push({ id: S.hover, cls: "hover" });
+    while (host.children.length < want.length) host.appendChild(document.createElement("div"));
+    $$(".box", host).forEach((b) => { b.hidden = true; });
+    Array.from(host.children).forEach((b, i) => {
+      b.className = "box";
+      const w = want[i];
+      if (!w) { b.hidden = true; return; }
+      const el = $('#stageSvg [data-thing="' + w.id + '"]');
+      if (!el || !shot()) { b.hidden = true; return; }
+      const r = el.getBoundingClientRect();
+      b.hidden = false;
+      b.className = "box " + w.cls;
+      b.style.left = Math.round(r.left - wr.left) + "px";
+      b.style.top = Math.round(r.top - wr.top) + "px";
+      b.style.width = Math.max(4, Math.round(r.width)) + "px";
+      b.style.height = Math.max(4, Math.round(r.height)) + "px";
+    });
+  }
+
+  /* ---------- Shot strip ---------- */
+  function renderStrip() {
+    const el = $("#strip");
+    const ss = shots();
+    if (!ss.length) {
+      el.innerHTML = '<div class="strip-empty">No shots yet.<button class="btn small primary" data-act="add-shot">Add shot</button></div>';
+      return;
+    }
+    el.innerHTML = ss.map((s) => '<button class="shot-chip" data-shot="' + s.id + '" aria-selected="' + S.shotPick.includes(s.id) +
+      '" style="width: ' + Math.max(48, Math.round(s.len * 1.6)) + 'px" data-tip="Click to pick. Shift adds.">' +
+      '<b><i style="background: ' + s.bg + '"></i>' + esc(s.name) + "</b><small>" + s.len + " f / " + fmt(s.len / kFps, 2) + " s</small></button>").join("") +
+      '<button class="btn small" data-act="add-shot" style="align-self: center" data-tip="Add a shot at the end.">+ Shot</button>';
+  }
+
+  /* ---------- Mini timeline ---------- */
+  function span() { const s = shot(); return Math.max(96, s ? s.len + 24 : 96); }
+  function renderTimeline() {
+    const el = $("#tl");
+    const sp = span();
+    const s = shot();
+    const pct = (f) => (f / sp * 100) + "%";
+    const rows = [{ id: "camera", name: "Camera", L: null }].concat(S.layers.map((id) => ({ id: id, name: S.L[id].name, L: S.L[id] })));
+    let names = '<div class="tl-name" style="height: 16px"></div>';
+    let tracks = '<div class="tl-ruler">';
+    for (let f = 0; f <= sp && f < kMaxLoop; f += 24) tracks += '<span style="left: ' + pct(f) + '">' + f + "</span>";
+    tracks += "</div>";
+    rows.forEach((r) => {
+      const picked = r.L ? S.layerPick.includes(r.id) : false;
+      names += '<div class="tl-name' + (picked ? " is-picked" : "") + '">' + esc(r.name) + "</div>";
+      let row = '<div class="tl-row" data-row="' + r.id + '">';
+      if (r.L) {
+        const end = r.L.len > 0 ? r.L.from + r.L.len : (s ? s.len : sp);
+        row += '<div class="tl-bar" style="left: ' + pct(r.L.from) + "; width: " + pct(Math.max(1, end - r.L.from)) + '"></div>';
+      }
+      (S.keys[r.id] || []).forEach((f) => {
+        row += '<div class="tl-key' + (r.id === "camera" ? " cam" : "") + '" data-key="' + r.id + ":" + f + '" style="left: ' + pct(f) + '"></div>';
+      });
+      tracks += row + "</div>";
+    });
+    if (s) tracks += '<div class="tl-off" style="left: ' + pct(s.len) + '" title="After the shot ends"></div>';
+    tracks += '<div class="tl-head" style="left: ' + pct(S.frame) + '"></div>';
+    el.innerHTML = '<div class="tl-names">' + names + '</div><div class="tl-tracks" id="tlTracks">' + tracks + "</div>";
+    $("#counter").textContent = "F " + pad3(S.frame);
+    S.fresh.forEach((p) => {
+      const k = $('.tl-key[data-key="' + p[0] + ":" + p[1] + '"]');
+      if (!k) return;
+      K.pop(k, 1.4);
+      const row = k.parentElement;
+      K.ring(row, k.offsetLeft, 9);
+    });
+    S.fresh = [];
+  }
+
+  /* ---------- Inspector markup ---------- */
+  function numH(g, f, label, o) {
+    const c = o || {};
+    const a = ['data-g="' + g + '"', 'data-f="' + f + '"', 'data-name="' + esc(c.name || label) + '"', 'data-step="' + (c.step || 1) + '"', 'data-value="0"'];
+    if (c.min !== undefined) a.push('data-min="' + c.min + '"');
+    if (c.max !== undefined) a.push('data-max="' + c.max + '"');
+    if (c.wrap) a.push("data-wrap");
+    if (c.dec !== undefined) a.push('data-decimals="' + c.dec + '"');
+    if (c.per) a.push('data-per="' + c.per + '"');
+    if (c.unit) a.push('data-unit="' + c.unit + '"');
+    if (c.undo) a.push('data-undo="' + esc(c.undo) + '"');
+    if (c.keys) a.push('data-keys="' + c.keys + '"');
+    return '<span class="num' + (c.cls ? " " + c.cls : "") + '" id="n-' + g + "-" + f + (c.per ? "-s" : "") + '" ' + a.join(" ") + ">" +
+      '<span class="num-label">' + label + "</span>" + (c.pre ? '<span class="num-unit">' + c.pre + "</span>" : "") +
+      '<input class="num-input" aria-label="' + esc(c.name || label) + '">' +
+      (c.unit ? '<span class="num-unit">' + c.unit + "</span>" : "") + "</span>";
+  }
+  function dialH(numId) {
+    return '<span class="dial" data-num="' + numId + '" data-tip="Drag around the dial to turn. Shift snaps to 15 deg.">' +
+      '<svg viewBox="-12 -12 24 24"><circle r="10" class="dial-face"/><line class="dial-needle" x1="0" y1="0" x2="0" y2="-8"/><circle r="2" class="dial-hub"/></svg></span>';
+  }
+  function swatchH(key, label) {
+    return '<button class="btn small swatch" data-colour="' + key + '" aria-label="' + esc(label) + '" data-tip="' + esc(label) + '"><i></i></button>';
+  }
+  function sect(id, title, body) {
+    return '<div class="isect is-gone" id="sec-' + id + '" inert><div class="isect-in"><div class="dock" data-dock-id="proto-insp-' + id + '">' +
+      '<div class="dock-head"><button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title" id="t-' + id + '">' + title +
+      '</span></button><span class="meta" id="m-' + id + '"></span></div><div class="dock-body"><div class="dock-inner"><div class="dock-pad">' + body +
+      "</div></div></div></div></div></div>";
+  }
+  const LOOPS = ["Bob", "Bounce", "Shake", "Nod", "Sway"];
+  const MOVES = ["None", "Wave", "Pulse", "Breathe", "Sway", "Shiver"];
+  const EFFECTS = ["Flash", "Fill", "Invert", "Zoom punch", "Halftone", "Glitch", "Posterize"];
+  const FX_COL = { Flash: "#ffffff", Fill: "#4fa3d8", Invert: "#808086", "Zoom punch": "#f2c230", Halftone: "#222222", Glitch: "#d8304f", Posterize: "#8fd14f" };
+  function tileH(kind, attr, cls) {
+    return '<button class="tile lp-' + kind.replace(/\s/g, "") + (cls ? " " + cls : "") + '" ' + attr + '><span class="pv"><i></i></span>' + kind + "</button>";
+  }
+  function buildInspector() {
+    const el = $("#insp");
+    el.innerHTML =
+      '<div class="insp-head"><span class="dotc" id="hDot"></span><b id="hName">Nothing picked</b><span class="dim" id="hFrame"></span><span class="grow"></span>' +
+      '<button class="toggle" id="allToggle" aria-pressed="false" data-tip="Show every box, greyed with its reason when it cannot act." data-key="B">' +
+      '<span class="toggle-track"><span class="toggle-knob"></span></span>All</button></div>' +
+      '<div class="insp-tip">Drag any label to change it (Shift x10, Alt x0.1). Click a field to type a sum: 12*2, 90/2, *2, +15. Esc puts it back.</div>' +
+      '<div class="isect" id="sec-hint"><div class="isect-in"><div class="hint-box">Add a shot in the strip above to start.' +
+      '<button class="btn small primary" data-act="add-shot">Add shot</button></div></div></div>' +
+      sect("shot", "Shot",
+        '<div class="fname"><span>Name</span><input class="field" id="shotName" aria-label="Shot name"></div>' +
+        '<div class="frow">' + numH("shot", "len", "Length", { unit: "f", min: 1, max: 999, undo: "Shot length", name: "Length in frames" }) +
+        numH("shot", "len", "=", { unit: "s", step: 0.5, dec: 2, min: 0.05, max: 41, per: kFps, undo: "Shot length", name: "Length in seconds", cls: "short" }) + "</div>" +
+        '<div class="frow"><span class="dim" style="min-width: 46px">Back</span>' + swatchH("shot-bg", "Background colour for the picked shots") +
+        '<span class="calc" id="shotCalc"></span></div>' +
+        '<p class="note-gone"><span class="tag">GONE</span>Into next and Overlap (#151, #152): transitions now live on the cut in the <a href="video.html">Video tab</a>.</p>') +
+      sect("cam", "Camera at playhead",
+        '<div class="frow">' + numH("cam", "x", "Look at", { unit: "", name: "Look at x", undo: "Move camera", keys: "camera" }) +
+        numH("cam", "y", "y", { unit: "px", name: "Look at y", undo: "Move camera", keys: "camera" }) + "</div>" +
+        '<div class="frow">' + numH("cam", "zoom", "Zoom", { step: 0.01, dec: 2, min: 0.25, max: 4, undo: "Move camera", keys: "camera", unit: "x" }) + "</div>" +
+        '<div class="frow">' + numH("cam", "turn", "Turn", { unit: "deg", min: -180, max: 180, wrap: true, undo: "Move camera", keys: "camera", name: "Camera turn" }) +
+        dialH("n-cam-turn") + "</div>" +
+        '<div class="frow">' + numH("cam", "shake", "Shake", { unit: "px", min: 0, max: 20, undo: "Move camera", keys: "camera", name: "Camera shake" }) + "</div>") +
+      sect("pose", "Pose at playhead",
+        '<div class="frow">' + numH("pose", "x", "Move x", { name: "Move x", keys: "pick" }) + numH("pose", "y", "y", { unit: "px", name: "Move y", keys: "pick" }) + "</div>" +
+        '<div class="frow">' + numH("pose", "sx", "Scale x", { step: 0.01, dec: 2, min: -4, max: 4, name: "Scale x", keys: "pick" }) +
+        numH("pose", "sy", "y", { step: 0.01, dec: 2, min: -4, max: 4, name: "Scale y", keys: "pick" }) + "</div>" +
+        '<div class="frow">' + numH("pose", "turn", "Turn", { unit: "deg", min: -180, max: 180, wrap: true, keys: "pick" }) + dialH("n-pose-turn") + "</div>" +
+        '<div class="frow">' + numH("pose", "skew", "Skew", { unit: "deg", min: -85, max: 85, keys: "pick" }) + "</div>" +
+        '<div class="frow">' + numH("pose", "op", "Opacity", { step: 0.01, dec: 2, min: 0, max: 1, cls: "has-fill", keys: "pick" }) + "</div>" +
+        '<div class="frow">' + numH("pose", "lean", "Lean", { unit: "deg", min: -90, max: 90, keys: "pick" }) + "</div>" +
+        '<div class="frow">' + numH("pose", "swivel", "Swivel", { unit: "deg", min: -90, max: 90, keys: "pick" }) + "</div>" +
+        '<div class="frow"><span class="dim" style="min-width: 46px">Drawing</span><div class="combo" id="drawCombo" data-value="Rig default">' +
+        '<button class="combo-btn" aria-haspopup="listbox" aria-expanded="false"><span class="combo-value">Rig default</span><span class="combo-arrow"></span></button>' +
+        '<div class="menu" role="listbox" hidden></div></div></div>') +
+      sect("drag", "Drag node",
+        '<div class="frow"><label class="check" id="dragCheck" data-key="D"><input type="checkbox" id="dragOn"><span class="check-box"></span>Drags behind (D)</label></div>' +
+        '<div class="frow">' + numH("drag", "lag", "Lag", { step: 0.01, dec: 2, min: 0, max: 1 }) + numH("drag", "bounce", "Bounce", { step: 0.01, dec: 2, min: 0, max: 1 }) + "</div>" +
+        '<div class="frow"><svg class="spring" id="spring" viewBox="0 0 64 20" aria-hidden="true"><polyline points="0,10 64,10"/></svg><span class="calc">How the dot trails and wobbles.</span></div>') +
+      sect("anim", "Dot animation",
+        '<div class="sub-h">Moves</div><div class="tiles" id="moveTiles">' + MOVES.map((m) => tileH(m, 'data-move="' + m + '" aria-pressed="false"', "fx")).join("") + "</div>" +
+        '<div class="frow" style="margin-top: 6px">' + numH("anim", "size", "Size", { unit: "px", min: 0, max: 40 }) + "</div>" +
+        '<div class="frow">' + numH("anim", "cycle", "Cycle", { pre: "every", unit: "f", min: 2, max: 240 }) + "</div>" +
+        '<div class="frow">' + numH("anim", "dir", "Direction", { unit: "deg", min: -180, max: 180, wrap: true }) + dialH("n-anim-dir") + "</div>" +
+        '<div class="frow">' + numH("anim", "delay", "Delay", { step: 0.01, dec: 2, min: 0, max: 1, cls: "has-fill" }) + "</div>") +
+      sect("link", "Link",
+        '<div class="link-line" id="linkLine">Follows <b>Teto</b> from frame 12.</div>' +
+        '<div class="frow">' + numH("link", "strength", "Strength", { step: 0.05, dec: 2, min: 0, max: 4, undo: "Link strength" }) + "</div>" +
+        '<div class="frow"><div class="slider" id="linkSlider" data-min="0" data-max="4" data-step="0.05" data-snaps="0.5,1,2" data-value="1" data-name="Link strength" aria-label="Link strength"></div></div>' +
+        '<div class="frow"><span class="calc">1 copies the same move, 0.5 half, 2 double.</span></div>' +
+        '<div class="btn-row"><button class="btn small" id="bUnlink">Unlink</button></div>') +
+      sect("motion", "Motion",
+        '<div class="frow">' + numH("motion", "amount", "Amount", { min: 0, max: 200, unit: "px / deg" }) + "</div>" +
+        '<div class="frow"><span class="dim" style="min-width: 46px">Timing</span><span class="seg" role="group" aria-label="Timing" id="timingSeg">' +
+        '<button data-value="1" aria-pressed="false">On 1s</button><button data-value="2" aria-pressed="true">On 2s</button><button data-value="3" aria-pressed="false">On 3s</button></span></div>' +
+        '<div class="frow">' + numH("motion", "len", "Length", { unit: "f", min: 2, max: 240 }) + "</div>" +
+        '<div class="sub-h">Click a loop to add it at the playhead</div><div class="tiles" id="loopTiles">' +
+        LOOPS.map((m) => tileH(m, 'data-loop="' + m + '"')).join("") + "</div>") +
+      sect("layer", "Layer",
+        '<div class="fname"><span>Name</span><input class="field" id="layerName" aria-label="Layer name"></div>' +
+        '<div class="frow">' + numH("layer", "from", "From", { unit: "f", min: 0, max: 999, undo: "Change layer timing", name: "Frames from" }) + "</div>" +
+        '<div class="frow">' + numH("layer", "len", "For", { unit: "f", min: 0, max: 999, undo: "Change layer timing", name: "Frames for" }) + "</div>" +
+        '<div id="lDoll"><div class="frow"><label class="check" id="mirCheck"><input type="checkbox" id="mirOn"><span class="check-box"></span>Mirrored</label></div></div>' +
+        '<div id="lText"><div class="sub-h">Text</div><textarea class="field" id="words" rows="2" aria-label="Words"></textarea>' +
+        '<div class="frow" style="margin-top: 6px">' + numH("layer", "size", "Size", { unit: "px", min: 4, max: 120, undo: "Edit text" }) +
+        '<label class="check" id="boldCheck"><input type="checkbox" id="boldOn"><span class="check-box"></span>Bold</label></div>' +
+        '<div class="frow"><span class="dim" style="min-width: 46px">Colours</span>' + swatchH("text-fill", "Fill colour (with see-through)") +
+        swatchH("text-line", "Outline colour (with see-through)") + "</div>" +
+        '<div class="frow">' + numH("layer", "outline", "Outline", { unit: "px", min: 0, max: 12, undo: "Edit text" }) + "</div></div>" +
+        '<div id="lFx"><div class="sub-h">Effect</div><div class="frow"><span class="dim" style="min-width: 46px">Kind</span><div class="combo" id="fxCombo" data-value="Glitch">' +
+        '<button class="combo-btn" aria-haspopup="listbox" aria-expanded="false"><span class="combo-value">Glitch</span><span class="combo-arrow"></span></button>' +
+        '<div class="menu" role="listbox" hidden>' + EFFECTS.map((e) => '<button class="menu-item" role="option" data-value="' + e + '" aria-checked="false"><span>' +
+        '<i class="fxi" style="background: ' + FX_COL[e] + '"></i>' + e + "</span></button>").join("") + "</div></div>" + swatchH("fx-color", "Effect colour") + "</div>" +
+        '<div class="frow">' + numH("layer", "strength", "Strength", { step: 0.01, dec: 2, min: 0, max: 1, cls: "has-fill", undo: "Effect strength", keys: "layer" }) +
+        '<span class="calc">keyed at the playhead</span></div></div>') +
+      sect("poses", "Saved poses",
+        '<div class="list poses-list" id="posesList" role="listbox" aria-label="Saved poses"></div>' +
+        '<div class="fname"><input class="field" id="poseName" placeholder="Name for a pose" aria-label="Name for a pose"></div>' +
+        '<div class="btn-row"><button class="btn small" id="bSave">Save</button><button class="btn small" id="bUse">Use</button>' +
+        '<button class="btn small" id="bForget">Forget</button></div>');
+  }
+
+  /* ---------- Inspector render ---------- */
+  function decOf(num) {
+    const d = num.dataset;
+    if (d.decimals !== undefined) return parseInt(d.decimals, 10);
+    return (String(parseFloat(d.step || "1")).split(".")[1] || "").length;
+  }
+  function setOff(el, why) {
+    if (!el) return;
+    if (why) {
+      el.setAttribute("aria-disabled", "true");
+      el.dataset.why = why;
+    } else {
+      el.removeAttribute("aria-disabled");
+      delete el.dataset.why;
+    }
+    const input = el.matches("input, textarea") ? el : el.querySelector(".num-input");
+    if (input) input.readOnly = Boolean(why);
+    const inner = el.querySelector(".combo-btn, input[type=checkbox]");
+    if (inner) inner.tabIndex = why ? -1 : 0;
+  }
+  function showNum(num, why) {
+    const g = num.dataset.g, f = num.dataset.f;
+    const per = parseFloat(num.dataset.per || "1");
+    const list = targets(g);
+    const vals = list.map((o) => o[f]);
+    const disp = vals.map((v) => round4(v / per));
+    const same = disp.every((v) => Math.abs(v - disp[0]) < 0.0001);
+    setOff(num, why);
+    const dial = $('.dial[data-num="' + num.id + '"]');
+    if (dial) setOff(dial, why);
+    const busy = num.contains(document.activeElement) || num.classList.contains("is-scrubbing") ||
+      num.classList.contains("is-down");
+    if (busy) { decorate(num); return; }
+    num._base = vals.slice();
+    num._shown = disp.length ? disp[0] : 0;
+    const input = num.querySelector(".num-input");
+    num.dataset.value = String(num._shown);
+    if (!disp.length) {
+      num.removeAttribute("data-mixed");
+      input.value = "";
+      input.placeholder = "-";
+      return;
+    }
+    if (!same) {
+      num.setAttribute("data-mixed", "");
+      input.value = "";
+      input.placeholder = "Mixed";
+      return;
+    }
+    num.removeAttribute("data-mixed");
+    input.placeholder = "";
+    input.value = fmt(disp[0], decOf(num));
+    decorate(num);
+  }
+  /* Extra pictures that follow a number: dial needle, fill bar, spring,
+     tile timing and the "to the end" word. */
+  function decorate(num) {
+    const v = parseFloat(num.dataset.value || String(num._shown || 0));
+    const dial = $('.dial[data-num="' + num.id + '"] .dial-needle');
+    if (dial) dial.setAttribute("transform", "rotate(" + v + ")");
+    const has_fill = num.classList.contains("has-fill");
+    if (has_fill) num.style.setProperty("--fill", clamp(v, 0, 1) * 100 + "%");
+    const is_for = num.id === "n-layer-len";
+    if (is_for) num.querySelector(".num-unit").textContent = v === 0 ? "f, 0 = to the end" : "f";
+  }
+  function setGone(id, gone) {
+    const el = $("#sec-" + id);
+    const was = el.classList.contains("is-gone");
+    el.classList.toggle("is-gone", gone);
+    if (gone) el.setAttribute("inert", ""); else el.removeAttribute("inert");
+    const appeared = was && !gone;
+    if (appeared) K.flash(el.querySelector(".dock-head") || el);
+  }
+  function renderInspector() {
+    const s = shot();
+    const ps = picks();
+    const all = S.showAll;
+    const vis = {
+      shot: all || (Boolean(s) && !ps.length),
+      cam: all || (Boolean(s) && !ps.length),
+      pose: all || ps.length > 0,
+      drag: all || dots().length > 0,
+      anim: all || dots().length > 0,
+      link: all || linked().length > 0,
+      motion: all || ps.length > 0,
+      layer: all || Boolean(focusLayer()),
+      poses: all || wholeDolls().length > 0
+    };
+    const hint = $("#sec-hint");
+    hint.classList.toggle("is-gone", Boolean(s));
+    Object.keys(vis).forEach((k) => setGone(k, !vis[k]));
+    const name = ps.length ? pickLabel() : (s ? "Shot " + s.name : "No shot");
+    $("#hName").textContent = name;
+    $("#hFrame").textContent = s ? "frame " + S.frame : "";
+    $("#hDot").style.background = ps.length ? "var(--pick)" : (s ? s.bg : "var(--face-dark)");
+    $("#allToggle").setAttribute("aria-pressed", String(all));
+    $("#tAll").setAttribute("aria-pressed", String(all));
+    $("#mAll").setAttribute("aria-checked", String(all));
+    renderShotBox(); renderCamBox(); renderPoseBox(); renderDragBox(); renderAnimBox();
+    renderLinkBox(); renderMotionBox(); renderLayerBox(); renderPosesBox();
+  }
+  function nums(sec) { return $$("#sec-" + sec + " .num[data-g]"); }
+  function renderShotBox() {
+    const list = targets("shot");
+    const off = shot() ? "" : "Add a shot first.";
+    $("#t-shot").textContent = list.length > 1 ? "Shot (" + list.length + " picked, changes go to each)" : "Shot";
+    $("#sec-shot").classList.toggle("is-off", Boolean(off));
+    nums("shot").forEach((n) => showNum(n, off));
+    const nm = $("#shotName");
+    const many = list.length > 1;
+    setOff(nm, off || (many ? "Pick one shot to rename it." : ""));
+    if (document.activeElement !== nm) {
+      nm.value = list.length === 1 ? list[0].name : "";
+      nm.placeholder = many ? "Mixed" : "";
+    }
+    paintSwatch("shot-bg", off);
+    const one = list[0];
+    $("#shotCalc").textContent = one ? (many ? "Changes add to each shot." : one.len + " f at 24 fps = " + fmt(one.len / kFps, 2) + " s") : "";
+  }
+  function renderCamBox() {
+    const off = !shot() ? "Add a shot first." : (!onShot() ? "Move the playhead onto a shot." : "");
+    $("#sec-cam").classList.toggle("is-off", Boolean(off));
+    $("#m-cam").textContent = shot() ? "F " + S.frame : "";
+    nums("cam").forEach((n) => showNum(n, off));
+  }
+  function renderPoseBox() {
+    const ps = picks();
+    const off = ps.length ? "" : "Pick a piece or layer on the stage first.";
+    $("#t-pose").textContent = ps.length > 1 ? "Pose at playhead (" + ps.length + " picked, changes add to each)" : "Pose at playhead";
+    $("#sec-pose").classList.toggle("is-off", Boolean(off));
+    const doll_off = off || (wholeDolls().length ? "" : "Double-click a doll to pick it whole first.");
+    nums("pose").forEach((n) => {
+      const is_doll = n.dataset.f === "lean" || n.dataset.f === "swivel";
+      showNum(n, is_doll ? doll_off : off);
+    });
+    const combo = $("#drawCombo");
+    const cand = ps.filter((t) => t.drawings.length > 1);
+    const draw_off = off || (cand.length ? "" : "This piece has only one drawing.");
+    setOff(combo, draw_off);
+    const opts = cand.length ? cand[0].drawings : ["Rig default"];
+    const cur = cand.length ? (cand.every((t) => t.drawing === cand[0].drawing) ? cand[0].drawing : "Mixed") : "Rig default";
+    combo.dataset.value = cur;
+    $(".combo-value", combo).textContent = cur;
+    $(".menu", combo).innerHTML = opts.map((o) => '<button class="menu-item" role="option" data-value="' + esc(o) + '" aria-checked="' + (o === cur) + '"><span>' + esc(o) + "</span></button>").join("");
+  }
+  function renderDragBox() {
+    const ds = dots();
+    const off = ds.length ? "" : "Pick a warp dot on the stage first.";
+    $("#sec-drag").classList.toggle("is-off", Boolean(off));
+    const on = ds.length > 0 && ds[0].drag.on;
+    const box = $("#dragOn");
+    box.checked = on;
+    setOff($("#dragCheck"), off);
+    nums("drag").forEach((n) => showNum(n, off || (on ? "" : "Tick Drags behind first.")));
+    $("#spring").classList.toggle("is-off", !on);
+  }
+  function renderAnimBox() {
+    const ds = dots();
+    const off = ds.length ? "" : "Pick a warp dot on the stage first.";
+    $("#sec-anim").classList.toggle("is-off", Boolean(off));
+    const a = ds.length ? ds[0].anim : null;
+    const moves = a ? a.moves : "None";
+    $$("#moveTiles .tile").forEach((t) => {
+      t.setAttribute("aria-pressed", String(t.dataset.move === moves));
+      setOff(t, off);
+    });
+    const none_off = off || (moves === "None" ? "Pick how the dot moves first." : "");
+    nums("anim").forEach((n) => {
+      const is_dir = n.dataset.f === "dir";
+      const why = is_dir && !none_off && moves === "Shiver" ? "Shiver shakes every way, so it has no direction." : none_off;
+      showNum(n, why);
+    });
+    paintTiles();
+  }
+  function renderLinkBox() {
+    const ls = linked();
+    const off = ls.length ? "" : "Not linked. Link it to a leader in the Rig tab first.";
+    $("#sec-link").classList.toggle("is-off", Boolean(off));
+    const line = $("#linkLine");
+    if (ls.length) {
+      const l = ls[0].link;
+      line.innerHTML = (ls.length > 1 ? ls.length + " picks follow " : "Follows ") + "<b>" + esc(S.things[l.leader].name) + "</b> from frame " + l.from + ".";
+    } else {
+      line.textContent = "Not linked.";
+    }
+    nums("link").forEach((n) => showNum(n, off));
+    const sl = $("#linkSlider");
+    setOff(sl, off);
+    const busy = sl.classList.contains("is-down");
+    if (ls.length && !busy) K.slider.set(sl, ls[0].link.strength, false, true);
+    setOff($("#bUnlink"), off);
+    $("#bUnlink").dataset.tip = "Remove the link from the picked things.";
+  }
+  function renderMotionBox() {
+    const off = picks().length ? "" : "Pick a piece or layer on the stage first.";
+    nums("motion").forEach((n) => showNum(n, ""));
+    $$("#timingSeg button").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.value) === S.motion.timing)));
+    $$("#loopTiles .tile").forEach((t) => {
+      setOff(t, off);
+      t.dataset.tip = "Add a " + t.dataset.loop + " loop at the playhead.";
+    });
+    paintTiles();
+  }
+  function renderLayerBox() {
+    const l = focusLayer();
+    const off = l ? "" : "Pick a layer first.";
+    $("#sec-layer").classList.toggle("is-off", Boolean(off));
+    $("#t-layer").textContent = l ? "Layer: " + l.name : "Layer";
+    $("#m-layer").textContent = l ? ({ doll: "doll", text: "text", effect: "effect", picture: "picture" }[l.kind]) : "";
+    const nm = $("#layerName");
+    setOff(nm, off);
+    if (document.activeElement !== nm) nm.value = l ? l.name : "";
+    const kind = l ? l.kind : "";
+    const all = S.showAll && !l;
+    $("#lDoll").hidden = !(kind === "doll" || all);
+    $("#lText").hidden = !(kind === "text" || all);
+    $("#lFx").hidden = !(kind === "effect" || all);
+    ["from", "len"].forEach((f) => showNum($("#n-layer-" + f), off));
+    const t_off = off || (kind === "text" ? "" : "Pick a text layer first.");
+    const f_off = off || (kind === "effect" ? "" : "Pick an effect layer first.");
+    const d_off = off || (kind === "doll" ? "" : "Pick a doll layer first.");
+    setOff($("#mirCheck"), d_off);
+    $("#mirOn").checked = Boolean(l && l.mirror);
+    const words = $("#words");
+    setOff(words, t_off);
+    if (document.activeElement !== words) words.value = l && kind === "text" ? l.words : "";
+    if (kind === "text" || all) { showNum($("#n-layer-size"), t_off); showNum($("#n-layer-outline"), t_off); }
+    setOff($("#boldCheck"), t_off);
+    $("#boldOn").checked = Boolean(l && l.bold);
+    paintSwatch("text-fill", t_off);
+    paintSwatch("text-line", t_off);
+    const combo = $("#fxCombo");
+    setOff(combo, f_off);
+    if (kind === "effect") {
+      combo.dataset.value = l.fx;
+      $(".combo-value", combo).textContent = l.fx;
+      $$(".menu-item", combo).forEach((i) => i.setAttribute("aria-checked", String(i.dataset.value === l.fx)));
+    }
+    paintSwatch("fx-color", f_off);
+    if (kind === "effect" || all) showNum($("#n-layer-strength"), f_off);
+  }
+  function dollForPoses() {
+    const ds = wholeDolls();
+    return ds.length ? ds[ds.length - 1] : null;
+  }
+  function renderPosesBox() {
+    const list = $("#posesList");
+    if (S.posesBroken) {
+      list.innerHTML = '<div class="list-row is-error">poses.json could not be read.</div>';
+    } else {
+      list.innerHTML = S.poses.map((p) => '<div class="list-row" role="option" data-pose="' + p.id + '" aria-selected="' + (S.posePick === p.id) + '">' +
+        esc(p.name) + "</div>").join("") || '<div class="list-row dim">No saved poses yet.</div>';
+    }
+    const nm = $("#poseName");
+    if (document.activeElement !== nm) nm.value = S.poseName;
+    paintPoseButtons();
+  }
+  function paintPoseButtons() {
+    const doll = dollForPoses();
+    const no_doll = doll ? "" : "Pick a doll on the stage first.";
+    const broken = S.posesBroken ? "Could not read poses.json: line 3 is not a pose." : "";
+    const no_name = S.poseName.trim() ? "" : "Type a name first.";
+    const no_pose = S.posePick ? "" : "Pick a saved pose first.";
+    setOff($("#bSave"), broken || no_doll || no_name);
+    setOff($("#bUse"), broken || no_pose || no_doll);
+    setOff($("#bForget"), broken || no_pose);
+    $("#bSave").dataset.tip = doll ? "Save " + doll.name + "'s pose as \"" + S.poseName.trim() + "\"." : "";
+    $("#bUse").dataset.tip = "Put the picked pose on the picked dolls at the playhead.";
+    $("#bForget").dataset.tip = "Forget the picked pose.";
+  }
+  function paintTiles() {
+    const m = S.motion;
+    const steps = Math.max(1, Math.round(m.len / m.timing / 2));
+    $$("#loopTiles .tile").forEach((t) => {
+      t.style.setProperty("--dur", (m.len / kFps) + "s");
+      t.style.setProperty("--steps", String(steps));
+      t.style.setProperty("--amt", clamp(m.amount / 2.5, 1, 8) + "px");
+    });
+    const ds = dots();
+    const a = ds.length ? ds[0].anim : S.things.dot.anim;
+    const dur = a.cycle / kFps;
+    $$("#moveTiles .tile").forEach((t) => {
+      t.style.setProperty("--dur", dur + "s");
+      t.style.setProperty("--steps", String(Math.max(2, Math.round(a.cycle / 2))));
+      t.style.setProperty("--delay", (-a.delay * dur) + "s");
+      t.style.setProperty("--amt", clamp(a.size, 1, 8) + "px");
+      t.style.setProperty("--dir", a.dir + "deg");
+    });
+  }
+
+  /* ---------- Colour swatches ---------- */
+  const COLOURS = ["#ffffff", "#e9e4d8", "#b4b4ba", "#5c5c62", "#2a2a2e", "#000000",
+    "#d8304f", "#7a1428", "#f2c230", "#8fd14f", "#39c5bb", "#4fa3d8",
+    "#3b4656", "#4a4a52", "#4d3d47", "#5c4030", "#9c5ad8", "#ff8a3d"];
+  const CKEYS = {
+    "shot-bg": { list: () => targets("shot"), f: "bg", name: "Shot background" },
+    "text-fill": { list: () => targets("layer"), f: "fill", a: "fillA", name: "Edit text" },
+    "text-line": { list: () => targets("layer"), f: "line", a: "lineA", name: "Edit text" },
+    "fx-color": { list: () => targets("layer"), f: "color", name: "Effect colour" }
+  };
+  function paintSwatch(key, why) {
+    const b = $('.swatch[data-colour="' + key + '"]');
+    const ck = CKEYS[key];
+    const list = ck.list().filter((o) => o[ck.f] !== undefined);
+    setOff(b, why);
+    const same = list.length > 0 && list.every((o) => o[ck.f] === list[0][ck.f]);
+    b.classList.toggle("is-mixed", list.length > 1 && !same);
+    const c = list.length ? list[0][ck.f] : "#3a3a3e";
+    const a = list.length && ck.a ? list[0][ck.a] : 1;
+    b.querySelector("i").style.setProperty("--c", rgba(c, a));
+  }
+  let cpop = null;
+  function closeColour(restore) {
+    if (!cpop) return;
+    if (restore) cpop._restore();
+    cpop.remove();
+    cpop = null;
+  }
+  function openColour(btn) {
+    closeColour(true);
+    const ck = CKEYS[btn.dataset.colour];
+    const list = ck.list();
+    if (!list.length) return;
+    const before = list.map((o) => o[ck.f]);
+    const beforeA = ck.a ? list.map((o) => o[ck.a]) : null;
+    const pop = document.createElement("div");
+    pop.className = "cpop";
+    pop.setAttribute("role", "dialog");
+    pop.setAttribute("aria-label", ck.name);
+    pop.innerHTML = '<div class="cpop-grid">' + COLOURS.map((c) => '<button style="--c: ' + c + '" data-c="' + c + '" aria-label="' + c + '" aria-pressed="' + (c === before[0]) + '"></button>').join("") + "</div>" +
+      (ck.a ? '<div class="cpop-alpha">See-through<div class="slider" data-min="0" data-max="1" data-step="0.05" data-snaps="0.5,1" data-value="' + beforeA[0] + '" data-name="Alpha" aria-label="See-through"></div></div>' : "") +
+      "<small>Hover to preview, click to keep. Esc puts it back." + (list.length > 1 ? " Goes to all " + list.length + " picked." : "") + "</small>";
+    document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    const below = r.bottom + pop.offsetHeight + 4 <= vh;
+    pop.style.left = Math.round(clamp(r.left, 4, vw - pop.offsetWidth - 4)) + "px";
+    pop.style.top = Math.round(below ? r.bottom + 2 : Math.max(4, r.top - pop.offsetHeight - 2)) + "px";
+    K.init(pop);
+    const apply = (c) => { list.forEach((o) => { o[ck.f] = c; }); drawStage(); renderStrip(); };
+    pop._restore = () => { list.forEach((o, i) => { o[ck.f] = before[i]; if (ck.a) o[ck.a] = beforeA[i]; }); drawStage(); renderStrip(); renderInspector(); };
+    const keep = (c) => {
+      apply(c);
+      const after = list.map((o) => o[ck.f]);
+      const afterA = ck.a ? list.map((o) => o[ck.a]) : null;
+      const same = after.every((v, i) => v === before[i]) && (!ck.a || afterA.every((v, i) => v === beforeA[i]));
+      if (!same) record(ck.name, () => { list.forEach((o, i) => { o[ck.f] = before[i]; if (ck.a) o[ck.a] = beforeA[i]; }); },
+        () => { list.forEach((o, i) => { o[ck.f] = after[i]; if (ck.a) o[ck.a] = afterA[i]; }); });
+      cpop.remove();
+      cpop = null;
+      renderAll();
+      K.pop(btn, 1.2);
+      btn.focus();
+    };
+    pop.addEventListener("pointerover", (e) => { const b = e.target.closest("[data-c]"); if (b) apply(b.dataset.c); });
+    pop.addEventListener("pointerleave", () => { list.forEach((o, i) => { o[ck.f] = before[i]; }); drawStage(); renderStrip(); });
+    pop.addEventListener("click", (e) => { const b = e.target.closest("[data-c]"); if (b) keep(b.dataset.c); });
+    pop.addEventListener("kit:change", (e) => { list.forEach((o) => { o[ck.a] = e.detail.value; }); drawStage(); paintSwatch(btn.dataset.colour, ""); });
+    pop.addEventListener("kit:commit", () => {
+      const afterA = list.map((o) => o[ck.a]);
+      record("Edit text", () => { list.forEach((o, i) => { o[ck.a] = beforeA[i]; }); }, () => { list.forEach((o, i) => { o[ck.a] = afterA[i]; }); });
+      beforeA.splice(0, beforeA.length, ...afterA);
+    });
+    cpop = pop;
+    const first = pop.querySelector('[aria-pressed="true"]') || pop.querySelector("[data-c]");
+    first.focus();
+  }
+
+  /* ---------- Cast ---------- */
+  function thumbSvg(art) {
+    const a = ART[art];
+    return '<svg viewBox="-34 -112 68 116" aria-hidden="true"><g class="breathe">' + dollInner(a, (n, p, s) => s, {}) + "</g></svg>";
+  }
+  function renderCast() {
+    const cards = $("#cards");
+    if (S.emptyLib) {
+      cards.innerHTML = '<div class="lib-empty" style="grid-column: 1 / -1">No dolls found.<br>Export a doll from Krita, then Import.' +
+        '<button class="btn small primary" data-act="import-empty">Import</button></div>';
+    } else {
+      cards.innerHTML = S.lib.map((d) => {
+        const a = ART[d.id];
+        const in_shot = d.inProject && inShot(d.id);
+        let badges = "";
+        if (in_shot) badges += '<span class="badge">IN SHOT</span>';
+        if (d.inProject && d.newArt) badges += '<span class="badge y' + (S.pulsed ? "" : " pulse") + '" data-tip="The Krita file changed since import.">NEW ART</span>';
+        if (!d.inProject) badges += '<span class="badge dim">NOT IN PROJECT</span>';
+        const tip = d.inProject ? a.name + " (in project). Drag onto the stage, or Put on stage." : a.name + ": found in the library. Import it first.";
+        return '<div class="card' + (d.inProject ? "" : " is-out") + '" role="option" tabindex="0" data-doll="' + d.id + '" aria-selected="' + S.libPick.includes(d.id) +
+          '" data-tip="' + esc(tip) + '"><span class="thumb">' + thumbSvg(d.id) + '</span><span class="cname">' + a.name + '</span><span class="badges">' + badges + "</span>" +
+          (d.inProject && d.newArt ? '<button class="btn small reload" data-reload="' + d.id + '" aria-label="Reload ' + a.name + '" data-tip="Reload the new art">R</button>' : "") + "</div>";
+      }).join("");
+      S.pulsed = true;
+    }
+    const picked = S.libPick.map((id) => S.lib.find((d) => d.id === id)).filter(Boolean);
+    const none = picked.length ? "" : "Pick a doll in the library first.";
+    const outs = picked.filter((d) => !d.inProject);
+    const ins = picked.filter((d) => d.inProject);
+    setOff($("#bImport"), S.emptyLib ? "Nothing to import. Export a doll from Krita first." : (none || (outs.length ? "" : "Already in the project. Pick a doll marked NOT IN PROJECT.")));
+    setOff($("#bReload"), S.emptyLib ? "Import a doll first." : (none || (outs.length ? "Import the doll first." : "")));
+    const fresh = ins.filter((d) => !inShot(d.id));
+    setOff($("#bPut"), S.emptyLib ? "Import a doll first." : (!shot() ? "Add a shot first." : (none || (outs.length ? "Import the doll first." : (fresh.length ? "" : "Already in this shot.")))));
+    renderLayers();
+  }
+  function kindChip(k) { return { doll: "D", text: "T", effect: "FX", picture: "P" }[k]; }
+  function eyeSvg(on) {
+    return on ? '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>'
+      : '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 8s3-5 7-5 7 5 7 5"/><path d="M2 2l12 12"/></svg>';
+  }
+  function renderLayers() {
+    const list = $("#layerList");
+    const s = shot();
+    if (!s) {
+      list.innerHTML = '<div class="list-row dim">No shot, so no layers.</div>';
+    } else {
+      list.innerHTML = S.layers.map((id) => {
+        const L = S.L[id];
+        const range = L.len > 0 ? L.from + "-" + (L.from + L.len - 1) : (L.from ? L.from + "-end" : "");
+        return '<div class="list-row lrow' + (L.eye ? "" : " is-hidden") + (S.hover === L.thing ? " is-hover" : "") + '" role="option" data-layer="' + id +
+          '" aria-selected="' + S.layerPick.includes(id) + '"><button class="btn small eye" data-eye="' + id + '" aria-pressed="' + L.eye + '" aria-label="' +
+          (L.eye ? "Hide " : "Show ") + esc(L.name) + '" data-tip="' + (L.eye ? "Hide" : "Show") + ' (all picked rows if this one is picked)">' + eyeSvg(L.eye) + "</button>" +
+          '<span class="kchip">' + kindChip(L.kind) + '</span><span class="lname" data-tip="Double-click to rename. Drag to restack.">' + esc(L.name) + "</span>" +
+          '<span class="row-meta">' + range + "</span></div>";
+      }).join("");
+    }
+    const lp = S.layerPick.filter((id) => S.L[id]);
+    const none = !s ? "Add a shot first." : (lp.length ? "" : "Pick a layer first.");
+    setOff($("#bAdd"), s ? "" : "Add a shot first.");
+    setOff($("#bCopy"), none);
+    setOff($("#bDel"), none);
+    const top = lp.length && lp.some((id) => S.layers.indexOf(id) === 0) ? "Already at the top." : "";
+    const bottom = lp.length && lp.some((id) => S.layers.indexOf(id) === S.layers.length - 1) ? "Already at the bottom." : "";
+    setOff($("#bUp"), none || top);
+    setOff($("#bDown"), none || bottom);
+    $("#bCopy").dataset.tip = "Copy the picked layers. The copy lands under each one.";
+    $("#bDel").dataset.tip = "Delete the picked layers.";
+    $("#bUp").dataset.tip = "Move the picked layers up one. Or drag a row.";
+    $("#bDown").dataset.tip = "Move the picked layers down one. Or drag a row.";
+    setOff($("#mDelete"), none);
+  }
+
+  /* ---------- Render all ---------- */
+  function renderAll() {
+    if (S.layerFocus && !S.L[S.layerFocus]) S.layerFocus = null;
+    if (S.layerFocus && !S.layers.includes(S.layerFocus)) S.layerFocus = null;
+    S.pick = S.pick.filter((id) => S.things[id] && S.layers.includes(S.things[id].layer));
+    S.layerPick = S.layerPick.filter((id) => S.layers.includes(id));
+    renderStrip();
+    drawStage();
+    renderTimeline();
+    renderInspector();
+    renderCast();
+    $$("#tryBar [data-scen]").forEach((b) => b.classList.remove("is-picked"));
+  }
+
+  /* ---------- Number edits: live preview, one undo step ---------- */
+  function limit(num, v) {
+    const d = num.dataset;
+    const lo = d.min !== undefined ? parseFloat(d.min) : -Infinity;
+    const hi = d.max !== undefined ? parseFloat(d.max) : Infinity;
+    const can_wrap = d.wrap !== undefined;
+    if (can_wrap) { const sp = hi - lo; return ((v - lo) % sp + sp) % sp + lo; }
+    return clamp(v, lo, hi);
+  }
+  function applyNum(num, v) {
+    const g = num.dataset.g, f = num.dataset.f;
+    const per = parseFloat(num.dataset.per || "1");
+    const list = targets(g);
+    if (!list.length) return;
+    const base_vals = num._base && num._base.length === list.length ? num._base : list.map((o) => o[f]);
+    const d = v - (num._shown || 0);
+    list.forEach((o, i) => {
+      const disp = limit(num, base_vals[i] / per + d);
+      o[f] = per !== 1 ? Math.max(1, Math.round(disp * per)) : round4(disp);
+    });
+    const at_edge = num.dataset.max !== undefined && num.dataset.wrap === undefined &&
+      (v >= parseFloat(num.dataset.max) || v <= parseFloat(num.dataset.min));
+    if (at_edge && !num._edge) K.bounce(num.querySelector(".num-input"), v > 0 ? 1 : -1, 0);
+    num._edge = at_edge;
+    if (g === "drag") S.kick = 1;
+    liveRefresh(num);
+  }
+  function liveRefresh(active) {
+    const g = active.dataset.g;
+    if (g === "shot") renderStrip();
+    if (g === "shot" || g === "layer") renderTimeline();
+    drawStage();
+    decorate(active);
+    $$('.num[data-g="' + g + '"]').forEach((n) => { if (n !== active) showNum(n, n.dataset.why || ""); });
+    if (g === "anim" || g === "motion") paintTiles();
+    if (g === "link") {
+      const sl = $("#linkSlider");
+      const l = linked()[0];
+      if (l) K.slider.set(sl, l.link.strength, false, true);
+    }
+    if (g === "shot") renderShotBox();
+  }
+  function commitNum(num) {
+    const g = num.dataset.g, f = num.dataset.f;
+    const list = targets(g);
+    const before = num._base || [];
+    const after = list.map((o) => o[f]);
+    const same = before.length === after.length && after.every((v, i) => v === before[i]);
+    num._base = after.slice();
+    num._shown = after.length ? round4(after[0] / parseFloat(num.dataset.per || "1")) : 0;
+    if (same) { renderAll(); return; }
+    if (g === "motion") { K.flash(num.querySelector(".num-input")); renderAll(); return; }
+    const keyed = num.dataset.keys;
+    let rows = [];
+    if (keyed === "camera") rows = ["camera"];
+    if (keyed === "pick") rows = rowsForPicks();
+    if (keyed === "layer" && focusLayer()) rows = [focusLayer().id];
+    const added = rows.length && onShot() ? addKeys(rows, [S.frame]) : [];
+    const who = g === "pose" ? " " + pickLabel() : (g === "drag" || g === "anim" ? " " + dots()[0].name : "");
+    const name = num.dataset.undo || (num.dataset.name + who);
+    const per = parseFloat(num.dataset.per || "1");
+    const unit = num.dataset.unit ? " " + num.dataset.unit : "";
+    const show = (v) => fmt(round4(v / per), decOf(num)) + unit;
+    const msg = name + ": " + (list.length > 1 ? "changed " + list.length : show(before[0]) + " to " + show(after[0])) + (added.length ? ", key added at F " + S.frame : "") + ".";
+    record(name, () => { list.forEach((o, i) => { o[f] = before[i]; }); dropKeys(added); },
+      () => { list.forEach((o, i) => { o[f] = after[i]; }); readdKeys(added); }, msg);
+    renderAll();
+  }
+
+  /* ---------- Other inspector edits ---------- */
+  function setField(list, f, value, name, msg) {
+    const before = list.map((o) => o[f]);
+    const same = before.every((v) => v === value);
+    if (same) return false;
+    list.forEach((o) => { o[f] = value; });
+    record(name, () => { list.forEach((o, i) => { o[f] = before[i]; }); }, () => { list.forEach((o) => { o[f] = value; }); }, msg);
+    renderAll();
+    return true;
+  }
+  function addLoop(kind, tile) {
+    const ps = picks();
+    if (!ps.length) return;
+    const m = S.motion;
+    const step = Math.max(1, Math.round(m.len / 4));
+    const frames = [0, 1, 2, 3, 4].map((i) => S.frame + i * step);
+    const rows = rowsForPicks();
+    const added = addKeys(rows, frames);
+    record("Add " + kind + " loop", () => dropKeys(added), () => readdKeys(added),
+      "Added a " + kind + " loop on " + pickLabel() + ": " + added.length + " keys, " + m.len + " f, on " + m.timing + "s.");
+    renderAll();
+    playLoop(kind, S.pick.slice(), m);
+    K.pop(tile, 0.9);
+  }
+  function playLoop(kind, ids, m) {
+    const amt = m.amount;
+    S.wob = { ids: ids, kind: kind, start: performance.now(), dur: Math.max(400, m.len / kFps * 1000 * 1.5), amt: amt, timing: m.timing, len: m.len, cur: { x: 0, y: 0, r: 0 } };
+  }
+
+  /* ---------- Layers: add, copy, delete, restack, rename ---------- */
+  function newId(p) { S.nextId += 1; return p + "_" + S.nextId; }
+  function insertLayer(L, thing, at) {
+    S.L[L.id] = L;
+    S.things[thing.id] = thing;
+    S.layers.splice(at, 0, L.id);
+    S.keys[L.id] = S.keys[L.id] || [];
+  }
+  function removeLayer(id) {
+    const at = S.layers.indexOf(id);
+    if (at >= 0) S.layers.splice(at, 1);
+    return at;
+  }
+  function slideIn(ids) {
+    window.requestAnimationFrame(() => ids.forEach((id) => {
+      const r = $('.lrow[data-layer="' + id + '"]');
+      if (r) K.play(r, "k-in", "move");
+    }));
+  }
+  function addLayer(kind, extra) {
+    if (!shot()) return;
+    const id = newId(kind);
+    const names = { text: "Text", picture: "Picture", effect: "Effect" };
+    const L = Object.assign({ id: id, kind: kind, name: names[kind], from: 0, len: 0, eye: true, thing: id }, extra || {});
+    const thing = { id: id, kind: kind === "effect" ? "effect" : kind, name: L.name, layer: id, base: { x: 160, y: kind === "text" ? 80 : 104 }, pose: P(), drawings: ["Rig default"], drawing: "Rig default" };
+    const at = 0;
+    record("Add " + L.name, () => { removeLayer(id); }, () => { S.layers.splice(at, 0, id); slideIn([id]); }, "Added layer " + L.name + ".");
+    insertLayer(L, thing, at);
+    setPick([id]);
+    slideIn([id]);
+  }
+  function copyLayers() {
+    const ids = S.layerPick.filter((id) => S.L[id]);
+    if (!ids.length) return;
+    const made = [];
+    ids.forEach((id) => {
+      const src = S.L[id];
+      const nid = newId(src.kind);
+      const L = JSON.parse(JSON.stringify(src));
+      L.id = nid; L.thing = nid; L.name = src.name + " copy";
+      if (L.kind === "doll") L.parts = {};
+      const st = S.things[src.thing];
+      const th = JSON.parse(JSON.stringify(st));
+      th.id = nid; th.layer = nid; th.name = L.name; th.kind = src.kind === "doll" ? "doll" : st.kind;
+      delete th.link;
+      th.pose.x += 14; th.pose.y += 4;
+      th.drawings = ["Rig default"];
+      insertLayer(L, th, S.layers.indexOf(id) + 1);
+      made.push(nid);
+    });
+    const order = S.layers.slice();
+    record("Copy " + (made.length > 1 ? made.length + " layers" : S.L[ids[0]].name), () => { made.forEach(removeLayer); },
+      () => { S.layers = order.slice(); slideIn(made); }, "Copied " + made.length + " layer" + (made.length > 1 ? "s" : "") + ".");
+    S.pick = []; S.layerPick = made.slice(); S.layerFocus = made[made.length - 1];
+    S.pick = made.slice();
+    renderAll();
+    slideIn(made);
+  }
+  function deleteLayers() {
+    const ids = S.layerPick.filter((id) => S.L[id]);
+    if (!ids.length) { K.shake($("#bDel"), $("#bDel").dataset.why); return; }
+    const rows = ids.map((id) => $('.lrow[data-layer="' + id + '"]')).filter(Boolean);
+    const order = S.layers.slice();
+    let left = rows.length;
+    const finish = () => {
+      S.layers = S.layers.filter((id) => !ids.includes(id));
+      const after = S.layers.slice();
+      const label = ids.length > 1 ? ids.length + " layers" : S.L[ids[0]].name;
+      record("Delete " + label, () => { S.layers = order.slice(); }, () => { S.layers = after.slice(); }, "Deleted " + label + ".");
+      S.pick = []; S.layerPick = []; S.layerFocus = null;
+      renderAll();
+    };
+    if (!rows.length) { finish(); return; }
+    rows.forEach((r) => K.puff(r, false, () => { left -= 1; if (left === 0) finish(); }));
+  }
+  function moveLayers(dir) {
+    const ids = S.layerPick.filter((id) => S.L[id]);
+    if (!ids.length) return;
+    const before = S.layers.slice();
+    const arr = S.layers.slice();
+    const sorted = ids.slice().sort((a, b) => (arr.indexOf(a) - arr.indexOf(b)) * -dir);
+    sorted.forEach((id) => {
+      const i = arr.indexOf(id);
+      const j = i + dir;
+      const ok = j >= 0 && j < arr.length && !ids.includes(arr[j]);
+      if (!ok) return;
+      arr.splice(i, 1);
+      arr.splice(j, 0, id);
+    });
+    const same = arr.join() === before.join();
+    if (same) return;
+    S.layers = arr;
+    const label = ids.length > 1 ? ids.length + " layers" : S.L[ids[0]].name;
+    record("Restack " + label, () => { S.layers = before.slice(); }, () => { S.layers = arr.slice(); });
+    renderAll();
+    ids.forEach((id) => { const r = $('.lrow[data-layer="' + id + '"]'); if (r) K.bounce(r, 0, -dir); });
+  }
+  function renameLayer(row) {
+    const id = row.dataset.layer;
+    const L = S.L[id];
+    const span = $(".lname", row);
+    const input = document.createElement("input");
+    input.className = "field";
+    input.value = L.name;
+    input.setAttribute("aria-label", "Layer name");
+    span.replaceWith(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const end = (keep) => {
+      if (done) return;
+      done = true;
+      const v = input.value.trim();
+      const changed = keep && v && v !== L.name;
+      if (changed) setField([L], "name", v, "Rename layer", "Renamed to " + v + ".");
+      else renderAll();
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); end(true); }
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); end(false); }
+    });
+    input.addEventListener("blur", () => end(true));
+  }
+  function eyeToggle(id) {
+    const L = S.L[id];
+    const on = !L.eye;
+    const ids = S.layerPick.includes(id) ? S.layerPick.filter((x) => S.L[x]) : [id];
+    const list = ids.map((x) => S.L[x]);
+    const label = (on ? "Show " : "Hide ") + (ids.length > 1 ? ids.length + " layers" : L.name);
+    setField(list, "eye", on, label, label + ".");
+  }
+
+  /* ---------- Library: import, reload, put on stage, remove ---------- */
+  function pickedLib() { return S.libPick.map((id) => S.lib.find((d) => d.id === id)).filter(Boolean); }
+  function importDolls() {
+    if (S.emptyLib) return;
+    const outs = pickedLib().filter((d) => !d.inProject);
+    outs.forEach((d) => { d.inProject = true; });
+    const names = outs.map((d) => ART[d.id].name).join(", ");
+    const dropped = outs.some((d) => d.id === "rin") ? " 1 rig part dropped: tail (no layer named tail in Krita)." : "";
+    record("Import " + names, () => outs.forEach((d) => { d.inProject = false; }), () => outs.forEach((d) => { d.inProject = true; }), "Imported " + names + "." + dropped);
+    renderAll();
+    outs.forEach((d) => { const c = $('.card[data-doll="' + d.id + '"]'); if (c) K.pop(c, 0.9); });
+  }
+  function reloadDolls(ids) {
+    const list = ids.map((id) => S.lib.find((d) => d.id === id)).filter((d) => d && d.inProject);
+    const was = list.map((d) => d.newArt);
+    list.forEach((d) => { d.newArt = false; });
+    const names = list.map((d) => ART[d.id].name).join(", ");
+    record("Reload " + names, () => list.forEach((d, i) => { d.newArt = was[i]; }), () => list.forEach((d) => { d.newArt = false; }), "Reloaded the art for " + names + ".");
+    renderAll();
+    list.forEach((d) => { const c = $('.card[data-doll="' + d.id + '"] .thumb'); if (c) K.flash(c); });
+  }
+  function putOnStage(arts, atX) {
+    const s = shot();
+    if (!s) return false;
+    const made = [];
+    arts.forEach((art, i) => {
+      if (inShot(art)) return;
+      const id = newId(art);
+      const L = { id: id, kind: "doll", name: ART[art].name, from: 0, len: 0, eye: true, thing: id, art: art, mirror: false, parts: {} };
+      const x = atX !== undefined ? atX + i * 20 : 160 + i * 24;
+      const th = { id: id, kind: "doll", name: ART[art].name, layer: id, base: { x: clamp(Math.round(x), 20, 300), y: 156 }, pose: P(), drawings: ["Rig default"], drawing: "Rig default" };
+      insertLayer(L, th, S.layers.length - (S.layers.length ? 0 : 0));
+      made.push(id);
+    });
+    if (!made.length) return false;
+    const order = S.layers.slice();
+    const names = made.map((id) => S.L[id].name).join(", ");
+    record("Put " + names + " on stage", () => made.forEach(removeLayer), () => { S.layers = order.slice(); }, "Put " + names + " on " + s.name + ".");
+    S.squash = made[0];
+    setPick(made);
+    slideIn(made);
+    return true;
+  }
+  function removeFromProject(id) {
+    const d = S.lib.find((x) => x.id === id);
+    if (!d || !d.inProject) return;
+    d.inProject = false;
+    S.libPick = S.libPick.filter((x) => x !== id);
+    record("Remove " + ART[id].name, () => { d.inProject = true; }, () => { d.inProject = false; }, "Removed " + ART[id].name + " from the project. The Krita file stays.");
+    renderAll();
+  }
+  function cardMenu(card, x, y) {
+    const id = card.dataset.doll;
+    const d = S.lib.find((v) => v.id === id);
+    const nm = ART[id].name;
+    if (!S.libPick.includes(id)) { S.libPick = [id]; renderCast(); }
+    K.contextMenu(x, y, [
+      { head: nm },
+      { label: "Put on stage", why: !shot() ? "Add a shot first." : (!d.inProject ? "Import the doll first." : (inShot(id) ? "Already in this shot." : "")), run: () => putOnStage([id]) },
+      { label: "Import", why: d.inProject ? "Already in the project." : "", run: () => importDolls() },
+      { label: "Reload art", why: d.inProject ? "" : "Import the doll first.", run: () => reloadDolls([id]) },
+      { sep: true },
+      { label: "Remove from project", key: "Delete", why: !d.inProject ? "Not in the project." : (inShot(id) ? "Take " + nm + " off the stage first: delete its layer." : ""), run: () => removeFromProject(id) }
+    ]);
+  }
+
+  /* ---------- Saved poses ---------- */
+  function poseSnap(t) { return JSON.parse(JSON.stringify(t.pose)); }
+  function savePose() {
+    const doll = dollForPoses();
+    const name = S.poseName.trim();
+    const exist = S.poses.find((p) => p.name === name);
+    if (exist) {
+      const was = exist.pose;
+      const now = poseSnap(doll);
+      exist.pose = now;
+      record("Save pose " + name, () => { exist.pose = was; }, () => { exist.pose = now; }, "Replaced the pose " + name + ".");
+      renderAll();
+      return;
+    }
+    S.nextPose += 1;
+    const p = { id: "p" + S.nextPose, name: name, pose: poseSnap(doll) };
+    S.poses.push(p);
+    S.posePick = p.id;
+    S.poseName = "";
+    record("Save pose " + name, () => { S.poses = S.poses.filter((x) => x !== p); }, () => { S.poses.push(p); }, "Saved " + doll.name + "'s pose as " + name + ".");
+    renderAll();
+    const r = $('[data-pose="' + p.id + '"]');
+    if (r) { K.play(r, "k-in", "move"); r.classList.add("lrow"); r.scrollIntoView({ block: "nearest" }); }
+  }
+  function usePose() {
+    const p = S.poses.find((x) => x.id === S.posePick);
+    const ds = wholeDolls();
+    if (!p || !ds.length) return;
+    const before = ds.map((d) => poseSnap(d));
+    ds.forEach((d) => { d.pose = JSON.parse(JSON.stringify(p.pose)); });
+    const after = ds.map((d) => poseSnap(d));
+    const added = onShot() ? addKeys(uniq(ds.map((d) => d.layer)), [S.frame]) : [];
+    record("Use pose " + p.name, () => { ds.forEach((d, i) => { d.pose = before[i]; }); dropKeys(added); },
+      () => { ds.forEach((d, i) => { d.pose = after[i]; }); readdKeys(added); }, "Put " + p.name + " on " + ds.map((d) => d.name).join(", ") + " at F " + S.frame + ".");
+    renderAll();
+  }
+  function forgetPose() {
+    const p = S.poses.find((x) => x.id === S.posePick);
+    if (!p) return;
+    const at = S.poses.indexOf(p);
+    const row = $('[data-pose="' + p.id + '"]');
+    K.puff(row, false, () => {
+      S.poses.splice(at, 1);
+      S.posePick = null;
+      record("Forget pose " + p.name, () => { S.poses.splice(at, 0, p); }, () => { S.poses = S.poses.filter((x) => x !== p); }, "Forgot the pose " + p.name + ".");
+      renderAll();
+    });
+  }
+
+  /* ---------- Shots ---------- */
+  function addShot() {
+    if (S.noShot) {
+      S.noShot = false;
+      base();
+      renderAll();
+      const c = $(".shot-chip");
+      if (c) K.pop(c, 0.8);
+      K.toast("Shot " + S.shots[0].name + " is back.", null, { kind: "done" });
+      return;
+    }
+    S.nextShot += 1;
+    const sh = { id: "s" + S.nextShot, name: "Shot " + (S.shots.length + 1), len: 48, bg: "#4a4a52", cam: CAM() };
+    S.shots.push(sh);
+    const prev = { focus: S.focusShot, pick: S.shotPick.slice() };
+    S.focusShot = sh.id; S.shotPick = [sh.id];
+    record("Add shot", () => { S.shots = S.shots.filter((x) => x !== sh); S.focusShot = prev.focus; S.shotPick = prev.pick; },
+      () => { S.shots.push(sh); S.focusShot = sh.id; S.shotPick = [sh.id]; }, "Added " + sh.name + ".");
+    S.pick = []; S.layerPick = []; S.layerFocus = null;
+    renderAll();
+    const c = $('.shot-chip[data-shot="' + sh.id + '"]');
+    if (c) { K.pop(c, 0.8); c.scrollIntoView({ block: "nearest", inline: "nearest" }); }
+  }
+  function pickShot(id, add) {
+    const has = S.shotPick.includes(id);
+    if (add) S.shotPick = has && S.shotPick.length > 1 ? S.shotPick.filter((x) => x !== id) : uniq(S.shotPick.concat([id]));
+    else S.shotPick = [id];
+    S.focusShot = S.shotPick.includes(id) ? id : S.shotPick[0];
+    const s = shot();
+    if (s && S.frame >= s.len) S.frame = Math.min(S.frame, s.len - 1);
+    S.pick = []; S.layerPick = []; S.layerFocus = null;
+    renderAll();
+  }
+
+  /* ---------- Wiring ---------- */
+  function svgPoint(dx) {
+    const r = $("#stageSvg").getBoundingClientRect();
+    const s = shot();
+    return dx * 320 / Math.max(1, r.width) / (s ? s.cam.zoom : 1);
+  }
+  function wireStage() {
+    const wrap = $("#stageWrap");
+    const snapX = K.snapper();
+    const snapY = K.snapper();
+    K.drag(wrap, {
+      filter: (e) => !e.target.closest(".stage-msg"),
+      onDown: (s) => {
+        const hit = s.target.closest("[data-thing]");
+        s.hit = hit ? hit.dataset.thing : null;
+        wrap.focus({ preventScroll: true });
+      },
+      onClick: (s) => {
+        const add = s.event.shiftKey || s.event.ctrlKey;
+        if (!s.hit) { if (!add) setPick([]); return; }
+        if (add) togglePick(s.hit); else setPick([s.hit]);
+      },
+      onStart: (s) => {
+        const add = s.event.shiftKey;
+        if (!s.hit) { s.none = true; return; }
+        if (!S.pick.includes(s.hit)) { if (add) S.pick.push(s.hit); else S.pick = [s.hit]; setPick(S.pick); }
+        s.list = picks();
+        s.from = s.list.map((t) => ({ x: t.pose.x, y: t.pose.y }));
+        snapX.reset(); snapY.reset();
+      },
+      onMove: (s) => {
+        if (s.none) return;
+        let dx = Math.round(svgPoint(s.dx));
+        let dy = Math.round(svgPoint(s.dy));
+        const f0 = s.from[0];
+        const free = s.event.altKey;
+        const rx = free ? { value: f0.x + dx, hit: null } : snapX.test(f0.x + dx, [0]);
+        const ry = free ? { value: f0.y + dy, hit: null } : snapY.test(f0.y + dy, [0]);
+        dx = rx.value - f0.x; dy = ry.value - f0.y;
+        s.snapped = Boolean(rx.hit || ry.hit);
+        s.list.forEach((t, i) => { t.pose.x = s.from[i].x + dx; t.pose.y = s.from[i].y + dy; });
+        s.ddx = dx; s.ddy = dy;
+        drawStage();
+      },
+      chip: (s) => s.none ? "" : ((s.ddx >= 0 ? "+" : "") + (s.ddx || 0) + ", " + ((s.ddy || 0) >= 0 ? "+" : "") + (s.ddy || 0) + " px" + (s.snapped ? "  rest" : "")),
+      onEnd: (s) => {
+        if (s.none) return;
+        const list = s.list, from = s.from;
+        const to = list.map((t) => ({ x: t.pose.x, y: t.pose.y }));
+        const moved = to.some((p, i) => p.x !== from[i].x || p.y !== from[i].y);
+        if (!moved) return;
+        const added = onShot() ? addKeys(uniq(list.map((t) => t.layer)), [S.frame]) : [];
+        record("Move " + pickLabel(), () => { list.forEach((t, i) => { t.pose.x = from[i].x; t.pose.y = from[i].y; }); dropKeys(added); },
+          () => { list.forEach((t, i) => { t.pose.x = to[i].x; t.pose.y = to[i].y; }); readdKeys(added); });
+        renderAll();
+        const el = $('#stageSvg [data-thing="' + list[0].id + '"]');
+        if (el && s.snapped) K.flash($("#stageWrap"));
+      },
+      onCancel: (s) => {
+        if (s.none) return;
+        s.list.forEach((t, i) => { t.pose.x = s.from[i].x; t.pose.y = s.from[i].y; });
+        renderAll();
+      }
+    });
+    wrap.addEventListener("dblclick", (e) => {
+      const hit = e.target.closest("[data-thing]");
+      if (!hit) return;
+      const t = S.things[hit.dataset.thing];
+      const whole = t && t.layer && S.L[t.layer] && S.L[t.layer].kind === "doll" ? S.L[t.layer].thing : null;
+      if (whole) setPick([whole]);
+    });
+    wrap.addEventListener("pointermove", (e) => {
+      if (document.body.classList.contains("kit-dragging")) return;
+      const hit = e.target.closest && e.target.closest("[data-thing]");
+      const id = hit ? hit.dataset.thing : null;
+      if (id === S.hover) return;
+      S.hover = id;
+      $$(".lrow").forEach((r) => r.classList.toggle("is-hover", Boolean(id) && S.L[r.dataset.layer] && S.things[id] && S.things[id].layer === r.dataset.layer));
+    });
+    wrap.addEventListener("pointerleave", () => { S.hover = null; $$(".lrow").forEach((r) => r.classList.remove("is-hover")); });
+    wrap.addEventListener("keydown", (e) => {
+      const dirs = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+      const d = dirs[e.key];
+      if (!d || !S.pick.length) return;
+      e.preventDefault();
+      const step = e.shiftKey ? 10 : 1;
+      const list = picks();
+      const from = list.map((t) => ({ x: t.pose.x, y: t.pose.y }));
+      list.forEach((t) => { t.pose.x += d[0] * step; t.pose.y += d[1] * step; });
+      const to = list.map((t) => ({ x: t.pose.x, y: t.pose.y }));
+      record("Nudge " + pickLabel(), () => list.forEach((t, i) => { t.pose.x = from[i].x; t.pose.y = from[i].y; }),
+        () => list.forEach((t, i) => { t.pose.x = to[i].x; t.pose.y = to[i].y; }), "Nudged " + pickLabel() + " " + step + " px.");
+      renderAll();
+    });
+  }
+  function wireTimeline() {
+    const sn = K.snapper();
+    K.drag($("#tl"), {
+      threshold: 0,
+      filter: (e) => Boolean(e.target.closest(".tl-tracks")),
+      onDown: (s) => { s.from = S.frame; sn.reset(); setFrameAt(s.x, null); },
+      onMove: (s) => { s.snapped = setFrameAt(s.x, sn, s.event.altKey); },
+      chip: (s) => "F " + S.frame + (s.snapped ? " key" : ""),
+      onCancel: (s) => { S.frame = s.from; renderAll(); },
+      onEnd: () => renderAll(),
+      onClick: () => renderAll()
+    });
+  }
+  function setFrameAt(x, sn, free) {
+    const tr = $("#tlTracks");
+    if (!tr) return false;
+    const r = tr.getBoundingClientRect();
+    const sp = span();
+    let px = clamp(x - r.left, 0, r.width);
+    let hit = null;
+    if (sn && !free) {
+      const keys = [];
+      Object.keys(S.keys).forEach((k) => S.keys[k].forEach((f) => keys.push(f / sp * r.width)));
+      const res = sn.test(px, keys);
+      px = res.value; hit = res.hit;
+    }
+    const f = clamp(Math.round(px / r.width * sp), 0, sp);
+    if (f !== S.frame) {
+      S.frame = f;
+      drawStage();
+      const head = $(".tl-head");
+      if (head) head.style.left = (f / sp * 100) + "%";
+      $("#counter").textContent = "F " + pad3(f);
+      renderInspector();
+    }
+    return Boolean(hit);
+  }
+  function wireInspector() {
+    const insp = $("#insp");
+    document.addEventListener("kit:change", (e) => {
+      const num = e.target.closest && e.target.closest(".num[data-g]");
+      if (num) { applyNum(num, e.detail.value); return; }
+      const sl = e.target.closest && e.target.closest("#linkSlider");
+      if (sl && e.detail.live !== undefined) {
+        const n = $("#n-link-strength");
+        Kit.num.set(n, e.detail.value, true);
+      }
+    });
+    document.addEventListener("kit:commit", (e) => {
+      const num = e.target.closest && e.target.closest(".num[data-g]");
+      if (num) { commitNum(num); return; }
+      const sl = e.target.closest && e.target.closest("#linkSlider");
+      if (sl) commitNum($("#n-link-strength"));
+    });
+    K.drag(insp, {
+      threshold: 0,
+      filter: (e) => Boolean(e.target.closest(".dial")) && !e.target.closest('[aria-disabled="true"]'),
+      onDown: (s) => { s.dial = s.target.closest(".dial"); s.num = $("#" + s.dial.dataset.num); s.from = K.num.value(s.num); },
+      onMove: (s) => dialAt(s),
+      onClick: (s) => { dialAt(s); commitNum(s.num); },
+      chip: (s) => fmt(K.num.value(s.num), 0) + " deg",
+      onEnd: (s) => commitNum(s.num),
+      onCancel: (s) => { K.num.set(s.num, s.from, false); }
+    });
+    insp.addEventListener("change", (e) => {
+      const t = e.target;
+      if (t.id === "shotName") {
+        const v = t.value.trim();
+        const list = targets("shot");
+        if (v && list.length === 1) setField(list, "name", v, "Rename shot", "Renamed the shot to " + v + ".");
+        else renderAll();
+      }
+      if (t.id === "layerName") {
+        const v = t.value.trim();
+        if (v) setField(targets("layer"), "name", v, "Rename layer", "Renamed the layer to " + v + "."); else renderAll();
+      }
+      if (t.id === "words") setField(targets("layer"), "words", t.value, "Edit text", "Changed the words.");
+      if (t.id === "dragOn") toggleDrag(t.checked);
+      if (t.id === "mirOn") {
+        const l = focusLayer();
+        if (l) setField([l], "mirror", t.checked, (t.checked ? "Mirror " : "Unmirror ") + l.name);
+      }
+      if (t.id === "boldOn") setField(targets("layer"), "bold", t.checked, "Edit text", t.checked ? "Text is bold." : "Text is not bold.");
+    });
+    insp.addEventListener("input", (e) => {
+      const t = e.target;
+      if (t.id === "words") { const l = focusLayer(); if (l) { l._liveWords = l._liveWords === undefined ? l.words : l._liveWords; l.words = t.value; drawStage(); } }
+      if (t.id === "poseName") { S.poseName = t.value; paintPoseButtons(); }
+    });
+    insp.addEventListener("focusout", (e) => {
+      const t = e.target;
+      if (t.id === "words") { const l = focusLayer(); if (l && l._liveWords !== undefined) { const v = t.value; l.words = l._liveWords; delete l._liveWords; if (v !== l.words) setField([l], "words", v, "Edit text", "Changed the words."); } }
+    });
+    insp.addEventListener("keydown", (e) => {
+      const t = e.target;
+      const is_line = t.id === "shotName" || t.id === "layerName";
+      if (is_line && e.key === "Enter") { e.preventDefault(); t.blur(); }
+      if (is_line && e.key === "Escape") {
+        e.stopPropagation();
+        const sh = targets("shot")[0], ly = focusLayer();
+        t.value = t.id === "shotName" ? (sh ? sh.name : "") : (ly ? ly.name : "");
+        t.blur();
+      }
+      if (t.id === "poseName" && e.key === "Enter") { e.preventDefault(); const b = $("#bSave"); if (b.getAttribute("aria-disabled") === "true") K.shake(b, b.dataset.why); else savePose(); }
+    });
+    insp.addEventListener("click", (e) => {
+      const t = e.target;
+      const sw = t.closest(".swatch");
+      if (sw) { openColour(sw); return; }
+      const mv = t.closest("[data-move]");
+      if (mv) { const ds = dots(); if (ds.length) setField(ds.map((d) => d.anim), "moves", mv.dataset.move, "Dot moves " + mv.dataset.move); return; }
+      const lp = t.closest("[data-loop]");
+      if (lp) { addLoop(lp.dataset.loop, lp); return; }
+      const row = t.closest("[data-pose]");
+      if (row) { S.posePick = S.posePick === row.dataset.pose ? null : row.dataset.pose; renderPosesBox(); return; }
+      if (t.closest("#bSave")) { savePose(); return; }
+      if (t.closest("#bUse")) { usePose(); return; }
+      if (t.closest("#bForget")) { forgetPose(); return; }
+      if (t.closest("#bUnlink")) { unlink(); return; }
+    });
+    insp.addEventListener("dblclick", (e) => { const row = e.target.closest("[data-pose]"); if (row) { S.posePick = row.dataset.pose; renderPosesBox(); if (wholeDolls().length) usePose(); } });
+    insp.addEventListener("kit:change", (e) => {
+      const combo = e.target.closest(".combo");
+      if (combo && combo.id === "drawCombo") {
+        const cand = picks().filter((t) => t.drawings.includes(e.detail.value));
+        setField(cand, "drawing", e.detail.value, "Drawing " + pickLabel(), "Drawing is " + e.detail.value + " at F " + S.frame + ".");
+      }
+      if (combo && combo.id === "fxCombo") setField(targets("layer"), "fx", e.detail.value, "Effect kind", "Effect is " + e.detail.value + ".");
+      const seg = e.target.closest("#timingSeg");
+      if (seg) { S.motion.timing = Number(e.detail.value); paintTiles(); K.flash(e.target); }
+    });
+    const ll = $("#linkLine");
+    ll.addEventListener("pointerenter", () => { const r = $("#rope"); if (r) r.classList.add("is-lit"); S.ropeLit = true; });
+    ll.addEventListener("pointerleave", () => { const r = $("#rope"); if (r) r.classList.remove("is-lit"); S.ropeLit = false; });
+  }
+  function dialAt(s) {
+    const r = s.dial.getBoundingClientRect();
+    let a = Math.atan2(s.x - (r.left + r.width / 2), -(s.y - (r.top + r.height / 2))) * 180 / Math.PI;
+    if (s.event.shiftKey) a = Math.round(a / 15) * 15;
+    a = Math.round(a);
+    if (a >= 180) a -= 360;
+    K.num.set(s.num, a, true);
+  }
+  function toggleDrag(on) {
+    const ds = dots();
+    if (!ds.length) return;
+    setField(ds.map((d) => d.drag), "on", on, (on ? "Drag on " : "Drag off ") + ds[0].name, on ? "The dot drags behind now." : "The dot no longer drags.");
+    S.kick = 1.5;
+  }
+  function unlink() {
+    const ls = linked();
+    if (!ls.length) return;
+    const was = ls.map((t) => t.link);
+    const rope = $("#rope");
+    const done = () => {
+      ls.forEach((t) => { delete t.link; });
+      record("Unlink " + pickLabel(), () => ls.forEach((t, i) => { t.link = was[i]; }), () => ls.forEach((t) => { delete t.link; }), "Unlinked " + pickLabel() + " from Teto.");
+      renderAll();
+    };
+    const can_anim = rope && rope.animate && K.ms("move") > 0;
+    if (!can_anim) { done(); return; }
+    rope.animate([{ opacity: 1, strokeDasharray: "4 2" }, { opacity: 0.8, strokeDasharray: "1 12", offset: 0.3 }, { opacity: 0, strokeDasharray: "0 20" }],
+      { duration: K.ms("move"), easing: "ease-in" }).onfinish = done;
+  }
+  function wireCast() {
+    const cards = $("#cards");
+    let floater = null;
+    K.drag(cards, {
+      filter: (e) => Boolean(e.target.closest(".card")) && !e.target.closest(".reload"),
+      onDown: (s) => { s.card = s.target.closest(".card"); },
+      onClick: (s) => {
+        const id = s.card.dataset.doll;
+        const add = s.event.shiftKey || s.event.ctrlKey || s.event.metaKey;
+        if (add) S.libPick = S.libPick.includes(id) ? S.libPick.filter((x) => x !== id) : S.libPick.concat([id]);
+        else S.libPick = [id];
+        renderCast();
+        const c = $('.card[data-doll="' + id + '"]');
+        if (c) c.focus({ preventScroll: true });
+      },
+      onStart: (s) => {
+        const id = s.card.dataset.doll;
+        s.id = id;
+        floater = document.createElement("div");
+        floater.className = "floater";
+        floater.innerHTML = thumbSvg(id);
+        document.body.appendChild(floater);
+        K.pop(floater, 0.6);
+      },
+      onMove: (s) => {
+        floater.style.left = s.x + "px";
+        floater.style.top = s.y + "px";
+        const r = $("#stageWrap").getBoundingClientRect();
+        s.over = s.x >= r.left && s.x <= r.right && s.y >= r.top && s.y <= r.bottom;
+        $("#stageWrap").classList.toggle("is-drop", s.over);
+      },
+      chip: (s) => s.over ? "Drop to put " + ART[s.id].name + " on stage" : "",
+      onEnd: (s) => {
+        $("#stageWrap").classList.remove("is-drop");
+        const d = S.lib.find((x) => x.id === s.id);
+        const r = $("#stageSvg").getBoundingClientRect();
+        let why = "";
+        if (!s.over) why = "skip";
+        else if (!shot()) why = "Add a shot first.";
+        else if (!d.inProject) why = "Import " + ART[s.id].name + " first.";
+        else if (inShot(s.id)) why = ART[s.id].name + " is already in this shot.";
+        if (why) { flyBack(floater, s.card, why === "skip" ? "" : why); floater = null; return; }
+        const c = shot().cam;
+        const x = (s.x - r.left) * 320 / r.width;
+        floater.remove(); floater = null;
+        putOnStage([s.id], (x - 160) / c.zoom + c.x);
+      },
+      onCancel: (s) => { $("#stageWrap").classList.remove("is-drop"); flyBack(floater, s.card, ""); floater = null; }
+    });
+    cards.addEventListener("click", (e) => {
+      const rl = e.target.closest("[data-reload]");
+      if (rl) { reloadDolls([rl.dataset.reload]); return; }
+      if (e.target.closest('[data-act="import-empty"]')) K.toast("Looked in ~/.local/share/Snapper/Snapper/dolls: no dolls yet. Export one from Krita first.", null, { kind: "error" });
+    });
+    cards.addEventListener("contextmenu", (e) => {
+      const card = e.target.closest(".card");
+      if (!card) return;
+      e.preventDefault();
+      cardMenu(card, e.clientX, e.clientY);
+    });
+    cards.addEventListener("keydown", (e) => {
+      const card = e.target.closest(".card");
+      if (!card) return;
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); S.libPick = [card.dataset.doll]; renderCast(); $('.card[data-doll="' + card.dataset.doll + '"]').focus(); }
+      if (e.key === "Delete") {
+        e.preventDefault(); e.stopPropagation();
+        const id = card.dataset.doll;
+        const why = !S.lib.find((d) => d.id === id).inProject ? "Not in the project." : (inShot(id) ? "Take " + ART[id].name + " off the stage first: delete its layer." : "");
+        if (why) K.shake(card, why); else removeFromProject(id);
+      }
+      if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) { e.preventDefault(); const r = card.getBoundingClientRect(); cardMenu(card, r.left + 10, r.bottom); }
+    });
+    $("#bImport").addEventListener("click", importDolls);
+    $("#bReload").addEventListener("click", () => reloadDolls(S.libPick));
+    $("#bPut").addEventListener("click", () => putOnStage(pickedLib().map((d) => d.id)));
+    wireLayers();
+  }
+  function flyBack(el, card, why) {
+    if (!el) return;
+    const r = card.getBoundingClientRect();
+    const ms = K.ms("move");
+    if (why) K.toast(why, null, { kind: "error" });
+    if (ms <= 0 || !el.animate) { el.remove(); return; }
+    const x0 = parseFloat(el.style.left), y0 = parseFloat(el.style.top);
+    el.animate([{ translate: "0 0", opacity: 0.85 }, { translate: (r.left + r.width / 2 - x0) + "px " + (r.top + r.height / 2 - y0) + "px", opacity: 0.2, scale: "0.6" }],
+      { duration: ms, easing: "cubic-bezier(0.33, 1, 0.68, 1)" }).onfinish = () => el.remove();
+  }
+  function wireLayers() {
+    const list = $("#layerList");
+    let line = null;
+    K.drag(list, {
+      ghost: true,
+      ghostOf: (s) => s.row,
+      filter: (e) => Boolean(e.target.closest(".lrow")) && !e.target.closest(".eye, input"),
+      onDown: (s) => { s.row = s.target.closest(".lrow"); },
+      onClick: (s) => {
+        const id = s.row.dataset.layer;
+        const add = s.event.shiftKey || s.event.ctrlKey || s.event.metaKey;
+        let ids = S.layerPick.slice();
+        if (add) ids = ids.includes(id) ? ids.filter((x) => x !== id) : ids.concat([id]);
+        else ids = [id];
+        S.layerPick = ids;
+        S.pick = ids.map((x) => S.L[x].thing);
+        S.layerFocus = ids.length ? ids[ids.length - 1] : null;
+        renderAll();
+      },
+      onStart: (s) => {
+        line = document.createElement("div");
+        line.className = "ins-line";
+        list.appendChild(line);
+      },
+      onMove: (s) => {
+        const rows = $$(".lrow", list).filter((r) => !r.classList.contains("ghost"));
+        const lr = list.getBoundingClientRect();
+        let at = rows.length;
+        for (let i = 0; i < rows.length; i++) {
+          const rr = rows[i].getBoundingClientRect();
+          if (s.y < rr.top + rr.height / 2) { at = i; break; }
+        }
+        s.at = at;
+        const ref = rows[Math.min(at, rows.length - 1)].getBoundingClientRect();
+        const y = at < rows.length ? ref.top : ref.bottom;
+        line.style.top = (y - lr.top + list.scrollTop - 1) + "px";
+        s.row.style.translate = "0 " + s.dy + "px";
+      },
+      chip: (s) => "Restack " + S.L[s.row.dataset.layer].name,
+      onEnd: (s) => {
+        if (line) line.remove();
+        s.row.style.translate = "";
+        const id = s.row.dataset.layer;
+        const before = S.layers.slice();
+        const arr = before.filter((x) => x !== id);
+        let at = s.at === undefined ? before.indexOf(id) : s.at;
+        if (at > before.indexOf(id)) at -= 1;
+        arr.splice(clamp(at, 0, arr.length), 0, id);
+        const same = arr.join() === before.join();
+        if (same) { renderAll(); return; }
+        S.layers = arr;
+        record("Restack " + S.L[id].name, () => { S.layers = before.slice(); }, () => { S.layers = arr.slice(); });
+        renderAll();
+        const r = $('.lrow[data-layer="' + id + '"]');
+        if (r) K.bounce(r, 0, 1);
+      },
+      onCancel: (s) => { if (line) line.remove(); s.row.style.translate = ""; }
+    });
+    list.addEventListener("click", (e) => { const eye = e.target.closest("[data-eye]"); if (eye) eyeToggle(eye.dataset.eye); });
+    list.addEventListener("dblclick", (e) => { const row = e.target.closest(".lrow"); if (row && !e.target.closest(".eye")) renameLayer(row); });
+    list.addEventListener("pointerover", (e) => {
+      const row = e.target.closest(".lrow");
+      const id = row && S.L[row.dataset.layer] ? S.L[row.dataset.layer].thing : null;
+      S.hover = id;
+    });
+    list.addEventListener("pointerleave", () => { S.hover = null; });
+    $("#bCopy").addEventListener("click", copyLayers);
+    $("#bDel").addEventListener("click", deleteLayers);
+    $("#bUp").addEventListener("click", () => moveLayers(-1));
+    $("#bDown").addEventListener("click", () => moveLayers(1));
+    $("#bAdd").addEventListener("click", (e) => { e.stopPropagation(); openAdd($("#bAdd")); });
+  }
+
+  /* ---------- Add layer popover and dialogs ---------- */
+  let addpop = null;
+  function closeAdd() { if (addpop) { addpop.remove(); addpop = null; } }
+  function openAdd(btn) {
+    closeAdd();
+    const pop = document.createElement("div");
+    pop.className = "addpop";
+    pop.setAttribute("role", "dialog");
+    pop.setAttribute("aria-label", "Add layer");
+    pop.innerHTML = '<div class="tiles big">' + tileH("Picture", 'data-add="picture"') + tileH("Text", 'data-add="text"') + tileH("Effect", 'data-add="effect" aria-pressed="false"') + "</div>" +
+      '<div id="fxRow" hidden><div class="sub-h">Effect</div><div class="tiles">' +
+      EFFECTS.map((e) => '<button class="tile fx" data-fx="' + e + '"><span class="pv"><i style="background: ' + FX_COL[e] + '; animation: none"></i></span>' + e + "</button>").join("") + "</div></div>";
+    document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    pop.style.left = Math.round(clamp(r.right - pop.offsetWidth, 4, vw - pop.offsetWidth - 4)) + "px";
+    pop.style.top = Math.round(r.bottom + 2) + "px";
+    pop.addEventListener("click", (e) => {
+      const a = e.target.closest("[data-add]");
+      if (a && a.dataset.add === "effect") {
+        const row = $("#fxRow", pop);
+        row.hidden = !row.hidden;
+        a.setAttribute("aria-pressed", String(!row.hidden));
+        if (!row.hidden) $$(".tile", row).forEach((t, i) => window.setTimeout(() => K.pop(t, 0.8), i * 25));
+        return;
+      }
+      if (a && a.dataset.add === "picture") { closeAdd(); openPicture(); return; }
+      if (a && a.dataset.add === "text") { closeAdd(); K.dialog.open($("#textDlg")); $("#textWords").select(); return; }
+      const fx = e.target.closest("[data-fx]");
+      if (fx) { closeAdd(); addLayer("effect", { name: fx.dataset.fx, fx: fx.dataset.fx, color: FX_COL[fx.dataset.fx], strength: 0.6 }); }
+    });
+    addpop = pop;
+    $(".tile", pop).focus();
+  }
+  const FILES = [["sticker.png", ""], ["crowd.jpg", ""], ["logo.webp", ""], ["old_scan.bmp", ""], ["stage_bg.jpeg", ""], ["notes.txt", "Not a picture: use png, jpg, jpeg, webp or bmp."]];
+  let pickedFile = null;
+  function openPicture() {
+    pickedFile = null;
+    $("#fileList").innerHTML = FILES.map((f) => '<div class="list-row" role="option" data-file="' + f[0] + '"' + (f[1] ? ' aria-disabled="true" data-why="' + f[1] + '"' : "") + ">" + f[0] + "</div>").join("");
+    setOff($("#picOk"), "Pick a picture first.");
+    K.dialog.open($("#picDlg"));
+  }
+  function wireDialogs() {
+    $("#fileList").addEventListener("click", (e) => {
+      const r = e.target.closest("[data-file]");
+      if (!r) return;
+      pickedFile = r.dataset.file;
+      $$("#fileList .list-row").forEach((x) => x.setAttribute("aria-selected", String(x === r)));
+      setOff($("#picOk"), "");
+    });
+    $("#fileList").addEventListener("dblclick", (e) => { const r = e.target.closest("[data-file]"); if (r && pickedFile) K.dialog.close($("#picDlg"), "ok"); });
+    $("#picDlg").addEventListener("close", () => {
+      const ok = $("#picDlg").returnValue === "ok" && pickedFile;
+      if (ok) addLayer("picture", { name: pickedFile.replace(/\.\w+$/, ""), file: pickedFile });
+    });
+    $("#textWords").addEventListener("input", () => setOff($("#textOk"), $("#textWords").value.trim() ? "" : "Type some words first."));
+    $("#textDlg").addEventListener("close", () => {
+      const ok = $("#textDlg").returnValue === "ok" && $("#textWords").value.trim();
+      if (ok) addLayer("text", { name: $("#textWords").value.trim().split("\n")[0].slice(0, 18), words: $("#textWords").value, size: 18, bold: false, fill: "#ffffff", fillA: 1, line: "#000000", lineA: 1, outline: 2 });
+    });
+  }
+
+  /* ---------- Page chrome: try bar, menus, keys ---------- */
+  function buildTry() {
+    const bar = $("#tryBar");
+    bar.innerHTML = '<span class="lbl">Try:</span>' + SCEN.map((s, i) => '<button class="btn small" data-scen="' + i + '" data-key="' + s.key.toUpperCase() + '">' + esc(s.label) +
+      "<kbd>" + s.key.toUpperCase() + "</kbd></button>").join("") + '<span class="sep"></span>' +
+      '<button class="toggle" id="tAll" aria-pressed="false" data-tip="Show every box, greyed with its reason." data-key="B"><span class="toggle-track"><span class="toggle-knob"></span></span>Every box</button>' +
+      '<button class="toggle" id="tEmpty" aria-pressed="false" data-tip="See the Cast with no dolls exported yet."><span class="toggle-track"><span class="toggle-knob"></span></span>Empty library</button>' +
+      '<button class="toggle" id="tBroken" aria-pressed="false" data-tip="Pretend the saved poses file is broken."><span class="toggle-track"><span class="toggle-knob"></span></span>Poses file broken</button>';
+    bar.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-scen]");
+      if (b) { SCEN[Number(b.dataset.scen)].run(); K.flash($("#stageWrap")); }
+    });
+    bar.addEventListener("kit:change", (e) => {
+      const id = e.target.id;
+      if (id === "tAll") S.showAll = e.detail.value;
+      if (id === "tEmpty") S.emptyLib = e.detail.value;
+      if (id === "tBroken") S.posesBroken = e.detail.value;
+      renderAll();
+    });
+    $("#pickMenu").innerHTML = SCEN.map((s, i) => '<button class="menu-item" role="menuitem" data-action="scen-' + i + '"><span>' + esc(s.label) + '</span><kbd class="menu-key">' + s.key.toUpperCase() + "</kbd></button>").join("");
+  }
+  function syncToggles() {
+    $("#tAll").setAttribute("aria-pressed", String(S.showAll));
+    $("#allToggle").setAttribute("aria-pressed", String(S.showAll));
+  }
+  function wireMenus() {
+    document.addEventListener("kit:menu", (e) => {
+      const a = e.detail.action;
+      if (a === "undo") undo.undo();
+      if (a === "redo") undo.redo();
+      if (a === "save") { $("#dirty").hidden = true; K.toast("Saved teto_song.snap.", null, { kind: "done" }); }
+      if (a === "delete") deleteLayers();
+      if (a === "pick-none") setPick([]);
+      if (a === "show-all") { S.showAll = !S.showAll; renderAll(); }
+      if (a === "dock-cast" || a === "dock-insp") toggleDock(a === "dock-cast" ? "cast" : "insp");
+      if (a === "fold-all" || a === "open-all") $$(".isect .dock").forEach((d) => K.dock.set(d, a === "fold-all"));
+      const is_scen = a && a.indexOf("scen-") === 0;
+      if (is_scen) SCEN[Number(a.slice(5))].run();
+    });
+    undo.onChange(() => {
+      const u = $("#mUndo span"), r = $("#mRedo span");
+      u.textContent = undo.undoName ? "Undo " + undo.undoName : "Undo";
+      r.textContent = undo.redoName ? "Redo " + undo.redoName : "Redo";
+      setOff($("#mUndo"), undo.undoName ? "" : "Nothing to undo yet.");
+      setOff($("#mRedo"), undo.redoName ? "" : "Nothing to redo.");
+    });
+    document.addEventListener("click", (e) => {
+      const c = e.target.closest("[data-close-dock]");
+      if (c) toggleDock(c.dataset.closeDock);
+      const act = e.target.closest("[data-act]");
+      if (act && act.dataset.act === "add-shot") addShot();
+      if (act && act.dataset.act === "back-on") { S.frame = Math.max(0, shot().len - 1); renderAll(); }
+      const outside_pop = cpop && !e.target.closest(".cpop") && !e.target.closest(".swatch");
+      if (outside_pop) closeColour(true);
+      const outside_add = addpop && !e.target.closest(".addpop") && !e.target.closest("#bAdd");
+      if (outside_add) closeAdd();
+    });
+    document.addEventListener("click", (e) => {
+      const chip = e.target.closest(".shot-chip");
+      if (chip) pickShot(chip.dataset.shot, e.shiftKey || e.ctrlKey || e.metaKey);
+    });
+    document.addEventListener("kit:tab", (e) => {
+      const href = e.target.dataset.href;
+      if (href) window.setTimeout(() => { window.location.href = href; }, 180);
+    });
+  }
+  function toggleDock(which) {
+    const d = which === "cast" ? $("#castDock") : $("#inspDock");
+    const shut = !d.classList.contains("is-shut");
+    d.classList.toggle("is-shut", shut);
+    $(which === "cast" ? "#mCast" : "#mInsp").setAttribute("aria-checked", String(!shut));
+    if (shut) K.toast((which === "cast" ? "Cast" : "Inspector") + " closed. Bring it back from the View menu.", () => toggleDock(which));
+    else K.pop(d, 0.96);
+  }
+  function wireKeys() {
+    undo.bindButtons($("#undoBtn"), $("#redoBtn"));
+    undo.bindKeys(document);
+    document.addEventListener("keydown", (e) => {
+      const t = e.target;
+      const typing = t.closest && t.closest("input, textarea, select");
+      const mod = e.ctrlKey || e.metaKey || e.altKey;
+      if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); $("#dirty").hidden = true; K.toast("Saved teto_song.snap.", null, { kind: "done" }); return; }
+      if (typing || mod) return;
+      if (e.key === "Escape") {
+        if (cpop) { closeColour(true); return; }
+        if (addpop) { closeAdd(); return; }
+        if (K.menus.open_menu) return;
+        if (S.pick.length || S.layerPick.length) setPick([]);
+        return;
+      }
+      if (K.menus.open_menu) return;
+      const sc = SCEN.find((s) => s.key === e.key.toLowerCase());
+      if (sc) { e.preventDefault(); sc.run(); return; }
+      if (e.key.toLowerCase() === "b") { S.showAll = !S.showAll; renderAll(); return; }
+      if (e.key.toLowerCase() === "d") {
+        const chk = $("#dragCheck");
+        if (!dots().length) { K.shake(chk.closest(".isect").classList.contains("is-gone") ? $("#stageWrap") : chk, "Pick a warp dot on the stage first (press 5)."); return; }
+        toggleDrag(!dots()[0].drag.on);
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        const in_cast = t.closest && t.closest("#cards");
+        if (in_cast) return;
+        e.preventDefault();
+        deleteLayers();
+      }
+    });
+  }
+
+  /* ---------- Animation loop: dot moves, drag spring, camera shake, loops ---------- */
+  const spring = { pos: null, vel: 0 };
+  function tick(now) {
+    const t = now / 1000;
+    const dot = S.things.dot;
+    const el = $("#dotAnim");
+    if (el && dot) {
+      const a = dot.anim;
+      const ph = ((t * kFps / Math.max(2, a.cycle)) + a.delay) % 1 * Math.PI * 2;
+      const dr = (a.dir - 90) * Math.PI / 180;
+      let tr = "";
+      if (a.moves === "Wave") tr = "translate(" + (Math.cos(dr) * a.size * Math.sin(ph)) + " " + (Math.sin(dr) * a.size * Math.sin(ph)) + ")";
+      if (a.moves === "Pulse") { const k = Math.abs(Math.sin(ph)) * a.size; tr = "translate(" + (Math.cos(dr) * k) + " " + (Math.sin(dr) * k) + ")"; }
+      if (a.moves === "Breathe") { const sc = 1 + a.size * 0.03 * Math.sin(ph); tr = "translate(16 -68) scale(" + sc + ") translate(-16 68)"; }
+      if (a.moves === "Sway") tr = "rotate(" + (a.size * 4 * Math.sin(ph)) + " 16 -74)";
+      if (a.moves === "Shiver") tr = "translate(" + ((Math.random() - 0.5) * a.size) + " " + ((Math.random() - 0.5) * a.size) + ")";
+      const te = S.things.teto;
+      const x = te.base.x + te.pose.x;
+      if (spring.pos === null) spring.pos = x;
+      const d = dot.drag;
+      if (d.on) {
+        const k = 0.04 + 0.3 * (1 - d.lag);
+        const damp = 0.75 + 0.22 * d.bounce;
+        spring.vel = (spring.vel + (x - spring.pos) * k) * damp;
+        spring.pos += spring.vel;
+        if (S.kick) { spring.vel += S.kick * 4; S.kick = 0; }
+        tr = "translate(" + clamp(spring.pos - x, -30, 30) + " 0) " + tr;
+      } else {
+        spring.pos = x; spring.vel = 0;
+      }
+      el.setAttribute("transform", tr);
+    }
+    const sp = $("#spring polyline");
+    if (sp && dot) {
+      const d = dot.drag;
+      const amp = 8 * d.bounce * (0.35 + Math.min(1, Math.abs(spring.vel) / 2 + (S.springK || 0)));
+      S.springK = Math.max(0, (S.springK || 0) * 0.94);
+      const pts = [];
+      for (let i = 0; i <= 32; i++) {
+        const x = i * 2;
+        const y = 10 + amp * Math.exp(-x * (0.02 + 0.08 * (1 - d.lag))) * Math.sin(x * 0.45 - t * 9);
+        pts.push(x + "," + y.toFixed(2));
+      }
+      sp.setAttribute("points", pts.join(" "));
+    }
+    const sg = $("#shakeG");
+    const s = shot();
+    if (sg && s) {
+      const amp = s.cam.shake;
+      const on = amp > 0 && K.motion.on;
+      sg.setAttribute("transform", on ? "translate(" + ((Math.random() - 0.5) * amp).toFixed(2) + " " + ((Math.random() - 0.5) * amp).toFixed(2) + ")" : "");
+    }
+    const w = S.wob;
+    if (w) {
+      const el2 = (now - w.start) / w.dur;
+      if (el2 >= 1) { S.wob = null; drawStage(); }
+      else {
+        const frames = (now - w.start) / 1000 * kFps;
+        const held = Math.floor(frames / w.timing) * w.timing;
+        const ph = held / w.len * Math.PI * 2;
+        const amt = w.amt * 0.6;
+        const c = { x: 0, y: 0, r: 0 };
+        if (w.kind === "Bob") c.y = -Math.abs(Math.sin(ph / 2)) * amt;
+        if (w.kind === "Bounce") c.y = -Math.abs(Math.sin(ph)) * amt * 1.4;
+        if (w.kind === "Shake") c.x = Math.sin(ph * 4) * amt * 0.6;
+        if (w.kind === "Nod") c.r = Math.sin(ph) * amt;
+        if (w.kind === "Sway") c.r = Math.sin(ph) * amt * 0.8;
+        w.cur = c;
+        drawStage();
+      }
+    }
+    paintBoxes();
+    window.requestAnimationFrame(tick);
+  }
+
+  /* ---------- Covered list ---------- */
+  const COVER = [
+    ["h", "Cast dock"],
+    [130, "Old dolls not converted", "Hover the yellow 2 OLD badge on the library title."],
+    [131, "Library cards, in project / new art, multi-pick", "Click cards; Shift or Ctrl adds. Badges IN SHOT, NEW ART (pulses once), NOT IN PROJECT."],
+    [132, "Import", "Pick Rin, press Import: the toast reports a dropped rig part. Greyed with why for dolls already in."],
+    [133, "Reload", "R button on Miku's card (NEW ART) or Reload; the picture flashes. Pick Rin: greyed Import the doll first."],
+    [134, "Put on stage", "Pick Miku, press Put on stage, or drag her card onto the stage (glow, squash). Press 0: greyed Add a shot first; a drop flies back."],
+    [135, "Layers list, multi-pick", "Click rows, Shift or Ctrl adds; picks on stage; hover a row to outline it on stage. Double-click renames."],
+    [136, "Layer show / hide", "Eye button; with several rows picked it flips them all."],
+    [137, "Add (+), greyed without a shot", "+ beside Layers. Press 0 and click it: shakes, Add a shot first."],
+    [138, "Add Picture", "+ then Picture: file list; notes.txt is greyed with why."],
+    [139, "Add Text", "+ then Text: type words, Add."],
+    [140, "Add Effect (7 kinds)", "+ then Effect: Flash, Fill, Invert, Zoom punch, Halftone, Glitch, Posterize tiles."],
+    [141, "Copy layers", "Pick a row, Copy: the copy slides in under it."],
+    [142, "Delete layers", "Delete button or Delete key: rows puff, toast with Undo."],
+    [143, "Up", "Up button, or drag a row (insert line, ghost, Esc cancels)."],
+    [144, "Down", "Down button; greyed at the bottom or with nothing picked."],
+    ["h", "Inspector"],
+    [145, "No shot hint", "Press 0: hint plus Add shot button."],
+    [146, "Shot title, N picked, greyed", "Press 9 for Shot (2 picked, changes go to each). Press 0 with Every box on: greyed Add a shot first."],
+    [147, "Shot name", "Rename, Enter or leave the field; chip renames. Press 9: greyed Pick one shot to rename it."],
+    [148, "Length in frames", "Scrub the Length label: the strip chip resizes live. One undo Shot length."],
+    [149, "Length in seconds", "The s field: step 0.5, rounds to the nearest frame (type 2.3)."],
+    [150, "Background colour", "Swatch: hover previews on stage, click keeps, Esc puts it back. Press 9 to colour both."],
+    [151, "Into next", "Removed: note in the Shot box points to the Video tab cut.", "gone"],
+    [152, "Overlap", "Removed: same note.", "gone"],
+    [153, "Camera look at x / y", "Press 1, scrub Look at: the stage pans; a camera key pops on the Camera row."],
+    [154, "Camera zoom", "Scrub Zoom."],
+    [155, "Camera turn", "Scrub Turn or drag its dial (Shift snaps 15 deg)."],
+    [156, "Camera shake", "Scrub Shake: the stage jitters."],
+    [157, "Camera greyed off the shot", "Press O: Move the playhead onto a shot."],
+    [158, "Pose title, N picked, greyed", "Press 4: (2 picked, changes add to each), Mixed fields. Every box plus 1: greyed."],
+    [159, "Move x / y", "Scrub Move, type +15, or drag the pick on stage (snaps back to rest, chip shows px). Arrows nudge."],
+    [160, "Scale x / y", "Scrub Scale; type *2."],
+    [161, "Turn", "Scrub Turn or drag the dial."],
+    [162, "Skew", "Scrub Skew to 85: it stops with a 2 px bounce."],
+    [163, "Opacity", "Scrub Opacity: red fill bar behind the number."],
+    [164, "Lean", "Press 3 and scrub. Press 2: greyed Double-click a doll to pick it whole first."],
+    [165, "Swivel", "Same as Lean."],
+    [166, "Drawing", "Press 2: Rig default, Fist, Point. Press 3: greyed This piece has only one drawing."],
+    [167, "Drags behind (D)", "Press 5, tick it or press D: the dot trails when Teto moves."],
+    [168, "Lag", "Greyed until ticked; scrub to see the spring."],
+    [169, "Bounce", "Same; the spring wobbles as you scrub."],
+    [170, "Moves", "Press 5: None, Wave, Pulse, Breathe, Sway, Shiver tiles with tiny loops."],
+    [171, "Size", "Scrub; pick None: greyed Pick how the dot moves first."],
+    [172, "Cycle", "Reads every 24 f; scrub it and the tiles speed up."],
+    [173, "Direction", "Scrub or dial; pick Shiver: greyed with why."],
+    [174, "Delay", "Scrub: the tile previews shift in their cycle."],
+    [175, "Layer box greyed", "Every box on, then 1: Pick a layer first."],
+    [176, "Layer name", "Rename, lands on leaving the field."],
+    [177, "Frames from", "Press 8 and scrub From: the effect bar moves and the stage effect turns on and off."],
+    [178, "Frames for", "Scrub to 0: reads to the end."],
+    [179, "Mirrored", "Press 3, tick Mirrored: Bob flips with a squash through zero width."],
+    [180, "Text words", "Press 7, type: preview live, lands on leaving the field."],
+    [181, "Text size", "Scrub Size."],
+    [182, "Bold", "Tick Bold."],
+    [183, "Fill colour", "First swatch, with See-through slider."],
+    [184, "Outline colour", "Second swatch, with See-through slider."],
+    [185, "Outline width", "Scrub Outline."],
+    [186, "Effect kind", "Press 8, open Kind: same tiles as Cast Add Effect."],
+    [187, "Effect colour", "Swatch beside Kind."],
+    [188, "Effect strength", "Scrub: keyed at the playhead, key pops on the row. Undo Effect strength."],
+    [189, "Motion loop kind", "Press 2: tiles Bob, Bounce, Shake, Nod, Sway with tiny previews."],
+    [190, "Amount", "Scrub: the tile previews swing wider."],
+    [191, "Timing", "On 1s, On 2s, On 3s: the previews get choppier."],
+    [192, "Loop length", "Scrub Length: previews slow down."],
+    [193, "Add at playhead", "Click a tile: keys pop on the timeline, the pick plays the loop. Every box plus 1: greyed."],
+    [194, "Follows label", "Press 6, hover Follows Teto: the rope lights on stage."],
+    [195, "Link strength", "Scrub or slide (snaps at 0.5, 1, 2), then drag Teto: the hat follows more or less."],
+    [196, "Unlink", "Press Unlink: the rope snaps and fades, Undo brings it back."],
+    [197, "Saved poses list", "Press 3: list of poses."],
+    [198, "Pose name field", "Placeholder Name for a pose."],
+    [199, "Save", "Greyed Type a name first; type and Save (new row slides in). Poses file broken toggle: load error."],
+    [200, "Use", "Pick a pose, Use: Bob takes it, key pops. Greyed Pick a saved pose first."],
+    [201, "Forget", "Pick a pose, Forget: the row puffs out, toast with Undo."]
+  ];
+  function buildCovered() {
+    const n = COVER.filter((c) => c[0] !== "h").length;
+    $("#covered summary").textContent = "Covered: " + n + " inventory items, #130 to #201 (Cast and Inspector)";
+    $("#covTable").innerHTML = "<tr><th>#</th><th>Control</th><th>Where to try it</th></tr>" + COVER.map((c) => c[0] === "h"
+      ? '<tr class="h"><td colspan="3">' + c[1] + "</td></tr>"
+      : "<tr" + (c[3] ? ' class="gone"' : "") + "><td>#" + c[0] + "</td><td>" + esc(c[1]) + "</td><td>" + esc(c[2]) + "</td></tr>").join("");
+  }
+
+  function start() {
+    buildInspector();
+    buildTry();
+    buildCovered();
+    K.init($("#insp"));
+    K.init($("#tryBar"));
+    wireStage();
+    wireTimeline();
+    wireInspector();
+    wireCast();
+    wireDialogs();
+    wireMenus();
+    wireKeys();
+    $("#tryBar").addEventListener("kit:change", syncToggles);
+    $("#allToggle").addEventListener("kit:change", () => { S.showAll = $("#allToggle").getAttribute("aria-pressed") === "true"; renderAll(); syncToggles(); });
+    renderAll();
+    window.requestAnimationFrame(tick);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+})();
+</script>
+</body>
+</html>

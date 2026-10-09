@@ -1,0 +1,2364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snapper Main Window</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  /* Page layout only. Controls, motion and colors come from kit.css. */
+  .pnav { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px;
+    padding: 5px var(--gutter); background: var(--face-dark);
+    box-shadow: inset 0 -1px var(--shadow); font-size: var(--fs-small); }
+  .pnav b { font: 10px var(--font-pixel); color: var(--text-off); margin-right: 6px; }
+  .pnav a { color: var(--text-dim); text-decoration: none; padding: 2px 8px; }
+  .pnav a:hover { color: var(--handle); box-shadow: var(--bevel-thin); }
+  .pnav a[aria-current="page"] { background: var(--pick); color: #fff; }
+  main { max-width: 1240px; margin: 0 auto; padding: 14px var(--gutter) 120px; }
+  .lead h1 { font: 22px/1.1 var(--font-pixel); color: var(--pick); margin: 0 0 4px; }
+  .lead p { margin: 0 0 10px; color: var(--text-dim); max-width: 860px; }
+  .lead kbd, .try kbd, .cov kbd { font: 11px var(--font-mono); color: var(--handle); }
+  .appbox { overflow-x: auto; overflow-y: hidden; padding: 0 6px 8px 0; }
+  .app { min-width: 900px; position: relative; }
+  .win-title-text .unsaved { color: rgba(255, 255, 255, 0.6); font-weight: normal; }
+  .app-strip { display: flex; align-items: flex-end; gap: 8px; padding-top: 4px;
+    border-bottom: 2px solid var(--row-hover); }
+  .transport { display: flex; align-items: center; gap: 2px; padding-bottom: 3px; }
+  .counter { font: 12px var(--font-mono); padding: 2px 8px; min-width: 112px; display: inline-block; }
+  .tl-name { font-size: var(--fs-tiny); color: var(--text-off); padding: 0 6px; min-width: 76px; }
+  .grow { flex: 1; }
+  .findbox { display: flex; align-items: center; gap: 8px; min-width: 170px; height: 22px;
+    padding: 0 6px; margin: 0 2px 3px 0; border: 0; cursor: text; text-align: left;
+    color: var(--text-off); background: var(--field); box-shadow: var(--bevel-sunken); }
+  .findbox:hover { color: var(--text-dim); }
+  .findbox kbd { margin-left: auto; font: 10px var(--font-mono); }
+  .undo-row { display: flex; gap: 4px; padding-bottom: 3px; }
+  .undo-row .btn { min-width: 64px; max-width: 170px; overflow: hidden; }
+  .app-body { display: flex; height: 470px; gap: 3px; margin-top: 3px; }
+  .app.is-max .app-body { height: 620px; }
+  .app.is-min .menubar, .app.is-min .app-strip, .app.is-min .app-body,
+  .app.is-min .statusbar { display: none; }
+  .dock-col { display: flex; flex-direction: column; gap: 3px; width: 196px; flex: none;
+    overflow: hidden; transition: width var(--t-move) var(--ease-out),
+    opacity var(--t-move) var(--ease-out), translate var(--t-move) var(--ease-out); }
+  .dock-col > .dock { flex: 1 1 0; min-height: 0; }
+  .dock-col > .dock.is-collapsed { flex: none; }
+  .dock-col.is-empty { width: 0; opacity: 0; }
+  .dock-col.is-out { width: 0; opacity: 0; }
+  #colL.is-out { translate: -24px 0; }
+  #colR.is-out { translate: 24px 0; }
+  .dock .win-btn.max::before { top: 4px; bottom: 5px; }
+  .dock-head.is-grab { cursor: move; }
+  .float-layer { position: absolute; inset: 0; pointer-events: none; z-index: 20;
+    transition: opacity var(--t-move) var(--ease-out); }
+  .float-layer.is-out { opacity: 0; visibility: hidden; }
+  .float-layer > .dock { position: absolute; width: 196px; height: 220px; pointer-events: auto;
+    box-shadow: var(--bevel-raised), var(--drop); }
+  .float-layer > .dock.is-collapsed { height: auto; }
+  .float-layer > .dock .dock-head { background: linear-gradient(90deg, var(--pick-dark), var(--pick)); }
+  .center { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .center > .tab-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .dock-pad .list { height: 150px; }
+  .dock-pad p { margin: 6px 0 0; color: var(--text-off); font-size: var(--fs-small); }
+  .dock-pad a, .panel-note a, .try a, .cov a { color: var(--handle); }
+  .swatch { width: 10px; height: 10px; flex: none; box-shadow: 0 0 0 1px var(--shadow); }
+
+  .menu-item.is-sub-open { background: var(--row-hover); }
+
+  /* Shot strip, stage, timeline */
+  .strip { display: flex; gap: 3px; padding: 3px; flex: none; }
+  .chip { border: 0; padding: 3px 10px; cursor: pointer; color: var(--text);
+    background: var(--face); box-shadow: var(--bevel-raised); font-size: var(--fs-small);
+    transition: translate var(--t-pop) var(--ease-back), background-color var(--t-hover) var(--ease-out); }
+  .chip:hover { filter: brightness(1.12); }
+  .chip[aria-pressed="true"] { translate: 0 -3px; background: var(--pick-soft);
+    outline: 2px solid var(--pick); outline-offset: -2px; color: #fff; }
+  .vsplit { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .hsplit { flex: 1; min-height: 0; display: flex; }
+  .vsplit > .pane, .hsplit > .pane { min-height: 0; min-width: 0; position: relative; }
+  .is-easing > .pane { transition: flex-grow var(--t-move) var(--ease-back); }
+  .split { flex: none; position: relative; z-index: 4; background: var(--face);
+    transition: background-color var(--t-hover) var(--ease-out); touch-action: none; }
+  .split.is-row { height: 4px; cursor: row-resize; }
+  .split.is-col { width: 4px; cursor: col-resize; }
+  .split::before { content: ""; position: absolute; inset: -4px 0; }
+  .split.is-col::before { inset: 0 -4px; }
+  .split:hover, .split.is-dragging { background: var(--face-light); }
+  .split.is-dragging { background: var(--handle); }
+  #poseStage { height: 100%; }
+  .doll { width: 56px; height: 112px; }
+  .doll .head { position: absolute; left: 12px; top: 0; width: 32px; height: 32px; border-radius: 50%;
+    background: #f1c9a5; box-shadow: inset -3px -3px rgba(0, 0, 0, 0.2); }
+  .doll .hair { position: absolute; left: 6px; top: -4px; width: 44px; height: 22px;
+    border-radius: 22px 22px 6px 6px; background: var(--pick); }
+  .doll.blue .hair { background: #3d6fa8; height: 14px; left: 10px; width: 36px; }
+  .doll .body { position: absolute; left: 10px; top: 34px; width: 36px; height: 48px;
+    background: #444a5a; box-shadow: inset -3px -3px rgba(0, 0, 0, 0.25); }
+  .doll .legs { position: absolute; left: 14px; top: 82px; width: 28px; height: 30px;
+    background: repeating-linear-gradient(90deg, #2b2b33 0 11px, transparent 11px 17px); }
+  .doll .tag { position: absolute; left: 50%; bottom: -16px; translate: -50% 0;
+    font-size: var(--fs-tiny); color: rgba(255, 255, 255, 0.7); white-space: nowrap; }
+  .stage-hint { position: absolute; left: 8px; bottom: 6px; color: rgba(255, 255, 255, 0.55);
+    font-size: var(--fs-tiny); pointer-events: none; }
+  .tl { height: 100%; display: flex; flex-direction: column; gap: 2px; padding: 4px 6px;
+    background: var(--field); box-shadow: var(--bevel-sunken); position: relative; overflow: hidden; }
+  .tl-row { position: relative; height: 16px; flex: none; }
+  .tl-ruler { cursor: ew-resize; background: repeating-linear-gradient(90deg,
+    var(--face-light) 0 1px, transparent 1px calc(100% / 24)); background-size: 100% 6px;
+    background-repeat: no-repeat; background-position: bottom; touch-action: none; }
+  .tl-ruler span { position: absolute; top: 0; font: 9px var(--font-mono); color: var(--text-off);
+    translate: 2px 0; pointer-events: none; }
+  .tl-seg { position: absolute; top: 2px; bottom: 2px; background: var(--face-mid);
+    box-shadow: var(--bevel-thin); font-size: var(--fs-tiny); padding: 0 4px; overflow: hidden;
+    white-space: nowrap; color: var(--text-dim); }
+  .tl-seg.is-on { background: var(--pick-soft); color: #fff; }
+  .tl-loop { position: absolute; top: 4px; bottom: 4px; background: rgba(79, 163, 216, 0.35);
+    box-shadow: inset 0 0 0 1px var(--info); }
+  .tl-song { height: 24px; flex: none; position: relative; background: var(--face-dark);
+    box-shadow: var(--bevel-thin-in); color: var(--text-off); font-size: var(--fs-small);
+    display: flex; align-items: center; padding: 0 8px; overflow: hidden; }
+  .tl-wave { position: absolute; inset: 3px 0; clip-path: inset(0 100% 0 0);
+    transition: clip-path var(--t-move) var(--ease-out); }
+  .tl-wave.is-on { clip-path: inset(0 0 0 0); }
+  .tl-wave i { position: absolute; bottom: 50%; width: 2px; background: var(--info);
+    translate: 0 50%; }
+  .tl-keys { flex: 1; min-height: 14px; position: relative; }
+  .tl-key { position: absolute; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px;
+    rotate: 45deg; background: var(--text-dim); box-shadow: 0 0 0 1px var(--shadow); }
+  .tl-head { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--pick);
+    pointer-events: none; z-index: 3; }
+  .tl-head::before { content: ""; position: absolute; top: 0; left: -5px; width: 11px; height: 9px;
+    background: var(--handle); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+  .rig-canvas { height: 100%; background: var(--paper); box-shadow: var(--bevel-sunken);
+    position: relative; overflow: hidden; }
+  .rig-canvas svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .rig-panel { height: 100%; padding: 6px; background: var(--face); overflow: auto; }
+  .rig-panel .list { height: 170px; }
+  .panel-note { color: var(--text-off); font-size: var(--fs-small); margin: 6px 0 0; }
+  .video-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 2fr;
+    grid-template-rows: 1fr auto; gap: 3px; }
+  .video-grid .list { min-height: 0; }
+  .reel-preview { background: #111; box-shadow: var(--bevel-sunken); display: flex;
+    align-items: center; justify-content: center; color: var(--text-off); position: relative; }
+  .reel { grid-column: 1 / -1; height: 74px; position: relative; background: var(--field);
+    box-shadow: var(--bevel-sunken); }
+  .clip { position: absolute; top: 20px; height: 26px; background: #3d6fa8; box-shadow: var(--bevel-thin);
+    font-size: var(--fs-tiny); padding: 0 4px; line-height: 26px; color: #fff; overflow: hidden; }
+  .clip.shot { background: #7a3a52; }
+  .cut-mark { position: absolute; top: 2px; bottom: 2px; width: 2px; background: var(--handle);
+    cursor: pointer; }
+  .cut-mark::before { content: ""; position: absolute; inset: 0 -6px; }
+  .gap { position: absolute; top: 20px; height: 26px; border: 1px dashed var(--text-off);
+    cursor: pointer; color: var(--text-off); font-size: var(--fs-tiny); text-align: center; line-height: 24px; }
+  .gap:hover, .cut-mark:hover { filter: brightness(1.3); outline: 1px solid #fff; }
+
+  /* Status bar */
+  .statusbar { display: flex; gap: 2px; margin-top: 3px; font-size: var(--fs-small); }
+  .statusbar > span { box-shadow: var(--bevel-thin-in); padding: 2px 8px; height: 20px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .statusbar > .msg { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .statusbar .pin { color: var(--handle); }
+  .statusbar .pin button { padding: 0 4px; min-width: 0; }
+  .statusbar .echo { color: var(--handle); }
+
+  /* Command palette */
+  .palette { position: absolute; top: 58px; left: 50%; translate: -50% 0; width: 440px; z-index: 50;
+    padding: 4px; background: var(--face); box-shadow: var(--bevel-raised), var(--drop);
+    animation: pal-in var(--t-pop) var(--ease-back); }
+  @keyframes pal-in { from { opacity: 0; translate: -50% -12px; } to { opacity: 1; translate: -50% 0; } }
+  .palette .field { width: 100%; }
+  .palette .list { max-height: 260px; margin-top: 4px; }
+  .palette .list-row kbd { margin-left: auto; font: 10px var(--font-mono); color: var(--text-off); }
+  .palette .list-row .why-t { color: var(--text-off); font-size: var(--fs-tiny); font-style: italic; }
+  .palette .list-row.is-off { color: var(--text-off); }
+  .palette .menu-of { color: var(--text-off); font-size: var(--fs-tiny); width: 34px; flex: none; }
+
+  /* Closed window */
+  .closed { padding: 40px 16px; text-align: center; color: var(--text-dim); }
+  .closed p { margin: 0 0 12px; }
+
+  /* Try panel and covered list */
+  .try { margin-top: 14px; padding: 10px 12px; background: var(--face); box-shadow: var(--bevel-raised); }
+  .try h2, .cov h2 { font: 13px var(--font-pixel); margin: 0 0 6px; color: var(--text); }
+  .try .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 6px 0; }
+  .try .lbl { color: var(--text-off); font-size: var(--fs-small); min-width: 84px; }
+  .cov { margin-top: 14px; padding: 8px 12px; background: var(--face); box-shadow: var(--bevel-raised); }
+  .cov summary { cursor: pointer; font: 13px var(--font-pixel); }
+  .cov .scrollbox { margin-top: 8px; }
+  .cov table { border-collapse: collapse; width: 100%; font-size: var(--fs-small); min-width: 560px; }
+  .cov td, .cov th { padding: 3px 6px; border-bottom: 1px solid var(--face-dark); text-align: left;
+    vertical-align: top; }
+  .cov td:first-child { color: var(--handle); font-family: var(--font-mono); white-space: nowrap; }
+  .cov th { color: var(--text-off); font-weight: normal; }
+  .cov tr.is-entry td:first-child { color: var(--info); }
+
+  /* Dialogs */
+  .dlg-pad { padding: 10px 12px 4px; }
+  .frow { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 6px 10px; margin: 0 0 8px; }
+  .frow > .k { color: var(--text-dim); }
+  .frow .field { width: 100%; }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 10px; }
+  .tile { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px;
+    height: 84px; padding: 6px 2px; border: 0; cursor: pointer; color: var(--text);
+    background: var(--face); box-shadow: var(--bevel-raised); font-size: var(--fs-small);
+    transition: translate var(--t-hover) var(--ease-out), scale var(--t-pop) var(--ease-back); }
+  .tile:hover { translate: 0 var(--lift-px); filter: brightness(1.12); }
+  .tile:active { scale: 0.96; }
+  .tile i { display: block; border: 1px solid var(--text); margin-bottom: auto; margin-top: auto;
+    font-style: normal; font-size: 9px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+  .tile small { color: var(--text-off); font-size: var(--fs-tiny); }
+  .tile[aria-checked="true"] { background: var(--field); box-shadow: var(--bevel-pressed);
+    outline: 2px solid var(--pick); outline-offset: -2px; }
+  .tile[aria-checked="true"] i { border-color: var(--pick); }
+  .sizes { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+  .num.is-error .num-input { border-bottom: 2px solid var(--pick); }
+  .dlg-err { min-height: 16px; margin: 0; color: var(--pick); font-size: var(--fs-small); }
+  .ex { width: min(640px, calc(100vw - 32px)); }
+  #exDlg { position: fixed; top: 64px; left: 50%; translate: -50% 0; margin: 0; z-index: 55; }
+  #exDlg.is-moved { translate: none; }
+  #exDlg .win-title { cursor: move; touch-action: none; }
+  .ex-grid { display: grid; grid-template-columns: 1fr 210px; gap: 10px; }
+  .ex-frames { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--t-pop) var(--ease-out); }
+  .ex-frames.is-open { grid-template-rows: 1fr; }
+  .ex-frames > div { overflow: hidden; min-height: 0; }
+  .ex-frames .sizes { padding: 2px 0 8px 80px; }
+  .ex-file { display: flex; gap: 6px; }
+  .ex-file .field { flex: 1; min-width: 0; }
+  .ex-prev { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .ex-box { position: relative; background: var(--stage); box-shadow: 0 0 0 1px var(--shadow);
+    overflow: hidden; transition: width var(--t-move) var(--ease-back), height var(--t-move) var(--ease-back); }
+  .ex-box .mini { position: absolute; bottom: 12%; width: 14%; height: 52%; }
+  .ex-box .mini::before { content: ""; position: absolute; left: 20%; right: 20%; top: 0; height: 30%;
+    border-radius: 50%; background: #f1c9a5; }
+  .ex-box .mini::after { content: ""; position: absolute; left: 15%; right: 15%; top: 32%; bottom: 0;
+    background: #444a5a; }
+  .ex-box.is-gif { filter: contrast(1.3) saturate(0.8); }
+  .ex-box.is-gif::after { content: ""; position: absolute; inset: 0;
+    background: repeating-conic-gradient(rgba(0, 0, 0, 0.18) 0 25%, transparent 0 50%) 0 0 / 4px 4px; }
+  .ex-px { position: absolute; right: 3px; bottom: 2px; font: 9px var(--font-mono); color: #fff;
+    background: var(--chip-bg); padding: 0 3px; z-index: 2; }
+  .ex-info { font-size: var(--fs-small); color: var(--text-dim); text-align: center; line-height: 1.5; }
+  .ex-info b { color: var(--text); font-weight: normal; }
+  .ex-range { position: relative; width: 100%; height: 10px; background: var(--field); box-shadow: var(--bevel-thin-in); }
+  .ex-range i { position: absolute; top: 2px; bottom: 2px; background: var(--pick);
+    transition: left var(--t-move) var(--ease-out), width var(--t-move) var(--ease-out); }
+  .ex-bar { position: relative; height: 22px; margin-top: 10px; }
+  .ex-fill { position: absolute; left: 3px; top: 3px; bottom: 3px; width: 0;
+    background: repeating-linear-gradient(90deg, var(--pick) 0 8px, transparent 8px 10px); }
+  .ex-bar.is-done .ex-fill { background: repeating-linear-gradient(90deg, var(--ok) 0 8px, transparent 8px 10px); }
+  .ex-count { position: absolute; inset: 0; text-align: center; font: 11px/22px var(--font-mono);
+    color: #fff; text-shadow: 1px 1px 0 #000; }
+  .ex-status { min-height: 18px; margin: 4px 0 0; font-size: var(--fs-small); color: var(--text-dim); }
+  .ex-status.is-bad { color: var(--pick); }
+  .ex-status.is-good { color: var(--ok); }
+  .fp { width: min(560px, calc(100vw - 32px)); }
+  .fp-top { display: flex; gap: 6px; margin-bottom: 6px; }
+  .fp-top .field { flex: 1; min-width: 0; display: flex; align-items: center; }
+  .fp-grid { display: grid; grid-template-columns: 120px 1fr; gap: 6px; height: 200px; }
+  .fp-grid .list { min-height: 0; }
+  .fp-foot { display: grid; grid-template-columns: 60px 1fr; gap: 6px 8px; align-items: center; margin-top: 8px; }
+  .fp-foot .field { width: 100%; }
+  .fp-filter { color: var(--text-dim); font-size: var(--fs-small); }
+  .fp-hidden { padding: 4px 10px; color: var(--text-off); font-size: var(--fs-tiny); font-style: italic; }
+  .text-in { width: 100%; height: 90px; resize: vertical; padding: 4px 6px; border: 0; color: var(--text);
+    background: var(--field); box-shadow: var(--bevel-sunken); font: inherit; }
+  .text-in:focus { outline: none; box-shadow: var(--bevel-sunken), 0 0 0 1px var(--handle-dark); }
+  .colours { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-bottom: 8px; }
+  .colours button { height: 22px; border: 0; cursor: pointer; box-shadow: var(--bevel-thin);
+    transition: scale var(--t-pop) var(--ease-back); }
+  .colours button:hover { scale: 1.1; }
+  .colours button[aria-checked="true"] { outline: 2px solid var(--pick); outline-offset: 1px; }
+  .colour-cmp { display: flex; height: 28px; width: 120px; box-shadow: 0 0 0 1px var(--shadow);
+    background: repeating-conic-gradient(#888 0 25%, #555 0 50%) 0 0 / 10px 10px; }
+  .colour-cmp i { flex: 1; }
+  .keys-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 18px;
+    max-height: 60vh; overflow: auto; }
+  .keys-grid h4 { margin: 6px 0 2px; font: 11px var(--font-pixel); color: var(--handle); grid-column: 1 / -1; }
+  .keys-grid div { display: flex; justify-content: space-between; gap: 10px; font-size: var(--fs-small);
+    border-bottom: 1px dotted var(--face-dark); }
+  .keys-grid kbd { font: 10px var(--font-mono); color: var(--text-dim); }
+  .keys-dlg { width: min(620px, calc(100vw - 32px)); }
+  @media (max-width: 600px) {
+    .ex-grid { grid-template-columns: 1fr; }
+    .tiles { grid-template-columns: repeat(2, 1fr); }
+    .fp-grid { grid-template-columns: 1fr; height: auto; }
+    .fp-grid .list { height: 110px; }
+    .ex-frames .sizes { padding-left: 0; }
+    .frow { grid-template-columns: 60px 1fr; }
+  }
+</style>
+</head>
+<body>
+<nav class="pnav" aria-label="Prototype pages">
+  <b>Snapper prototype</b>
+  <a href="index.html">Hub</a>
+  <a href="shell.html" aria-current="page">Shell</a>
+  <a href="stage.html">Stage</a>
+  <a href="timeline.html">Timeline</a>
+  <a href="inspector.html">Inspector</a>
+  <a href="rig.html">Rig</a>
+  <a href="video.html">Video</a>
+  <a href="kit.html">Kit</a>
+</nav>
+
+<main>
+  <header class="lead">
+    <h1>Main window</h1>
+    <p>The frame around everything: title, menus, mode tabs, transport, docks, status line and the
+      dialogs. All of it is live. Drag Bob or Teto to make an unsaved change, then try
+      <kbd>Ctrl+S</kbd>, <kbd>Ctrl+Z</kbd>, <kbd>Ctrl+E</kbd>, <kbd>Ctrl+/</kbd>, <kbd>Space</kbd>,
+      <kbd>F10</kbd> or <kbd>Alt+F</kbd> for the menus, <kbd>?</kbd> for every key. The browser keeps
+      <kbd>Ctrl+N</kbd> and <kbd>Ctrl+Q</kbd> for itself, so use the File menu or the palette for those.</p>
+  </header>
+
+  <div class="appbox" id="appbox">
+    <div class="win app" id="app">
+      <div class="win-title" id="winTitle">
+        <span class="win-title-text" id="titleText"></span>
+        <span class="win-btns">
+          <button class="win-btn min" id="winMin" aria-label="Minimize" data-tip="Minimize"></button>
+          <button class="win-btn max" id="winMax" aria-label="Maximize" data-tip="Maximize"></button>
+          <button class="win-btn close" id="winClose" aria-label="Close" data-tip="Close Snapper" data-key="Ctrl+Q"></button>
+        </span>
+      </div>
+      <div class="menubar" role="menubar" id="menubar"></div>
+
+      <div class="app-strip">
+        <div class="tabs" role="tablist" aria-label="Mode" id="modeTabs">
+          <button class="tab" role="tab" aria-selected="true" aria-controls="p-pose" data-tab="pose"
+            data-tip="Pose: shot strip, stage and keyframe timeline.">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="3" r="2"/><path d="M8 5v6M4 8h8M8 11l-3 4M8 11l3 4"/></svg>Pose</button>
+          <button class="tab" role="tab" aria-selected="false" aria-controls="p-rig" data-tab="rig" tabindex="-1"
+            data-tip="Rig: rig canvas beside the rig panel.">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="3" cy="13" r="2"/><circle cx="13" cy="3" r="2"/><path d="M4.5 11.5l7-7"/></svg>Rig</button>
+          <button class="tab" role="tab" aria-selected="false" aria-controls="p-video" data-tab="video" tabindex="-1"
+            data-tip="Video: shot bin, reel preview and reel timeline. Hides the docks.">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="14" height="10"/><path d="M4 3v10M12 3v10"/></svg>Video</button>
+        </div>
+        <div class="transport" role="toolbar" aria-label="Transport">
+          <button class="tool" id="tFirst" aria-label="First frame" data-tip="First frame" data-key="Home">|&lt;</button>
+          <button class="tool" id="tPrev" aria-label="Previous frame" data-tip="Previous frame" data-key="Left or ,">&lt;</button>
+          <button class="tool" id="tPlay" aria-label="Play" data-tip="Play" data-key="Space">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6z"/></svg></button>
+          <button class="tool" id="tNext" aria-label="Next frame" data-tip="Next frame" data-key="Right or .">&gt;</button>
+          <button class="tool" id="tLast" aria-label="Last frame" data-tip="Last frame" data-key="End">&gt;|</button>
+          <span class="counter sunken" id="counter" data-tip="Frame and time at 24 fps">F 024 0:01.00</span>
+          <span class="tl-name" id="tlName">Shot timeline</span>
+        </div>
+        <span class="grow"></span>
+        <div class="undo-row">
+          <button class="btn small" id="undoBtn" data-key="Ctrl+Z">Undo</button>
+          <button class="btn small" id="redoBtn" data-key="Ctrl+Y">Redo</button>
+        </div>
+        <button class="findbox" id="findBox" data-tip="Find any command by name" data-key="Ctrl+/">
+          Find a command...<kbd>Ctrl+/</kbd></button>
+      </div>
+
+      <div class="app-body" id="appBody">
+        <div class="dock-col" id="colL">
+          <section class="dock" id="dockCast" data-name="Cast">
+            <div class="dock-head">
+              <button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title">Cast</span></button>
+              <button class="win-btn max" data-dock-float aria-label="Float Cast" data-tip="Float. Right click the title for more."></button>
+              <button class="win-btn close" data-dock-close aria-label="Close Cast" data-tip="Close. Bring it back from the View menu."></button>
+            </div>
+            <div class="dock-body"><div class="dock-inner"><div class="dock-pad">
+              <div class="list" role="listbox" aria-label="Dolls" id="castList">
+                <div class="list-row" role="option" data-doll="teto"><span class="swatch" style="background: var(--pick)"></span>Teto<span class="row-meta">12 pieces</span></div>
+                <div class="list-row" role="option" data-doll="bob"><span class="swatch" style="background: #3d6fa8"></span>Bob<span class="row-meta">9 pieces</span></div>
+              </div>
+              <p>Cards and drag to stage live on <a href="stage.html">stage.html</a>.</p>
+            </div></div></div>
+          </section>
+        </div>
+
+        <div class="center">
+          <div id="p-pose" class="tab-panel" role="tabpanel" aria-label="Pose">
+            <div class="strip" id="strip" aria-label="Shot strip"></div>
+            <div class="vsplit" id="poseSplit">
+              <div class="pane" id="poseTop" style="flex-grow: 3; flex-basis: 0">
+                <div class="stage" id="poseStage" tabindex="0" aria-label="Stage">
+                  <div class="snap-guide is-v" id="guideV"></div>
+                  <span class="stage-hint">Drag a doll: one undo step, Escape cancels, snaps to the middle.</span>
+                </div>
+              </div>
+              <div class="split is-row" id="poseDiv" role="separator" aria-orientation="horizontal"
+                data-tip="Drag to resize. Double click: back to 3 to 1."></div>
+              <div class="pane" id="poseBottom" style="flex-grow: 1; flex-basis: 0">
+                <div class="tl" id="tl">
+                  <div class="tl-row tl-ruler" id="tlRuler" data-tip="Click or drag to move the playhead. Snaps to shot starts."></div>
+                  <div class="tl-row" id="tlShots"></div>
+                  <div class="tl-row" id="tlLoopRow"><div class="tl-loop" id="tlLoop" data-tip="Loop range 16 - 40"></div></div>
+                  <div class="tl-keys" id="tlKeys"></div>
+                  <div class="tl-song" id="tlSong"><span id="songLabel">No song. File, Choose song...</span><div class="tl-wave" id="tlWave"></div></div>
+                  <div class="tl-head" id="tlHead"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="p-rig" class="tab-panel" role="tabpanel" aria-label="Rig" hidden>
+            <div class="hsplit" id="rigSplit">
+              <div class="pane" id="rigLeft" style="flex-grow: 3; flex-basis: 0">
+                <div class="rig-canvas">
+                  <svg viewBox="0 0 300 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                    <g stroke="#7a1428" stroke-width="3" fill="none"><path d="M150 40v60M150 60l-40 30M150 60l40 30M150 100l-25 60M150 100l25 60"/></g>
+                    <g fill="#f2c230" stroke="#222"><circle cx="150" cy="40" r="5"/><circle cx="150" cy="60" r="5"/><circle cx="150" cy="100" r="5"/><circle cx="110" cy="90" r="4"/><circle cx="190" cy="90" r="4"/></g>
+                  </svg>
+                </div>
+              </div>
+              <div class="split is-col" id="rigDiv" role="separator" aria-orientation="vertical"
+                data-tip="Drag to resize. Double click: back to 3 to 1."></div>
+              <div class="pane" id="rigRight" style="flex-grow: 1; flex-basis: 0">
+                <div class="rig-panel">
+                  <div class="list" aria-label="Pieces">
+                    <div class="list-row">head</div><div class="list-row">body</div>
+                    <div class="list-row">arm L</div><div class="list-row">arm R</div><div class="list-row">legs</div>
+                  </div>
+                  <p class="panel-note">The rig canvas and panel are on <a href="rig.html">rig.html</a>. The hint in the status line stays until you clear it.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="p-video" class="tab-panel" role="tabpanel" aria-label="Video" hidden>
+            <div class="toolbar" aria-label="Video tools">
+              <button class="btn small" id="vImport" data-tip="Pick video files and lay them end to end.">Import video...</button>
+              <button class="btn small" aria-disabled="true" data-why="Pick a clip on the reel first.">Split at playhead</button>
+              <button class="btn small" id="vCut" data-tip="Drop or remove a cut at the playhead. Works while playing." data-key="M">Mark cut</button>
+              <button class="btn small" id="vTrack" data-tip="Add a track on top.">Add track</button>
+              <span class="panel-note" style="margin: 0 0 0 8px">Entry points only: the full Video tab is on <a href="video.html">video.html</a>.</span>
+            </div>
+            <div class="video-grid">
+              <div class="list" aria-label="Shot bin">
+                <div class="list-row">Shot 1<span class="row-meta">2.0 s</span></div>
+                <div class="list-row">Shot 2<span class="row-meta">2.0 s</span></div>
+                <div class="list-row">Shot 3<span class="row-meta">1.0 s</span></div>
+                <div class="list-row">intro_cut.mp4<span class="row-meta">4.5 s</span></div>
+              </div>
+              <div class="reel-preview">Reel preview</div>
+              <div class="reel" id="reel">
+                <div class="clip" style="left: 2%; width: 30%">intro_cut.mp4</div>
+                <div class="clip shot" style="left: 32%; width: 26%">Shot 1</div>
+                <div class="cut-mark" id="reelCut" style="left: 58%" data-tip="Cut: click for its transition popover (video.html)."></div>
+                <div class="clip shot" style="left: 58%; width: 18%">Shot 2</div>
+                <div class="gap" id="reelGap" style="left: 76%; width: 20%" data-tip="Gap: click to fill it (video.html).">gap</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dock-col" id="colR">
+          <section class="dock" id="dockInsp" data-name="Inspector">
+            <div class="dock-head">
+              <button class="dock-toggle"><span class="dock-caret"></span><span class="dock-title">Inspector</span></button>
+              <button class="win-btn max" data-dock-float aria-label="Float Inspector" data-tip="Float. Right click the title for more."></button>
+              <button class="win-btn close" data-dock-close aria-label="Close Inspector" data-tip="Close. Bring it back from the View menu."></button>
+            </div>
+            <div class="dock-body"><div class="dock-inner"><div class="dock-pad">
+              <div style="font-weight: bold; margin-bottom: 6px" id="inspHead">Shot 1</div>
+              <div class="num" data-value="2" data-step="0.5" data-min="0.5" data-max="20" data-unit="s" data-name="Shot length">
+                <span class="num-label">Length</span><input class="num-input" aria-label="Shot length"><span class="num-unit">s</span></div>
+              <p>Every box of the inspector is on <a href="inspector.html">inspector.html</a>.</p>
+            </div></div></div>
+          </section>
+        </div>
+        <div class="float-layer" id="floatLayer"></div>
+      </div>
+
+      <div class="statusbar" id="statusbar">
+        <span class="msg" id="statusMsg">Ready</span>
+        <span id="statusFrame">F 24 / 120</span>
+        <span id="statusSize">1920 x 1080</span>
+        <span>24 fps</span>
+        <span id="statusSave">Autosave on</span>
+      </div>
+      <div class="palette" id="palette" hidden role="dialog" aria-label="Find a command">
+        <input class="field" id="palInput" placeholder="Type a command, for example save or play" autocomplete="off" spellcheck="false">
+        <div class="list" id="palList" role="listbox"></div>
+      </div>
+    </div>
+    <div class="closed raised" id="closedCard" hidden>
+      <p id="closedMsg">Snapper is closed.</p>
+      <button class="btn primary" id="startBtn">Start Snapper</button>
+    </div>
+  </div>
+
+  <section class="try" aria-label="Try">
+    <h2>Try</h2>
+    <div class="row"><span class="lbl">Problems</span>
+      <button class="btn small" id="tryProblem" data-tip="A panel refuses something: it shakes and a toast says why.">Cause a problem</button>
+      <button class="btn small" id="tryAutosave">Autosave fails</button>
+      <button class="btn small" id="tryCrash" data-tip="Snapper stops without saving. The autosave is kept.">Crash Snapper</button>
+      <button class="toggle" id="tryLoop" aria-pressed="true" data-tip="Without a loop range, Export of Loop range is greyed.">
+        <span class="toggle-track"><span class="toggle-knob"></span></span>Loop range set</button>
+      <button class="toggle" id="tryFail" aria-pressed="false" data-tip="The next export stops with a disk full error.">
+        <span class="toggle-track"><span class="toggle-knob"></span></span>Next export fails</button>
+    </div>
+    <div class="row"><span class="lbl">File pickers</span>
+      <button class="btn small" data-picker="open">Open project</button>
+      <button class="btn small" data-picker="save">Save project</button>
+      <button class="btn small" data-picker="song">Choose song</button>
+      <button class="btn small" data-picker="picture">Add picture</button>
+      <button class="btn small" data-picker="video">Import video</button>
+      <button class="btn small" data-picker="fill">Fill the gap from</button>
+      <button class="btn small" data-picker="export">Export to</button>
+    </div>
+    <div class="row"><span class="lbl">Small dialogs</span>
+      <button class="btn small" id="tryText">Add text...</button>
+      <button class="btn small" id="tryBg">Shot background colour</button>
+      <button class="btn small" id="tryFill">Text fill colour</button>
+      <button class="btn small" id="tryRecover">Recover work</button>
+      <button class="btn small" id="tryRename">Rename shot</button>
+    </div>
+    <div class="row"><span class="lbl">Video entry</span>
+      <a href="video.html">Transition popover on a cut</a>
+      <a href="video.html">Fill the gap under a gap</a>
+      <span class="dim">(or click the cut and gap on the Video tab above)</span>
+    </div>
+  </section>
+
+  <details class="cov" id="cov">
+    <summary>Covered: inventory items on this page</summary>
+    <div class="scrollbox"><table><thead><tr><th>#</th><th>What</th><th>Where to try</th></tr></thead>
+      <tbody id="covBody"></tbody></table></div>
+  </details>
+</main>
+
+<!-- Unsaved changes (#290, #2) -->
+<dialog class="dialog" id="unsavedDlg" aria-labelledby="unsavedTitle">
+  <div class="win-title"><span class="win-title-text" id="unsavedTitle">Unsaved changes</span>
+    <span class="win-btns"><button class="win-btn close" aria-label="Cancel" data-close="cancel"></button></span></div>
+  <div class="dialog-body"><div class="dialog-icon is-ask">?</div>
+    <div><p style="margin: 0 0 4px"><b id="unsavedQ">Save the changes to teto_song first?</b></p>
+      <p class="dim" style="margin: 0" id="unsavedMore">You changed 1 thing since the last save.</p></div></div>
+  <div class="dialog-btns">
+    <button class="btn primary" data-close="save" autofocus>Save</button>
+    <button class="btn" data-close="discard">Discard</button>
+    <button class="btn" data-close="cancel">Cancel</button>
+  </div>
+</dialog>
+
+<!-- Recover work (#291, #13) -->
+<dialog class="dialog" id="recoverDlg" aria-labelledby="recoverTitle">
+  <div class="win-title"><span class="win-title-text" id="recoverTitle">Recover work</span>
+    <span class="win-btns"><button class="win-btn close" aria-label="Decide later" data-close="cancel"></button></span></div>
+  <div class="dialog-body"><div class="dialog-icon is-ask">?</div>
+    <div><p style="margin: 0 0 4px"><b>Snapper found work that was not saved.</b></p>
+      <p class="dim" style="margin: 0" id="recoverMore">From teto_song, autosaved a moment ago.</p></div></div>
+  <div class="dialog-btns">
+    <button class="btn primary" data-close="recover" autofocus>Recover</button>
+    <button class="btn" data-close="discard">Throw away</button>
+  </div>
+</dialog>
+
+<!-- Warning box for file failures (#25) -->
+<dialog class="dialog" id="errDlg" aria-labelledby="errTitle">
+  <div class="win-title"><span class="win-title-text" id="errTitle">Could not open</span>
+    <span class="win-btns"><button class="win-btn close" aria-label="Close" data-close="ok"></button></span></div>
+  <div class="dialog-body"><div class="dialog-icon">!</div>
+    <div><p style="margin: 0 0 4px"><b id="errHead">Could not open the file.</b></p>
+      <p class="dim" style="margin: 0" id="errWhy">Reason.</p></div></div>
+  <div class="dialog-btns"><button class="btn primary" data-close="ok" autofocus>OK</button></div>
+</dialog>
+
+<!-- New project (#31-#36) -->
+<dialog class="dialog" id="newDlg" aria-labelledby="newTitle" style="width: min(460px, calc(100vw - 32px))">
+  <div class="win-title"><span class="win-title-text" id="newTitle">New project</span>
+    <span class="win-btns"><button class="win-btn close" aria-label="Cancel" data-close="cancel" data-tip="Cancel" data-key="Esc"></button></span></div>
+  <div class="dlg-pad">
+    <label class="frow"><span class="k">Name</span>
+      <input class="field" id="npName" value="Untitled" spellcheck="false" autocomplete="off"></label>
+    <div class="tiles" role="radiogroup" aria-label="Size" id="npTiles">
+      <button class="tile" role="radio" data-w="1920" data-h="1080" data-tip="1920 x 1080 (YouTube)"><i style="width: 40px; height: 23px"></i>YouTube<small>1920 x 1080</small></button>
+      <button class="tile" role="radio" data-w="1080" data-h="1920" data-tip="1080 x 1920 (Shorts, TikTok)"><i style="width: 15px; height: 27px"></i>Shorts<small>1080 x 1920</small></button>
+      <button class="tile" role="radio" data-w="1080" data-h="1080" data-tip="1080 x 1080 (square)"><i style="width: 26px; height: 26px"></i>Square<small>1080 x 1080</small></button>
+      <button class="tile" role="radio" data-custom data-tip="Any size. Type it below."><i style="width: 30px; height: 22px; border-style: dashed">? x ?</i>Custom<small id="npCustomPx">your size</small></button>
+    </div>
+    <div class="sizes">
+      <span class="num" id="npW" data-value="1920" data-step="2" data-min="16" data-max="7680" data-unit="px" data-name="Width">
+        <span class="num-label">Width</span><input class="num-input" aria-label="Width"><span class="num-unit">px</span></span>
+      <span class="num" id="npH" data-value="1080" data-step="2" data-min="16" data-max="7680" data-unit="px" data-name="Height">
+        <span class="num-label">Height</span><input class="num-input" aria-label="Height"><span class="num-unit">px</span></span>
+    </div>
+    <p class="dlg-err" id="npErr"></p>
+  </div>
+  <div class="dialog-btns">
+    <button class="btn primary" id="npOk">OK</button>
+    <button class="btn" data-close="cancel">Cancel</button>
+  </div>
+</dialog>
+
+<!-- Export (#37-#48), non-modal -->
+<dialog class="dialog ex" id="exDlg" aria-labelledby="exTitle">
+  <div class="win-title" id="exHandle"><span class="win-title-text" id="exTitle">Export</span>
+    <span class="win-btns"><button class="win-btn close" id="exX" aria-label="Close" data-tip="Close" data-key="Esc"></button></span></div>
+  <div class="dlg-pad">
+    <div class="ex-grid">
+      <div>
+        <div class="frow"><span class="k">Format</span>
+          <span class="seg" id="exFormat" role="group" aria-label="Format">
+            <button data-value="mp4" aria-pressed="true" data-tip="MP4 video with the song">MP4 + song</button>
+            <button data-value="gif" aria-pressed="false" data-tip="GIF, no sound. Sets Size to Half.">GIF</button>
+          </span></div>
+        <div class="frow"><span class="k">Range</span>
+          <span class="seg" id="exRange" role="group" aria-label="Range" style="flex-wrap: wrap">
+            <button data-value="whole" aria-pressed="true" id="exWhole">Whole master track</button>
+            <button data-value="loop" aria-pressed="false" id="exLoopBtn">Loop 16 - 40</button>
+            <button data-value="frames" aria-pressed="false">Frames...</button>
+          </span></div>
+        <div class="ex-frames" id="exFrames"><div><div class="sizes">
+          <span class="num" id="exFrom" data-value="0" data-min="0" data-max="119" data-name="From frame">
+            <span class="num-label">From</span><input class="num-input" aria-label="From frame"></span>
+          <span class="num" id="exTo" data-value="119" data-min="0" data-max="119" data-name="Up to frame">
+            <span class="num-label">Up to</span><input class="num-input" aria-label="Up to frame"></span>
+        </div></div></div>
+        <div class="frow"><span class="k">Size</span>
+          <span style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+            <span class="seg" id="exSize" role="group" aria-label="Size">
+              <button data-value="1" aria-pressed="true">Full</button>
+              <button data-value="0.5" aria-pressed="false">Half</button>
+              <button data-value="0.25" aria-pressed="false">Quarter</button>
+            </span><span class="mono dim" id="exPx">1920 x 1080</span></span></div>
+        <div class="frow"><span class="k">File</span>
+          <span class="ex-file"><input class="field" id="exFile" value="~/Videos/teto_song.mp4" spellcheck="false" autocomplete="off">
+            <button class="btn small" id="exBrowse">Browse...</button></span></div>
+      </div>
+      <div class="ex-prev" aria-label="Preview">
+        <div class="ex-box" id="exBox"><span class="mini" style="left: 26%"></span><span class="mini" style="left: 58%"></span>
+          <span class="ex-px" id="exBoxPx">1920 x 1080</span></div>
+        <div class="ex-range" id="exRangeBar" data-tip="Which frames go into the file"><i id="exRangeFill"></i></div>
+        <div class="ex-info" id="exInfo"></div>
+      </div>
+    </div>
+    <div class="ex-bar sunken" id="exBar"><div class="ex-fill" id="exFill"></div><span class="ex-count" id="exCount">0 / 120</span></div>
+    <p class="ex-status" id="exStatus">Ready. Export keeps running while you work.</p>
+  </div>
+  <div class="dialog-btns">
+    <button class="btn primary" id="exGo" data-key="Enter">Export</button>
+    <button class="btn" id="exClose" data-key="Esc">Close</button>
+  </div>
+</dialog>
+
+<!-- File picker (#295) -->
+<dialog class="dialog fp" id="fpDlg" aria-labelledby="fpTitle">
+  <div class="win-title"><span class="win-title-text" id="fpTitle">Open project</span>
+    <span class="win-btns"><button class="win-btn close" aria-label="Cancel" data-close="cancel"></button></span></div>
+  <div class="dlg-pad">
+    <div class="fp-top"><button class="btn small" id="fpUp" data-tip="Up one folder">Up</button>
+      <span class="field" id="fpDir">~/Snapper</span></div>
+    <div class="fp-grid">
+      <div class="list" id="fpPlaces" aria-label="Places"></div>
+      <div class="list" id="fpFiles" role="listbox" aria-label="Files" tabindex="0"></div>
+    </div>
+    <div class="fp-foot">
+      <span class="dim">Name</span><input class="field" id="fpName" spellcheck="false" autocomplete="off">
+      <span class="dim">Type</span><span class="fp-filter" id="fpFilter">Snapper projects (*.snap)</span>
+    </div>
+    <p class="dlg-err" id="fpErr"></p>
+  </div>
+  <div class="dialog-btns">
+    <button class="btn primary" id="fpOk">Open</button>
+    <button class="btn" data-close="cancel">Cancel</button>
+  </div>
+</dialog>
+
+<!-- Add text (#293) -->
+<dialog class="dialog" id="textDlg" aria-labelledby="textTitle">
+  <div class="win-title"><span class="win-title-text" id="textTitle">Add text</span>
+    <span class="win-btns"><button class="win-btn close" aria-label="Cancel" data-close="cancel"></button></span></div>
+  <div class="dlg-pad">
+    <textarea class="text-in" id="textIn" placeholder="Words (Enter for a line break)" aria-label="Words"></textarea>
+    <p class="dlg-err dim" style="color: var(--text-off)">Enter is a new line. Ctrl+Enter is OK.</p>
+  </div>
+  <div class="dialog-btns">
+    <button class="btn primary" id="textOk" data-key="Ctrl+Enter">OK</button>
+    <button class="btn" data-close="cancel">Cancel</button>
+  </div>
+</dialog>
+
+<!-- Colour picker (#294) -->
+<dialog class="dialog" id="colourDlg" aria-labelledby="colourTitle">
+  <div class="win-title"><span class="win-title-text" id="colourTitle">Shot background</span>
+    <span class="win-btns"><button class="win-btn close" aria-label="Cancel" data-close="cancel"></button></span></div>
+  <div class="dlg-pad">
+    <div class="colours" id="colours" role="radiogroup" aria-label="Colours"></div>
+    <div class="frow"><span class="k">Hex</span><input class="field" id="hexIn" value="#4a4a52" spellcheck="false" style="width: 100px"></div>
+    <div class="frow" id="alphaRow"><span class="k">See-through</span>
+      <span style="display: flex; align-items: center; gap: 8px"><div class="slider" id="alpha" data-name="Alpha" data-min="0" data-max="100" data-value="100" data-unit="%" data-snaps="0,50,100" aria-label="Alpha" style="width: 150px"></div><span class="mono" id="alphaOut">100 %</span></span></div>
+    <div class="frow"><span class="k">Old, new</span><span class="colour-cmp"><i id="cOld"></i><i id="cNew"></i></span></div>
+  </div>
+  <div class="dialog-btns">
+    <button class="btn primary" id="colourOk">OK</button>
+    <button class="btn" data-close="cancel">Cancel</button>
+  </div>
+</dialog>
+
+<!-- Keyboard shortcuts (F19) -->
+<dialog class="dialog keys-dlg" id="keysDlg" aria-labelledby="keysTitle">
+  <div class="win-title"><span class="win-title-text" id="keysTitle">Keyboard shortcuts</span>
+    <span class="win-btns"><button class="win-btn close" aria-label="Close" data-close="ok"></button></span></div>
+  <div class="dlg-pad"><div class="keys-grid" id="keysGrid"></div></div>
+  <div class="dialog-btns"><button class="btn primary" data-close="ok">Close</button></div>
+</dialog>
+
+<script src="kit.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  const kFps = 24;
+  const kShotLen = 120;
+  const kReelLen = 300;
+  const kLoop = { from: 16, to: 40 };
+  const kShots = [
+    { name: "Shot 1", from: 0, to: 47 },
+    { name: "Shot 2", from: 48, to: 95 },
+    { name: "Shot 3", from: 96, to: 119 }
+  ];
+  const kMaxLoop = 100000;
+  const undo = new Kit.UndoStack(100);
+  const app = $("#app");
+
+  function basename(p) { return String(p).split("/").pop(); }
+  function pad3(n) { return String(n).padStart(3, "0"); }
+  function timeOf(f) {
+    const s = f / kFps;
+    const m = Math.floor(s / 60);
+    return m + ":" + (s - m * 60).toFixed(2).padStart(5, "0");
+  }
+  /* Wait for a kit dialog to close, then hand back its return value. */
+  function ask(dlg) {
+    return new Promise((resolve) => {
+      dlg.addEventListener("close", () => resolve(dlg.returnValue), { once: true });
+      Kit.dialog.open(dlg);
+    });
+  }
+
+  /* ---------- Project: name, path, saved marker, song, snapshot ---------- */
+  const Project = {
+    name: "teto_song", path: "~/Snapper/teto_song.snap", w: 1920, h: 1080,
+    song: "", loop: true, saved_top: null, saved: null,
+    top() { return undo.done.length ? undo.done[undo.done.length - 1] : null; },
+    get dirty() { return this.top() !== this.saved_top; },
+    get changes() {
+      const is_clean = !this.dirty;
+      if (is_clean) return 0;
+      return Math.max(1, undo.done.length - (undo.done.indexOf(this.saved_top) + 1));
+    },
+    markSaved() {
+      this.saved_top = this.top();
+      this.saved = { dolls: Dolls.snapshot(), song: this.song };
+    },
+    fresh(name, path, w, h) {
+      this.name = name; this.path = path; this.w = w; this.h = h;
+      undo.done.length = 0; undo.undone.length = 0;
+      this.saved_top = null;
+      undo.changed("init");
+      this.markSaved();
+    },
+    get fileName() { return this.path ? basename(this.path) : this.name; }
+  };
+
+  /* ---------- App state ---------- */
+  const State = {
+    mode: "pose", frame: 24, playing: false, shot: 0, timer: 0,
+    closed: false, autosave: false, rigHint: true, failNext: false,
+    recent: [
+      { name: "bob_dance.snap", path: "~/Snapper/bob_dance.snap" },
+      { name: "intro.snap", path: "~/Old/intro.snap", gone: true },
+      { name: "old_test.snap", path: "~/Snapper/old_test.snap" }
+    ]
+  };
+  function length() { return State.mode === "video" ? kReelLen : kShotLen; }
+
+  /* ---------- Dolls on the stage: drag is one undo step ---------- */
+  const Dolls = {
+    list: [
+      { id: "teto", name: "Teto", x: 120, y: 40, cls: "" },
+      { id: "bob", name: "Bob", x: 300, y: 56, cls: "blue" }
+    ],
+    els: {},
+    snapshot() { return this.list.map((d) => ({ id: d.id, x: d.x, y: d.y })); },
+    restore(snap) {
+      snap.forEach((s) => {
+        const d = this.list.find((x) => x.id === s.id);
+        if (d) { d.x = s.x; d.y = s.y; this.place(d); }
+      });
+    },
+    place(d) {
+      const el = this.els[d.id];
+      el.style.left = d.x + "px";
+      el.style.top = d.y + "px";
+    },
+    pick(id) {
+      Object.keys(this.els).forEach((k) => this.els[k].classList.toggle("is-picked", k === id));
+      $$("#castList .list-row").forEach((r) => r.setAttribute("aria-selected", String(r.dataset.doll === id)));
+    },
+    build() {
+      const stage = $("#poseStage");
+      const guide = $("#guideV");
+      this.list.forEach((d) => {
+        const el = document.createElement("div");
+        el.className = "item doll " + d.cls;
+        el.innerHTML = '<span class="hair"></span><span class="head"></span><span class="body"></span><span class="legs"></span><span class="tag">' + d.name + "</span>";
+        el.setAttribute("aria-label", d.name);
+        stage.appendChild(el);
+        this.els[d.id] = el;
+        this.place(d);
+        let from = null;
+        const sn = Kit.snapper();
+        Kit.drag(el, {
+          ghost: true,
+          onDown: () => this.pick(d.id),
+          onStart: () => { from = { x: d.x, y: d.y }; sn.reset(); },
+          onMove: (s) => {
+            const mid = stage.clientWidth / 2 - el.offsetWidth / 2;
+            const hit = sn.test(from.x + s.dx, [{ at: mid, el: guide }]);
+            s.snapped = Boolean(hit.hit);
+            guide.style.left = (stage.clientWidth / 2) + "px";
+            guide.classList.toggle("is-on", s.snapped);
+            d.x = Math.round(hit.value);
+            d.y = Math.round(Math.max(-20, from.y + s.dy));
+            this.place(d);
+          },
+          chip: (s) => (s.snapped ? "middle" : (d.x - from.x >= 0 ? "+" : "") + (d.x - from.x) + ", " +
+            (d.y - from.y >= 0 ? "+" : "") + (d.y - from.y) + " px"),
+          onEnd: (s) => {
+            guide.classList.remove("is-on");
+            const to = { x: d.x, y: d.y };
+            const was = from;
+            if (s.snapped) Kit.bounce(el, s.mx, s.my);
+            const set = (p) => { d.x = p.x; d.y = p.y; this.place(d); Kit.flash(el); this.pick(d.id); };
+            undo.push("Move " + d.name, () => set(was), () => set(to));
+          },
+          onCancel: () => { guide.classList.remove("is-on"); d.x = from.x; d.y = from.y; this.place(d); }
+        });
+      });
+      Kit.hoverOutline(stage, { items: ".item" });
+      stage.addEventListener("pointerdown", (e) => {
+        const on_empty = !e.target.closest(".item");
+        if (on_empty) this.pick(null);
+      });
+      $("#castList").addEventListener("click", (e) => {
+        const row = e.target.closest(".list-row");
+        if (row) { this.pick(row.dataset.doll); Kit.flash(this.els[row.dataset.doll]); }
+      });
+    }
+  };
+
+  /* ---------- Status line: pinned hints, echo of the last command ---------- */
+  const Status = {
+    echo_timer: 0,
+    paint() {
+      const msg = $("#statusMsg");
+      msg.textContent = "";
+      const show_pin = State.mode === "rig" && State.rigHint;
+      if (show_pin) {
+        const pin = document.createElement("span");
+        pin.className = "pin";
+        pin.textContent = "Rig: drag from a piece to its parent to link them.";
+        const x = document.createElement("button");
+        x.className = "btn small";
+        x.textContent = "x";
+        x.setAttribute("aria-label", "Clear hint");
+        x.dataset.tip = "Clear this hint";
+        x.addEventListener("click", () => { State.rigHint = false; this.paint(); });
+        msg.appendChild(pin);
+        msg.appendChild(x);
+        return;
+      }
+      msg.textContent = this.text || "Ready";
+      if (this.is_echo) msg.classList.add("echo"); else msg.classList.remove("echo");
+    },
+    say(text, echo) {
+      this.text = text;
+      this.is_echo = Boolean(echo);
+      this.paint();
+      window.clearTimeout(this.echo_timer);
+      this.echo_timer = window.setTimeout(() => { this.text = ""; this.is_echo = false; this.paint(); }, 2200);
+    }
+  };
+
+  /* ---------- Transport and playhead ---------- */
+  const Transport = {
+    set(f, quiet) {
+      const len = length();
+      const next = ((Math.round(f) % len) + len) % len;
+      const changed = next !== State.frame;
+      State.frame = next;
+      if (changed && !quiet) Kit.play($("#counter"), "k-bump", "pop");
+      this.follow();
+      paintTransport();
+    },
+    step(dir) { this.set(State.frame + dir); },
+    toggle() {
+      State.playing = !State.playing;
+      window.clearInterval(State.timer);
+      if (State.playing) State.timer = window.setInterval(() => this.set(State.frame + 1, true), 1000 / kFps);
+      paintTransport();
+    },
+    stop() { if (State.playing) this.toggle(); },
+    /* Playing or stepping into a shot picks that shot (#14). */
+    follow() {
+      const on_shots = State.mode !== "video";
+      if (!on_shots) return;
+      const i = kShots.findIndex((s) => State.frame >= s.from && State.frame <= s.to);
+      const moved = i >= 0 && i !== State.shot;
+      if (moved) { State.shot = i; paintShots(); }
+    }
+  };
+  function paintTransport() {
+    const len = length();
+    $("#counter").textContent = "F " + pad3(State.frame) + "  " + timeOf(State.frame);
+    $("#tlName").textContent = State.mode === "video" ? "Reel timeline" : "Shot timeline";
+    $("#statusFrame").textContent = "F " + State.frame + " / " + len;
+    const play = $("#tPlay");
+    play.innerHTML = State.playing
+      ? '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h4v12H3zM9 2h4v12H9z"/></svg>'
+      : '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6z"/></svg>';
+    play.setAttribute("aria-label", State.playing ? "Pause" : "Play");
+    play.dataset.tip = State.playing ? "Pause" : "Play";
+    play.setAttribute("aria-pressed", String(State.playing));
+    $("#tlHead").style.left = "calc(6px + (100% - 12px) * " + (State.frame / kShotLen) + ")";
+    const pm = $('[data-cmd="play"] span');
+    if (pm) pm.textContent = State.playing ? "Pause" : "Play";
+  }
+  function paintShots() {
+    $$("#strip .chip").forEach((c, i) => c.setAttribute("aria-pressed", String(i === State.shot)));
+    $$("#tlShots .tl-seg").forEach((c, i) => c.classList.toggle("is-on", i === State.shot));
+    $("#inspHead").textContent = kShots[State.shot].name;
+  }
+  function buildTimeline() {
+    const strip = $("#strip");
+    const shots = $("#tlShots");
+    const ruler = $("#tlRuler");
+    kShots.forEach((s, i) => {
+      const c = document.createElement("button");
+      c.className = "chip";
+      c.textContent = s.name;
+      c.dataset.tip = s.name + ": frames " + s.from + " - " + s.to;
+      c.addEventListener("click", () => { State.shot = i; Transport.set(s.from); paintShots(); });
+      strip.appendChild(c);
+      const seg = document.createElement("div");
+      seg.className = "tl-seg";
+      seg.style.left = (s.from / kShotLen * 100) + "%";
+      seg.style.width = ((s.to - s.from + 1) / kShotLen * 100) + "%";
+      seg.textContent = s.name;
+      shots.appendChild(seg);
+    });
+    for (let f = 0; f < kShotLen; f += 24) {
+      const t = document.createElement("span");
+      t.style.left = (f / kShotLen * 100) + "%";
+      t.textContent = String(f);
+      ruler.appendChild(t);
+    }
+    [6, 20, 34, 52, 70, 88, 100, 112].forEach((f) => {
+      const k = document.createElement("span");
+      k.className = "tl-key";
+      k.style.left = (f / kShotLen * 100) + "%";
+      $("#tlKeys").appendChild(k);
+    });
+    const loop = $("#tlLoop");
+    loop.style.left = (kLoop.from / kShotLen * 100) + "%";
+    loop.style.width = ((kLoop.to - kLoop.from) / kShotLen * 100) + "%";
+    const wave = $("#tlWave");
+    for (let i = 0; i < 180; i++) {
+      const b = document.createElement("i");
+      b.style.left = (i / 180 * 100) + "%";
+      b.style.height = (20 + 70 * Math.abs(Math.sin(i * 0.37) * Math.cos(i * 0.11))) + "%";
+      wave.appendChild(b);
+    }
+    const sn = Kit.snapper();
+    const frameAt = (x) => {
+      const r = ruler.getBoundingClientRect();
+      const px = Math.min(Math.max(0, x - r.left), r.width);
+      const starts = kShots.map((s) => ({ at: s.from / kShotLen * r.width, el: shots.children[kShots.indexOf(s)] }));
+      const hit = sn.test(px, starts);
+      return { f: Math.round(hit.value / r.width * kShotLen), snapped: Boolean(hit.hit) };
+    };
+    Kit.drag(ruler, {
+      threshold: 0,
+      onDown: (s) => { sn.reset(); Transport.stop(); Transport.set(frameAt(s.x0).f); },
+      onMove: (s) => { const h = frameAt(s.x); s.snapped = h.snapped; Transport.set(h.f, true); },
+      chip: (s) => "F " + pad3(State.frame) + (s.snapped ? " shot start" : "")
+    });
+  }
+
+  /* ---------- Splitters (#11, #12): 4 px drawn, 12 px grab, double click 3:1 ---------- */
+  function splitter(divider, a, b, vertical, name) {
+    const box = divider.parentElement;
+    const sn = Kit.snapper();
+    let from = 0.75;
+    const ratio = () => parseFloat(a.style.flexGrow) / (parseFloat(a.style.flexGrow) + parseFloat(b.style.flexGrow));
+    const setRatio = (r) => { a.style.flexGrow = String(r * 4); b.style.flexGrow = String((1 - r) * 4); };
+    Kit.drag(divider, {
+      threshold: 0,
+      onStart: () => { from = ratio(); sn.reset(); },
+      onMove: (s) => {
+        const r = box.getBoundingClientRect();
+        const raw = vertical ? (s.y - r.top) / r.height : (s.x - r.left) / r.width;
+        const size = vertical ? r.height : r.width;
+        const hit = sn.test(raw * size, [{ at: 0.75 * size }]);
+        s.snapped = Boolean(hit.hit);
+        setRatio(Math.min(0.9, Math.max(0.3, hit.value / size)));
+      },
+      chip: () => name[0] + " " + Math.round(ratio() * 100) + " % / " + name[1] + " " + Math.round((1 - ratio()) * 100) + " %",
+      onCancel: () => setRatio(from)
+    });
+    divider.addEventListener("dblclick", () => {
+      box.classList.add("is-easing");
+      setRatio(0.75);
+      Kit.flash(divider);
+      window.setTimeout(() => box.classList.remove("is-easing"), Kit.ms("max") + 40);
+    });
+  }
+
+  /* ---------- Docks (#7, #9, #10): close, float, nest, hide in Video ---------- */
+  const Docks = {
+    st: {
+      dockCast: { open: true, side: "L", float: false, x: 220, y: 90 },
+      dockInsp: { open: true, side: "R", float: false, x: 520, y: 110 }
+    },
+    apply() {
+      const layer = $("#floatLayer");
+      Object.keys(this.st).forEach((id) => {
+        const el = document.getElementById(id);
+        const s = this.st[id];
+        const home = s.float ? layer : $(s.side === "L" ? "#colL" : "#colR");
+        if (el.parentElement !== home) home.appendChild(el);
+        el.hidden = !s.open;
+        el.style.left = s.float ? s.x + "px" : "";
+        el.style.top = s.float ? s.y + "px" : "";
+        const head = el.querySelector(".dock-head");
+        head.classList.toggle("is-grab", s.float);
+        const fb = el.querySelector("[data-dock-float]");
+        fb.dataset.tip = s.float ? "Dock it back. Right click the title for more." : "Float. Right click the title for more.";
+        fb.setAttribute("aria-label", (s.float ? "Dock " : "Float ") + el.dataset.name);
+      });
+      const in_video = State.mode === "video";
+      ["#colL", "#colR"].forEach((sel) => {
+        const col = $(sel);
+        const has = $$(".dock", col).some((d) => !d.hidden);
+        col.classList.toggle("is-empty", !has);
+        col.classList.toggle("is-out", in_video);
+      });
+      layer.classList.toggle("is-out", in_video);
+    },
+    toggle(id) {
+      const s = this.st[id];
+      const el = document.getElementById(id);
+      if (s.open) {
+        Kit.puff(el, false, () => { s.open = false; el.style.scale = ""; this.apply(); refresh(); });
+        return;
+      }
+      s.open = true;
+      this.apply();
+      Kit.pop(el, 0.9);
+      refresh();
+    },
+    float(id, on) {
+      const s = this.st[id];
+      s.float = on;
+      this.apply();
+      Kit.pop(document.getElementById(id), 0.94);
+    },
+    side(id, side) { const s = this.st[id]; s.float = false; s.side = side; this.apply(); Kit.flash(document.getElementById(id)); },
+    build() {
+      Object.keys(this.st).forEach((id) => {
+        const el = document.getElementById(id);
+        const head = el.querySelector(".dock-head");
+        el.querySelector("[data-dock-close]").addEventListener("click", () => this.toggle(id));
+        el.querySelector("[data-dock-float]").addEventListener("click", () => this.float(id, !this.st[id].float));
+        let from = null;
+        Kit.drag(head, {
+          filter: (e) => this.st[id].float && !e.target.closest(".win-btn"),
+          onClick: (s) => {
+            const on_toggle = s.target.closest(".dock-toggle");
+            if (on_toggle) Kit.dock.set(el, !el.classList.contains("is-collapsed"));
+          },
+          onStart: () => { from = { x: this.st[id].x, y: this.st[id].y }; },
+          onMove: (s) => {
+            const lw = $("#floatLayer").clientWidth - el.offsetWidth;
+            this.st[id].x = Math.round(Math.min(Math.max(0, from.x + s.dx), lw));
+            this.st[id].y = Math.round(Math.max(0, from.y + s.dy));
+            this.apply();
+          },
+          onCancel: () => { this.st[id].x = from.x; this.st[id].y = from.y; this.apply(); }
+        });
+        head.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          const s = this.st[id];
+          const other = s.side === "L" ? "R" : "L";
+          Kit.contextMenu(e.clientX, e.clientY, [
+            { head: el.dataset.name + " dock" },
+            { label: s.float ? "Dock it back" : "Float", run: () => this.float(id, !s.float) },
+            { label: other === "L" ? "Dock on the left" : "Dock on the right", run: () => this.side(id, other) },
+            { sep: true },
+            { label: "Close", run: () => this.toggle(id) }
+          ]);
+        });
+      });
+      this.apply();
+    }
+  };
+
+  /* ---------- Commands: one list feeds menus, keys, palette, key sheet ---------- */
+  const Cmd = {
+    list: [],
+    by: {},
+    add(c) { this.list.push(c); this.by[c.id] = c; },
+    why(c) { return c.why ? c.why() : ""; },
+    label(c) { return typeof c.label === "function" ? c.label() : c.label; },
+    /* from: the element that refused, so it can shake next to the reason. */
+    run(id, from, via) {
+      const c = this.by[id];
+      if (!c) return false;
+      const why = this.why(c);
+      if (why) { Kit.shake(from || menuTitleOf(c), why); return false; }
+      if (via === "key") {
+        Status.say(c.keys[0] + "  " + this.label(c), true);
+        const title = menuTitleOf(c);
+        if (title) Kit.flash(title);
+      }
+      c.run();
+      refresh();
+      return true;
+    }
+  };
+  function menuTitleOf(c) {
+    const m = $$("#menubar .menubar-item").find((b) => b.textContent === c.menu);
+    return m || null;
+  }
+  function noModal() { return !$$("dialog[open]").some((d) => d.id !== "exDlg"); }
+  function inVideo() { return State.mode === "video"; }
+
+  function defineCommands() {
+    const add = (menu, id, label, keys, run, extra) => Cmd.add(Object.assign({ menu: menu, id: id, label: label, keys: keys, run: run }, extra || {}));
+    add("File", "new", "New...", ["Ctrl+N"], () => newProject());
+    add("File", "open", "Open...", ["Ctrl+O"], () => openProject());
+    add("File", "recent", "Open recent", [], () => {}, {
+      sub: true, why: () => (State.recent.length ? "" : "No recent files yet.") });
+    add("File", "save", "Save", ["Ctrl+S"], () => save());
+    add("File", "saveas", "Save as...", ["Ctrl+Shift+S"], () => saveAs());
+    add("File", "song", "Choose song...", [], () => chooseSong());
+    add("File", "rmsong", "Remove song", [], () => removeSong(), {
+      why: () => (Project.song ? "" : "There is no song yet.") });
+    add("File", "export", "Export...", ["Ctrl+E"], () => Export.open());
+    add("File", "quit", "Quit", ["Ctrl+Q"], () => quit());
+    add("Edit", "undo", () => (undo.undoName ? "Undo " + undo.undoName : "Undo"), ["Ctrl+Z"], () => doUndo(), {
+      why: () => (undo.undoName ? "" : "Nothing to undo yet.") });
+    add("Edit", "redo", () => (undo.redoName ? "Redo " + undo.redoName : "Redo"), ["Ctrl+Y", "Ctrl+Shift+Z"], () => doRedo(), {
+      why: () => (undo.redoName ? "" : "Nothing to redo.") });
+    add("Edit", "palette", "Find a command...", ["Ctrl+/"], () => Palette.open());
+    const dockWhy = () => (inVideo() ? "The Video tab has no docks. They come back when you leave it." : "");
+    add("View", "cast", "Cast", [], () => Docks.toggle("dockCast"), { check: () => Docks.st.dockCast.open, why: dockWhy });
+    add("View", "inspector", "Inspector", [], () => Docks.toggle("dockInsp"), { check: () => Docks.st.dockInsp.open, why: dockWhy });
+    add("View", "motion-full", "Motion: Full", [], () => Kit.motion.set("full"), { check: () => Kit.motion.mode === "full" });
+    add("View", "motion-calm", "Motion: Calm", [], () => Kit.motion.set("calm"), { check: () => Kit.motion.mode === "calm" });
+    add("View", "motion-off", "Motion: Off", [], () => Kit.motion.set("off"), { check: () => Kit.motion.mode === "off" });
+    add("View", "sound", "Sounds", [], () => Kit.sound.set(!Kit.sound.enabled), { check: () => Kit.sound.enabled });
+    add("View", "keys", "Keyboard shortcuts", ["?"], () => showKeys());
+    add("Play", "play", () => (State.playing ? "Pause" : "Play"), ["Space"], () => Transport.toggle());
+    add("Play", "next", "Next frame", ["Right", "."], () => Transport.step(1));
+    add("Play", "prev", "Previous frame", ["Left", ","], () => Transport.step(-1));
+    add("Play", "first", "First frame", ["Home"], () => Transport.set(0));
+    add("Play", "last", "Last frame", ["End"], () => Transport.set(length() - 1));
+  }
+  const kMenus = [
+    { name: "File", key: "f", items: ["new", "open", "recent", "-", "save", "saveas", "-", "song", "rmsong", "-", "export", "-", "quit"] },
+    { name: "Edit", key: "e", items: ["undo", "redo", "-", "palette"] },
+    { name: "View", key: "v", items: ["cast", "inspector", "-", "motion-full", "motion-calm", "motion-off", "-", "sound", "keys"] },
+    { name: "Play", key: "p", items: ["play", "next", "prev", "-", "first", "last"] }
+  ];
+
+  /* ---------- Menu bar: built from the command list ---------- */
+  const MenuBar = {
+    sub: null,
+    build() {
+      const bar = $("#menubar");
+      kMenus.forEach((m) => {
+        const slot = document.createElement("div");
+        slot.className = "menubar-slot";
+        const b = document.createElement("button");
+        b.className = "menubar-item";
+        b.setAttribute("aria-haspopup", "true");
+        b.setAttribute("aria-expanded", "false");
+        b.textContent = m.name;
+        b.dataset.tip = m.name + " menu";
+        b.dataset.key = "Alt+" + m.key.toUpperCase();
+        const menu = document.createElement("div");
+        menu.className = "menu";
+        menu.setAttribute("role", "menu");
+        menu.hidden = true;
+        m.items.forEach((id) => menu.appendChild(id === "-" ? this.sep() : this.item(Cmd.by[id])));
+        slot.appendChild(b);
+        slot.appendChild(menu);
+        bar.appendChild(slot);
+      });
+      this.buildSub();
+    },
+    sep() { const s = document.createElement("div"); s.className = "menu-sep"; return s; },
+    item(c) {
+      const b = document.createElement("button");
+      b.className = "menu-item" + (c.sub ? " has-sub" : "");
+      b.setAttribute("role", c.check ? "menuitemcheckbox" : "menuitem");
+      b.dataset.cmd = c.id;
+      const l = document.createElement("span");
+      b.appendChild(l);
+      if (c.keys.length) {
+        const k = document.createElement("kbd");
+        k.className = "menu-key";
+        k.textContent = c.keys.join(", ");
+        b.appendChild(k);
+      }
+      if (!c.sub) b._kitRun = () => Cmd.run(c.id, b);
+      return b;
+    },
+    paint() {
+      $$("#menubar .menu-item[data-cmd]").forEach((b) => {
+        const c = Cmd.by[b.dataset.cmd];
+        const text = Cmd.label(c);
+        const span = b.querySelector("span");
+        const changed = span.textContent !== text && span.textContent !== "";
+        span.textContent = text;
+        if (changed) Kit.play(span, "k-swap", "move");
+        const why = Cmd.why(c);
+        if (why) { b.setAttribute("aria-disabled", "true"); b.dataset.why = why; }
+        else { b.removeAttribute("aria-disabled"); delete b.dataset.why; }
+        if (c.check) b.setAttribute("aria-checked", String(c.check()));
+      });
+    },
+    /* Open recent: a submenu beside the File menu. */
+    buildSub() {
+      const sub = document.createElement("div");
+      sub.className = "menu is-fixed";
+      sub.setAttribute("role", "menu");
+      sub.id = "recentMenu";
+      sub.hidden = true;
+      document.body.appendChild(sub);
+      this.sub = sub;
+      const file = $('[data-cmd="recent"]').closest(".menu");
+      new MutationObserver(() => { if (file.hidden) this.closeSub(); }).observe(file, { attributes: true, attributeFilter: ["hidden"] });
+      file.addEventListener("pointerover", (e) => {
+        const it = e.target.closest(".menu-item");
+        if (!it) return;
+        const on_recent = it.dataset.cmd === "recent";
+        const is_off = it.getAttribute("aria-disabled") === "true";
+        if (on_recent && !is_off) this.openSub(false);
+        else if (!on_recent) this.closeSub();
+      });
+    },
+    fillSub() {
+      const sub = this.sub;
+      sub.textContent = "";
+      State.recent.forEach((r) => {
+        const b = document.createElement("button");
+        b.className = "menu-item";
+        b.setAttribute("role", "menuitem");
+        b.innerHTML = "<span></span>";
+        b.firstChild.textContent = r.name;
+        b.dataset.tip = r.path;
+        b._kitRun = () => { this.closeSub(); openRecent(r); };
+        sub.appendChild(b);
+      });
+      sub.appendChild(this.sep());
+      const clear = document.createElement("button");
+      clear.className = "menu-item";
+      clear.setAttribute("role", "menuitem");
+      clear.innerHTML = "<span>Clear recent list</span>";
+      clear._kitRun = () => {
+        const was = State.recent.slice();
+        State.recent.length = 0;
+        refresh();
+        Kit.toast("Cleared the recent list.", () => { State.recent.push.apply(State.recent, was); refresh(); });
+      };
+      sub.appendChild(clear);
+    },
+    openSub(focus) {
+      const item = $('[data-cmd="recent"]');
+      const was_open = !this.sub.hidden;
+      if (!was_open) {
+        this.fillSub();
+        this.sub.hidden = false;
+        item.classList.add("is-sub-open");
+        Kit.play(this.sub, "k-open", "pop");
+      }
+      const r = item.getBoundingClientRect();
+      const vw = document.documentElement.clientWidth;
+      const w = this.sub.offsetWidth;
+      const fits = r.right + w <= vw - 4;
+      this.sub.style.left = (fits ? r.right - 2 : Math.max(4, r.left - w + 2)) + "px";
+      this.sub.style.top = (r.top - 3) + "px";
+      if (focus) this.sub.querySelector(".menu-item").focus();
+    },
+    closeSub() {
+      if (!this.sub || this.sub.hidden) return;
+      this.sub.hidden = true;
+      $('[data-cmd="recent"]').classList.remove("is-sub-open");
+    },
+    slots() { return $$("#menubar .menubar-item"); },
+    openAt(i) {
+      const all = this.slots();
+      const b = all[(i + all.length) % all.length];
+      Kit.menus.close();
+      Kit.menus.open(b.parentElement.querySelector(".menu"), b, true);
+    },
+    currentIndex() { return this.slots().indexOf(Kit.menus.opener); }
+  };
+
+  /* ---------- Keys: one router for every shortcut ---------- */
+  function keyName(e) {
+    const map = { " ": "Space", ArrowRight: "Right", ArrowLeft: "Left", ArrowUp: "Up", ArrowDown: "Down" };
+    let k = map[e.key] || e.key;
+    const is_letter = /^[a-z]$/i.test(k);
+    if (is_letter) k = k.toUpperCase();
+    const parts = [];
+    if (e.ctrlKey || e.metaKey) parts.push("Ctrl");
+    if (e.altKey) parts.push("Alt");
+    const shift_counts = e.shiftKey && (is_letter || k.length > 1);
+    if (shift_counts) parts.push("Shift");
+    parts.push(k);
+    return parts.join("+");
+  }
+  function onKeyCapture(e) {
+    const sub_open = MenuBar.sub && !MenuBar.sub.hidden;
+    if (sub_open) {
+      const in_sub = MenuBar.sub.contains(document.activeElement);
+      const items = $$(".menu-item", MenuBar.sub);
+      if (e.key === "Escape" || (e.key === "ArrowLeft" && in_sub)) {
+        e.preventDefault(); e.stopPropagation();
+        MenuBar.closeSub();
+        $('[data-cmd="recent"]').focus();
+        return;
+      }
+      const is_step = in_sub && (e.key === "ArrowDown" || e.key === "ArrowUp");
+      if (is_step) {
+        e.preventDefault(); e.stopPropagation();
+        const i = items.indexOf(document.activeElement) + (e.key === "ArrowDown" ? 1 : -1);
+        items[(i + items.length) % items.length].focus();
+        return;
+      }
+    }
+    const pal_open = !$("#palette").hidden;
+    if (pal_open && e.key === "Escape") { e.preventDefault(); e.stopPropagation(); Palette.close(); }
+  }
+  function onKey(e) {
+    if (State.closed || e.defaultPrevented) return;
+    const t = e.target;
+    const menu_open = Kit.menus.open_menu && Kit.menus.opener && Kit.menus.opener.classList.contains("menubar-item");
+    if (menu_open) {
+      const on_recent = document.activeElement && document.activeElement.dataset.cmd === "recent";
+      const into_sub = on_recent && (e.key === "ArrowRight" || e.key === "Enter" || e.key === " ");
+      if (into_sub) { e.preventDefault(); MenuBar.openSub(true); return; }
+      const side = e.key === "ArrowRight" ? 1 : (e.key === "ArrowLeft" ? -1 : 0);
+      if (side) { e.preventDefault(); MenuBar.openAt(MenuBar.currentIndex() + side); }
+      return;
+    }
+    const name = keyName(e);
+    const alt_menu = e.altKey && !e.ctrlKey && kMenus.findIndex((m) => m.key === e.key.toLowerCase());
+    const is_menu_key = e.key === "F10" || (typeof alt_menu === "number" && alt_menu >= 0);
+    if (is_menu_key && noModal()) { e.preventDefault(); MenuBar.openAt(e.key === "F10" ? 0 : alt_menu); return; }
+    const typing = t.closest && t.closest("input, textarea, [contenteditable]");
+    const has_mod = e.ctrlKey || e.metaKey;
+    if (typing && !has_mod) return;
+    const on_button = t.closest && t.closest("button, [role=slider], .list[tabindex]") && (name === "Space" || name === "Enter");
+    if (on_button) return;
+    if (!noModal()) return;
+    const c = Cmd.list.find((x) => x.keys.indexOf(name) >= 0);
+    const on_tab = t.closest && t.closest(".tab") && (name === "Left" || name === "Right");
+    if (!c || on_tab) {
+      const is_cut = name === "M" && inVideo();
+      if (is_cut) { e.preventDefault(); markCut(); }
+      return;
+    }
+    e.preventDefault();
+    Cmd.run(c.id, null, "key");
+  }
+
+  /* ---------- Command palette (F13) ---------- */
+  const Palette = {
+    sel: 0, rows: [],
+    entries() {
+      const out = [];
+      Cmd.list.forEach((c) => {
+        if (c.id === "palette") return;
+        if (c.sub) {
+          State.recent.forEach((r) => out.push({ menu: "File", label: "Open recent: " + r.name, key: "", why: "", run: () => openRecent(r) }));
+          if (!State.recent.length) out.push({ menu: "File", label: "Open recent", key: "", why: "No recent files yet.", run: () => {} });
+          return;
+        }
+        out.push({ menu: c.menu, label: Cmd.label(c), key: c.keys[0] || "", why: Cmd.why(c), id: c.id });
+      });
+      return out;
+    },
+    open() {
+      const p = $("#palette");
+      p.hidden = false;
+      Kit.play(p, "k-open", "pop");
+      $("#palInput").value = "";
+      this.sel = 0;
+      this.paint();
+      window.setTimeout(() => $("#palInput").focus(), 0);
+    },
+    close() { $("#palette").hidden = true; },
+    paint() {
+      const q = $("#palInput").value.trim().toLowerCase();
+      const list = $("#palList");
+      this.rows = this.entries().filter((r) => r.label.toLowerCase().indexOf(q) >= 0 || r.menu.toLowerCase() === q);
+      this.sel = Math.min(this.sel, Math.max(0, this.rows.length - 1));
+      list.textContent = "";
+      this.rows.forEach((r, i) => {
+        const row = document.createElement("div");
+        row.className = "list-row" + (r.why ? " is-off" : "");
+        row.setAttribute("role", "option");
+        row.setAttribute("aria-selected", String(i === this.sel));
+        row.innerHTML = '<span class="menu-of"></span><span class="lab"></span>';
+        row.querySelector(".menu-of").textContent = r.menu;
+        row.querySelector(".lab").textContent = r.label;
+        if (r.why) { const w = document.createElement("span"); w.className = "why-t"; w.textContent = r.why; row.appendChild(w); }
+        if (r.key) { const k = document.createElement("kbd"); k.textContent = r.key; row.appendChild(k); }
+        row.addEventListener("pointerenter", () => { this.sel = i; this.mark(); });
+        row.addEventListener("click", () => this.choose(i));
+        list.appendChild(row);
+      });
+      if (!this.rows.length) list.innerHTML = '<div class="list-row dim">No command has that name.</div>';
+    },
+    mark() { $$("#palList .list-row").forEach((r, i) => r.setAttribute("aria-selected", String(i === this.sel))); },
+    choose(i) {
+      const r = this.rows[i];
+      if (!r) return;
+      const row = $$("#palList .list-row")[i];
+      if (r.why) { Kit.shake(row, r.why); return; }
+      this.close();
+      if (r.id) Cmd.run(r.id);
+      else { r.run(); refresh(); }
+    },
+    build() {
+      const input = $("#palInput");
+      input.addEventListener("input", () => { this.sel = 0; this.paint(); });
+      input.addEventListener("keydown", (e) => {
+        const n = this.rows.length;
+        if (e.key === "ArrowDown") { e.preventDefault(); this.sel = (this.sel + 1) % Math.max(1, n); this.mark(); }
+        if (e.key === "ArrowUp") { e.preventDefault(); this.sel = (this.sel - 1 + n) % Math.max(1, n); this.mark(); }
+        if (e.key === "Enter") { e.preventDefault(); this.choose(this.sel); }
+      });
+      document.addEventListener("pointerdown", (e) => {
+        const outside = !e.target.closest("#palette, #findBox");
+        if (outside && !$("#palette").hidden) this.close();
+      });
+      $("#findBox").addEventListener("click", () => this.open());
+    }
+  };
+
+  /* ---------- Title bar (#1) ---------- */
+  function paintTitle() {
+    const t = $("#titleText");
+    t.textContent = "";
+    const dirty = Project.dirty;
+    if (dirty) {
+      const dot = document.createElement("span");
+      dot.className = "win-dirty";
+      const n = Project.changes;
+      dot.dataset.tip = "Unsaved changes: " + n + (n === 1 ? " thing" : " things") + " since the last save.";
+      t.appendChild(dot);
+    }
+    t.appendChild(document.createTextNode("Snapper - " + Project.fileName));
+    if (!Project.path) {
+      const u = document.createElement("span");
+      u.className = "unsaved";
+      u.textContent = "  (not saved yet)";
+      t.appendChild(u);
+    }
+    $("#statusSize").textContent = Project.w + " x " + Project.h;
+  }
+  let was_dirty = false;
+  function refresh() {
+    paintTitle();
+    const dot = $("#titleText .win-dirty");
+    const dot_new = Project.dirty && !was_dirty;
+    if (dot_new && dot) Kit.pop(dot, 1.8);
+    was_dirty = Project.dirty;
+    MenuBar.paint();
+    paintTransport();
+    Export.paint();
+    const pal_open = !$("#palette").hidden;
+    if (pal_open) Palette.paint();
+  }
+
+  /* ---------- Undo with flash ---------- */
+  function doUndo() { const n = undo.undo(); if (n) Status.say("Undid " + n); }
+  function doRedo() { const n = undo.redo(); if (n) Status.say("Redid " + n); }
+
+  /* ---------- File flow ---------- */
+  function confirmDiscard() {
+    if (!Project.dirty) return Promise.resolve(true);
+    $("#unsavedQ").textContent = "Save the changes to " + Project.name + " first?";
+    const n = Project.changes;
+    $("#unsavedMore").textContent = "You changed " + n + (n === 1 ? " thing" : " things") + " since the last save.";
+    return ask($("#unsavedDlg")).then((v) => {
+      if (v === "save") return save();
+      return v === "discard";
+    });
+  }
+  function save() {
+    if (!Project.path) return saveAs();
+    Project.markSaved();
+    State.autosave = false;
+    Status.say("Saved " + Project.fileName);
+    refresh();
+    return Promise.resolve(true);
+  }
+  function saveAs() {
+    return Picker.open("save", { name: Project.name + ".snap" }).then((path) => {
+      if (!path) return false;
+      Project.path = path;
+      Project.name = basename(path).replace(/\.snap$/, "");
+      Project.markSaved();
+      addRecent(path);
+      Status.say("Saved " + Project.fileName);
+      refresh();
+      return true;
+    });
+  }
+  function addRecent(path) {
+    State.recent = State.recent.filter((r) => r.path !== path);
+    State.recent.unshift({ name: basename(path), path: path });
+    State.recent.length = Math.min(State.recent.length, 6);
+  }
+  function newProject() {
+    confirmDiscard().then((ok) => {
+      if (!ok) return;
+      NewDlg.open().then((r) => {
+        if (!r) return;
+        Transport.stop();
+        Project.fresh(r.name, "", r.w, r.h);
+        Kit.toast("New project " + r.name + ", " + r.w + " x " + r.h + ".");
+        refresh();
+      });
+    });
+  }
+  function openProject() {
+    confirmDiscard().then((ok) => {
+      if (!ok) return;
+      Picker.open("open").then((path) => { if (path) loadFile({ name: basename(path), path: path }); });
+    });
+  }
+  function openRecent(r) {
+    confirmDiscard().then((ok) => { if (ok) loadFile(r); });
+  }
+  function fileError(head, why, title) {
+    $("#errTitle").textContent = title || "Could not open";
+    $("#errHead").textContent = head;
+    $("#errWhy").textContent = why;
+    return ask($("#errDlg"));
+  }
+  function loadFile(r) {
+    if (r.gone) {
+      fileError("Could not open " + r.name + ".", "The file is not at " + r.path + " any more. It was moved or deleted.");
+      return;
+    }
+    const is_newer = r.name === "old_test.snap";
+    if (is_newer) {
+      fileError("Could not open " + r.name + ".", "It was made by a newer Snapper. Update Snapper to open it.");
+      return;
+    }
+    Transport.stop();
+    Project.fresh(r.name.replace(/\.snap$/, ""), r.path, 1920, 1080);
+    addRecent(r.path);
+    Kit.toast("Opened " + r.name + ".");
+    refresh();
+  }
+  function chooseSong() {
+    Picker.open("song").then((path) => {
+      if (!path) return;
+      const was = Project.song;
+      const to = basename(path);
+      undo.run("Choose song", () => setSong(to), () => setSong(was));
+      Kit.toast("Song: " + to + ".", () => doUndo());
+    });
+  }
+  function removeSong() {
+    const was = Project.song;
+    undo.run("Remove song", () => setSong(""), () => setSong(was));
+    Kit.toast("Removed the song.", () => doUndo());
+  }
+  function setSong(name) {
+    Project.song = name;
+    const wave = $("#tlWave");
+    wave.classList.toggle("is-on", Boolean(name));
+    $("#songLabel").textContent = name ? "" : "No song. File, Choose song...";
+    $("#tlSong").dataset.tip = name ? "Song: " + name : "";
+    Kit.flash($("#tlSong"));
+    refresh();
+  }
+  function quit() {
+    if (!Project.dirty) { closeApp(true, "Snapper closed. Nothing was unsaved, so the autosave was deleted."); return; }
+    $("#unsavedQ").textContent = "Save the changes to " + Project.name + " first?";
+    const n = Project.changes;
+    $("#unsavedMore").textContent = "You changed " + n + (n === 1 ? " thing" : " things") + " since the last save.";
+    ask($("#unsavedDlg")).then((v) => {
+      if (v === "save") { save().then((ok) => { if (ok) closeApp(true, "Saved and closed. The autosave was deleted."); }); return; }
+      if (v === "discard") closeApp(false, "Closed without saving. The autosave is kept, so the next start offers to recover it.");
+    });
+  }
+  function closeApp(clean, msg) {
+    Transport.stop();
+    Export.cancel(true);
+    State.autosave = !clean;
+    State.closed = true;
+    Palette.close();
+    Kit.menus.close();
+    Kit.puff(app, false, () => {
+      app.style.scale = "";
+      $("#closedMsg").textContent = msg;
+      const card = $("#closedCard");
+      card.hidden = false;
+      Kit.pop(card, 0.94);
+      $("#startBtn").focus();
+    });
+  }
+  function startApp() {
+    $("#closedCard").hidden = true;
+    app.hidden = false;
+    State.closed = false;
+    Kit.pop(app, 0.96);
+    Kit.tabs.layout($("#modeTabs"));
+    if (State.autosave) { recover(); return; }
+    Status.say("Started clean. No autosave was waiting.");
+  }
+  function recover() {
+    $("#recoverMore").textContent = "From " + Project.name + ", autosaved a moment ago.";
+    ask($("#recoverDlg")).then((v) => {
+      if (v === "recover") {
+        State.autosave = false;
+        Project.saved_top = { recovered: true };
+        Kit.toast("Recovered unsaved work.", null, { kind: "done" });
+        refresh();
+        return;
+      }
+      if (v === "discard") {
+        State.autosave = false;
+        const s = Project.saved;
+        Project.fresh(Project.name, Project.path, Project.w, Project.h);
+        if (s) { Dolls.restore(s.dolls); setSong(s.song); Project.markSaved(); }
+        Status.say("Threw the autosave away. Opened the last save.");
+        refresh();
+      }
+    });
+  }
+
+  /* ---------- New project dialog (#31-#36) ---------- */
+  const NewDlg = {
+    resolve: null,
+    open() {
+      const dlg = $("#newDlg");
+      $("#npName").value = "Untitled";
+      Kit.num.set($("#npW"), 1920);
+      Kit.num.set($("#npH"), 1080);
+      this.check();
+      return new Promise((resolve) => {
+        this.resolve = resolve;
+        dlg.addEventListener("close", () => { if (this.resolve) { this.resolve(null); this.resolve = null; } }, { once: true });
+        Kit.dialog.open(dlg);
+        $("#npName").focus();
+        $("#npName").select();
+      });
+    },
+    read(id) {
+      const raw = $(id + " .num-input").value.trim();
+      const typed = parseFloat(raw);
+      return Number.isFinite(typed) ? typed : Kit.num.value($(id));
+    },
+    check() {
+      const w = this.read("#npW");
+      const h = this.read("#npH");
+      const name = $("#npName").value.trim();
+      const odd_w = w % 2 !== 0;
+      const odd_h = h % 2 !== 0;
+      $("#npW").classList.toggle("is-error", odd_w);
+      $("#npH").classList.toggle("is-error", odd_h);
+      let why = "";
+      if (odd_w || odd_h) why = "Video sizes must be even numbers.";
+      if (!name) why = "Give the project a name.";
+      const ok = $("#npOk");
+      if (why) { ok.setAttribute("aria-disabled", "true"); ok.dataset.why = why; }
+      else { ok.removeAttribute("aria-disabled"); delete ok.dataset.why; }
+      $("#npErr").textContent = why;
+      let picked = null;
+      $$("#npTiles .tile").forEach((t) => {
+        const hit = !t.hasAttribute("data-custom") && Number(t.dataset.w) === w && Number(t.dataset.h) === h;
+        if (hit) picked = t;
+      });
+      const custom = $("#npTiles [data-custom]");
+      $$("#npTiles .tile").forEach((t) => t.setAttribute("aria-checked", String(t === (picked || custom))));
+      $("#npCustomPx").textContent = picked ? "your size" : w + " x " + h;
+      return { name: name, w: w, h: h, why: why };
+    },
+    build() {
+      $("#npName").addEventListener("input", () => this.check());
+      ["#npW", "#npH"].forEach((id) => {
+        $(id).addEventListener("kit:change", () => this.check());
+        $(id + " .num-input").addEventListener("input", () => this.check());
+      });
+      $("#npTiles").addEventListener("click", (e) => {
+        const t = e.target.closest(".tile");
+        if (!t) return;
+        if (t.hasAttribute("data-custom")) { $("#npW .num-input").focus(); Kit.flash($("#npW .num-input")); return; }
+        Kit.num.set($("#npW"), Number(t.dataset.w));
+        Kit.num.set($("#npH"), Number(t.dataset.h));
+        Kit.pop(t.querySelector("i"), 1.2);
+        this.check();
+      });
+      $("#npOk").addEventListener("click", () => {
+        const r = this.check();
+        if (r.why) return;
+        const done = this.resolve;
+        this.resolve = null;
+        Kit.dialog.close($("#newDlg"), "ok");
+        if (done) done(r);
+      });
+    }
+  };
+
+  /* ---------- Export dialog (#37-#48), non-modal ---------- */
+  const Export = {
+    running: false, done: 0, total: 0, timer: 0,
+    get format() { return $('#exFormat [aria-pressed="true"]').dataset.value; },
+    get range() { return $('#exRange [aria-pressed="true"]').dataset.value; },
+    get scale() { return parseFloat($('#exSize [aria-pressed="true"]').dataset.value); },
+    frames() {
+      const len = length();
+      const r = this.range;
+      if (r === "loop") return { from: kLoop.from, to: kLoop.to };
+      if (r === "frames") return { from: Kit.num.value($("#exFrom")), to: Kit.num.value($("#exTo")) };
+      return { from: 0, to: len - 1 };
+    },
+    why() {
+      const r = this.range;
+      const f = this.frames();
+      if (this.running) return "Already exporting.";
+      if (r === "loop" && !Project.loop) return "There is no loop range. Set one on the timeline first.";
+      if (r === "frames" && f.to < f.from) return "The last frame is before the first.";
+      if (!$("#exFile").value.trim()) return "Choose where to save the file.";
+      return "";
+    },
+    open() {
+      const dlg = $("#exDlg");
+      if (dlg.open) { Kit.flash(dlg); dlg.querySelector(".btn.primary").focus(); return; }
+      dlg.show();
+      Kit.play(dlg, "k-open", "pop");
+      this.paint();
+      window.setTimeout(() => $("#exGo").focus(), 0);
+    },
+    close() {
+      if (this.running) { this.cancel(false); return; }
+      Kit.dialog.close($("#exDlg"), "close");
+    },
+    setSeg(seg, value) {
+      $$("button", seg).forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.value === value)));
+    },
+    paint() {
+      const in_video = inVideo();
+      const len = length();
+      $("#exWhole").textContent = in_video ? "Whole final video" : "Whole master track";
+      $("#exLoopBtn").textContent = Project.loop ? "Loop " + kLoop.from + " - " + kLoop.to : "Loop range";
+      $("#exFrom").dataset.max = String(len - 1);
+      $("#exTo").dataset.max = String(len - 1);
+      const w = Math.round(Project.w * this.scale / 2) * 2;
+      const h = Math.round(Project.h * this.scale / 2) * 2;
+      $("#exPx").textContent = w + " x " + h;
+      $("#exBoxPx").textContent = w + " x " + h;
+      const big = 190 * (this.scale === 1 ? 1 : (this.scale === 0.5 ? 0.75 : 0.5));
+      const asp = Project.w / Project.h;
+      const box = $("#exBox");
+      box.style.width = Math.round(asp >= 1 ? big : big * asp) + "px";
+      box.style.height = Math.round(asp >= 1 ? big / asp : big) + "px";
+      box.classList.toggle("is-gif", this.format === "gif");
+      const f = this.frames();
+      const count = Math.max(0, f.to - f.from + 1);
+      $("#exRangeFill").style.left = (f.from / len * 100) + "%";
+      $("#exRangeFill").style.width = (Math.max(0, count) / len * 100) + "%";
+      const mb = this.format === "gif" ? count * w * h * 0.0000009 : count * w * h * 0.00000018;
+      const sound = this.format === "gif" ? "no sound" : (Project.song ? "with " + Project.song : "no song chosen, so silent");
+      $("#exInfo").innerHTML = "";
+      [this.format.toUpperCase() + ", " + w + " x " + h,
+        "frames " + f.from + " - " + f.to + " (" + count + ", " + (count / kFps).toFixed(1) + " s)",
+        sound, "about " + Math.max(0.1, mb).toFixed(1) + " MB"].forEach((line) => {
+        const d = document.createElement("div");
+        d.textContent = line;
+        $("#exInfo").appendChild(d);
+      });
+      const go = $("#exGo");
+      const why = this.why();
+      if (why) { go.setAttribute("aria-disabled", "true"); go.dataset.why = why; }
+      else { go.removeAttribute("aria-disabled"); delete go.dataset.why; }
+      const lock = "Exporting; cancel to change this.";
+      $$("#exFormat button, #exRange button, #exSize button, #exBrowse").forEach((b) => {
+        if (this.running) { b.setAttribute("aria-disabled", "true"); b.dataset.why = lock; }
+        else { b.removeAttribute("aria-disabled"); delete b.dataset.why; }
+      });
+      ["#exFrom", "#exTo"].forEach((id) => {
+        if (this.running) { $(id).setAttribute("aria-disabled", "true"); $(id).dataset.why = lock; }
+        else { $(id).removeAttribute("aria-disabled"); delete $(id).dataset.why; }
+        $(id + " .num-input").readOnly = this.running;
+      });
+      $("#exFile").readOnly = this.running;
+      $("#exFile").dataset.why = this.running ? lock : "";
+      $("#exFile").setAttribute("aria-disabled", String(this.running));
+      $("#exClose").textContent = this.running ? "Cancel export" : "Close";
+      $("#exFrames").classList.toggle("is-open", this.range === "frames");
+      if (!this.running && !this.done) $("#exCount").textContent = "0 / " + count;
+    },
+    status(text, kind) {
+      const s = $("#exStatus");
+      s.textContent = text;
+      s.className = "ex-status" + (kind ? " is-" + kind : "");
+    },
+    start() {
+      const why = this.why();
+      if (why) return;
+      const f = this.frames();
+      this.total = f.to - f.from + 1;
+      this.done = 0;
+      this.running = true;
+      $("#exBar").classList.remove("is-done");
+      this.status("Exporting...");
+      const fail_at = State.failNext ? Math.floor(this.total * 0.4) : -1;
+      this.timer = window.setInterval(() => {
+        this.done = Math.min(this.total, this.done + Math.max(1, Math.round(this.total / 60)));
+        this.bar();
+        const failed = fail_at >= 0 && this.done >= fail_at;
+        if (failed) { this.finish("fail"); return; }
+        if (this.done >= this.total) this.finish("ok");
+      }, 30);
+      this.paint();
+      $("#exClose").focus();
+    },
+    bar() {
+      const pct = this.total ? this.done / this.total : 0;
+      $("#exFill").style.width = "calc((100% - 6px) * " + pct + ")";
+      $("#exCount").textContent = this.done + " / " + this.total;
+    },
+    finish(how) {
+      window.clearInterval(this.timer);
+      this.running = false;
+      const file = $("#exFile").value.trim();
+      if (how === "fail") {
+        this.status("Could not write " + file + ": the disk is full. Nothing was saved.", "bad");
+        State.failNext = false;
+        $("#tryFail").setAttribute("aria-pressed", "false");
+        Kit.shake($("#exBar"));
+        Kit.toast("Export failed: the disk is full.", null, { kind: "error" });
+        this.paint();
+        return;
+      }
+      $("#exBar").classList.add("is-done");
+      this.status("Saved " + file, "good");
+      this.paint();
+      /* Hit-stop, then the burst: one of the few big moments. */
+      window.setTimeout(() => {
+        const g = $("#exGo");
+        const r = g.getBoundingClientRect();
+        const box = $("#exDlg").getBoundingClientRect();
+        [[0, 0], [-18, -8], [18, -8], [0, 12]].forEach((d) => Kit.ring($("#exDlg"), r.left - box.left + r.width / 2 + d[0], r.top - box.top + r.height / 2 + d[1]));
+        Kit.pop($("#exBar"), 1.06);
+        const life = Kit.toast("Saved " + basename(file) + ".", null, { kind: "done", ms: 6000 });
+        const toast = $$(".toasts .toast").pop();
+        if (toast) {
+          const b = document.createElement("button");
+          b.className = "btn small";
+          b.textContent = "Open folder";
+          b.addEventListener("click", () => { life.close(); Status.say("Opened the folder " + file.replace(/\/[^/]*$/, "") + " (pretend)."); });
+          toast.insertBefore(b, toast.querySelector(".toast-x"));
+        }
+      }, 70);
+    },
+    cancel(quiet) {
+      if (quiet) Kit.dialog.close($("#exDlg"), "close");
+      if (!this.running) return;
+      window.clearInterval(this.timer);
+      this.running = false;
+      this.done = 0;
+      this.bar();
+      this.status("Cancelled; nothing was saved.");
+      this.paint();
+      $("#exGo").focus();
+    },
+    build() {
+      const dlg = $("#exDlg");
+      ["#exFormat", "#exRange", "#exSize"].forEach((id) => $(id).addEventListener("kit:change", () => { this.done = 0; this.bar(); this.paint(); }));
+      $("#exFormat").addEventListener("kit:change", (e) => {
+        const v = e.detail.value;
+        this.setSeg($("#exSize"), v === "gif" ? "0.5" : "1");
+        const file = $("#exFile");
+        file.value = file.value.replace(/\.(mp4|gif)$/i, "") + "." + v;
+        Kit.flash(file);
+        Kit.play($('#exSize [aria-pressed="true"]'), "k-flash", "flash");
+        this.paint();
+      });
+      ["#exFrom", "#exTo"].forEach((id) => $(id).addEventListener("kit:change", () => this.paint()));
+      $("#exFile").addEventListener("input", () => this.paint());
+      $("#exGo").addEventListener("click", () => this.start());
+      $("#exClose").addEventListener("click", () => this.close());
+      $("#exX").addEventListener("click", () => this.close());
+      $("#exBrowse").addEventListener("click", () => {
+        Picker.open("export", { name: basename($("#exFile").value) || Project.name + "." + this.format, exts: [this.format] }).then((p) => {
+          if (!p) return;
+          $("#exFile").value = p;
+          Kit.flash($("#exFile"));
+          this.paint();
+        });
+      });
+      dlg.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          if (this.running) { Kit.shake($("#exClose"), "Still exporting. Press Cancel export to stop it."); return; }
+          this.close();
+        }
+      });
+      let from = null;
+      Kit.drag($("#exHandle"), {
+        filter: (e) => !e.target.closest(".win-btn"),
+        onStart: () => {
+          const r = dlg.getBoundingClientRect();
+          from = { x: r.left, y: r.top };
+          dlg.classList.add("is-moved");
+        },
+        onMove: (s) => {
+          const vw = document.documentElement.clientWidth;
+          dlg.style.left = Math.min(Math.max(0, from.x + s.dx), vw - 60) + "px";
+          dlg.style.top = Math.max(0, from.y + s.dy) + "px";
+        },
+        onCancel: () => { dlg.style.left = from.x + "px"; dlg.style.top = from.y + "px"; }
+      });
+    }
+  };
+
+  /* ---------- File pickers (#295): one fake native picker ---------- */
+  const kDisk = {
+    "~/Snapper": ["bob_dance.snap", "teto_song.snap", "old_test.snap", "notes.txt"],
+    "~/Music": ["teto_theme.mp3", "bob_loop.wav", "drums.flac", "voice.ogg", "chorus.opus", "cover.png"],
+    "~/Videos": ["teto_song.mp4", "intro_cut.mp4", "dance.gif", "city_walk.mov"],
+    "~/Pictures": ["bg_city.png", "sky.jpg", "logo.svg"],
+    "/system": ["config.ini"]
+  };
+  const kKinds = {
+    open: { title: "Open project", ok: "Open", dir: "~/Snapper", exts: ["snap"], filter: "Snapper projects (*.snap)" },
+    save: { title: "Save project", ok: "Save", dir: "~/Snapper", exts: ["snap"], filter: "Snapper projects (*.snap)", save: true },
+    song: { title: "Choose song", ok: "Open", dir: "~/Music", exts: ["wav", "mp3", "flac", "ogg", "opus", "m4a", "aac"],
+      filter: "Sound files (*.wav *.mp3 *.flac *.ogg *.opus *.m4a *.aac)" },
+    picture: { title: "Add picture", ok: "Open", dir: "~/Pictures", exts: ["png", "jpg", "svg"], filter: "Pictures (*.png *.jpg *.svg)" },
+    video: { title: "Import video", ok: "Open", dir: "~/Videos", exts: ["mp4", "mov", "webm"], filter: "Videos (*.mp4 *.mov *.webm)" },
+    fill: { title: "Fill the gap from", ok: "Open", dir: "~/Videos", exts: ["mp4", "mov", "webm"], filter: "Videos (*.mp4 *.mov *.webm)" },
+    export: { title: "Export to", ok: "Save", dir: "~/Videos", exts: ["mp4"], filter: "Video (*.mp4)", save: true }
+  };
+  const Picker = {
+    k: null, dir: "", pick: "", resolve: null,
+    open(kind, o) {
+      const opts = o || {};
+      this.k = Object.assign({}, kKinds[kind]);
+      if (opts.exts) { this.k.exts = opts.exts; this.k.filter = opts.exts[0] === "gif" ? "GIF (*.gif)" : "Video (*.mp4)"; }
+      this.dir = this.k.dir;
+      this.pick = "";
+      $("#fpTitle").textContent = this.k.title;
+      $("#fpOk").textContent = this.k.ok;
+      $("#fpFilter").textContent = this.k.filter;
+      $("#fpName").value = opts.name || "";
+      $("#fpName").readOnly = !this.k.save;
+      $("#fpErr").textContent = "";
+      this.paint();
+      const dlg = $("#fpDlg");
+      return new Promise((resolve) => {
+        this.resolve = resolve;
+        dlg.addEventListener("close", () => { if (this.resolve) { this.resolve(""); this.resolve = null; } }, { once: true });
+        Kit.dialog.open(dlg);
+        if (this.k.save) { $("#fpName").focus(); $("#fpName").select(); } else $("#fpFiles").focus();
+      });
+    },
+    ext(f) { return (f.split(".").pop() || "").toLowerCase(); },
+    paint() {
+      $("#fpDir").textContent = this.dir;
+      const places = $("#fpPlaces");
+      places.textContent = "";
+      Object.keys(kDisk).forEach((d) => {
+        const r = document.createElement("div");
+        r.className = "list-row";
+        r.setAttribute("aria-selected", String(d === this.dir));
+        r.textContent = d.replace("~/", "");
+        if (d === "/system") r.dataset.tip = "Read only";
+        r.addEventListener("click", () => { this.dir = d; this.pick = ""; this.paint(); });
+        places.appendChild(r);
+      });
+      const files = $("#fpFiles");
+      files.textContent = "";
+      const all = kDisk[this.dir] || [];
+      const shown = all.filter((f) => this.k.exts.indexOf(this.ext(f)) >= 0);
+      shown.forEach((f) => {
+        const r = document.createElement("div");
+        r.className = "list-row";
+        r.setAttribute("role", "option");
+        r.setAttribute("aria-selected", String(f === this.pick));
+        r.textContent = f;
+        r.addEventListener("click", () => { this.select(f); });
+        r.addEventListener("dblclick", () => { this.select(f); this.ok(); });
+        files.appendChild(r);
+      });
+      const hidden = all.length - shown.length;
+      if (hidden > 0) {
+        const h = document.createElement("div");
+        h.className = "fp-hidden";
+        h.textContent = hidden + (hidden === 1 ? " other file is" : " other files are") + " hidden by the type filter.";
+        files.appendChild(h);
+      }
+      if (!all.length) files.innerHTML = '<div class="fp-hidden">Empty folder.</div>';
+      this.check();
+    },
+    select(f) { this.pick = f; $("#fpName").value = f; this.paint(); },
+    why() {
+      if (this.k.save) return $("#fpName").value.trim() ? "" : "Type a name first.";
+      return this.pick ? "" : "Pick a file first.";
+    },
+    check() {
+      const ok = $("#fpOk");
+      const why = this.why();
+      if (why) { ok.setAttribute("aria-disabled", "true"); ok.dataset.why = why; }
+      else { ok.removeAttribute("aria-disabled"); delete ok.dataset.why; }
+    },
+    ok() {
+      if (this.why()) return;
+      let name = this.k.save ? $("#fpName").value.trim() : this.pick;
+      const has_ext = this.k.exts.indexOf(this.ext(name)) >= 0 && name.indexOf(".") > 0;
+      if (!has_ext) name = name + "." + this.k.exts[0];
+      const path = this.dir + "/" + name;
+      const read_only = this.k.save && this.dir === "/system";
+      const done = this.resolve;
+      this.resolve = null;
+      Kit.dialog.close($("#fpDlg"), "ok");
+      if (read_only) {
+        window.setTimeout(() => fileError("Could not save " + name + ".", "/system is read only. Pick a folder you can write to.", "Could not save").then(() => { if (done) done(""); }), Kit.ms("puff") + 40);
+        return;
+      }
+      if (done) done(path);
+    },
+    build() {
+      $("#fpOk").addEventListener("click", () => this.ok());
+      $("#fpName").addEventListener("input", () => this.check());
+      $("#fpUp").addEventListener("click", () => { this.dir = "~/Snapper"; this.pick = ""; this.paint(); Kit.flash($("#fpDir")); });
+      $("#fpFiles").addEventListener("keydown", (e) => {
+        const list = (kDisk[this.dir] || []).filter((f) => this.k.exts.indexOf(this.ext(f)) >= 0);
+        const step = e.key === "ArrowDown" ? 1 : (e.key === "ArrowUp" ? -1 : 0);
+        if (step && list.length) {
+          e.preventDefault();
+          const i = list.indexOf(this.pick) + step;
+          this.select(list[(i + list.length) % list.length]);
+        }
+        if (e.key === "Enter") { e.preventDefault(); this.ok(); }
+      });
+    }
+  };
+
+  /* ---------- Small dialogs: Enter is OK everywhere, Ctrl+Enter in text ---------- */
+  function wireDialogKeys() {
+    document.addEventListener("keydown", (e) => {
+      const dlg = e.target.closest && e.target.closest("dialog[open]");
+      if (!dlg || e.key !== "Enter" || e.defaultPrevented) return;
+      const in_text = e.target.tagName === "TEXTAREA";
+      const on_button = Boolean(e.target.closest("button"));
+      const wants_ok = in_text ? (e.ctrlKey || e.metaKey) : !on_button;
+      if (!wants_ok) return;
+      const ok = dlg.querySelector(".dialog-btns .btn.primary");
+      if (!ok) return;
+      e.preventDefault();
+      window.setTimeout(() => ok.click(), 0);
+    });
+  }
+  function addText() {
+    $("#textIn").value = "";
+    const ok = $("#textOk");
+    const paint = () => {
+      const empty = !$("#textIn").value.trim();
+      if (empty) { ok.setAttribute("aria-disabled", "true"); ok.dataset.why = "Type some words first."; }
+      else { ok.removeAttribute("aria-disabled"); delete ok.dataset.why; }
+    };
+    paint();
+    $("#textIn").oninput = paint;
+    ok.onclick = () => {
+      const words = $("#textIn").value.trim();
+      Kit.dialog.close($("#textDlg"), "ok");
+      undo.run("Add text", () => {}, () => {});
+      Kit.toast("Added text: " + words.split("\n")[0] + ".", () => doUndo());
+    };
+    Kit.dialog.open($("#textDlg"));
+    $("#textIn").focus();
+  }
+  /* The alpha slider listens once and paints whichever picker is open. */
+  const Colour = { paint: null };
+  const kColours = ["#4a4a52", "#1c1c1f", "#e9e4d8", "#ffffff", "#d8304f", "#7a1428", "#f2c230", "#8fd14f",
+    "#4fa3d8", "#3d6fa8", "#7a3a52", "#c4455a", "#2b6b4f", "#9b59b6", "#e67e22", "#000000"];
+  function pickColour(alpha) {
+    $("#colourTitle").textContent = alpha ? "Text fill colour" : "Shot background";
+    $("#alphaRow").hidden = !alpha;
+    const old = alpha ? "#ffffff" : "#4a4a52";
+    let cur = old;
+    const grid = $("#colours");
+    const paint = () => {
+      const a = alpha ? parseFloat($("#alpha").dataset.value) / 100 : 1;
+      $("#cOld").style.background = old;
+      const hex = cur.replace("#", "");
+      const rgb = [0, 2, 4].map((i) => parseInt(hex.substr(i, 2), 16));
+      $("#cNew").style.background = "rgba(" + rgb.join(",") + "," + a + ")";
+      $("#hexIn").value = cur;
+      $("#alphaOut").textContent = Math.round(a * 100) + " %";
+      $$("button", grid).forEach((b) => b.setAttribute("aria-checked", String(b.dataset.c === cur)));
+    };
+    grid.textContent = "";
+    kColours.forEach((c) => {
+      const b = document.createElement("button");
+      b.style.background = c;
+      b.dataset.c = c;
+      b.setAttribute("role", "radio");
+      b.setAttribute("aria-label", c);
+      b.addEventListener("click", () => { cur = c; Kit.pop(b, 1.25); paint(); });
+      grid.appendChild(b);
+    });
+    $("#hexIn").oninput = () => {
+      const v = $("#hexIn").value.trim();
+      const good = /^#[0-9a-f]{6}$/i.test(v);
+      $("#hexIn").classList.toggle("is-error", !good);
+      if (good) { cur = v.toLowerCase(); paint(); }
+    };
+    Colour.paint = paint;
+    $("#colourOk").onclick = () => {
+      Kit.dialog.close($("#colourDlg"), "ok");
+      undo.run(alpha ? "Change text fill" : "Change background", () => {}, () => {});
+      Kit.toast((alpha ? "Text fill " : "Background ") + cur + ".", () => doUndo());
+    };
+    Kit.dialog.open($("#colourDlg"));
+    if (alpha) Kit.slider.set($("#alpha"), 100, false, true);
+    paint();
+  }
+  function showKeys() {
+    const g = $("#keysGrid");
+    g.textContent = "";
+    kMenus.forEach((m) => {
+      const h = document.createElement("h4");
+      h.textContent = m.name;
+      g.appendChild(h);
+      m.items.forEach((id) => {
+        const c = Cmd.by[id];
+        if (!c || !c.keys.length) return;
+        const row = document.createElement("div");
+        row.innerHTML = "<span></span><kbd></kbd>";
+        row.firstChild.textContent = Cmd.label(c);
+        row.lastChild.textContent = c.keys.join(" or ");
+        g.appendChild(row);
+      });
+    });
+    const extra = [["Open a menu", "F10 or Alt+letter"], ["Move between menus", "Left, Right"], ["Mark cut (Video tab)", "M"],
+      ["Switch mode tab (when focused)", "Left, Right"], ["Cancel a drag", "Esc"], ["OK in a dialog", "Enter"]];
+    const h = document.createElement("h4");
+    h.textContent = "Everywhere";
+    g.appendChild(h);
+    extra.forEach((x) => {
+      const row = document.createElement("div");
+      row.innerHTML = "<span></span><kbd></kbd>";
+      row.firstChild.textContent = x[0];
+      row.lastChild.textContent = x[1];
+      g.appendChild(row);
+    });
+    Kit.dialog.open($("#keysDlg"));
+  }
+  function markCut() {
+    const c = $("#reelCut");
+    Kit.pop(c, 1.6);
+    Kit.ring($("#reel"), c.offsetLeft, 37);
+    Status.say("Mark cut at F " + State.frame + ". The real cut tools are on video.html.");
+  }
+
+  /* ---------- Covered list ---------- */
+  const kCovered = [
+    ["1", "Title bar: name, white dot when unsaved, (not saved yet) when never saved", "Drag a doll: the dot pops in. Ctrl+S: it goes. File, New: not saved yet"],
+    ["2", "Close X asks Save the changes first (Save, Discard, Cancel)", "Make a change, click the red X"],
+    ["3", "Status line: problems become toasts, rig hint stays pinned, Autosave failed is a toast", "Try: Cause a problem, Autosave fails; Rig tab hint with its x"],
+    ["4", "Pose tab: shot strip, stage, keyframe timeline", "Pose tab"],
+    ["5", "Rig tab: rig canvas beside rig panel", "Rig tab"],
+    ["6", "Video tab switches playback to the reel timeline", "Video tab: counter label and length change"],
+    ["7", "Entering Video slides Cast and Inspector out; leaving restores them as they were", "Float or close a dock, go to Video and back"],
+    ["8", "Mode tabs fixed above the pages, never hidden, never move", "Right click the tabs: Hide is greyed with why"],
+    ["9", "Cast dock: close, float, move", "Cast title: float button, close, right click, drag when floating"],
+    ["10", "Inspector dock: close, float, nest", "Right click Inspector title: Dock on the left nests it under Cast"],
+    ["11", "Pose splitter stage over timeline 3:1", "Drag the bar under the stage; snaps at 3:1; double click resets; Esc cancels"],
+    ["12", "Rig splitter canvas beside panel 3:1", "Rig tab: drag the bar"],
+    ["13", "Startup Recover work box when an autosave exists", "Crash Snapper, then Start Snapper; or Try: Recover work"],
+    ["14", "Playhead follow picks the shot", "Play (Space) or step: the shot chip lifts"],
+    ["15", "Clean exit deletes the autosave; unsaved exit keeps it", "Quit clean vs Discard, then start again"],
+    ["16", "File, New (Ctrl+N): confirm discard, then New project", "File menu or palette"],
+    ["17", "File, Open (Ctrl+O): confirm discard, then picker", "Ctrl+O"],
+    ["18", "File, Open recent: submenu, full path tooltip, greyed when empty", "File, Open recent: hover, Right arrow; Clear recent list"],
+    ["19", "File, Save (Ctrl+S): falls to Save as when never saved", "New project, then Ctrl+S"],
+    ["20", "File, Save as (Ctrl+Shift+S): picker, adds .snap", "Ctrl+Shift+S, type a name without .snap"],
+    ["21", "File, Choose song: sound filter, waveform wipes in", "File, Choose song..."],
+    ["22", "File, Remove song: greyed There is no song yet", "File menu before and after choosing a song"],
+    ["23", "File, Export (Ctrl+E): non-modal Export dialog, raised", "Ctrl+E; Ctrl+E again flashes it"],
+    ["24", "File, Quit (Ctrl+Q): closes with the save prompt", "File, Quit"],
+    ["25", "File failures: warning box with the reason", "Open recent intro.snap or old_test.snap; Save into /system"],
+    ["26", "Edit, Undo (Ctrl+Z) named, greyed with why", "Edit menu, top bar Undo button"],
+    ["27", "Edit, Redo (Ctrl+Y, Ctrl+Shift+Z) named, greyed with why", "Undo, then Ctrl+Y"],
+    ["28", "Play, Play / pause (Space)", "Space, Play menu, transport"],
+    ["29", "Play, Next frame (Right, .)", "Right or ."],
+    ["30", "Play, Previous frame (Left, ,)", "Left or ,"],
+    ["31", "New project Name, Untitled, focused and selected", "File, New"],
+    ["32", "New project Size: four tiles drawn to shape", "Click the tiles"],
+    ["33", "New project Width, step 2, off-preset lights Custom", "Scrub Width or type 1280"],
+    ["34", "New project Height, same", "Scrub Height"],
+    ["35", "New project OK greyed: no name, odd size (red underline)", "Clear the name; type 1081"],
+    ["36", "New project Cancel or Escape", "Esc"],
+    ["37", "Export Format: MP4 + song, GIF; sets Size, swaps suffix with a flash", "Export, click GIF"],
+    ["38", "Export Range: Whole master track (Whole final video on Video), Loop, Frames", "Export; open it from the Video tab too"],
+    ["39", "Export From frame, row slides open for Frames", "Range: Frames..."],
+    ["40", "Export Up to frame", "Range: Frames..., scrub Up to below From"],
+    ["41", "Export Size: Full, Half, Quarter with pixel size", "Size buttons; preview box resizes"],
+    ["42", "Export File field", "Clear it: Export greys"],
+    ["43", "Export Browse: save picker with the right suffix, adds it", "Browse..., type a name without suffix"],
+    ["44", "Export progress bar: red blocks, done / all", "Export"],
+    ["45", "Export status: Exporting, Saved, failure, Cancelled", "Export; Cancel export; Try: Next export fails"],
+    ["46", "Export button greyed with why (busy, no loop, last before first, no file)", "Try: Loop range set off, Range Loop"],
+    ["47", "Close; reads Cancel export while running", "Export, then Cancel export"],
+    ["48", "While running Format, Range, Size, File, Browse greyed", "Export, click Format"],
+    ["290", "Unsaved changes: Save (red, default), Discard, Cancel; Esc is Cancel", "Change, then File, New"],
+    ["291", "Recover work: Recover (red), Throw away", "Try: Recover work"],
+    ["292", "Rename shot: replaced by rename in place on the strip chip", "Try: Rename shot (points to stage.html)"],
+    ["293", "Add text: multi-line, Enter new line, Ctrl+Enter OK", "Try: Add text..."],
+    ["294", "Colour pickers: background without alpha, text fill with alpha", "Try: the two colour buttons"],
+    ["295", "File pickers: Open, Save, Choose song, Add picture, Import video, Fill the gap from, Export to", "Try: File pickers row"],
+    ["233-236", "Video toolbar: Import video, Split (greyed), Mark cut (M), Add track", "Video tab toolbar; entry points, owned by video.html", true],
+    ["281-283", "Transition: now a popover on the cut", "Video tab: click the yellow cut; owned by video.html", true],
+    ["284-289", "Fill the gap: now inline under the gap", "Video tab: click the gap; owned by video.html", true]
+  ];
+  function buildCovered() {
+    const body = $("#covBody");
+    kCovered.forEach((c) => {
+      const tr = document.createElement("tr");
+      if (c[3]) tr.className = "is-entry";
+      c.slice(0, 3).forEach((txt) => { const td = document.createElement("td"); td.textContent = txt; tr.appendChild(td); });
+      body.appendChild(tr);
+    });
+    const own = kCovered.filter((c) => !c[3]).length;
+    $("#cov summary").textContent = "Covered: " + own + " inventory items on this page, plus 13 entry points";
+  }
+
+  /* ---------- Wiring ---------- */
+  function wireApp() {
+    $("#tFirst").addEventListener("click", () => Cmd.run("first", $("#tFirst")));
+    $("#tPrev").addEventListener("click", () => Cmd.run("prev", $("#tPrev")));
+    $("#tPlay").addEventListener("click", () => Cmd.run("play", $("#tPlay")));
+    $("#tNext").addEventListener("click", () => Cmd.run("next", $("#tNext")));
+    $("#tLast").addEventListener("click", () => Cmd.run("last", $("#tLast")));
+    $("#winClose").addEventListener("click", () => Cmd.run("quit"));
+    $("#winMin").addEventListener("click", () => { app.classList.toggle("is-min"); Kit.flash($("#winTitle")); });
+    $("#winMax").addEventListener("click", () => {
+      app.classList.toggle("is-max");
+      $("#winMax").dataset.tip = app.classList.contains("is-max") ? "Restore" : "Maximize";
+    });
+    $("#winTitle").addEventListener("dblclick", (e) => { if (!e.target.closest(".win-btn")) $("#winMax").click(); });
+    $("#startBtn").addEventListener("click", startApp);
+    $("#modeTabs").addEventListener("kit:tab", (e) => {
+      State.mode = e.detail.tab;
+      Transport.stop();
+      State.frame = Math.min(State.frame, length() - 1);
+      Docks.apply();
+      Status.paint();
+      refresh();
+    });
+    $("#modeTabs").addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      Kit.contextMenu(e.clientX, e.clientY, [
+        { head: "Mode tabs" },
+        { label: "Hide mode tabs", why: "The mode tabs always show, so they never move." },
+        { sep: true },
+        { label: "Pose", checked: State.mode === "pose", run: () => Kit.tabs.pick($('[data-tab="pose"]')) },
+        { label: "Rig", checked: State.mode === "rig", run: () => Kit.tabs.pick($('[data-tab="rig"]')) },
+        { label: "Video", checked: State.mode === "video", run: () => Kit.tabs.pick($('[data-tab="video"]')) }
+      ]);
+    });
+    $("#tryProblem").addEventListener("click", () => {
+      const flip = $("#tPlay");
+      Kit.shake(flip, "Turn needs a picked piece.");
+      Kit.toast("Inspector: Turn needs a picked piece.", null, { kind: "error" });
+    });
+    $("#tryAutosave").addEventListener("click", () => {
+      $("#statusSave").textContent = "Autosave failed";
+      Kit.shake($("#statusSave"));
+      Kit.toast("Autosave failed: the disk is full. Your work is still open; save it somewhere else.", null, { kind: "error", ms: 6000 });
+      window.setTimeout(() => { $("#statusSave").textContent = "Autosave on"; }, 6000);
+    });
+    $("#tryCrash").addEventListener("click", () => {
+      if (State.closed) { Kit.shake($("#tryCrash"), "Snapper is already closed."); return; }
+      closeApp(!Project.dirty, Project.dirty ? "Snapper stopped. The autosave is kept: start it again to recover." : "Snapper stopped. Nothing was unsaved.");
+    });
+    $("#tryLoop").addEventListener("kit:change", (e) => { Project.loop = e.detail.value; $("#tlLoopRow").hidden = !Project.loop; refresh(); });
+    $("#tryFail").addEventListener("kit:change", (e) => { State.failNext = e.detail.value; });
+    $$("[data-picker]").forEach((b) => b.addEventListener("click", () => {
+      const kind = b.dataset.picker;
+      const runs = { open: () => Cmd.run("open"), save: () => Cmd.run("saveas"), song: () => Cmd.run("song") };
+      if (runs[kind]) { runs[kind](); return; }
+      Picker.open(kind).then((p) => { if (p) Kit.toast("Picked " + basename(p) + ". What happens next is on the page that owns it."); });
+    }));
+    $("#tryText").addEventListener("click", addText);
+    $("#alpha").addEventListener("kit:change", () => { if (Colour.paint) Colour.paint(); });
+    $("#tryBg").addEventListener("click", () => pickColour(false));
+    $("#tryFill").addEventListener("click", () => pickColour(true));
+    $("#tryRecover").addEventListener("click", () => {
+      if (State.closed) { Kit.shake($("#tryRecover"), "Start Snapper first."); return; }
+      recover();
+    });
+    $("#tryRename").addEventListener("click", () => Kit.shake($("#tryRename"), "Rename is now in place on the shot strip chip: double click it on stage.html."));
+    $("#vImport").addEventListener("click", () => Picker.open("video").then((p) => { if (p) Kit.toast("Imported " + basename(p) + " onto the bottom track.", () => {}); }));
+    $("#vCut").addEventListener("click", markCut);
+    $("#vTrack").addEventListener("click", () => Kit.toast("Added Track 3 on top.", () => {}));
+    $("#reelCut").addEventListener("click", () => Kit.shake($("#reelCut"), "The transition popover lives on video.html."));
+    $("#reelGap").addEventListener("click", () => Kit.shake($("#reelGap"), "The inline gap filler lives on video.html."));
+    document.addEventListener("kit:motion", () => refresh());
+    document.addEventListener("click", (e) => { if (e.target.closest("[data-kit-sound]")) refresh(); });
+    window.addEventListener("keydown", onKeyCapture, true);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", (e) => {
+      const alone = e.key === "Alt" && !Kit.menus.open_menu && noModal() && !State.closed;
+      if (alone) { e.preventDefault(); $("#menubar .menubar-item").focus(); }
+    });
+    window.addEventListener("pointerdown", (e) => {
+      const in_menus = e.target.closest(".menu");
+      if (!in_menus) MenuBar.closeSub();
+    }, true);
+    window.addEventListener("click", (e) => {
+      const it = e.target.closest('[data-cmd="recent"]');
+      const is_off = it && it.getAttribute("aria-disabled") === "true";
+      if (it && !is_off) { e.stopPropagation(); MenuBar.openSub(true); }
+    }, true);
+  }
+
+  defineCommands();
+  MenuBar.build();
+  Dolls.build();
+  buildTimeline();
+  splitter($("#poseDiv"), $("#poseTop"), $("#poseBottom"), true, ["Stage", "Timeline"]);
+  splitter($("#rigDiv"), $("#rigLeft"), $("#rigRight"), false, ["Canvas", "Panel"]);
+  Docks.build();
+  Palette.build();
+  NewDlg.build();
+  Export.build();
+  Picker.build();
+  wireDialogKeys();
+  wireApp();
+  buildCovered();
+  Project.markSaved();
+  undo.bindButtons($("#undoBtn"), $("#redoBtn"));
+  undo.onChange(() => refresh());
+  paintShots();
+  Transport.set(24, true);
+  Status.paint();
+})();
+</script>
+</body>
+</html>

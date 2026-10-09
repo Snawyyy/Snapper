@@ -1,0 +1,2269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snapper Juicy Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap">
+<style>
+:root {
+  color-scheme: dark;
+  /* Straight from src/ui/theme.h */
+  --face: #3a3a3e;
+  --face-light: #5c5c62;
+  --face-dark: #242427;
+  --shadow: #101012;
+  --field: #1c1c1f;
+  --text: #e6e6e6;
+  --text-off: #808086;
+  --pick: #d8304f;
+  --handle: #f2c230;
+  /* Page only */
+  --page: #2b2b2f;
+  --stage: #4a4a52;
+  --figma: #4fa3d8;
+  --game: #8fd14f;
+  --pick-glow: rgba(216, 48, 79, 0.45);
+  /* Motion table (principle 2). JS scales these with the Motion switch. */
+  --t-press: 80ms;
+  --t-hover: 100ms;
+  --t-pop: 150ms;
+  --t-move: 200ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+:root[data-motion="calm"] {
+  --t-press: 60ms; --t-hover: 80ms; --t-pop: 100ms; --t-move: 120ms;
+  --ease-back: cubic-bezier(0.22, 1, 0.36, 1);
+}
+:root[data-motion="off"] {
+  --t-press: 0ms; --t-hover: 0ms; --t-pop: 0ms; --t-move: 0ms;
+  --ease-back: linear;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page);
+  color: var(--text);
+  font: 14px/1.5 Tahoma, "Segoe UI", system-ui, sans-serif;
+  overflow-x: hidden;
+}
+main { max-width: 1060px; margin: 0 auto; padding: 0 16px 80px; }
+h1, h2, h3 { font-family: "Silkscreen", Tahoma, monospace; font-weight: 400;
+  letter-spacing: 0.5px; }
+h1 { font-size: 28px; margin: 28px 0 4px; color: var(--pick); }
+h2 { font-size: 20px; margin: 48px 0 10px; padding-bottom: 6px;
+  border-bottom: 2px solid var(--pick); }
+h3 { font-size: 14px; margin: 18px 0 6px; color: var(--handle); }
+p { margin: 6px 0; }
+ul { margin: 6px 0; padding-left: 20px; }
+li { margin: 2px 0; }
+a { color: var(--handle); }
+code, kbd { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+kbd { background: var(--face); padding: 0 4px; box-shadow:
+  inset -1px -1px var(--shadow), inset 1px 1px var(--face-light); }
+.lede { color: var(--text-off); max-width: 720px; }
+.tag { display: inline-block; font: 11px/16px ui-monospace, monospace;
+  padding: 0 4px; margin: 0 2px; border: 1px solid; vertical-align: 1px; }
+.tag.f { color: var(--figma); border-color: var(--figma); }
+.tag.g { color: var(--game); border-color: var(--game); }
+.tag.n { color: var(--handle); border-color: var(--handle); }
+
+/* Win98 dark bevels */
+.raised { background: var(--face); box-shadow:
+  inset -1px -1px var(--shadow), inset 1px 1px var(--face-light),
+  inset -2px -2px var(--face-dark), inset 2px 2px #48484d; }
+.sunken { background: var(--field); box-shadow:
+  inset 1px 1px var(--shadow), inset -1px -1px var(--face-light),
+  inset 2px 2px var(--face-dark); }
+.win { padding: 3px; }
+.titlebar { display: flex; align-items: center; gap: 6px; padding: 2px 6px;
+  color: #fff; font-weight: bold; font-size: 12px;
+  background: linear-gradient(90deg, #7a1428, var(--pick)); }
+.titlebar .x { margin-left: auto; width: 16px; height: 14px; font-size: 10px;
+  line-height: 12px; text-align: center; color: var(--text); }
+
+/* Panel cards on the page */
+.card { padding: 14px; margin: 12px 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+
+/* Principles */
+.rules { counter-reset: r; list-style: none; padding: 0; display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.rules li { padding: 10px 12px 10px 44px; position: relative; margin: 0; }
+.rules li::before { counter-increment: r; content: counter(r);
+  position: absolute; left: 10px; top: 9px; width: 24px; height: 24px;
+  font: 14px/24px "Silkscreen", monospace; text-align: center;
+  background: var(--pick); color: #fff; }
+.rules b { display: block; color: var(--handle); }
+.nums { color: var(--text-off); font-size: 12px; }
+
+/* Motion switch */
+.motionbar { position: sticky; top: 0; z-index: 20; display: flex;
+  flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 10px;
+  margin: 12px -16px 0; }
+.seg { display: inline-flex; }
+.seg button { margin-right: -1px; }
+.seg button[aria-pressed="true"] { background: var(--pick); color: #fff; }
+
+/* Buttons */
+.btn { font: 12px Tahoma, system-ui, sans-serif; color: var(--text);
+  border: 0; padding: 4px 12px; min-height: 26px; cursor: pointer;
+  background: var(--face); box-shadow:
+  inset -1px -1px var(--shadow), inset 1px 1px var(--face-light),
+  inset -2px -2px var(--face-dark), inset 2px 2px #48484d;
+  transition: transform var(--t-pop) var(--ease-back),
+    filter var(--t-hover) ease-out; }
+.btn:hover { filter: brightness(1.12); }
+.btn.down, .btn:active { transform: translateY(1px) scale(0.96, 0.92);
+  filter: brightness(0.85); transition-duration: var(--t-press);
+  box-shadow: inset 1px 1px var(--shadow), inset -1px -1px var(--face-light),
+  inset 2px 2px var(--face-dark); }
+.btn.red { background: var(--pick); color: #fff; }
+.btn.off { color: var(--text-off); cursor: not-allowed; filter: none; }
+.btn.off:active { transform: none; }
+
+/* Mockups */
+.mock { overflow-x: auto; margin: 10px 0; padding-bottom: 4px; }
+.mock > .win { min-width: 620px; }
+.mock.small > .win { min-width: 360px; }
+.mk { font: 11px Tahoma, system-ui, sans-serif; color: var(--text); }
+.row { display: flex; gap: 4px; align-items: center; }
+.col { display: flex; flex-direction: column; gap: 4px; }
+.mtab { padding: 5px 14px 4px; font: 12px "Silkscreen", monospace;
+  position: relative; }
+.mtab.on { background: #46464b; color: #fff; }
+.tabslider { position: absolute; bottom: 1px; height: 3px;
+  background: var(--pick); transition: left var(--t-move) var(--ease-back),
+  width var(--t-move) var(--ease-back); }
+.chip { display: inline-block; padding: 1px 6px; font-size: 10px;
+  background: var(--face-dark); border: 1px solid var(--face-light); }
+.chip.red { background: var(--pick); border-color: var(--pick); color: #fff; }
+.chip.y { background: var(--handle); border-color: var(--handle);
+  color: #222; }
+.stagebox { background: var(--stage); position: relative; overflow: hidden; }
+.frame { position: absolute; background: #e9e4d8; }
+.doll { position: absolute; }
+.piece { position: absolute; background: #c45; border-radius: 3px; }
+.hoverline { outline: 1px dashed #fff; outline-offset: 2px; }
+.pickline { outline: 2px solid var(--pick); outline-offset: 2px; }
+.hdl { position: absolute; width: 8px; height: 8px; background: var(--handle);
+  box-shadow: 0 0 0 1px #222; }
+.grabring { position: absolute; width: 26px; height: 26px; border-radius: 50%;
+  border: 1px dashed rgba(242, 194, 48, 0.6); }
+.lane { height: 20px; position: relative; background: var(--field);
+  border-bottom: 1px solid #2c2c30; }
+.dia { position: absolute; width: 9px; height: 9px; top: 5px;
+  transform: rotate(45deg); background: var(--text); }
+.dia.pk { background: var(--pick); box-shadow: 0 0 0 2px var(--pick-glow); }
+.hold { position: absolute; top: 8px; height: 4px; background: #6a6a72; }
+.ph { position: absolute; top: 0; bottom: 0; width: 2px;
+  background: var(--pick); }
+.toastm { position: absolute; padding: 4px 8px; font-size: 11px;
+  display: flex; gap: 8px; align-items: center; }
+.lbl { color: var(--text-off); }
+.scrubl { cursor: ew-resize; border-bottom: 1px dotted var(--text-off); }
+.fld { padding: 2px 5px; min-width: 46px; font-family: ui-monospace, monospace;
+  font-size: 11px; }
+.tile { width: 54px; height: 48px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px; font-size: 10px; }
+.tile i { display: block; width: 12px; height: 12px; background: var(--pick);
+  border-radius: 50%; }
+.bob i { animation: bob 900ms ease-in-out infinite alternate; }
+.shk i { animation: shk 300ms steps(4) infinite; }
+.sway i { animation: sway 1200ms ease-in-out infinite alternate; }
+@keyframes bob { from { transform: translateY(-4px); }
+  to { transform: translateY(4px); } }
+@keyframes shk { 0% { transform: translate(-2px, 0); }
+  50% { transform: translate(2px, 1px); } 100% { transform: translate(0, -1px); } }
+@keyframes sway { from { transform: translateX(-6px); }
+  to { transform: translateX(6px); } }
+:root[data-motion="off"] .tile i { animation: none; }
+.clip { position: absolute; top: 3px; bottom: 3px; padding: 2px 5px;
+  font-size: 10px; overflow: hidden; white-space: nowrap; }
+.clip.shot { background: #6b2a3a; border: 1px solid #a33a52; }
+.clip.vid { background: #2a4b6b; border: 1px solid #3a6ea3; }
+.cutt { position: absolute; top: -2px; width: 8px; height: 10px;
+  background: var(--handle); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.trn { position: absolute; top: 50%; width: 16px; height: 16px;
+  margin: -8px 0 0 -8px; font-size: 9px; line-height: 16px; text-align: center;
+  background: var(--face); border: 1px solid var(--handle); color: var(--handle); }
+.thumb { background: linear-gradient(135deg, #e9e4d8 60%, #c45 60%);
+  width: 100%; height: 30px; }
+
+/* Interaction lists */
+.ix { display: grid; grid-template-columns: 70px 1fr; gap: 2px 10px;
+  margin: 8px 0; font-size: 13px; }
+.ix dt { color: var(--handle); font-family: "Silkscreen", monospace;
+  font-size: 11px; padding-top: 2px; }
+.ix dd { margin: 0; }
+.today li { color: #c9c9cf; }
+
+/* Demos */
+.demo { padding: 12px; margin: 10px 0; }
+.demo h3 { margin-top: 0; }
+.demo .hint { font-size: 12px; color: var(--text-off); }
+.dstage { position: relative; height: 170px; margin-top: 8px;
+  touch-action: none; user-select: none; }
+.track { position: relative; height: 54px; margin-top: 8px;
+  touch-action: none; user-select: none; overflow: hidden; }
+.tick { position: absolute; bottom: 0; width: 1px; height: 8px;
+  background: #555; }
+.tick.flash { background: #fff; height: 100%;
+  box-shadow: 0 0 6px #fff; }
+.key { position: absolute; top: 22px; width: 14px; height: 14px;
+  margin-left: -7px; transform: rotate(45deg); background: var(--text);
+  cursor: grab; }
+.key::before { content: ""; position: absolute; inset: -9px; }
+.key.pk { background: var(--pick); box-shadow: 0 0 0 3px var(--pick-glow); }
+.key.settle { transition: left var(--t-pop) var(--ease-back); }
+.key.pop { animation: pop var(--t-pop) var(--ease-back); }
+.key.puff { animation: puff 120ms ease-in forwards; }
+.key.rewind { animation: rewind var(--t-pop) var(--ease-out); }
+.ghost { position: absolute; top: 22px; width: 14px; height: 14px;
+  margin-left: -7px; transform: rotate(45deg); border: 1px dashed #aaa;
+  pointer-events: none; }
+.ring { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+  border: 2px solid var(--pick); border-radius: 50%; pointer-events: none;
+  animation: ring 260ms ease-out forwards; }
+.spark { position: absolute; width: 3px; height: 3px; background: var(--pick);
+  pointer-events: none; transition: transform 220ms ease-out,
+  opacity 220ms ease-out; }
+@keyframes pop { from { transform: rotate(45deg) scale(1.4); }
+  to { transform: rotate(45deg) scale(1); } }
+@keyframes puff { to { transform: rotate(45deg) scale(0); opacity: 0; } }
+@keyframes rewind { 0% { filter: brightness(2.2);
+  transform: rotate(45deg) scale(1.25); }
+  100% { filter: none; transform: rotate(45deg) scale(1); } }
+@keyframes ring { from { transform: scale(1); opacity: 1; }
+  to { transform: scale(2.6); opacity: 0; } }
+:root[data-motion="off"] .key.pop, :root[data-motion="off"] .key.rewind,
+:root[data-motion="off"] .ring { animation: none; }
+:root[data-motion="off"] .key.puff { animation-duration: 1ms; }
+.vlabel { position: absolute; padding: 1px 6px; font: 11px ui-monospace,
+  monospace; background: #000c; color: #fff; border: 1px solid var(--pick);
+  pointer-events: none; white-space: nowrap; z-index: 5; }
+.shake { animation: shake 200ms linear; }
+@keyframes shake { 0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); } 40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+:root[data-motion="off"] .shake { animation: none; }
+.why { display: inline-block; margin-left: 8px; font-size: 12px;
+  color: var(--handle); opacity: 0; transition: opacity var(--t-hover); }
+.why.show { opacity: 1; }
+.toastzone { position: fixed; left: 50%; bottom: 16px; z-index: 40;
+  transform: translateX(-50%); width: min(420px, calc(100vw - 32px)); }
+.toast { display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  margin-top: 6px; position: relative; overflow: hidden;
+  animation: tin var(--t-move) var(--ease-back); }
+.toast.leaving { animation: tout var(--t-pop) ease-in forwards; }
+.toast .bar { position: absolute; left: 0; bottom: 0; height: 2px;
+  background: var(--pick); animation: bar 4s linear forwards; }
+.toast span { flex: 1; font-size: 13px; }
+@keyframes tin { from { transform: translateY(24px) scale(0.9);
+  opacity: 0; } }
+@keyframes tout { to { transform: translateY(12px); opacity: 0; } }
+@keyframes bar { from { width: 100%; } to { width: 0; } }
+:root[data-motion="off"] .toast, :root[data-motion="off"] .toast.leaving {
+  animation: none; }
+.numrow { display: flex; align-items: center; gap: 8px; margin-top: 10px;
+  flex-wrap: wrap; }
+.numrow input { width: 90px; color: var(--text); border: 0; padding: 4px 6px;
+  font: 13px ui-monospace, monospace; }
+.numrow input:focus { outline: 1px solid var(--pick); }
+.bump { animation: bump var(--t-pop) var(--ease-back); }
+@keyframes bump { from { transform: scale(1.25); color: #fff; } }
+.out { font-size: 12px; color: var(--text-off); min-height: 18px; }
+.steps { counter-reset: s; list-style: none; padding: 0; }
+.steps > li { counter-increment: s; padding: 10px 12px 10px 52px;
+  position: relative; margin: 8px 0; }
+.steps > li::before { content: counter(s); position: absolute; left: 10px;
+  top: 10px; width: 30px; height: 30px; font: 16px/30px "Silkscreen",
+  monospace; text-align: center; background: var(--pick); color: #fff; }
+.steps b { color: var(--handle); }
+.files { font: 12px ui-monospace, monospace; color: #b9b9c2;
+  overflow-wrap: anywhere; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px;
+  color: var(--text-off); margin-top: 8px; }
+.toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.toc a { text-decoration: none; color: var(--text); font-size: 12px; }
+
+/* Item by item lists (inventory numbers on the left) */
+.items { display: grid; grid-template-columns: 76px minmax(0, 1fr);
+  gap: 3px 10px; margin: 8px 0; font-size: 13px; }
+.items dt { color: var(--text-off); font: 11px/20px ui-monospace, monospace;
+  overflow-wrap: anywhere; }
+.items dd { margin: 0; overflow-wrap: anywhere; }
+.items .grp { grid-column: 1 / -1; color: var(--handle); margin-top: 6px;
+  font: 11px "Silkscreen", monospace; }
+.tag.s { color: var(--text-off); border-color: var(--text-off); }
+.tag.r { color: #fff; background: var(--pick); border-color: var(--pick); }
+
+/* Coverage table */
+.tablewrap { overflow-x: auto; margin: 10px 0; }
+.cov { border-collapse: collapse; width: 100%; font-size: 13px; }
+.cov th, .cov td { padding: 4px 8px; text-align: left;
+  border-bottom: 1px solid var(--face-light); white-space: nowrap; }
+.cov th { font: 11px "Silkscreen", monospace; color: var(--handle); }
+.cov td.n { text-align: right; font-family: ui-monospace, monospace; }
+.cov .ok { color: var(--game); }
+.cov tfoot td { font-weight: bold; border-bottom: 0; }
+</style>
+</head>
+<body>
+<main>
+
+<div class="motionbar raised" role="group" aria-label="Motion setting">
+  <span style="font-family: Silkscreen, monospace; font-size: 12px;">Motion</span>
+  <span class="seg" id="motionSeg">
+    <button class="btn" data-m="full" aria-pressed="true">Full</button>
+    <button class="btn" data-m="calm" aria-pressed="false">Calm</button>
+    <button class="btn" data-m="off" aria-pressed="false">Off</button>
+  </span>
+  <span class="hint" style="font-size: 12px; color: var(--text-off);">
+    The same switch ships in Snapper (G21). Try the demos on each.</span>
+</div>
+
+<h1>Snapper: Win98, but juicier</h1>
+<p class="lede">A redesign of how Snapper looks and answers your hands. The
+dark Win98 bevels and Teto red stay. On top: things pop, settle, shake when
+blocked, and every drag tells you its number. No manager, model or file
+format changes. Widgets only, plus three small pure helpers with tests.</p>
+<div class="legend">
+  <span><span class="tag f">F2</span> idea from the Figma list</span>
+  <span><span class="tag g">G4</span> idea from the game-feel list</span>
+  <span><span class="tag n">NEW</span> new in this doc</span>
+</div>
+<nav class="toc">
+  <a class="btn" href="#principles">Principles</a>
+  <a class="btn" href="#demos">Feel it</a>
+  <a class="btn" href="#topbar">Top bar</a>
+  <a class="btn" href="#stage">Pose stage</a>
+  <a class="btn" href="#timeline">Timeline</a>
+  <a class="btn" href="#inspector">Inspector</a>
+  <a class="btn" href="#rig">Rig tab</a>
+  <a class="btn" href="#video">Video tab</a>
+  <a class="btn" href="#cast">Cast</a>
+  <a class="btn" href="#strip">Shot strip</a>
+  <a class="btn" href="#dialogs">Dialogs</a>
+  <a class="btn" href="#build">Build order</a>
+  <a class="btn" href="#coverage">Coverage</a>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="principles">1. Principles</h2>
+<ol class="rules">
+  <li class="raised"><b>Answer on the same frame</b>
+    Something changes the frame you press. Press to feedback under 50 ms,
+    never over 100 ms. A fast click still shows 1 frame of the down state.
+    <div class="nums">G1, G5</div></li>
+  <li class="raised"><b>One motion table</b>
+    Press 80 ms, hover 100 ms, pop 150 ms, move 200 ms, cap 300 ms. Hover
+    and moves ease out cubic. Pops ease out back, 10 % overshoot:
+    <code>cubic-bezier(.34,1.56,.64,1)</code>. Nothing linear.
+    <div class="nums">G20, G8, G22</div></li>
+  <li class="raised"><b>Look small, grab big</b>
+    Handles drawn 8 px, grabbed within 12 px (3x). Nearest wins. A drag
+    starts after 4 px, then jumps to the cursor. Hidden handles stay
+    grabbable 100 ms.
+    <div class="nums">G2, G3, G15</div></li>
+  <li class="raised"><b>Every drag talks</b>
+    A value chip rides 14 px off the cursor ("34 deg", "+3 f"). A faint
+    ghost marks the start. Snaps catch within 6 px, the target flashes
+    100 ms, the thing settles with a 2 px bounce.
+    <div class="nums">F6, G4, G17</div></li>
+  <li class="raised"><b>Show what changed</b>
+    New keys pop 1.4 to 1.0 in 150 ms with a red ring. Deletes puff out in
+    120 ms. Undo flashes and slides back in 120 ms. Big actions get a 4 s
+    toast with Undo.
+    <div class="nums">G7, G9, G11, F15</div></li>
+  <li class="raised"><b>Never fail in silence</b>
+    A blocked click shakes the control 4 px for 200 ms and shows the reason
+    next to it. Greyed controls keep their tooltip.
+    <div class="nums">G18, UX language</div></li>
+  <li class="raised"><b>Small often, big rare</b>
+    Routine edits: at most 150 ms, no shake, no sound. Bursts and hit-stop
+    (70 ms) only for export done, rig saved, first doll on stage. Motion:
+    Full, Calm, Off; Calm drops overshoot, Off drops all of it.
+    <div class="nums">G10, G16, G21, G22</div></li>
+  <li class="raised"><b>Hands over numbers</b>
+    Drag a label to scrub (1 per px, Shift 10, Alt 0.1). Type math
+    ("*2", "90/2"). Arrows nudge 1 px, Shift 10 px. Fields are the backup,
+    not the way in.
+    <div class="nums">F2, F3, F7</div></li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="demos">2. Feel it</h2>
+<p class="lede">Live demos. They follow the Motion switch at the top.</p>
+
+<div class="grid2">
+  <div class="demo raised">
+    <h3>Press with squash <span class="tag g">G5</span></h3>
+    <p class="hint">Down: 1 px sunken, 4 % squash, darker, at least one
+      frame. Up: springs back in 150 ms with overshoot.</p>
+    <div class="numrow">
+      <button class="btn red" id="pressBtn">Pose at playhead</button>
+      <span class="out" id="pressOut"></span>
+    </div>
+  </div>
+
+  <div class="demo raised">
+    <h3>Blocked: shake and say why <span class="tag g">G18</span></h3>
+    <p class="hint">A greyed control you click anyway shakes 4 px for
+      200 ms and says the reason. Hover shows the same tooltip.</p>
+    <div class="numrow">
+      <button class="btn off" id="blockBtn"
+        title="Pick a doll on the stage first.">Copy to other side</button>
+      <span class="why" id="blockWhy">Pick a doll on the stage first.</span>
+    </div>
+  </div>
+</div>
+
+<div class="demo raised">
+  <h3>Scrub a number by its label <span class="tag f">F2</span>
+    <span class="tag f">F7</span> <span class="tag g">G3</span></h3>
+  <p class="hint">Drag the word "Turn" left or right. 4 px dead zone, then 1
+    per px; hold Shift for 10, Alt for 0.1. Escape during the drag puts it
+    back. Or click the field and type math: "*2", "+15", "90/2", Enter.</p>
+  <div class="numrow">
+    <span class="lbl scrubl" id="scrubLbl" tabindex="0">Turn</span>
+    <input class="sunken" id="scrubIn" value="12" inputmode="decimal"
+      aria-label="Turn in degrees">
+    <span class="lbl">deg</span>
+    <svg width="40" height="40" viewBox="-20 -20 40 40" aria-hidden="true">
+      <circle r="17" fill="#1c1c1f" stroke="#5c5c62"/>
+      <line id="scrubNeedle" x1="0" y1="0" x2="15" y2="0" stroke="#d8304f"
+        stroke-width="3"/>
+      <circle r="3" fill="#f2c230"/>
+    </svg>
+  </div>
+  <div class="out" id="scrubOut">One drag is one undo step.</div>
+</div>
+
+<div class="demo raised">
+  <h3>Rotate a piece: hover, grab big, live label, Shift snap
+    <span class="tag f">F1</span> <span class="tag f">F4</span>
+    <span class="tag f">F6</span> <span class="tag g">G2</span>
+    <span class="tag g">G6</span></h3>
+  <p class="hint">Hover the arm: thin outline before you click. Hover the
+    yellow handle: it grows 15 %. Drag it to turn; hold Shift to snap to
+    15 deg (each snap flashes). The dashed ring is its real grab zone.</p>
+  <div class="dstage stagebox" id="rotStage">
+    <div class="frame" style="left: 8%; right: 8%; top: 10px; bottom: 10px;"></div>
+  </div>
+  <div class="numrow">
+    <label style="font-size: 12px;"><input type="checkbox" id="showGrab" checked>
+      Show grab zones</label>
+    <span class="out" id="rotOut"></span>
+  </div>
+</div>
+
+<div class="demo raised">
+  <h3>Timeline keys: snap, pop, puff, toast, undo
+    <span class="tag g">G3</span> <span class="tag g">G4</span>
+    <span class="tag g">G7</span> <span class="tag g">G9</span>
+    <span class="tag g">G11</span> <span class="tag g">G17</span>
+    <span class="tag g">G19</span> <span class="tag f">F15</span></h3>
+  <p class="hint">Double-click the lane to key (pop and ring). Click a key
+    to pick (Shift adds). Drag: ghost stays at the start, chip says "+3 f",
+    frame ticks flash as you pass, and it settles on release. Near the
+    playhead it snaps harder. Delete (or the button) puffs them out and a
+    toast offers Undo. Ctrl+Z works too.</p>
+  <div class="track sunken" id="keyTrack" tabindex="0"
+    aria-label="Timeline lane demo"></div>
+  <div class="numrow">
+    <button class="btn" id="delKeys">Delete keys</button>
+    <button class="btn" id="undoKeys">Undo</button>
+    <span class="lbl">Frame</span>
+    <span class="fld sunken" id="frameNum">F 008</span>
+    <span class="out" id="keyOut"></span>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="topbar">3. Main window, menus and top bar</h2>
+<div class="grid2">
+  <div>
+    <h3>Today</h3>
+    <ul class="today">
+      <li>A plain QTabBar (Pose, Rig, Video) under a File/Edit menu bar.</li>
+      <li>Play, next frame and undo live only in menus and keys.</li>
+      <li>Undo names its step only inside the Edit menu.</li>
+      <li>Problems go to the status bar line at the very bottom for a few
+        seconds, easy to miss.</li>
+    </ul>
+  </div>
+  <div>
+    <h3>New</h3>
+    <ul>
+      <li>Chunky tabs with an icon; a red bar slides under the active one
+        (200 ms, back ease). <span class="tag n">NEW</span></li>
+      <li>Transport always on top: |&lt; &lt; Play &gt; &gt;|, a frame
+        counter that bumps when it changes. <span class="tag g">G19</span></li>
+      <li>Undo and Redo buttons that name the step: "Undo Rotate head".</li>
+      <li>"Find a command" box, Ctrl+/. <span class="tag f">F13</span></li>
+      <li>Toasts above the bottom edge replace status bar problems.
+        <span class="tag f">F15</span></li>
+    </ul>
+  </div>
+</div>
+<div class="mock"><div class="win raised mk">
+  <div class="titlebar">Snapper - teto_song.snap <span class="x raised">x</span></div>
+  <div class="row" style="padding: 4px; gap: 10px; flex-wrap: nowrap;">
+    <div class="row" id="mockTabs" style="position: relative; gap: 2px;">
+      <span class="mtab raised" data-tab>Pose</span>
+      <span class="mtab raised" data-tab>Rig</span>
+      <span class="mtab raised" data-tab>Video</span>
+      <span class="tabslider" id="tabSlider"></span>
+    </div>
+    <div class="row">
+      <button class="btn" style="padding: 2px 6px;">|&lt;</button>
+      <button class="btn" style="padding: 2px 6px;">&lt;</button>
+      <button class="btn red" style="padding: 2px 10px;">Play</button>
+      <button class="btn" style="padding: 2px 6px;">&gt;</button>
+      <button class="btn" style="padding: 2px 6px;">&gt;|</button>
+      <span class="fld sunken">F 024</span>
+      <span class="chip">0:01.00</span>
+    </div>
+    <div class="row">
+      <button class="btn" style="padding: 2px 8px;">Undo Rotate head</button>
+      <button class="btn off" style="padding: 2px 8px;"
+        title="Nothing to redo.">Redo</button>
+    </div>
+    <span class="fld sunken" style="margin-left: auto; min-width: 140px;
+      color: var(--text-off);">Find a command... Ctrl+/</span>
+  </div>
+</div></div>
+<dl class="ix">
+  <dt>Hover</dt><dd>Tab lifts 1 px and brightens in 100 ms.</dd>
+  <dt>Press</dt><dd>Squash and sink (demo above). Tab switch: red bar
+    slides, page cross-fades in 120 ms.</dd>
+  <dt>Undo</dt><dd>Button text swaps with a short slide; the thing undone
+    flashes on stage or timeline. <span class="tag g">G11</span></dd>
+  <dt>Error</dt><dd>Toast with the reason; the control that refused shakes.</dd>
+  <dt>Palette</dt><dd>Ctrl+/ drops a box from the top (150 ms). Greyed
+    actions list their reason. Enter runs, Escape closes.</dd>
+</dl>
+<h3>Every control, item by item</h3>
+<dl class="items">
+  <dt class="grp">Main window</dt>
+  <dt>#1</dt><dd>Title bar: "Snapper - teto_song.snap", with a red dot
+    before the name while there are unsaved changes (the * stays for the
+    taskbar). Never saved: "not saved yet" in grey.</dd>
+  <dt>#2</dt><dd>Close with unsaved changes: the Unsaved changes box (see
+    Dialogs). Save is the red default button.</dd>
+  <dt>#7</dt><dd>Entering Video slides the Cast and Inspector docks out
+    (200 ms); leaving slides them back exactly as they were, floating or
+    closed included.</dd>
+  <dt>#9, #10</dt><dd>Cast and Inspector stay Qt docks: close, float, nest.
+    Their title bars get the dark bevel. A closed dock comes back from the
+    View menu. <span class="tag s">STAYS</span></dd>
+  <dt>#11, #12</dt><dd>Splitters (stage over timeline, rig canvas beside
+    panel) stay draggable. The divider draws 4 px, grabs 12 px, lightens on
+    hover; double-click puts it back to 3:1. <span class="tag n">NEW</span></dd>
+  <dt>#13</dt><dd>Autosave found at start: the Recover work box (see
+    Dialogs); after recovering, a toast "Recovered unsaved work".</dd>
+  <dt>#14</dt><dd>Playhead follow stays: playing or stepping into a shot
+    picks it; that chip lifts in the strip (150 ms), no scroll jump.</dd>
+  <dt>#3-#6, #8</dt><dd>Status bar problems become toasts (rig canvas
+    hints stay pinned until cleared; "Autosave failed" is a toast too);
+    Pose, Rig and Video become the chunky tabs: above.</dd>
+  <dt>#15</dt><dd>Clean exit deletes the autosave; an unsaved exit keeps it.
+    Nothing to see. <span class="tag s">STAYS</span></dd>
+  <dt class="grp">File menu</dt>
+  <dt>#16-#24</dt><dd>New, Open, Open recent, Save, Save as, Choose song,
+    Remove song, Export, Quit keep their names and keys. Menus get the dark
+    bevel and a red highlight bar; keys sit right-aligned. Every entry is
+    also in Find a command. <span class="tag s">STAYS</span></dd>
+  <dt>#18</dt><dd>Open recent: full path as tooltip; greyed "No recent
+    files yet." when empty.</dd>
+  <dt>#21, #22</dt><dd>After Choose song the timeline song band fills with
+    the waveform in a left to right wipe (200 ms). Remove song greyed
+    "There is no song yet." when there is none.</dd>
+  <dt>#25</dt><dd>File failures keep a warning box with the reason: they
+    stop your work, so they are not a toast. <span class="tag s">STAYS</span></dd>
+  <dt class="grp">Edit and Play menus</dt>
+  <dt>#26, #27</dt><dd>Undo and Redo stay in the menu, named the same as
+    the top bar buttons; greyed with why.</dd>
+  <dt>#28-#30</dt><dd>Play / pause (Space), Next and Previous frame (Right
+    and ., Left and ,) stay in the menu and keys, and get the transport
+    buttons above.</dd>
+</dl>
+
+<!-- ============================================================ -->
+<h2 id="stage">4. Pose stage</h2>
+<div class="grid2">
+  <div>
+    <h3>Today</h3>
+    <ul class="today">
+      <li>No hover hint: you learn what a click grabs after you click.</li>
+      <li>Wheel turns 5 deg a notch with no readout; numbers only in the
+        inspector.</li>
+      <li>Joint, IK, lean and swivel handles are the same small yellow
+        squares, no cursor change.</li>
+      <li>Warp dot reach is set by the wheel with nothing on screen.</li>
+      <li>No zoom or pan; no arrow nudge.</li>
+      <li>Link is a text menu on right click; nothing shows the link.</li>
+    </ul>
+  </div>
+  <div>
+    <h3>New</h3>
+    <ul>
+      <li>Hover outline (1 px dashed white) on the piece, doll or dot under
+        the cursor. <span class="tag f">F1</span></li>
+      <li>Value chip while dragging or wheeling. <span class="tag f">F6</span></li>
+      <li>Handles say what they do: cursor and a tiny icon (turn, lean,
+        swivel, bend). Hover grows them 15 %. <span class="tag g">G6</span></li>
+      <li>Reach shows as a dashed ring that grows with the wheel.
+        <span class="tag n">NEW</span></li>
+      <li>Space or middle drag pans, Ctrl+wheel zooms, Shift+1 fit, Shift+2
+        pick. <span class="tag f">F9</span> <span class="tag f">F5</span></li>
+      <li>Guides: red lines when centres or edges line up, 6 px catch.
+        <span class="tag f">F10</span></li>
+      <li>Link draws a red rope from followers to the leader (200 ms).
+        <span class="tag n">NEW</span></li>
+      <li>Empty stage: "Drag a doll here from the Cast" and a button.
+        <span class="tag f">F16</span></li>
+    </ul>
+  </div>
+</div>
+<div class="mock"><div class="win raised mk">
+  <div class="titlebar">Stage - Shot 2, frame 24</div>
+  <div class="stagebox" style="height: 230px;">
+    <div class="frame" style="left: 70px; right: 70px; top: 14px; bottom: 14px;"></div>
+    <!-- guide -->
+    <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+      background: var(--pick);"></div>
+    <!-- doll A picked whole -->
+    <div class="doll pickline" style="left: 150px; top: 50px; width: 70px; height: 150px;">
+      <div class="piece" style="left: 20px; top: 0; width: 30px; height: 30px; border-radius: 50%;"></div>
+      <div class="piece" style="left: 15px; top: 34px; width: 40px; height: 60px;"></div>
+      <div class="piece" style="left: 18px; top: 96px; width: 12px; height: 50px;"></div>
+      <div class="piece" style="left: 40px; top: 96px; width: 12px; height: 50px;"></div>
+    </div>
+    <div class="hdl" style="left: 228px; top: 120px;" title="Swivel"></div>
+    <div class="hdl" style="left: 181px; top: 206px;" title="Lean"></div>
+    <div class="grabring" style="left: 219px; top: 111px;"></div>
+    <!-- ghost of start -->
+    <div style="position: absolute; left: 120px; top: 50px; width: 70px; height: 150px;
+      border: 1px dashed #ffffff55;"></div>
+    <div class="vlabel" style="left: 236px; top: 92px;">+30, 0 px</div>
+    <!-- doll B hover -->
+    <div class="doll hoverline" style="left: 330px; top: 60px; width: 60px; height: 140px;">
+      <div class="piece" style="left: 15px; top: 0; width: 30px; height: 30px; border-radius: 50%; background: #4a7;"></div>
+      <div class="piece" style="left: 10px; top: 34px; width: 40px; height: 104px; background: #4a7;"></div>
+    </div>
+    <!-- warp dot with reach ring -->
+    <div style="position: absolute; left: 400px; top: 70px; width: 60px; height: 60px;
+      border-radius: 50%; border: 1px dashed var(--handle);"></div>
+    <div class="hdl" style="left: 426px; top: 96px; border-radius: 50%;"></div>
+    <div class="vlabel" style="left: 440px; top: 134px;">reach 1.5</div>
+    <!-- zoom chip -->
+    <div class="row" style="position: absolute; right: 6px; bottom: 6px;">
+      <span class="chip">Fit</span><span class="chip">100%</span>
+      <span class="chip red">150%</span>
+    </div>
+  </div>
+</div></div>
+<dl class="ix">
+  <dt>Hover</dt><dd>Outline in 100 ms; handle grows 15 %; cursor shows the
+    drag (move, turn, scale, bend).</dd>
+  <dt>Press</dt><dd>Pick outline goes red at once; nothing moves until 4 px.</dd>
+  <dt>Drag</dt><dd>Jumps to the cursor, chip shows the value, ghost at the
+    start. Shift locks axis (move) or snaps 15 deg (turn handle). Wheel
+    keeps Shift = 1 deg fine.</dd>
+  <dt>Snap</dt><dd>Guide line flashes white 100 ms; doll settles 2 px.</dd>
+  <dt>Drop</dt><dd>Doll from Cast squashes 5 % and springs back (200 ms).
+    <span class="tag g">G13</span></dd>
+  <dt>Keys</dt><dd>Arrows 1 px, Shift 10 px when the stage has focus; turn
+    pick: 1 deg / 15 deg. <span class="tag f">F3</span> Tab steps pieces,
+    Enter dives into a doll. <span class="tag f">F18</span>
+    <span class="tag f">F20</span></dd>
+  <dt>Undo</dt><dd>The piece flashes and slides back 120 ms.</dd>
+  <dt>Escape</dt><dd>Drag snaps back to the ghost with a 150 ms ease.</dd>
+  <dt>Error</dt><dd>Wheel with nothing picked: a "Click a piece first"
+    chip at the cursor, 1.5 s, no shake (routine).</dd>
+</dl>
+<h3>Every control, item by item</h3>
+<dl class="items">
+  <dt class="grp">Drawing</dt>
+  <dt>#70</dt><dd>Warp grid of a picked piece: 1 px lines at 30 % white,
+    dots drawn 6 px, grabbed 12 px.</dd>
+  <dt>#71</dt><dd>Drag-node dots keep their yellow ring, plus a short tail
+    on the side they trail. <span class="tag n">NEW</span></dd>
+  <dt>#72</dt><dd>Dots that move by themselves keep the yellow square; it
+    breathes slowly in Full motion, still in Calm and Off.</dd>
+  <dt>#75</dt><dd>Box select: dashed pick-colour rectangle with light fill;
+    things inside get the hover outline live; chip "3 picked".</dd>
+  <dt class="grp">Mouse</dt>
+  <dt>#77</dt><dd>Shift+click adds to the pick: the new outline pops in
+    (150 ms); then a drag moves them all.</dd>
+  <dt>#78</dt><dd>Ctrl+click adds and a drag scales; Ctrl+click without a
+    drag on a picked thing drops it, its outline fades 100 ms.</dd>
+  <dt>#81</dt><dd>Ctrl+drag scales every pick: scale cursor, chip "x 1.20",
+    ghost at the start size. One undo "Scale arm".</dd>
+  <dt>#84</dt><dd>Drag a warp dot: chip "4, -2 px", the grid bends live,
+    one undo "Warp arm".</dd>
+  <dt>#85</dt><dd>Click a warp dot without dragging: its ring goes red and
+    the reach ring appears; click again drops it.</dd>
+  <dt>#87</dt><dd>Drag on empty space: box select replaces the pick; Shift
+    adds (chip "+"), Ctrl removes (chip "-").</dd>
+  <dt>#88</dt><dd>Click empty space: the pick clears, outlines and handles
+    fade in 100 ms.</dd>
+  <dt>#89</dt><dd>Double-click a thing picks the whole doll or layer: the
+    whole outline pops and the lean and swivel bars slide in (150 ms).</dd>
+  <dt class="grp">Already above, unchanged in what they do</dt>
+  <dt>#66-#69</dt><dd>Empty stage, pick outline, lean and swivel bars,
+    pivot dot.</dd>
+  <dt>#73, #74</dt><dd>Warp dot reach ring and label, IK tip squares.</dd>
+  <dt>#76, #79, #80, #82, #83, #86, #90-#97</dt><dd>Click, drag, Shift lock, lean, swivel, bend, wheel,
+    Shift wheel, reach wheel, Link and Unlink in the right-click menu,
+    Escape, Ctrl+A, D. <span class="tag s">STAYS</span></dd>
+</dl>
+
+<!-- ============================================================ -->
+<h2 id="timeline">5. Timeline</h2>
+<div class="grid2">
+  <div>
+    <h3>Today</h3>
+    <ul class="today">
+      <li>Ease, Space evenly (On 1s to 4s), holds +/- 1 frame, copy and
+        paste all hide in a right-click menu.</li>
+      <li>The corner toggle reads "Scrub mode" / "Animation mode" as text.</li>
+      <li>A new key just appears; a deleted one just goes.</li>
+      <li>Key drags show no offset; auto scroll jumps.</li>
+    </ul>
+  </div>
+  <div>
+    <h3>New</h3>
+    <ul>
+      <li>Key chip bar floats above picked keys: [Step|Ease|Line]
+        [On 2s] [On 3s] [-1 f] [+1 f]. Same KeyManager calls as the menu,
+        which stays. <span class="tag n">NEW</span></li>
+      <li>Corner becomes a two-icon switch: film frame (scrub) and diamond
+        (animation).</li>
+      <li>Key pop, delete puff, frame-tick flash, "+3 f" chip, start ghost.
+        <span class="tag g">G7</span> <span class="tag g">G9</span>
+        <span class="tag g">G4</span> <span class="tag g">G17</span></li>
+      <li>Playhead settles on a frame with a small overshoot; counter bumps.
+        <span class="tag g">G19</span></li>
+      <li>Hover a doll row: that doll gets the hover outline on stage.
+        <span class="tag f">F12</span></li>
+      <li>Auto scroll eases in 200 ms. <span class="tag g">G8</span></li>
+    </ul>
+  </div>
+</div>
+<div class="mock"><div class="win raised mk">
+  <div class="row" style="padding: 2px 4px; gap: 6px;">
+    <span class="row raised" style="padding: 2px;">
+      <span class="chip">[ ]</span><span class="chip red">&lt;&gt;</span></span>
+    <span class="lbl">Shot 2</span>
+    <span style="margin-left: auto;" class="lbl">Loop</span>
+    <span class="chip red">16 - 40</span>
+  </div>
+  <div style="display: grid; grid-template-columns: 90px 1fr;">
+    <div class="col" style="gap: 0;">
+      <div style="height: 18px;"></div>
+      <div class="lane" style="padding-left: 4px; background: var(--face);">Teto</div>
+      <div class="lane" style="padding-left: 4px; background: #46464b;
+        box-shadow: inset 3px 0 var(--pick);">Miku</div>
+      <div class="lane" style="padding-left: 4px; background: var(--face);">Camera</div>
+    </div>
+    <div style="position: relative;">
+      <div style="height: 18px; position: relative; color: var(--text-off);
+        font-size: 10px; background: var(--face-dark);">
+        <span style="position: absolute; left: 0;">1</span>
+        <span style="position: absolute; left: 25%;">12</span>
+        <span style="position: absolute; left: 50%;">24</span>
+        <span style="position: absolute; left: 75%;">36</span></div>
+      <div class="lane"><div class="dia" style="left: 2%;"></div>
+        <div class="hold" style="left: 3%; width: 22%;"></div>
+        <div class="dia" style="left: 25%;"></div>
+        <div class="hold" style="left: 26%; width: 30%;"></div>
+        <div class="dia" style="left: 56%;"></div></div>
+      <div class="lane"><div class="dia" style="left: 2%;"></div>
+        <div class="hold" style="left: 3%; width: 30%;"></div>
+        <div class="dia pk" style="left: 33%;"></div>
+        <div class="hold" style="left: 34%; width: 16%;"></div>
+        <div class="dia pk" style="left: 50%;"></div>
+        <div class="ghost" style="left: 47%; top: 5px; width: 9px; height: 9px; margin: 0;"></div></div>
+      <div class="lane"><div class="dia" style="left: 2%;"></div>
+        <div style="position: absolute; left: 3%; width: 70%; top: 9px;
+          height: 1px; background: #8a8a92;"></div>
+        <div class="dia" style="left: 73%;"></div></div>
+      <div class="ph" style="left: 50.5%;"></div>
+      <div class="chip red" style="position: absolute; left: 49%; top: 0;">24</div>
+      <div class="vlabel" style="left: 53%; top: 44px;">+3 f</div>
+      <div class="row raised" style="position: absolute; left: 22%; top: 18px;
+        padding: 2px; font-size: 10px;">
+        <span class="chip red">Step</span><span class="chip">Ease</span>
+        <span class="chip">Line</span><span class="chip">On 2s</span>
+        <span class="chip">On 3s</span><span class="chip">-1 f</span>
+        <span class="chip">+1 f</span></div>
+    </div>
+  </div>
+</div></div>
+<dl class="ix">
+  <dt>Hover</dt><dd>Key grows 15 % and brightens; grab zone 3x its size.
+    Row hover outlines the doll on stage.</dd>
+  <dt>Press</dt><dd>Picks at once; drag waits for 4 px.</dd>
+  <dt>Drag</dt><dd>Keys follow the cursor, chip "+3 f", ghost at the start,
+    frame ticks flash as they pass.</dd>
+  <dt>Snap</dt><dd>Lands on the frame with a 2 px settle; playhead and
+    shot starts pull from 10 px.</dd>
+  <dt>Create</dt><dd>Scale 1.4 to 1.0 in 150 ms with a red ring.</dd>
+  <dt>Delete</dt><dd>Shrink and puff in 120 ms; toast "Deleted 3 keys,
+    Undo".</dd>
+  <dt>Undo</dt><dd>Keys fade back with a bright flash.</dd>
+  <dt>Error</dt><dd>Chip bar button greyed with reason ("Pick two keys to
+    space them").</dd>
+</dl>
+<h3>Every control, item by item</h3>
+<dl class="items">
+  <dt class="grp">Drawing</dt>
+  <dt>#99</dt><dd>Ruler keeps its ticks (tall at seconds, mid at 2 s) and
+    a number step that fits the zoom; past the shot end is hatched, not
+    just dimmed.</dd>
+  <dt>#100</dt><dd>Song band: waveform in grey, the part already played
+    in dark red. No song: "No song" and a small Choose song button.</dd>
+  <dt>#104</dt><dd>Empty: "No shot picked. Click a shot in the strip
+    above."</dd>
+  <dt class="grp">Mouse</dt>
+  <dt>#105</dt><dd>Click or drag the ruler or song band: the playhead
+    follows at once, its tag shows "24, 1.00 s", the counter bumps.</dd>
+  <dt>#106</dt><dd>Click a row name or a plain spot in a row: that layer is
+    focused; the red left bar slides to the row (150 ms).</dd>
+  <dt>#109</dt><dd>Ctrl+click a key toggles the keys at that frame.</dd>
+  <dt>#111</dt><dd>Click empty row space: the key pick clears and the
+    playhead jumps there; Shift or Ctrl click keeps the pick.</dd>
+  <dt>#112</dt><dd>Drag on empty space: box select keys (replace; Shift
+    adds; Ctrl removes). Keys inside grow 15 % while inside; chip "5
+    keys".</dd>
+  <dt>#113</dt><dd>Click below the rows clears the key pick.</dd>
+  <dt>#115</dt><dd>Wheel scrolls frames, eased 200 ms.</dd>
+  <dt>#116</dt><dd>Ctrl+wheel zooms around the mouse; ruler numbers fade to
+    their new step.</dd>
+  <dt class="grp">Already above, unchanged in what they do</dt>
+  <dt>#98, #101-#103</dt><dd>Step mode switch, rows, keys, playhead.</dd>
+  <dt>#107, #108, #110, #114, #117-#129</dt><dd>Click, Shift+click, drag and double-click keys;
+    the key menu (Ease, Space evenly, Copy, Delete) and empty menu (Paste
+    here, Hold one frame longer or shorter) stay and also sit on the chip
+    bar; Delete, Ctrl+C, Ctrl+V, Ctrl+A. <span class="tag s">STAYS</span></dd>
+</dl>
+
+<!-- ============================================================ -->
+<h2 id="inspector">6. Inspector and panels</h2>
+<div class="grid2">
+  <div>
+    <h3>Today</h3>
+    <ul class="today">
+      <li>A tall stack of group boxes of spin boxes: Turn, Move x/y,
+        Scale x/y, Skew with " px" and " fr" suffixes.</li>
+      <li>Motion is a Kind combo plus Amount and Frames boxes and Add.</li>
+      <li>Drag node (Lag, Bounce), Link strength and Dot animation
+        (Moves, Direction, Amount, Cycle, Delay) are more spin boxes.</li>
+      <li>Nothing says what is picked at the top.</li>
+    </ul>
+  </div>
+  <div>
+    <h3>New</h3>
+    <ul>
+      <li>Title line: colour dot plus "Head, frame 24".
+        <span class="tag f">F14</span></li>
+      <li>Every number label scrubs; fields take math; several picks show
+        "Mixed". <span class="tag f">F2</span> <span class="tag f">F7</span>
+        <span class="tag f">F8</span></li>
+      <li>Angles (Turn, Direction, Rest turn) get a small dial next to the
+        number. <span class="tag n">NEW</span></li>
+      <li>Motion and Dot animation kinds become tiles with a tiny looping
+        preview (Bob, Bounce, Shake, Sway, Breathe, Pulse, Wave, Shiver).
+        Click = add at playhead. <span class="tag n">NEW</span></li>
+      <li>Lag and Bounce show a little spring that wobbles as you scrub.
+        <span class="tag n">NEW</span></li>
+      <li>Sections fold open and shut in 150 ms; fold state remembered.</li>
+    </ul>
+  </div>
+</div>
+<div class="mock small"><div class="win raised mk" style="max-width: 360px;">
+  <div class="titlebar">Inspector</div>
+  <div style="padding: 6px;" class="col">
+    <div class="row"><span style="width: 8px; height: 8px; background: var(--pick);"></span>
+      <b>Head</b><span class="lbl">frame 24</span></div>
+    <div class="sunken" style="padding: 6px;">
+      <div class="row"><span class="lbl scrubl" style="width: 44px;">Turn</span>
+        <span class="fld sunken">34</span><span class="lbl">deg</span>
+        <svg width="22" height="22" viewBox="-11 -11 22 22"><circle r="9" fill="#1c1c1f" stroke="#5c5c62"/><line x1="0" y1="0" x2="7" y2="5" stroke="#d8304f" stroke-width="2"/></svg></div>
+      <div class="row"><span class="lbl scrubl" style="width: 44px;">Move</span>
+        <span class="fld sunken">+12</span><span class="fld sunken">-4</span><span class="lbl">px</span></div>
+      <div class="row"><span class="lbl scrubl" style="width: 44px;">Scale</span>
+        <span class="fld sunken">Mixed</span><span class="fld sunken">1.00</span></div>
+    </div>
+    <div class="lbl">Motion: click to add at the playhead</div>
+    <div class="row" style="flex-wrap: wrap;">
+      <span class="tile raised bob"><i></i>Bob</span>
+      <span class="tile raised shk"><i></i>Shake</span>
+      <span class="tile raised sway"><i></i>Sway</span>
+      <span class="tile raised bob"><i></i>Breathe</span>
+      <span class="tile raised shk"><i></i>Shiver</span>
+    </div>
+    <div class="lbl">Drag node</div>
+    <div class="row"><span class="lbl scrubl" style="width: 44px;">Lag</span>
+      <span class="fld sunken">3 f</span>
+      <span class="lbl scrubl">Bounce</span><span class="fld sunken">0.4</span>
+      <svg width="40" height="18" viewBox="0 0 40 18"><polyline fill="none" stroke="#f2c230" points="0,9 5,2 10,16 15,4 20,13 25,7 30,11 35,9 40,9"/></svg></div>
+  </div>
+</div></div>
+<dl class="ix">
+  <dt>Hover</dt><dd>Label shows the left/right cursor and brightens.</dd>
+  <dt>Drag</dt><dd>Scrubs (see demo), the stage moves live, one undo
+    step named after the field ("Undo Turn head").</dd>
+  <dt>Type</dt><dd>Math works; a bad entry shakes the field and keeps the
+    old value.</dd>
+  <dt>Tile</dt><dd>Press squash; on release the new loop keys pop on the
+    timeline.</dd>
+  <dt>Error</dt><dd>Box greyed with its reason, as today; clicking it
+    shakes and shows the reason.</dd>
+</dl>
+<p>Every number below gets the scrub label and math of principle 8, and
+every edit stays one live undo step that lands when editing finishes.
+Field values are never rewritten while the field has focus.</p>
+<h3>Every control, item by item</h3>
+<dl class="items">
+  <dt>#145</dt><dd>No shot: "Add a shot in the strip above to start." with
+    an Add shot button under it. <span class="tag f">F16</span></dd>
+  <dt class="grp">Shot box</dt>
+  <dt>#146</dt><dd>Title "Shot" or "Shot (3 picked, changes go to each)";
+    whole box greyed "Add a shot first."</dd>
+  <dt>#147</dt><dd>Name lands on leaving the field; greyed "Pick one shot
+    to rename it." with several picked.</dd>
+  <dt>#148, #149</dt><dd>Length in frames and in seconds side by side, both
+    scrub; seconds step 0.5 and round to the nearest frame. One undo "Shot
+    length"; the strip chip resizes live.</dd>
+  <dt>#150</dt><dd>Background: a colour swatch button; opens the colour
+    picker for all picked shots.</dd>
+  <dt>#151, #152</dt><dd>Into next and Overlap.
+    <span class="tag r">REMOVED</span> Transitions now live on cuts in the
+    Video tab (section 8).</dd>
+  <dt class="grp">Camera at playhead box</dt>
+  <dt>#153-#156</dt><dd>Look at x / y, Zoom, Turn (with the dial), Shake:
+    scrub labels; each edit keys the camera and the key pops on the Camera
+    row. Undo "Move camera".</dd>
+  <dt>#157</dt><dd>Whole box greyed "Move the playhead onto a shot."</dd>
+  <dt class="grp">Pose at playhead box</dt>
+  <dt>#162</dt><dd>Skew scrubs; at +-85 deg it stops with a 2 px bounce.</dd>
+  <dt>#163</dt><dd>Opacity 0 to 1 with a thin fill bar behind the number.</dd>
+  <dt>#164, #165</dt><dd>Lean and Swivel scrub; greyed "Double-click a doll
+    to pick it whole first."</dd>
+  <dt>#166</dt><dd>Drawing combo ("Rig default" or a drawing swap) stays;
+    greyed "This piece has only one drawing."</dd>
+  <dt class="grp">Drag node box</dt>
+  <dt>#167</dt><dd>"Drags behind (D)" tick stays; greyed until a warp dot is
+    picked; Lag and Bounce greyed until it is ticked.</dd>
+  <dt class="grp">Dot animation box</dt>
+  <dt>#171</dt><dd>Size (px) scrubs; greyed "Pick how the dot moves
+    first."</dd>
+  <dt>#172</dt><dd>Cycle reads "every 24 f" and scrubs.</dd>
+  <dt>#174</dt><dd>Delay 0 to 1 scrubs; the tile preview shifts with it.</dd>
+  <dt class="grp">Layer box</dt>
+  <dt>#175</dt><dd>Whole box greyed "Pick a layer first."</dd>
+  <dt>#176</dt><dd>Name lands on leaving the field.</dd>
+  <dt>#177, #178</dt><dd>Frames from and for scrub; for at 0 reads "to the
+    end". Undo "Change layer timing"; the row bar on the timeline resizes
+    live.</dd>
+  <dt>#179</dt><dd>Mirrored tick for doll layers; the doll flips with a
+    150 ms squash through zero width.</dd>
+  <dt>#180</dt><dd>Text Words: multi-line field, lands on leaving it.</dd>
+  <dt>#181-#185</dt><dd>Text Size, Bold, fill and outline colour swatches
+    (with alpha), Outline width. Undo "Edit text".</dd>
+  <dt>#186</dt><dd>Effect Kind: the same tiles as Add Effect in the Cast,
+    in a drop-down.</dd>
+  <dt>#187</dt><dd>Effect colour swatch.</dd>
+  <dt>#188</dt><dd>Effect Strength 0 to 1 keyed at the playhead; the key
+    pops on the row. Undo "Effect strength".</dd>
+  <dt class="grp">Motion box</dt>
+  <dt>#190</dt><dd>Amount scrubs, default 10 (px for moves, deg for
+    turns).</dd>
+  <dt>#191</dt><dd>Timing: three buttons On 1s, On 2s (default), On 3s.</dd>
+  <dt>#192</dt><dd>Length in frames, default 24. These three sit above
+    the tiles and set what a tile click adds.</dd>
+  <dt class="grp">Link box</dt>
+  <dt>#194</dt><dd>"Follows Teto from frame 12." at the top; hovering it
+    lights the rope on stage.</dd>
+  <dt>#195</dt><dd>Strength scrubs from 0 up, with marks at 0.5, 1 and 2.
+    Undo "Link strength".</dd>
+  <dt>#196</dt><dd>Unlink button: the rope on stage snaps and fades
+    (200 ms).</dd>
+  <dt class="grp">Saved poses box</dt>
+  <dt>#197</dt><dd>List of saved pose names.</dd>
+  <dt>#198</dt><dd>Name field, placeholder "Name for a pose".</dd>
+  <dt>#199</dt><dd>Save: greyed "Type a name first.", "Pick a doll on the
+    stage first." or the load error. The new row slides in.</dd>
+  <dt>#200</dt><dd>Use: applies to picked dolls at the playhead; the keys
+    pop on the timeline. Greyed "Pick a saved pose first."</dd>
+  <dt>#201</dt><dd>Forget: the row puffs out; greyed "Pick a saved pose
+    first."</dd>
+  <dt class="grp">Already above</dt>
+  <dt>#158-#161</dt><dd>Pose title, Move, Scale, Turn.</dd>
+  <dt>#168-#170, #173</dt><dd>Lag, Bounce, dot Moves tiles, Direction
+    dial (greyed for Shiver).</dd>
+  <dt>#189, #193</dt><dd>Motion tiles; a tile click is Add at playhead,
+    greyed "Pick a piece or layer on the stage first."</dd>
+</dl>
+
+<!-- ============================================================ -->
+<h2 id="rig">7. Rig tab</h2>
+<div class="grid2">
+  <div>
+    <h3>Today</h3>
+    <ul class="today">
+      <li>Rig panel is a form: Doll combo, piece tree, Hangs from combo,
+        Draw order spin box ("Higher draws in front"), default Drawing
+        combo, Rest turn, Warp grid tick and Cells, IK chains with Add,
+        Remove, Flip bend, then Save rig to library.</li>
+      <li>Parents and draw order are set by numbers and combos, not by
+        touching the pieces.</li>
+    </ul>
+  </div>
+  <div>
+    <h3>New</h3>
+    <ul>
+      <li>Draw order: drag rows in the piece tree; others slide aside
+        (150 ms). <span class="tag n">NEW</span></li>
+      <li>Hangs from: drag a rope from a piece's pivot onto its parent on
+        the canvas. The combo stays for exact picks. <span class="tag n">NEW</span></li>
+      <li>Tree and canvas share hover. <span class="tag f">F12</span>
+        Rename in place. <span class="tag f">F21</span></li>
+      <li>Pivot drag snaps to the piece centre and edges, with a flash.
+        <span class="tag f">F10</span></li>
+      <li>IK chains drawn as coloured bones; Flip bend is a click on the
+        elbow.</li>
+      <li>Save rig: stamp "Saved to library" and a red pixel burst (rare,
+        big is fine). <span class="tag g">G16</span></li>
+    </ul>
+  </div>
+</div>
+<div class="mock"><div class="win raised mk">
+  <div style="display: grid; grid-template-columns: 1fr 200px; gap: 4px;">
+    <div class="stagebox" style="height: 220px;">
+      <div class="piece" style="left: 120px; top: 30px; width: 46px; height: 46px; border-radius: 50%;"></div>
+      <div class="piece hoverline" style="left: 112px; top: 80px; width: 62px; height: 80px;"></div>
+      <div class="piece" style="left: 176px; top: 86px; width: 70px; height: 14px; background: #a34;"></div>
+      <div class="hdl" style="left: 172px; top: 89px; border-radius: 50%;"></div>
+      <svg style="position: absolute; left: 0; top: 0;" width="400" height="220">
+        <path d="M 176 93 Q 220 40 143 54" fill="none" stroke="#d8304f"
+          stroke-width="2" stroke-dasharray="4 3"/>
+        <line x1="180" y1="93" x2="215" y2="93" stroke="#4fa3d8" stroke-width="3"/>
+        <line x1="215" y1="93" x2="244" y2="93" stroke="#8fd14f" stroke-width="3"/>
+      </svg>
+      <div class="vlabel" style="left: 150px; top: 20px;">Hangs from: Head</div>
+    </div>
+    <div class="col sunken" style="padding: 4px;">
+      <div class="row"><span class="chip red">Teto</span><span class="lbl">doll</span></div>
+      <div>Head</div>
+      <div style="padding-left: 10px; background: #46464b;">Body</div>
+      <div style="padding-left: 20px; outline: 1px dashed #fff;">Arm L</div>
+      <div style="padding-left: 20px; opacity: 0.5; border-top: 2px solid var(--pick);">Arm R (moving)</div>
+      <div class="row" style="margin-top: auto;">
+        <span class="lbl scrubl">Rest turn</span><span class="fld sunken">-10</span></div>
+      <button class="btn red">Save rig to library</button>
+    </div>
+  </div>
+</div></div>
+<dl class="ix">
+  <dt>Hover</dt><dd>Piece outlined on canvas and its row in the tree, both
+    ways.</dd>
+  <dt>Drag</dt><dd>Pivot shows "x 12, y -3"; rope shows the parent it will
+    hang from; row drag shows the gap it drops into.</dd>
+  <dt>Drop</dt><dd>Row settles with a 2 px bounce; rope snaps tight and
+    fades in 200 ms.</dd>
+  <dt>Snap</dt><dd>Pivot catches piece centre and edges within 6 px.</dd>
+  <dt>Error</dt><dd>Rope onto its own child: rope turns grey, shakes, "A
+    piece cannot hang from its own child."</dd>
+</dl>
+<h3>Every control, item by item</h3>
+<dl class="items">
+  <dt class="grp">Rig canvas</dt>
+  <dt>#202</dt><dd>Empty: "Import a doll from the Cast panel to rig it."
+    and an Import button. <span class="tag f">F16</span></dd>
+  <dt>#205, #211</dt><dd>Box select works as on the stage: replace, Shift
+    adds, Ctrl removes, count chip; click empty clears.</dd>
+  <dt>#206-#208</dt><dd>Click picks, Shift+click adds, Ctrl+click toggles;
+    the piece and its tree row outline together.</dd>
+  <dt>#210</dt><dd>Drag an IK tip square: chip "x 40, y 12", ghost at the
+    start. Undo "Move IK tip of Arm R".</dd>
+  <dt>#203, #204, #209, #212-#215</dt><dd>Joint dots, bone lines, IK
+    squares, hang mode (now also the rope drag), pivot drag, Escape,
+    Ctrl+A: above. <span class="tag s">STAYS</span></dd>
+  <dt class="grp">Rig panel</dt>
+  <dt>#221</dt><dd>Joint Drawing combo ("As in Krita" or a default
+    drawing) stays. <span class="tag s">STAYS</span></dd>
+  <dt>#222</dt><dd>"Keep shape when leaning" tick stays.
+    <span class="tag s">STAYS</span></dd>
+  <dt>#223, #224</dt><dd>"Bend with a grid" tick; Cells across and down
+    scrub and the grid redraws live on the canvas. Undo "Warp grid". Cells
+    greyed "Tick "Bend with a grid" first."</dd>
+  <dt>#226</dt><dd>Copy whole side: greyed with why; on success the copied
+    side flashes once.</dd>
+  <dt>#228</dt><dd>IK Add for piece: the new chain's bones draw in from the
+    root (200 ms); greyed "A chain needs the piece to hang from one."</dd>
+  <dt>#230</dt><dd>IK Remove: the bones fade 120 ms; greyed "Pick an IK
+    chain first."</dd>
+  <dt>#232</dt><dd>Hint line under the canvas stays, shorter: "Drag a
+    yellow dot to move a joint. Drag a rope to hang it. Drag a square to
+    move an IK tip."</dd>
+  <dt>#216-#220, #225, #227, #229, #231</dt><dd>Doll combo, piece tree,
+    Hangs from, Rest turn, Draw order, Copy to other side, IK list, Flip
+    bend, Save rig: above.</dd>
+</dl>
+
+<!-- ============================================================ -->
+<h2 id="video">8. Video tab</h2>
+<div class="grid2">
+  <div>
+    <h3>Today</h3>
+    <ul class="today">
+      <li>A row of buttons: Import video..., Split at playhead, Mark cut,
+        Add track.</li>
+      <li>Clips are flat boxes; trims and moves show no numbers.</li>
+      <li>Cut markers are thin yellow notches; picking the part of a video
+        for a gap opens a separate SlotPicker dialog.</li>
+      <li>Transitions on cuts (cut-markers branch) open a dialog from a
+        double-click on the joint, with Kind and Length fields.</li>
+    </ul>
+  </div>
+  <div>
+    <h3>New</h3>
+    <ul>
+      <li>Shot bin as film cards; drag one onto a track: a ghost clip at
+        true length, the track lights up, drop squash.
+        <span class="tag g">G13</span></li>
+      <li>Trim ends grow on hover; chip "+12 f, 0.5 s" while trimming.</li>
+      <li>Cut markers are yellow tabs you grab on the ruler; M drops one
+        with a pop.</li>
+      <li>Each cut wears a small badge: | cut, &gt; swipe, * flash, ~ fade.
+        Click it for a popover with the seven kinds as tiles and a Length
+        scrub; it replaces the Transition dialog.
+        <span class="tag n">NEW</span></li>
+      <li>SlotPicker becomes inline: drag the film under the gap, first
+        picture shown above. <span class="tag n">NEW</span></li>
+      <li>S splits with a white snip line flash.</li>
+    </ul>
+  </div>
+</div>
+<div class="mock"><div class="win raised mk">
+  <div style="display: grid; grid-template-columns: 110px 1fr; gap: 4px;">
+    <div class="col sunken" style="padding: 4px;">
+      <div class="raised" style="padding: 3px;"><div class="thumb"></div>Shot 1 <span class="lbl">2.0 s</span></div>
+      <div class="raised" style="padding: 3px; transform: rotate(-3deg) translate(8px, 2px);
+        box-shadow: 4px 4px 0 #0008;"><div class="thumb"></div>Shot 2 <span class="lbl">1.5 s</span></div>
+      <div class="raised" style="padding: 3px;"><div class="thumb" style="background: #2a4b6b;"></div>speedpaint.mp4</div>
+    </div>
+    <div class="col">
+      <div class="stagebox" style="height: 90px;"><div class="frame" style="left: 30%; right: 30%; top: 6px; bottom: 6px;"></div></div>
+      <div style="position: relative; height: 14px; background: var(--face-dark);">
+        <div class="cutt" style="left: 30%;"></div><div class="cutt" style="left: 62%;"></div>
+        <div class="ph" style="left: 48%;"></div></div>
+      <div class="lane" style="height: 30px; background: #2a2a2e; box-shadow: inset 0 0 0 1px var(--pick);">
+        <div class="clip shot" style="left: 2%; width: 28%;">Shot 1</div>
+        <div class="clip shot" style="left: 30%; width: 32%; opacity: 0.55; border-style: dashed;">Shot 2 (drop)</div>
+        <div class="trn" style="left: 30%;">&gt;</div></div>
+      <div class="lane" style="height: 30px;">
+        <div class="clip vid" style="left: 0; width: 80%;">speedpaint.mp4</div>
+        <div class="hdl" style="left: calc(80% - 4px); top: 11px; height: 10px;"></div>
+        <div class="vlabel" style="left: 70%; top: -18px;">+12 f, 0.5 s</div></div>
+      <div class="row" style="flex-wrap: wrap;">
+        <button class="btn">Import video</button><button class="btn">Split (S)</button>
+        <button class="btn">Mark cut (M)</button><button class="btn">Add track</button></div>
+    </div>
+  </div>
+</div></div>
+<dl class="ix">
+  <dt>Hover</dt><dd>Clip brightens; ends show trim grips; cut badge grows.</dd>
+  <dt>Drag</dt><dd>Ghost clip at real length; chip with start and length;
+    dead zone 4 px.</dd>
+  <dt>Snap</dt><dd>To cuts, markers and playhead within 8 px: the target
+    line flashes, clip settles 2 px. Rising click pitch if sounds are on.
+    <span class="tag g">G12</span></dd>
+  <dt>Drop</dt><dd>Squash 5 %, spring back 200 ms.</dd>
+  <dt>Delete</dt><dd>Clip puffs; toast with Undo.</dd>
+  <dt>Error</dt><dd>"That video is shorter than the gap." shakes the film in
+    the inline picker; "A cut has no length." greys the Length scrub
+    with its reason.</dd>
+  <dt>Export</dt><dd>Done: 70 ms hit-stop, red pixel burst, toast "Saved
+    teto.mp4, Open folder". <span class="tag g">G10</span>
+    <span class="tag g">G16</span></dd>
+</dl>
+<h3>Every control, item by item</h3>
+<dl class="items">
+  <dt>#239</dt><dd>Reel preview empty: "Drag shots from the list, or a
+    video file, onto the tracks below." stays, with an arrow down.</dd>
+  <dt>#240</dt><dd>Ruler in m:ss; the corner time chip bumps when the
+    playhead lands.</dd>
+  <dt>#241</dt><dd>Track headers V1, V2, ... in the dark bevel; the track a
+    drag will land on lights its header.</dd>
+  <dt>#242</dt><dd>Clips: blue for video, shot red with the shot's colour
+    tab and name. A shot that got shorter shows its missing part hatched;
+    a removed shot reads "Shot removed" on a hatched grey clip.</dd>
+  <dt>#248</dt><dd>Click or drag the ruler: the playhead follows at once,
+    the preview updates live.</dd>
+  <dt>#249-#251</dt><dd>Click picks (a plain click on a picked clip keeps
+    the group until release, then picks just it); Shift+click adds;
+    Ctrl+click toggles. Picked: red border, yellow trim ends.</dd>
+  <dt>#255</dt><dd>Drag on empty space: box select (replace, Shift adds,
+    Ctrl removes), count chip; click empty clears.</dd>
+  <dt>#260</dt><dd>Drop video files: ghost clips laid end to end at their
+    real length before you let go; dropped clips are picked.</dd>
+  <dt>#261, #262</dt><dd>Wheel scrolls time, eased 200 ms; Ctrl+wheel
+    zooms around the mouse.</dd>
+  <dt>#256-#258</dt><dd>Hover a joint: the badge grows and says "Click to
+    pick the transition here." Click opens the transition popover (see
+    Dialogs). Double-click on track space between two markers opens the
+    inline gap picker; with no gap the status says "Mark a cut on both
+    sides of the gap first (M)."</dd>
+  <dt>#233-#238, #243-#247, #252-#254, #259</dt><dd>Toolbar, shot bin,
+    trim ends, cut tabs, badges, drop ghost, playhead, move, trim, drop
+    shot: above.</dd>
+  <dt>#263-#280</dt><dd>Clip menu (Split, Copy, Cut, Paste, Duplicate,
+    Remove, Ripple remove), track menu (Add track, Remove track greyed with
+    why) and keys S, Delete, Shift+Delete, Ctrl+C / X / V, Ctrl+D, Ctrl+A,
+    Escape. A key that cannot act says why in a toast. Remove and Ripple
+    remove puff the clip. <span class="tag s">STAYS</span></dd>
+</dl>
+
+<!-- ============================================================ -->
+<h2 id="cast">9. Cast</h2>
+<div class="grid2">
+  <div>
+    <h3>Today</h3>
+    <ul class="today">
+      <li>Library list with "(in project)" and "(art updated)" text after
+        names; Import, Reload, Put on stage buttons.</li>
+      <li>Layer list with tick boxes; Add picture, Add text, Effect, Copy,
+        Delete, Restack buttons.</li>
+    </ul>
+  </div>
+  <div>
+    <h3>New</h3>
+    <ul>
+      <li>Doll cards with a picture; badges NEW ART (pulses once) and IN
+        SHOT. <span class="tag n">NEW</span></li>
+      <li>Drag a card onto the stage (Put on stage stays as a button).
+        <span class="tag g">G13</span></li>
+      <li>Layer rows: eye toggle, kind icon, drag to restack, hover links
+        to stage, rename in place. <span class="tag f">F12</span>
+        <span class="tag f">F21</span></li>
+      <li>One "+" opens three tiles: Picture, Text, Effect.</li>
+      <li>Empty library: "Export a doll from Krita, then Import" and the
+        button. <span class="tag f">F16</span></li>
+    </ul>
+  </div>
+</div>
+<div class="mock small"><div class="win raised mk" style="max-width: 380px;">
+  <div class="titlebar">Cast</div>
+  <div style="padding: 6px;" class="col">
+    <div class="row" style="flex-wrap: wrap;">
+      <div class="raised" style="padding: 3px; width: 96px;"><div class="thumb"></div>Teto <span class="chip red">IN SHOT</span></div>
+      <div class="raised" style="padding: 3px; width: 96px;"><div class="thumb" style="background: linear-gradient(135deg, #e9e4d8 60%, #4a7 60%);"></div>Miku <span class="chip y">NEW ART</span></div>
+      <div class="sunken" style="padding: 3px; width: 96px; height: 58px; display: flex; align-items: center; justify-content: center; color: var(--text-off);">+ Import</div>
+    </div>
+    <div class="row"><span class="lbl">Layers</span><button class="btn" style="margin-left: auto; padding: 1px 8px;">+</button></div>
+    <div class="sunken col" style="padding: 3px; gap: 1px;">
+      <div class="row"><span>o</span><span class="chip">T</span>Title text</div>
+      <div class="row" style="background: #46464b; box-shadow: inset 3px 0 var(--pick);"><span>o</span><span class="chip">D</span>Teto</div>
+      <div class="row" style="opacity: 0.5;"><span>-</span><span class="chip">FX</span>Shake</div>
+    </div>
+  </div>
+</div></div>
+<dl class="ix">
+  <dt>Hover</dt><dd>Card lifts 2 px; its doll idles (a slow breathe) only
+    while hovered.</dd>
+  <dt>Drag</dt><dd>Card shrinks to a ghost doll that follows the cursor;
+    stage frame glows where it can land.</dd>
+  <dt>Drop</dt><dd>Squash and spring; new row slides in, no jump.</dd>
+  <dt>Error</dt><dd>Drop with no shot: card flies back (200 ms), toast "Add
+    a shot first."</dd>
+</dl>
+<h3>Every control, item by item</h3>
+<dl class="items">
+  <dt>#130</dt><dd>Old dolls not converted: a yellow "2 OLD" badge on the
+    library title; hover lists the problems.</dd>
+  <dt>#133</dt><dd>Reload: a small reload button on cards with NEW ART, and
+    the Reload button stays for several picks; greyed "Import the doll
+    first." The card picture flashes once when reloaded.</dd>
+  <dt>#141</dt><dd>Copy (duplicate) picked layers: the copy slides in
+    under the source row. Greyed "Pick a layer first."</dd>
+  <dt>#142</dt><dd>Delete picked layers: rows puff, toast "Deleted 2
+    layers, Undo". Greyed "Pick a layer first."</dd>
+  <dt>#131, #132, #134</dt><dd>Library cards (Shift and Ctrl multi-pick),
+    Import, Put on stage: above.</dd>
+  <dt>#135-#140</dt><dd>Layer rows (Shift and Ctrl multi-pick), eye toggle
+    for all picked rows, "+" with Picture, Text and Effect tiles (Flash,
+    Fill, Invert, Zoom punch, Halftone, Glitch, Posterize); "+" greyed
+    "Add a shot first."</dd>
+  <dt>#143, #144</dt><dd>Up and Down buttons stay beside drag to restack;
+    greyed "Pick a layer first." <span class="tag s">STAYS</span></dd>
+</dl>
+
+<!-- ============================================================ -->
+<h2 id="strip">10. Shot strip</h2>
+<div class="grid2">
+  <div>
+    <h3>Today</h3>
+    <ul class="today">
+      <li>Plain blocks as wide as the shot; a + block; right edge drag for
+        length with no readout.</li>
+      <li>Rename, copy, colour, transition and delete hide in a right-click
+        menu; length typed in seconds in the shot box.</li>
+    </ul>
+  </div>
+  <div>
+    <h3>New</h3>
+    <ul>
+      <li>Chips with first-frame picture and a colour tab.</li>
+      <li>Edge drag shows "2.5 s, 60 f"; Shift catches half seconds.</li>
+      <li>Reorder: others slide aside 150 ms; + slides the new shot in.</li>
+      <li>No transition between shots any more: chips sit edge to edge.
+        Transitions moved to cuts in the Video tab.
+        <span class="tag r">REMOVED</span></li>
+      <li>Double-click name to rename. <span class="tag f">F21</span></li>
+    </ul>
+  </div>
+</div>
+<div class="mock"><div class="win raised mk">
+  <div class="row" style="padding: 4px; gap: 0; align-items: stretch; height: 56px;">
+    <div class="raised" style="width: 120px; padding: 3px; border-top: 3px solid #a33a52;"><div class="thumb" style="height: 22px;"></div>Intro</div>
+    <div class="raised" style="width: 180px; padding: 3px; border-top: 3px solid #3a6ea3; box-shadow: 0 0 0 2px var(--pick);"><div class="thumb" style="height: 22px;"></div>Chorus</div>
+    <div class="hdl" style="position: relative; width: 6px; height: 40px; margin: 6px 0 0 -3px;"></div>
+    <div class="vlabel" style="position: relative; align-self: center; margin-left: 4px;">2.5 s, 60 f</div>
+    <div class="raised" style="width: 80px; padding: 3px; margin-left: 20px; border-top: 3px solid #4a7;"><div class="thumb" style="height: 22px;"></div>Outro</div>
+    <div class="sunken" style="width: 40px; display: flex; align-items: center; justify-content: center;">+</div>
+  </div>
+</div></div>
+<dl class="ix">
+  <dt>Hover</dt><dd>Chip lifts; right edge shows a yellow grip, grab 12 px.</dd>
+  <dt>Press</dt><dd>Picks and moves the playhead, with an eased timeline
+    scroll.</dd>
+  <dt>Drag</dt><dd>Length chip live; reorder ghost; dead zone 4 px.</dd>
+  <dt>Delete</dt><dd>Chip puffs, neighbours close the gap, toast "Shot
+    removed, Undo".</dd>
+  <dt>Error</dt><dd>Drag below 1 frame: edge stops with a 2 px bounce and
+    the chip reads "1 f min".</dd>
+</dl>
+<h3>Every control, item by item</h3>
+<dl class="items">
+  <dt>#52</dt><dd>Shift+click adds a shot to the pick; the chip pops 5 %
+    (150 ms).</dd>
+  <dt>#53</dt><dd>Ctrl+click toggles a shot in the pick.</dd>
+  <dt>#54</dt><dd>Click a chip inside a bigger pick: the group stays until
+    release, so a drag moves them all; no drag picks just that one.</dd>
+  <dt>#61</dt><dd>Transition into next (and its 2/4/6/8 frames).
+    <span class="tag r">REMOVED</span> Transitions moved to cuts in the
+    Video tab.</dd>
+  <dt>#59, #60</dt><dd>Rename... starts the in-place rename; Background
+    colour... also opens from a click on the chip's colour tab, for all
+    picked shots.</dd>
+  <dt>#49-#51, #55-#58, #62-#65</dt><dd>Chips, + block, click to pick and
+    seek, reorder, edge grip and length drag, right-click menu (Duplicate,
+    Delete), Delete and Backspace, Ctrl+A: above.
+    <span class="tag s">STAYS</span></dd>
+</dl>
+
+<!-- ============================================================ -->
+<h2 id="dialogs">11. Dialogs</h2>
+<p class="lede">Every dialog gets the dark bevel, the red title bar and the
+red default button. Enter is OK, Escape is Cancel. A greyed OK keeps its
+reason as a tooltip and shows it under the button when clicked, with the
+shake.</p>
+
+<h3>New project</h3>
+<div class="mock small"><div class="win raised mk" style="max-width: 380px;">
+  <div class="titlebar">New project <span class="x raised">x</span></div>
+  <div class="col" style="padding: 8px; gap: 6px;">
+    <div class="row"><span class="lbl" style="width: 44px;">Name</span>
+      <span class="fld sunken" style="flex: 1;">Untitled</span></div>
+    <div class="row" style="gap: 4px; flex-wrap: wrap;">
+      <span class="tile raised" style="box-shadow: 0 0 0 2px var(--pick);">
+        <span style="width: 26px; height: 15px; border: 1px solid var(--text);"></span>YouTube</span>
+      <span class="tile raised"><span style="width: 11px; height: 20px;
+        border: 1px solid var(--text);"></span>Shorts</span>
+      <span class="tile raised"><span style="width: 18px; height: 18px;
+        border: 1px solid var(--text);"></span>Square</span>
+      <span class="tile raised"><span class="lbl">? x ?</span>Custom</span>
+    </div>
+    <div class="row"><span class="lbl scrubl" style="width: 44px;">Width</span>
+      <span class="fld sunken">1920</span>
+      <span class="lbl scrubl">Height</span><span class="fld sunken">1080</span>
+      <span class="lbl">px</span></div>
+    <div class="row" style="justify-content: flex-end;">
+      <button class="btn red">OK</button><button class="btn">Cancel</button></div>
+  </div>
+</div></div>
+<dl class="items">
+  <dt>#31</dt><dd>Name, default "Untitled", focused and selected on open so
+    typing replaces it.</dd>
+  <dt>#32</dt><dd>Size becomes four tiles, each with a frame drawn to its
+    shape: 1920 x 1080 (YouTube), 1080 x 1920 (Shorts, TikTok), 1080 x 1080
+    (square), Custom. The picked tile has the red outline.</dd>
+  <dt>#33, #34</dt><dd>Width and Height scrub in steps of 2. Typing a size
+    no tile has lights Custom.</dd>
+  <dt>#35</dt><dd>OK greyed "Give the project a name." or "Video sizes must
+    be even numbers."; the odd field gets a red underline too.</dd>
+  <dt>#36</dt><dd>Cancel (or Escape) closes.</dd>
+</dl>
+
+<h3>Export</h3>
+<div class="mock small"><div class="win raised mk" style="max-width: 400px;">
+  <div class="titlebar">Export <span class="x raised">x</span></div>
+  <div class="col" style="padding: 8px; gap: 6px;">
+    <div class="row"><span class="lbl" style="width: 48px;">Format</span>
+      <span class="seg"><span class="chip red">MP4 + song</span>
+      <span class="chip">GIF</span></span></div>
+    <div class="row"><span class="lbl" style="width: 48px;">Range</span>
+      <span class="seg"><span class="chip">Whole</span><span class="chip red">Loop
+      16 - 40</span><span class="chip">Frames</span></span></div>
+    <div class="row"><span class="lbl" style="width: 48px;">Size</span>
+      <span class="seg"><span class="chip red">Full</span><span class="chip">Half</span>
+      <span class="chip">Quarter</span></span><span class="lbl">1920 x 1080</span></div>
+    <div class="row"><span class="lbl" style="width: 48px;">File</span>
+      <span class="fld sunken" style="flex: 1;">~/Videos/teto.mp4</span>
+      <button class="btn">Browse...</button></div>
+    <div class="sunken" style="height: 16px; position: relative;">
+      <div style="position: absolute; left: 2px; top: 2px; bottom: 2px; width: 40%;
+        background: repeating-linear-gradient(90deg, var(--pick) 0 8px,
+        transparent 8px 10px);"></div>
+      <span style="position: absolute; right: 6px; font-size: 10px;">120 / 300</span></div>
+    <div class="row"><span class="lbl">Exporting...</span>
+      <button class="btn" style="margin-left: auto;">Cancel export</button>
+      <button class="btn off" title="Already exporting.">Export</button></div>
+  </div>
+</div></div>
+<dl class="items">
+  <dt>#37</dt><dd>Format: two buttons, "MP4 video with the song" and "GIF,
+    no sound". Switching sets Size (GIF Half, MP4 Full) and swaps the file
+    suffix; the suffix flashes once.</dd>
+  <dt>#38</dt><dd>Range: three buttons, Whole master track (or Whole final
+    video from the Video tab), Loop range showing its frames, Frames...</dd>
+  <dt>#39, #40</dt><dd>From frame and Up to frame scrub; their row slides
+    open only for Frames... (150 ms).</dd>
+  <dt>#41</dt><dd>Size: Full, Half, Quarter, with the pixel size beside
+    it.</dd>
+  <dt>#42, #43</dt><dd>File field and Browse... (save picker with the right
+    suffix, adds it if missing). <span class="tag s">STAYS</span></dd>
+  <dt>#44</dt><dd>Progress: a Win98 block bar in red with "120 / 300" on
+    it.</dd>
+  <dt>#45</dt><dd>Status line under the bar: "Exporting...", "Saved
+    &lt;path&gt;", the failure reason, or "Cancelled; nothing was
+    saved." Saved also gives the burst and the Open folder toast.</dd>
+  <dt>#46</dt><dd>Export (red) greyed with why: busy, no loop range, last
+    frame before first, no file, "Already exporting."</dd>
+  <dt>#47</dt><dd>Close while idle; the same button reads Cancel export
+    while running. Cancel gives no burst.</dd>
+  <dt>#48</dt><dd>While running, Format, Range, Size, File and Browse are
+    greyed "Exporting; cancel to change this."</dd>
+</dl>
+
+<h3>Transition (now a popover on the cut)</h3>
+<div class="mock small"><div class="win raised mk" style="max-width: 380px;">
+  <div class="col" style="padding: 8px; gap: 6px;">
+    <div class="row" style="flex-wrap: wrap; gap: 3px;">
+      <span class="tile raised">|<br>Cut</span>
+      <span class="tile raised" style="box-shadow: 0 0 0 2px var(--pick);">&lt;<br>Swipe L</span>
+      <span class="tile raised">&gt;<br>Swipe R</span>
+      <span class="tile raised">^<br>Swipe up</span>
+      <span class="tile raised">v<br>Swipe dn</span>
+      <span class="tile raised">*<br>Flash</span>
+      <span class="tile raised">~<br>Fade</span>
+    </div>
+    <div class="row"><span class="lbl scrubl">Length</span>
+      <span class="fld sunken">4 f</span><span class="lbl">before the cut</span></div>
+  </div>
+</div></div>
+<dl class="items">
+  <dt>#281</dt><dd>Kind: seven tiles, Cut, Swipe left, right, up, down,
+    Flash, Crossfade, each with a tiny looping preview on hover.</dd>
+  <dt>#282</dt><dd>Length in frames scrubs, capped to what the clips allow;
+    greyed "A cut has no length."; picking a kind on a plain cut starts at
+    4 frames.</dd>
+  <dt>#283</dt><dd>OK and Cancel go: changes show live in the preview and
+    land as one undo step "Change transition" when the popover closes by
+    a click outside or Enter. Escape puts it back.</dd>
+</dl>
+
+<h3>Fill the gap (now inline under the gap)</h3>
+<dl class="items">
+  <dt>#284, #285</dt><dd>First picture above, drag the film to choose the
+    part: section 8. Too short: the film shakes, "That video is shorter
+    than the gap."</dd>
+  <dt>#286</dt><dd>"Plays 0:04 to 0:06 of 0:30" rides as a chip while you
+    drag, and stays under the film after.</dd>
+  <dt>#287</dt><dd>"Other video..." button at the right of the film.</dd>
+  <dt>#288</dt><dd>Fill (red) lands it as one undo step; greyed while the
+    video is too short.</dd>
+  <dt>#289</dt><dd>Cancel, Escape or a click outside closes it with no
+    change.</dd>
+</dl>
+
+<h3>Small system dialogs</h3>
+<dl class="items">
+  <dt>#290</dt><dd>Unsaved changes: "Save the changes to X first?" Save
+    (red, default), Discard, Cancel. Escape is Cancel.</dd>
+  <dt>#291</dt><dd>Recover work: Yes and No become "Recover" (red,
+    default) and "Throw away"; same meaning as today.</dd>
+  <dt>#292</dt><dd>Rename shot: becomes the in-place rename on the strip
+    chip; Enter keeps, Escape puts the old name back.</dd>
+  <dt>#293</dt><dd>Add text: multi-line box "Words (Enter for a line
+    break)"; here Enter is a new line and Ctrl+Enter is OK.
+    <span class="tag s">STAYS</span></dd>
+  <dt>#294</dt><dd>Colour pickers: Qt colour dialog in the dark theme; shot
+    background has no alpha, text and effect colours do.
+    <span class="tag s">STAYS</span></dd>
+  <dt>#295</dt><dd>File pickers (Open, Save, Choose song, Add picture,
+    Import video, Fill the gap from, Export to): native, same filters as
+    today. <span class="tag s">STAYS</span></dd>
+</dl>
+
+<!-- ============================================================ -->
+<h2 id="build">12. Build order</h2>
+<p class="lede">Small steps, each one shippable on its own branch, best
+value first. Each leaves its tests in <code>tests/ui</code> or the module it
+touches, and updates ARCHITECTURE.md when it adds a piece.</p>
+<ol class="steps">
+  <li class="raised"><b>Motion table and Motion switch</b> (G20, G21). One
+    place for durations and curves; Full, Calm, Off in the View menu, saved
+    in QSettings, Calm by default when the system asks for less motion.
+    Every later step reads it.
+    <div class="files">theme.h, theme.cpp, new ui/motion.h/.cpp (runs a
+      QVariantAnimation from the table), main_window.cpp, file_menu.cpp</div></li>
+  <li class="raised"><b>Scrub labels and math in fields</b> (F2, F7, G3).
+    A ScrubLabel next to every number field; the drag opens an EditScope so
+    it is one undo step, Escape cancels. Math is a pure function with tests,
+    not widget logic.
+    <div class="files">new ui/scrub_label.h/.cpp, form_helpers.cpp,
+      keyed_boxes.cpp, layer_box.cpp, drag_box.cpp, link_box.cpp,
+      rig_panel_motion.cpp; new base/number_text.h (EvalNumber) and
+      tests/base</div></li>
+  <li class="raised"><b>Hover, grab big, dead zone</b> (F1, G2, G3, G6,
+    G15). Hover outline and handle grow on the stage and rig canvas; 12 px
+    grab, nearest wins; 4 px before any drag; cursors per handle.
+    <div class="files">pose_tool.h/.cpp, pose_tool_handles.cpp,
+      stage_view.cpp, rig_canvas.cpp, rig_canvas_input.cpp,
+      timeline_input.cpp, reel_timeline_input.cpp, shot_strip.cpp</div></li>
+  <li class="raised"><b>Toasts and error shake</b> (F15, G18). Problem
+    signals go to a toast; big actions get Undo in the toast; the refusing
+    control shakes.
+    <div class="files">new ui/toast.h/.cpp, main_window.cpp, problem.h,
+      inspector.cpp, video_page.cpp</div></li>
+  <li class="raised"><b>Drags talk</b> (F6, G4, G17). Value chip, start
+    ghost, snap flash and settle on stage, timeline, reel and strip.
+    <div class="files">stage_view.cpp, pose_tool.cpp, timeline_paint.cpp,
+      timeline_view.cpp, reel_timeline.cpp, shot_strip.cpp</div></li>
+  <li class="raised"><b>Keys pop, puff and rewind</b> (G7, G9, G11, G19).
+    Which keys came or went is worked out by a pure helper that diffs two
+    project values, with tests; views only animate it.
+    <div class="files">timeline_paint.cpp, timeline_view.cpp,
+      reel_timeline.cpp, playhead.cpp; new edit/change_diff.h and
+      tests/edit</div></li>
+  <li class="raised"><b>Top bar</b>: chunky tabs, transport, named
+    Undo/Redo buttons, press states on custom buttons (G5).
+    <div class="files">main_window.cpp, theme.cpp (QProxyStyle press
+      offset), file_menu.cpp</div></li>
+  <li class="raised"><b>Timeline key chip bar and corner switch</b>. Same
+    KeyManager calls as the right-click menu.
+    <div class="files">timeline_view.cpp, timeline_input.cpp,
+      timeline_paint.cpp, timeline_layout.h</div></li>
+  <li class="raised"><b>Inspector reshape</b> (F14, F8): title line, dials,
+    motion tiles, spring preview, folding sections, Mixed.
+    <div class="files">inspector.cpp, keyed_boxes.cpp, motion_box.cpp,
+      drag_box.cpp, dot animation box (warp-animations branch),
+      link_box.cpp</div></li>
+  <li class="raised"><b>Stage zoom, pan, fit, guides, nudge</b> (F9, F5,
+    F10, F3, F18, F20). Guide snapping is pure math in anim with tests.
+    <div class="files">stage_view.h/.cpp, pose_tool.h/.cpp, rig_canvas.cpp,
+      stage_menu.cpp; new anim/guides.h and tests/anim</div></li>
+  <li class="raised"><b>Cards and drag-in</b>: cast cards and drag to
+    stage, shot strip chips and slides, reel film cards, cut tabs,
+    transition badges, inline slot picker (G13).
+    <div class="files">cast_panel.cpp, cast_actions.cpp, shot_strip.cpp,
+      shot_bin.cpp, reel_timeline.cpp, reel_timeline_drop.cpp,
+      slot_picker.cpp, video_page.cpp</div></li>
+  <li class="raised"><b>Rig by touch</b>: drag rows for draw order, rope
+    for parent, pivot snap, IK bones, save stamp.
+    <div class="files">rig_panel.cpp, rig_panel_refresh.cpp, rig_canvas.cpp,
+      rig_canvas_input.cpp</div></li>
+  <li class="raised"><b>Extras</b>: command palette (F13), shortcut sheet
+    (F19), empty states (F16), success burst and hit-stop (G10, G16),
+    optional sounds (G12), input buffering (G14), dialog reshape (New
+    project size tiles, Export button rows).
+    <div class="files">main_window.cpp, new ui/command_palette.h/.cpp,
+      export_dialog.cpp, new ui/ui_sound.h/.cpp</div></li>
+</ol>
+
+<div class="card raised">
+  <h3 style="margin-top: 0;">What stays the same</h3>
+  <ul>
+    <li>Every manager in <code>edit</code> (HistoryManager, PoseManager,
+      KeyManager, PlaybackManager, DollLibraryManager and the rest) and the
+      one edit path: widget calls manager, manager calls Apply.</li>
+    <li>EditScope drags: one undo step per drag, Escape cancels.</li>
+    <li><code>model</code>, <code>anim</code>, <code>render</code>,
+      <code>io</code>, <code>media</code>: untouched, except three new pure
+      helpers with tests (number math, change diff, guide snap).</li>
+    <li>File formats, the right-click menus and all keys that exist today.
+      New gestures are added on top; nothing is taken away, except the shot
+      transition controls (strip menu, Into next, Overlap), which move to
+      cuts in the Video tab.</li>
+    <li>Wheel turn stays 5 deg, Shift 1 deg. The 15 deg Shift snap is for
+      the turn handle drag only, so the two do not clash.</li>
+  </ul>
+  <h3>Questions for you before building</h3>
+  <ul>
+    <li>Pick colour: theme.h says Teto red, CLAUDE.md says orange outline.
+      Which wins?</li>
+    <li>Sounds: off by default, or on and quiet?</li>
+    <li>Motion tiles and doll cards: animate always, or only on hover?</li>
+    <li>Key chip bar: always over picked keys, or only after a short
+      hover?</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="coverage">13. Coverage</h2>
+<p class="lede">Checked against the inventory of every control and
+interaction in Snapper today (295 items, all branches). Each item has a new
+design, says it stays, or says it is removed and why. The "Every control"
+lists carry the inventory numbers, so any item can be found by its #.</p>
+<div class="tablewrap">
+<table class="cov">
+  <thead><tr><th>Screen</th><th>Items</th><th>Count</th><th>Designed
+    first pass</th><th>Added in this pass</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td><a href="#topbar">Main window</a></td><td class="n">#1-15</td><td class="n">15</td><td class="n">5</td><td class="n">10</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#topbar">Menu bar (File, Edit, Play)</a></td><td class="n">#16-30</td><td class="n">15</td><td class="n">5</td><td class="n">10</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#dialogs">New project dialog</a></td><td class="n">#31-36</td><td class="n">6</td><td class="n">0</td><td class="n">6</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#dialogs">Export dialog</a></td><td class="n">#37-48</td><td class="n">12</td><td class="n">1</td><td class="n">11</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#strip">Shot strip</a></td><td class="n">#49-65</td><td class="n">17</td><td class="n">13</td><td class="n">4</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#stage">Stage</a></td><td class="n">#66-97</td><td class="n">32</td><td class="n">20</td><td class="n">12</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#timeline">Keyframe timeline</a></td><td class="n">#98-129</td><td class="n">32</td><td class="n">21</td><td class="n">11</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#cast">Cast dock</a></td><td class="n">#130-144</td><td class="n">15</td><td class="n">11</td><td class="n">4</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#inspector">Inspector</a></td><td class="n">#145-201</td><td class="n">57</td><td class="n">10</td><td class="n">47</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#rig">Rig canvas</a></td><td class="n">#202-215</td><td class="n">14</td><td class="n">7</td><td class="n">7</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#rig">Rig panel</a></td><td class="n">#216-232</td><td class="n">17</td><td class="n">9</td><td class="n">8</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#video">Video tab</a></td><td class="n">#233-280</td><td class="n">48</td><td class="n">36</td><td class="n">12</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#dialogs">Transition dialog</a></td><td class="n">#281-283</td><td class="n">3</td><td class="n">1</td><td class="n">2</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#dialogs">Fill the gap dialog</a></td><td class="n">#284-289</td><td class="n">6</td><td class="n">2</td><td class="n">4</td><td class="ok">all covered</td></tr>
+    <tr><td><a href="#dialogs">System dialogs</a></td><td class="n">#290-295</td><td class="n">6</td><td class="n">0</td><td class="n">6</td><td class="ok">all covered</td></tr>
+  </tbody>
+  <tfoot><tr><td>Total</td><td></td><td class="n">295</td><td class="n">141</td><td class="n">154</td><td class="ok">all covered</td></tr></tfoot>
+</table>
+</div>
+<p class="nums">Removed on purpose: #61 (strip menu Transition into next),
+#151 and #152 (Into next, Overlap). Replaced: #281-#283 by the cut popover,
+#284-#289 by the inline gap picker, #292 by rename in place.</p>
+
+</main>
+<div class="toastzone" id="toastZone" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+  var root = document.documentElement;
+  var motion = 'full';
+
+  function pickMotion(m) {
+    motion = m;
+    root.dataset.motion = m;
+    document.querySelectorAll('#motionSeg button').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.m === m));
+    });
+  }
+  try {
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (reduce.matches) { pickMotion('calm'); }
+  } catch (e) { /* no matchMedia: keep Full */ }
+  document.getElementById('motionSeg').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button');
+    if (b) { pickMotion(b.dataset.m); }
+  });
+
+  function restartClass(el, cls) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+  }
+
+  /* ---------- Press with squash: hold down at least one frame ---------- */
+  var pressCount = 0;
+  document.querySelectorAll('.btn').forEach(function (b) {
+    var downAt = 0;
+    b.addEventListener('pointerdown', function () {
+      if (b.classList.contains('off')) { return; }
+      downAt = performance.now();
+      b.classList.add('down');
+    });
+    function up() {
+      var held = performance.now() - downAt;
+      var wait = Math.max(0, 17 - held);
+      setTimeout(function () { b.classList.remove('down'); }, wait);
+    }
+    b.addEventListener('pointerup', up);
+    b.addEventListener('pointerleave', up);
+  });
+  document.getElementById('pressBtn').addEventListener('click', function () {
+    pressCount += 1;
+    var out = document.getElementById('pressOut');
+    out.textContent = 'Keyed at frame ' + (8 + pressCount * 2);
+    restartClass(out, 'bump');
+  });
+
+  /* ---------- Blocked control shakes and says why ---------- */
+  var blockBtn = document.getElementById('blockBtn');
+  var blockWhy = document.getElementById('blockWhy');
+  var whyTimer = 0;
+  blockBtn.addEventListener('click', function () {
+    restartClass(blockBtn, 'shake');
+    blockWhy.classList.add('show');
+    clearTimeout(whyTimer);
+    whyTimer = setTimeout(function () { blockWhy.classList.remove('show'); }, 2000);
+  });
+
+  /* ---------- Toasts ---------- */
+  var toastZone = document.getElementById('toastZone');
+  function toast(text, undoFn) {
+    var t = document.createElement('div');
+    t.className = 'toast raised';
+    var s = document.createElement('span');
+    s.textContent = text;
+    t.appendChild(s);
+    if (undoFn) {
+      var u = document.createElement('button');
+      u.className = 'btn red';
+      u.textContent = 'Undo';
+      u.addEventListener('click', function () { undoFn(); close(); });
+      t.appendChild(u);
+    }
+    var bar = document.createElement('div');
+    bar.className = 'bar';
+    t.appendChild(bar);
+    toastZone.appendChild(t);
+    while (toastZone.children.length > 3) { toastZone.firstChild.remove(); }
+    var timer = setTimeout(close, 4000);
+    function close() {
+      clearTimeout(timer);
+      if (!t.isConnected) { return; }
+      t.classList.add('leaving');
+      setTimeout(function () { t.remove(); }, motion === 'off' ? 0 : 160);
+    }
+  }
+
+  /* ---------- Scrub label and math ---------- */
+  var scrubLbl = document.getElementById('scrubLbl');
+  var scrubIn = document.getElementById('scrubIn');
+  var scrubOut = document.getElementById('scrubOut');
+  var needle = document.getElementById('scrubNeedle');
+  var value = 12;
+  function showValue(v) {
+    value = Math.round(v * 10) / 10;
+    scrubIn.value = String(value);
+    var r = value * Math.PI / 180;
+    needle.setAttribute('x2', String(15 * Math.cos(r)));
+    needle.setAttribute('y2', String(15 * Math.sin(r)));
+  }
+  showValue(value);
+  var scrub = null;
+  scrubLbl.addEventListener('pointerdown', function (ev) {
+    scrub = { x: ev.clientX, start: value, live: false, last: ev.clientX };
+    scrubLbl.setPointerCapture(ev.pointerId);
+  });
+  scrubLbl.addEventListener('pointermove', function (ev) {
+    if (!scrub) { return; }
+    var dx = ev.clientX - scrub.x;
+    if (!scrub.live && Math.abs(dx) < 4) { return; }
+    scrub.live = true;
+    var step = ev.shiftKey ? 10 : (ev.altKey ? 0.1 : 1);
+    var move = ev.clientX - scrub.last;
+    scrub.last = ev.clientX;
+    showValue(value + move * step);
+    scrubOut.textContent = 'Turn ' + value + ' deg  (x' + step + ' per px)';
+  });
+  function endScrub(cancel) {
+    if (!scrub) { return; }
+    var wasLive = scrub.live;
+    var from = scrub.start;
+    if (cancel) {
+      showValue(from);
+      scrubOut.textContent = 'Cancelled: back to ' + from + ' deg.';
+    } else if (wasLive) {
+      scrubOut.textContent = 'One undo step: "Undo Turn head" (' + from +
+        ' to ' + value + ').';
+    }
+    scrub = null;
+  }
+  scrubLbl.addEventListener('pointerup', function () { endScrub(false); });
+  scrubLbl.addEventListener('lostpointercapture', function () { endScrub(false); });
+  window.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && scrub) { endScrub(true); }
+  });
+  function evalNumber(text, current) {
+    var s = String(text).trim();
+    if (/^[*\/+]/.test(s)) { s = current + s; }
+    if (!/^[0-9+\-*\/(). ]+$/.test(s)) { return null; }
+    var r;
+    try { r = Function('"use strict"; return (' + s + ');')(); }
+    catch (e) { return null; }
+    if (typeof r !== 'number' || !isFinite(r)) { return null; }
+    return r;
+  }
+  scrubIn.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Enter') { return; }
+    var r = evalNumber(scrubIn.value, value);
+    if (r === null) {
+      restartClass(scrubIn, 'shake');
+      scrubOut.textContent = 'Not a number; kept ' + value + ' deg.';
+      showValue(value);
+      return;
+    }
+    var from = value;
+    showValue(r);
+    restartClass(scrubIn, 'bump');
+    scrubOut.textContent = 'Typed: ' + from + ' to ' + value + ' deg.';
+  });
+
+  /* ---------- Rotate demo ---------- */
+  var rotStage = document.getElementById('rotStage');
+  var rotOut = document.getElementById('rotOut');
+  var showGrab = document.getElementById('showGrab');
+  var arm = document.createElement('div');
+  arm.className = 'piece';
+  arm.style.cssText = 'left:0;top:0;width:110px;height:18px;' +
+    'transform-origin:9px 9px;transition:outline-color var(--t-hover);';
+  var body = document.createElement('div');
+  body.className = 'piece';
+  body.style.cssText = 'width:60px;height:90px;background:#a34;';
+  var handle = document.createElement('div');
+  handle.className = 'hdl';
+  handle.style.cssText += 'width:10px;height:10px;border-radius:50%;' +
+    'margin:-5px 0 0 -5px;cursor:grab;transition:transform var(--t-hover) ' +
+    'var(--ease-out);';
+  var ring = document.createElement('div');
+  ring.className = 'grabring';
+  ring.style.cssText += 'width:30px;height:30px;margin:-15px 0 0 -15px;' +
+    'pointer-events:none;';
+  var pivot = document.createElement('div');
+  pivot.style.cssText = 'position:absolute;width:6px;height:6px;' +
+    'margin:-3px 0 0 -3px;border-radius:50%;background:#fff;';
+  var vlab = document.createElement('div');
+  vlab.className = 'vlabel';
+  vlab.style.display = 'none';
+  [body, arm, ring, handle, pivot, vlab].forEach(function (e) {
+    rotStage.appendChild(e);
+  });
+  var angle = -20;
+  var px = 0, py = 0;
+  function layoutRot() {
+    var w = rotStage.clientWidth;
+    px = Math.round(w / 2 - 20);
+    py = 70;
+    body.style.left = (px - 50) + 'px';
+    body.style.top = (py - 10) + 'px';
+    arm.style.left = (px - 9) + 'px';
+    arm.style.top = (py - 9) + 'px';
+    pivot.style.left = px + 'px';
+    pivot.style.top = py + 'px';
+    placeRot();
+  }
+  function placeRot() {
+    arm.style.transform = 'rotate(' + angle + 'deg)';
+    var r = angle * Math.PI / 180;
+    var hx = px + 92 * Math.cos(r), hy = py + 92 * Math.sin(r);
+    handle.style.left = hx + 'px';
+    handle.style.top = hy + 'px';
+    ring.style.left = hx + 'px';
+    ring.style.top = hy + 'px';
+    ring.style.display = showGrab.checked ? 'block' : 'none';
+  }
+  window.addEventListener('resize', layoutRot);
+  showGrab.addEventListener('change', placeRot);
+  layoutRot();
+  arm.addEventListener('pointerenter', function () {
+    arm.classList.add('hoverline');
+  });
+  arm.addEventListener('pointerleave', function () {
+    arm.classList.remove('hoverline');
+  });
+  var rot = null;
+  var lastSnap = null;
+  function nearHandle(ev) {
+    var rect = rotStage.getBoundingClientRect();
+    var hx = parseFloat(handle.style.left), hy = parseFloat(handle.style.top);
+    var dx = ev.clientX - rect.left - hx, dy = ev.clientY - rect.top - hy;
+    return Math.sqrt(dx * dx + dy * dy) <= 15;
+  }
+  rotStage.addEventListener('pointermove', function (ev) {
+    var near = nearHandle(ev);
+    if (!rot) {
+      handle.style.transform = near ? 'scale(1.15)' : 'scale(1)';
+      rotStage.style.cursor = near ? 'grab' : 'default';
+      return;
+    }
+    var rect = rotStage.getBoundingClientRect();
+    var mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+    if (!rot.live && Math.hypot(mx - rot.x, my - rot.y) < 4) { return; }
+    rot.live = true;
+    var a = Math.atan2(my - py, mx - px) * 180 / Math.PI;
+    var snapped = ev.shiftKey;
+    if (snapped) {
+      var s = Math.round(a / 15) * 15;
+      if (s !== lastSnap) {
+        lastSnap = s;
+        restartClass(handle, 'bump');
+      }
+      a = s;
+    } else { lastSnap = null; }
+    angle = a;
+    placeRot();
+    vlab.style.display = 'block';
+    vlab.style.left = (mx + 14) + 'px';
+    vlab.style.top = (my + 14) + 'px';
+    vlab.textContent = Math.round(a) + ' deg' + (snapped ? ' (15 snap)' : '');
+  });
+  rotStage.addEventListener('pointerdown', function (ev) {
+    if (!nearHandle(ev)) {
+      rotOut.textContent = 'Grab the yellow dot (anywhere in its ring).';
+      return;
+    }
+    var rect = rotStage.getBoundingClientRect();
+    rot = { x: ev.clientX - rect.left, y: ev.clientY - rect.top,
+      start: angle, live: false };
+    rotStage.setPointerCapture(ev.pointerId);
+    rotStage.style.cursor = 'grabbing';
+    arm.classList.add('pickline');
+  });
+  function endRot() {
+    if (!rot) { return; }
+    if (rot.live) {
+      rotOut.textContent = 'One undo step: "Undo Rotate arm" (' +
+        Math.round(rot.start) + ' to ' + Math.round(angle) + ' deg).';
+    }
+    rot = null;
+    vlab.style.display = 'none';
+    rotStage.style.cursor = 'default';
+  }
+  rotStage.addEventListener('pointerup', endRot);
+  rotStage.addEventListener('lostpointercapture', endRot);
+
+  /* ---------- Timeline key demo ---------- */
+  var track = document.getElementById('keyTrack');
+  var frameNum = document.getElementById('frameNum');
+  var keyOut = document.getElementById('keyOut');
+  var FRAMES = 32;
+  var keys = [2, 8, 14];
+  var picked = {};
+  var undoStack = [];
+  var playFrame = 8;
+  var ticks = [];
+  function fw() { return track.clientWidth / FRAMES; }
+  function xOf(f) { return (f + 0.5) * fw(); }
+  function frameAt(x) {
+    return Math.max(0, Math.min(FRAMES - 1, Math.round(x / fw() - 0.5)));
+  }
+  var ph = document.createElement('div');
+  ph.className = 'ph';
+  var phTag = document.createElement('div');
+  phTag.className = 'chip red';
+  phTag.style.cssText = 'position:absolute;top:0;font-size:9px;';
+  var kLabel = document.createElement('div');
+  kLabel.className = 'vlabel';
+  kLabel.style.display = 'none';
+  function buildTicks() {
+    ticks.forEach(function (t) { t.remove(); });
+    ticks = [];
+    for (var f = 0; f < FRAMES; f += 1) {
+      var t = document.createElement('div');
+      t.className = 'tick';
+      t.style.left = xOf(f) + 'px';
+      if (f % 4 === 0) { t.style.height = '12px'; }
+      track.appendChild(t);
+      ticks.push(t);
+    }
+  }
+  function flashTick(f) {
+    var t = ticks[f];
+    if (!t) { return; }
+    t.classList.add('flash');
+    setTimeout(function () { t.classList.remove('flash'); }, 100);
+  }
+  var keyEls = {};
+  function setFrameNum(f) {
+    frameNum.textContent = 'F ' + String(f).padStart(3, '0');
+    restartClass(frameNum, 'bump');
+  }
+  function placePlayhead() {
+    ph.style.left = (xOf(playFrame) - 1) + 'px';
+    phTag.style.left = (xOf(playFrame) + 3) + 'px';
+    phTag.textContent = String(playFrame);
+  }
+  function render(popFrame, rewind) {
+    Object.keys(keyEls).forEach(function (k) {
+      if (keys.indexOf(Number(k)) < 0) { keyEls[k].remove(); delete keyEls[k]; }
+    });
+    keys.forEach(function (f) {
+      var el = keyEls[f];
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'key';
+        el.dataset.f = String(f);
+        track.appendChild(el);
+        keyEls[f] = el;
+        if (rewind) { restartClass(el, 'rewind'); }
+      }
+      el.style.left = xOf(f) + 'px';
+      el.classList.toggle('pk', !!picked[f]);
+    });
+    if (popFrame !== undefined && keyEls[popFrame]) {
+      restartClass(keyEls[popFrame], 'pop');
+      var r = document.createElement('div');
+      r.className = 'ring';
+      r.style.left = xOf(popFrame) + 'px';
+      r.style.top = '29px';
+      track.appendChild(r);
+      setTimeout(function () { r.remove(); }, 300);
+    }
+    placePlayhead();
+  }
+  function snapshot() { return keys.slice(); }
+  function relayout() {
+    buildTicks();
+    Object.keys(keyEls).forEach(function (k) { keyEls[k].remove(); });
+    keyEls = {};
+    render();
+  }
+  track.appendChild(ph);
+  track.appendChild(phTag);
+  track.appendChild(kLabel);
+  relayout();
+  window.addEventListener('resize', relayout);
+
+  track.addEventListener('dblclick', function (ev) {
+    var rect = track.getBoundingClientRect();
+    var f = frameAt(ev.clientX - rect.left);
+    if (keys.indexOf(f) >= 0) { return; }
+    undoStack.push(snapshot());
+    keys.push(f);
+    keys.sort(function (a, b) { return a - b; });
+    picked = {};
+    picked[f] = true;
+    render(f);
+    keyOut.textContent = 'Keyed frame ' + f + '.';
+  });
+
+  var drag = null;
+  track.addEventListener('pointerdown', function (ev) {
+    var rect = track.getBoundingClientRect();
+    var x = ev.clientX - rect.left;
+    var best = null, bestD = 1e9;
+    keys.forEach(function (f) {
+      var d = Math.abs(xOf(f) - x);
+      if (d < bestD) { bestD = d; best = f; }
+    });
+    var grabbed = best !== null && bestD <= Math.max(14, fw() * 0.6) &&
+      ev.clientY - rect.top > 12;
+    if (!grabbed) {
+      if (ev.clientY - rect.top <= 18 || ev.detail === 1) {
+        var nf = frameAt(x);
+        if (nf !== playFrame) { playFrame = nf; placePlayhead(); setFrameNum(nf); }
+      }
+      if (!ev.shiftKey) { picked = {}; render(); }
+      return;
+    }
+    if (!picked[best]) {
+      if (!ev.shiftKey) { picked = {}; }
+      picked[best] = true;
+    }
+    render();
+    track.focus();
+    var group = keys.filter(function (f) { return picked[f]; });
+    var ghosts = group.map(function (f) {
+      var g = document.createElement('div');
+      g.className = 'ghost';
+      g.style.left = xOf(f) + 'px';
+      g.style.display = 'none';
+      track.appendChild(g);
+      return g;
+    });
+    drag = { x0: x, anchor: best, group: group, ghosts: ghosts, live: false,
+      lastF: best, before: snapshot() };
+    track.setPointerCapture(ev.pointerId);
+  });
+  track.addEventListener('pointermove', function (ev) {
+    if (!drag) { return; }
+    var rect = track.getBoundingClientRect();
+    var x = ev.clientX - rect.left;
+    var dx = x - drag.x0;
+    if (!drag.live && Math.abs(dx) < 4) { return; }
+    if (!drag.live) {
+      drag.live = true;
+      drag.ghosts.forEach(function (g) { g.style.display = 'block'; });
+    }
+    var target = frameAt(xOf(drag.anchor) + dx);
+    var nearPlay = Math.abs(xOf(drag.anchor) + dx - xOf(playFrame)) <= 10;
+    if (nearPlay) { target = playFrame; }
+    if (target !== drag.lastF) {
+      flashTick(target);
+      drag.lastF = target;
+    }
+    drag.group.forEach(function (f) {
+      var el = keyEls[f];
+      el.classList.remove('settle');
+      el.style.left = (xOf(f) + dx) + 'px';
+    });
+    var off = target - drag.anchor;
+    kLabel.style.display = 'block';
+    kLabel.style.left = Math.min(x + 14, track.clientWidth - 70) + 'px';
+    kLabel.style.top = '2px';
+    kLabel.textContent = (off >= 0 ? '+' : '') + off + ' f' +
+      (nearPlay ? ' (playhead)' : '');
+  });
+  function endDrag(cancel) {
+    if (!drag) { return; }
+    var d = drag;
+    drag = null;
+    kLabel.style.display = 'none';
+    d.ghosts.forEach(function (g) { g.remove(); });
+    if (!d.live) { return; }
+    var off = cancel ? 0 : d.lastF - d.anchor;
+    var moved = d.group.map(function (f) { return f + off; });
+    var blocked = moved.some(function (f) {
+      return f < 0 || f >= FRAMES ||
+        (keys.indexOf(f) >= 0 && d.group.indexOf(f) < 0);
+    });
+    if (blocked) { off = 0; moved = d.group.slice(); }
+    var els = d.group.map(function (f) { return keyEls[f]; });
+    els.forEach(function (el, i) {
+      el.classList.add('settle');
+      el.style.left = xOf(moved[i]) + 'px';
+      setTimeout(function () { el.classList.remove('settle'); }, 220);
+    });
+    if (off === 0) {
+      keyOut.textContent = blocked ? 'Blocked: a key is already there.' :
+        (cancel ? 'Cancelled.' : '');
+      if (blocked) { restartClass(track, 'shake'); }
+      return;
+    }
+    undoStack.push(d.before);
+    var newKeyEls = {};
+    var others = keys.filter(function (f) { return d.group.indexOf(f) < 0; });
+    others.forEach(function (f) { newKeyEls[f] = keyEls[f]; });
+    picked = {};
+    d.group.forEach(function (f, i) {
+      newKeyEls[moved[i]] = els[i];
+      els[i].dataset.f = String(moved[i]);
+      picked[moved[i]] = true;
+    });
+    keyEls = newKeyEls;
+    keys = others.concat(moved).sort(function (a, b) { return a - b; });
+    keyOut.textContent = 'Moved ' + d.group.length + ' key' +
+      (d.group.length > 1 ? 's ' : ' ') + (off > 0 ? '+' : '') + off + ' f.';
+    setTimeout(function () { render(); }, 220);
+  }
+  track.addEventListener('pointerup', function () { endDrag(false); });
+  track.addEventListener('lostpointercapture', function () { endDrag(false); });
+
+  function puffAt(f) {
+    var cx = xOf(f), cy = 29;
+    for (var i = 0; i < 6; i += 1) {
+      var s = document.createElement('div');
+      s.className = 'spark';
+      s.style.left = cx + 'px';
+      s.style.top = cy + 'px';
+      track.appendChild(s);
+      var a = (i / 6) * Math.PI * 2;
+      var dist = 10 + Math.random() * 8;
+      requestAnimationFrame(function (el, ang, dd) {
+        return function () {
+          el.style.transform = 'translate(' + Math.cos(ang) * dd + 'px,' +
+            Math.sin(ang) * dd + 'px)';
+          el.style.opacity = '0';
+        };
+      }(s, a, dist));
+      setTimeout(function (el) { return function () { el.remove(); }; }(s), 260);
+    }
+  }
+  function undoKeys() {
+    var prev = undoStack.pop();
+    if (!prev) {
+      restartClass(document.getElementById('undoKeys'), 'shake');
+      keyOut.textContent = 'Nothing to undo.';
+      return;
+    }
+    keys = prev;
+    picked = {};
+    Object.keys(keyEls).forEach(function (k) { keyEls[k].remove(); });
+    keyEls = {};
+    render(undefined, true);
+    keyOut.textContent = 'Undone.';
+  }
+  function deleteKeys() {
+    var gone = keys.filter(function (f) { return picked[f]; });
+    if (gone.length === 0) {
+      restartClass(document.getElementById('delKeys'), 'shake');
+      keyOut.textContent = 'Pick a key first.';
+      return;
+    }
+    undoStack.push(snapshot());
+    gone.forEach(function (f) {
+      var el = keyEls[f];
+      el.classList.add('puff');
+      if (motion !== 'off') { puffAt(f); }
+      delete keyEls[f];
+      setTimeout(function () { el.remove(); }, 130);
+    });
+    keys = keys.filter(function (f) { return !picked[f]; });
+    picked = {};
+    keyOut.textContent = '';
+    toast('Deleted ' + gone.length + ' key' + (gone.length > 1 ? 's' : ''),
+      undoKeys);
+  }
+  document.getElementById('delKeys').addEventListener('click', deleteKeys);
+  document.getElementById('undoKeys').addEventListener('click', undoKeys);
+  track.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Delete' || ev.key === 'Backspace') {
+      ev.preventDefault();
+      deleteKeys();
+    } else if (ev.key === 'Escape' && drag) {
+      endDrag(true);
+    } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z') {
+      ev.preventDefault();
+      undoKeys();
+    } else if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') {
+      ev.preventDefault();
+      var nf = Math.max(0, Math.min(FRAMES - 1,
+        playFrame + (ev.key === 'ArrowRight' ? 1 : -1)));
+      if (nf !== playFrame) { playFrame = nf; placePlayhead(); setFrameNum(nf); }
+    }
+  });
+
+  /* ---------- Mock tabs: sliding red bar ---------- */
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('[data-tab]'));
+  var slider = document.getElementById('tabSlider');
+  function pickTab(i) {
+    tabs.forEach(function (t, j) { t.classList.toggle('on', i === j); });
+    var t = tabs[i];
+    slider.style.left = (t.offsetLeft + 6) + 'px';
+    slider.style.width = (t.offsetWidth - 12) + 'px';
+  }
+  tabs.forEach(function (t, i) {
+    t.style.cursor = 'pointer';
+    t.addEventListener('click', function () { pickTab(i); });
+  });
+  pickTab(0);
+  window.addEventListener('resize', function () {
+    var on = tabs.findIndex(function (t) { return t.classList.contains('on'); });
+    pickTab(on < 0 ? 0 : on);
+  });
+}());
+</script>
+</body>
+</html>

@@ -1,0 +1,2631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snapper Video Tab</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  /* Page layout and the Video tab's own drawing. Controls come from kit.css. */
+  .page { max-width: 1240px; margin: 0 auto; padding: 0 var(--gutter) 120px; }
+  .proto-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px;
+    margin: 8px 0; padding: 3px 6px; font-size: var(--fs-small);
+    background: var(--face-dark); box-shadow: var(--bevel-thin-in); }
+  .proto-nav b { font: 10px var(--font-pixel); color: var(--text-off); margin-right: 6px; }
+  .proto-nav a { color: var(--text-dim); text-decoration: none; padding: 1px 6px; }
+  .proto-nav a:hover { color: var(--handle); }
+  .proto-nav a[aria-current="page"] { color: #fff; background: var(--pick-soft);
+    box-shadow: inset 0 -2px var(--pick); }
+  .intro { color: var(--text-dim); margin: 0 0 10px; max-width: 820px; }
+  .intro kbd { font: 11px var(--font-mono); color: var(--text); }
+
+  .app-strip { display: flex; align-items: flex-end; justify-content: space-between;
+    flex-wrap: wrap; gap: 4px 8px; padding-top: 4px; border-bottom: 2px solid var(--row-hover); }
+  .app-body { background: var(--row-hover); padding: 6px; display: flex; flex-direction: column;
+    gap: 6px; min-width: 0; }
+  .v-toolbar { background: var(--face); box-shadow: var(--bevel-raised); }
+  .v-toolbar .grow { flex: 1; }
+  .v-toolbar .tool { padding: 0 8px; }
+  .v-toolbar .tool svg { width: 14px; height: 14px; }
+  .v-toolbar .tool kbd { font: 10px var(--font-mono); color: var(--text-off); }
+
+  /* Top area: shot bin and reel preview */
+  .v-top { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 6px; min-width: 0; }
+  .v-panel { background: var(--face); box-shadow: var(--bevel-raised); padding: 3px;
+    display: flex; flex-direction: column; min-width: 0; }
+  .v-panel-head { display: flex; align-items: center; gap: 6px; padding: 2px 4px 4px;
+    font: 10px var(--font-pixel); color: var(--text-dim); }
+  .v-panel-head .grow { flex: 1; }
+  .v-bin { display: flex; flex-direction: column; gap: 4px; padding: 4px; overflow: auto;
+    max-height: 292px; background: var(--field); box-shadow: var(--bevel-sunken); }
+  .v-card { position: relative; display: flex; align-items: center; gap: 6px; padding: 3px;
+    background: var(--face); box-shadow: var(--bevel-raised); cursor: grab; touch-action: none;
+    user-select: none; transition: translate var(--t-hover) var(--ease-out),
+    filter var(--t-hover) var(--ease-out); flex: none; }
+  .v-card:hover { translate: 0 var(--lift-px); filter: brightness(1.12); }
+  .v-card:focus-visible { outline: 1px dotted var(--text); outline-offset: -3px; }
+  .v-card.is-dragging { opacity: 0.45; cursor: grabbing; }
+  .v-card.is-picked { box-shadow: var(--bevel-raised), 0 0 0 2px var(--pick); }
+  .v-card canvas { width: 64px; height: 36px; flex: none; box-shadow: 0 0 0 1px var(--shadow);
+    background: #000; }
+  .v-card .v-card-tab { position: absolute; left: 3px; top: 3px; bottom: 3px; width: 4px; }
+  .v-card-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+  .v-card-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .v-card-meta { color: var(--text-off); font-size: var(--fs-small); }
+  .v-card.is-file canvas { box-shadow: 0 0 0 1px var(--info); }
+  .v-bin-sub { font: 10px var(--font-pixel); color: var(--text-off); padding: 4px 2px 0; }
+  .v-fly { position: fixed; z-index: 70; pointer-events: none; opacity: 0.92;
+    rotate: -3deg; box-shadow: var(--bevel-raised), 4px 4px 0 rgba(0, 0, 0, 0.5); }
+
+  .v-preview-wrap { position: relative; flex: 1; display: flex; align-items: center;
+    justify-content: center; background: #111; box-shadow: var(--bevel-sunken); min-height: 160px;
+    padding: 6px; }
+  .v-preview { display: block; width: 100%; max-width: 520px; aspect-ratio: 16 / 9; background: #000;
+    image-rendering: pixelated; box-shadow: 0 0 0 1px var(--shadow); }
+  .v-empty { position: absolute; inset: 6px; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 6px; text-align: center; padding: 12px; color: var(--text-dim);
+    pointer-events: none; }
+  .v-empty .v-arrow { font: 18px var(--font-pixel); color: var(--handle);
+    animation: v-nudge 1.2s var(--ease-out) infinite; }
+  @keyframes v-nudge { 50% { translate: 0 5px; } }
+  .v-mixtag { position: absolute; right: 10px; top: 10px; padding: 1px 6px; font: 11px var(--font-mono);
+    background: var(--chip-bg); color: var(--handle); box-shadow: 0 0 0 1px var(--handle); }
+  .v-transport { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; padding: 3px 2px 0; }
+  .v-transport .grow { flex: 1; }
+  .v-time { font: 12px var(--font-mono); padding: 1px 8px; background: var(--field);
+    box-shadow: var(--bevel-sunken); }
+
+  /* Reel timeline */
+  .vt-box { background: var(--face); box-shadow: var(--bevel-raised); padding: 3px; min-width: 0; }
+  .vt-scroll { position: relative; overflow-x: auto; overflow-y: hidden; background: var(--field);
+    box-shadow: var(--bevel-sunken); outline: none; }
+  .vt-scroll:focus-visible { box-shadow: var(--bevel-sunken), 0 0 0 1px var(--handle-dark); }
+  .vt-inner { display: flex; width: max-content; padding: 2px 0 2px 2px; }
+  .vt-heads { position: sticky; left: 0; z-index: 8; flex: none; width: 40px; background: var(--face-dark);
+    box-shadow: 2px 0 0 var(--shadow); }
+  .vt-corner { height: 26px; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; font: 9px/1.1 var(--font-mono); color: #fff; background: var(--pick-dark); box-shadow: var(--bevel-thin); }
+  .vt-head { height: 44px; display: flex; align-items: center; justify-content: center;
+    font: 11px var(--font-pixel); color: var(--text-dim); background: var(--face);
+    box-shadow: var(--bevel-raised); transition: background-color var(--t-hover) var(--ease-out),
+    color var(--t-hover) var(--ease-out); }
+  .vt-head.is-target { background: var(--handle-dark); color: #fff; }
+  .vt-lanes { position: relative; flex: none; touch-action: none; user-select: none; }
+  .vt-ruler { position: absolute; left: 0; right: 0; top: 0; height: 26px; cursor: col-resize;
+    background: var(--face-mid); box-shadow: inset 0 -1px var(--shadow); overflow: hidden; }
+  .vt-tick { position: absolute; bottom: 0; width: 1px; height: 6px; background: var(--text-off); }
+  .vt-tick.is-big { height: 11px; background: var(--text-dim); }
+  .vt-label { position: absolute; top: 1px; font: 10px var(--font-mono); color: var(--text-dim);
+    translate: 3px 0; pointer-events: none; }
+  .vt-row { position: absolute; left: 0; right: 0; height: 44px;
+    background: repeating-linear-gradient(90deg, transparent 0 calc(var(--sec) - 1px),
+    rgba(255, 255, 255, 0.03) calc(var(--sec) - 1px) var(--sec));
+    box-shadow: inset 0 -1px rgba(0, 0, 0, 0.5); }
+  .vt-row:nth-child(even) { background-color: rgba(255, 255, 255, 0.015); }
+  .vt-row.is-target { background-color: rgba(242, 194, 48, 0.07); }
+
+  .v-clip { position: absolute; height: 38px; margin-top: 3px; overflow: hidden; cursor: grab;
+    color: #fff; font-size: var(--fs-small); line-height: 1.2; background-color: #3d6fa8;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 1px rgba(255, 255, 255, 0.25);
+    transition: left var(--t-puff) var(--ease-out), top var(--t-puff) var(--ease-out),
+    width var(--t-puff) var(--ease-out), filter var(--t-hover) var(--ease-out); }
+  .vt-lanes.is-live .v-clip { transition: filter var(--t-hover) var(--ease-out); }
+  .v-clip.is-shot { background-color: #a8344a; }
+  .v-clip.is-gone { background-color: #5c5c62; color: var(--text-dim); }
+  .v-clip.is-hover { filter: brightness(1.18); }
+  .v-clip.is-picked { box-shadow: inset 0 0 0 2px var(--pick), 0 0 0 1px var(--pick),
+    0 0 8px var(--pick-glow); z-index: 2; }
+  .v-clip.is-bad { outline: 2px dashed var(--pick); outline-offset: -2px; filter: saturate(0.4); }
+  .v-clip.is-dragging { cursor: grabbing; }
+  .v-film { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; opacity: 0.55;
+    background-repeat: no-repeat; background-color: rgba(0, 0, 0, 0.25); pointer-events: none; }
+  .v-wave { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; pointer-events: none; }
+  .v-wave polygon { fill: rgba(190, 225, 255, 0.85); }
+  .v-label { position: absolute; left: 9px; top: 2px; right: 6px; display: flex; gap: 6px;
+    white-space: nowrap; overflow: hidden; pointer-events: none; text-shadow: 1px 1px 0 #000; }
+  .v-label .v-len { color: rgba(255, 255, 255, 0.7); }
+  .v-swatch { position: absolute; left: 0; top: 0; bottom: 0; width: 5px; pointer-events: none; }
+  .v-hatch { position: absolute; top: 0; bottom: 0; pointer-events: none;
+    background: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.55) 0 4px, rgba(255, 255, 255, 0.12) 4px 8px); }
+  .v-clip.is-gone .v-hatch { left: 0; right: 0; }
+  .v-mix { position: absolute; top: 0; bottom: 0; right: 0; pointer-events: none;
+    background: linear-gradient(90deg, rgba(242, 194, 48, 0), rgba(242, 194, 48, 0.42)),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.35) 0 2px, transparent 2px 4px);
+    box-shadow: inset 1px 0 var(--handle); }
+  .v-trim { position: absolute; top: 0; bottom: 0; width: 3px; background: transparent;
+    pointer-events: none; transition: width var(--t-hover) var(--ease-back),
+    background-color var(--t-hover) var(--ease-out); }
+  .v-trim.is-l { left: 0; }
+  .v-trim.is-r { right: 0; }
+  .v-clip.is-picked .v-trim { background: var(--handle); }
+  .v-clip.is-hover .v-trim { background: rgba(242, 194, 48, 0.55); }
+  .v-trim.is-grab { width: 6px; background: var(--handle) !important;
+    box-shadow: 0 0 0 1px #222, 0 0 6px var(--handle-glow); }
+
+  .v-joint { position: absolute; z-index: 4; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .v-joint::before { content: ""; position: absolute; inset: -6px; }
+  .v-joint i { position: absolute; inset: 1px; rotate: 45deg; background: var(--face);
+    box-shadow: 0 0 0 1px #000, inset 1px 1px var(--face-light);
+    transition: scale var(--t-hover) var(--ease-back), background-color var(--t-hover) var(--ease-out); }
+  .v-joint b { position: relative; font: bold 10px/1 var(--font-mono); color: var(--text); }
+  .v-joint.has-mix i { background: var(--handle); }
+  .v-joint.has-mix b { color: #222; }
+  .v-joint:hover i, .v-joint.is-hover i { scale: 1.35; }
+  .v-joint.is-open i { background: var(--pick); scale: 1.35; }
+  .v-joint.is-open b { color: #fff; }
+
+  .v-mtab { position: absolute; top: 0; z-index: 5; width: 10px; height: 13px; margin-left: -5px;
+    background: var(--handle); cursor: ew-resize;
+    clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
+    transition: scale var(--t-hover) var(--ease-back); }
+  .v-mtab::before { content: ""; position: absolute; inset: -6px -6px -12px; }
+  .v-mtab:hover, .v-mtab.is-hover { scale: 1.3; }
+  .v-mtab.is-dragging { scale: 1.3; }
+  .v-mline { position: absolute; top: 26px; bottom: 0; width: 0; z-index: 3; pointer-events: none;
+    border-left: 1px dashed rgba(242, 194, 48, 0.75); }
+  .v-play { position: absolute; top: 0; bottom: 0; width: 1px; margin-left: -0.5px; z-index: 6;
+    background: var(--pick); pointer-events: none; box-shadow: 0 0 4px var(--pick-glow); }
+  .v-play::before { content: ""; position: absolute; top: 0; left: -5px; width: 11px; height: 9px;
+    background: var(--pick); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+  .v-drop { position: absolute; z-index: 5; height: 38px; margin-top: 3px; pointer-events: none;
+    outline: 2px dashed var(--handle); outline-offset: -2px; background: rgba(242, 194, 48, 0.12); }
+  .v-drop.is-bad { outline-color: var(--pick); background: var(--pick-soft); }
+  .v-gaphl { position: absolute; z-index: 1; height: 38px; margin-top: 3px; pointer-events: none;
+    outline: 2px dashed var(--handle); outline-offset: -2px;
+    background: repeating-linear-gradient(135deg, rgba(242, 194, 48, 0.16) 0 6px, transparent 6px 12px); }
+  .v-box { position: absolute; z-index: 7; pointer-events: none; background: var(--pick-soft);
+    outline: 1px solid var(--pick); }
+  .v-snip { position: absolute; top: 26px; bottom: 0; width: 2px; margin-left: -1px; z-index: 7;
+    background: #fff; box-shadow: 0 0 8px #fff; pointer-events: none;
+    animation: v-snip var(--t-max) var(--ease-out) forwards; }
+  @keyframes v-snip { from { opacity: 1; scale: 3 1; } to { opacity: 0; scale: 1 1; } }
+  .snap-guide.is-v { z-index: 6; }
+  .v-squash { animation: v-squash var(--t-move) var(--ease-back); }
+  @keyframes v-squash { 0% { scale: 1.05 0.9; } 100% { scale: 1 1; } }
+  .v-clip.k-pop { animation: k-pop var(--t-pop) var(--ease-back); }
+
+  /* Popovers: transition and fill the gap */
+  .v-pop { position: fixed; z-index: 60; width: min(340px, calc(100vw - 32px)); padding: 3px;
+    background: var(--face); box-shadow: var(--bevel-raised), 6px 6px 0 rgba(0, 0, 0, 0.5);
+    animation: k-dialog-in var(--t-pop) var(--ease-back); }
+  .v-pop.k-leave { animation: k-dialog-out var(--t-puff) var(--ease-in) forwards; }
+  .v-pop-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .v-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .v-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 3px 2px;
+    border: 0; cursor: pointer; color: var(--text); background: var(--face); box-shadow: var(--bevel-raised);
+    font-size: var(--fs-tiny); transition: translate var(--t-hover) var(--ease-out),
+    scale var(--t-pop) var(--ease-back); }
+  .v-tile canvas { width: 48px; height: 27px; background: #000; box-shadow: 0 0 0 1px var(--shadow); }
+  .v-tile b { font: bold 12px/1 var(--font-mono); }
+  .v-tile:hover { translate: 0 var(--lift-px); filter: brightness(1.12); }
+  .v-tile:active { scale: 0.94; box-shadow: var(--bevel-pressed); }
+  .v-tile[aria-pressed="true"] { background: var(--pick); color: #fff; box-shadow: var(--bevel-pressed); }
+  .v-pop-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .v-pop-btns { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
+  .v-pop .num-input { width: 52px; }
+  .v-gap-pic { display: flex; gap: 8px; align-items: flex-start; }
+  .v-gap-pic canvas { width: 128px; height: 72px; background: #000; box-shadow: var(--bevel-sunken); flex: none; }
+  .v-gap-pic .dim { font-size: var(--fs-small); }
+  .v-strip { position: relative; height: 34px; background: var(--field); box-shadow: var(--bevel-sunken);
+    cursor: grab; touch-action: none; outline: none; overflow: hidden; }
+  .v-strip:focus-visible { box-shadow: var(--bevel-sunken), 0 0 0 1px var(--handle); }
+  .v-strip canvas { position: absolute; left: 3px; top: 3px; height: 28px; width: calc(100% - 6px); }
+  .v-strip-win { position: absolute; top: 2px; bottom: 2px; outline: 2px solid var(--handle);
+    outline-offset: -2px; background: rgba(242, 194, 48, 0.18); pointer-events: none;
+    box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.45); transition: left var(--t-hover) var(--ease-out); }
+  .v-strip.is-dragging { cursor: grabbing; }
+  .v-strip.is-dragging .v-strip-win { transition: none; }
+  .v-strip.is-short .v-strip-win { outline-color: var(--pick); background: var(--pick-soft); }
+  .v-plays { font: 11px var(--font-mono); color: var(--text-dim); }
+  .v-plays.is-bad { color: var(--pick); }
+
+  .statusbar { display: flex; gap: 2px; margin-top: 2px; font-size: var(--fs-small); }
+  .statusbar > span { padding: 1px 6px; box-shadow: var(--bevel-thin-in); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .statusbar > .grow { flex: 1; min-width: 0; }
+  .statusbar .is-why { color: var(--pick); }
+  .file-list { max-height: 220px; }
+  .file-list .list-row { gap: 8px; }
+
+  .covered { margin-top: 16px; background: var(--face); box-shadow: var(--bevel-raised); padding: 6px 10px; }
+  .covered summary { cursor: pointer; font: 12px var(--font-pixel); color: var(--handle); padding: 2px 0; }
+  .covered table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); margin-top: 6px; }
+  .covered td { padding: 3px 6px; border-bottom: 1px solid var(--face-dark); vertical-align: top; }
+  .covered td:first-child { width: 48px; color: var(--handle); font-family: var(--font-mono); white-space: nowrap; }
+  .covered td:nth-child(2) { width: 34%; }
+  .covered h3 { font: 11px var(--font-pixel); color: var(--text-dim); margin: 12px 0 0; }
+
+  @media (max-width: 760px) {
+    .v-top { grid-template-columns: minmax(0, 1fr); }
+    .v-bin { flex-direction: row; max-height: none; overflow-x: auto; }
+    .v-card { width: 170px; }
+    .v-bin-sub { writing-mode: vertical-rl; rotate: 180deg; padding: 2px 0; }
+    .covered td:nth-child(2) { width: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="proto-nav" aria-label="Prototype pages">
+    <b>PROTOTYPE</b>
+    <a href="index.html">Hub</a><a href="shell.html">Shell</a><a href="stage.html">Stage</a>
+    <a href="timeline.html">Timeline</a><a href="inspector.html">Inspector</a><a href="rig.html">Rig</a>
+    <a href="video.html" aria-current="page">Video</a><a href="kit.html">Kit</a>
+  </nav>
+  <p class="intro">The Video tab, playable. Drag shots or files from the bin onto the tracks, drag
+    clips (they snap to edges, cuts and the playhead), trim their yellow ends, click a diamond on a
+    cut to pick its transition, double-click the empty stretch on V1 between the cuts at 0:10 and 0:16
+    to fill it.
+    Keys: <kbd>S</kbd> split, <kbd>M</kbd> mark cut, <kbd>Del</kbd>, <kbd>Shift+Del</kbd>,
+    <kbd>Ctrl+C X V D A Z</kbd>, <kbd>Space</kbd> play, <kbd>Esc</kbd>. Wheel scrolls, Ctrl+wheel zooms,
+    Alt while dragging skips snapping.</p>
+
+  <div class="win" id="win">
+    <div class="win-title">
+      <span class="win-title-text"><span class="win-dirty" id="dirty" hidden data-tip="Unsaved changes"></span>Snapper - teto_song.snap</span>
+      <span class="win-btns">
+        <button class="win-btn min" aria-label="Minimize" data-tip="Minimize"></button>
+        <button class="win-btn max" aria-label="Maximize" data-tip="Maximize"></button>
+        <button class="win-btn close" aria-label="Close" data-tip="Close"></button>
+      </span>
+    </div>
+    <div class="menubar" role="menubar">
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">File</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-cmd="import"><span>Import video...</span></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" data-cmd="export"><span>Export reel...</span><kbd class="menu-key">Ctrl+E</kbd></button>
+        </div>
+      </div>
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">Edit</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-cmd="undo"><span>Undo</span><kbd class="menu-key">Ctrl+Z</kbd></button>
+          <button class="menu-item" role="menuitem" data-cmd="redo"><span>Redo</span><kbd class="menu-key">Ctrl+Shift+Z</kbd></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" data-cmd="cut"><span>Cut</span><kbd class="menu-key">Ctrl+X</kbd></button>
+          <button class="menu-item" role="menuitem" data-cmd="copy"><span>Copy</span><kbd class="menu-key">Ctrl+C</kbd></button>
+          <button class="menu-item" role="menuitem" data-cmd="paste"><span>Paste at playhead</span><kbd class="menu-key">Ctrl+V</kbd></button>
+          <button class="menu-item" role="menuitem" data-cmd="dup"><span>Duplicate</span><kbd class="menu-key">Ctrl+D</kbd></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" data-cmd="all"><span>Pick every clip</span><kbd class="menu-key">Ctrl+A</kbd></button>
+          <button class="menu-item" role="menuitem" data-cmd="remove"><span>Remove</span><kbd class="menu-key">Delete</kbd></button>
+          <button class="menu-item" role="menuitem" data-cmd="ripple"><span>Ripple remove</span><kbd class="menu-key">Shift+Delete</kbd></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" data-cmd="snap" aria-checked="true"><span>Snap to edges, cuts, playhead</span></button>
+        </div>
+      </div>
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">Video</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-cmd="import"><span>Import video...</span></button>
+          <button class="menu-item" role="menuitem" data-cmd="split"><span>Split at playhead</span><kbd class="menu-key">S</kbd></button>
+          <button class="menu-item" role="menuitem" data-cmd="mark"><span>Mark cut</span><kbd class="menu-key">M</kbd></button>
+          <button class="menu-item" role="menuitem" data-cmd="addTrack"><span>Add track</span></button>
+        </div>
+      </div>
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">Play</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-cmd="play"><span>Play / pause</span><kbd class="menu-key">Space</kbd></button>
+          <button class="menu-item" role="menuitem" data-cmd="prev"><span>Previous frame</span><kbd class="menu-key">Left</kbd></button>
+          <button class="menu-item" role="menuitem" data-cmd="next"><span>Next frame</span><kbd class="menu-key">Right</kbd></button>
+          <button class="menu-item" role="menuitem" data-cmd="home"><span>First frame</span><kbd class="menu-key">Home</kbd></button>
+        </div>
+      </div>
+    </div>
+    <div class="app-strip">
+      <div class="tabs" role="tablist" aria-label="Mode">
+        <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-go="stage.html" data-tip="Pose the dolls shot by shot.">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="3" r="2"/><path d="M8 5v6M4 8h8M8 11l-3 4M8 11l3 4"/></svg>Pose</button>
+        <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-go="rig.html" data-tip="Set up joints and pieces.">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="3" cy="13" r="2"/><circle cx="13" cy="3" r="2"/><path d="M4.5 11.5l7-7"/></svg>Rig</button>
+        <button class="tab" role="tab" aria-selected="true" data-tip="Cut shots and videos into the final reel.">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="14" height="10"/><path d="M4 3v10M12 3v10"/></svg>Video</button>
+      </div>
+      <div class="row" style="display: flex; gap: 2px; padding-bottom: 3px">
+        <button class="btn small" id="undoBtn" data-key="Ctrl+Z">Undo</button>
+        <button class="btn small" id="redoBtn" data-key="Ctrl+Shift+Z">Redo</button>
+      </div>
+    </div>
+
+    <div class="app-body">
+      <div class="toolbar v-toolbar" role="toolbar" aria-label="Video">
+        <button class="tool" data-cmd="import" data-tip="Pick video files; they land end to end on V1.">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v8M4 6l4 4 4-4M2 14h12"/></svg>Import video...</button>
+        <span class="tool-sep"></span>
+        <button class="tool" data-cmd="split" data-key="S" data-tip="Split the picked clips at the playhead.">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 1v14M3 5h3M3 11h3M10 5h3M10 11h3"/></svg>Split <kbd>S</kbd></button>
+        <button class="tool" data-cmd="mark" data-key="M" data-nofocus data-tip="Drop a cut at the playhead, or take one away. Works while playing.">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8v6l-4 4-4-4z"/><path d="M7.5 11h1v4h-1z"/></svg>Mark cut <kbd>M</kbd></button>
+        <button class="tool" data-cmd="addTrack" data-tip="Add a track on top.">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="9" width="14" height="5"/><path d="M8 1v6M5 4h6"/></svg>Add track</button>
+        <span class="grow"></span>
+        <button class="tool" id="zoomOut" aria-label="Zoom out" data-tip="Zoom out (Ctrl+wheel)">-</button>
+        <span class="dim" id="zoomRead" style="font: 11px var(--font-mono); min-width: 54px; text-align: center">3 px/f</span>
+        <button class="tool" id="zoomIn" aria-label="Zoom in" data-tip="Zoom in (Ctrl+wheel)">+</button>
+      </div>
+
+      <div class="v-top">
+        <div class="v-panel">
+          <div class="v-panel-head"><span>SHOTS</span><span class="grow"></span><span class="dim" id="binCount"></span></div>
+          <div class="v-bin" id="bin" role="list" aria-label="Shots and files"></div>
+        </div>
+        <div class="v-panel">
+          <div class="v-panel-head"><span>REEL</span><span class="grow"></span><span class="dim">1280 x 720, 24 fps</span></div>
+          <div class="v-preview-wrap">
+            <canvas class="v-preview" id="preview" width="320" height="180" aria-label="Reel preview"></canvas>
+            <div class="v-empty" id="empty" hidden>
+              <span>Drag shots from the list, or a video file, onto the tracks below.</span>
+              <span class="v-arrow">v</span>
+            </div>
+            <span class="v-mixtag" id="mixTag" hidden></span>
+          </div>
+          <div class="v-transport">
+            <button class="tool" data-cmd="home" aria-label="First frame" data-tip="First frame" data-key="Home">|&lt;</button>
+            <button class="tool" data-cmd="prev" aria-label="Previous frame" data-tip="Previous frame" data-key="Left">&lt;</button>
+            <button class="tool" data-cmd="play" id="playBtn" aria-label="Play" data-tip="Play the reel" data-key="Space" style="min-width: 48px">Play</button>
+            <button class="tool" data-cmd="next" aria-label="Next frame" data-tip="Next frame" data-key="Right">&gt;</button>
+            <span class="grow"></span>
+            <span class="v-time" id="timeRead">0:00 f00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="vt-box">
+        <div class="vt-scroll" id="vtScroll" tabindex="0" aria-label="Reel timeline">
+          <div class="vt-inner">
+            <div class="vt-heads" id="heads"><div class="vt-corner" id="corner" data-tip="Playhead time: m:ss and frame"><span>0:00</span><span>f00</span></div></div>
+            <div class="vt-lanes" id="lanes"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="statusbar">
+      <span class="grow" id="status">Ready.</span>
+      <span id="statPick">0 picked</span>
+      <span id="statLen">0:00</span>
+    </div>
+  </div>
+
+  <details class="covered" id="covered">
+    <summary>Covered: 57 inventory items (233 to 289), where to try each</summary>
+    <div id="coveredBody"></div>
+  </details>
+</div>
+
+<dialog class="dialog" id="fileDlg" aria-labelledby="fileDlgTitle">
+  <div class="win-title"><span class="win-title-text" id="fileDlgTitle">Import video</span>
+    <span class="win-btns"><button class="win-btn close" aria-label="Cancel" data-close="cancel"></button></span></div>
+  <div style="padding: 10px 10px 4px">
+    <p class="dim" id="fileDlgHint" style="margin: 0 0 6px">~/Videos. Click to pick, Shift or Ctrl for more.</p>
+    <div class="list file-list" id="fileList" role="listbox" aria-multiselectable="true"></div>
+  </div>
+  <div class="dialog-btns">
+    <button class="btn primary" id="fileOk">Open</button>
+    <button class="btn" data-close="cancel">Cancel</button>
+  </div>
+</dialog>
+
+<script src="kit.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const kFps = 24;
+  const kRowH = 44;
+  const kRulerH = 26;
+  const kMaxTracks = 6;
+  const kMinLen = 2;
+  const kMinPpf = 0.6;
+  const kMaxPpf = 14;
+  const kMaxMix = 48;
+  const kLoopCap = 5000;
+  const kKinds = [
+    { id: "cut", sym: "|", name: "Cut" },
+    { id: "swl", sym: "<", name: "Swipe left" },
+    { id: "swr", sym: ">", name: "Swipe right" },
+    { id: "swu", sym: "^", name: "Swipe up" },
+    { id: "swd", sym: "v", name: "Swipe down" },
+    { id: "flash", sym: "*", name: "Flash" },
+    { id: "fade", sym: "~", name: "Crossfade" }
+  ];
+  const kindOf = (id) => kKinds.find((k) => k.id === id) || kKinds[0];
+
+  /* ---------- Sources: shots in the bin and video files ---------- */
+  const shots = [
+    { id: "s1", name: "Shot 1", title: "Wave hello", color: "#d8304f", len: 48 },
+    { id: "s2", name: "Shot 2", title: "Spin", color: "#e0873a", len: 36 },
+    { id: "s3", name: "Shot 3", title: "Bow", color: "#5aa05a", len: 40 },
+    { id: "s4", name: "Shot 4", title: "Jump", color: "#8a5ad8", len: 30 },
+    { id: "s5", name: "Shot 5", title: "Point", color: "#3aa0b8", len: 72 }
+  ];
+  const files = [
+    { id: "f1", name: "speedpaint.mp4", len: 720 },
+    { id: "f2", name: "teto_dance.mp4", len: 288 },
+    { id: "f3", name: "short_clip.mp4", len: 36 },
+    { id: "f4", name: "outro_card.mov", len: 120 }
+  ];
+  const shotById = (id) => shots.find((s) => s.id === id) || null;
+  const fileById = (id) => files.find((f) => f.id === id) || null;
+
+  const tc = (f) => {
+    const n = Math.max(0, Math.round(f));
+    const s = Math.floor(n / kFps);
+    const m = Math.floor(s / 60);
+    return m + ":" + String(s % 60).padStart(2, "0") + " f" + String(n % kFps).padStart(2, "0");
+  };
+  const mss = (f) => {
+    const s = Math.floor(Math.max(0, f) / kFps);
+    return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  };
+  const secs = (f) => (f / kFps).toFixed(1) + " s";
+  const signed = (n) => (n > 0 ? "+" : "") + n;
+  const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+
+  function seeded(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function hash(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length && i < 200; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+    return h >>> 0;
+  }
+
+  /* ---------- Source painter: one drawing path for preview, thumbs, films ---------- */
+  const Painter = {
+    shot(ctx, shot, f, w, h) {
+      ctx.fillStyle = "#4a4a52";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = shot.color;
+      ctx.globalAlpha = 0.35;
+      ctx.fillRect(0, 0, w, h * 0.62);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#3a3a3e";
+      ctx.fillRect(0, h * 0.78, w, h * 0.22);
+      const seed = hash(shot.id) % 7;
+      const t = f / kFps;
+      const cx = w * (0.5 + 0.08 * Math.sin(t * 1.3 + seed));
+      const hop = shot.id === "s4" ? Math.abs(Math.sin(t * 5)) * h * 0.12 : 0;
+      const base = h * 0.78 - hop;
+      const u = h / 100;
+      ctx.strokeStyle = "#f0e6dc";
+      ctx.lineWidth = Math.max(1, 3 * u);
+      ctx.lineCap = "round";
+      const swing = Math.sin(t * 4 + seed) * 0.9;
+      const spin = shot.id === "s2" ? Math.cos(t * 6) : 1;
+      ctx.beginPath();
+      ctx.moveTo(cx, base - 30 * u); ctx.lineTo(cx, base - 12 * u);
+      ctx.moveTo(cx, base - 12 * u); ctx.lineTo(cx - 6 * u, base);
+      ctx.moveTo(cx, base - 12 * u); ctx.lineTo(cx + 6 * u, base);
+      ctx.moveTo(cx, base - 26 * u); ctx.lineTo(cx - 12 * u * spin, base - 26 * u + 10 * u * Math.sin(swing));
+      ctx.moveTo(cx, base - 26 * u); ctx.lineTo(cx + 12 * u * spin, base - 26 * u - 10 * u * Math.sin(swing));
+      ctx.stroke();
+      ctx.fillStyle = shot.color;
+      ctx.beginPath();
+      ctx.arc(cx, base - 36 * u, 7 * u, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#4fd1c5";
+      ctx.fillRect(cx - 9 * u, base - 44 * u, 4 * u, 14 * u);
+      ctx.fillRect(cx + 5 * u, base - 44 * u, 4 * u, 14 * u);
+      this.label(ctx, shot.name + "  " + shot.title, w, h);
+    },
+    gone(ctx, w, h, text) {
+      ctx.fillStyle = "#2a2a2e";
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = Math.max(1, h / 30);
+      ctx.beginPath();
+      for (let x = -h; x < w; x += h / 6) { ctx.moveTo(x, h); ctx.lineTo(x + h, 0); }
+      ctx.stroke();
+      ctx.fillStyle = "#b4b4ba";
+      ctx.font = Math.round(h / 9) + "px Tahoma, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(text, w / 2, h / 2 + h / 30);
+      ctx.textAlign = "left";
+    },
+    video(ctx, file, f, w, h) {
+      const t = f / kFps;
+      const u = h / 100;
+      if (file.id === "f1") {
+        ctx.fillStyle = "#e9e4d8";
+        ctx.fillRect(0, 0, w, h);
+        const r = seeded(7);
+        const n = Math.min(90, Math.floor(f / 8));
+        ctx.lineCap = "round";
+        for (let i = 0; i < n; i++) {
+          ctx.strokeStyle = ["#d8304f", "#3a3a3e", "#4fa3d8", "#f2c230"][i % 4];
+          ctx.lineWidth = (1 + r() * 4) * u;
+          ctx.beginPath();
+          const x = r() * w;
+          const y = r() * h;
+          ctx.moveTo(x, y);
+          ctx.quadraticCurveTo(x + (r() - 0.5) * 60 * u, y + (r() - 0.5) * 60 * u,
+            x + (r() - 0.5) * 80 * u, y + (r() - 0.5) * 40 * u);
+          ctx.stroke();
+        }
+        ctx.fillStyle = "#101012";
+        ctx.beginPath();
+        ctx.arc(w * (0.5 + 0.35 * Math.sin(t * 2.1)), h * (0.5 + 0.3 * Math.cos(t * 1.7)), 3 * u, 0, 7);
+        ctx.fill();
+      } else if (file.id === "f2") {
+        for (let i = 0; i < 12; i++) {
+          ctx.fillStyle = i % 2 ? "#7a1428" : "#d8304f";
+          ctx.fillRect(((i * w) / 6 + t * 40 * u) % (w * 2) - w / 6, 0, w / 6 + 1, h);
+        }
+        ctx.fillStyle = "#f0e6dc";
+        const by = h * 0.7 - Math.abs(Math.sin(t * 4)) * h * 0.35;
+        ctx.beginPath();
+        ctx.arc(w * 0.5, by, 12 * u, 0, 7);
+        ctx.fill();
+      } else if (file.id === "f3") {
+        const g = ctx.createLinearGradient(0, 0, w, h);
+        g.addColorStop(0, "#1b3a5c");
+        g.addColorStop(1, "#4fa3d8");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+        ctx.save();
+        ctx.translate(w / 2, h / 2);
+        ctx.rotate(t * 2);
+        ctx.fillStyle = "#f2c230";
+        ctx.fillRect(-14 * u, -14 * u, 28 * u, 28 * u);
+        ctx.restore();
+      } else if (file.id === "f4") {
+        ctx.fillStyle = "#101012";
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalAlpha = Math.min(1, t / 2);
+        ctx.fillStyle = "#d8304f";
+        ctx.font = "bold " + Math.round(14 * u) + "px Tahoma, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("THANKS FOR WATCHING", w / 2, h / 2 + 5 * u);
+        ctx.textAlign = "left";
+        ctx.globalAlpha = 1;
+      } else {
+        const hue = hash(file.name) % 360;
+        ctx.fillStyle = "hsl(" + hue + ", 35%, 22%)";
+        ctx.fillRect(0, 0, w, h);
+        for (let i = 0; i < 6; i++) {
+          ctx.fillStyle = "hsl(" + ((hue + i * 30) % 360) + ", 55%, 50%)";
+          const bh = h * (0.2 + 0.6 * Math.abs(Math.sin(t * 2 + i)));
+          ctx.fillRect((i * w) / 6 + 2, h - bh, w / 6 - 4, bh);
+        }
+      }
+      this.label(ctx, file.name + "  " + mss(f), w, h);
+    },
+    label(ctx, text, w, h) {
+      if (h < 60) return;
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      ctx.fillRect(0, 0, w, 14);
+      ctx.fillStyle = "#e6e6e6";
+      ctx.font = "10px Tahoma, sans-serif";
+      ctx.fillText(text, 4, 10);
+    },
+    /* Draw what a clip shows at its own frame cf. */
+    source(ctx, src, cf, w, h) {
+      if (src.type === "shot") {
+        const shot = shotById(src.id);
+        const is_gone = !shot;
+        if (is_gone) { this.gone(ctx, w, h, "Shot removed"); return; }
+        const is_past_end = cf >= shot.len;
+        if (is_past_end) { this.gone(ctx, w, h, shot.name + " is shorter now"); return; }
+        this.shot(ctx, shot, cf, w, h);
+        return;
+      }
+      const file = fileById(src.id);
+      if (!file) { this.gone(ctx, w, h, "Missing video"); return; }
+      this.video(ctx, file, Math.max(0, Math.min(file.len - 1, cf)), w, h);
+    },
+    nothing(ctx, w, h, text) {
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, w, h);
+      if (!text) return;
+      ctx.fillStyle = "#808086";
+      ctx.font = "11px Tahoma, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(text, w / 2, h / 2 + 4);
+      ctx.textAlign = "left";
+    }
+  };
+
+  /* Film strips: eight frames of a whole source in one image, cached. */
+  const Films = {
+    cache: new Map(),
+    lenOf(src) {
+      if (src.type === "shot") { const s = shotById(src.id); return s ? s.len : 48; }
+      const f = fileById(src.id);
+      return f ? f.len : 48;
+    },
+    url(src) {
+      const key = src.type + ":" + src.id;
+      const hit = this.cache.get(key);
+      if (hit) return hit;
+      const c = document.createElement("canvas");
+      const n = 8;
+      c.width = 64 * n;
+      c.height = 36;
+      const ctx = c.getContext("2d");
+      const len = this.lenOf(src);
+      for (let i = 0; i < n; i++) {
+        ctx.save();
+        ctx.translate(i * 64, 0);
+        Painter.source(ctx, src, Math.floor((len * i) / n), 64, 36);
+        ctx.restore();
+      }
+      const url = c.toDataURL();
+      this.cache.set(key, url);
+      return url;
+    }
+  };
+
+  /* Fake loudness per video frame, for waveforms. */
+  function loud(fileId, f) {
+    const h = hash(fileId);
+    const a = Math.sin(f * 0.13 + (h % 13)) * 0.5 + 0.5;
+    const b = Math.sin(f * 0.71 + (h % 7)) * 0.5 + 0.5;
+    const beat = f % 12 < 2 ? 0.35 : 0;
+    return Math.min(1, 0.12 + a * 0.45 + b * 0.25 + beat);
+  }
+
+  /* ---------- Reel: the project model, every edit goes through edit() ---------- */
+  const undo = new Kit.UndoStack(200);
+  let next_id = 100;
+  const newId = () => "c" + (next_id++);
+
+  const Reel = {
+    tracks: 2,
+    markers: [240, 400, 520],
+    clips: [
+      { id: "c1", track: 0, start: 0, len: 240, src: { type: "video", id: "f1" }, srcIn: 0, tr: null },
+      { id: "c2", track: 0, start: 400, len: 288, src: { type: "video", id: "f2" }, srcIn: 0, tr: null },
+      { id: "c3", track: 1, start: 24, len: 48, src: { type: "shot", id: "s1" }, srcIn: 0, tr: { kind: "fade", len: 6 } },
+      { id: "c4", track: 1, start: 72, len: 36, src: { type: "shot", id: "s2" }, srcIn: 0, tr: null },
+      { id: "c5", track: 1, start: 108, len: 60, src: { type: "shot", id: "s3" }, srcIn: 0, tr: null },
+      { id: "c6", track: 1, start: 270, len: 48, src: { type: "shot", id: "s9" }, srcIn: 0, tr: null }
+    ],
+    pick: new Set(),
+    playhead: 36,
+    clipboard: [],
+    snapOn: true,
+    dirty: false,
+
+    snapshot() {
+      return JSON.stringify({ tracks: this.tracks, markers: this.markers, clips: this.clips });
+    },
+    restore(snap) {
+      const d = JSON.parse(snap);
+      this.tracks = d.tracks;
+      this.markers = d.markers;
+      this.clips = d.clips;
+      this.pick.forEach((id) => { if (!this.byId(id)) this.pick.delete(id); });
+    },
+    /* One undo step: run fn, remember both sides. Returns fn's result. */
+    edit(name, fn, toastIt) {
+      const before = this.snapshot();
+      const out = fn();
+      const after = this.snapshot();
+      const is_same = before === after;
+      if (is_same) return out;
+      this.push(name, before, after, toastIt);
+      return out;
+    },
+    push(name, before, after, toastIt) {
+      const is_same = before === after;
+      if (is_same) return;
+      undo.push(name, () => { this.restore(before); View.render(); },
+        () => { this.restore(after); View.render(); });
+      this.dirty = true;
+      View.render();
+      if (toastIt) {
+        const depth = undo.done.length;
+        Kit.toast(toastIt, () => {
+          const is_last = undo.done.length === depth;
+          if (is_last) undo.undo();
+          else Kit.toast("Newer steps came after. Use Edit > Undo.", null, { kind: "error" });
+        });
+      }
+    },
+    byId(id) { return this.clips.find((c) => c.id === id) || null; },
+    on(track) { return this.clips.filter((c) => c.track === track).sort((a, b) => a.start - b.start); },
+    picked() { return this.clips.filter((c) => this.pick.has(c.id)); },
+    end() {
+      let e = 0;
+      this.clips.forEach((c) => { e = Math.max(e, c.start + c.len); });
+      return e;
+    },
+    total() { return Math.max(60 * kFps, this.end() + 20 * kFps); },
+    srcLen(c) {
+      if (c.src.type === "shot") {
+        const s = shotById(c.src.id);
+        return s ? s.len : c.len;
+      }
+      const f = fileById(c.src.id);
+      return f ? f.len : c.len;
+    },
+    name(c) {
+      if (c.src.type === "shot") {
+        const s = shotById(c.src.id);
+        return s ? s.name + " . " + s.title : "Shot removed";
+      }
+      const f = fileById(c.src.id);
+      return f ? f.name : "Missing video";
+    },
+    short(c) {
+      if (c.src.type === "shot") { const s = shotById(c.src.id); return s ? s.name : "Shot removed"; }
+      const f = fileById(c.src.id);
+      return f ? f.name : "video";
+    },
+    /* The clip that touches c on the right, on the same track. */
+    after(c) {
+      return this.clips.find((o) => o.track === c.track && o.id !== c.id && o.start === c.start + c.len) || null;
+    },
+    before(c) {
+      return this.clips.find((o) => o.track === c.track && o.id !== c.id && o.start + o.len === c.start) || null;
+    },
+    overlaps(track, start, len, ignore) {
+      return this.clips.find((o) => {
+        const skip = ignore && ignore.has(o.id);
+        const hits = o.track === track && o.start < start + len && start < o.start + o.len;
+        return !skip && hits;
+      }) || null;
+    },
+    maxMix(a, b) { return Math.max(1, Math.min(kMaxMix, a.len - 1, b.len - 1)); },
+    mixOf(a) {
+      const b = this.after(a);
+      const has_mix = b && a.tr && a.tr.kind !== "cut";
+      if (!has_mix) return null;
+      return { kind: a.tr.kind, len: Math.min(a.tr.len, this.maxMix(a, b)), b: b };
+    },
+    clipAt(track, f) {
+      return this.clips.find((c) => c.track === track && f >= c.start && f < c.start + c.len) || null;
+    },
+    /* Free stretch around frame f on a track: [from, to). */
+    freeAround(track, f) {
+      let from = 0;
+      let to = Infinity;
+      this.on(track).forEach((c) => {
+        const ends_before = c.start + c.len <= f;
+        if (ends_before) from = Math.max(from, c.start + c.len);
+        const starts_after = c.start > f;
+        if (starts_after) to = Math.min(to, c.start);
+      });
+      return { from: from, to: to };
+    }
+  };
+
+  /* ---------- View: draws the timeline from the model ---------- */
+  const lanes = $("#lanes");
+  const scroller = $("#vtScroll");
+  const heads = $("#heads");
+  const View = {
+    ppf: 3,
+    els: new Map(),
+    ruler: null,
+    rows: [],
+    play: null,
+    guide: null,
+    build() {
+      lanes.textContent = "";
+      this.ruler = document.createElement("div");
+      this.ruler.className = "vt-ruler";
+      lanes.appendChild(this.ruler);
+      this.rowBox = document.createElement("div");
+      lanes.appendChild(this.rowBox);
+      this.markBox = document.createElement("div");
+      lanes.appendChild(this.markBox);
+      this.jointBox = document.createElement("div");
+      lanes.appendChild(this.jointBox);
+      this.play = document.createElement("div");
+      this.play.className = "v-play";
+      lanes.appendChild(this.play);
+      this.guide = document.createElement("div");
+      this.guide.className = "snap-guide is-v";
+      lanes.appendChild(this.guide);
+    },
+    x(f) { return f * this.ppf; },
+    rowTop(track) { return kRulerH + (Reel.tracks - 1 - track) * kRowH; },
+    trackAtY(y) {
+      const i = Math.floor((y - kRulerH) / kRowH);
+      const in_rows = i >= 0 && i < Reel.tracks;
+      return in_rows ? Reel.tracks - 1 - i : -1;
+    },
+    frameAt(clientX) {
+      return (clientX - lanes.getBoundingClientRect().left) / this.ppf;
+    },
+    yIn(clientY) { return clientY - lanes.getBoundingClientRect().top; },
+    render() {
+      const total = Reel.total();
+      lanes.style.width = Math.ceil(this.x(total)) + "px";
+      lanes.style.height = (kRulerH + Reel.tracks * kRowH) + "px";
+      lanes.style.setProperty("--sec", (kFps * this.ppf) + "px");
+      this.renderRuler(total);
+      this.renderRows();
+      this.renderClips();
+      this.renderJoints();
+      this.renderMarks();
+      this.renderPlayhead();
+      Commands.refresh();
+      Status.counts();
+      $("#dirty").hidden = !Reel.dirty;
+      $("#zoomRead").textContent = (Math.round(this.ppf * 10) / 10) + " px/f";
+      Preview.draw();
+    },
+    renderRuler(total) {
+      const r = this.ruler;
+      r.textContent = "";
+      const steps = [1, 2, 5, 10, 15, 30, 60];
+      let step = steps[steps.length - 1];
+      for (let i = 0; i < steps.length; i++) {
+        const fits = steps[i] * kFps * this.ppf >= 56;
+        if (fits) { step = steps[i]; break; }
+      }
+      const n_secs = Math.ceil(total / kFps);
+      for (let s = 0; s <= n_secs && s < kLoopCap; s++) {
+        const is_label = s % step === 0;
+        const t = document.createElement("i");
+        t.className = "vt-tick" + (is_label ? " is-big" : "");
+        t.style.left = this.x(s * kFps) + "px";
+        r.appendChild(t);
+        if (!is_label) continue;
+        const l = document.createElement("span");
+        l.className = "vt-label";
+        l.style.left = this.x(s * kFps) + "px";
+        l.textContent = mss(s * kFps);
+        r.appendChild(l);
+      }
+    },
+    renderRows() {
+      const need = Reel.tracks;
+      while (this.rows.length < need) {
+        const row = document.createElement("div");
+        row.className = "vt-row";
+        this.rowBox.appendChild(row);
+        const head = document.createElement("div");
+        head.className = "vt-head";
+        heads.appendChild(head);
+        this.rows.push({ row: row, head: head });
+      }
+      while (this.rows.length > need) {
+        const gone = this.rows.pop();
+        gone.row.remove();
+        Kit.puff(gone.head);
+      }
+      for (let i = 0; i < need; i++) {
+        const track = need - 1 - i;
+        const r = this.rows[i];
+        r.row.style.top = (kRulerH + i * kRowH) + "px";
+        r.row.dataset.track = String(track);
+        r.head.textContent = "V" + (track + 1);
+        r.head.dataset.track = String(track);
+      }
+    },
+    lightTrack(track) {
+      this.rows.forEach((r) => {
+        const on = Number(r.head.dataset.track) === track;
+        r.head.classList.toggle("is-target", on);
+        r.row.classList.toggle("is-target", on);
+      });
+    },
+    clipEl(c) {
+      const el = document.createElement("div");
+      el.className = "v-clip";
+      el.dataset.id = c.id;
+      el.innerHTML = '<div class="v-film"></div><svg class="v-wave" preserveAspectRatio="none"><polygon/></svg>' +
+        '<span class="v-swatch"></span><span class="v-label"><span class="v-name"></span><span class="v-len"></span></span>' +
+        '<div class="v-hatch"></div><div class="v-mix"></div><i class="v-trim is-l"></i><i class="v-trim is-r"></i>';
+      return el;
+    },
+    renderClips() {
+      const seen = new Set();
+      const fresh = [];
+      Reel.clips.forEach((c) => {
+        seen.add(c.id);
+        let el = this.els.get(c.id);
+        if (!el) {
+          el = this.clipEl(c);
+          this.els.set(c.id, el);
+          lanes.insertBefore(el, this.markBox);
+          fresh.push(el);
+        }
+        this.paintClip(el, c);
+      });
+      this.els.forEach((el, id) => {
+        if (seen.has(id)) return;
+        this.els.delete(id);
+        Kit.puff(el);
+      });
+      fresh.forEach((el) => Kit.pop(el, 0.9));
+    },
+    paintClip(el, c) {
+      const w = Math.max(2, this.x(c.len));
+      el.style.left = this.x(c.start) + "px";
+      el.style.top = this.rowTop(c.track) + "px";
+      el.style.width = w + "px";
+      const is_shot = c.src.type === "shot";
+      const shot = is_shot ? shotById(c.src.id) : null;
+      const is_gone = is_shot && !shot;
+      el.classList.toggle("is-shot", is_shot && !is_gone);
+      el.classList.toggle("is-video", !is_shot);
+      el.classList.toggle("is-gone", is_gone);
+      el.classList.toggle("is-picked", Reel.pick.has(c.id));
+      el.querySelector(".v-name").textContent = Reel.name(c);
+      el.querySelector(".v-len").textContent = secs(c.len);
+      el.querySelector(".v-swatch").style.background = shot ? shot.color : "transparent";
+      const film = el.querySelector(".v-film");
+      const src_len = Films.lenOf(c.src);
+      film.style.display = is_gone ? "none" : "";
+      if (!is_gone) {
+        film.style.backgroundImage = "url(" + Films.url(c.src) + ")";
+        film.style.backgroundSize = this.x(src_len) + "px 100%";
+        film.style.backgroundPosition = (-this.x(c.srcIn)) + "px 0";
+      }
+      this.paintWave(el.querySelector(".v-wave"), c, w);
+      const hatch = el.querySelector(".v-hatch");
+      const short_from = shot ? shot.len - c.srcIn : Infinity;
+      const has_hatch = is_gone || short_from < c.len;
+      hatch.style.display = has_hatch ? "" : "none";
+      if (has_hatch && !is_gone) {
+        hatch.style.left = this.x(Math.max(0, short_from)) + "px";
+        hatch.style.right = "0";
+      }
+      el.title = "";
+      const mix = Reel.mixOf(c);
+      const mixEl = el.querySelector(".v-mix");
+      mixEl.style.display = mix ? "" : "none";
+      if (mix) mixEl.style.width = this.x(mix.len) + "px";
+    },
+    paintWave(svg, c, w) {
+      const is_video = c.src.type === "video";
+      svg.style.display = is_video ? "" : "none";
+      if (!is_video) return;
+      const h = 22;
+      const step = Math.max(1, Math.round(3 / this.ppf));
+      const top = [];
+      const bot = [];
+      for (let f = 0; f <= c.len && f < kLoopCap * 4; f += step) {
+        const a = loud(c.src.id, c.srcIn + f) * (h / 2 - 1);
+        const x = (this.x(f)).toFixed(1);
+        top.push(x + "," + (h / 2 - a).toFixed(1));
+        bot.unshift(x + "," + (h / 2 + a).toFixed(1));
+      }
+      svg.setAttribute("viewBox", "0 0 " + Math.max(1, w).toFixed(1) + " " + h);
+      svg.firstChild.setAttribute("points", top.concat(bot).join(" "));
+    },
+    renderJoints() {
+      const box = this.jointBox;
+      box.textContent = "";
+      Reel.clips.forEach((a) => {
+        const b = Reel.after(a);
+        if (!b) return;
+        const j = document.createElement("div");
+        const mix = Reel.mixOf(a);
+        const kind = kindOf(a.tr ? a.tr.kind : "cut");
+        j.className = "v-joint" + (mix ? " has-mix" : "");
+        j.dataset.a = a.id;
+        j.dataset.tip = kind.name + (mix ? ", " + mix.len + " f" : "") + ". Click to pick the transition here.";
+        j.style.left = this.x(b.start) + "px";
+        j.style.top = (this.rowTop(a.track) + kRowH / 2) + "px";
+        j.innerHTML = "<i></i><b></b>";
+        j.querySelector("b").textContent = kind.sym;
+        const is_open = TransPop.a && TransPop.a.id === a.id;
+        j.classList.toggle("is-open", Boolean(is_open));
+        box.appendChild(j);
+      });
+    },
+    renderMarks() {
+      const box = this.markBox;
+      box.textContent = "";
+      Reel.markers.forEach((m, i) => {
+        const tab = document.createElement("div");
+        tab.className = "v-mtab";
+        tab.dataset.mi = String(i);
+        tab.dataset.tip = "Cut at " + tc(m) + ". Drag to move; M on it or right-click takes it away.";
+        tab.style.left = this.x(m) + "px";
+        box.appendChild(tab);
+        const line = document.createElement("div");
+        line.className = "v-mline";
+        line.style.left = this.x(m) + "px";
+        box.appendChild(line);
+      });
+    },
+    renderPlayhead() {
+      this.play.style.left = this.x(Reel.playhead) + "px";
+      const t = tc(Reel.playhead);
+      const corner = $("#corner");
+      corner.firstChild.textContent = mss(Reel.playhead);
+      corner.lastChild.textContent = "f" + String(Math.round(Reel.playhead) % kFps).padStart(2, "0");
+      $("#timeRead").textContent = t + " / " + tc(Reel.end());
+    },
+    showGuide(f) {
+      const on = f !== null && f !== undefined;
+      this.guide.classList.toggle("is-on", on);
+      if (on) this.guide.style.left = this.x(f) + "px";
+    },
+    snip(f) {
+      const s = document.createElement("div");
+      s.className = "v-snip";
+      s.style.left = this.x(f) + "px";
+      lanes.appendChild(s);
+      window.setTimeout(() => s.remove(), Kit.ms("max") + 40);
+    },
+    setZoom(ppf, anchorClientX) {
+      const next = Math.min(kMaxPpf, Math.max(kMinPpf, ppf));
+      const sr = scroller.getBoundingClientRect();
+      const ax = anchorClientX === undefined ? sr.left + sr.width / 2 : anchorClientX;
+      const f = this.frameAt(ax);
+      this.ppf = next;
+      this.render();
+      scroller.scrollLeft += lanes.getBoundingClientRect().left + f * next - ax;
+    }
+  };
+
+  /* ---------- Preview: final picture at the playhead, mixes included ---------- */
+  const Preview = {
+    canvas: $("#preview"),
+    a: document.createElement("canvas"),
+    b: document.createElement("canvas"),
+    override: null,
+    draw() {
+      const cv = this.canvas;
+      const ctx = cv.getContext("2d");
+      const w = cv.width;
+      const h = cv.height;
+      const f = this.override !== null ? this.override : Reel.playhead;
+      const is_empty = Reel.clips.length === 0;
+      $("#empty").hidden = !is_empty;
+      const tag = $("#mixTag");
+      tag.hidden = true;
+      if (is_empty) { Painter.nothing(ctx, w, h, ""); return; }
+      let top = null;
+      for (let t = Reel.tracks - 1; t >= 0 && !top; t--) top = Reel.clipAt(t, f);
+      if (!top) { Painter.nothing(ctx, w, h, "Nothing on any track at " + tc(f)); return; }
+      const mix = Reel.mixOf(top);
+      const cut = top.start + top.len;
+      const in_mix = mix && f >= cut - mix.len;
+      if (!in_mix) { Painter.source(ctx, top.src, f - top.start + top.srcIn, w, h); return; }
+      const p = (f - (cut - mix.len) + 0.5) / mix.len;
+      this.a.width = w; this.a.height = h;
+      this.b.width = w; this.b.height = h;
+      Painter.source(this.a.getContext("2d"), top.src, f - top.start + top.srcIn, w, h);
+      Painter.source(this.b.getContext("2d"), mix.b.src, Math.max(0, mix.b.srcIn - (cut - f)), w, h);
+      this.mix(ctx, mix.kind, p, w, h, this.a, this.b);
+      tag.hidden = false;
+      tag.textContent = "Mix: " + kindOf(mix.kind).name + " " + Math.ceil(p * mix.len) + "/" + mix.len;
+    },
+    mix(ctx, kind, p, w, h, A, B) {
+      ctx.globalAlpha = 1;
+      if (kind === "fade") {
+        ctx.drawImage(A, 0, 0);
+        ctx.globalAlpha = p;
+        ctx.drawImage(B, 0, 0);
+        ctx.globalAlpha = 1;
+        return;
+      }
+      if (kind === "flash") {
+        const first = p < 0.5;
+        ctx.drawImage(first ? A : B, 0, 0);
+        ctx.fillStyle = "#fff";
+        ctx.globalAlpha = first ? p * 2 : (1 - p) * 2;
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalAlpha = 1;
+        return;
+      }
+      const dir = { swl: [-1, 0], swr: [1, 0], swu: [0, -1], swd: [0, 1] }[kind] || [-1, 0];
+      ctx.drawImage(A, dir[0] * p * w, dir[1] * p * h);
+      ctx.drawImage(B, dir[0] * (p - 1) * w, dir[1] * (p - 1) * h);
+    }
+  };
+
+  /* ---------- Status bar ---------- */
+  const Status = {
+    set(text, isWhy) {
+      const s = $("#status");
+      s.textContent = text;
+      s.classList.toggle("is-why", Boolean(isWhy));
+    },
+    counts() {
+      const n = Reel.pick.size;
+      $("#statPick").textContent = n + " picked";
+      $("#statLen").textContent = "Reel " + mss(Reel.end());
+    }
+  };
+
+  /* ---------- Edits: the operations the commands call ---------- */
+  const Edits = {
+    split() {
+      const f = Math.round(Reel.playhead);
+      const hit = Reel.picked().filter((c) => f > c.start && f < c.start + c.len);
+      Reel.edit("Split " + plural(hit.length, "clip"), () => {
+        hit.forEach((c) => {
+          const cut = f - c.start;
+          const right = { id: newId(), track: c.track, start: f, len: c.len - cut,
+            src: JSON.parse(JSON.stringify(c.src)), srcIn: c.srcIn + cut, tr: c.tr };
+          c.len = cut;
+          c.tr = null;
+          Reel.clips.push(right);
+          Reel.pick.add(right.id);
+        });
+      });
+      View.snip(f);
+      Status.set("Split " + plural(hit.length, "clip") + " at " + tc(f) + ".");
+    },
+    remove(ripple, verb) {
+      const gone = Reel.picked();
+      const name = (verb || (ripple ? "Ripple remove" : "Remove")) + " " + plural(gone.length, "clip");
+      Reel.edit(name, () => {
+        const ids = new Set(gone.map((c) => c.id));
+        Reel.clips = Reel.clips.filter((c) => !ids.has(c.id));
+        if (ripple) {
+          const sorted = gone.slice().sort((a, b) => b.start - a.start);
+          sorted.forEach((g) => {
+            Reel.clips.forEach((c) => {
+              const is_later = c.track === g.track && c.start >= g.start + g.len;
+              if (is_later) c.start -= g.len;
+            });
+          });
+        }
+        Reel.pick.clear();
+      }, name + (ripple ? ", gap closed." : "."));
+      Status.set(name + ".");
+    },
+    copy(silent) {
+      const list = Reel.picked();
+      const base = Math.min.apply(null, list.map((c) => c.start));
+      Reel.clipboard = list.map((c) => {
+        const o = JSON.parse(JSON.stringify(c));
+        o.start -= base;
+        return o;
+      });
+      if (!silent) Kit.toast("Copied " + plural(list.length, "clip") + ".", null, { ms: 2000 });
+      Commands.refresh();
+    },
+    /* Place copies at frame at, on their own tracks or the first ones above with room. */
+    place(copies, at) {
+      for (let lift = 0; lift < kMaxTracks; lift++) {
+        const fits = copies.every((c) => {
+          const t = c.track + lift;
+          return t < Reel.tracks && !Reel.overlaps(t, at + c.start, c.len, null);
+        });
+        if (!fits) continue;
+        return copies.map((c) => Object.assign({}, c, { id: newId(), track: c.track + lift, start: at + c.start }));
+      }
+      return null;
+    },
+    paste() {
+      const at = Math.round(Reel.playhead);
+      const placed = this.place(Reel.clipboard, at);
+      if (!placed) {
+        Commands.blocked("No room at the playhead on any track. Move the playhead or add a track.");
+        return;
+      }
+      Reel.edit("Paste " + plural(placed.length, "clip"), () => {
+        Reel.clips = Reel.clips.concat(placed);
+        Reel.pick = new Set(placed.map((c) => c.id));
+      }, "Pasted " + plural(placed.length, "clip") + " at " + tc(at) + ".");
+    },
+    dup() {
+      const list = Reel.picked();
+      const base = Math.min.apply(null, list.map((c) => c.start));
+      const end = Math.max.apply(null, list.map((c) => c.start + c.len));
+      const copies = list.map((c) => Object.assign(JSON.parse(JSON.stringify(c)), { start: c.start - base }));
+      let placed = null;
+      let at = end;
+      for (let tries = 0; tries < 400 && !placed; tries++) {
+        placed = this.place(copies, at);
+        at += kFps / 2;
+      }
+      if (!placed) { Commands.blocked("No room for the copies. Add a track first."); return; }
+      Reel.edit("Duplicate " + plural(placed.length, "clip"), () => {
+        Reel.clips = Reel.clips.concat(placed);
+        Reel.pick = new Set(placed.map((c) => c.id));
+      }, "Duplicated " + plural(placed.length, "clip") + ".");
+      const first = View.els.get(placed[0].id);
+      if (first) first.scrollIntoView({ block: "nearest", inline: "nearest" });
+    },
+    mark() {
+      const f = Math.round(Reel.playhead);
+      const i = Reel.markers.findIndex((m) => Math.abs(m - f) <= 1);
+      const is_on = i >= 0;
+      Reel.edit(is_on ? "Remove cut" : "Mark cut", () => {
+        if (is_on) Reel.markers.splice(i, 1);
+        else Reel.markers.push(f);
+        Reel.markers.sort((a, b) => a - b);
+      });
+      Status.set((is_on ? "Took away the cut at " : "Marked a cut at ") + tc(f) + ".");
+      if (is_on) return;
+      const k = Reel.markers.indexOf(f);
+      const tab = View.markBox.querySelector('[data-mi="' + k + '"]');
+      if (tab) { Kit.pop(tab, 1.8); Kit.ring(lanes, View.x(f), 6); }
+    },
+    addTrack() {
+      Reel.edit("Add track", () => { Reel.tracks += 1; }, "Added track V" + (Reel.tracks + 1) + " on top.");
+      Status.set("Added track V" + Reel.tracks + ".");
+      const head = View.rows[0] ? View.rows[0].head : null;
+      if (head) Kit.pop(head, 0.8);
+    },
+    removeTrack(track) {
+      Reel.edit("Remove track V" + (track + 1), () => {
+        Reel.clips.forEach((c) => { if (c.track > track) c.track -= 1; });
+        Reel.tracks -= 1;
+      }, "Removed track V" + (track + 1) + ".");
+      Status.set("Removed track V" + (track + 1) + ".");
+    },
+    pickAll() {
+      Reel.pick = new Set(Reel.clips.map((c) => c.id));
+      View.render();
+      Status.set("Picked every clip (" + Reel.pick.size + ").");
+    },
+    addClips(track, at, srcs) {
+      let cursor = at;
+      const made = srcs.map((s) => {
+        const c = { id: newId(), track: track, start: cursor, len: s.len, src: { type: s.type, id: s.id }, srcIn: 0, tr: null };
+        cursor += s.len;
+        return c;
+      });
+      return made;
+    }
+  };
+
+  /* ---------- Commands: one table for toolbar, menus, context menus and keys ---------- */
+  const Commands = {
+    table: {
+      import: { why: () => "", run: () => FilePick.open("import") },
+      export: { why: () => (Reel.clips.length ? "" : "Put a clip on a track first."),
+        run: () => Kit.toast("Saved teto_reel.mp4 (" + mss(Reel.end()) + ").", null, { kind: "done" }) },
+      undo: { why: () => (undo.undoName ? "" : "Nothing to undo yet."), run: () => undo.undo() },
+      redo: { why: () => (undo.redoName ? "" : "Nothing to redo."), run: () => undo.redo() },
+      split: {
+        why: () => {
+          if (!Reel.pick.size) return "Pick a clip first.";
+          const f = Math.round(Reel.playhead);
+          const any = Reel.picked().some((c) => f > c.start && f < c.start + c.len);
+          return any ? "" : "The playhead is not inside a picked clip.";
+        },
+        run: () => Edits.split()
+      },
+      mark: { why: () => "", run: () => Edits.mark() },
+      addTrack: { why: () => (Reel.tracks >= kMaxTracks ? "Six tracks is the most a reel holds." : ""),
+        run: () => Edits.addTrack() },
+      copy: { why: () => (Reel.pick.size ? "" : "Pick a clip to copy."), run: () => Edits.copy(false) },
+      cut: { why: () => (Reel.pick.size ? "" : "Pick a clip to cut."),
+        run: () => { Edits.copy(true); Edits.remove(false, "Cut"); } },
+      paste: { why: () => (Reel.clipboard.length ? "" : "Copy a clip first (Ctrl+C)."), run: () => Edits.paste() },
+      dup: { why: () => (Reel.pick.size ? "" : "Pick a clip to duplicate."), run: () => Edits.dup() },
+      remove: { why: () => (Reel.pick.size ? "" : "Pick a clip to remove."), run: () => Edits.remove(false) },
+      ripple: { why: () => (Reel.pick.size ? "" : "Pick a clip to remove."), run: () => Edits.remove(true) },
+      all: { why: () => (Reel.clips.length ? "" : "There are no clips yet."), run: () => Edits.pickAll() },
+      snap: { why: () => "", run: () => {
+        Reel.snapOn = !Reel.snapOn;
+        Status.set(Reel.snapOn ? "Snapping on." : "Snapping off. Hold nothing; Alt also skips it.");
+        Commands.refresh();
+      } },
+      play: { why: () => (Reel.clips.length ? "" : "Nothing to play yet."), run: () => Player.toggle() },
+      prev: { why: () => "", run: () => Player.seek(Reel.playhead - 1, true) },
+      next: { why: () => "", run: () => Player.seek(Reel.playhead + 1, true) },
+      home: { why: () => "", run: () => Player.seek(0, true) }
+    },
+    why(name) { const c = this.table[name]; return c ? c.why() : "Unknown."; },
+    run(name, el) {
+      const w = this.why(name);
+      if (w) { this.blocked(w, el); return; }
+      this.table[name].run();
+    },
+    blocked(why, el) {
+      Status.set(why, true);
+      if (el) { Kit.shake(el, why); return; }
+      Kit.sound.error();
+      Kit.toast(why, null, { kind: "error", ms: 2400 });
+    },
+    refresh() {
+      document.querySelectorAll("[data-cmd]").forEach((b) => {
+        const w = this.why(b.dataset.cmd);
+        b.setAttribute("aria-disabled", String(Boolean(w)));
+        if (w) b.dataset.why = w;
+        else delete b.dataset.why;
+      });
+      document.querySelectorAll('[data-cmd="snap"]').forEach((b) => b.setAttribute("aria-checked", String(Reel.snapOn)));
+      const editM = document.querySelector('[data-cmd="undo"] span');
+      if (editM) editM.textContent = undo.undoName ? "Undo " + undo.undoName : "Undo";
+      const redoM = document.querySelector('[data-cmd="redo"] span');
+      if (redoM) redoM.textContent = undo.redoName ? "Redo " + undo.redoName : "Redo";
+    },
+    item(label, name, key) {
+      const w = this.why(name);
+      return { label: label, key: key, why: w || undefined, run: () => this.run(name) };
+    },
+    clipMenu() {
+      return [
+        this.item("Split at playhead", "split", "S"),
+        { sep: true },
+        this.item("Copy", "copy", "Ctrl+C"),
+        this.item("Cut", "cut", "Ctrl+X"),
+        this.item("Paste at playhead", "paste", "Ctrl+V"),
+        this.item("Duplicate", "dup", "Ctrl+D"),
+        { sep: true },
+        this.item("Remove", "remove", "Delete"),
+        this.item("Ripple remove", "ripple", "Shift+Delete")
+      ];
+    },
+    trackMenu(track) {
+      const has_clips = Reel.on(track).length > 0;
+      const last = Reel.tracks <= 1;
+      let why = "";
+      if (has_clips) why = "Track V" + (track + 1) + " still has clips. Remove them first.";
+      if (last) why = "A reel needs one track.";
+      return this.clipMenu().concat([
+        { sep: true },
+        { head: "Track V" + (track + 1) },
+        this.item("Add track on top", "addTrack"),
+        { label: "Remove track V" + (track + 1), why: why || undefined, run: () => Edits.removeTrack(track) }
+      ]);
+    }
+  };
+
+  /* ---------- Player: playhead, seek and playback ---------- */
+  const Player = {
+    playing: false,
+    raf: 0,
+    last: 0,
+    acc: 0,
+    seek(f, bump) {
+      Reel.playhead = Math.max(0, Math.min(Reel.total(), Math.round(f)));
+      View.renderPlayhead();
+      Commands.refresh();
+      Preview.draw();
+      if (bump) Kit.pop($("#corner"), 1.2);
+    },
+    toggle() {
+      this.playing = !this.playing;
+      const btn = $("#playBtn");
+      btn.textContent = this.playing ? "Pause" : "Play";
+      btn.setAttribute("aria-pressed", String(this.playing));
+      if (!this.playing) { window.cancelAnimationFrame(this.raf); Status.set("Paused at " + tc(Reel.playhead) + "."); return; }
+      const at_end = Reel.playhead >= Reel.end();
+      if (at_end) Reel.playhead = 0;
+      this.last = performance.now();
+      this.acc = 0;
+      Status.set("Playing. M marks a cut without stopping.");
+      const step = (now) => {
+        if (!this.playing) return;
+        this.acc += (now - this.last) * kFps / 1000;
+        this.last = now;
+        const whole = Math.floor(this.acc);
+        this.acc -= whole;
+        if (whole > 0) this.seek(Reel.playhead + whole, false);
+        this.follow();
+        const done = Reel.playhead >= Reel.end();
+        if (done) { this.toggle(); return; }
+        this.raf = window.requestAnimationFrame(step);
+      };
+      this.raf = window.requestAnimationFrame(step);
+    },
+    follow() {
+      const x = View.x(Reel.playhead);
+      const left = scroller.scrollLeft;
+      const w = scroller.clientWidth - 40;
+      const is_out = x < left || x > left + w - 20;
+      if (is_out) scroller.scrollLeft = Math.max(0, x - 40);
+    }
+  };
+
+  /* ---------- Snapping: edges, cuts, playhead ---------- */
+  const Snap = {
+    sn: Kit.snapper(),
+    /* Targets for a span of length len; ignore holds clip ids that move. */
+    targets(ignore, len) {
+      const out = [];
+      const add = (f, el) => {
+        out.push({ at: f * View.ppf, f: f, el: el });
+        if (len) out.push({ at: (f - len) * View.ppf, f: f, el: el });
+      };
+      add(0, null);
+      add(Reel.playhead, View.play);
+      Reel.markers.forEach((m, i) => add(m, View.markBox.querySelector('[data-mi="' + i + '"]')));
+      Reel.clips.forEach((c) => {
+        if (ignore && ignore.has(c.id)) return;
+        const el = View.els.get(c.id);
+        add(c.start, el);
+        add(c.start + c.len, el);
+      });
+      return out;
+    },
+    /* Returns the snapped frame for value (a start frame) and shows the guide. */
+    frame(value, targets, off) {
+      if (!Reel.snapOn || off) { this.sn.reset(); View.showGuide(null); return { f: value, hit: false }; }
+      const r = this.sn.test(value * View.ppf, targets);
+      View.showGuide(r.hit ? r.hit.f : null);
+      return { f: r.hit ? Math.round(r.value / View.ppf) : value, hit: Boolean(r.hit) };
+    },
+    end() { this.sn.reset(); View.showGuide(null); }
+  };
+
+  /* ---------- Timeline input: one drag helper, modes by what was hit ---------- */
+  function hitTest(target, clientX, clientY) {
+    const tab = target.closest(".v-mtab");
+    if (tab) return { kind: "marker", mi: Number(tab.dataset.mi), el: tab };
+    const joint = target.closest(".v-joint");
+    if (joint) return { kind: "joint", a: Reel.byId(joint.dataset.a), el: joint };
+    const y = View.yIn(clientY);
+    if (y < kRulerH) return { kind: "ruler" };
+    const el = target.closest(".v-clip");
+    const c = el ? Reel.byId(el.dataset.id) : null;
+    if (c) {
+      const r = el.getBoundingClientRect();
+      const grab = Math.min(10, r.width / 4);
+      const near_l = clientX - r.left <= grab;
+      const near_r = r.right - clientX <= grab;
+      if (near_l) return { kind: "trim", c: c, side: "l", el: el };
+      if (near_r) return { kind: "trim", c: c, side: "r", el: el };
+      return { kind: "clip", c: c, el: el };
+    }
+    const track = View.trackAtY(y);
+    return { kind: "track", track: track, f: View.frameAt(clientX) };
+  }
+
+  const Hover = {
+    clip: null,
+    grip: null,
+    move(e) {
+      if (document.body.classList.contains("kit-dragging")) return;
+      const h = hitTest(e.target, e.clientX, e.clientY);
+      const clipEl = h.el && (h.kind === "clip" || h.kind === "trim") ? h.el : null;
+      const grip = h.kind === "trim" ? h.el.querySelector(".v-trim.is-" + h.side) : null;
+      if (this.clip !== clipEl) {
+        if (this.clip) this.clip.classList.remove("is-hover");
+        this.clip = clipEl;
+        if (clipEl) clipEl.classList.add("is-hover");
+      }
+      if (this.grip !== grip) {
+        if (this.grip) this.grip.classList.remove("is-grab");
+        this.grip = grip;
+        if (grip) grip.classList.add("is-grab");
+      }
+      const cursors = { trim: "ew-resize", clip: "grab", ruler: "col-resize", joint: "pointer", marker: "ew-resize" };
+      lanes.style.cursor = cursors[h.kind] || "default";
+    },
+    clear() {
+      if (this.clip) this.clip.classList.remove("is-hover");
+      if (this.grip) this.grip.classList.remove("is-grab");
+      this.clip = null;
+      this.grip = null;
+    }
+  };
+  lanes.addEventListener("pointermove", (e) => Hover.move(e));
+  lanes.addEventListener("pointerleave", () => { if (!document.body.classList.contains("kit-dragging")) Hover.clear(); });
+
+  const Input = {
+    down(s) {
+      const e = s.event;
+      const h = hitTest(e.target, e.clientX, e.clientY);
+      s.hit = h;
+      s.shiftKey = e.shiftKey;
+      s.ctrlKey = e.ctrlKey || e.metaKey;
+      s.mode = h.kind;
+      TransPop.closeIfOutside(e.target);
+      if (h.kind === "ruler") { Player.seek(View.frameAt(e.clientX), false); s.mode = "seek"; return; }
+      if (h.kind === "clip" || h.kind === "trim") this.pickOnDown(s, h.c);
+    },
+    pickOnDown(s, c) {
+      const was = Reel.pick.has(c.id);
+      s.wasPicked = was;
+      if (s.ctrlKey) {
+        if (was) Reel.pick.delete(c.id);
+        else Reel.pick.add(c.id);
+        s.mode = was ? "none" : s.mode;
+        View.render();
+        return;
+      }
+      if (s.shiftKey) { Reel.pick.add(c.id); View.render(); return; }
+      if (!was) { Reel.pick = new Set([c.id]); View.render(); }
+      if (s.mode === "trim") { Reel.pick = new Set([c.id]); View.render(); }
+    },
+    start(s) {
+      lanes.classList.add("is-live");
+      s.before = Reel.snapshot();
+      if (s.mode === "clip") this.moveStart(s);
+      if (s.mode === "trim") s.orig = JSON.parse(JSON.stringify(s.hit.c));
+      if (s.mode === "marker") { s.from = Reel.markers[s.hit.mi]; s.hit.el.classList.add("is-dragging"); }
+      if (s.mode === "track") this.boxStart(s);
+    },
+    move(s) {
+      if (s.mode === "seek") { Player.seek(View.frameAt(s.x), false); return; }
+      if (s.mode === "clip") this.moveClips(s);
+      if (s.mode === "trim") this.trim(s);
+      if (s.mode === "marker") this.moveMarker(s);
+      if (s.mode === "track") this.boxMove(s);
+    },
+    end(s) {
+      lanes.classList.remove("is-live");
+      Snap.end();
+      View.lightTrack(-1);
+      if (s.mode === "seek") { Kit.pop($("#corner"), 1.2); return; }
+      if (s.mode === "clip") { this.moveEnd(s); return; }
+      if (s.mode === "trim") { this.trimEnd(s); return; }
+      if (s.mode === "marker") {
+        Reel.markers.sort((a, b) => a - b);
+        Reel.push("Move cut", s.before, Reel.snapshot());
+        return;
+      }
+      if (s.mode === "track") this.boxEnd(s);
+    },
+    cancel(s) {
+      lanes.classList.remove("is-live");
+      Snap.end();
+      View.lightTrack(-1);
+      if (s.ghosts) s.ghosts.forEach((g) => g.remove());
+      if (s.box) s.box.remove();
+      if (s.before) Reel.restore(s.before);
+      if (s.pickBefore) Reel.pick = s.pickBefore;
+      View.render();
+      Status.set("Cancelled.");
+    },
+    click(s) {
+      const h = s.hit;
+      if (s.mode === "seek") { Kit.pop($("#corner"), 1.2); return; }
+      if (h.kind === "joint" && h.a) { TransPop.open(h.a); return; }
+      if (h.kind === "marker") { Player.seek(Reel.markers[h.mi], true); return; }
+      if (h.kind === "clip" || h.kind === "trim") {
+        const keep_group = s.wasPicked && !s.shiftKey && !s.ctrlKey;
+        if (keep_group) Reel.pick = new Set([h.c.id]);
+        View.render();
+        Status.set(Reel.short(h.c) + ": " + secs(h.c.len) + " from " + tc(h.c.start) + ". Drag to move, ends to trim.");
+        return;
+      }
+      if (h.kind === "track" && !s.shiftKey && !s.ctrlKey) {
+        const had = Reel.pick.size;
+        Reel.pick.clear();
+        View.render();
+        if (had) Status.set("Pick cleared.");
+      }
+    },
+    chip(s) {
+      if (s.mode === "clip") return s.chip || "";
+      if (s.mode === "trim") return s.chip || "";
+      if (s.mode === "marker") return "Cut " + tc(Reel.markers[s.hit.mi]);
+      if (s.mode === "track") return plural(s.boxCount || 0, "clip");
+      if (s.mode === "seek") return tc(Reel.playhead);
+      return "";
+    },
+
+    moveStart(s) {
+      const list = Reel.picked();
+      s.orig = list.map((c) => ({ id: c.id, start: c.start, track: c.track }));
+      s.ids = new Set(list.map((c) => c.id));
+      s.minStart = Math.min.apply(null, list.map((c) => c.start));
+      s.maxEnd = Math.max.apply(null, list.map((c) => c.start + c.len));
+      s.minTrack = Math.min.apply(null, list.map((c) => c.track));
+      s.maxTrack = Math.max.apply(null, list.map((c) => c.track));
+      s.targets = Snap.targets(s.ids, s.maxEnd - s.minStart);
+      s.ghosts = list.map((c) => {
+        const g = Kit.ghost(View.els.get(c.id));
+        return g;
+      });
+    },
+    moveClips(s) {
+      let df = Math.round(s.dx / View.ppf);
+      let dt = -Math.round(s.dy / kRowH);
+      dt = Math.max(-s.minTrack, Math.min(Reel.tracks - 1 - s.maxTrack, dt));
+      const snapped = Snap.frame(s.minStart + df, s.targets, s.alt);
+      df = Math.max(-s.minStart, snapped.f - s.minStart);
+      s.snapped = snapped.hit;
+      s.orig.forEach((o) => {
+        const c = Reel.byId(o.id);
+        c.start = o.start + df;
+        c.track = o.track + dt;
+      });
+      let bad = null;
+      Reel.picked().forEach((c) => { bad = bad || Reel.overlaps(c.track, c.start, c.len, s.ids); });
+      s.bad = bad;
+      View.render();
+      Reel.picked().forEach((c) => View.els.get(c.id).classList.toggle("is-bad", Boolean(bad)));
+      View.lightTrack(s.hit.c.track);
+      const where = dt ? ", to V" + (s.hit.c.track + 1) : "";
+      s.chip = bad ? "Overlaps " + Reel.short(bad) : signed(df) + " f, " + secs(Math.abs(df)) + where;
+    },
+    moveEnd(s) {
+      s.ghosts.forEach((g) => g.remove());
+      if (s.bad) {
+        const why = "Clips cannot overlap on one track.";
+        Reel.restore(s.before);
+        View.render();
+        Reel.picked().forEach((c) => { const el = View.els.get(c.id); el.classList.remove("is-bad"); Kit.shake(el, why); });
+        Status.set(why + " The clips went back.", true);
+        return;
+      }
+      const n = Reel.pick.size;
+      Reel.push("Move " + (n === 1 ? "clip" : "clips"), s.before, Reel.snapshot());
+      if (s.snapped) {
+        const el = View.els.get(s.hit.c.id);
+        Kit.bounce(el, s.mx, 0);
+      }
+      Status.set("Moved " + plural(n, "clip") + ".");
+    },
+    trim(s) {
+      const o = s.orig;
+      const c = Reel.byId(o.id);
+      const src_len = Reel.srcLen(o);
+      const free = Reel.freeAround(o.track, o.start + o.len / 2);
+      const others = new Set([o.id]);
+      const targets = Snap.targets(others, 0);
+      let df = Math.round(s.dx / View.ppf);
+      if (s.hit.side === "l") {
+        const sn = Snap.frame(o.start + df, targets, s.alt);
+        df = sn.f - o.start;
+        s.snapped = sn.hit;
+        const lo = Math.max(-o.srcIn, free.from - o.start);
+        df = Math.max(lo, Math.min(o.len - kMinLen, df));
+        c.start = o.start + df;
+        c.len = o.len - df;
+        c.srcIn = o.srcIn + df;
+      } else {
+        const sn = Snap.frame(o.start + o.len + df, targets, s.alt);
+        df = sn.f - (o.start + o.len);
+        s.snapped = sn.hit;
+        const room = Math.max(src_len - o.srcIn, o.len);
+        const hi = Math.min(room - o.len, free.to - (o.start + o.len));
+        df = Math.max(kMinLen - o.len, Math.min(hi, df));
+        c.len = o.len + df;
+      }
+      const at_limit = !s.snapped && Math.round(s.dx / View.ppf) !== df;
+      s.chip = signed(df) + " f, " + secs(Math.abs(df)) + (at_limit ? " (end of " + (o.src.type === "shot" ? "shot" : "video") + ")" : "");
+      View.render();
+    },
+    trimEnd(s) {
+      Reel.push("Trim clip", s.before, Reel.snapshot());
+      const c = Reel.byId(s.orig.id);
+      if (c) Status.set("Trimmed " + Reel.short(c) + " to " + secs(c.len) + ".");
+    },
+    moveMarker(s) {
+      const raw = s.from + Math.round(s.dx / View.ppf);
+      const targets = Snap.targets(null, 0).filter((t) => t.f !== s.from);
+      const sn = Snap.frame(Math.max(0, raw), targets, s.alt);
+      s.snapped = sn.hit;
+      Reel.markers[s.hit.mi] = Math.max(0, sn.f);
+      View.renderMarks();
+      View.renderClips();
+      const tab = View.markBox.querySelector('[data-mi="' + s.hit.mi + '"]');
+      if (tab) tab.classList.add("is-dragging");
+    },
+    boxStart(s) {
+      s.pickBefore = new Set(Reel.pick);
+      s.box = document.createElement("div");
+      s.box.className = "v-box";
+      lanes.appendChild(s.box);
+    },
+    boxMove(s) {
+      const lr = lanes.getBoundingClientRect();
+      const x1 = Math.min(s.x0, s.x) - lr.left;
+      const x2 = Math.max(s.x0, s.x) - lr.left;
+      const y1 = Math.max(kRulerH, Math.min(s.y0, s.y) - lr.top);
+      const y2 = Math.max(s.y0, s.y) - lr.top;
+      Object.assign(s.box.style, { left: x1 + "px", top: y1 + "px", width: (x2 - x1) + "px", height: Math.max(0, y2 - y1) + "px" });
+      const inside = Reel.clips.filter((c) => {
+        const cx1 = View.x(c.start);
+        const cx2 = View.x(c.start + c.len);
+        const cy1 = View.rowTop(c.track);
+        const cy2 = cy1 + kRowH;
+        return cx1 < x2 && x1 < cx2 && cy1 < y2 && y1 < cy2;
+      }).map((c) => c.id);
+      let next;
+      if (s.ctrlKey) { next = new Set(s.pickBefore); inside.forEach((id) => next.delete(id)); }
+      else if (s.shiftKey) { next = new Set(s.pickBefore); inside.forEach((id) => next.add(id)); }
+      else next = new Set(inside);
+      Reel.pick = next;
+      s.boxCount = inside.length;
+      View.render();
+    },
+    boxEnd(s) {
+      s.box.remove();
+      Status.set("Picked " + plural(Reel.pick.size, "clip") + ".");
+    }
+  };
+
+  Kit.drag(lanes, {
+    filter: (e) => !e.target.closest(".v-pop"),
+    onDown: (s) => Input.down(s),
+    onStart: (s) => Input.start(s),
+    onMove: (s) => Input.move(s),
+    onEnd: (s) => Input.end(s),
+    onCancel: (s) => Input.cancel(s),
+    onClick: (s) => Input.click(s),
+    chip: (s) => Input.chip(s)
+  });
+
+  lanes.addEventListener("dblclick", (e) => {
+    const under = document.elementFromPoint(e.clientX, e.clientY) || e.target;
+    const h = hitTest(under, e.clientX, e.clientY);
+    if (h.kind === "joint" && h.a) { TransPop.open(h.a); return; }
+    if (h.kind === "track" && h.track >= 0) GapPop.tryOpen(h.track, h.f);
+  });
+
+  lanes.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    const h = hitTest(e.target, e.clientX, e.clientY);
+    if (h.kind === "marker") {
+      Kit.contextMenu(e.clientX, e.clientY, [
+        { head: "Cut at " + tc(Reel.markers[h.mi]) },
+        { label: "Go to this cut", run: () => Player.seek(Reel.markers[h.mi], true) },
+        { label: "Take this cut away", key: "M", run: () => Reel.edit("Remove cut", () => Reel.markers.splice(h.mi, 1)) }
+      ]);
+      return;
+    }
+    if (h.kind === "clip" || h.kind === "trim") {
+      const inside = Reel.pick.has(h.c.id);
+      if (!inside) { Reel.pick = new Set([h.c.id]); View.render(); }
+      Kit.contextMenu(e.clientX, e.clientY, [{ head: plural(Reel.pick.size, "clip") }].concat(Commands.clipMenu()));
+      return;
+    }
+    if (h.kind === "track" && h.track >= 0) {
+      Kit.contextMenu(e.clientX, e.clientY, Commands.trackMenu(h.track));
+      return;
+    }
+    if (h.kind === "joint" && h.a) TransPop.open(h.a);
+  });
+
+  /* Wheel scrolls time, eased; Ctrl+wheel zooms around the mouse. */
+  const Wheel = {
+    goal: null,
+    raf: 0,
+    on(e) {
+      e.preventDefault();
+      const is_zoom = e.ctrlKey || e.metaKey;
+      if (is_zoom) {
+        const factor = e.deltaY < 0 ? 1.18 : 1 / 1.18;
+        View.setZoom(View.ppf * factor, e.clientX);
+        Status.set("Zoom " + (Math.round(View.ppf * 10) / 10) + " px per frame.");
+        return;
+      }
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      const max = scroller.scrollWidth - scroller.clientWidth;
+      const from = scroller.scrollLeft;
+      this.goal = Math.max(0, Math.min(max, (this.goal === null ? from : this.goal) + d * 1.5));
+      const goal = this.goal;
+      const ms = Kit.ms("move");
+      const t0 = performance.now();
+      window.cancelAnimationFrame(this.raf);
+      const step = (now) => {
+        const k = ms <= 0 ? 1 : Math.min(1, (now - t0) / ms);
+        const ease = 1 - Math.pow(1 - k, 3);
+        scroller.scrollLeft = from + (goal - from) * ease;
+        if (k < 1) { this.raf = window.requestAnimationFrame(step); return; }
+        this.goal = null;
+      };
+      this.raf = window.requestAnimationFrame(step);
+    }
+  };
+  scroller.addEventListener("wheel", (e) => Wheel.on(e), { passive: false });
+  $("#zoomIn").addEventListener("click", () => View.setZoom(View.ppf * 1.4));
+  $("#zoomOut").addEventListener("click", () => View.setZoom(View.ppf / 1.4));
+
+  /* ---------- Bin: shots and files, dragged onto tracks ---------- */
+  const Bin = {
+    filePick: new Set(),
+    build() {
+      const bin = $("#bin");
+      bin.textContent = "";
+      const sub1 = document.createElement("div");
+      sub1.className = "v-bin-sub";
+      sub1.textContent = "SHOTS";
+      bin.appendChild(sub1);
+      shots.forEach((s) => bin.appendChild(this.card({ type: "shot", id: s.id, len: s.len }, s.name + " . " + s.title, secs(s.len), s.color)));
+      const sub2 = document.createElement("div");
+      sub2.className = "v-bin-sub";
+      sub2.textContent = "FILES";
+      bin.appendChild(sub2);
+      files.forEach((f) => bin.appendChild(this.card({ type: "video", id: f.id, len: f.len }, f.name, mss(f.len) + " video", null)));
+      $("#binCount").textContent = shots.length + " shots, " + files.length + " files";
+    },
+    card(src, name, meta, color) {
+      const el = document.createElement("div");
+      el.className = "v-card" + (src.type === "video" ? " is-file" : "");
+      el.setAttribute("role", "listitem");
+      el.tabIndex = 0;
+      el.dataset.tip = src.type === "shot" ? "Drag a shot onto a track below." :
+        "Drag onto a track. Click files to pick several; they land end to end.";
+      const cv = document.createElement("canvas");
+      cv.width = 128;
+      cv.height = 72;
+      Painter.source(cv.getContext("2d"), src, Math.floor(src.len / 3), 128, 72);
+      el.appendChild(cv);
+      if (color) {
+        const tab = document.createElement("span");
+        tab.className = "v-card-tab";
+        tab.style.background = color;
+        el.appendChild(tab);
+      }
+      const txt = document.createElement("span");
+      txt.className = "v-card-text";
+      txt.innerHTML = '<span class="v-card-name"></span><span class="v-card-meta"></span>';
+      txt.firstChild.textContent = name;
+      txt.lastChild.textContent = meta;
+      el.appendChild(txt);
+      el._src = src;
+      Kit.drag(el, {
+        onStart: (s) => this.dragStart(s, el),
+        onMove: (s) => this.dragMove(s),
+        onEnd: (s) => this.dragEnd(s),
+        onCancel: (s) => this.dragCancel(s),
+        onClick: () => this.clickCard(el),
+        chip: (s) => s.chip || ""
+      });
+      return el;
+    },
+    clickCard(el) {
+      const is_file = el._src.type === "video";
+      if (!is_file) { Status.set("Drag " + shotById(el._src.id).name + " onto a track below."); return; }
+      const id = el._src.id;
+      if (this.filePick.has(id)) this.filePick.delete(id);
+      else this.filePick.add(id);
+      el.classList.toggle("is-picked", this.filePick.has(id));
+      Status.set(plural(this.filePick.size, "file") + " picked. Drag any of them onto a track.");
+    },
+    dragStart(s, el) {
+      const is_file = el._src.type === "video";
+      if (is_file && !this.filePick.has(el._src.id)) {
+        this.filePick = new Set([el._src.id]);
+        document.querySelectorAll(".v-card.is-file").forEach((c) => c.classList.toggle("is-picked", c === el));
+      }
+      s.srcs = is_file ? files.filter((f) => this.filePick.has(f.id)).map((f) => ({ type: "video", id: f.id, len: f.len }))
+        : [el._src];
+      s.fly = el.cloneNode(true);
+      s.fly.classList.add("v-fly");
+      s.fly.classList.remove("is-dragging");
+      s.fly.style.width = el.offsetWidth + "px";
+      s.fly.querySelector("canvas").getContext("2d").drawImage(el.querySelector("canvas"), 0, 0);
+      document.body.appendChild(s.fly);
+      s.len = s.srcs.reduce((a, b) => a + b.len, 0);
+      Drop.begin();
+    },
+    dragMove(s) {
+      s.fly.style.left = (s.x - 20) + "px";
+      s.fly.style.top = (s.y - 18) + "px";
+      const r = Drop.at(s.x, s.y, s.srcs, s.alt);
+      s.drop = r;
+      s.snapped = r && r.snapped;
+      s.chip = !r ? "" : (r.bad ? "Overlaps " + Reel.short(r.bad) : "V" + (r.track + 1) + " at " + tc(r.f));
+    },
+    dragEnd(s) {
+      const r = s.drop;
+      Drop.end();
+      if (!r) { Kit.puff(s.fly); Status.set("Dropped outside the tracks. Nothing added."); return; }
+      if (r.bad) {
+        Kit.puff(s.fly);
+        const why = "There is a clip there. Drop on an empty stretch.";
+        Kit.shake(View.els.get(r.bad.id), why);
+        Status.set(why, true);
+        return;
+      }
+      s.fly.remove();
+      Drop.land(r, s.srcs);
+    },
+    dragCancel(s) {
+      Drop.end();
+      if (s.fly) Kit.puff(s.fly);
+      Status.set("Cancelled.");
+    }
+  };
+
+  /* Drop preview and landing for bin cards and real files. */
+  const Drop = {
+    els: [],
+    begin() { this.end(); },
+    at(clientX, clientY, srcs, noSnap) {
+      const lr = lanes.getBoundingClientRect();
+      const sr = scroller.getBoundingClientRect();
+      const y = clientY - lr.top;
+      const track = View.trackAtY(y);
+      const inside = track >= 0 && clientX >= sr.left && clientX <= sr.right;
+      if (!inside) { this.clear(); View.lightTrack(-1); Snap.end(); return null; }
+      const len = srcs.reduce((a, b) => a + b.len, 0);
+      const raw = Math.max(0, Math.round(View.frameAt(clientX) - 6));
+      const sn = Snap.frame(raw, Snap.targets(null, len), noSnap);
+      const f = Math.max(0, sn.f);
+      let bad = null;
+      let cursor = f;
+      srcs.forEach((s) => { bad = bad || Reel.overlaps(track, cursor, s.len, null); cursor += s.len; });
+      while (this.els.length < srcs.length) {
+        const d = document.createElement("div");
+        d.className = "v-drop";
+        lanes.appendChild(d);
+        this.els.push(d);
+      }
+      cursor = f;
+      srcs.forEach((s, i) => {
+        const d = this.els[i];
+        d.style.left = View.x(cursor) + "px";
+        d.style.width = View.x(s.len) + "px";
+        d.style.top = View.rowTop(track) + "px";
+        d.classList.toggle("is-bad", Boolean(bad));
+        cursor += s.len;
+      });
+      View.lightTrack(track);
+      return { track: track, f: f, bad: bad, snapped: sn.hit };
+    },
+    clear() { this.els.forEach((d) => d.remove()); this.els = []; },
+    end() { this.clear(); View.lightTrack(-1); Snap.end(); },
+    land(r, srcs) {
+      const made = Edits.addClips(r.track, r.f, srcs);
+      const what = srcs.length === 1 ? (srcs[0].type === "shot" ? shotById(srcs[0].id).name : fileById(srcs[0].id).name)
+        : plural(srcs.length, "video");
+      Reel.edit("Add " + what, () => {
+        Reel.clips = Reel.clips.concat(made);
+        Reel.pick = new Set(made.map((c) => c.id));
+      }, "Added " + what + " to V" + (r.track + 1) + ".");
+      Status.set("Added " + what + " at " + tc(r.f) + ".");
+      made.forEach((c) => {
+        const el = View.els.get(c.id);
+        if (el) window.setTimeout(() => Kit.play(el, "v-squash", "move"), Kit.ms("pop"));
+      });
+    }
+  };
+
+  /* Real files dropped from the desktop: each becomes a short video. */
+  lanes.addEventListener("dragover", (e) => {
+    const has_files = e.dataTransfer && Array.from(e.dataTransfer.types || []).indexOf("Files") >= 0;
+    if (!has_files) return;
+    e.preventDefault();
+    const n = Math.max(1, e.dataTransfer.items ? e.dataTransfer.items.length : 1);
+    const srcs = [];
+    for (let i = 0; i < n && i < 20; i++) srcs.push({ type: "video", id: "drop", len: 5 * kFps });
+    Drop.at(e.clientX, e.clientY, srcs, e.altKey);
+  });
+  lanes.addEventListener("dragleave", (e) => { if (!lanes.contains(e.relatedTarget)) Drop.end(); });
+  lanes.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const list = Array.from(e.dataTransfer.files || []).slice(0, 20);
+    if (!list.length) { Drop.end(); return; }
+    const srcs = list.map((file) => {
+      const f = { id: "u" + (next_id++), name: file.name, len: 5 * kFps };
+      files.push(f);
+      return { type: "video", id: f.id, len: f.len };
+    });
+    const r = Drop.at(e.clientX, e.clientY, srcs, e.altKey);
+    Drop.end();
+    if (!r || r.bad) { Commands.blocked("There is a clip there. Drop on an empty stretch."); return; }
+    Drop.land(r, srcs);
+    Bin.build();
+  });
+
+  /* ---------- File picker (stands in for the system dialog) ---------- */
+  const FilePick = {
+    dlg: $("#fileDlg"),
+    mode: "import",
+    picked: new Set(),
+    done: null,
+    open(mode, done) {
+      this.mode = mode;
+      this.done = done || null;
+      this.picked = new Set();
+      const multi = mode === "import";
+      $("#fileDlgTitle").textContent = multi ? "Import video" : "Fill the gap from";
+      $("#fileDlgHint").textContent = multi ? "~/Videos. Click to pick, Shift or Ctrl for more." : "~/Videos. Pick one video.";
+      const list = $("#fileList");
+      list.textContent = "";
+      files.forEach((f) => {
+        const row = document.createElement("div");
+        row.className = "list-row";
+        row.setAttribute("role", "option");
+        row.setAttribute("aria-selected", "false");
+        row.dataset.id = f.id;
+        row.innerHTML = '<span></span><span class="row-meta"></span>';
+        row.firstChild.textContent = f.name;
+        row.lastChild.textContent = mss(f.len) + (f.len < 2 * kFps ? " (short)" : "");
+        row.addEventListener("click", (e) => this.pickRow(row, multi && (e.shiftKey || e.ctrlKey || e.metaKey)));
+        row.addEventListener("dblclick", () => { this.pickRow(row, false); this.ok(); });
+        list.appendChild(row);
+      });
+      this.paint();
+      Kit.dialog.open(this.dlg);
+    },
+    pickRow(row, add) {
+      const id = row.dataset.id;
+      if (!add) this.picked = new Set([id]);
+      else if (this.picked.has(id)) this.picked.delete(id);
+      else this.picked.add(id);
+      this.paint();
+    },
+    paint() {
+      $("#fileList").querySelectorAll(".list-row").forEach((r) => r.setAttribute("aria-selected", String(this.picked.has(r.dataset.id))));
+      const ok = $("#fileOk");
+      const none = this.picked.size === 0;
+      ok.setAttribute("aria-disabled", String(none));
+      ok.dataset.why = "Pick a video in the list first.";
+      ok.textContent = this.mode === "import" && this.picked.size > 1 ? "Open " + this.picked.size : "Open";
+    },
+    ok() {
+      if (!this.picked.size) return;
+      const ids = files.filter((f) => this.picked.has(f.id)).map((f) => f.id);
+      Kit.dialog.close(this.dlg, "ok");
+      if (this.mode === "import") { this.importAll(ids); return; }
+      if (this.done) this.done(ids[0]);
+    },
+    importAll(ids) {
+      const srcs = ids.map((id) => ({ type: "video", id: id, len: fileById(id).len }));
+      const at = Reel.on(0).reduce((e, c) => Math.max(e, c.start + c.len), 0);
+      const made = Edits.addClips(0, at, srcs);
+      Reel.edit("Import " + plural(made.length, "video"), () => {
+        Reel.clips = Reel.clips.concat(made);
+        Reel.pick = new Set(made.map((c) => c.id));
+      }, "Imported " + plural(made.length, "video") + " onto V1 at " + tc(at) + ".");
+      Status.set("Imported " + plural(made.length, "video") + ".");
+      const el = View.els.get(made[0].id);
+      if (el) el.scrollIntoView({ block: "nearest", inline: "start" });
+    }
+  };
+  $("#fileOk").addEventListener("click", () => FilePick.ok());
+  FilePick.dlg.addEventListener("close", () => { if (FilePick.dlg.returnValue !== "ok" && FilePick.done) FilePick.done(null); });
+
+  /* ---------- Popover frame shared by transition and gap picker ---------- */
+  function makePop(title) {
+    const p = document.createElement("div");
+    p.className = "v-pop";
+    p.setAttribute("role", "dialog");
+    p.innerHTML = '<div class="win-title"><span class="win-title-text"></span><span class="win-btns">' +
+      '<button class="win-btn close" aria-label="Cancel" data-tip="Cancel (Esc)"></button></span></div><div class="v-pop-body"></div>';
+    p.querySelector(".win-title-text").textContent = title;
+    document.body.appendChild(p);
+    return p;
+  }
+  function placePop(p, r) {
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    const w = p.offsetWidth;
+    const h = p.offsetHeight;
+    let x = r.left + r.width / 2 - w / 2;
+    let y = r.bottom + 8;
+    const fits_below = y + h <= vh - 4;
+    if (!fits_below) y = Math.max(4, r.top - h - 8);
+    x = Math.max(4, Math.min(vw - w - 4, x));
+    p.style.left = Math.round(x) + "px";
+    p.style.top = Math.round(y) + "px";
+  }
+
+  /* ---------- Transition popover on a cut (#281 to #283) ---------- */
+  const TransPop = {
+    el: null,
+    a: null,
+    before: null,
+    loop: 0,
+    open(a) {
+      const b = Reel.after(a);
+      if (!b) return;
+      const same = this.a && this.a.id === a.id;
+      if (same) return;
+      this.commit();
+      this.a = a;
+      this.before = Reel.snapshot();
+      const p = makePop("Transition into " + Reel.short(b));
+      this.el = p;
+      const body = p.querySelector(".v-pop-body");
+      body.innerHTML = '<div class="v-tiles"></div>' +
+        '<div class="v-pop-row"><span class="num" id="mixLen" data-min="1" data-step="1" data-unit="f" data-name="Length">' +
+        '<span class="num-label">Length</span><input class="num-input" aria-label="Length"><span class="num-unit">f before the cut</span></span></div>' +
+        '<div class="v-pop-btns"><button class="btn" data-x="cancel">Cancel</button><button class="btn primary" data-x="ok">OK</button></div>';
+      const tiles = body.querySelector(".v-tiles");
+      kKinds.forEach((k) => {
+        const t = document.createElement("button");
+        t.className = "v-tile";
+        t.dataset.kind = k.id;
+        t.dataset.tip = k.name;
+        t.innerHTML = "<canvas width='48' height='27'></canvas><b></b><span></span>";
+        t.querySelector("b").textContent = k.sym;
+        t.querySelector("span").textContent = k.name.replace("Swipe ", "").replace("Crossfade", "Fade");
+        this.tilePaint(t, 0.5);
+        t.addEventListener("click", () => this.setKind(k.id));
+        t.addEventListener("pointerenter", () => this.tileLoop(t, true));
+        t.addEventListener("pointerleave", () => this.tileLoop(t, false));
+        tiles.appendChild(t);
+      });
+      Kit.init(body);
+      const num = body.querySelector("#mixLen");
+      num.addEventListener("kit:change", (e) => this.setLen(e.detail.value));
+      body.querySelector('[data-x="ok"]').addEventListener("click", () => this.commit());
+      body.querySelector('[data-x="cancel"]').addEventListener("click", () => this.cancel());
+      p.querySelector(".win-btn.close").addEventListener("click", () => this.cancel());
+      this.sync();
+      View.render();
+      this.place();
+      const first = p.querySelector('.v-tile[aria-pressed="true"]');
+      if (first) first.focus();
+      this.startLoop();
+      Status.set("Pick a kind. Enter or a click outside keeps it; Esc puts it back.");
+    },
+    place() {
+      if (!this.el || !this.a) return;
+      const j = View.jointBox.querySelector('[data-a="' + this.a.id + '"]');
+      if (j) placePop(this.el, j.getBoundingClientRect());
+    },
+    tr() { const a = Reel.byId(this.a.id); return a ? a.tr : null; },
+    sync() {
+      const a = Reel.byId(this.a.id);
+      const b = Reel.after(a);
+      const kind = a.tr ? a.tr.kind : "cut";
+      this.el.querySelectorAll(".v-tile").forEach((t) => t.setAttribute("aria-pressed", String(t.dataset.kind === kind)));
+      const num = this.el.querySelector("#mixLen");
+      const max = b ? Reel.maxMix(a, b) : 1;
+      num.dataset.max = String(max);
+      const is_cut = kind === "cut";
+      num.setAttribute("aria-disabled", String(is_cut));
+      num.dataset.why = "A cut has no length.";
+      num.querySelector(".num-input").readOnly = is_cut;
+      const v = is_cut ? 0 : Math.min(a.tr.len, max);
+      num.dataset.value = String(v);
+      num.querySelector(".num-input").value = is_cut ? "" : String(v);
+      num.querySelector(".num-input").placeholder = is_cut ? "-" : "";
+      num.dataset.tip = "Scrub or type. Most these two clips allow: " + max + " f.";
+    },
+    setKind(kind) {
+      const a = Reel.byId(this.a.id);
+      const b = Reel.after(a);
+      const from_cut = !a.tr || a.tr.kind === "cut";
+      const len = from_cut ? Math.min(4, Reel.maxMix(a, b)) : a.tr.len;
+      a.tr = kind === "cut" ? null : { kind: kind, len: len };
+      this.sync();
+      View.render();
+      const t = this.el.querySelector('[data-kind="' + kind + '"]');
+      if (t) Kit.pop(t, 0.9);
+    },
+    setLen(v) {
+      const a = Reel.byId(this.a.id);
+      if (!a.tr) return;
+      a.tr.len = Math.max(1, Math.round(v));
+      View.render();
+    },
+    /* Loop the preview over the joint while the popover is open. */
+    startLoop() {
+      window.cancelAnimationFrame(this.loop);
+      const t0 = performance.now();
+      const step = (now) => {
+        if (!this.a) return;
+        const a = Reel.byId(this.a.id);
+        if (!a) return;
+        const cut = a.start + a.len;
+        const mix = Reel.mixOf(a);
+        const span = (mix ? mix.len : 0) + 16;
+        const k = Math.floor(((now - t0) / 1000) * kFps) % span;
+        Preview.override = cut - span + 8 + k;
+        Preview.draw();
+        this.loop = window.requestAnimationFrame(step);
+      };
+      this.loop = window.requestAnimationFrame(step);
+    },
+    stopLoop() {
+      window.cancelAnimationFrame(this.loop);
+      Preview.override = null;
+      Preview.draw();
+    },
+    tilePaint(t, p) {
+      const cv = t.querySelector("canvas");
+      const ctx = cv.getContext("2d");
+      const w = cv.width;
+      const h = cv.height;
+      const A = document.createElement("canvas");
+      const B = document.createElement("canvas");
+      A.width = B.width = w;
+      A.height = B.height = h;
+      const ca = A.getContext("2d");
+      ca.fillStyle = "#d8304f"; ca.fillRect(0, 0, w, h);
+      ca.fillStyle = "#fff"; ca.fillRect(6, 8, 10, 10);
+      const cb = B.getContext("2d");
+      cb.fillStyle = "#3d6fa8"; cb.fillRect(0, 0, w, h);
+      cb.fillStyle = "#f2c230"; cb.beginPath(); cb.arc(34, 13, 6, 0, 7); cb.fill();
+      const kind = t.dataset.kind;
+      if (kind === "cut") { ctx.drawImage(p < 0.5 ? A : B, 0, 0); return; }
+      Preview.mix(ctx, kind, p, w, h, A, B);
+    },
+    tileLoop(t, on) {
+      window.cancelAnimationFrame(t._raf || 0);
+      if (!on || !Kit.motion.on) { this.tilePaint(t, 0.5); return; }
+      const t0 = performance.now();
+      const step = (now) => {
+        const p = ((now - t0) / 900) % 1;
+        this.tilePaint(t, p);
+        t._raf = window.requestAnimationFrame(step);
+      };
+      t._raf = window.requestAnimationFrame(step);
+    },
+    close() {
+      this.stopLoop();
+      const p = this.el;
+      this.el = null;
+      this.a = null;
+      this.before = null;
+      if (p) {
+        p.querySelectorAll(".v-tile").forEach((t) => window.cancelAnimationFrame(t._raf || 0));
+        Kit.play(p, "k-leave", "puff", () => p.remove());
+      }
+      View.render();
+    },
+    commit() {
+      if (!this.el) return;
+      const before = this.before;
+      const after = Reel.snapshot();
+      const a = Reel.byId(this.a.id);
+      const label = a && a.tr ? kindOf(a.tr.kind).name + ", " + a.tr.len + " f" : "Cut";
+      this.close();
+      const changed = before !== after;
+      if (changed) {
+        Reel.push("Change transition", before, after);
+        Status.set("Transition set: " + label + ".");
+      }
+    },
+    cancel() {
+      if (!this.el) return;
+      Reel.restore(this.before);
+      this.close();
+      Status.set("Transition put back.");
+    },
+    closeIfOutside(target) {
+      const outside = this.el && !this.el.contains(target) && !target.closest(".v-joint");
+      if (outside) this.commit();
+    }
+  };
+
+  /* ---------- Fill the gap, inline under the gap (#284 to #289) ---------- */
+  const GapPop = {
+    el: null,
+    gap: null,
+    file: null,
+    startF: 0,
+    hl: null,
+    tryOpen(track, f) {
+      let m1 = -1;
+      let m2 = -1;
+      Reel.markers.forEach((m) => {
+        if (m <= f) m1 = m;
+        const is_next = m > f && m2 < 0;
+        if (is_next) m2 = m;
+      });
+      const why_marks = "Mark a cut on both sides of the gap first (M).";
+      const has_marks = m1 >= 0 && m2 >= 0;
+      if (!has_marks) { Commands.blocked(why_marks); return; }
+      const free = Reel.freeAround(track, f);
+      const covered = Reel.clipAt(track, Math.floor(f));
+      const from = Math.max(m1, free.from);
+      const to = Math.min(m2, free.to);
+      if (covered) { Commands.blocked("There is a clip here. Double-click empty track space between two cuts."); return; }
+      const is_empty = to - from >= 1;
+      if (!is_empty) { Commands.blocked(why_marks); return; }
+      const near = Reel.on(track).filter((c) => c.src.type === "video")
+        .sort((a, b) => Math.abs(a.start - from) - Math.abs(b.start - from))[0];
+      this.open({ track: track, from: from, to: to }, near ? near.src.id : null);
+      if (!near) FilePick.open("gap", (id) => { if (id) this.setFile(id); });
+    },
+    open(gap, fileId) {
+      this.close();
+      TransPop.commit();
+      this.gap = gap;
+      this.file = fileId ? fileById(fileId) : null;
+      this.startF = 0;
+      this.hl = document.createElement("div");
+      this.hl.className = "v-gaphl";
+      Object.assign(this.hl.style, { left: View.x(gap.from) + "px", width: View.x(gap.to - gap.from) + "px",
+        top: View.rowTop(gap.track) + "px" });
+      lanes.appendChild(this.hl);
+      const p = makePop("Fill the gap, " + secs(gap.to - gap.from) + " on V" + (gap.track + 1));
+      this.el = p;
+      const body = p.querySelector(".v-pop-body");
+      body.innerHTML = '<div class="v-gap-pic"><canvas width="256" height="144"></canvas>' +
+        '<div><div class="v-card-name" id="gapFile"></div><div class="dim">First picture of the gap. Drag the film below to choose which part plays.</div></div></div>' +
+        '<div class="v-strip" tabindex="0" aria-label="Part of the video that plays" data-tip="Drag, or use the arrow keys (Shift for 1 s)."><canvas width="600" height="56"></canvas><div class="v-strip-win"></div></div>' +
+        '<div class="v-plays" id="gapPlays"></div>' +
+        '<div class="v-pop-btns"><button class="btn" data-x="other" style="margin-right: auto">Other video...</button>' +
+        '<button class="btn" data-x="cancel">Cancel</button><button class="btn primary" data-x="fill">Fill</button></div>';
+      body.querySelector('[data-x="other"]').addEventListener("click", () => FilePick.open("gap", (id) => { if (id) this.setFile(id); }));
+      body.querySelector('[data-x="cancel"]').addEventListener("click", () => this.close());
+      body.querySelector('[data-x="fill"]').addEventListener("click", () => this.fill());
+      p.querySelector(".win-btn.close").addEventListener("click", () => this.close());
+      const strip = body.querySelector(".v-strip");
+      Kit.drag(strip, {
+        threshold: 1,
+        onDown: (s) => { s.from = this.startF; },
+        onMove: (s) => this.stripDrag(s, strip),
+        onCancel: (s) => { this.startF = s.from; this.paint(); },
+        onEnd: () => this.paint(),
+        onClick: (s) => {
+          if (!this.file) return;
+          const r = strip.getBoundingClientRect();
+          this.setStart(((s.x - r.left - 3) / (r.width - 6)) * this.file.len - this.gapLen() / 2);
+        },
+        chip: () => this.playsText()
+      });
+      strip.addEventListener("keydown", (e) => {
+        const dir = e.key === "ArrowRight" ? 1 : (e.key === "ArrowLeft" ? -1 : 0);
+        if (!dir) return;
+        e.preventDefault();
+        this.setStart(this.startF + dir * (e.shiftKey ? kFps : 1));
+      });
+      this.paint();
+      this.place();
+      Status.set("Choose the part of the video that plays in the gap.");
+    },
+    place() {
+      if (this.el && this.hl) placePop(this.el, this.hl.getBoundingClientRect());
+    },
+    gapLen() { return this.gap.to - this.gap.from; },
+    isShort() { return this.file && this.file.len < this.gapLen(); },
+    setFile(id) {
+      this.file = fileById(id);
+      this.startF = 0;
+      this.paint();
+      if (this.isShort()) {
+        const strip = this.el.querySelector(".v-strip");
+        Kit.shake(strip, "That video is shorter than the gap.");
+      }
+    },
+    setStart(f) {
+      if (!this.file || this.isShort()) return;
+      this.startF = Math.max(0, Math.min(this.file.len - this.gapLen(), Math.round(f)));
+      this.paint();
+    },
+    stripDrag(s, strip) {
+      if (!this.file) return;
+      if (this.isShort()) { Kit.shake(strip, "That video is shorter than the gap."); return; }
+      const w = strip.clientWidth - 6;
+      this.setStart(s.from + (s.dx / w) * this.file.len);
+    },
+    playsText() {
+      if (!this.file) return "No video chosen.";
+      if (this.isShort()) return "That video is shorter than the gap.";
+      return "Plays " + mss(this.startF) + " to " + mss(this.startF + this.gapLen()) + " of " + mss(this.file.len);
+    },
+    paint() {
+      if (!this.el) return;
+      const pic = this.el.querySelector(".v-gap-pic canvas");
+      const ctx = pic.getContext("2d");
+      const name = this.el.querySelector("#gapFile");
+      if (!this.file) { Painter.nothing(ctx, pic.width, pic.height, "No picture"); name.textContent = "No video yet"; }
+      else {
+        Painter.source(ctx, { type: "video", id: this.file.id }, this.startF, pic.width, pic.height);
+        name.textContent = this.file.name + ", " + mss(this.file.len);
+      }
+      const strip = this.el.querySelector(".v-strip");
+      const sc = strip.querySelector("canvas");
+      const sx = sc.getContext("2d");
+      sx.fillStyle = "#1c1c1f";
+      sx.fillRect(0, 0, sc.width, sc.height);
+      const win = strip.querySelector(".v-strip-win");
+      const short = this.isShort();
+      strip.classList.toggle("is-short", Boolean(short));
+      if (this.file) {
+        const n = 10;
+        for (let i = 0; i < n; i++) {
+          sx.save();
+          sx.translate((i * sc.width) / n, 0);
+          Painter.source(sx, { type: "video", id: this.file.id }, Math.floor((this.file.len * i) / n), sc.width / n - 2, sc.height);
+          sx.restore();
+        }
+        const w = strip.clientWidth - 6;
+        const ww = Math.min(w, (this.gapLen() / this.file.len) * w);
+        win.style.display = "";
+        win.style.left = (3 + (this.startF / this.file.len) * w) + "px";
+        win.style.width = (short ? w : ww) + "px";
+      } else {
+        win.style.display = "none";
+      }
+      const plays = this.el.querySelector("#gapPlays");
+      plays.textContent = this.playsText();
+      plays.classList.toggle("is-bad", Boolean(short));
+      const fill = this.el.querySelector('[data-x="fill"]');
+      const why = !this.file ? "Choose a video first (Other video...)." : (short ? "That video is shorter than the gap." : "");
+      fill.setAttribute("aria-disabled", String(Boolean(why)));
+      fill.dataset.why = why;
+    },
+    fill() {
+      const g = this.gap;
+      const f = this.file;
+      const start = this.startF;
+      const c = { id: newId(), track: g.track, start: g.from, len: g.to - g.from, src: { type: "video", id: f.id }, srcIn: start, tr: null };
+      this.close();
+      Reel.edit("Fill the gap", () => {
+        Reel.clips.push(c);
+        Reel.pick = new Set([c.id]);
+      }, "Filled the gap with " + f.name + " (" + mss(start) + " to " + mss(start + c.len) + ").");
+      Status.set("Filled the gap on V" + (g.track + 1) + ".");
+      const el = View.els.get(c.id);
+      if (el) window.setTimeout(() => Kit.play(el, "v-squash", "move"), Kit.ms("pop"));
+    },
+    close() {
+      if (this.hl) { this.hl.remove(); this.hl = null; }
+      const p = this.el;
+      this.el = null;
+      if (p) Kit.play(p, "k-leave", "puff", () => p.remove());
+    },
+    closeIfOutside(target) {
+      const in_dialog = target.closest("dialog");
+      const outside = this.el && !this.el.contains(target) && !in_dialog;
+      if (outside) { this.close(); Status.set("Gap left empty."); }
+    }
+  };
+
+  /* Popovers follow their anchor when anything scrolls; outside clicks close them. */
+  window.addEventListener("scroll", () => { TransPop.place(); GapPop.place(); }, true);
+  window.addEventListener("resize", () => { TransPop.place(); GapPop.place(); });
+  document.addEventListener("pointerdown", (e) => {
+    const in_lanes = lanes.contains(e.target);
+    const in_menu = e.target.closest(".menu");
+    if (!in_lanes && !in_menu) TransPop.closeIfOutside(e.target);
+    if (!in_menu) GapPop.closeIfOutside(e.target);
+  }, true);
+
+  /* ---------- Keys ---------- */
+  document.addEventListener("keydown", (e) => {
+    if (e.defaultPrevented) return;
+    const typing = e.target.closest && e.target.closest("input, textarea");
+    const dialog_open = document.querySelector("dialog[open]");
+    if (typing || dialog_open) return;
+    const mod = e.ctrlKey || e.metaKey;
+    const k = e.key.toLowerCase();
+    if (TransPop.el) {
+      if (e.key === "Escape") { e.preventDefault(); TransPop.cancel(); return; }
+      const on_btn = e.target.closest && e.target.closest('[data-x="cancel"], .win-btn');
+      if (e.key === "Enter" && !on_btn) { e.preventDefault(); TransPop.commit(); return; }
+    }
+    if (GapPop.el && e.key === "Escape") { e.preventDefault(); GapPop.close(); Status.set("Gap left empty."); return; }
+    const on_field = e.target.closest && e.target.closest(".v-strip, .v-pop");
+    if (on_field) return;
+    const map = {};
+    if (mod) {
+      map.c = "copy"; map.x = "cut"; map.v = "paste"; map.d = "dup"; map.a = "all"; map.e = "export";
+    } else {
+      map.s = "split"; map.m = "mark"; map.delete = e.shiftKey ? "ripple" : "remove";
+      map.backspace = map.delete; map[" "] = "play"; map.arrowleft = "prev"; map.arrowright = "next"; map.home = "home";
+    }
+    const name = map[k];
+    if (name) {
+      const on_button = e.target.closest && e.target.closest("button, .tab, .v-card") && k === "enter";
+      if (on_button) return;
+      e.preventDefault();
+      if (name === "prev" || name === "next") {
+        Player.seek(Reel.playhead + (name === "next" ? 1 : -1) * (e.shiftKey ? kFps : 1), false);
+        return;
+      }
+      Commands.run(name);
+      return;
+    }
+    const is_escape = e.key === "Escape" && !mod;
+    if (is_escape && Reel.pick.size) {
+      Reel.pick.clear();
+      View.render();
+      Status.set("Pick cleared.");
+    }
+  });
+
+  /* Toolbar and menu commands. Mark cut never takes focus. */
+  ["pointerdown", "mousedown"].forEach((type) => document.addEventListener(type, (e) => {
+    const nofocus = e.target.closest("[data-nofocus]");
+    if (nofocus) e.preventDefault();
+  }));
+  document.querySelectorAll(".tool[data-cmd], .btn[data-cmd]").forEach((b) => {
+    b.addEventListener("click", () => Commands.run(b.dataset.cmd, b));
+  });
+  document.addEventListener("kit:menu", (e) => {
+    const cmd = e.target.dataset && e.target.dataset.cmd;
+    if (cmd) Commands.run(cmd);
+  });
+  document.addEventListener("kit:tab", (e) => {
+    const go = e.target.dataset.go;
+    if (go) window.location.href = go;
+  });
+  document.querySelector(".menubar").addEventListener("pointerdown", () => Commands.refresh(), true);
+
+  undo.bindButtons($("#undoBtn"), $("#redoBtn"));
+  undo.bindKeys(document);
+  undo.onChange((kind) => {
+    if (kind === "undo" || kind === "redo") {
+      Status.set((kind === "undo" ? "Undid " : "Redid ") + "a step.");
+      Reel.picked().forEach((c) => { const el = View.els.get(c.id); if (el) Kit.flash(el); });
+    }
+    Commands.refresh();
+  });
+
+  /* ---------- Covered list ---------- */
+  const covered = [
+    ["Video tab toolbar", [
+      [233, "Import video...", "Toolbar or File / Video menu: pick files (Shift/Ctrl for more), Open. They land end to end on V1, picked, with an Undo toast."],
+      [234, "Split at playhead", "Toolbar Split. Greyed with why when nothing is picked or the playhead is outside the pick."],
+      [235, "Mark cut (M)", "Toolbar or M, also while playing (Space). Drops a yellow tab with a pop; M on a tab takes it away. Button never takes focus."],
+      [236, "Add track", "Toolbar. Greyed at six tracks: 'Six tracks is the most a reel holds.'"]]],
+    ["Shot bin", [
+      [237, "Shot list", "Left panel: film cards with thumbnail, colour tab, name and length in seconds. Files below."],
+      [238, "Drag a shot", "Drag a card onto a track: card flies with the cursor, dashed true-length outline, track header lights, drop squashes. Tooltip says how."]]],
+    ["Reel preview", [
+      [239, "Final picture at the playhead", "Top right. Remove every clip (Ctrl+A, Delete) to see the empty text with the arrow down."]]],
+    ["Reel timeline, drawing", [
+      [240, "Ruler and corner time", "m:ss labels, the corner chip bumps when the playhead lands."],
+      [241, "Track headers", "V1, V2 at the left; the target track lights during drags."],
+      [242, "Clips", "Blue videos with film and waveform, red shots with colour tab. Shot 3 is longer than the shot now: hatched tail. The grey hatched clip reads 'Shot removed'."],
+      [243, "Picked clip", "Click a clip: red border, yellow trim ends."],
+      [244, "Cut markers", "Yellow tabs on the ruler with dashed lines down (at 0:10, 0:16, 0:21)."],
+      [245, "Joints", "Diamonds on cuts between touching clips; Shot 1 into Shot 2 has a crossfade with the shaded mix span."],
+      [246, "Drop preview", "Drag a bin card or file over a track: dashed yellow outline at true length; red when it would overlap."],
+      [247, "Playhead", "Red line with a head on the ruler."]]],
+    ["Reel timeline, mouse", [
+      [248, "Click / drag the ruler", "Seeks; the preview follows live, a chip shows the time."],
+      [249, "Click picks", "Click a clip. Click a clip in a group: the group stays for a drag, release picks just it."],
+      [250, "Shift+click adds", "Shift+click more clips."],
+      [251, "Ctrl+click toggles", "Ctrl+click a picked clip to drop it from the pick."],
+      [252, "Drag clips", "Drag a clip body: moves all picked, up/down changes track, snaps to clip edges, cuts and playhead (Alt skips). Ghost marks the start, chip shows '+12 f, 0.5 s'. Overlaps shake back. Undo 'Move clip'."],
+      [253, "Hover clip end", "Resize cursor; the yellow grip grows."],
+      [254, "Drag clip end", "Trims start or end, snapping, stops at the end of the video or shot. Undo 'Trim clip'."],
+      [255, "Box select", "Drag on empty track space: replace, Shift adds, Ctrl removes, count chip. Click empty clears."],
+      [256, "Hover joint", "Diamond grows; tooltip 'Click to pick the transition here.'"],
+      [257, "Open transition", "Click or double-click a diamond: the transition popover."],
+      [258, "Fill the gap", "Double-click the empty V1 stretch between the cuts at 0:10 and 0:16. Elsewhere (no cut on both sides) the toast says 'Mark a cut on both sides of the gap first (M).' A track with no video asks for a file first."],
+      [259, "Drop shot from bin", "Drag a shot card onto a track: lands at the snapped frame, picked."],
+      [260, "Drop video files", "Click several file cards, drag one: ghosts end to end, all picked. Real files from your desktop work too."],
+      [261, "Wheel", "Wheel over the timeline scrolls time, eased 200 ms."],
+      [262, "Ctrl+wheel", "Zooms around the mouse (also the - / + buttons)."],
+      [263, "Right-click clip", "Picks it if outside the pick, opens the clip menu."],
+      [264, "Right-click empty track", "Track menu: clip items on top (greyed with why), then Add track and Remove track."]]],
+    ["Clip and track menu", [
+      [265, "Split at playhead (S)", "Clip menu; white snip line flashes."],
+      [266, "Copy (Ctrl+C)", "Clip menu or keys; toast confirms."],
+      [267, "Cut (Ctrl+X)", "Clip menu or keys; clip puffs, Undo toast."],
+      [268, "Paste at playhead (Ctrl+V)", "Greyed 'Copy a clip first (Ctrl+C).' until you copy; lands on the first track with room."],
+      [269, "Duplicate (Ctrl+D)", "Copies land right after the pick."],
+      [270, "Remove (Delete)", "Puffs, toast with Undo."],
+      [271, "Ripple remove (Shift+Delete)", "Removes and slides later clips on that track left."],
+      [272, "Add track on top", "Track menu."],
+      [273, "Remove track Vn", "Track menu; greyed 'Track Vn still has clips. Remove them first.' Try on an empty added track."]]],
+    ["Keys", [
+      [274, "S", "Split picked clips at the playhead; a key that cannot act says why in a toast and the status bar."],
+      [275, "Delete / Backspace", "Remove picked."],
+      [276, "Shift+Delete / Shift+Backspace", "Ripple remove."],
+      [277, "Ctrl+C / X / V", "Copy, cut, paste at playhead."],
+      [278, "Ctrl+D", "Duplicate."],
+      [279, "Ctrl+A", "Pick every clip."],
+      [280, "Escape", "Cancels a drag (clips slide back), closes popovers, else clears the pick."]]],
+    ["Transition (now a popover on the cut)", [
+      [281, "Kind", "Seven tiles: Cut, Swipe left, right, up, down, Flash, Crossfade; each loops a tiny preview on hover. The reel preview loops the joint live."],
+      [282, "Length", "Scrub the Length label or type; capped to what the clips allow; greyed 'A cut has no length.' on Cut; starts at 4 f from a cut."],
+      [283, "OK / Cancel", "OK, Enter or a click outside lands one 'Change transition' step; Cancel or Escape puts it back."]]],
+    ["Fill the gap (now inline under the gap)", [
+      [284, "Picture", "First picture of the gap from the chosen video; 'No picture' until a video is chosen: double-click V2 just right of the grey 'Shot removed' clip and cancel the file picker."],
+      [285, "Start (film drag)", "Drag the film strip or use arrow keys. Choose short_clip.mp4 via Other video...: the film shakes, 'That video is shorter than the gap.'"],
+      [286, "Plays label", "'Plays m:ss to m:ss of m:ss' rides as a chip while dragging and stays under the film."],
+      [287, "Other video...", "Opens the file picker for one video."],
+      [288, "Fill", "Lands the clip as one undo step; greyed while the video is too short or missing."],
+      [289, "Cancel", "Cancel, Escape or a click outside closes with no change."]]]
+  ];
+  (function buildCovered() {
+    const box = $("#coveredBody");
+    let count = 0;
+    covered.forEach((group) => {
+      const h = document.createElement("h3");
+      h.textContent = group[0];
+      box.appendChild(h);
+      const table = document.createElement("table");
+      group[1].forEach((row) => {
+        const tr = document.createElement("tr");
+        row.forEach((cell, i) => {
+          const td = document.createElement("td");
+          td.textContent = i === 0 ? "#" + cell : cell;
+          tr.appendChild(td);
+        });
+        table.appendChild(tr);
+        count++;
+      });
+      box.appendChild(table);
+    });
+    $("#covered summary").textContent = "Covered: " + count + " inventory items (233 to 289), where to try each";
+  })();
+
+  /* ---------- Start ---------- */
+  View.build();
+  Bin.build();
+  View.render();
+  Status.set("Ready. Drag a shot from the bin, or double-click the empty V1 stretch between the cuts.");
+  window.VideoProto = { Reel: Reel, View: View, Commands: Commands, TransPop: TransPop, GapPop: GapPop, undo: undo };
+});
+</script>
+</body>
+</html>

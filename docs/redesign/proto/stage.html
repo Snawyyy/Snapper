@@ -1,0 +1,2183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snapper Pose Stage</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  /* Page layout and the stage drawing. Controls come from kit.css. */
+  .protonav {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px;
+    padding: 5px var(--gutter); background: var(--face-dark);
+    box-shadow: inset 0 -1px var(--shadow); font-size: var(--fs-small);
+  }
+  .protonav b { font: 11px var(--font-pixel); color: var(--pick); margin-right: 4px; }
+  .protonav a { color: var(--text-dim); text-decoration: none; padding: 1px 2px; }
+  .protonav a:hover { color: var(--handle); text-decoration: underline; }
+  .protonav a[aria-current="page"] { color: #fff; box-shadow: inset 0 -2px var(--pick); }
+  .protonav .grow { flex: 1; }
+  .page { max-width: 1180px; margin: 0 auto; padding: 12px var(--gutter) 90px; }
+  .page > h1 { font: 18px/1.2 var(--font-pixel); color: var(--text); margin: 4px 0 2px; }
+  .page > p.lead { margin: 0 0 10px; color: var(--text-dim); max-width: 820px; }
+  .lead kbd, .covered kbd, .hintbar kbd { font: 11px var(--font-mono); color: var(--handle); }
+  .app-strip { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+    gap: 4px 8px; padding-top: 4px; border-bottom: 2px solid var(--row-hover); }
+  .counter { font: 12px var(--font-mono); padding: 2px 8px; min-width: 56px; text-align: center; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+  .toolbar .lbl { color: var(--text-off); font-size: var(--fs-small); margin: 0 2px 0 4px; }
+  .toolbar .grow { flex: 1; }
+  .toolbar .combo { min-width: 84px; }
+  #stageBox { position: relative; height: clamp(320px, 62vh, 540px); margin-top: 2px; outline: none; }
+  #stageBox:focus-visible { box-shadow: var(--bevel-sunken), 0 0 0 1px var(--handle-dark); }
+  #stageSvg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .stage-hint { position: absolute; left: 8px; bottom: 6px; right: 8px; color: rgba(255, 255, 255, 0.55);
+    font-size: var(--fs-tiny); pointer-events: none; }
+  .stage-tag { position: absolute; left: 8px; top: 6px; font: 10px var(--font-pixel);
+    color: rgba(255, 255, 255, 0.6); pointer-events: none; }
+  .empty-card {
+    position: absolute; left: 50%; top: 50%; translate: -50% -50%; max-width: calc(100% - 32px);
+    display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 18px;
+    background: rgba(28, 28, 31, 0.86); box-shadow: 0 0 0 1px var(--face-light), var(--drop);
+    text-align: center; animation: k-pop-in var(--t-pop) var(--ease-back);
+  }
+  .empty-card p { margin: 0; color: var(--text-dim); }
+  .castchip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; cursor: grab;
+    background: var(--face); box-shadow: var(--bevel-raised); touch-action: none; user-select: none; }
+  .castchip i { width: 12px; height: 12px; background: #a8324a; border-radius: 50%; box-shadow: 0 0 0 1px #111; }
+  .castchip.is-dragging { cursor: grabbing; box-shadow: var(--bevel-raised), 0 0 0 2px var(--handle); z-index: 70; position: relative; }
+  .scrubrow { display: flex; align-items: center; gap: 8px; padding: 6px 4px 2px; }
+  .scrubrow .slider { flex: 1; width: auto; min-width: 0; }
+  .statusbar { display: flex; gap: 8px; margin-top: 3px; font-size: var(--fs-small); }
+  .statusbar > div { padding: 1px 6px; box-shadow: var(--bevel-thin-in); min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .statusbar .msg { flex: 1; }
+  .statusbar .msg.is-error { color: #ff8da2; }
+  .statusbar .info { flex: none; color: var(--text-dim); font-family: var(--font-mono); }
+  .covered { margin-top: 18px; background: var(--face); box-shadow: var(--bevel-raised); padding: 6px 10px; }
+  .covered > summary { cursor: pointer; font: 12px var(--font-pixel); color: var(--handle); padding: 4px 0; }
+  .covered ul { margin: 6px 0 4px; padding-left: 18px; columns: 2 380px; column-gap: 28px; }
+  .covered li { break-inside: avoid; margin: 0 0 4px; color: var(--text-dim); }
+  .covered li b { color: var(--text); font-family: var(--font-mono); font-weight: normal; }
+  .covered h3 { font: 11px var(--font-pixel); color: var(--text-off); margin: 10px 0 2px; }
+  .win.app { min-width: 0; }
+
+  /* SVG stage drawing */
+  .sg-out { fill: rgba(0, 0, 0, 0.22); }
+  .sg-frame { fill: rgba(255, 255, 255, 0.035); stroke: rgba(255, 255, 255, 0.35); stroke-dasharray: 6 4; }
+  .sg-part { stroke: #18181b; stroke-width: 1.4; stroke-linejoin: round; }
+  .sg-ghost { opacity: 0.35; filter: grayscale(0.7); pointer-events: none; }
+  .sg-ghost .sg-part { stroke: #ddd; stroke-dasharray: 3 3; }
+  .sg-onion { pointer-events: none; }
+  .sg-onion .sg-part { stroke: none; }
+  .sg-onion.prev .sg-part { fill: var(--pick); opacity: 0.18; }
+  .sg-onion.next .sg-part { fill: var(--info); opacity: 0.18; }
+  #ovl { pointer-events: none; }
+  .o-hover { fill: none; stroke: #fff; stroke-width: 1; stroke-dasharray: 4 3; }
+  .o-under { fill: none; stroke: rgba(0, 0, 0, 0.55); stroke-linejoin: round; }
+  .o-pick { fill: none; stroke: var(--pick); stroke-linejoin: round; }
+  .h { fill: var(--handle); stroke: #222; stroke-width: 1; }
+  .h.is-hover { stroke: #000; filter: drop-shadow(0 0 3px rgba(242, 194, 48, 0.9)); }
+  .grabzone { fill: none; stroke: rgba(242, 194, 48, 0.6); stroke-dasharray: 3 3; }
+  .stem { stroke: var(--handle); stroke-width: 1; opacity: 0.55; stroke-dasharray: 2 2; }
+  .glyph { fill: none; stroke: var(--handle); stroke-width: 1.3; stroke-linecap: round; }
+  .gridline { fill: none; stroke: rgba(255, 255, 255, 0.3); stroke-width: 1; }
+  .ring { fill: none; stroke: var(--handle); stroke-width: 1.5; }
+  .tail { stroke: var(--handle); stroke-width: 2; stroke-linecap: round; opacity: 0.85; }
+  .sq { fill: none; stroke: var(--handle); stroke-width: 1.5; }
+  .dotpick { fill: none; stroke: var(--pick); stroke-width: 2; }
+  .reach { fill: rgba(242, 194, 48, 0.06); stroke: var(--handle); stroke-width: 1; stroke-dasharray: 4 3; }
+  .lblbg { fill: var(--chip-bg); stroke: var(--handle); stroke-width: 1; }
+  .lbl { fill: var(--handle); font: 10px var(--font-mono); }
+  .pivot { fill: var(--handle); stroke: #222; stroke-width: 1; }
+  .bar { fill: var(--handle); stroke: #222; stroke-width: 1; }
+  .bar.is-hover { filter: drop-shadow(0 0 3px rgba(242, 194, 48, 0.9)); }
+  .bartick { stroke: var(--pick); stroke-width: 2; }
+  .rope { fill: none; stroke: var(--pick); stroke-width: 2; stroke-linecap: round; }
+  .ropeend { fill: var(--pick); }
+  .box { fill: var(--pick-soft); stroke: var(--pick); stroke-width: 1; stroke-dasharray: 4 3; }
+  .guide { stroke: var(--pick); stroke-width: 1; }
+  .guide.flash { stroke: #fff; stroke-width: 2; }
+  @media (max-width: 560px) {
+    .page > h1 { font-size: 15px; }
+    .statusbar .info { display: none; }
+  }
+</style>
+</head>
+<body>
+<nav class="protonav" aria-label="Prototype pages">
+  <b>Snapper proto</b>
+  <a href="index.html">Hub</a>
+  <a href="shell.html">Shell</a>
+  <a href="stage.html" aria-current="page">Stage</a>
+  <a href="timeline.html">Timeline</a>
+  <a href="inspector.html">Inspector</a>
+  <a href="rig.html">Rig</a>
+  <a href="video.html">Video</a>
+  <a href="kit.html">Kit</a>
+  <span class="grow"></span>
+  <span class="seg" role="group" aria-label="Motion">
+    <button data-kit-motion="full" data-tip="Full: pops, overshoot, bounces.">Full</button>
+    <button data-kit-motion="calm" data-tip="Calm: shorter, no overshoot.">Calm</button>
+    <button data-kit-motion="off" data-tip="Off: everything jumps straight to the end.">Off</button>
+  </span>
+  <button class="toggle" data-kit-sound aria-pressed="false" data-tip="Tiny clicks and ticks. Off by default.">
+    <span class="toggle-track"><span class="toggle-knob"></span></span>Sound</button>
+</nav>
+
+<main class="page">
+  <h1>Pose stage</h1>
+  <p class="lead">The stage, playable. Hover shows what a click grabs. Click, Shift, Ctrl, drag, wheel,
+    right click and double click all work. <kbd>Space</kbd> plays, <kbd>Space</kbd>+drag or middle drag pans,
+    <kbd>Ctrl</kbd>+wheel zooms, <kbd>Ctrl+Z</kbd> undoes. Fake data; edits here are pose offsets on every
+    frame (keys live on the Timeline page). The full list of what to try is at the bottom.</p>
+
+  <div class="win app">
+    <div class="win-title">
+      <span class="win-title-text"><span class="win-dirty" id="dirtyDot" hidden data-tip="Unsaved changes"></span>Snapper - teto_song.snap</span>
+      <span class="win-btns">
+        <button class="win-btn min" aria-label="Minimize" data-tip="Minimize"></button>
+        <button class="win-btn max" aria-label="Maximize" data-tip="Maximize"></button>
+        <button class="win-btn close" aria-label="Close" data-tip="Close"></button>
+      </span>
+    </div>
+    <div class="menubar" role="menubar">
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">File</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" aria-disabled="true" data-why="The File menu lives on the Shell page."><span>New</span><kbd class="menu-key">Ctrl+N</kbd></button>
+          <button class="menu-item" role="menuitem" aria-disabled="true" data-why="The File menu lives on the Shell page."><span>Open...</span><kbd class="menu-key">Ctrl+O</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="save"><span>Save</span><kbd class="menu-key">Ctrl+S</kbd></button>
+        </div>
+      </div>
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">Edit</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-action="undo" id="mUndo"><span>Undo</span><kbd class="menu-key">Ctrl+Z</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="redo" id="mRedo"><span>Redo</span><kbd class="menu-key">Ctrl+Shift+Z</kbd></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" data-action="selectAll"><span>Select all</span><kbd class="menu-key">Ctrl+A</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="delete" id="mDelete"><span>Delete</span><kbd class="menu-key">Del</kbd></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" data-action="snap" id="mSnap" aria-checked="true"><span>Snap to guides</span></button>
+          <button class="menu-item" role="menuitem" data-action="grab" id="mGrab" aria-checked="false"><span>Show grab zones</span><kbd class="menu-key">G</kbd></button>
+        </div>
+      </div>
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">View</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-action="fit"><span>Fit shot</span><kbd class="menu-key">Shift+1</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="zoomPick" id="mZoomPick"><span>Zoom to pick</span><kbd class="menu-key">Shift+2</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="zoomIn"><span>Zoom in</span><kbd class="menu-key">Ctrl+wheel</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="zoomOut"><span>Zoom out</span><kbd class="menu-key">Ctrl+wheel</kbd></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" data-action="onion" id="mOnion" aria-checked="false"><span>Onion skin</span><kbd class="menu-key">O</kbd></button>
+        </div>
+      </div>
+      <div class="menubar-slot">
+        <button class="menubar-item" aria-haspopup="true" aria-expanded="false">Play</button>
+        <div class="menu" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-action="play"><span>Play / pause</span><kbd class="menu-key">Space</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="next"><span>Next frame</span><kbd class="menu-key">Right</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="prev"><span>Previous frame</span><kbd class="menu-key">Left</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="first"><span>First frame</span><kbd class="menu-key">Home</kbd></button>
+          <button class="menu-item" role="menuitem" data-action="last"><span>Last frame</span><kbd class="menu-key">End</kbd></button>
+        </div>
+      </div>
+    </div>
+    <div class="app-strip">
+      <div class="tabs" role="tablist" aria-label="Mode">
+        <button class="tab" role="tab" aria-selected="true" aria-controls="p-pose" data-tab="pose">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="3" r="2"/><path d="M8 5v6M4 8h8M8 11l-3 4M8 11l3 4"/></svg>Pose</button>
+        <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="rig" data-tip="Opens the Rig page">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="3" cy="13" r="2"/><circle cx="13" cy="3" r="2"/><path d="M4.5 11.5l7-7"/></svg>Rig</button>
+        <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-tab="video" data-tip="Opens the Video page">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="14" height="10"/><path d="M4 3v10M12 3v10"/></svg>Video</button>
+      </div>
+      <div class="row" style="padding-bottom: 3px">
+        <button class="tool" data-action="first" aria-label="First frame" data-tip="First frame" data-key="Home">|&lt;</button>
+        <button class="tool" data-action="prev" aria-label="Previous frame" data-tip="Previous frame" data-key="Left">&lt;</button>
+        <button class="tool" data-action="play" id="playBtn" aria-label="Play" data-tip="Play" data-key="Space">
+          <svg viewBox="0 0 16 16" fill="currentColor" id="playIcon"><path d="M4 2l10 6-10 6z"/></svg></button>
+        <button class="tool" data-action="next" aria-label="Next frame" data-tip="Next frame" data-key="Right">&gt;</button>
+        <button class="tool" data-action="last" aria-label="Last frame" data-tip="Last frame" data-key="End">&gt;|</button>
+        <span class="counter sunken" id="counter">F 024</span>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="tool" id="tOnion" aria-pressed="false" data-tip="Onion skin: frame -2 in red, +2 in blue" data-key="O" aria-label="Onion skin">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="8" r="4"/><circle cx="10" cy="8" r="4" opacity="0.5"/></svg></button>
+      <button class="tool" id="tGrab" aria-pressed="false" data-tip="Show grab zones: the 12 px circles handles answer in" data-key="G" aria-label="Show grab zones">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="6" y="6" width="4" height="4" fill="currentColor"/><circle cx="8" cy="8" r="6.5" stroke-dasharray="2 2"/></svg></button>
+      <button class="tool" id="tSnap" aria-pressed="true" data-tip="Snap to guides (hold Alt while dragging to skip)" aria-label="Snap to guides">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 1v14M1 8h14" stroke-dasharray="2 1"/><rect x="9" y="3" width="4" height="4"/></svg></button>
+      <span class="tool-sep"></span>
+      <button class="tool" data-action="zoomOut" aria-label="Zoom out" data-tip="Zoom out" data-key="Ctrl+wheel">-</button>
+      <div class="combo" id="zoomCombo" data-value="Fit">
+        <button class="combo-btn" aria-haspopup="listbox" aria-expanded="false" data-tip="Zoom"><span class="combo-value" id="zoomText">Fit</span><span class="combo-arrow"></span></button>
+        <div class="menu" role="listbox" hidden>
+          <button class="menu-item" role="option" data-value="Fit" aria-checked="true"><span>Fit</span><kbd class="menu-key">Shift+1</kbd></button>
+          <button class="menu-item" role="option" data-value="50%"><span>50%</span></button>
+          <button class="menu-item" role="option" data-value="100%"><span>100%</span></button>
+          <button class="menu-item" role="option" data-value="200%"><span>200%</span></button>
+        </div>
+      </div>
+      <button class="tool" data-action="zoomIn" aria-label="Zoom in" data-tip="Zoom in" data-key="Ctrl+wheel">+</button>
+      <button class="tool" data-action="zoomPick" id="tZoomPick" aria-label="Zoom to pick" data-tip="Zoom to pick" data-key="Shift+2">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L15 15M5 7h4M7 5v4"/></svg></button>
+      <span class="tool-sep"></span>
+      <button class="tool" data-action="delete" id="tDelete" aria-label="Delete" data-tip="Delete the picked layers" data-key="Del">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 4h10M6 4V2h4v2M4.5 4l1 10h5l1-10"/></svg></button>
+      <span class="tool-sep"></span>
+      <button class="btn small" id="undoBtn" data-key="Ctrl+Z">Undo</button>
+      <button class="btn small" id="redoBtn" data-key="Ctrl+Shift+Z">Redo</button>
+      <span class="grow"></span>
+      <span class="lbl">Demo</span>
+      <span class="seg" role="group" aria-label="Demo state" id="demoSeg">
+        <button aria-pressed="true" data-value="shot" data-tip="A shot with Teto and a poster">Shot</button>
+        <button aria-pressed="false" data-value="nodoll" data-tip="Shot with no doll yet">No doll</button>
+        <button aria-pressed="false" data-value="noshot" data-tip="No shot at the playhead">No shot</button>
+      </span>
+    </div>
+    <div id="p-pose" class="tab-panel" role="tabpanel">
+      <div class="stage" id="stageBox" tabindex="0" aria-label="Pose stage. Arrows nudge, Tab steps pieces, Enter dives in.">
+        <svg id="stageSvg" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="gSky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#3d6fa8"/><stop offset="1" stop-color="#e9a07a"/>
+            </linearGradient>
+          </defs>
+          <g id="world"></g>
+          <g id="ovl"></g>
+        </svg>
+        <div class="stage-tag" id="stageTag">Shot 2 - frame 24</div>
+        <div class="stage-hint" id="stageHint">Hover shows what a click grabs. Wheel turns. Right click links. Double click empty space adds a sticker.</div>
+        <div class="empty-card" id="emptyNoShot" hidden>
+          <p>No shot here. Add one in the shot strip above.</p>
+          <button class="btn primary" id="addShotBtn">Add shot</button>
+        </div>
+        <div class="empty-card" id="emptyNoDoll" hidden>
+          <p>Drag a doll here from the Cast.</p>
+          <span class="castchip" id="castChip" data-tip="Drag me onto the stage"><i></i>Teto</span>
+          <button class="btn" id="addDollBtn">Add Teto in the middle</button>
+        </div>
+      </div>
+      <div class="scrubrow">
+        <span class="dim" style="font-size: var(--fs-small)">Frame</span>
+        <div class="slider" id="frameSlider" data-name="Frame" data-min="0" data-max="47" data-step="1"
+          data-value="24" data-snaps="0,12,24,36,47" aria-label="Frame"></div>
+      </div>
+      <div class="statusbar">
+        <div class="msg" id="statusMsg" role="status">Ready. Head is picked so you can see its warp grid.</div>
+        <div class="info" id="statusInfo">F 024 | Fit | 1 picked</div>
+      </div>
+    </div>
+  </div>
+
+  <details class="covered" id="covered">
+    <summary>Covered: inventory #66 to #97 (32 of 32) and the doc's new stage items</summary>
+    <h3>Drawing</h3>
+    <ul>
+      <li><b>#66</b> Empty state: toolbar Demo, pick "No shot". Message plus Add shot.</li>
+      <li><b>#67</b> Double click Teto or the poster: red outline of the whole shape pops in.</li>
+      <li><b>#68</b> With Teto picked whole: yellow lean bar on the right (drag up/down), swivel bar below (drag sideways). They slide in.</li>
+      <li><b>#69</b> Click any piece: red outline plus yellow pivot dot at its joint (dotted stem to its turn handle).</li>
+      <li><b>#70</b> Head starts picked: faint grid lines and small yellow dots. Body has a grid too.</li>
+      <li><b>#71</b> Head top corner dots: yellow ring. Drag Teto or press Space: the dots lag, bounce, and show a tail on the side they trail.</li>
+      <li><b>#72</b> Pick Body: center dot (pulse) and collar dot (wave) have a yellow square that breathes in Full motion, still in Calm/Off. Play to see them move.</li>
+      <li><b>#73</b> Click a warp dot: red ring, dashed reach ellipse, label "reach 1.5".</li>
+      <li><b>#74</b> Any piece of Teto picked: small yellow squares at hands and feet.</li>
+      <li><b>#75</b> Drag on empty stage: dashed red box with light fill; things inside get the hover outline live; chip "3 picked".</li>
+    </ul>
+    <h3>Mouse</h3>
+    <ul>
+      <li><b>#76</b> Click a piece: picks it (red at once, nothing moves until 4 px). With Teto picked whole, a click keeps the whole doll.</li>
+      <li><b>#77</b> Shift+click: adds, outline pops; then drag moves them all.</li>
+      <li><b>#78</b> Ctrl+click adds and a drag scales; Ctrl+click a picked thing without dragging drops it (outline fades).</li>
+      <li><b>#79</b> Drag a picked thing: moves every pick; chip "+30, 0 px"; ghost at the start; one undo "Move Head".</li>
+      <li><b>#80</b> Shift+drag: locked to the stronger axis.</li>
+      <li><b>#81</b> Ctrl+drag: scales every pick; chip "x 1.20"; one undo "Scale ...".</li>
+      <li><b>#82</b> Lean bar drag: chip "lean 12 deg"; undo "Lean Teto".</li>
+      <li><b>#83</b> Swivel bar drag: chip "swivel 30 deg"; undo "Swivel Teto".</li>
+      <li><b>#84</b> Drag a warp dot: grid bends live, neighbours inside its reach follow; chip "4, -2 px"; undo "Warp Head".</li>
+      <li><b>#85</b> Click a warp dot without dragging: picks it (red ring, reach ring); click again drops it.</li>
+      <li><b>#86</b> Drag a hand or foot square: two bone bend for arms; chip "bend 40 deg"; undo "Bend left arm".</li>
+      <li><b>#87</b> Box select replaces; Shift adds (chip "+2"); Ctrl removes (chip "-1").</li>
+      <li><b>#88</b> Click empty space: pick clears, outlines fade.</li>
+      <li><b>#89</b> Double click a piece: picks the whole doll, bars slide in. Double click the poster: whole layer.</li>
+      <li><b>#90</b> Wheel over the stage turns the pick (up = counterclockwise), chip "-15 deg", one undo per burst. Nothing picked: chip "Click a piece first, then turn it." for 1.5 s, no shake.</li>
+      <li><b>#91</b> Shift+wheel: 1 deg a notch.</li>
+      <li><b>#92</b> Wheel with a warp dot picked: reach ring grows/shrinks, label updates; Shift is fine.</li>
+      <li><b>#93</b> Pick the poster, right click Teto's arm: "Link movement to Teto (whole)" and "Link movement to Left forearm". Red rope draws in 200 ms. Greyed with why when it cannot act; hover for the tooltip.</li>
+      <li><b>#94</b> Right click with a linked pick: "Unlink movement" (greyed with why when nothing picked is linked).</li>
+    </ul>
+    <h3>Keys</h3>
+    <ul>
+      <li><b>#95</b> Escape: cancels a drag (snaps back to the ghost in 150 ms); else drops the picked dot; else clears the pick.</li>
+      <li><b>#96</b> Ctrl+A: every piece of the focused doll, else every layer.</li>
+      <li><b>#97</b> D: toggles "drags behind" on the picked dot (ring appears); with none, chip "Click a warp dot of a picked piece first."</li>
+    </ul>
+    <h3>New in the design doc</h3>
+    <ul>
+      <li><b>F1</b> Hover outline: 1 px dashed white on what a click would grab.</li>
+      <li><b>F6</b> Value chip by the cursor on every drag and wheel.</li>
+      <li><b>G6</b> Handles say what they do: turn, lean, swivel, bend glyphs; cursor changes; hover grows 15 %. Toolbar "Show grab zones" draws the 12 px reach.</li>
+      <li><b>F9 F5</b> Space+drag or middle drag pans; Ctrl+wheel zooms at the cursor; Shift+1 fit, Shift+2 zoom to pick; zoom combo.</li>
+      <li><b>F10</b> Guides: drag the poster or Teto near the shot centre or another thing's edge. Red line, white flash on catch, 2 px settle on drop.</li>
+      <li><b>Link rope</b> Red rope from follower to leader, drawn in 200 ms, shown while the follower is picked.</li>
+      <li><b>F16 G13</b> Demo "No doll": drag the Teto chip onto the stage, or press the button. Doll squashes 5 % and springs back.</li>
+      <li><b>F3</b> Stage focused: arrows nudge 1 px, Shift 10 px; Alt+arrows turn 1 deg, Alt+Shift 15 deg. No pick: arrows step frames.</li>
+      <li><b>F18 F20</b> Tab steps pieces, Shift+Tab back; Enter dives from the whole doll into its head.</li>
+      <li><b>Undo</b> Things flash and slide back in 120 ms; toasts with Undo on add, delete, link, unlink.</li>
+      <li><b>UX</b> Double click empty space adds a sticker (pop and ring); Delete removes picked layers (puff, toast with Undo); deleting a piece is refused with the reason. Right click a warp dot changes its mode: Still, Drags behind, Wave, Pulse.</li>
+      <li><b>Play</b> Space, transport buttons or the frame slider (snaps to ticks). Onion skin (O) shows frames -2 and +2.</li>
+    </ul>
+  </details>
+</main>
+
+<script src="kit.js"></script>
+<script>
+(function () {
+  "use strict";
+  const K = window.Kit;
+  const $ = (id) => document.getElementById(id);
+  const svg = $("stageSvg");
+  const world = $("world");
+  const ovl = $("ovl");
+  const stageBox = $("stageBox");
+
+  const kFrames = 48;
+  const kFps = 12;
+  const kGrab = 12;
+  const kFrameW = 640;
+  const kFrameH = 360;
+  const kFeet = 82;
+  const kDblMs = 350;
+  const kBurstMs = 600;
+  const kPi = Math.PI;
+
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const wrap = (a) => ((a % 360) + 540) % 360 - 180;
+  const deg = (r) => r * 180 / kPi;
+  const easeOut = (k) => 1 - Math.pow(1 - k, 3);
+  const easeBack = (k) => {
+    const c = 1.70158;
+    return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2);
+  };
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const sign = (v) => (v > 0 ? "+" : "") + Math.round(v);
+
+  /* ---------- Affine math: [a, b, c, d, e, f] like SVG matrix() ---------- */
+  const Af = {
+    t(x, y) { return [1, 0, 0, 1, x, y]; },
+    r(d) {
+      const a = d * kPi / 180;
+      return [Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), 0, 0];
+    },
+    s(x, y) { return [x, 0, 0, y, 0, 0]; },
+    kx(d) { return [1, 0, Math.tan(d * kPi / 180), 1, 0, 0]; },
+    m(a, b) {
+      return [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1],
+        a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3],
+        a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5]];
+    },
+    chain(list) {
+      let out = list[0];
+      for (let i = 1; i < list.length && i < 32; i++) out = Af.m(out, list[i]);
+      return out;
+    },
+    ap(m, p) { return [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]]; },
+    lin(m, v) { return [m[0] * v[0] + m[2] * v[1], m[1] * v[0] + m[3] * v[1]]; },
+    inv(m) {
+      const d = (m[0] * m[3] - m[1] * m[2]) || 1e-9;
+      return [m[3] / d, -m[1] / d, -m[2] / d, m[0] / d,
+        (m[2] * m[5] - m[3] * m[4]) / d, (m[1] * m[4] - m[0] * m[5]) / d];
+    }
+  };
+
+  /* ---------- Shapes ---------- */
+  function ell(cx, cy, rx, ry, n) {
+    const p = [];
+    for (let i = 0; i < n; i++) {
+      const a = i / n * 2 * kPi;
+      p.push([cx + rx * Math.cos(a), cy + ry * Math.sin(a)]);
+    }
+    return p;
+  }
+  function sub(poly, n) {
+    const out = [];
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i];
+      const b = poly[(i + 1) % poly.length];
+      for (let j = 0; j < n; j++) {
+        const k = j / n;
+        out.push([a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k]);
+      }
+    }
+    return out;
+  }
+  function rrect(x0, y0, x1, y1, r) {
+    const p = [];
+    const corners = [[x1 - r, y0 + r, -90], [x1 - r, y1 - r, 0], [x0 + r, y1 - r, 90], [x0 + r, y0 + r, 180]];
+    corners.forEach((c) => {
+      for (let i = 0; i <= 3; i++) {
+        const a = (c[2] + i * 30) * kPi / 180;
+        p.push([c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]);
+      }
+    });
+    return sub(p, 2);
+  }
+  const mirror = (pts) => pts.map((p) => [-p[0], p[1]]);
+  const mirrorUV = (pts) => pts.map((p) => [1 - p[0], p[1]]);
+  const kSkin = "#f3d7c4";
+  const kCloth = "#3b3f4a";
+  const kHair = "#a8324a";
+  const drillL = [[0.04, 0.28], [-0.2, 0.42], [-0.07, 0.52], [-0.24, 0.66], [-0.1, 0.77], [-0.23, 0.92],
+    [-0.12, 1.14], [0.03, 0.9], [0.05, 0.55]];
+
+  /* Pieces: local origin is the pivot; y points down. uv parts bend with the warp grid. */
+  const kPieces = {
+    torso: { name: "Body", parent: null, at: [0, 0], rest: 0, grid: [-30, -100, 30, 0], turn: [0, -124],
+      parts: [
+        { uv: true, fill: kCloth, pts: sub([[0.08, 0.02], [0.92, 0.02], [1, 0.14], [0.86, 1], [0.14, 1], [0, 0.14]], 6) },
+        { uv: true, fill: "#e9e4d8", pts: sub([[0.3, 0.02], [0.5, 0.17], [0.7, 0.02]], 3), ol: false },
+        { uv: true, fill: "#d8304f", pts: sub([[0.5, 0.1], [0.58, 0.2], [0.53, 0.6], [0.5, 0.68], [0.47, 0.6], [0.42, 0.2]], 2), ol: false },
+        { uv: true, fill: "#24252b", pts: sub([[0.13, 0.85], [0.87, 0.85], [0.86, 0.94], [0.14, 0.94]], 3), ol: false }
+      ] },
+    head: { name: "Head", parent: "torso", at: [0, -98], rest: 0, grid: [-34, -80, 34, -4], turn: [0, -104],
+      parts: [
+        { uv: true, fill: kHair, pts: ell(0.5, 0.47, 0.52, 0.5, 28) },
+        { uv: true, fill: kHair, pts: sub(drillL, 2) },
+        { uv: true, fill: kHair, pts: sub(mirrorUV(drillL), 2) },
+        { uv: true, fill: kSkin, pts: ell(0.5, 0.58, 0.4, 0.4, 28) },
+        { uv: true, fill: "#2a2030", pts: ell(0.35, 0.62, 0.045, 0.07, 10), ol: false },
+        { uv: true, fill: "#2a2030", pts: ell(0.65, 0.62, 0.045, 0.07, 10), ol: false },
+        { uv: true, fill: "#a03040", pts: [[0.44, 0.8], [0.56, 0.8], [0.5, 0.85]], ol: false },
+        { uv: true, fill: kHair, pts: sub([[0.08, 0.46], [0.1, 0.2], [0.3, 0.04], [0.7, 0.04], [0.9, 0.2], [0.92, 0.46],
+          [0.8, 0.32], [0.7, 0.42], [0.6, 0.3], [0.5, 0.42], [0.4, 0.3], [0.3, 0.42], [0.2, 0.32]], 2), ol: false }
+      ] },
+    upperArmL: { name: "Left upper arm", parent: "torso", at: [-30, -92], rest: 14, turn: [-26, 22],
+      parts: [{ fill: kCloth, pts: rrect(-8, -4, 8, 46, 7) }] },
+    foreArmL: { name: "Left forearm", parent: "upperArmL", at: [0, 44], rest: -10, turn: [-24, 20],
+      parts: [{ fill: kSkin, pts: rrect(-6.5, -2, 6.5, 40, 6) }, { fill: kSkin, pts: ell(0, 46, 8, 8, 14) }] },
+    upperArmR: { name: "Right upper arm", parent: "torso", at: [30, -92], rest: -14, turn: [26, 22],
+      parts: [{ fill: kCloth, pts: rrect(-8, -4, 8, 46, 7) }] },
+    foreArmR: { name: "Right forearm", parent: "upperArmR", at: [0, 44], rest: 10, turn: [24, 20],
+      parts: [{ fill: kSkin, pts: rrect(-6.5, -2, 6.5, 40, 6) }, { fill: kSkin, pts: ell(0, 46, 8, 8, 14) }] },
+    legL: { name: "Left leg", parent: "torso", at: [-14, -4], rest: 2, turn: [-28, 40],
+      parts: [{ fill: "#2a2c33", pts: rrect(-10, -2, 10, 72, 6) }, { fill: kHair, pts: sub([[-11, 64], [11, 64], [13, 82], [-14, 82]], 2) }] },
+    legR: { name: "Right leg", parent: "torso", at: [14, -4], rest: -2, turn: [28, 40],
+      parts: [{ fill: "#2a2c33", pts: rrect(-10, -2, 10, 72, 6) }, { fill: kHair, pts: sub(mirror([[-11, 64], [11, 64], [13, 82], [-14, 82]]), 2) }] }
+  };
+  const kMatOrder = ["torso", "head", "upperArmL", "foreArmL", "upperArmR", "foreArmR", "legL", "legR"];
+  const kDrawOrder = ["legL", "legR", "upperArmR", "foreArmR", "torso", "head", "upperArmL", "foreArmL"];
+  const kTabOrder = ["head", "torso", "upperArmL", "foreArmL", "upperArmR", "foreArmR", "legL", "legR"];
+  const kGridIds = ["torso", "head"];
+  const kChains = {
+    armL: { name: "left arm", bones: ["upperArmL", "foreArmL"], tip: [0, 46] },
+    armR: { name: "right arm", bones: ["upperArmR", "foreArmR"], tip: [0, 46] },
+    legL: { name: "left leg", bones: ["legL"], tip: [0, 80] },
+    legR: { name: "right leg", bones: ["legR"], tip: [0, 80] }
+  };
+  const kLayerParts = {
+    poster: [
+      { fill: "url(#gSky)", pts: rrect(-100, -70, 100, 70, 2) },
+      { fill: "#ffd35a", pts: ell(46, -26, 16, 16, 18), ol: false },
+      { fill: "#2f5d3a", pts: sub([[-98, 30], [-50, -4], [-10, 22], [40, 0], [98, 30], [98, 68], [-98, 68]], 3), ol: false }
+    ],
+    star: [{ fill: "#5aa9e6", pts: (() => {
+      const p = [];
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * 2 * kPi - kPi / 2;
+        const r = i % 2 ? 10 : 24;
+        p.push([r * Math.cos(a), r * Math.sin(a)]);
+      }
+      return sub(p, 2);
+    })() }]
+  };
+  const kLayerTurn = { poster: [0, -92], star: [0, -42] };
+
+  /* ---------- Scene state (what undo snapshots) ---------- */
+  function newDots(modes) {
+    const out = [];
+    for (let i = 0; i < 9; i++) out.push({ dx: 0, dy: 0, reach: 1.5, mode: modes[i] || "still" });
+    return out;
+  }
+  let st = {
+    hasShot: true,
+    hasDoll: true,
+    doll: { x: 90, y: 50, rot: 0, scale: 1, lean: 0, swivel: 0, link: null },
+    pieces: {},
+    grids: { torso: newDots({ 1: "wave", 4: "pulse" }), head: newDots({ 0: "drag", 2: "drag" }) },
+    layers: [{ id: "poster", name: "Poster.png", kind: "poster", x: -170, y: -40, rot: -4, scale: 1, z: "back", link: null }],
+    next: 1
+  };
+  kMatOrder.forEach((id) => { st.pieces[id] = { off: [0, 0], rot: 0, scale: 1 }; });
+  const layerOf = (s, id) => s.layers.find((L) => L.id === id) || null;
+
+  /* Fake animation on every frame so play and scrub show motion. */
+  function base(id, t) {
+    const p = t / 24 * 2 * kPi;
+    const s = Math.sin(p);
+    const table = {
+      torso: { rot: 2 * s, off: [0, -3 * Math.abs(s)] },
+      head: { rot: 5 * Math.sin(p + 1), off: [0, 0] },
+      upperArmL: { rot: 16 * s, off: [0, 0] },
+      foreArmL: { rot: 12 * Math.sin(p + 0.7), off: [0, 0] },
+      upperArmR: { rot: -16 * s, off: [0, 0] },
+      foreArmR: { rot: -12 * Math.sin(p + 0.7), off: [0, 0] },
+      legL: { rot: 6 * s, off: [0, 0] },
+      legR: { rot: -6 * s, off: [0, 0] }
+    };
+    return table[id];
+  }
+  const dollSway = (t) => [10 * Math.sin(t / kFrames * 2 * kPi), 0];
+
+  function dollMatrix(s, t, delta) {
+    const d = s.doll;
+    const b = dollSway(t);
+    const sw = Math.cos(d.swivel * kPi / 180);
+    return Af.chain([Af.t(d.x + b[0] + delta[0], d.y + b[1] + delta[1]), Af.r(d.rot),
+      Af.t(0, kFeet), Af.kx(d.lean), Af.t(0, -kFeet), Af.s(d.scale * sw, d.scale)]);
+  }
+  function pieceMats(s, t, D) {
+    const mats = {};
+    kMatOrder.forEach((id) => {
+      const def = kPieces[id];
+      const p = s.pieces[id];
+      const b = base(id, t);
+      const parent = def.parent ? mats[def.parent] : D;
+      mats[id] = Af.chain([parent, Af.t(def.at[0] + p.off[0] + b.off[0], def.at[1] + p.off[1] + b.off[1]),
+        Af.r(def.rest + p.rot + b.rot), Af.s(p.scale, p.scale)]);
+    });
+    return mats;
+  }
+  const layerMatrix = (L, delta) => Af.chain([Af.t(L.x + delta[0], L.y + delta[1]), Af.r(L.rot), Af.s(L.scale, L.scale)]);
+
+  /* Links copy the leader's movement from the frame they were made on. */
+  function leaderPos(s, t, to) {
+    const is_doll = to === "doll";
+    if (is_doll) return Af.ap(dollMatrix(s, t, [0, 0]), [0, 0]);
+    const is_piece = to.startsWith("p:");
+    if (is_piece) return Af.ap(pieceMats(s, t, dollMatrix(s, t, [0, 0]))[to.slice(2)], [0, 0]);
+    const L = layerOf(s, to.slice(2));
+    return L ? [L.x, L.y] : [0, 0];
+  }
+  function linkDelta(s, t, link) {
+    if (!link) return [0, 0];
+    const has_leader = link.to.startsWith("L:") ? Boolean(layerOf(s, link.to.slice(2))) : s.hasDoll;
+    if (!has_leader) return [0, 0];
+    const p = leaderPos(s, t, link.to);
+    return [p[0] - link.base[0], p[1] - link.base[1]];
+  }
+
+  /* ---------- Warp grid ---------- */
+  function restDot(box, i) {
+    return [box[0] + (i % 3) / 2 * (box[2] - box[0]), box[1] + Math.floor(i / 3) / 2 * (box[3] - box[1])];
+  }
+  function animOff(box, i, mode, t) {
+    const ph = t / 12 * 2 * kPi;
+    if (mode === "wave") return [0, 6 * Math.sin(ph + (i % 3) * 1.2)];
+    if (mode !== "pulse") return [0, 0];
+    const r = restDot(box, i);
+    let dx = r[0] - (box[0] + box[2]) / 2;
+    let dy = r[1] - (box[1] + box[3]) / 2;
+    const len = Math.hypot(dx, dy);
+    const is_center = len < 1e-6;
+    if (is_center) { dx = 0; dy = -1; } else { dx /= len; dy /= len; }
+    const a = 6 * Math.sin(ph);
+    return [dx * a, dy * a];
+  }
+  function rigidDots(s, pid, t) {
+    const box = kPieces[pid].grid;
+    return s.grids[pid].map((d, i) => {
+      const r = restDot(box, i);
+      const a = animOff(box, i, d.mode, t);
+      return [r[0] + d.dx + a[0], r[1] + d.dy + a[1]];
+    });
+  }
+  function warp(g, u, v) {
+    const cu = clamp(Math.floor(u * 2), 0, 1);
+    const cv = clamp(Math.floor(v * 2), 0, 1);
+    const su = u * 2 - cu;
+    const sv = v * 2 - cv;
+    const p00 = g[cv * 3 + cu];
+    const p10 = g[cv * 3 + cu + 1];
+    const p01 = g[(cv + 1) * 3 + cu];
+    const p11 = g[(cv + 1) * 3 + cu + 1];
+    const w = [(1 - su) * (1 - sv), su * (1 - sv), (1 - su) * sv, su * sv];
+    return [w[0] * p00[0] + w[1] * p10[0] + w[2] * p01[0] + w[3] * p11[0],
+      w[0] * p00[1] + w[1] * p10[1] + w[2] * p01[1] + w[3] * p11[1]];
+  }
+  function warpWeights(pid, i, reach) {
+    const box = kPieces[pid].grid;
+    const cw = (box[2] - box[0]) / 2;
+    const ch = (box[3] - box[1]) / 2;
+    const ri = restDot(box, i);
+    const out = [];
+    for (let j = 0; j < 9; j++) {
+      const rj = restDot(box, j);
+      const dd = Math.hypot((rj[0] - ri[0]) / cw, (rj[1] - ri[1]) / ch);
+      const w = j === i ? 1 : Math.pow(Math.max(0, 1 - dd / reach), 2);
+      out.push(w);
+    }
+    return out;
+  }
+
+  /* ---------- Drag-node springs: dots that drag behind lag and bounce ---------- */
+  const Phys = {
+    n: {}, live: {}, dt: 1,
+    step(g, s) {
+      const seen = {};
+      kGridIds.forEach((pid) => {
+        s.grids[pid].forEach((d, i) => {
+          const is_node = d.mode === "drag";
+          if (!is_node) return;
+          const key = pid + ":" + i;
+          seen[key] = true;
+          const M = g.mats[pid];
+          const W = Af.ap(M, g.rigid[pid][i]);
+          let n = this.n[key];
+          if (!n) { n = { p: W.slice(), v: [0, 0] }; this.n[key] = n; }
+          const steps = clamp(Math.round(this.dt), 1, 4);
+          for (let k = 0; k < steps; k++) {
+            n.v[0] = (n.v[0] + (W[0] - n.p[0]) * 0.08) * 0.87;
+            n.v[1] = (n.v[1] + (W[1] - n.p[1]) * 0.08) * 0.87;
+            n.p[0] += n.v[0];
+            n.p[1] += n.v[1];
+          }
+          let lw = [n.p[0] - W[0], n.p[1] - W[1]];
+          const len = Math.hypot(lw[0], lw[1]);
+          const too_far = len > 40;
+          if (too_far) { lw = [lw[0] * 40 / len, lw[1] * 40 / len]; n.p = [W[0] + lw[0], W[1] + lw[1]]; }
+          this.live[key] = { lag: Af.lin(Af.inv(M), lw), lagW: lw };
+        });
+      });
+      Object.keys(this.n).forEach((k) => { if (!seen[k]) { delete this.n[k]; delete this.live[k]; } });
+    },
+    lagOf(pid, i) { const l = this.live[pid + ":" + i]; return l ? l.lag : null; }
+  };
+
+  /* ---------- View: pan and zoom ---------- */
+  const View = {
+    z: 1, px: 0, py: 0, w: 0, h: 0, fit: true, tw: null,
+    m() { return [this.z, 0, 0, this.z, this.px, this.py]; },
+    resize() {
+      const r = svg.getBoundingClientRect();
+      this.w = r.width;
+      this.h = r.height;
+      if (this.fit) this.fitAll(false);
+    },
+    go(z, px, py, animate) {
+      const ms = animate === false ? 0 : K.ms("move");
+      if (ms <= 0) { this.z = z; this.px = px; this.py = py; this.tw = null; return; }
+      this.tw = { from: [this.z, this.px, this.py], to: [z, px, py], t0: performance.now(), ms: ms };
+    },
+    tick(now) {
+      const tw = this.tw;
+      if (!tw) return;
+      const k = clamp((now - tw.t0) / tw.ms, 0, 1);
+      const e = easeOut(k);
+      this.z = tw.from[0] + (tw.to[0] - tw.from[0]) * e;
+      this.px = tw.from[1] + (tw.to[1] - tw.from[1]) * e;
+      this.py = tw.from[2] + (tw.to[2] - tw.from[2]) * e;
+      if (k >= 1) this.tw = null;
+    },
+    fitAll(animate) {
+      const z = Math.min((this.w - 24) / (kFrameW + 40), (this.h - 24) / (kFrameH + 40));
+      this.fit = true;
+      this.go(z, this.w / 2, this.h / 2, animate);
+      UI.zoomText();
+    },
+    toBox(b) {
+      const wb = [(b[0] - this.px) / this.z, (b[1] - this.py) / this.z, (b[2] - this.px) / this.z, (b[3] - this.py) / this.z];
+      const z = clamp(Math.min(this.w / (wb[2] - wb[0] + 90), this.h / (wb[3] - wb[1] + 90)), 0.2, 3);
+      const cx = (wb[0] + wb[2]) / 2;
+      const cy = (wb[1] + wb[3]) / 2;
+      this.fit = false;
+      this.go(z, this.w / 2 - cx * z, this.h / 2 - cy * z, true);
+      UI.zoomText(z);
+    },
+    zoomAt(f, sx, sy) {
+      this.tw = null;
+      const nz = clamp(this.z * f, 0.2, 5);
+      const wx = (sx - this.px) / this.z;
+      const wy = (sy - this.py) / this.z;
+      this.z = nz;
+      this.px = sx - wx * nz;
+      this.py = sy - wy * nz;
+      this.fit = false;
+      UI.zoomText();
+    },
+    setZoom(z) {
+      this.fit = false;
+      const cx = (this.w / 2 - this.px) / this.z;
+      const cy = (this.h / 2 - this.py) / this.z;
+      this.go(z, this.w / 2 - cx * z, this.h / 2 - cy * z, true);
+      UI.zoomText(z);
+    }
+  };
+
+  /* ---------- Geometry for one state at one frame, in screen px ---------- */
+  function pathOf(pts) {
+    let d = "M";
+    for (let i = 0; i < pts.length && i < 400; i++) {
+      d += (i ? " L" : "") + pts[i][0].toFixed(1) + " " + pts[i][1].toFixed(1);
+    }
+    return d + " Z";
+  }
+  function bboxOf(list) {
+    const b = [Infinity, Infinity, -Infinity, -Infinity];
+    list.forEach((p) => {
+      b[0] = Math.min(b[0], p[0]); b[1] = Math.min(b[1], p[1]);
+      b[2] = Math.max(b[2], p[0]); b[3] = Math.max(b[3], p[1]);
+    });
+    return b;
+  }
+  function partsGeo(parts, sm, dots) {
+    const all = [];
+    const out = parts.map((part) => {
+      const pts = part.pts.map((p) => Af.ap(sm, part.uv ? warp(dots, p[0], p[1]) : p));
+      pts.forEach((p) => all.push(p));
+      return { d: pathOf(pts), fill: part.fill, ol: part.ol !== false };
+    });
+    return { parts: out, bbox: bboxOf(all) };
+  }
+  function build(s, t, live) {
+    const V = View.m();
+    const g = { mats: {}, sm: {}, things: {}, dots: {}, rigid: {} };
+    if (s.hasDoll) {
+      const D = dollMatrix(s, t, linkDelta(s, t, s.doll.link));
+      g.mats.doll = D;
+      Object.assign(g.mats, pieceMats(s, t, D));
+      kGridIds.forEach((pid) => { g.rigid[pid] = rigidDots(s, pid, t); });
+      if (live) Phys.step(g, s);
+      kGridIds.forEach((pid) => {
+        g.dots[pid] = g.rigid[pid].map((p, i) => {
+          const l = live ? Phys.lagOf(pid, i) : null;
+          return l ? [p[0] + l[0], p[1] + l[1]] : p;
+        });
+      });
+      const parts = [];
+      const corners = [];
+      kDrawOrder.forEach((id) => {
+        const sm = Af.m(V, g.mats[id]);
+        g.sm[id] = sm;
+        const th = partsGeo(kPieces[id].parts, sm, g.dots[id]);
+        g.things["p:" + id] = th;
+        th.parts.forEach((p) => parts.push(p));
+        corners.push([th.bbox[0], th.bbox[1]], [th.bbox[2], th.bbox[3]]);
+      });
+      g.sm.doll = Af.m(V, D);
+      g.things.doll = { parts: parts, bbox: bboxOf(corners) };
+    }
+    s.layers.forEach((L) => {
+      const id = "L:" + L.id;
+      const M = layerMatrix(L, linkDelta(s, t, L.link));
+      g.mats[id] = M;
+      g.sm[id] = Af.m(V, M);
+      g.things[id] = partsGeo(kLayerParts[L.kind], g.sm[id], null);
+    });
+    return g;
+  }
+  const center = (b) => [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+
+  /* ---------- Pick: what is picked, with pop and fade times ---------- */
+  const Pick = {
+    ids: new Set(), at: {}, gone: {}, dot: null, dotAt: 0,
+    has(id) { return this.ids.has(id); },
+    list() { return Array.from(this.ids); },
+    add(id) {
+      if (this.ids.has(id)) return;
+      this.ids.add(id);
+      this.at[id] = performance.now();
+      delete this.gone[id];
+      this.changed();
+    },
+    drop(id) {
+      if (!this.ids.has(id)) return;
+      this.ids.delete(id);
+      this.gone[id] = performance.now();
+      this.changed();
+    },
+    set(list) {
+      const next = new Set(list);
+      this.ids.forEach((id) => { if (!next.has(id)) this.gone[id] = performance.now(); });
+      next.forEach((id) => { if (!this.ids.has(id)) { this.at[id] = performance.now(); delete this.gone[id]; } });
+      this.ids = next;
+      this.changed();
+    },
+    repop(id) { this.at[id] = performance.now(); },
+    clear() { this.set([]); },
+    dollFocused() { return this.list().some((id) => id === "doll" || id.startsWith("p:")); },
+    changed() {
+      const dot_ok = this.dot && this.ids.has("p:" + this.dot.pid);
+      if (this.dot && !dot_ok) this.dot = null;
+      UI.refresh();
+    },
+    prune() {
+      const keep = this.list().filter((id) => {
+        if (id.startsWith("L:")) return Boolean(layerOf(st, id.slice(2)));
+        return st.hasDoll;
+      });
+      const changed = keep.length !== this.ids.size;
+      if (changed) this.set(keep);
+    }
+  };
+
+  /* ---------- Effects: flash, pop, puff, bounce, squash, guides, ropes ---------- */
+  const Fx = {
+    flash: {}, pop: {}, bounce: null, squash: 0, guides: [], guideAt: 0, ropes: {}, puffs: [],
+    k(t0, name) {
+      const ms = K.ms(name);
+      if (ms <= 0) return 1;
+      return clamp((performance.now() - t0) / ms, 0, 1);
+    },
+    attr(ids, b) {
+      let tr = "";
+      let filter = "";
+      const now = performance.now();
+      ids.forEach((id) => {
+        const f = this.flash[id];
+        if (f !== undefined) {
+          const k = this.k(f, "flash");
+          if (k < 1) filter = "filter:brightness(" + (1 + 1.3 * (1 - k)).toFixed(2) + ")";
+          else delete this.flash[id];
+        }
+        const p = this.pop[id];
+        if (p !== undefined && b) {
+          const k = this.k(p, "pop");
+          const sc = 1.4 - 0.4 * (K.motion.mode === "full" ? easeBack(k) : easeOut(k));
+          const c = center(b);
+          if (k < 1) tr += "translate(" + c[0] + " " + c[1] + ") scale(" + sc.toFixed(3) + ") translate(" + -c[0] + " " + -c[1] + ") ";
+          else delete this.pop[id];
+        }
+        const bo = this.bounce;
+        if (bo && bo.ids.indexOf(id) >= 0) {
+          const k = this.k(bo.t0, "pop");
+          const a = Math.sin(kPi * k) * 2;
+          if (k < 1) tr += "translate(" + (bo.dir[0] * a).toFixed(2) + " " + (bo.dir[1] * a).toFixed(2) + ") ";
+          else this.bounce = null;
+        }
+        const is_squash = id === "doll" && this.squash && b;
+        if (is_squash) {
+          const k = this.k(this.squash, "move");
+          const e = K.motion.mode === "full" ? easeBack(k) : easeOut(k);
+          const sx = 1.05 - 0.05 * e;
+          const sy = 0.95 + 0.05 * e;
+          const fx = (b[0] + b[2]) / 2;
+          if (k < 1) tr += "translate(" + fx + " " + b[3] + ") scale(" + sx.toFixed(3) + " " + sy.toFixed(3) + ") translate(" + -fx + " " + -b[3] + ") ";
+          else this.squash = 0;
+        }
+      });
+      void now;
+      return (tr ? ' transform="' + tr + '"' : "") + (filter ? ' style="' + filter + '"' : "");
+    },
+    flashIds(ids) { const t = performance.now(); ids.forEach((id) => { this.flash[id] = t; }); },
+    popId(id) { this.pop[id] = performance.now(); },
+    puff(geo) { this.puffs.push({ geo: geo, t0: performance.now() }); },
+    ring(sx, sy) { K.ring(stageBox, sx, sy); }
+  };
+
+  /* ---------- Undo: snapshots, tween back 120 ms, flash ---------- */
+  const Anim = {
+    job: null,
+    lerp(a, b, k) {
+      const both_num = typeof a === "number" && typeof b === "number";
+      if (both_num) return a + (b - a) * k;
+      const both_arr = Array.isArray(a) && Array.isArray(b) && a.length === b.length;
+      if (both_arr) return b.map((v, i) => this.lerp(a[i], v, k));
+      const both_obj = a && b && typeof a === "object" && typeof b === "object" && !Array.isArray(a) && !Array.isArray(b);
+      if (!both_obj) return clone(b === undefined ? null : b);
+      const out = {};
+      Object.keys(b).forEach((key) => { out[key] = this.lerp(a[key], b[key], k); });
+      return out;
+    },
+    to(target, ids, ms) {
+      this.finish();
+      const g = Geo.last;
+      st.layers.forEach((L) => {
+        const kept = target.layers.some((T) => T.id === L.id);
+        if (!kept && g && g.things["L:" + L.id]) Fx.puff(g.things["L:" + L.id]);
+      });
+      target.layers.forEach((T) => {
+        const is_new = !st.layers.some((L) => L.id === T.id);
+        if (is_new) Fx.popId("L:" + T.id);
+      });
+      const doll_back = target.hasDoll && !st.hasDoll;
+      if (doll_back) Fx.squash = performance.now();
+      Fx.flashIds(ids || []);
+      const dur = K.ms(ms === undefined ? "puff" : ms);
+      if (dur <= 0) { st = clone(target); Pick.prune(); return; }
+      this.job = { from: clone(st), to: clone(target), t0: performance.now(), ms: dur };
+    },
+    tick(now) {
+      const j = this.job;
+      if (!j) return;
+      const k = clamp((now - j.t0) / j.ms, 0, 1);
+      st = k >= 1 ? clone(j.to) : this.lerp(j.from, j.to, easeOut(k));
+      if (k >= 1) { this.job = null; Pick.prune(); }
+    },
+    finish() {
+      const j = this.job;
+      if (!j) return;
+      st = clone(j.to);
+      this.job = null;
+      Pick.prune();
+    }
+  };
+  const Hist = {
+    stack: new K.UndoStack(200),
+    burst: null,
+    commit(name, before, ids) {
+      this.flush();
+      const after = clone(st);
+      const same = JSON.stringify(after) === JSON.stringify(before);
+      if (same) return false;
+      const keep = (ids || []).slice();
+      this.stack.push(name, () => Anim.to(before, keep), () => Anim.to(after, keep));
+      $("dirtyDot").hidden = false;
+      return true;
+    },
+    bump(name, ids, fn) {
+      const is_new = !this.burst || this.burst.name !== name;
+      if (is_new) { this.flush(); this.burst = { name: name, ids: ids, before: clone(st), timer: 0 }; }
+      fn();
+      window.clearTimeout(this.burst.timer);
+      this.burst.timer = window.setTimeout(() => this.flush(), kBurstMs);
+    },
+    flush() {
+      const b = this.burst;
+      if (!b) return;
+      window.clearTimeout(b.timer);
+      this.burst = null;
+      this.commit(b.name, b.before, b.ids);
+    },
+    undo() { this.flush(); this.stack.undo(); },
+    redo() { this.flush(); this.stack.redo(); }
+  };
+  const Geo = { last: null };
+
+  /* ---------- Names ---------- */
+  function nameOf(id) {
+    if (id === "doll") return "Teto";
+    if (id.startsWith("p:")) return kPieces[id.slice(2)].name;
+    const L = layerOf(st, id.slice(2));
+    return L ? L.name : "layer";
+  }
+  const namesOf = (ids) => (ids.length === 1 ? nameOf(ids[0]) : ids.length + " things");
+  /* A picked whole doll moves its pieces; do not move them twice. */
+  function movers(ids) {
+    const doll_whole = ids.indexOf("doll") >= 0;
+    return ids.filter((id) => !(doll_whole && id.startsWith("p:")));
+  }
+
+  /* ---------- Status bar and chips ---------- */
+  const Status = {
+    timer: 0,
+    say(text, is_error) {
+      const m = $("statusMsg");
+      m.textContent = text;
+      m.classList.toggle("is-error", Boolean(is_error));
+      window.clearTimeout(this.timer);
+      if (is_error) this.timer = window.setTimeout(() => m.classList.remove("is-error"), 3000);
+    }
+  };
+  const Note = {
+    timer: 0,
+    /* Routine refusal: a chip at the cursor for 1.5 s, no shake. */
+    at(text, x, y) {
+      K.chip.show(text, x, y, false);
+      Status.say(text, true);
+      window.clearTimeout(this.timer);
+      this.timer = window.setTimeout(() => K.chip.hide(), 1500);
+    },
+    hold(text, x, y, snapped) {
+      K.chip.show(text, x, y, snapped);
+      window.clearTimeout(this.timer);
+      this.timer = window.setTimeout(() => K.chip.hide(), 700);
+    }
+  };
+
+  /* ---------- Clock: frames, play, scrub ---------- */
+  const Clock = {
+    t: 24, playing: false, shown: -1,
+    frame() { return Math.floor(this.t); },
+    set(f) { this.t = ((Math.round(f) % kFrames) + kFrames) % kFrames; this.paint(); },
+    step(d) { this.set(this.frame() + d); },
+    toggle() {
+      this.playing = !this.playing;
+      const b = $("playBtn");
+      b.setAttribute("aria-label", this.playing ? "Pause" : "Play");
+      b.dataset.tip = this.playing ? "Pause" : "Play";
+      $("playIcon").innerHTML = this.playing ? '<path d="M4 2h3v12H4zM9 2h3v12H9z"/>' : '<path d="M4 2l10 6-10 6z"/>';
+      Status.say(this.playing ? "Playing. Watch the drag nodes on Teto's hair trail behind." : "Paused at frame " + this.frame() + ".");
+    },
+    paint() {
+      const f = this.frame();
+      if (f === this.shown) return;
+      this.shown = f;
+      const txt = "F " + String(f).padStart(3, "0");
+      $("counter").textContent = txt;
+      $("stageTag").textContent = "Shot 2 - frame " + f;
+      K.slider.set($("frameSlider"), f, false, true);
+      UI.info();
+    }
+  };
+
+  /* ---------- Rendering ---------- */
+  function thingSvg(id, th, extra, cls) {
+    let out = '<g data-id="' + id + '"' + (cls ? ' class="' + cls + '"' : "") + (extra || "") + ">";
+    th.parts.forEach((p) => { out += '<path class="sg-part" d="' + p.d + '" fill="' + p.fill + '"/>'; });
+    return out + "</g>";
+  }
+  function outlineSvg(th, cls, width, opacity) {
+    let out = "";
+    const op = opacity === undefined ? 1 : opacity;
+    th.parts.forEach((p) => {
+      if (!p.ol) return;
+      if (cls === "o-pick") out += '<path class="o-under" d="' + p.d + '" stroke-width="' + (width + 2).toFixed(1) + '" opacity="' + op + '"/>';
+      out += '<path class="' + cls + '" d="' + p.d + '"' + (width ? ' stroke-width="' + width.toFixed(1) + '"' : "") + ' opacity="' + op + '"/>';
+    });
+    return out;
+  }
+  function frameSvg() {
+    const a = Af.ap(View.m(), [-kFrameW / 2, -kFrameH / 2]);
+    const b = Af.ap(View.m(), [kFrameW / 2, kFrameH / 2]);
+    const W = View.w;
+    const H = View.h;
+    const out = "M0 0H" + W + "V" + H + "H0Z M" + a[0] + " " + a[1] + "V" + b[1] + "H" + b[0] + "V" + a[1] + "Z";
+    return '<path class="sg-out" fill-rule="evenodd" d="' + out + '"/>' +
+      '<rect class="sg-frame" x="' + a[0] + '" y="' + a[1] + '" width="' + (b[0] - a[0]) + '" height="' + (b[1] - a[1]) + '"/>';
+  }
+  function frameBox() {
+    const a = Af.ap(View.m(), [-kFrameW / 2, -kFrameH / 2]);
+    const b = Af.ap(View.m(), [kFrameW / 2, kFrameH / 2]);
+    return [a[0], a[1], b[0], b[1]];
+  }
+  function dollGroup(g, ids) {
+    let out = "<g" + Fx.attr(["doll"], g.things.doll.bbox) + ">";
+    kDrawOrder.forEach((pid) => {
+      const id = "p:" + pid;
+      const has = !ids || ids.indexOf(id) >= 0 || ids.indexOf("doll") >= 0;
+      if (has) out += thingSvg(id, g.things[id], Fx.attr([id], g.things[id].bbox));
+    });
+    return out + "</g>";
+  }
+  function worldSvg(g, now) {
+    let out = frameSvg();
+    if (!st.hasShot) return out;
+    const f = Clock.frame();
+    if (UI.onion && st.hasDoll) {
+      [[-2, "prev"], [2, "next"]].forEach((o) => {
+        const og = build(st, (f + o[0] + kFrames) % kFrames, false);
+        out += '<g class="sg-onion ' + o[1] + '">' + dollGroup(og, null) + "</g>";
+      });
+    }
+    const layerSvg = (z) => {
+      st.layers.forEach((L) => {
+        if (L.z !== z) return;
+        const id = "L:" + L.id;
+        out += thingSvg(id, g.things[id], Fx.attr([id], g.things[id].bbox));
+      });
+    };
+    layerSvg("back");
+    const d = In.drag;
+    if (d && d.ghostIds && d.ghostIds.length) {
+      const gg = build(d.before, f, false);
+      out += '<g class="sg-ghost">';
+      d.ghostIds.forEach((id) => {
+        const is_doll_part = id === "doll" || id.startsWith("p:");
+        if (is_doll_part && gg.things.doll) out += dollGroup(gg, [id]);
+        else if (gg.things[id]) out += thingSvg(id, gg.things[id], "");
+      });
+      out += "</g>";
+    }
+    if (st.hasDoll) out += dollGroup(g, null);
+    layerSvg("front");
+    Fx.puffs = Fx.puffs.filter((p) => {
+      const k = Fx.k(p.t0, "puff");
+      if (k >= 1) return false;
+      const c = center(p.geo.bbox);
+      const sc = (1 - k).toFixed(3);
+      out += '<g opacity="' + sc + '" transform="translate(' + c[0] + " " + c[1] + ") scale(" + sc + ") translate(" + -c[0] + " " + -c[1] + ')">';
+      p.geo.parts.forEach((pp) => { out += '<path class="sg-part" d="' + pp.d + '" fill="' + pp.fill + '"/>'; });
+      out += "</g>";
+      return true;
+    });
+    void now;
+    return out;
+  }
+
+  function handleSvg(key, x, y, size, glyph) {
+    const hov = In.hoverH === key;
+    const s = hov ? size * 1.15 : size;
+    let out = "";
+    if (UI.grab) out += '<circle class="grabzone" cx="' + x + '" cy="' + y + '" r="' + kGrab + '"/>';
+    out += '<rect class="h' + (hov ? " is-hover" : "") + '" data-h="' + key + '" x="' + (x - s / 2) + '" y="' + (y - s / 2) + '" width="' + s + '" height="' + s + '"/>';
+    return out + (glyph || "");
+  }
+  const glyphTurn = (x, y) => '<path class="glyph" d="M' + (x + 7) + " " + (y - 3) + " a4 4 0 1 1 3 4 M" + (x + 10) + " " + (y + 1) + " l-1 -3 M" + (x + 10) + " " + (y + 1) + ' l3 -1"/>';
+  const glyphBend = (x, y) => '<path class="glyph" d="M' + (x + 6) + " " + (y + 5) + " q5 -1 5 -7 l-2 2 M" + (x + 11) + " " + (y - 2) + ' l2 2"/>';
+
+  function labelSvg(text, x, y) {
+    const w = text.length * 6 + 8;
+    return '<rect class="lblbg" x="' + x + '" y="' + (y - 11) + '" width="' + w + '" height="14"/>' +
+      '<text class="lbl" x="' + (x + 4) + '" y="' + (y) + '">' + text + "</text>";
+  }
+
+  function gridSvg(g, pid, now) {
+    let out = "";
+    const sm = g.sm[pid];
+    const pts = g.dots[pid].map((p) => Af.ap(sm, p));
+    const lines = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8]];
+    lines.forEach((l) => {
+      out += '<polyline class="gridline" points="' + l.map((i) => pts[i][0].toFixed(1) + "," + pts[i][1].toFixed(1)).join(" ") + '"/>';
+    });
+    const box = kPieces[pid].grid;
+    const breathe = K.motion.mode === "full" ? 1 + 0.14 * Math.sin(now / 520) : 1;
+    st.grids[pid].forEach((d, i) => {
+      const p = pts[i];
+      const key = "dot|" + pid + "|" + i;
+      const hov = In.hoverH === key;
+      if (d.mode === "drag") {
+        out += '<circle class="ring" cx="' + p[0] + '" cy="' + p[1] + '" r="7"/>';
+        const l = Phys.live[pid + ":" + i];
+        const lag = l ? Math.hypot(l.lagW[0], l.lagW[1]) : 0;
+        if (l && lag > 0.25) {
+          const len = clamp(lag * View.z * 1.3, 4, 18);
+          const ux = l.lagW[0] / lag;
+          const uy = l.lagW[1] / lag;
+          out += '<line class="tail" x1="' + (p[0] + ux * 7) + '" y1="' + (p[1] + uy * 7) + '" x2="' + (p[0] + ux * (7 + len)) + '" y2="' + (p[1] + uy * (7 + len)) + '"/>';
+        }
+      }
+      const is_anim = d.mode === "wave" || d.mode === "pulse";
+      if (is_anim) {
+        const s = 12 * breathe;
+        out += '<rect class="sq" x="' + (p[0] - s / 2) + '" y="' + (p[1] - s / 2) + '" width="' + s + '" height="' + s + '"/>';
+      }
+      const picked = Pick.dot && Pick.dot.pid === pid && Pick.dot.i === i;
+      if (picked) {
+        const ax = Af.lin(sm, [1, 0]);
+        const ay = Af.lin(sm, [0, 1]);
+        const rx = d.reach * (box[2] - box[0]) / 2 * Math.hypot(ax[0], ax[1]);
+        const ry = d.reach * (box[3] - box[1]) / 2 * Math.hypot(ay[0], ay[1]);
+        const a = deg(Math.atan2(ax[1], ax[0]));
+        out += '<ellipse class="reach" cx="' + p[0] + '" cy="' + p[1] + '" rx="' + rx + '" ry="' + ry + '" transform="rotate(' + a + " " + p[0] + " " + p[1] + ')"/>';
+        out += '<circle class="dotpick" cx="' + p[0] + '" cy="' + p[1] + '" r="6"/>';
+        out += labelSvg("reach " + d.reach.toFixed(1), p[0] + 10, p[1] - ry - 4);
+      }
+      if (UI.grab) out += '<circle class="grabzone" cx="' + p[0] + '" cy="' + p[1] + '" r="' + kGrab + '"/>';
+      out += '<circle class="h' + (hov ? " is-hover" : "") + '" data-h="' + key + '" cx="' + p[0] + '" cy="' + p[1] + '" r="' + (hov ? 3.5 : 3) + '"/>';
+    });
+    return out;
+  }
+
+  function barsSvg(g, now) {
+    const d = In.drag;
+    const frozen = d && (d.mode === "lean" || d.mode === "swivel");
+    const b = frozen ? d.barBox : g.things.doll.bbox;
+    const k = easeOut(Fx.k(Pick.at.doll || 0, "pop"));
+    const cy = (b[1] + b[3]) / 2;
+    const cx = (b[0] + b[2]) / 2;
+    const lx = b[2] + 18 + 12 * (1 - k);
+    const sy = b[3] + 16 + 12 * (1 - k);
+    const op = k.toFixed(2);
+    const hl = In.hoverH === "bar|lean" || (d && d.mode === "lean");
+    const hs = In.hoverH === "bar|swivel" || (d && d.mode === "swivel");
+    let out = '<g opacity="' + op + '">';
+    out += '<rect class="bar' + (hl ? " is-hover" : "") + '" x="' + (lx - 3) + '" y="' + (cy - 34) + '" width="6" height="68"/>';
+    out += '<line class="bartick" x1="' + (lx - 6) + '" x2="' + (lx + 6) + '" y1="' + (cy - st.doll.lean * 0.9) + '" y2="' + (cy - st.doll.lean * 0.9) + '"/>';
+    out += '<path class="glyph" d="M' + (lx + 9) + " " + (cy - 6) + " l3 -4 l3 4 M" + (lx + 9) + " " + (cy + 6) + ' l3 4 l3 -4"/>';
+    out += '<rect class="bar' + (hs ? " is-hover" : "") + '" x="' + (cx - 40) + '" y="' + (sy - 3) + '" width="80" height="6"/>';
+    out += '<line class="bartick" x1="' + (cx + st.doll.swivel * 0.5) + '" x2="' + (cx + st.doll.swivel * 0.5) + '" y1="' + (sy - 6) + '" y2="' + (sy + 6) + '"/>';
+    out += '<path class="glyph" d="M' + (cx - 48) + " " + (sy + 7) + " l-4 3 l4 3 M" + (cx + 48) + " " + (sy + 7) + ' l4 3 l-4 3"/>';
+    out += "</g>";
+    out += '<rect data-bar="lean" fill="transparent" pointer-events="all" style="cursor:ns-resize" x="' + (lx - 12) + '" y="' + (cy - 42) + '" width="24" height="84"/>';
+    out += '<rect data-bar="swivel" fill="transparent" pointer-events="all" style="cursor:ew-resize" x="' + (cx - 48) + '" y="' + (sy - 12) + '" width="96" height="24"/>';
+    void now;
+    return out;
+  }
+
+  function ropeSvg(g, now) {
+    let out = "";
+    const followers = [];
+    if (st.hasDoll && st.doll.link) followers.push(["doll", st.doll.link]);
+    st.layers.forEach((L) => { if (L.link) followers.push(["L:" + L.id, L.link]); });
+    followers.forEach((f) => {
+      const id = f[0];
+      const link = f[1];
+      const made = Fx.ropes[id];
+      const fresh = made !== undefined && now - made < 1200;
+      const show = Pick.has(id) || fresh;
+      const th = g.things[id];
+      const has_leader = link.to.startsWith("L:") ? Boolean(g.things[link.to]) : Boolean(g.things.doll);
+      if (!show || !th || !has_leader) return;
+      const a = center(th.bbox);
+      const lp = link.to === "doll" ? Af.ap(g.sm.doll, [0, 0]) : (link.to.startsWith("p:") ? Af.ap(g.sm[link.to.slice(2)], [0, 0]) : center(g.things[link.to].bbox));
+      const len = Math.hypot(lp[0] - a[0], lp[1] - a[1]);
+      const k = made !== undefined ? easeOut(Fx.k(made, "move")) : 1;
+      const mx = (a[0] + lp[0]) / 2;
+      const my = Math.max(a[1], lp[1]) + 24;
+      out += '<path class="rope" d="M' + a[0] + " " + a[1] + " Q" + mx + " " + my + " " + lp[0] + " " + lp[1] + '" stroke-dasharray="' + (len * 1.3) + '" stroke-dashoffset="' + (len * 1.3 * (1 - k)) + '"/>';
+      out += '<circle class="ropeend" cx="' + a[0] + '" cy="' + a[1] + '" r="3"/>';
+      if (k >= 1) out += '<circle class="ropeend" cx="' + lp[0] + '" cy="' + lp[1] + '" r="3"/>';
+    });
+    return out;
+  }
+
+  function pickTools(g, id) {
+    let out = "";
+    const is_piece = id.startsWith("p:");
+    const is_layer = id.startsWith("L:");
+    if (!is_piece && !is_layer) return out;
+    const sm = g.sm[is_piece ? id.slice(2) : id];
+    if (!sm) return out;
+    const pv = Af.ap(sm, [0, 0]);
+    const L = is_layer ? layerOf(st, id.slice(2)) : null;
+    const tl = is_piece ? kPieces[id.slice(2)].turn : kLayerTurn[L.kind];
+    const tp = Af.ap(sm, tl);
+    out += '<line class="stem" x1="' + pv[0] + '" y1="' + pv[1] + '" x2="' + tp[0] + '" y2="' + tp[1] + '"/>';
+    out += '<circle class="pivot" cx="' + pv[0] + '" cy="' + pv[1] + '" r="3.5"/>';
+    out += handleSvg("turn|" + id, tp[0], tp[1], 8, glyphTurn(tp[0], tp[1]));
+    return out;
+  }
+
+  function overlaySvg(g, now) {
+    let out = "";
+    if (!st.hasShot) return out;
+    const d = In.drag;
+    Fx.guides.forEach((gd) => {
+      const fl = now - Fx.guideAt < Math.max(100, K.ms("flash")) ? " flash" : "";
+      out += gd.x !== undefined
+        ? '<line class="guide' + fl + '" x1="' + gd.x + '" x2="' + gd.x + '" y1="0" y2="' + View.h + '"/>'
+        : '<line class="guide' + fl + '" y1="' + gd.y + '" y2="' + gd.y + '" x1="0" x2="' + View.w + '"/>';
+    });
+    out += ropeSvg(g, now);
+    const hov = d && d.mode === "box" ? Array.from(In.boxHover) : (In.hover && !d ? [In.hover] : []);
+    hov.forEach((id) => {
+      const th = g.things[id];
+      if (th && !Pick.has(id)) out += outlineSvg(th, "o-hover", 0);
+    });
+    Object.keys(Pick.gone).forEach((id) => {
+      const k = Fx.k(Pick.gone[id], "hover");
+      const th = g.things[id];
+      if (k >= 1 || !th) { delete Pick.gone[id]; return; }
+      out += outlineSvg(th, "o-pick", 2, 1 - k);
+    });
+    Pick.ids.forEach((id) => {
+      const th = g.things[id];
+      if (!th) return;
+      const k = Fx.k(Pick.at[id] || 0, "pop");
+      const w = 2 + 3 * (1 - easeOut(k));
+      out += outlineSvg(th, "o-pick", w);
+    });
+    Pick.ids.forEach((id) => { out += pickTools(g, id); });
+    const doll_whole = Pick.has("doll");
+    kGridIds.forEach((pid) => {
+      const show = Pick.has("p:" + pid) && !doll_whole && g.dots[pid];
+      if (show) out += gridSvg(g, pid, now);
+    });
+    const ik = st.hasDoll && Pick.dollFocused();
+    if (ik) {
+      Object.keys(kChains).forEach((cid) => {
+        const ch = kChains[cid];
+        const last = ch.bones[ch.bones.length - 1];
+        const p = Af.ap(g.sm[last], ch.tip);
+        out += handleSvg("ik|" + cid, p[0], p[1], 7, glyphBend(p[0], p[1]));
+      });
+    }
+    if (doll_whole && g.things.doll) out += barsSvg(g, now);
+    const is_box = d && d.mode === "box";
+    if (is_box) {
+      const x = Math.min(d.lx0, d.lx);
+      const y = Math.min(d.ly0, d.ly);
+      out += '<rect class="box" x="' + x + '" y="' + y + '" width="' + Math.abs(d.lx - d.lx0) + '" height="' + Math.abs(d.ly - d.ly0) + '"/>';
+    }
+    return out;
+  }
+
+  function draw(now) {
+    const g = build(st, Clock.frame(), true);
+    Geo.last = g;
+    world.innerHTML = worldSvg(g, now);
+    ovl.innerHTML = overlaySvg(g, now);
+  }
+
+  /* ---------- Input ---------- */
+  const In = { hover: null, hoverH: null, drag: null, space: false, spaceUsed: false, pan: null,
+    boxHover: new Set(), last: { t: 0, key: "" }, mx: 0, my: 0 };
+
+  function localXY(cx, cy) {
+    const r = svg.getBoundingClientRect();
+    return [cx - r.left, cy - r.top];
+  }
+  function classify(cx, cy) {
+    const none = { kind: "empty" };
+    if (!st.hasShot) return none;
+    const h = K.nearest(ovl, "[data-h]", cx, cy, kGrab);
+    if (h) return { kind: "h", key: h.dataset.h };
+    const el = document.elementFromPoint(cx, cy);
+    const bar = el && el.closest ? el.closest("[data-bar]") : null;
+    if (bar && svg.contains(bar)) return { kind: "h", key: "bar|" + bar.dataset.bar };
+    const th = el && el.closest ? el.closest("[data-id]") : null;
+    const in_world = th && world.contains(th) && !th.closest(".sg-ghost") && !th.closest(".sg-onion");
+    if (in_world) return { kind: "thing", id: th.dataset.id };
+    return none;
+  }
+  /* What a click on this thing grabs: a piece, or the whole doll if already picked whole. */
+  const grabId = (id) => (id.startsWith("p:") && Pick.has("doll") ? "doll" : id);
+
+  const kHints = {
+    turn: ["grab", "Turn handle: drag turns around the pivot. Shift snaps to 15 deg."],
+    dot: ["move", "Warp dot: drag pulls the grid, click picks it, right click changes its mode."],
+    ik: ["crosshair", "Bend: drag the hand or foot, the chain follows."],
+    bar: ["", "Lean bar: drag up or down. Swivel bar: drag sideways."]
+  };
+  function hoverAt(cx, cy) {
+    const c = classify(cx, cy);
+    const hh = c.kind === "h" ? c.key : null;
+    const ht = c.kind === "thing" ? grabId(c.id) : null;
+    In.hoverH = hh;
+    In.hover = ht;
+    let cursor = "default";
+    if (hh) {
+      const kind = hh.split("|")[0];
+      const sub_kind = hh.split("|")[1];
+      cursor = kind === "bar" ? (sub_kind === "lean" ? "ns-resize" : "ew-resize") : kHints[kind][0];
+      $("stageHint").textContent = kHints[kind][1];
+    } else if (ht) {
+      cursor = "move";
+      $("stageHint").textContent = nameOf(ht) + ": click picks, drag moves, Ctrl+drag scales, wheel turns, right click links.";
+    } else {
+      $("stageHint").textContent = "Empty: drag to box select, click to clear, double click adds a sticker.";
+    }
+    if (In.space) cursor = "grab";
+    svg.style.cursor = cursor;
+  }
+
+  svg.addEventListener("pointermove", (e) => {
+    In.mx = e.clientX;
+    In.my = e.clientY;
+    if (In.drag || In.pan) return;
+    hoverAt(e.clientX, e.clientY);
+  });
+  svg.addEventListener("pointerleave", () => {
+    if (In.drag || In.pan) return;
+    In.hover = null;
+    In.hoverH = null;
+  });
+
+  /* Pan with Space+drag or the middle button. */
+  svg.addEventListener("pointerdown", (e) => {
+    const is_pan = e.button === 1 || (e.button === 0 && In.space);
+    if (!is_pan) return;
+    e.preventDefault();
+    In.spaceUsed = true;
+    In.pan = { x: e.clientX, y: e.clientY, px: View.px, py: View.py };
+    View.fit = false;
+    UI.zoomText();
+    svg.style.cursor = "grabbing";
+    try { svg.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    const move = (ev) => {
+      View.tw = null;
+      View.px = In.pan.px + ev.clientX - In.pan.x;
+      View.py = In.pan.py + ev.clientY - In.pan.y;
+    };
+    const up = () => {
+      In.pan = null;
+      svg.style.cursor = In.space ? "grab" : "default";
+      svg.removeEventListener("pointermove", move);
+      svg.removeEventListener("pointerup", up);
+      svg.removeEventListener("pointercancel", up);
+    };
+    svg.addEventListener("pointermove", move);
+    svg.addEventListener("pointerup", up);
+    svg.addEventListener("pointercancel", up);
+  });
+  svg.addEventListener("auxclick", (e) => { if (e.button === 1) e.preventDefault(); });
+
+  function pressPick(s) {
+    const c = s.c;
+    if (c.kind !== "thing") return;
+    const id = grabId(c.id);
+    s.id = id;
+    s.wasPicked = Pick.has(id);
+    if (s.ctrl0 || s.shift0) { Pick.add(id); return; }
+    if (!s.wasPicked) Pick.set([id]);
+  }
+
+  K.drag(svg, {
+    filter: () => !In.space && !In.pan,
+    onDown(s) {
+      stageBox.focus({ preventScroll: true });
+      Anim.finish();
+      Hist.flush();
+      const e = s.event;
+      s.shift0 = e.shiftKey;
+      s.ctrl0 = e.ctrlKey || e.metaKey;
+      s.c = classify(s.x0, s.y0);
+      s.before = clone(st);
+      s.g0 = Geo.last;
+      const l = localXY(s.x0, s.y0);
+      s.lx0 = l[0];
+      s.ly0 = l[1];
+      pressPick(s);
+    },
+    onStart(s) {
+      const c = s.c;
+      s.ghostIds = [];
+      if (c.kind === "thing") {
+        s.mode = s.ctrl0 ? "scale" : "move";
+        s.ids = movers(Pick.list());
+        s.ghostIds = s.ids.slice();
+        if (s.mode === "move") prepSnap(s);
+      } else if (c.kind === "h") {
+        const parts = c.key.split("|");
+        s.mode = { turn: "turn", dot: "warp", ik: "bend", bar: parts[1] }[parts[0]];
+        if (s.mode === "turn") { s.id = parts[1]; s.ghostIds = [s.id]; }
+        if (s.mode === "warp") { s.pid = parts[1]; s.i = Number(parts[2]); s.ghostIds = ["p:" + s.pid]; }
+        if (s.mode === "bend") { s.chain = parts[1]; s.ghostIds = kChains[s.chain].bones.map((b) => "p:" + b); }
+        if (s.mode === "lean" || s.mode === "swivel") { s.barBox = s.g0.things.doll.bbox.slice(); s.ghostIds = ["doll"]; }
+      } else {
+        s.mode = "box";
+        s.boxMode = s.shift0 ? "add" : (s.ctrl0 ? "remove" : "replace");
+      }
+      s.lx = s.lx0;
+      s.ly = s.ly0;
+      In.drag = s;
+      In.hover = null;
+    },
+    onMove(s) {
+      const l = localXY(s.x, s.y);
+      s.lx = l[0];
+      s.ly = l[1];
+      const n = clone(s.before);
+      const text = Edit[s.mode](s, n);
+      if (s.mode !== "box") st = n;
+      s.chipText = text;
+    },
+    onEnd(s) {
+      In.drag = null;
+      Fx.guides = [];
+      const names = {
+        move: "Move " + namesOf(s.ids || []), scale: "Scale " + namesOf(s.ids || []),
+        turn: "Turn " + (s.id ? nameOf(s.id) : ""), warp: "Warp " + (s.pid ? kPieces[s.pid].name : ""),
+        bend: "Bend " + (s.chain ? kChains[s.chain].name : ""), lean: "Lean Teto", swivel: "Swivel Teto"
+      };
+      if (s.mode === "box") { endBox(s); return; }
+      const done = Hist.commit(names[s.mode], s.before, s.ghostIds);
+      if (done) Status.say(names[s.mode] + ". Ctrl+Z undoes it.");
+      const settle = s.snapped && s.mode === "move";
+      if (settle) {
+        const len = Math.hypot(s.mx, s.my) || 1;
+        Fx.bounce = { ids: s.ids.slice(), dir: [s.mx / len, s.my / len], t0: performance.now() };
+      }
+    },
+    onCancel(s) {
+      In.drag = null;
+      Fx.guides = [];
+      In.boxHover.clear();
+      if (s.mode !== "box") Anim.to(s.before, [], 150);
+      Status.say("Cancelled. Back where it started.");
+    },
+    onClick(s) { clickAt(s); },
+    chip(s) { return s.chipText || ""; }
+  });
+
+  function clickAt(s) {
+    const c = s.c;
+    const now = performance.now();
+    const key = c.kind === "thing" ? "t:" + c.id : c.kind;
+    const is_dbl = In.last.key === key && now - In.last.t < kDblMs;
+    In.last = { t: is_dbl ? 0 : now, key: key };
+    if (c.kind === "thing") {
+      const id = s.id;
+      if (is_dbl) { dblThing(c.id); return; }
+      const ctrl_out = s.ctrl0 && s.wasPicked;
+      if (ctrl_out) { Pick.drop(id); Status.say(nameOf(id) + " dropped from the pick."); return; }
+      if (!s.ctrl0 && !s.shift0) Pick.set([id]);
+      Status.say(nameOf(id) + " picked. " + (Pick.ids.size > 1 ? Pick.ids.size + " picked." : ""));
+      return;
+    }
+    if (c.kind === "h") {
+      const parts = c.key.split("|");
+      if (parts[0] === "dot") {
+        const same = Pick.dot && Pick.dot.pid === parts[1] && Pick.dot.i === Number(parts[2]);
+        Pick.dot = same ? null : { pid: parts[1], i: Number(parts[2]) };
+        Status.say(same ? "Dot dropped." : "Dot picked: wheel sets its reach, D toggles drags behind.");
+        UI.refresh();
+      }
+      return;
+    }
+    if (is_dbl && st.hasShot) { addSticker(s.lx0, s.ly0); return; }
+    if (Pick.ids.size) Status.say("Pick cleared.");
+    Pick.clear();
+  }
+  function dblThing(id) {
+    const is_piece = id.startsWith("p:");
+    const whole = is_piece ? "doll" : id;
+    Pick.set([whole]);
+    Pick.repop(whole);
+    Status.say(nameOf(whole) + " picked whole." + (whole === "doll" ? " Lean and swivel bars are out." : ""));
+  }
+
+  /* ---------- Edits during a drag. Each returns the chip text. ---------- */
+  function parentMat(g, id) {
+    const def = kPieces[id];
+    return def.parent ? g.mats[def.parent] : g.mats.doll;
+  }
+  function moveThing(n, g, id, wd) {
+    if (id === "doll") { n.doll.x += wd[0]; n.doll.y += wd[1]; return; }
+    if (id.startsWith("p:")) {
+      const pid = id.slice(2);
+      const lv = Af.lin(Af.inv(parentMat(g, pid)), wd);
+      n.pieces[pid].off[0] += lv[0];
+      n.pieces[pid].off[1] += lv[1];
+      return;
+    }
+    const L = layerOf(n, id.slice(2));
+    if (L) { L.x += wd[0]; L.y += wd[1]; }
+  }
+  function scaleThing(n, id, f) {
+    if (id === "doll") { n.doll.scale = clamp(n.doll.scale * f, 0.2, 5); return n.doll.scale; }
+    if (id.startsWith("p:")) { const p = n.pieces[id.slice(2)]; p.scale = clamp(p.scale * f, 0.2, 5); return p.scale; }
+    const L = layerOf(n, id.slice(2));
+    if (L) L.scale = clamp(L.scale * f, 0.2, 5);
+    return L ? L.scale : 1;
+  }
+  function turnThing(n, id, d) {
+    if (id === "doll") { n.doll.rot += d; return n.doll.rot; }
+    if (id.startsWith("p:")) { n.pieces[id.slice(2)].rot += d; return n.pieces[id.slice(2)].rot; }
+    const L = layerOf(n, id.slice(2));
+    if (L) L.rot += d;
+    return L ? L.rot : 0;
+  }
+  function rotOf(s, id) {
+    if (id === "doll") return s.doll.rot;
+    if (id.startsWith("p:")) return s.pieces[id.slice(2)].rot;
+    const L = layerOf(s, id.slice(2));
+    return L ? L.rot : 0;
+  }
+
+  function prepSnap(s) {
+    const g = s.g0;
+    const moving = s.ids;
+    const boxes = moving.map((id) => g.things[id]).filter(Boolean).map((t) => t.bbox);
+    s.snapBox = boxes.length ? bboxOf(boxes.reduce((a, b) => a.concat([[b[0], b[1]], [b[2], b[3]]]), [])) : null;
+    const tx = [];
+    const ty = [];
+    const addBox = (b) => {
+      tx.push(b[0], (b[0] + b[2]) / 2, b[2]);
+      ty.push(b[1], (b[1] + b[3]) / 2, b[3]);
+    };
+    addBox(frameBox());
+    const moving_doll = moving.some((id) => id === "doll" || id.startsWith("p:"));
+    if (g.things.doll && !moving_doll) addBox(g.things.doll.bbox);
+    st.layers.forEach((L) => {
+      const id = "L:" + L.id;
+      if (moving.indexOf(id) < 0 && g.things[id]) addBox(g.things[id].bbox);
+    });
+    s.tx = tx;
+    s.ty = ty;
+    s.snx = K.snapper();
+    s.sny = K.snapper();
+  }
+  function snapAxis(sn, edges, targets) {
+    let best = null;
+    edges.forEach((e) => {
+      targets.forEach((t) => {
+        const d = Math.abs(t - e);
+        const closer = d <= K.consts.snapCatch && (!best || d < best.d);
+        if (closer) best = { d: d, e: e, t: t };
+      });
+    });
+    const r = sn.test(best ? best.e : 0, best ? [best.t] : []);
+    if (r.entered) Fx.guideAt = performance.now();
+    return r.hit ? { shift: best.t - best.e, at: best.t } : null;
+  }
+
+  const Edit = {
+    move(s, n) {
+      let dx = s.dx;
+      let dy = s.dy;
+      if (s.shift) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
+      Fx.guides = [];
+      s.snapped = false;
+      const can_snap = UI.snap && !s.alt && s.snapBox;
+      if (can_snap) {
+        const b = s.snapBox;
+        const ex = [b[0] + dx, (b[0] + b[2]) / 2 + dx, b[2] + dx];
+        const ey = [b[1] + dy, (b[1] + b[3]) / 2 + dy, b[3] + dy];
+        const hx = s.shift && dx === 0 ? null : snapAxis(s.snx, ex, s.tx);
+        const hy = s.shift && dy === 0 ? null : snapAxis(s.sny, ey, s.ty);
+        if (hx) { dx += hx.shift; Fx.guides.push({ x: hx.at }); s.snapped = true; }
+        if (hy) { dy += hy.shift; Fx.guides.push({ y: hy.at }); s.snapped = true; }
+      }
+      const wd = [dx / View.z, dy / View.z];
+      s.ids.forEach((id) => moveThing(n, s.g0, id, wd));
+      return sign(wd[0]) + ", " + sign(wd[1]) + " px" + (s.shift ? " (locked)" : "");
+    },
+    scale(s, n) {
+      const f = clamp(Math.exp((s.dx - s.dy) / 160), 0.2, 5);
+      s.ids.forEach((id) => scaleThing(n, id, f));
+      return "x " + f.toFixed(2);
+    },
+    turn(s, n) {
+      const sm = s.id.startsWith("p:") ? s.g0.sm[s.id.slice(2)] : s.g0.sm[s.id];
+      const pv = Af.ap(sm, [0, 0]);
+      const a0 = deg(Math.atan2(s.ly0 - pv[1], s.lx0 - pv[0]));
+      const a1 = deg(Math.atan2(s.ly - pv[1], s.lx - pv[0]));
+      const from = rotOf(s.before, s.id);
+      let to = from + wrap(a1 - a0);
+      if (s.shift) to = Math.round(to / 15) * 15;
+      turnThing(n, s.id, to - from);
+      s.snapped = Boolean(s.shift);
+      return Math.round(to) + " deg";
+    },
+    warp(s, n) {
+      const sm = s.g0.sm[s.pid];
+      const lv = Af.lin(Af.inv(sm), [s.dx, s.dy]);
+      const dots = n.grids[s.pid];
+      const w = warpWeights(s.pid, s.i, dots[s.i].reach);
+      dots.forEach((d, j) => { d.dx += lv[0] * w[j]; d.dy += lv[1] * w[j]; });
+      return Math.round(lv[0]) + ", " + Math.round(lv[1]) + " px";
+    },
+    bend(s, n) {
+      const ch = kChains[s.chain];
+      const sm = s.g0.sm;
+      const T = [s.lx, s.ly];
+      if (ch.bones.length === 1) {
+        const b = ch.bones[0];
+        const R = Af.ap(sm[b], [0, 0]);
+        const tip = Af.ap(sm[b], ch.tip);
+        const d = wrap(deg(Math.atan2(T[1] - R[1], T[0] - R[0]) - Math.atan2(tip[1] - R[1], tip[0] - R[0])));
+        n.pieces[b].rot = s.before.pieces[b].rot + d;
+        return "turn " + Math.round(n.pieces[b].rot) + " deg";
+      }
+      const b1 = ch.bones[0];
+      const b2 = ch.bones[1];
+      const R = Af.ap(sm[b1], [0, 0]);
+      const E = Af.ap(sm[b2], [0, 0]);
+      const H = Af.ap(sm[b2], ch.tip);
+      const L1 = Math.hypot(E[0] - R[0], E[1] - R[1]);
+      const L2 = Math.hypot(H[0] - E[0], H[1] - E[1]);
+      const dist = clamp(Math.hypot(T[0] - R[0], T[1] - R[1]), Math.abs(L1 - L2) + 0.5, L1 + L2 - 0.5);
+      const aim = Math.atan2(T[1] - R[1], T[0] - R[0]);
+      const A = Math.acos(clamp((L1 * L1 + dist * dist - L2 * L2) / (2 * L1 * dist), -1, 1));
+      const u0 = Math.atan2(E[1] - R[1], E[0] - R[0]);
+      const c1 = aim + A;
+      const c2 = aim - A;
+      const near1 = Math.abs(wrap(deg(c1 - u0))) <= Math.abs(wrap(deg(c2 - u0)));
+      const up = near1 ? c1 : c2;
+      const E2 = [R[0] + L1 * Math.cos(up), R[1] + L1 * Math.sin(up)];
+      const T2 = [R[0] + dist * Math.cos(aim), R[1] + dist * Math.sin(aim)];
+      const fore = Math.atan2(T2[1] - E2[1], T2[0] - E2[0]);
+      const f0 = Math.atan2(H[1] - E[1], H[0] - E[0]);
+      const du = wrap(deg(up - u0));
+      const df = wrap(deg(fore - f0));
+      n.pieces[b1].rot = s.before.pieces[b1].rot + du;
+      n.pieces[b2].rot = s.before.pieces[b2].rot + df - du;
+      return "bend " + Math.abs(Math.round(wrap(deg(fore - up)))) + " deg";
+    },
+    lean(s, n) {
+      n.doll.lean = clamp(s.before.doll.lean - s.dy * 0.3, -35, 35);
+      return "lean " + Math.round(n.doll.lean) + " deg";
+    },
+    swivel(s, n) {
+      n.doll.swivel = clamp(s.before.doll.swivel + s.dx * 0.6, -75, 75);
+      return "swivel " + Math.round(n.doll.swivel) + " deg";
+    },
+    box(s) {
+      const b = [Math.min(s.lx0, s.lx), Math.min(s.ly0, s.ly), Math.max(s.lx0, s.lx), Math.max(s.ly0, s.ly)];
+      In.boxHover = new Set(boxHits(b));
+      const nb = In.boxHover.size;
+      if (s.boxMode === "add") return "+" + nb;
+      if (s.boxMode === "remove") return "-" + nb;
+      return nb + " picked";
+    }
+  };
+  function boxHits(b) {
+    const g = Geo.last;
+    const hits = [];
+    const overlaps = (t) => t.bbox[0] < b[2] && t.bbox[2] > b[0] && t.bbox[1] < b[3] && t.bbox[3] > b[1];
+    if (g.things.doll) kTabOrder.forEach((pid) => { if (overlaps(g.things["p:" + pid])) hits.push("p:" + pid); });
+    st.layers.forEach((L) => { if (overlaps(g.things["L:" + L.id])) hits.push("L:" + L.id); });
+    return hits;
+  }
+  function endBox(s) {
+    const hits = Array.from(In.boxHover);
+    In.boxHover.clear();
+    if (s.boxMode === "add") hits.forEach((id) => Pick.add(id));
+    else if (s.boxMode === "remove") hits.forEach((id) => Pick.drop(id));
+    else Pick.set(hits);
+    Status.say(Pick.ids.size + " picked.");
+  }
+
+  /* ---------- Wheel: turn, reach, zoom ---------- */
+  svg.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    if (!st.hasShot) return;
+    const raw = e.deltaY || e.deltaX;
+    if (!raw) return;
+    const dir = raw < 0 ? -1 : 1;
+    const l = localXY(e.clientX, e.clientY);
+    const zooming = e.ctrlKey || e.metaKey;
+    if (zooming) { View.zoomAt(Math.exp(-raw * 0.0015), l[0], l[1]); return; }
+    Anim.finish();
+    const dot = Pick.dot;
+    if (dot) {
+      const name = "Reach " + kPieces[dot.pid].name + " dot";
+      Hist.bump(name, ["p:" + dot.pid], () => {
+        const d = st.grids[dot.pid][dot.i];
+        const step = e.shiftKey ? 0.02 : 0.1;
+        d.reach = Math.round(clamp(d.reach - dir * step, 0.5, 4) * 100) / 100;
+        Note.hold("reach " + d.reach.toFixed(2), e.clientX, e.clientY, false);
+      });
+      return;
+    }
+    const ids = movers(Pick.list());
+    if (!ids.length) { Note.at("Click a piece first, then turn it.", e.clientX, e.clientY); return; }
+    const step = (e.shiftKey ? 1 : 5) * dir;
+    const name = "Turn " + namesOf(ids);
+    Hist.bump(name, ids, () => {
+      ids.forEach((id) => turnThing(st, id, step));
+      const total = rotOf(st, ids[0]) - rotOf(Hist.burst.before, ids[0]);
+      Note.hold(sign(total) + " deg" + (e.shiftKey ? " fine" : ""), e.clientX, e.clientY, false);
+    });
+    Status.say(name + ": wheel up turns counterclockwise, Shift is fine.");
+  }, { passive: false });
+
+  /* ---------- Context menu: links and node modes ---------- */
+  function rootOf(id) { return id.startsWith("p:") ? "doll" : id; }
+  function followsAny(leaderRoot, followers) {
+    const link = leaderRoot === "doll" ? st.doll.link : (layerOf(st, leaderRoot.slice(2)) || {}).link;
+    return Boolean(link && followers.indexOf(rootOf(link.to)) >= 0);
+  }
+  function linkWhy(followers, leader) {
+    if (!followers.length) return "Pick the things that should follow first, then right click the leader.";
+    const has_piece = followers.some((f) => f.startsWith("p:"));
+    if (has_piece) return "Pieces already move with their doll. Pick a whole doll or a layer.";
+    if (followers.indexOf(rootOf(leader)) >= 0) return "A thing cannot follow itself. Pick something else first.";
+    if (followsAny(rootOf(leader), followers)) return "That would make a loop: the leader already follows the pick.";
+    return "";
+  }
+  function linkOf(s, id) {
+    if (id === "doll") return s.doll.link;
+    const L = layerOf(s, id.slice(2));
+    return L ? L.link : null;
+  }
+  function setLink(s, id, link) {
+    if (id === "doll") { s.doll.link = link; return; }
+    const L = layerOf(s, id.slice(2));
+    if (L) L.link = link;
+  }
+  function doLink(followers, leader) {
+    const before = clone(st);
+    const f = Clock.frame();
+    const base_pos = leaderPos(st, f, leader);
+    followers.forEach((id) => {
+      const old = linkDelta(st, f, linkOf(st, id));
+      if (id === "doll") { st.doll.x += old[0]; st.doll.y += old[1]; } else { const L = layerOf(st, id.slice(2)); L.x += old[0]; L.y += old[1]; }
+      setLink(st, id, { to: leader, base: base_pos.slice() });
+      Fx.ropes[id] = performance.now();
+    });
+    const msg = namesOf(followers) + " now follows " + nameOf(leader);
+    Hist.commit("Link " + namesOf(followers), before, followers);
+    K.toast(msg + ". Press Space to see it.", () => Hist.undo());
+    Status.say(msg + ".");
+  }
+  function doUnlink(ids) {
+    const before = clone(st);
+    const f = Clock.frame();
+    ids.forEach((id) => {
+      const d = linkDelta(st, f, linkOf(st, id));
+      if (id === "doll") { st.doll.x += d[0]; st.doll.y += d[1]; } else { const L = layerOf(st, id.slice(2)); L.x += d[0]; L.y += d[1]; }
+      setLink(st, id, null);
+    });
+    Hist.commit("Unlink " + namesOf(ids), before, ids);
+    K.toast(namesOf(ids) + " moves on its own again.", () => Hist.undo());
+  }
+  const linkedPicks = () => Pick.list().filter((id) => !id.startsWith("p:") && linkOf(st, id));
+
+  function setDotMode(pid, i, mode) {
+    const before = clone(st);
+    st.grids[pid][i].mode = mode;
+    const label = { still: "Still", drag: "Drags behind", wave: "Wave", pulse: "Pulse" }[mode];
+    Hist.commit("Dot mode " + label, before, ["p:" + pid]);
+    Status.say(kPieces[pid].name + " dot " + i + ": " + label + ".");
+  }
+
+  svg.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    if (!st.hasShot) return;
+    Hist.flush();
+    const c = classify(e.clientX, e.clientY);
+    const items = [];
+    const tips = {};
+    if (c.kind === "h" && c.key.startsWith("dot|")) {
+      const parts = c.key.split("|");
+      const pid = parts[1];
+      const i = Number(parts[2]);
+      const mode = st.grids[pid][i].mode;
+      items.push({ head: kPieces[pid].name + " dot " + i + " mode" });
+      [["still", "Still"], ["drag", "Drags behind", "D"], ["wave", "Wave"], ["pulse", "Pulse"]].forEach((m) => {
+        items.push({ label: m[1], key: m[2], checked: mode === m[0], run: () => setDotMode(pid, i, m[0]) });
+      });
+      tips["Drags behind"] = "Lags and bounces when the piece moves.";
+      tips.Wave = "Moves up and down by itself, in step with its column.";
+      tips.Pulse = "Moves in and out from the grid centre by itself.";
+    } else if (c.kind === "thing") {
+      const leaderWhole = c.id.startsWith("p:") ? "doll" : c.id;
+      const followers = movers(Pick.list());
+      const lw = "Link movement to " + nameOf(leaderWhole) + (leaderWhole === "doll" ? " (whole)" : "");
+      items.push({ head: nameOf(c.id) });
+      items.push({ label: lw, why: linkWhy(followers, leaderWhole) || undefined, run: () => doLink(followers, leaderWhole) });
+      tips[lw] = "Picked things copy its movement from this frame on.";
+      if (c.id.startsWith("p:")) {
+        const lp = "Link movement to " + nameOf(c.id);
+        items.push({ label: lp, why: linkWhy(followers, c.id) || undefined, run: () => doLink(followers, c.id) });
+        tips[lp] = "Picked things copy this piece's movement from this frame on.";
+      }
+      const linked = linkedPicks();
+      items.push({ label: "Unlink movement", why: linked.length ? undefined : "Nothing picked follows anything.", run: () => doUnlink(linked) });
+      items.push({ sep: true });
+      items.push({ label: "Pick whole " + (c.id.startsWith("p:") ? "doll" : "layer"), key: "Dbl click", run: () => dblThing(c.id) });
+      const deletable = c.id.startsWith("L:");
+      items.push({ label: "Delete", key: "Del", why: deletable ? undefined : "Pieces belong to the doll. Hide them in the Rig tab.", run: () => { Pick.set([c.id]); Actions.delete(); } });
+    } else {
+      const l = localXY(e.clientX, e.clientY);
+      items.push({ head: "Stage" });
+      items.push({ label: "Add sticker here", key: "Dbl click", run: () => addSticker(l[0], l[1]) });
+      items.push({ label: "Select all", key: "Ctrl+A", run: () => Actions.selectAll() });
+      items.push({ label: "Fit shot", key: "Shift+1", run: () => Actions.fit() });
+      items.push({ label: "Unlink movement", why: linkedPicks().length ? undefined : "Nothing picked follows anything.", run: () => doUnlink(linkedPicks()) });
+    }
+    const m = K.contextMenu(e.clientX, e.clientY, items);
+    m.querySelectorAll(".menu-item").forEach((b) => {
+      const t = tips[b.textContent.replace(/(Ctrl\+A|Shift\+1|Dbl click|Del|D)$/, "").trim()];
+      const enabled = b.getAttribute("aria-disabled") !== "true";
+      if (t && enabled) b.dataset.tip = t;
+    });
+  });
+
+  /* ---------- Adding and removing ---------- */
+  function addSticker(lx, ly) {
+    const before = clone(st);
+    const n = st.next;
+    const id = "star" + n;
+    const w = [(lx - View.px) / View.z, (ly - View.py) / View.z];
+    st.layers.push({ id: id, name: "Star " + n, kind: "star", x: w[0], y: w[1], rot: 0, scale: 1, z: "front", link: null });
+    st.next = n + 1;
+    Fx.popId("L:" + id);
+    Fx.ring(lx, ly);
+    Pick.set(["L:" + id]);
+    Hist.commit("Add Star " + n, before, ["L:" + id]);
+    K.toast("Added Star " + n + ".", () => Hist.undo());
+  }
+  function addDoll(lx, ly) {
+    const before = clone(st);
+    const w = [(lx - View.px) / View.z, (ly - View.py) / View.z];
+    st.hasDoll = true;
+    st.doll.x = w[0];
+    st.doll.y = w[1] - 30;
+    Fx.squash = performance.now();
+    Fx.ring(lx, ly);
+    Pick.set(["doll"]);
+    Hist.commit("Add Teto", before, ["doll"]);
+    UI.demo("shot", true);
+    K.toast("Teto is on the stage.", () => Hist.undo(), { kind: "done" });
+  }
+
+  /* ---------- Actions shared by keys, menus and tools ---------- */
+  const Actions = {
+    undo() { Hist.undo(); },
+    redo() { Hist.redo(); },
+    save() { $("dirtyDot").hidden = true; K.toast("Saved teto_song.snap.", null, { kind: "done" }); },
+    selectAll() {
+      if (!st.hasShot) return;
+      const doll = st.hasDoll && (Pick.dollFocused() || !st.layers.length);
+      const ids = doll ? kTabOrder.map((p) => "p:" + p) : st.layers.map((L) => "L:" + L.id);
+      Pick.set(ids);
+      ids.forEach((id) => Pick.repop(id));
+      Status.say(doll ? "Every piece of Teto picked." : "Every layer picked.");
+    },
+    delete() {
+      const layers = Pick.list().filter((id) => id.startsWith("L:"));
+      if (!layers.length) {
+        const why = Pick.ids.size ? "Pieces belong to the doll. Hide them in the Rig tab." : "Pick a layer first.";
+        Note.at(why, In.mx || 200, In.my || 200);
+        return;
+      }
+      const before = clone(st);
+      const g = Geo.last;
+      layers.forEach((id) => { if (g.things[id]) Fx.puff(g.things[id]); });
+      const names = namesOf(layers);
+      st.layers = st.layers.filter((L) => layers.indexOf("L:" + L.id) < 0);
+      st.layers.forEach((L) => { const gone = L.link && layers.indexOf(L.link.to) >= 0; if (gone) L.link = null; });
+      const doll_gone = st.doll.link && layers.indexOf(st.doll.link.to) >= 0;
+      if (doll_gone) st.doll.link = null;
+      Pick.prune();
+      Hist.commit("Delete " + names, before, []);
+      K.toast("Deleted " + names + ".", () => Hist.undo());
+    },
+    fit() { View.fitAll(true); },
+    zoomPick() {
+      const g = Geo.last;
+      const boxes = Pick.list().map((id) => g.things[id]).filter(Boolean).map((t) => t.bbox);
+      if (!boxes.length) { K.shake($("tZoomPick"), "Pick something first."); return; }
+      View.toBox(bboxOf(boxes.reduce((a, b) => a.concat([[b[0], b[1]], [b[2], b[3]]]), [])));
+    },
+    zoomIn() { View.setZoom(clamp(View.z * 1.25, 0.2, 5)); },
+    zoomOut() { View.setZoom(clamp(View.z / 1.25, 0.2, 5)); },
+    onion() { UI.onion = !UI.onion; UI.sync(); },
+    grab() { UI.grab = !UI.grab; UI.sync(); },
+    snap() { UI.snap = !UI.snap; UI.sync(); },
+    play() { Clock.toggle(); },
+    next() { Clock.step(1); },
+    prev() { Clock.step(-1); },
+    first() { Clock.set(0); },
+    last() { Clock.set(kFrames - 1); }
+  };
+
+  /* ---------- Keys ---------- */
+  function nudge(dx, dy, turn) {
+    const ids = movers(Pick.list());
+    if (!ids.length) return false;
+    Anim.finish();
+    const g = Geo.last;
+    const name = (turn ? "Turn " : "Nudge ") + namesOf(ids);
+    Hist.bump(name, ids, () => {
+      if (turn) ids.forEach((id) => turnThing(st, id, turn));
+      else ids.forEach((id) => moveThing(st, g, id, [dx, dy]));
+    });
+    Status.say(name + (turn ? " " + turn + " deg." : " " + dx + ", " + dy + " px."));
+    return true;
+  }
+  function stepPieces(dir) {
+    if (!st.hasDoll) return;
+    const cur = Pick.list().find((id) => id.startsWith("p:"));
+    const i = cur ? kTabOrder.indexOf(cur.slice(2)) : -1;
+    const next = kTabOrder[((i + dir) % kTabOrder.length + kTabOrder.length) % kTabOrder.length];
+    Pick.set(["p:" + next]);
+    Status.say(kPieces[next].name + " picked. Tab steps on.");
+  }
+  function keyD() {
+    const dot = Pick.dot;
+    if (!dot) {
+      const r = stageBox.getBoundingClientRect();
+      Note.at("Click a warp dot of a picked piece first.", In.mx || r.left + 40, In.my || r.top + 40);
+      return;
+    }
+    const d = st.grids[dot.pid][dot.i];
+    setDotMode(dot.pid, dot.i, d.mode === "drag" ? "still" : "drag");
+  }
+
+  document.addEventListener("keydown", (e) => {
+    const t = e.target;
+    const typing = t.closest && t.closest("input, textarea, select");
+    if (typing || K.menus.open_menu) return;
+    const mod = e.ctrlKey || e.metaKey;
+    const in_stage = document.activeElement === stageBox;
+    const on_control = t.closest && t.closest("button, .slider, .combo, a, [role=tab]");
+    const k = e.key;
+    if (mod && (k === "z" || k === "Z" || k === "y")) {
+      e.preventDefault();
+      const redo = k === "y" || e.shiftKey;
+      if (redo) Hist.redo(); else Hist.undo();
+      return;
+    }
+    if (mod && (k === "a" || k === "A")) { e.preventDefault(); Actions.selectAll(); return; }
+    if (mod && (k === "s" || k === "S")) { e.preventDefault(); Actions.save(); return; }
+    if (mod) return;
+    if (k === " " && !on_control) {
+      e.preventDefault();
+      if (e.repeat) return;
+      In.space = true;
+      In.spaceUsed = false;
+      svg.style.cursor = "grab";
+      return;
+    }
+    if (k === "Escape") {
+      if (Pick.dot) { Pick.dot = null; Status.say("Dot dropped."); UI.refresh(); return; }
+      if (Pick.ids.size) { Pick.clear(); Status.say("Pick cleared."); }
+      return;
+    }
+    const shift_digit = e.shiftKey && (e.code === "Digit1" || e.code === "Digit2");
+    if (shift_digit) { e.preventDefault(); if (e.code === "Digit1") Actions.fit(); else Actions.zoomPick(); return; }
+    if (on_control && !in_stage) return;
+    const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    if (arrows[k]) {
+      e.preventDefault();
+      const n = e.shiftKey ? 10 : 1;
+      const turn = e.altKey && (k === "ArrowLeft" || k === "ArrowRight") ? arrows[k][0] * (e.shiftKey ? 15 : 1) : 0;
+      const did = in_stage && nudge(arrows[k][0] * n, arrows[k][1] * n, turn);
+      if (!did && arrows[k][1] === 0) Clock.step(arrows[k][0]);
+      return;
+    }
+    if (k === "Home") { e.preventDefault(); Actions.first(); return; }
+    if (k === "End") { e.preventDefault(); Actions.last(); return; }
+    if (k === "Tab" && in_stage && st.hasDoll) { e.preventDefault(); stepPieces(e.shiftKey ? -1 : 1); return; }
+    if (k === "Enter" && in_stage && Pick.has("doll")) { Pick.set(["p:head"]); Status.say("Dived into Teto: Head picked."); return; }
+    if (k === "Delete" || k === "Backspace") { e.preventDefault(); Actions.delete(); return; }
+    const lower = k.toLowerCase();
+    if (lower === "d") { keyD(); return; }
+    if (lower === "o") { Actions.onion(); return; }
+    if (lower === "g") { Actions.grab(); return; }
+  });
+  document.addEventListener("keyup", (e) => {
+    if (e.key !== " ") return;
+    const was = In.space;
+    In.space = false;
+    svg.style.cursor = "default";
+    const tap = was && !In.spaceUsed;
+    if (tap) Clock.toggle();
+  });
+  window.addEventListener("blur", () => { In.space = false; });
+
+  /* ---------- Chrome: tools, menus, combo, demo states ---------- */
+  const UI = {
+    onion: false, grab: false, snap: true,
+    sync() {
+      $("tOnion").setAttribute("aria-pressed", String(this.onion));
+      $("tGrab").setAttribute("aria-pressed", String(this.grab));
+      $("tSnap").setAttribute("aria-pressed", String(this.snap));
+      $("mOnion").setAttribute("aria-checked", String(this.onion));
+      $("mGrab").setAttribute("aria-checked", String(this.grab));
+      $("mSnap").setAttribute("aria-checked", String(this.snap));
+    },
+    refresh() {
+      const layers = Pick.list().some((id) => id.startsWith("L:"));
+      const del_why = Pick.ids.size ? "Pieces belong to the doll. Hide them in the Rig tab." : "Pick a layer first.";
+      [$("tDelete"), $("mDelete")].forEach((b) => {
+        b.setAttribute("aria-disabled", String(!layers));
+        b.dataset.why = layers ? "" : del_why;
+      });
+      const has_pick = Pick.ids.size > 0;
+      [$("tZoomPick"), $("mZoomPick")].forEach((b) => {
+        b.setAttribute("aria-disabled", String(!has_pick));
+        b.dataset.why = has_pick ? "" : "Pick something first.";
+      });
+      this.info();
+    },
+    info() {
+      const z = View.fit ? "Fit" : Math.round(View.z * 100) + "%";
+      $("statusInfo").textContent = "F " + String(Clock.frame()).padStart(3, "0") + " | " + z + " | " + Pick.ids.size + " picked";
+    },
+    zoomText(z) {
+      const zz = z === undefined ? View.z : z;
+      $("zoomText").textContent = View.fit ? "Fit" : Math.round(zz * 100) + "%";
+      this.info();
+    },
+    demo(v, quiet) {
+      document.querySelectorAll("#demoSeg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.value === v)));
+      if (quiet) { this.empty(); return; }
+      if (v === "noshot") { st.hasShot = false; Pick.clear(); }
+      if (v === "nodoll") { st.hasShot = true; st.hasDoll = false; Pick.prune(); }
+      if (v === "shot") {
+        st.hasShot = true;
+        if (!st.hasDoll) { st.hasDoll = true; Fx.squash = performance.now(); }
+      }
+      this.empty();
+    },
+    empty() {
+      $("emptyNoShot").hidden = st.hasShot;
+      $("emptyNoDoll").hidden = !st.hasShot || st.hasDoll;
+      $("stageTag").hidden = !st.hasShot;
+    }
+  };
+
+  document.addEventListener("kit:menu", (e) => {
+    const a = e.target.dataset && e.target.dataset.action;
+    if (a && Actions[a]) Actions[a]();
+  });
+  document.querySelectorAll(".tool[data-action]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const off = b.getAttribute("aria-disabled") === "true";
+      if (!off) Actions[b.dataset.action]();
+    });
+  });
+  $("tOnion").addEventListener("kit:change", (e) => { UI.onion = e.detail.value; UI.sync(); });
+  $("tGrab").addEventListener("kit:change", (e) => { UI.grab = e.detail.value; UI.sync(); });
+  $("tSnap").addEventListener("kit:change", (e) => { UI.snap = e.detail.value; UI.sync(); });
+  $("zoomCombo").addEventListener("kit:change", (e) => {
+    const v = e.detail.value;
+    if (v === "Fit") View.fitAll(true); else View.setZoom(parseFloat(v) / 100);
+  });
+  $("demoSeg").addEventListener("kit:change", (e) => UI.demo(e.detail.value));
+  $("frameSlider").addEventListener("kit:change", (e) => {
+    Clock.t = e.detail.value;
+    Clock.shown = -1;
+    Clock.paint();
+  });
+  document.addEventListener("kit:tab", (e) => {
+    const go = { rig: "rig.html", video: "video.html" }[e.detail.tab];
+    if (go) window.location.href = go;
+  });
+  $("addShotBtn").addEventListener("click", () => { UI.demo(st.hasDoll ? "shot" : "nodoll"); Status.say("Shot added."); });
+  $("addDollBtn").addEventListener("click", () => addDoll(View.w / 2, View.h / 2 + 40));
+
+  /* The Teto chip drags onto the stage like a Cast row. */
+  const chipEl = $("castChip");
+  K.drag(chipEl, {
+    ghost: true,
+    onMove(s) { chipEl.style.translate = s.dx + "px " + s.dy + "px"; },
+    chip(s) {
+      const r = stageBox.getBoundingClientRect();
+      const inside = s.x > r.left && s.x < r.right && s.y > r.top && s.y < r.bottom;
+      return inside ? "Drop to add Teto" : "Drag onto the stage";
+    },
+    onEnd(s) {
+      chipEl.style.translate = "";
+      const l = localXY(s.x, s.y);
+      const inside = l[0] > 0 && l[1] > 0 && l[0] < View.w && l[1] < View.h;
+      if (inside) addDoll(l[0], l[1]);
+      else K.shake(chipEl, "Drop it on the stage.");
+    },
+    onCancel() { chipEl.style.translate = ""; }
+  });
+
+  Hist.stack.bindButtons($("undoBtn"), $("redoBtn"));
+  [$("undoBtn"), $("redoBtn")].forEach((b) => b.addEventListener("click", () => Hist.flush(), true));
+  Hist.stack.onChange((kind, s) => {
+    const mu = $("mUndo").querySelector("span");
+    const mr = $("mRedo").querySelector("span");
+    mu.textContent = s.undoName ? "Undo " + s.undoName : "Undo";
+    mr.textContent = s.redoName ? "Redo " + s.redoName : "Redo";
+    $("mUndo").setAttribute("aria-disabled", String(!s.undoName));
+    $("mUndo").dataset.why = "Nothing to undo yet.";
+    $("mRedo").setAttribute("aria-disabled", String(!s.redoName));
+    $("mRedo").dataset.why = "Nothing to redo.";
+    if (kind === "undo") Status.say("Undid " + (s.redoName || "") + ".");
+    if (kind === "redo") Status.say("Redid " + (s.undoName || "") + ".");
+  });
+
+  /* ---------- Main loop ---------- */
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(64, now - last);
+    last = now;
+    Phys.dt = dt / 16.67;
+    if (Clock.playing) { Clock.t = (Clock.t + dt / 1000 * kFps) % kFrames; Clock.paint(); }
+    Anim.tick(now);
+    View.tick(now);
+    UI.empty();
+    draw(now);
+    window.requestAnimationFrame(loop);
+  }
+
+  function start() {
+    View.resize();
+    window.addEventListener("resize", () => View.resize());
+    Pick.set(["p:head"]);
+    UI.sync();
+    UI.refresh();
+    Clock.paint();
+    window.requestAnimationFrame(loop);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+})();
+</script>
+</body>
+</html>
