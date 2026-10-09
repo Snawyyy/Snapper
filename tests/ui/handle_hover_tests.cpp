@@ -11,7 +11,8 @@ class HandleHoverTests final : public QObject {
 
  private slots:
   void GrowsTheHoveredHandleOnly();
-  void LeavingShrinksAtOnce();
+  void LeavingShrinksAtOnceInOff();
+  void LeavingEasesBackInFull();
   void OffGrowsInstantly();
   void FullEasesToTheGrowth();
 };
@@ -28,7 +29,7 @@ void HandleHoverTests::GrowsTheHoveredHandleOnly() {
   QCOMPARE(hover.ScaleOf(GrabKind::kPivot, "arm"), 1.0);
 }
 
-void HandleHoverTests::LeavingShrinksAtOnce() {
+void HandleHoverTests::LeavingShrinksAtOnceInOff() {
   Bench bench;
   bench.motion.SetMode(MotionMode::kOff);
   QObject owner;
@@ -37,6 +38,19 @@ void HandleHoverTests::LeavingShrinksAtOnce() {
   hover.Set(GrabKind::kNone, QString());
   QCOMPARE(hover.kind(), GrabKind::kNone);
   QCOMPARE(hover.ScaleOf(GrabKind::kPivot, "head"), 1.0);
+}
+
+void HandleHoverTests::LeavingEasesBackInFull() {
+  Bench bench;
+  bench.motion.SetMode(MotionMode::kFull);
+  QObject owner;
+  HandleHover hover(&bench.motion, &owner);
+  hover.Set(GrabKind::kPivot, "head");
+  QTRY_COMPARE(hover.ScaleOf(GrabKind::kPivot, "head"), kHoverGrow);
+  hover.Set(GrabKind::kNone, QString());
+  const double now = hover.ScaleOf(GrabKind::kPivot, "head");
+  QVERIFY(now > 1.0);
+  QTRY_COMPARE(hover.ScaleOf(GrabKind::kPivot, "head"), 1.0);
 }
 
 void HandleHoverTests::OffGrowsInstantly() {

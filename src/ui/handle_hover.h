@@ -14,7 +14,7 @@ class MotionManager;
 
 // Which handle the cursor is over and how far it has grown: 1.0 up to
 // kHoverGrow, eased by the Motion manager's hover curve (instant in
-// Off). One of these serves each canvas that draws handles, so the
+// Off), and shrunk back the same way when the cursor leaves. One of these serves each canvas that draws handles, so the
 // stage, the rig canvas and the timeline grow them the same way.
 class HandleHover final : public QObject {
   Q_OBJECT
@@ -35,11 +35,19 @@ class HandleHover final : public QObject {
   void Changed();
 
  private:
+  // Starts the shrink of the handle being left.
+  void ShrinkLeft();
+
   MotionManager* motion_;
   GrabKind kind_ = GrabKind::kNone;
   QString key_;
   double scale_ = 1.0;
   QPointer<QVariantAnimation> animation_;
+  // The handle just left, shrinking back on the same curve it grew.
+  GrabKind out_kind_ = GrabKind::kNone;
+  QString out_key_;
+  double out_scale_ = 1.0;
+  QPointer<QVariantAnimation> out_animation_;
 };
 
 }  // namespace snapper
