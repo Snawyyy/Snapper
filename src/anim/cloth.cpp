@@ -14,14 +14,19 @@ namespace {
 // without an end.
 constexpr int kTieRounds = 40;
 // Pixels per frame per frame a gravity of 1 pulls down.
-constexpr double kGravityPull = 1.5;
+constexpr double kGravityPull = 8.0;
 // The pull back to the carried place a spring of 1 gives, per frame.
-constexpr double kSpringPull = 0.35;
+constexpr double kSpringPull = 0.6;
 // Rounds of pushing out at the end of a frame, so the pushes of
 // neighbouring cloth settle together.
 constexpr int kSettlePasses = 6;
 // A middle this close to an outline counts as on it, not across it.
 constexpr double kAcrossSlack = 0.1;
+// How far past its drawn length a pin tie lets a node go, as a share of
+// that length at stretch 0 and at stretch 1. A pin is the body, which
+// limits a node, never freezes it: a lone node between pins must swing.
+constexpr double kPinGiveTight = 0.5;
+constexpr double kPinGiveLoose = 1.5;
 // How much of a tie's overshoot one round fixes at stretch 1.
 constexpr double kRubberStiffness = 0.02;
 
@@ -46,6 +51,15 @@ int NodeAt(const ClothPiece& piece, int point) {
   return is_node ? static_cast<int>(found - piece.points.begin()) : -1;
 }
 
+// The farthest node may be from a pin that is rest away when drawn.
+double PinReach(const ClothPiece& piece, int node, double rest) {
+  assert(node >= 0 && static_cast<size_t>(node) < piece.settings.size());
+  assert(rest >= 0.0);
+  const double stretch = piece.settings[static_cast<size_t>(node)].stretch;
+  return rest * (1.0 + kPinGiveTight +
+                 (kPinGiveLoose - kPinGiveTight) * stretch);
+}
+
 // A tie across one grid edge from point to next, if a node is on it.
 void AddTie(const ClothPiece& piece, const std::vector<QPointF>& carried,
             int point, int next, std::vector<Tie>* ties) {
@@ -65,9 +79,10 @@ void AddTie(const ClothPiece& piece, const std::vector<QPointF>& carried,
   if (is_pair) {
     ties->push_back({static_cast<size_t>(a), b, QPointF(), rest});
   } else if (is_start_node) {
-    ties->push_back({static_cast<size_t>(a), -1, to, rest});
+    ties->push_back({static_cast<size_t>(a), -1, to, PinReach(piece, a, rest)});
   } else {
-    ties->push_back({static_cast<size_t>(b), -1, from, rest});
+    ties->push_back(
+        {static_cast<size_t>(b), -1, from, PinReach(piece, b, rest)});
   }
 }
 
@@ -204,7 +219,8 @@ void StepCloth(const std::vector<QPointF>& carried, ClothPiece* piece) {
   for (size_t i = 0; i < count; ++i) {
     const ClothSettings& s = piece->settings[i];
     const QPointF anchor = carried[static_cast<size_t>(piece->points[i])];
-    const double keep = s.inertia * (1.0 - s.air);
+    // Never below half: the default must swing, not creep.
+    const double keep = 0.5 + 0.5 * s.inertia * (1.0 - s.air);
     const QPointF down(0.0, s.gravity * kGravityPull);
     const QPointF back = (anchor - piece->at[i]) * (s.spring * kSpringPull);
     piece->at[i] += piece->speed[i] * keep + down + back;

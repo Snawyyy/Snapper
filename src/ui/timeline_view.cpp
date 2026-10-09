@@ -12,6 +12,7 @@
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "media/audio_clip.h"
+#include "ui/paint_clip.h"
 #include "ui/playhead.h"
 #include "ui/theme.h"
 #include "ui/timeline_layout.h"
@@ -26,7 +27,8 @@ TimelineView::TimelineView(const Managers& managers)
       watcher_(managers.history, this),
       effects_(managers.motion, this),
       settle_(managers.motion, managers.playback->FrameOn(Timeline::kShots),
-              this) {
+              this),
+      drag_playhead_(managers.playback) {
   assert(managers_.IsComplete());
   step_mode_.setObjectName("step_mode");
   step_mode_.setCheckable(true);
@@ -155,9 +157,10 @@ void TimelineView::PaintRuler(QPainter* painter) const {
   assert(shot != nullptr);
   painter->fillRect(QRectF(0, 0, width(), kRulerHeight), theme::kFace);
   // Beyond the shot's end is dimmed: keys there never play.
-  const double end = XOf(shot->length);
+  const double end = std::max<double>(XOf(shot->length), kNameWidth);
   painter->fillRect(QRectF(end, 0, width() - end, height()),
                     theme::kFaceDark);
+  const PaintClip keep_in(painter, FrameArea(0.0));
   const int first = std::max(0, FrameAt(kNameWidth)->index());
   const int last = FrameAt(width())->index();
   const int step = LabelStep();
@@ -187,6 +190,7 @@ void TimelineView::PaintGrid(QPainter* painter) const {
   const int last = FrameAt(width())->index();
   const int step = LabelStep();
   const double top = kRulerHeight + kWaveHeight;
+  const PaintClip keep_in(painter, FrameArea(top));
   for (int f = first; f <= last; ++f) {
     const bool is_second = f % kFramesPerSecond == 0;
     const bool is_labelled = f % step == 0;
@@ -246,6 +250,7 @@ void TimelineView::PaintPlayhead(QPainter* painter) const {
   }
   const double x =
       XOf(*here) + frame_width_ / 2.0 + settle_.offset() * frame_width_;
+  const PaintClip keep_in(painter, FrameArea(0.0));
   painter->setPen(QPen(theme::kPick, 2.0));
   painter->drawLine(QPointF(x, 0), QPointF(x, height()));
   // The frame the playhead is on, in a tag on the ruler.
