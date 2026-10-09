@@ -37,7 +37,8 @@ MainWindow::MainWindow(const Managers& managers)
       motion_menu_(managers.motion),
       undo_action_(tr("&Undo")),
       redo_action_(tr("&Redo")),
-      modes_bar_(tr("Modes")),
+      top_bar_host_(tr("Top bar")),
+      top_bar_(managers),
       pose_layout_(&pose_page_),
       strip_(managers),
       pose_split_(Qt::Vertical),
@@ -188,22 +189,18 @@ void MainWindow::BuildPages() {
 }
 
 void MainWindow::BuildModes() {
-  assert(modes_.count() == 0);
+  assert(top_bar_.tabs()->count() == pages_.count());
   assert(pages_.count() == static_cast<int>(Mode::kVideo) + 1);
-  modes_.addTab(tr("Pose"));
-  modes_.addTab(tr("Rig"));
-  modes_.addTab(tr("Video"));
-  modes_.setObjectName(QStringLiteral("modes"));
-  modes_.setExpanding(false);
-  modes_bar_.setObjectName(QStringLiteral("modes_bar"));
-  modes_bar_.setMovable(false);
-  modes_bar_.setFloatable(false);
+  top_bar_host_.setObjectName(QStringLiteral("modes_bar"));
+  top_bar_host_.setMovable(false);
+  top_bar_host_.setFloatable(false);
   // The tabs are the only way between modes, so they cannot be hidden.
-  modes_bar_.toggleViewAction()->setVisible(false);
-  modes_bar_.addWidget(&modes_);
-  addToolBar(Qt::TopToolBarArea, &modes_bar_);
-  connect(&modes_, &QTabBar::currentChanged, this, &MainWindow::ShowMode);
-  assert(modes_.count() == pages_.count());
+  top_bar_host_.toggleViewAction()->setVisible(false);
+  top_bar_host_.addWidget(&top_bar_);
+  addToolBar(Qt::TopToolBarArea, &top_bar_host_);
+  connect(top_bar_.tabs(), &QTabBar::currentChanged, this,
+          &MainWindow::ShowMode);
+  assert(top_bar_.tabs()->currentIndex() == 0);
 }
 
 void MainWindow::BuildMenus() {
@@ -257,12 +254,15 @@ void MainWindow::Refresh() {
   setWindowTitle(QStringLiteral("%1[*] (%2) - Snapper")
                      .arg(project.name, where));
   setWindowModified(managers_.history->IsDirty());
-  ShowStep(&undo_action_,
-           MakeStepFace(tr("&Undo"), managers_.history->UndoLabel(),
-                        managers_.history->WhyNoUndo()));
-  ShowStep(&redo_action_,
-           MakeStepFace(tr("&Redo"), managers_.history->RedoLabel(),
-                        managers_.history->WhyNoRedo()));
+  const HistoryManager& history = *managers_.history;
+  ShowStep(&undo_action_, MakeStepFace(tr("&Undo"), history.UndoLabel(),
+                                       history.WhyNoUndo()));
+  ShowStep(&redo_action_, MakeStepFace(tr("&Redo"), history.RedoLabel(),
+                                       history.WhyNoRedo()));
+  top_bar_.ShowUndo(MakeStepFace(tr("Undo"), history.UndoLabel(),
+                                 history.WhyNoUndo()));
+  top_bar_.ShowRedo(MakeStepFace(tr("Redo"), history.RedoLabel(),
+                                 history.WhyNoRedo()));
 }
 
 }  // namespace snapper

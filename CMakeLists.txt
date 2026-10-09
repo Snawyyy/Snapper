@@ -60,7 +60,7 @@ snapper_module(edit
   MODULES io media render
   LIBS Qt6::Concurrent)
 snapper_module(ui
-  SOURCES bar_text.cpp snapper_style.cpp cast_actions.cpp cast_panel.cpp export_dialog.cpp
+  SOURCES bar_text.cpp hover_fade.cpp mode_tabs.cpp snapper_style.cpp top_bar.cpp cast_actions.cpp cast_panel.cpp export_dialog.cpp
           export_dialog_actions.cpp file_menu.cpp main_window.cpp
           drag_box.cpp picked_dot.cpp point_motion_box.cpp shot_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
           layer_box_commits.cpp link_box.cpp motion_box.cpp playhead.cpp rig_canvas.cpp

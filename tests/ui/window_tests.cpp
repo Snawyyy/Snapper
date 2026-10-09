@@ -3,6 +3,7 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
+#include <QLabel>
 #include <QPushButton>
 #include <QTabBar>
 #include <QTemporaryDir>
@@ -10,6 +11,7 @@
 
 #include "bench.h"
 #include "ui/main_window.h"
+#include "ui/mode_tabs.h"
 #include "ui/new_project_dialog.h"
 #include "ui/theme.h"
 
@@ -43,6 +45,9 @@ class WindowTests final : public QObject {
   void DrawsInTheTheme();
   void VideoTabRunsTheReel();
   void TabsStayPutInEveryMode();
+  void TopBarUndoNamesTheStep();
+  void TopBarTransportDrivesPlayback();
+  void RedBarSlidesToTheTab();
 };
 
 void WindowTests::TitleShowsNameDirtAndPlace() {
@@ -156,6 +161,70 @@ void WindowTests::TabsStayPutInEveryMode() {
     QCOMPARE(window.mode(), mode);
     QCOMPARE(tabs->mapTo(&window, QPoint(0, 0)), pose_at);
   }
+}
+
+void WindowTests::TopBarUndoNamesTheStep() {
+  Bench rig;
+  MainWindow window(rig.All());
+  auto* undo = window.findChild<QPushButton*>("undo");
+  auto* redo = window.findChild<QPushButton*>("redo");
+  QVERIFY(undo != nullptr && redo != nullptr);
+  QVERIFY(!undo->isEnabled());
+  QCOMPARE(undo->toolTip(), QString("Nothing to undo"));
+  QCOMPARE(redo->toolTip(), QString("Nothing to redo"));
+  QVERIFY(rig.shots.Add(-1).has_value());
+  QVERIFY(undo->isEnabled());
+  QCOMPARE(undo->text(), QString("Undo Add shot"));
+  undo->click();
+  QVERIFY(!undo->isEnabled());
+  QVERIFY(redo->isEnabled());
+  QCOMPARE(redo->text(), QString("Redo Add shot"));
+  redo->click();
+  QCOMPARE(undo->text(), QString("Undo Add shot"));
+}
+
+void WindowTests::TopBarTransportDrivesPlayback() {
+  Bench rig;
+  MainWindow window(rig.All());
+  QVERIFY(rig.shots.Add(-1).has_value());
+  auto* next = window.findChild<QPushButton*>("next");
+  auto* last = window.findChild<QPushButton*>("last");
+  auto* first = window.findChild<QPushButton*>("first");
+  auto* play = window.findChild<QPushButton*>("play");
+  auto* counter = window.findChild<QLabel*>("counter");
+  QVERIFY(next && last && first && play && counter);
+  QCOMPARE(counter->text(), QString("F 000"));
+  next->click();
+  QCOMPARE(rig.playback.frame().index(), 1);
+  QCOMPARE(counter->text(), QString("F 001"));
+  last->click();
+  QVERIFY(rig.playback.frame().index() > 1);
+  first->click();
+  QCOMPARE(rig.playback.frame().index(), 0);
+  QCOMPARE(play->text(), QString("Play"));
+  play->click();
+  QVERIFY(rig.playback.IsPlaying());
+  QCOMPARE(play->text(), QString("Pause"));
+  QVERIFY(play->isChecked());
+  play->click();
+  QVERIFY(!rig.playback.IsPlaying());
+  QCOMPARE(play->text(), QString("Play"));
+}
+
+void WindowTests::RedBarSlidesToTheTab() {
+  Bench rig;
+  rig.motion.SetMode(MotionMode::kOff);
+  MainWindow window(rig.All());
+  window.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&window));
+  auto* tabs = window.findChild<ModeTabs*>("modes");
+  QVERIFY(tabs != nullptr);
+  window.SetMode(MainWindow::Mode::kVideo);
+  const QRectF bar = tabs->bar();
+  QVERIFY(bar.left() >= tabs->tabRect(2).left());
+  QVERIFY(bar.right() <= tabs->tabRect(2).right());
+  window.SetMode(MainWindow::Mode::kPose);
+  QVERIFY(tabs->bar().left() < bar.left());
 }
 
 }  // namespace snapper

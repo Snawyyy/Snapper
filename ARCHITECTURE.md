@@ -407,6 +407,17 @@ stylesheet. What a button looks like in each state is `LookOfButton`
 (pure, tested). A widget that fades its hover sets the `kHoverProperty`
 number (0 to 1); without it the style uses the plain mouse-over state.
 
+The top bar (`TopBar`) holds the mode tabs (`ModeTabs`: a red bar
+slides under the active tab through `MotionManager`), the transport
+and the Undo and Redo buttons. It forwards clicks to `PlaybackManager`
+and `HistoryManager` and decides nothing: the words, tooltips and
+enabled states are `MakeStepFace`, `FrameCounterText`, `TimecodeText`
+and `PlayText` in `bar_text.h` (pure, tested). The window computes the
+Undo and Redo faces once from `HistoryManager` and shows them on the
+menu entries and the buttons, so they always agree. Bar buttons never
+take focus, so Space and the arrow keys stay on the menu entries.
+`HoverFade` eases a button's `kHoverProperty` through `MotionManager`.
+
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.
 

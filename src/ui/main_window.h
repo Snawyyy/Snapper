@@ -7,7 +7,6 @@
 #include <QMenu>
 #include <QSplitter>
 #include <QStackedWidget>
-#include <QTabBar>
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -23,6 +22,7 @@
 #include "ui/rig_panel.h"
 #include "ui/shot_strip.h"
 #include "ui/stage_view.h"
+#include "ui/top_bar.h"
 #include "ui/timeline_view.h"
 #include "ui/toast_view.h"
 #include "ui/video_page.h"
@@ -42,8 +42,12 @@ class MainWindow final : public QMainWindow {
 
   // Called once the window shows: offers to recover crashed work.
   void Start();
-  Mode mode() const { return static_cast<Mode>(modes_.currentIndex()); }
-  void SetMode(Mode mode) { modes_.setCurrentIndex(static_cast<int>(mode)); }
+  Mode mode() const {
+    return static_cast<Mode>(top_bar_.current_tab());
+  }
+  void SetMode(Mode mode) {
+    top_bar_.tabs()->setCurrentIndex(static_cast<int>(mode));
+  }
 
  protected:
   void closeEvent(QCloseEvent* event) override;
@@ -52,7 +56,7 @@ class MainWindow final : public QMainWindow {
   void BuildMenus();
   // Puts the Pose, Rig and Video pages in the stack.
   void BuildPages();
-  // Puts the mode tabs in their fixed bar and ties them to the pages.
+  // Puts the top bar in its fixed host and ties the tabs to the pages.
   void BuildModes();
   // Pulls title, undo and redo state from the history.
   void Refresh();
@@ -69,10 +73,10 @@ class MainWindow final : public QMainWindow {
   MotionMenu motion_menu_;
   QAction undo_action_;
   QAction redo_action_;
-  // The tabs sit in a fixed bar across the top, above the docks, so
-  // hiding the docks on the Video tab does not slide them sideways.
-  QToolBar modes_bar_;
-  QTabBar modes_;
+  // The bar sits fixed across the top, above the docks, so hiding the
+  // docks on the Video tab does not slide the tabs sideways.
+  QToolBar top_bar_host_;
+  TopBar top_bar_;
   QStackedWidget pages_;
   // Containers come before what they hold, so the held widgets leave
   // them before they go.
