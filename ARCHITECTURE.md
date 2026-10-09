@@ -200,7 +200,10 @@ A piece can:
   out to it, one-sided, so nothing holds or pulls it: the cloth pushes
   out of a leg and can fly away from it. It pushes the physics nodes
   of the same doll's pieces drawn in front of it (a higher order),
-  except the ones it spares (`CollidersFor`). With no collider, or no
+  except the ones it spares (`CollidersFor`). The cloth between two
+  physics dots is pushed out as well when an outline comes across it
+  (the leg turning up through a hem), though cloth already lying
+  across one at the last frame is left as drawn. With no collider, or no
   physics node, nothing changes. The dots show (teal, small look big
   grab) on the rig canvas only while their piece is picked: click picks
   one, Shift adds, Delete removes the picked ones as one undo step,
