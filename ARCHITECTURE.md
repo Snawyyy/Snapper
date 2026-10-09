@@ -423,6 +423,31 @@ long. Each timeline's playhead lands on a frame with a small overshoot
 (`PlayheadSettle`: an offset to draw by, none while playing or for a
 jump past `kMaxSettleFrames`, none in Off).
 
+The look of every button and tab lives in one place: `SnapperStyle`
+(`snapper_style.h`), a `QProxyStyle` over Windows that `theme::Apply`
+sets on the application. Raised bevels, the hover brighten, the sunk
+press and the chunky tab are drawn there, so no widget carries a
+stylesheet. What a button looks like in each state is `LookOfButton`
+(pure, tested). A widget that fades its hover sets the `kHoverProperty`
+number (0 to 1); without it the style uses the plain mouse-over state.
+
+The top bar (`TopBar`) holds the mode tabs (`ModeTabs`: a red bar
+slides under the active tab through `MotionManager`), the transport
+and the Undo and Redo buttons. It forwards clicks to `PlaybackManager`
+and `HistoryManager` and decides nothing: the words, tooltips and
+enabled states are `MakeStepFace`, `FrameCounterText`, `TimecodeText`
+and `PlayText` in `bar_text.h` (pure, tested). The window computes the
+Undo and Redo faces once from `HistoryManager` and shows them on the
+menu entries and the buttons, so they always agree. Bar buttons never
+take focus, so Space and the arrow keys stay on the menu entries.
+`HoverFade` eases a button's `kHoverProperty` (hover, Hover time) and
+`kPressProperty` (held down, Press time; springs back on release over
+the Pop time) through `MotionManager`; `SnapperStyle` squashes a pressed
+button by `SquashScale` (4 %). The tab icons are painted by `ModeIcon`
+(no image files), `BumpLabel` hops the frame counter when a step
+changes it, and `StepButton` slides the Undo and Redo words when they
+change. None of them moves in Off.
+
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.
 

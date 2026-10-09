@@ -3,16 +3,18 @@
 #include <QApplication>
 #include <QFont>
 #include <QPalette>
-#include <QStyle>
-#include <QStyleFactory>
 
 #include <cassert>
+#include <memory>
+
+#include "ui/snapper_style.h"
 
 namespace snapper::theme {
 namespace {
 
 QPalette DarkPalette() {
   QPalette palette;
+  assert(kFace.isValid());
   for (const QPalette::ColorGroup group :
        {QPalette::Active, QPalette::Inactive, QPalette::Disabled}) {
     const bool is_off = group == QPalette::Disabled;
@@ -45,11 +47,8 @@ QPalette DarkPalette() {
 
 void Apply(QApplication* application) {
   assert(application != nullptr);
-  QStyle* style = QStyleFactory::create(QStringLiteral("Windows"));
-  const bool has_style = style != nullptr;
-  // Qt owns the style once set; Fusion is the fallback on odd builds.
-  QApplication::setStyle(has_style ? style
-                                   : QStyleFactory::create("Fusion"));
+  // Qt owns the style once set.
+  QApplication::setStyle(std::make_unique<SnapperStyle>().release());
   QApplication::setPalette(DarkPalette());
   QFont font = QApplication::font();
   font.setPointSize(kFontPoints);

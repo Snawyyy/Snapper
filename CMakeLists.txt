@@ -62,7 +62,9 @@ snapper_module(edit
   MODULES io media render
   LIBS Qt6::Concurrent)
 snapper_module(ui
-  SOURCES cast_actions.cpp cast_panel.cpp change_effects.cpp export_dialog.cpp
+  SOURCES bar_text.cpp bump_label.cpp cast_actions.cpp cast_panel.cpp
+          change_effects.cpp export_dialog.cpp hover_fade.cpp mode_icons.cpp
+          mode_tabs.cpp snapper_style.cpp step_button.cpp top_bar.cpp
           export_dialog_actions.cpp file_menu.cpp main_window.cpp
           drag_box.cpp picked_dot.cpp point_motion_box.cpp shot_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
           layer_box_commits.cpp link_box.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
@@ -111,7 +113,8 @@ if(BUILD_TESTING)
                             selection_tests.cpp stage_tests.cpp
                             timeline_tests.cpp track_tests.cpp
                             video_frames_tests.cpp)
-  snapper_test(ui SOURCES cast_panel_tests.cpp change_effects_tests.cpp
+  snapper_test(ui SOURCES bar_text_tests.cpp cast_panel_tests.cpp
+                          change_effects_tests.cpp
                           playhead_settle_tests.cpp
                           export_dialog_tests.cpp
                           drag_feedback_tests.cpp drag_text_tests.cpp

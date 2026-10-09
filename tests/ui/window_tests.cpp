@@ -3,13 +3,18 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
+#include <QLabel>
 #include <QPushButton>
 #include <QTabBar>
 #include <QTemporaryDir>
 #include <QTest>
 
 #include "bench.h"
+#include "ui/bump_label.h"
 #include "ui/main_window.h"
+#include "ui/mode_tabs.h"
+#include "ui/snapper_style.h"
+#include "ui/step_button.h"
 #include "ui/new_project_dialog.h"
 #include "ui/theme.h"
 
@@ -43,6 +48,13 @@ class WindowTests final : public QObject {
   void DrawsInTheTheme();
   void VideoTabRunsTheReel();
   void TabsStayPutInEveryMode();
+  void TopBarUndoNamesTheStep();
+  void TopBarTransportDrivesPlayback();
+  void RedBarSlidesToTheTab();
+  void TabsWearIcons();
+  void UndoWordsSlideIn();
+  void PressSquashesAndSprings();
+  void CounterHopsOnAStepNotInOff();
 };
 
 void WindowTests::TitleShowsNameDirtAndPlace() {
@@ -156,6 +168,132 @@ void WindowTests::TabsStayPutInEveryMode() {
     QCOMPARE(window.mode(), mode);
     QCOMPARE(tabs->mapTo(&window, QPoint(0, 0)), pose_at);
   }
+}
+
+void WindowTests::TopBarUndoNamesTheStep() {
+  Bench rig;
+  MainWindow window(rig.All());
+  auto* undo = window.findChild<QPushButton*>("undo");
+  auto* redo = window.findChild<QPushButton*>("redo");
+  QVERIFY(undo != nullptr && redo != nullptr);
+  QVERIFY(!undo->isEnabled());
+  QCOMPARE(undo->toolTip(), QString("Nothing to undo"));
+  QCOMPARE(redo->toolTip(), QString("Nothing to redo"));
+  QVERIFY(rig.shots.Add(-1).has_value());
+  QVERIFY(undo->isEnabled());
+  QCOMPARE(undo->text(), QString("Undo Add shot"));
+  undo->click();
+  QVERIFY(!undo->isEnabled());
+  QVERIFY(redo->isEnabled());
+  QCOMPARE(redo->text(), QString("Redo Add shot"));
+  redo->click();
+  QCOMPARE(undo->text(), QString("Undo Add shot"));
+}
+
+void WindowTests::TopBarTransportDrivesPlayback() {
+  Bench rig;
+  MainWindow window(rig.All());
+  QVERIFY(rig.shots.Add(-1).has_value());
+  auto* next = window.findChild<QPushButton*>("next");
+  auto* last = window.findChild<QPushButton*>("last");
+  auto* first = window.findChild<QPushButton*>("first");
+  auto* play = window.findChild<QPushButton*>("play");
+  auto* counter = window.findChild<QLabel*>("counter");
+  QVERIFY(next && last && first && play && counter);
+  QCOMPARE(counter->text(), QString("F 000"));
+  next->click();
+  QCOMPARE(rig.playback.frame().index(), 1);
+  QCOMPARE(counter->text(), QString("F 001"));
+  last->click();
+  QVERIFY(rig.playback.frame().index() > 1);
+  first->click();
+  QCOMPARE(rig.playback.frame().index(), 0);
+  QCOMPARE(play->text(), QString("Play"));
+  play->click();
+  QVERIFY(rig.playback.IsPlaying());
+  QCOMPARE(play->text(), QString("Pause"));
+  QVERIFY(play->isChecked());
+  play->click();
+  QVERIFY(!rig.playback.IsPlaying());
+  QCOMPARE(play->text(), QString("Play"));
+}
+
+void WindowTests::RedBarSlidesToTheTab() {
+  Bench rig;
+  rig.motion.SetMode(MotionMode::kOff);
+  MainWindow window(rig.All());
+  window.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&window));
+  auto* tabs = window.findChild<ModeTabs*>("modes");
+  QVERIFY(tabs != nullptr);
+  window.SetMode(MainWindow::Mode::kVideo);
+  const QRectF bar = tabs->bar();
+  QVERIFY(bar.left() >= tabs->tabRect(2).left());
+  QVERIFY(bar.right() <= tabs->tabRect(2).right());
+  window.SetMode(MainWindow::Mode::kPose);
+  QVERIFY(tabs->bar().left() < bar.left());
+}
+
+void WindowTests::CounterHopsOnAStepNotInOff() {
+  Bench rig;
+  MainWindow window(rig.All());
+  QVERIFY(rig.shots.Add(-1).has_value());
+  auto* next = window.findChild<QPushButton*>("next");
+  auto* counter = window.findChild<BumpLabel*>("counter");
+  QVERIFY(next != nullptr && counter != nullptr);
+  QTRY_COMPARE(counter->lift(), 0);
+  next->click();
+  QVERIFY(counter->lift() > 0);
+  QTRY_COMPARE(counter->lift(), 0);
+  rig.motion.SetMode(MotionMode::kOff);
+  next->click();
+  QCOMPARE(counter->text(), QString("F 002"));
+  QCOMPARE(counter->lift(), 0);
+}
+
+void WindowTests::UndoWordsSlideIn() {
+  Bench rig;
+  MainWindow window(rig.All());
+  auto* undo = window.findChild<StepButton*>("undo");
+  QVERIFY(undo != nullptr);
+  QTRY_COMPARE(undo->slide(), 1.0);
+  QVERIFY(rig.shots.Add(-1).has_value());
+  QCOMPARE(undo->text(), QString("Undo Add shot"));
+  QVERIFY(undo->slide() < 1.0);
+  QTRY_COMPARE(undo->slide(), 1.0);
+  rig.motion.SetMode(MotionMode::kOff);
+  QVERIFY(rig.shots.Add(-1).has_value());
+  QCOMPARE(undo->slide(), 1.0);
+  QVERIFY(!undo->grab().isNull());
+}
+
+void WindowTests::PressSquashesAndSprings() {
+  Bench rig;
+  MainWindow window(rig.All());
+  auto* play = window.findChild<QPushButton*>("play");
+  QVERIFY(play != nullptr);
+  QTest::mousePress(play, Qt::LeftButton);
+  QTRY_VERIFY(play->property(kPressProperty).toDouble() > 0.5);
+  QTest::mouseRelease(play, Qt::LeftButton);
+  QTRY_COMPARE(play->property(kPressProperty).toDouble(), 0.0);
+  rig.motion.SetMode(MotionMode::kOff);
+  QTest::mousePress(play, Qt::LeftButton);
+  QCOMPARE(play->property(kPressProperty).toDouble(), 0.0);
+  QTest::mouseRelease(play, Qt::LeftButton);
+}
+
+void WindowTests::TabsWearIcons() {
+  Bench rig;
+  MainWindow window(rig.All());
+  auto* tabs = window.findChild<ModeTabs*>("modes");
+  QVERIFY(tabs != nullptr);
+  for (int i = 0; i < tabs->count(); ++i) {
+    QVERIFY(!tabs->tabIcon(i).isNull());
+  }
+  const QImage rest = tabs->tabIcon(1).pixmap(16, 16).toImage();
+  window.SetMode(MainWindow::Mode::kRig);
+  const QImage picked = tabs->tabIcon(1).pixmap(16, 16).toImage();
+  QVERIFY(rest != picked);
 }
 
 }  // namespace snapper
