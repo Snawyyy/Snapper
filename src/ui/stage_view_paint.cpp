@@ -71,7 +71,7 @@ void StageView::PaintHover(const StageFrame& frame, QPainter* painter) {
   } else {
     const auto piece = PieceOnScreen(project, *shot, hover_pick_->layer,
                                      hover_pick_->piece, frame.local,
-                                     frame.scale);
+                                     frame.scale, renderer_.cache()->poses());
     outline = piece ? piece->outline : QPolygonF();
   }
   painter->save();
@@ -125,7 +125,8 @@ void StageView::PaintHandles(const StageFrame& frame, QPainter* painter) {
       continue;
     }
     const auto outline = PieceOnScreen(project, *shot, pick.layer,
-                                       pick.piece, frame.local, frame.scale);
+                                       pick.piece, frame.local, frame.scale,
+                                       renderer_.cache()->poses());
     PaintWarp(frame, pick, painter);
     painter->setPen(QPen(theme::kPick, 2.0));
     painter->setBrush(Qt::NoBrush);
@@ -139,7 +140,8 @@ void StageView::PaintHandles(const StageFrame& frame, QPainter* painter) {
   painter->setPen(QPen(theme::kShadow, 1.0));
   painter->setBrush(theme::kHandle);
   for (const IkHandle& handle : IkHandles(project, *shot, selection.layer(),
-                                          frame.local, frame.scale)) {
+                                          frame.local, frame.scale,
+                                          renderer_.cache()->poses())) {
     const double grow = hover_.ScaleOf(GrabKind::kIkTip,
                                        PoseTool::IkKey(handle.chain));
     painter->drawRect(Box(handle.point, kHandleDraw, kHandleDraw, grow));
@@ -155,7 +157,8 @@ void StageView::PaintWarp(const StageFrame& frame, const Pick& pick,
   const auto warp =
       shot != nullptr ? PieceWarpOnScreen(project, *shot, pick.layer,
                                           pick.piece, frame.local,
-                                          frame.scale)
+                                          frame.scale,
+                                          renderer_.cache()->poses())
                       : std::nullopt;
   if (!warp) {
     return;

@@ -27,13 +27,14 @@ const QImage& ImageCache::Get(const QString& path) {
 }
 
 const WarpedImage& ImageCache::Warped(const QString& path, WarpGrid grid,
-                                      const std::vector<QPointF>& points) {
+                                      const std::vector<QPointF>& points,
+                                      int detail) {
   assert(bytes_ >= 0);
   assert(images_.size() == uses_.size());
   static const WarpedImage kNothing{};
   const QImage& image = Get(path);
   const bool is_loaded = !image.isNull();
-  return is_loaded ? warps_.Bent(path, image, grid, points) : kNothing;
+  return is_loaded ? warps_.Bent(path, image, grid, points, detail) : kNothing;
 }
 
 void ImageCache::Forget(const QString& path) {

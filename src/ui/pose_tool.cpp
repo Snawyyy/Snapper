@@ -131,7 +131,8 @@ void PoseTool::MoveIk(QPointF point) {
   const StageFrame& at = drag_->frame;
   const auto to_screen =
       shot != nullptr
-          ? LayerToScreen(project, *shot, drag_->layer, at.local, at.scale)
+          ? LayerToScreen(project, *shot, drag_->layer, at.local, at.scale,
+                        cache_->poses())
           : std::nullopt;
   if (to_screen) {
     Note(managers_.pose->DragIk(at.shot, drag_->layer, drag_->chain,
@@ -225,7 +226,8 @@ void PoseTool::MoveAll(QPointF total) {
     const bool is_piece = track.kind == TrackKind::kPiece;
     const auto frame =
         is_piece ? PieceParentToScreen(project, *shot, track.layer,
-                                       track.piece, at.local, at.scale)
+                                       track.piece, at.local, at.scale,
+                                       cache_->poses())
                  : std::optional<QTransform>(FrameRenderer::ViewTransform(
                        project, *shot, at.local, at.scale));
     if (frame) {

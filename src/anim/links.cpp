@@ -27,8 +27,11 @@ QTransform Turn(const QTransform& m) {
 
 }  // namespace
 
-LinkSolver::LinkSolver(const Project& project, const Shot& shot)
-    : project_(project), shot_(shot) {
+LinkSolver::LinkSolver(const Project& project, const Shot& shot,
+                       PoseMemo* memo)
+    : project_(project),
+      shot_(shot),
+      memo_(memo != nullptr && memo->Bind(project, shot) ? memo : nullptr) {
   assert(shot_.links.size() <= static_cast<size_t>(kMaxLinksPerShot));
   assert(shot_.layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
 }
@@ -92,6 +95,12 @@ PoseMap LinkSolver::Poses(const Doll& doll, const Layer& layer,
                           Frame frame) {
   assert(frame.index() >= 0);
   assert(std::holds_alternative<DollLayer>(layer.content));
+  const PoseMap* kept =
+      memo_ != nullptr ? memo_->Find(layer.id, frame) : nullptr;
+  const bool is_kept = kept != nullptr;
+  if (is_kept) {
+    return *kept;
+  }
   PoseMap poses = BasePoses(doll, layer, frame);
   const QTransform to_shot = snapper::LayerTransform(layer, frame);
   std::map<QString, QTransform> placed;
@@ -120,6 +129,10 @@ PoseMap LinkSolver::Poses(const Doll& doll, const Layer& layer,
       continue;
     }
     poses[link.follower.piece].offset += back.map(Push(link, frame));
+  }
+  const bool is_memoed = memo_ != nullptr;
+  if (is_memoed) {
+    memo_->Store(layer.id, frame, poses);
   }
   return poses;
 }

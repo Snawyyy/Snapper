@@ -26,7 +26,7 @@ snapper_module(model
   MODULES base
   LIBS Qt6::Gui)
 snapper_module(anim
-  SOURCES doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp jitter.cpp links.cpp
+  SOURCES doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp pose_memo.cpp jitter.cpp links.cpp
           master_timeline.cpp mirror.cpp presets.cpp reel_timeline.cpp
           sampler.cpp timing_chart.cpp warp.cpp warp_motion.cpp
   MODULES model)
@@ -44,6 +44,11 @@ snapper_module(render
   SOURCES effects.cpp frame_renderer.cpp image_cache.cpp layer_painter.cpp warp_cache.cpp
           stage_geometry.cpp stage_hit.cpp warp_raster.cpp
   MODULES anim)
+# The per-pixel loops of the warp are far too slow unoptimised, and a
+# debug build is what gets used while editing: they stay -O2 there.
+set_source_files_properties(
+  ${PROJECT_SOURCE_DIR}/src/render/warp_raster.cpp
+  PROPERTIES COMPILE_OPTIONS "$<$<CONFIG:Debug>:-O2>")
 snapper_module(edit
   SOURCES change_diff.cpp change_watcher.cpp
           doll_library_manager.cpp document_manager.cpp
@@ -95,8 +100,9 @@ if(BUILD_TESTING)
   snapper_test(base SOURCES base_tests.cpp number_tests.cpp)
   snapper_test(model SOURCES model_tests.cpp)
   snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp lean_tests.cpp
-                    drag_tests.cpp link_tests.cpp reel_tests.cpp
-                    timing_chart_tests.cpp warp_motion_tests.cpp)
+                    drag_tests.cpp link_tests.cpp pose_memo_tests.cpp
+                    reel_tests.cpp timing_chart_tests.cpp
+                    warp_motion_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp video_reader_tests.cpp)
   snapper_test(render SOURCES render_tests.cpp warp_cache_tests.cpp
