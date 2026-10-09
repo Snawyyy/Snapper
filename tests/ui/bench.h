@@ -18,6 +18,7 @@
 #include "edit/selection_manager.h"
 #include "edit/shot_manager.h"
 #include "edit/stage_manager.h"
+#include "edit/timing_chart_manager.h"
 #include "ui/managers.h"
 #include "ui/motion.h"
 #include "ui/toast_manager.h"
@@ -42,12 +43,13 @@ struct Bench final {
   PlaybackManager playback{&history};
   ExportManager exporter{&history, &playback};
   MotionManager motion{document.SettingsPath()};
+  TimingChartManager timing{&history, &selection, &keys, &playback};
   ToastManager toasts{&history};
 
   Managers All() {
     return {&history, &document, &library, &rig, &shots, &stage,
             &selection, &pose, &keys, &presets, &playback, &exporter,
-            &links, &reel, &motion, &toasts};
+            &links, &reel, &motion, &toasts, &timing};
   }
 };
 

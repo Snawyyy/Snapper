@@ -19,6 +19,7 @@
 #include "edit/selection_manager.h"
 #include "ui/timeline_layout.h"
 #include "ui/timeline_view.h"
+#include "ui/timing_chart_action.h"
 #include "ui/toast_manager.h"
 #include "ui/toast_queue.h"
 
@@ -269,6 +270,8 @@ void TimelineView::KeyMenu(const TimelineRow& row, Frame frame,
           [this] {
             DeletePicked();
           });
+  menu.addSeparator();
+  AddTimingChartAction(&menu, managers_);
   menu.exec(where);
 }
 
@@ -286,6 +289,8 @@ void TimelineView::EmptyMenu(const TimelineRow& row, Frame frame,
   connect(paste, &QAction::triggered, this, [this, shot, frame, row] {
     Report(ProblemOf(managers_.keys->Paste(shot, frame, row.layer)));
   });
+  menu.addSeparator();
+  AddTimingChartAction(&menu, managers_);
   menu.addSeparator();
   connect(menu.addAction(tr("Hold one frame longer")), &QAction::triggered,
           this, [this, row, frame] {

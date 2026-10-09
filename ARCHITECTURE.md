@@ -100,6 +100,11 @@ History keeps at most `kMaxUndoSteps` steps and drops the oldest.
   length, it does not force them. Picked keys can be spaced evenly on
   1s to 4s (`KeyManager::Space`); keys after them slide along so later
   timing stays.
+- A timing chart sets the spacing of the in-betweens between two
+  frames A and B without moving any frame or key in time. The math is
+  pure (`anim/timing_chart.h`): presets to fractions, tick drag
+  clamping, and `BakeChannel`, which writes a key on every frame from A
+  to B at its fraction of the way from the pose A has to the pose B has.
 - The timeline's corner flips stepping between scrub mode (the arrow
   keys move one frame) and animation mode (they jump to the next frame
   where the picture changes: a key, a shot's start, or each frame of
@@ -337,12 +342,14 @@ are destroyed in reverse.
 | `LinkManager`          | Which things copy another's movement, how much |
 | `SelectionManager`     | What is picked: shots, layers, pieces, keys, clips |
 | `PoseManager`          | Pose edits, IK drags, copy, paste, mirror      |
-| `KeyManager`           | Keys on the timeline: move, space, ease, retime |
+| `KeyManager`           | Keys on the timeline: move, space, ease, retime, bake a timing chart |
+| `TimingChartManager`   | The timing chart session: picked thing and frames to chart, ticks, live preview in one `EditScope`, Apply or Cancel |
 | `PresetManager`        | Motion presets and saved poses                 |
 | `PlaybackManager`      | Playhead on either timeline, play, loop, song  |
 | `ExportManager`        | MP4 and GIF export of the final video, threaded |
 | `MotionManager` (`ui`) | How long and how softly the UI moves: the Motion table, Full / Calm / Off, saved in settings |
 | `ToastManager` (`ui`)  | Toasts: the queue, their time, stacking, dismissal and the Undo they offer |
+| `TimingChartDialog` (`ui`) | The floating timing chart window (Shift+T, or Define timing chart... in the stage and timeline menus); its strip only draws the ticks and forwards drags to `TimingChartManager` |
 | `RefusalShaker` (`ui`) | The shake and the reason on a greyed control clicked anyway |
 
 `MotionManager` lives in `ui` because it only serves widgets and holds no

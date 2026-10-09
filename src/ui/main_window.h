@@ -24,6 +24,7 @@
 #include "ui/stage_view.h"
 #include "ui/top_bar.h"
 #include "ui/timeline_view.h"
+#include "ui/timing_chart_dialog.h"
 #include "ui/toast_view.h"
 #include "ui/video_page.h"
 
@@ -99,6 +100,8 @@ class MainWindow final : public QMainWindow {
   // A greyed control clicked anyway shakes and says why.
   RefusalShaker shaker_;
   ExportDialog export_dialog_;
+  TimingChartDialog timing_dialog_;
+  QAction timing_action_;
   QAction export_action_;
   QMenu play_menu_;
   QAction play_action_;

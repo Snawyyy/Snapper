@@ -28,7 +28,7 @@ snapper_module(model
 snapper_module(anim
   SOURCES doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp jitter.cpp links.cpp
           master_timeline.cpp mirror.cpp presets.cpp reel_timeline.cpp
-          sampler.cpp warp.cpp warp_motion.cpp
+          sampler.cpp timing_chart.cpp warp.cpp warp_motion.cpp
   MODULES model)
 snapper_module(io
   SOURCES doll_file.cpp doll_json.cpp json_file.cpp json_values.cpp
@@ -58,7 +58,7 @@ snapper_module(edit
           rig_manager.cpp rig_mirror.cpp
           selection_manager.cpp selection_prune.cpp shot_batch.cpp
           shot_manager.cpp stage_batch.cpp stage_manager.cpp
-          stage_settings.cpp timeline_rows.cpp video_file_frames.cpp
+          stage_settings.cpp timeline_rows.cpp timing_chart_manager.cpp video_file_frames.cpp
   MODULES io media render
   LIBS Qt6::Concurrent)
 snapper_module(ui
@@ -78,7 +78,8 @@ snapper_module(ui
           motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
           refusal_shaker.cpp scrub_label.cpp toast_manager.cpp toast_queue.cpp toast_view.cpp
           stage_menu.cpp stage_view.cpp stage_view_paint.cpp stage_view_ghost.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
-          timeline_drag.cpp timeline_view.cpp transition_picker.cpp
+          timeline_drag.cpp timeline_view.cpp timing_chart_action.cpp
+          timing_chart_dialog.cpp timing_chart_strip.cpp transition_picker.cpp
           video_page.cpp
   MODULES edit
   LIBS Qt6::Widgets)
@@ -95,7 +96,7 @@ if(BUILD_TESTING)
   snapper_test(model SOURCES model_tests.cpp)
   snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp lean_tests.cpp
                     drag_tests.cpp link_tests.cpp reel_tests.cpp
-                    warp_motion_tests.cpp)
+                    timing_chart_tests.cpp warp_motion_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp video_reader_tests.cpp)
   snapper_test(render SOURCES render_tests.cpp warp_cache_tests.cpp
@@ -112,7 +113,7 @@ if(BUILD_TESTING)
                             rig_tests.cpp
                             shot_tests.cpp
                             selection_tests.cpp stage_tests.cpp
-                            timeline_tests.cpp track_tests.cpp
+                            timeline_tests.cpp timing_chart_edit_tests.cpp track_tests.cpp
                             video_frames_tests.cpp)
   snapper_test(ui SOURCES bar_text_tests.cpp cast_panel_tests.cpp
                           change_effects_tests.cpp
@@ -129,7 +130,8 @@ if(BUILD_TESTING)
                           shot_strip_tests.cpp slot_picker_tests.cpp
                           motion_tests.cpp scrub_tests.cpp shake_tests.cpp theme_tests.cpp
                           toast_tests.cpp
-                          perf_tests.cpp timeline_view_tests.cpp video_page_tests.cpp
+                          perf_tests.cpp timeline_view_tests.cpp
+                          timing_chart_ui_tests.cpp video_page_tests.cpp
                           window_tests.cpp)
   snapper_checks()
 endif()

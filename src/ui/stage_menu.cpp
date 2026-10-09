@@ -11,6 +11,7 @@
 #include "render/stage_hit.h"
 #include "ui/problem.h"
 #include "ui/stage_view.h"
+#include "ui/timing_chart_action.h"
 
 namespace snapper {
 namespace {
@@ -46,6 +47,7 @@ void StageView::contextMenuEvent(QContextMenuEvent* event) {
   QMenu menu(this);
   menu.setToolTipsVisible(true);
   AddLinkActions(&menu, event->pos(), *frame);
+  AddTimingChartAction(&menu, managers_);
   const bool has_actions = !menu.isEmpty();
   if (has_actions) {
     menu.exec(event->globalPos());

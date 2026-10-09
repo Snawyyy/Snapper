@@ -18,6 +18,7 @@ class RigManager;
 class SelectionManager;
 class ShotManager;
 class StageManager;
+class TimingChartManager;
 class ToastManager;
 
 // Every manager the widgets talk to. AppContext owns them; widgets only
@@ -39,11 +40,12 @@ struct Managers final {
   ReelManager* reel = nullptr;
   MotionManager* motion = nullptr;
   ToastManager* toasts = nullptr;
+  TimingChartManager* timing = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&
            selection && pose && keys && presets && playback && exporter &&
-           links && reel && motion && toasts;
+           links && reel && motion && toasts && timing;
   }
 };
 
