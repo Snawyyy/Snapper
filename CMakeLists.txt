@@ -19,7 +19,7 @@ include(CTest)
 
 # Modules, lowest first. See ARCHITECTURE.md for what each one owns.
 snapper_module(base
-  SOURCES frame.cpp text.cpp
+  SOURCES frame.cpp number_text.cpp scrub_drag.cpp text.cpp
   LIBS Qt6::Core)
 snapper_module(model
   SOURCES doll.cpp layer.cpp project.cpp reel.cpp shot.cpp transition.cpp
@@ -82,7 +82,7 @@ target_include_directories(snapper PRIVATE src)
 set_target_properties(snapper PROPERTIES WIN32_EXECUTABLE TRUE)
 
 if(BUILD_TESTING)
-  snapper_test(base SOURCES base_tests.cpp)
+  snapper_test(base SOURCES base_tests.cpp number_tests.cpp)
   snapper_test(model SOURCES model_tests.cpp)
   snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp lean_tests.cpp
                     drag_tests.cpp link_tests.cpp reel_tests.cpp
