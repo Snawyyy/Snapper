@@ -99,7 +99,8 @@ History keeps at most `kMaxUndoSteps` steps and drops the oldest.
 - Poses are usually on 2s or 3s; the timeline offers both as a hold
   length, it does not force them. Picked keys can be spaced evenly on
   1s to 4s (`KeyManager::Space`); keys after them slide along so later
-  timing stays.
+  timing stays. The 1 to 4 keys do it from anywhere in the window
+  (`SpaceKeysShortcuts`); a toast gives the reason when they cannot.
 - A timing chart sets the spacing of the in-betweens between two
   frames A and B without moving any frame or key in time. The math is
   pure (`anim/timing_chart.h`): presets to fractions, tick drag
@@ -356,6 +357,7 @@ are destroyed in reverse.
 | `MotionManager` (`ui`) | How long and how softly the UI moves: the Motion table, Full / Calm / Off, saved in settings |
 | `ToastManager` (`ui`)  | Toasts: the queue, their time, stacking, dismissal and the Undo they offer |
 | `TimingChartDialog` (`ui`) | The floating timing chart window (Shift+T, or Define timing chart... in the stage and timeline menus); its strip only draws the ticks and forwards drags to `TimingChartManager` |
+| `SpaceKeysShortcuts` (`ui`) | The 1 to 4 window shortcuts and the Space evenly menu; both call `KeyManager::Space` through `RequestSpaceKeys` |
 | `RefusalShaker` (`ui`) | The shake and the reason on a greyed control clicked anyway |
 
 `MotionManager` lives in `ui` because it only serves widgets and holds no
