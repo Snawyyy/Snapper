@@ -13,6 +13,8 @@
 #include <variant>
 #include <vector>
 
+#include "anim/cloth.h"
+#include "anim/doll_beat.h"
 #include "anim/warp.h"
 #include "anim/warp_motion.h"
 
@@ -26,6 +28,8 @@ struct Spring final {
   DragNode node;
   double pull = 0.0;
   double damping = 0.0;
+  // A physics node moves with its piece's cloth, not as a lone spring.
+  bool is_physics = false;
   QPointF at;
   QPointF speed;
 };
@@ -39,82 +43,43 @@ double Mix(double from, double to, double amount) {
   return from + (to - from) * amount;
 }
 
-// Where a piece's grid point is carried at frame, in shot space, and
-// the drawing-to-shot map it went through.
-std::optional<std::pair<QPointF, QTransform>> Carried(
+// Every point of a piece's grid as it is carried at frame, in shot
+// space, and the drawing-to-shot map it went through.
+struct ShotGrid final {
+  std::vector<QPointF> points;
+  QTransform to_shot;
+};
+
+std::optional<ShotGrid> ShotGridOf(
     const Doll& doll, const Layer& layer, const PoseMap& poses,
-    const std::map<QString, QTransform>& placed, const Spring& spring,
+    const std::map<QString, QTransform>& placed, const QString& piece,
     Frame frame) {
   assert(frame.index() >= 0);
-  assert(!spring.piece.isEmpty());
-  const auto transform = placed.find(spring.piece);
-  const ArtPiece* art = FindArt(doll, spring.piece);
-  const RigPiece* rig = FindRig(doll.rig, spring.piece);
+  assert(!piece.isEmpty());
+  const auto transform = placed.find(piece);
+  const ArtPiece* art = FindArt(doll, piece);
+  const RigPiece* rig = FindRig(doll.rig, piece);
   const bool is_placed =
       transform != placed.end() && art != nullptr && rig != nullptr;
   if (!is_placed) {
     return std::nullopt;
   }
-  const auto pose = poses.find(spring.piece);
-  const std::vector<QPointF> points = WarpedPoints(
+  const auto pose = poses.find(piece);
+  ShotGrid grid;
+  grid.points = WarpedPoints(
       art->size, rig->warp,
       pose != poses.end() ? pose->second.warp : std::vector<QPointF>());
-  const QTransform to_shot = transform->second * LayerTransform(layer, frame);
-  return std::pair(
-      to_shot.map(points[static_cast<size_t>(spring.node.point)]), to_shot);
+  grid.to_shot = transform->second * LayerTransform(layer, frame);
+  for (QPointF& point : grid.points) {
+    point = grid.to_shot.map(point);
+  }
+  return grid;
 }
 
 using Carry = DragTrail::Carry;
 
 // The most frames a trail keeps; a longer shot runs on without it.
 constexpr size_t kMaxTrailFrames = 20000;
-
-// The doll's keys (its own move's and every piece's), each with whether
-// the motion after it eases instead of holding.
-std::map<Frame, bool> KeysOf(const Layer& layer) {
-  assert(std::holds_alternative<DollLayer>(layer.content));
-  std::map<Frame, bool> keys;
-  const auto add = [&keys](const Channel<PiecePose>& channel) {
-    for (const auto& key : channel.keys) {
-      keys[key.frame] = keys[key.frame] || key.ease != Ease::kStep;
-    }
-  };
-  add(layer.transform);
-  const auto& pieces = std::get<DollLayer>(layer.content).pieces;
-  for (const auto& [name, channel] : pieces) {
-    add(channel);
-  }
-  assert(keys.size() <= layer.transform.keys.size() +
-                            pieces.size() * kMaxTrailFrames);
-  return keys;
-}
-
-// The frame whose drag frame shows: drags move on the doll's own beat,
-// so a doll on 3s wobbles on 3s. Each key is a beat, every frame of an
-// ease is, and a long hold keeps beating at the spacing of the keys
-// before it.
-Frame BeatOf(const Layer& layer, Frame frame) {
-  assert(frame.index() >= 0);
-  const std::map<Frame, bool> keys = KeysOf(layer);
-  const auto after = keys.upper_bound(frame);
-  const bool has_key_before = after != keys.begin();
-  if (!has_key_before) {
-    return frame;
-  }
-  const auto at = std::prev(after);
-  const bool is_easing = at->second && after != keys.end();
-  if (is_easing) {
-    return frame;
-  }
-  const bool has_earlier = at != keys.begin();
-  const int spacing =
-      has_earlier ? at->first.index() - std::prev(at)->first.index()
-      : after != keys.end() ? after->first.index() - at->first.index()
-                            : 1;
-  const int since = frame.index() - at->first.index();
-  assert(spacing >= 1);
-  return Frame(at->first.index() + since / spacing * spacing);
-}
 
 // A spring per drag node of the doll.
 std::vector<Spring> SpringsOf(const Doll& doll) {
@@ -124,6 +89,7 @@ std::vector<Spring> SpringsOf(const Doll& doll) {
     for (const DragNode& node : rig.drag_nodes) {
       const bool is_on_grid = node.point < rig.warp.PointCount();
       if (is_on_grid) {
+        const bool is_physics = node.physics;
         // More lag pulls softer; more bounce keeps more speed.
         const double soft_pull = Mix(0.5, 0.04, node.lag);
         const double give = Mix(1.0, 0.08, node.bounce);
@@ -134,7 +100,7 @@ std::vector<Spring> SpringsOf(const Doll& doll) {
         const double snap =
             std::clamp(1.0 - node.lag / kSnapLag, 0.0, 1.0);
         springs.push_back({rig.name, node, Mix(soft_pull, 1.0, snap),
-                           Mix(soft_damping, 1.0, snap), {}, {}});
+                           Mix(soft_damping, 1.0, snap), is_physics, {}, {}});
       }
     }
   }
@@ -179,8 +145,52 @@ DragTrail::State Snapshot(const std::vector<Spring>& springs,
   return state;
 }
 
+// Moves a lone drag spring one frame toward where its point is carried.
+void MoveSpring(const Carry& carry, int f, Spring* spring) {
+  assert(spring != nullptr);
+  assert(f >= 0);
+  const bool is_moving = carry.has_value() && f > 0;
+  if (!is_moving) {
+    spring->at = carry.has_value() ? carry->first : spring->at;
+    return;
+  }
+  spring->speed += (carry->first - spring->at) * spring->pull -
+                   spring->speed * spring->damping;
+  spring->at += spring->speed;
+}
+
+// Runs the cloth of one piece a frame: the springs at indices are its
+// physics nodes, carried over grid.
+void StepPiece(const Doll& doll, const ShotGrid& grid,
+               const std::vector<size_t>& indices, int f,
+               std::vector<Spring>* springs) {
+  assert(springs != nullptr);
+  assert(!indices.empty() && indices.size() <= springs->size());
+  const RigPiece* rig = FindRig(doll.rig, (*springs)[indices[0]].piece);
+  assert(rig != nullptr);
+  ClothPiece cloth;
+  cloth.grid = rig->warp;
+  for (const size_t i : indices) {
+    const Spring& spring = (*springs)[i];
+    cloth.points.push_back(spring.node.point);
+    cloth.settings.push_back(ClothSettingsOf(spring.node));
+    cloth.at.push_back(spring.at);
+    cloth.speed.push_back(spring.speed);
+  }
+  const bool is_first = f == 0;
+  if (is_first) {
+    RestCloth(grid.points, &cloth);
+  } else {
+    StepCloth(grid.points, &cloth);
+  }
+  for (size_t k = 0; k < indices.size(); ++k) {
+    (*springs)[indices[k]].at = cloth.at[k];
+    (*springs)[indices[k]].speed = cloth.speed[k];
+  }
+}
+
 // Runs one frame of the springs: where each node's point is carried at
-// f, and the spring pulled toward it.
+// f, the drag springs pulled toward it and each piece's cloth stepped.
 void Step(const Doll& doll, const Layer& layer, int f,
           const LinkShifts& shifts, std::vector<Spring>* springs,
           std::vector<Carry>* carried) {
@@ -189,26 +199,41 @@ void Step(const Doll& doll, const Layer& layer, int f,
   const auto& posed = std::get<DollLayer>(layer.content);
   const PoseMap keyed = SamplePoses(posed, Frame(f));
   const auto placed = PieceTransforms(doll, keyed);
+  std::map<QString, std::optional<ShotGrid>> grids;
+  std::map<QString, std::vector<size_t>> cloths;
   for (size_t i = 0; i < springs->size(); ++i) {
     Spring& spring = (*springs)[i];
-    Carry& carry = (*carried)[i];
-    carry = Carried(doll, layer, keyed, placed, spring, Frame(f));
+    const bool is_new_piece = grids.find(spring.piece) == grids.end();
+    if (is_new_piece) {
+      grids[spring.piece] = ShotGridOf(doll, layer, keyed, placed,
+                                       spring.piece, Frame(f));
+    }
+    const std::optional<ShotGrid>& grid = grids[spring.piece];
     // A link only slides the piece, so the point moves and the map
     // back to the drawing keeps its turn.
-    const bool is_carried = carry.has_value();
-    if (is_carried) {
-      const QPointF shift = ShiftOf(shifts, spring.piece, f);
-      carry->first += shift;
-      carry->second *= QTransform::fromTranslate(shift.x(), shift.y());
+    const QPointF shift = ShiftOf(shifts, spring.piece, f);
+    Carry& carry = (*carried)[i];
+    carry = std::nullopt;
+    const bool is_on_stage = grid.has_value();
+    if (is_on_stage) {
+      carry = std::pair(
+          grid->points[static_cast<size_t>(spring.node.point)] + shift,
+          grid->to_shot * QTransform::fromTranslate(shift.x(), shift.y()));
     }
-    const bool is_moving = is_carried && f > 0;
-    if (!is_moving) {
-      spring.at = is_carried ? carry->first : spring.at;
-      continue;
+    const bool is_cloth = spring.is_physics && is_on_stage;
+    if (is_cloth) {
+      cloths[spring.piece].push_back(i);
+    } else {
+      MoveSpring(carry, f, &spring);
     }
-    spring.speed += (carry->first - spring.at) * spring.pull -
-                    spring.speed * spring.damping;
-    spring.at += spring.speed;
+  }
+  for (const auto& [piece, indices] : cloths) {
+    ShotGrid shifted = *grids[piece];
+    const QPointF shift = ShiftOf(shifts, piece, f);
+    for (QPointF& point : shifted.points) {
+      point += shift;
+    }
+    StepPiece(doll, shifted, indices, f, springs);
   }
 }
 
