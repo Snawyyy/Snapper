@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include "anim/master_timeline.h"
+#include "edit/change_diff.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
@@ -21,7 +22,9 @@ TimelineView::TimelineView(const Managers& managers)
     : managers_(managers), step_mode_(this),
       frame_width_(kDefaultFrameWidth),
       hover_(managers.motion, this),
-      feedback_(managers.motion, this) {
+      feedback_(managers.motion, this),
+      watcher_(managers.history, this),
+      effects_(managers.motion, this) {
   assert(managers_.IsComplete());
   step_mode_.setObjectName("step_mode");
   step_mode_.setCheckable(true);
@@ -38,6 +41,8 @@ TimelineView::TimelineView(const Managers& managers)
   setMouseTracking(true);
   connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
   connect(&feedback_, &DragFeedback::Changed, this, [this] { update(); });
+  connect(&effects_, &ChangeEffects::Changed, this, [this] { update(); });
+  connect(&watcher_, &ChangeWatcher::Stepped, this, &TimelineView::ShowStep);
   setMinimumHeight(kRulerHeight + kWaveHeight + 3 * kRowHeight);
   const auto update_me = [this] { update(); };
   connect(managers_.history, &HistoryManager::Changed, this, update_me);
@@ -47,6 +52,14 @@ TimelineView::TimelineView(const Managers& managers)
   connect(managers_.playback, &PlaybackManager::SongChanged, this,
           update_me);
   assert(frame_width_ > 0.0);
+}
+
+void TimelineView::ShowStep(const Project& before, bool is_travel) {
+  assert(managers_.history != nullptr);
+  assert(managers_.selection != nullptr);
+  effects_.ShowKeys(DiffKeys(before, managers_.history->current(),
+                             managers_.selection->shot()),
+                    is_travel);
 }
 
 void TimelineView::ShowStepMode() {
