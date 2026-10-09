@@ -58,6 +58,7 @@ MainWindow::MainWindow(const Managers& managers)
       export_dialog_(managers, this),
       timing_dialog_(managers, this),
       timing_action_(tr("Define &timing chart...")),
+      space_keys_(this, managers),
       export_action_(tr("&Export...")),
       play_menu_(tr("&Play")),
       play_action_(tr("&Play / pause")),
