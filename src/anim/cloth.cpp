@@ -126,6 +126,20 @@ QPointF Tethered(QPointF at, QPointF anchor) {
   return is_far ? anchor + off * (kMaxClothDrift / length) : at;
 }
 
+// Pushes every node that is behind an edge out to it.
+void PushAll(const std::vector<ColliderEdge>& edges,
+             std::vector<QPointF>* at) {
+  assert(at != nullptr);
+  assert(edges.size() <= kMaxColliderEdges);
+  const bool has_edges = !edges.empty();
+  if (!has_edges) {
+    return;
+  }
+  for (QPointF& point : *at) {
+    point = PushedOut(edges, point);
+  }
+}
+
 }  // namespace
 
 ClothSettings ClothSettingsOf(const DragNode& node) {
@@ -140,6 +154,7 @@ void RestCloth(const std::vector<QPointF>& carried, ClothPiece* piece) {
   for (size_t i = 0; i < piece->points.size(); ++i) {
     piece->at[i] = carried[static_cast<size_t>(piece->points[i])];
     piece->speed[i] = QPointF();
+    piece->at[i] = PushedOut(piece->edges, piece->at[i]);
   }
 }
 
@@ -162,10 +177,14 @@ void StepCloth(const std::vector<QPointF>& carried, ClothPiece* piece) {
     for (const Tie& tie : ties) {
       Fix(tie, *piece, &piece->at);
     }
+    PushAll(piece->edges, &piece->at);
   }
   for (size_t i = 0; i < count; ++i) {
     const QPointF anchor = carried[static_cast<size_t>(piece->points[i])];
     piece->at[i] = Tethered(piece->at[i], anchor);
+  }
+  PushAll(piece->edges, &piece->at);
+  for (size_t i = 0; i < count; ++i) {
     piece->speed[i] = piece->at[i] - before[i];
   }
 }

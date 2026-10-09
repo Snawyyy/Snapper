@@ -5,6 +5,7 @@
 
 #include <vector>
 
+#include "anim/collider.h"
 #include "model/doll.h"
 
 namespace snapper {
@@ -33,6 +34,8 @@ struct ClothPiece final {
   std::vector<ClothSettings> settings;
   std::vector<QPointF> at;
   std::vector<QPointF> speed;
+  // Outlines that push the nodes out, in shot space.
+  std::vector<ColliderEdge> edges;
 };
 
 // Runs one frame of the cloth of piece. carried holds every point of
@@ -42,8 +45,10 @@ struct ClothPiece final {
 // that); the grid points that are not physics nodes are pins that
 // follow carried exactly. Each node keeps some of its speed (inertia,
 // slowed by air), is pulled down (gravity) and back to its carried
-// place (spring), and the ties then pull it in. Deterministic: the
-// same input gives the same output.
+// place (spring), and the ties then pull it in. A node that ends up
+// behind an edge is then pushed out to it (one-sided: nothing holds or
+// pulls a node that is outside or moving away). Deterministic: the same
+// input gives the same output.
 void StepCloth(const std::vector<QPointF>& carried, ClothPiece* piece);
 
 // Puts every node of piece at its carried place, at rest: the cloth as

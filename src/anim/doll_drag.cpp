@@ -15,6 +15,8 @@
 
 #include "anim/cloth.h"
 #include "anim/doll_beat.h"
+#include "anim/doll_colliders.h"
+#include "anim/shot_grid.h"
 #include "anim/warp.h"
 #include "anim/warp_motion.h"
 
@@ -41,39 +43,6 @@ double Mix(double from, double to, double amount) {
   assert(std::isfinite(amount));
   assert(std::isfinite(from) && std::isfinite(to));
   return from + (to - from) * amount;
-}
-
-// Every point of a piece's grid as it is carried at frame, in shot
-// space, and the drawing-to-shot map it went through.
-struct ShotGrid final {
-  std::vector<QPointF> points;
-  QTransform to_shot;
-};
-
-std::optional<ShotGrid> ShotGridOf(
-    const Doll& doll, const Layer& layer, const PoseMap& poses,
-    const std::map<QString, QTransform>& placed, const QString& piece,
-    Frame frame) {
-  assert(frame.index() >= 0);
-  assert(!piece.isEmpty());
-  const auto transform = placed.find(piece);
-  const ArtPiece* art = FindArt(doll, piece);
-  const RigPiece* rig = FindRig(doll.rig, piece);
-  const bool is_placed =
-      transform != placed.end() && art != nullptr && rig != nullptr;
-  if (!is_placed) {
-    return std::nullopt;
-  }
-  const auto pose = poses.find(piece);
-  ShotGrid grid;
-  grid.points = WarpedPoints(
-      art->size, rig->warp,
-      pose != poses.end() ? pose->second.warp : std::vector<QPointF>());
-  grid.to_shot = transform->second * LayerTransform(layer, frame);
-  for (QPointF& point : grid.points) {
-    point = grid.to_shot.map(point);
-  }
-  return grid;
 }
 
 using Carry = DragTrail::Carry;
@@ -107,16 +76,6 @@ std::vector<Spring> SpringsOf(const Doll& doll) {
   assert(springs.size() <= static_cast<size_t>(kMaxDollPieces) *
                                static_cast<size_t>(kMaxWarpPoints));
   return springs;
-}
-
-// How far links carry piece at frame, in shot space.
-QPointF ShiftOf(const LinkShifts& shifts, const QString& piece, int frame) {
-  assert(frame >= 0);
-  assert(!piece.isEmpty());
-  const auto found = shifts.find(piece);
-  const bool is_shifted = found != shifts.end() &&
-                          static_cast<size_t>(frame) < found->second.size();
-  return is_shifted ? found->second[static_cast<size_t>(frame)] : QPointF();
 }
 
 // Puts the springs back as the trail left them after its frame.
@@ -162,6 +121,7 @@ void MoveSpring(const Carry& carry, int f, Spring* spring) {
 // Runs the cloth of one piece a frame: the springs at indices are its
 // physics nodes, carried over grid.
 void StepPiece(const Doll& doll, const ShotGrid& grid,
+               const std::vector<ColliderEdge>& edges,
                const std::vector<size_t>& indices, int f,
                std::vector<Spring>* springs) {
   assert(springs != nullptr);
@@ -170,6 +130,7 @@ void StepPiece(const Doll& doll, const ShotGrid& grid,
   assert(rig != nullptr);
   ClothPiece cloth;
   cloth.grid = rig->warp;
+  cloth.edges = edges;
   for (const size_t i : indices) {
     const Spring& spring = (*springs)[i];
     cloth.points.push_back(spring.node.point);
@@ -205,20 +166,19 @@ void Step(const Doll& doll, const Layer& layer, int f,
     Spring& spring = (*springs)[i];
     const bool is_new_piece = grids.find(spring.piece) == grids.end();
     if (is_new_piece) {
-      grids[spring.piece] = ShotGridOf(doll, layer, keyed, placed,
-                                       spring.piece, Frame(f));
+      // A link only slides the piece, so the points move and the map
+      // back to the drawing keeps its turn.
+      grids[spring.piece] =
+          ShotGridOf(doll, layer, keyed, placed, spring.piece, Frame(f),
+                     ShiftOf(shifts, spring.piece, f));
     }
     const std::optional<ShotGrid>& grid = grids[spring.piece];
-    // A link only slides the piece, so the point moves and the map
-    // back to the drawing keeps its turn.
-    const QPointF shift = ShiftOf(shifts, spring.piece, f);
     Carry& carry = (*carried)[i];
     carry = std::nullopt;
     const bool is_on_stage = grid.has_value();
     if (is_on_stage) {
-      carry = std::pair(
-          grid->points[static_cast<size_t>(spring.node.point)] + shift,
-          grid->to_shot * QTransform::fromTranslate(shift.x(), shift.y()));
+      carry = std::pair(grid->points[static_cast<size_t>(spring.node.point)],
+                        grid->to_shot);
     }
     const bool is_cloth = spring.is_physics && is_on_stage;
     if (is_cloth) {
@@ -228,12 +188,10 @@ void Step(const Doll& doll, const Layer& layer, int f,
     }
   }
   for (const auto& [piece, indices] : cloths) {
-    ShotGrid shifted = *grids[piece];
-    const QPointF shift = ShiftOf(shifts, piece, f);
-    for (QPointF& point : shifted.points) {
-      point += shift;
-    }
-    StepPiece(doll, shifted, indices, f, springs);
+    StepPiece(doll, *grids[piece],
+              CollidersFor(doll, layer, keyed, placed, shifts, piece,
+                           Frame(f)),
+              indices, f, springs);
   }
 }
 

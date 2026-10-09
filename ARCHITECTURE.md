@@ -189,6 +189,19 @@ A piece can:
   beat and in the same `DragTrail` as plain drag nodes, so a late
   frame costs like an early one. `doll_beat.h` holds the beat. With
   Physics off a node is the spring it always was.
+  A piece can be a collider (right-click it in the rig: Make
+  collider): the outline of its visible pixels, traced into a ring of
+  dots about 12 px apart (`TraceOutline`, pure, in `anim`; at most
+  `kMaxColliderDots`), kept in the piece's drawing pixels so it follows
+  the pose, the warp grid (`ShotDots`) and links. Dots can be deleted
+  in the rig; an edge joins only dots that were neighbours on the
+  ring, so a gap pushes nothing. Inside `StepCloth` a physics node
+  that ends up behind an edge (within the collider's depth) is moved
+  out to it, one-sided, so nothing holds or pulls it: the cloth pushes
+  out of a leg and can fly away from it. It pushes the physics nodes
+  of the same doll's pieces drawn in front of it (a higher order),
+  except the ones it spares (`CollidersFor`). With no collider, or no
+  physics node, nothing changes.
   A dot can also move by itself (a point motion: wave, pulse,
   breathe, sway, shiver), with a size in pixels, a cycle in frames, a
   direction and a delay. Its neighbours follow by its rubber reach, as
