@@ -1,12 +1,16 @@
+#include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QListWidget>
+#include <QMouseEvent>
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QTest>
 
 #include "anim/doll_pose.h"
 #include "bench.h"
+#include "ui/grab.h"
+#include "ui/motion.h"
 #include "ui/rig_canvas.h"
 #include "ui/rig_panel.h"
 
@@ -44,6 +48,14 @@ QPushButton* Button(QWidget* parent, const QString& text) {
   return nullptr;
 }
 
+// A mouse move with no button down; QTest::mouseMove needs a shown window.
+void Hover(QWidget* widget, QPoint at) {
+  QMouseEvent move(QEvent::MouseMove, QPointF(at), QPointF(at),
+                   Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+  QVERIFY(QApplication::sendEvent(widget, &move));
+  QVERIFY(widget->rect().isValid());
+}
+
 }  // namespace
 
 class RigUiTests final : public QObject {
@@ -57,6 +69,8 @@ class RigUiTests final : public QObject {
   void WarpSwitchesOnAtThreeByThree();
   void KeepShapeTicksOn();
   void ShiftPickedJointsDragTogether();
+  void JointsGrabFromTwelvePixelsAndWaitFourToDrag();
+  void HoveredJointGrowsAndShowsItsCursor();
 };
 
 void RigUiTests::PanelPicksTheDollAndEditsAPiece() {
@@ -185,6 +199,51 @@ void RigUiTests::ShiftPickedJointsDragTogether() {
   QVERIFY(std::abs(body - 14.0) < 0.6);
   QVERIFY(std::abs(arm - 4.0) < 0.6);
   QCOMPARE(bench.history.UndoLabel(), QString("Move 2 joints"));
+}
+
+void RigUiTests::JointsGrabFromTwelvePixelsAndWaitFourToDrag() {
+  Bench bench;
+  Stage(&bench);
+  RigCanvas canvas(bench.All());
+  canvas.resize(400, 400);
+  canvas.SetDoll("Bob");
+  const QPoint joint = canvas.World().map(QPointF(0, 0)).toPoint();
+  // Just out of reach: the press is on empty space, nothing is grabbed.
+  QTest::mousePress(&canvas, Qt::LeftButton, {},
+                    joint + QPoint(0, -static_cast<int>(kGrabReach) - 3));
+  QTest::mouseRelease(&canvas, Qt::LeftButton, {},
+                      joint + QPoint(0, -static_cast<int>(kGrabReach) - 3));
+  QVERIFY(!bench.history.CanUndo());
+  // Within reach it grabs, but 3 pixels of drag change nothing.
+  const QPoint near = joint + QPoint(0, -static_cast<int>(kGrabReach) + 1);
+  const QPointF before = FindRig(BobRig(bench), "body")->pivot;
+  QTest::mousePress(&canvas, Qt::LeftButton, {}, near);
+  QTest::mouseMove(&canvas, near + QPoint(3, 0));
+  QCOMPARE(FindRig(BobRig(bench), "body")->pivot, before);
+  // Past 4 pixels the joint jumps under the cursor.
+  QTest::mouseMove(&canvas, joint + QPoint(10, 0));
+  QVERIFY(FindRig(BobRig(bench), "body")->pivot != before);
+  QTest::mouseRelease(&canvas, Qt::LeftButton, {}, joint + QPoint(10, 0));
+  QCOMPARE(bench.history.UndoLabel(), QString("Move pivot of body"));
+}
+
+void RigUiTests::HoveredJointGrowsAndShowsItsCursor() {
+  Bench bench;
+  Stage(&bench);
+  bench.motion.SetMode(MotionMode::kOff);
+  RigCanvas canvas(bench.All());
+  canvas.resize(400, 400);
+  canvas.SetDoll("Bob");
+  const QPoint joint = canvas.World().map(QPointF(0, 0)).toPoint();
+  Hover(&canvas, joint + QPoint(5, 0));
+  QCOMPARE(canvas.cursor().shape(), CursorFor(GrabKind::kPivot));
+  Hover(&canvas, QPoint(2, 2));
+  QCOMPARE(canvas.cursor().shape(), Qt::ArrowCursor);
+  Hover(&canvas, joint + QPoint(5, 0));
+  QTest::mousePress(&canvas, Qt::LeftButton, {}, joint + QPoint(5, 0));
+  QTest::keyClick(&canvas, Qt::Key_Escape);
+  QTest::mouseRelease(&canvas, Qt::LeftButton, {}, joint + QPoint(5, 0));
+  QVERIFY(!bench.history.CanUndo());
 }
 
 }  // namespace snapper

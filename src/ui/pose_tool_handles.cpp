@@ -1,8 +1,7 @@
 // PoseTool's grabbing of handles: turn handles, warp dots, IK tips.
 
-#include <QLineF>
-
 #include <cassert>
+#include <cmath>
 #include <memory>
 #include <variant>
 #include <vector>
@@ -18,39 +17,189 @@
 
 namespace snapper {
 
-bool PoseTool::PressLean(QPointF point, const StageFrame& frame) {
+QString PoseTool::WarpKey(const WarpDot& dot) {
+  assert(dot.point >= 0);
+  assert(!dot.piece.isEmpty());
+  return QStringLiteral("dot/%1/%2/%3")
+      .arg(dot.layer.value())
+      .arg(dot.piece)
+      .arg(dot.point);
+}
+
+QString PoseTool::TurnKey(LayerId layer) {
+  assert(layer.IsValid());
+  assert(layer.value() > 0);
+  return QStringLiteral("turn/%1").arg(layer.value());
+}
+
+QString PoseTool::IkKey(const QString& chain) {
+  assert(!chain.isEmpty());
+  assert(chain.size() < 100000);
+  return QStringLiteral("ik/") + chain;
+}
+
+void PoseTool::Observe() {
+  assert(managers_.selection != nullptr);
+  assert(clock_.isValid());
+  const bool is_shown = !managers_.selection->picks().empty();
+  grace_.Update(is_shown, NowMs());
+  if (is_shown) {
+    shown_picks_ = managers_.selection->picks();
+    shown_layer_ = managers_.selection->layer();
+    shown_shot_ = managers_.selection->shot();
+  }
+}
+
+std::set<Pick> PoseTool::GrabbablePicks(const StageFrame& frame) const {
   assert(frame.scale > 0.0);
   assert(managers_.selection != nullptr);
+  const std::set<Pick>& live = managers_.selection->picks();
+  const bool is_live =
+      !live.empty() && managers_.selection->shot() == frame.shot;
+  if (is_live) {
+    return live;
+  }
+  const bool is_graced =
+      shown_shot_ == frame.shot && grace_.IsGrabbable(false, NowMs());
+  return is_graced ? shown_picks_ : std::set<Pick>();
+}
+
+std::vector<PoseTool::Handle> PoseTool::HandlesOf(
+    const StageFrame& frame) const {
+  assert(frame.scale > 0.0);
+  assert(managers_.history != nullptr);
+  std::vector<Handle> handles;
   const Project& project = managers_.history->current();
   const Shot* shot = FindShot(project, frame.shot);
-  const bool is_ready =
-      shot != nullptr && managers_.selection->shot() == frame.shot;
-  if (!is_ready) {
-    return false;
+  const std::set<Pick> picks = GrabbablePicks(frame);
+  const bool has_handles = shot != nullptr && !picks.empty();
+  if (!has_handles) {
+    return handles;
   }
-  std::vector<LayerId> dolls;
-  bool is_lean = false;
-  bool is_swivel = false;
-  const auto is_near = [&](QPointF handle) {
-    return QLineF(handle + frame.corner, point).length() <= kHandleReach;
-  };
-  for (const Pick& pick : managers_.selection->picks()) {
-    const auto handles =
-        pick.piece.isEmpty()
-            ? TurnHandlesOf(project, *shot, pick.layer, frame.local,
-                            frame.scale, cache_)
-            : std::nullopt;
-    const bool is_doll = handles.has_value();
-    if (is_doll) {
-      dolls.push_back(pick.layer);
-      is_lean = is_lean || is_near(handles->lean);
-      is_swivel = is_swivel || (!is_lean && is_near(handles->swivel));
+  for (const Pick& pick : picks) {
+    const bool is_whole = pick.piece.isEmpty();
+    const auto turn =
+        is_whole ? TurnHandlesOf(project, *shot, pick.layer, frame.local,
+                                 frame.scale, cache_)
+                 : std::nullopt;
+    if (turn) {
+      handles.push_back({GrabKind::kLean, TurnKey(pick.layer),
+                         turn->lean + frame.corner, {}, {}, {}, {}});
+      handles.push_back({GrabKind::kSwivel, TurnKey(pick.layer),
+                         turn->swivel + frame.corner, {}, {}, {}, {}});
+    }
+    const auto warp =
+        is_whole ? std::nullopt
+                 : PieceWarpOnScreen(project, *shot, pick.layer, pick.piece,
+                                     frame.local, frame.scale);
+    for (size_t i = 0; warp && i < warp->points.size(); ++i) {
+      const WarpDot dot{pick.layer, pick.piece, static_cast<int>(i)};
+      handles.push_back({GrabKind::kWarpDot, WarpKey(dot),
+                         warp->to_screen.map(warp->points[i]) + frame.corner,
+                         dot, warp->to_screen, {}, {}});
     }
   }
-  const bool is_grabbed = is_lean || is_swivel;
-  if (!is_grabbed) {
+  const bool is_live = !managers_.selection->picks().empty() &&
+                       managers_.selection->shot() == frame.shot;
+  const LayerId layer =
+      is_live ? managers_.selection->layer() : shown_layer_;
+  for (const IkHandle& tip :
+       layer.IsValid() ? IkHandles(project, *shot, layer, frame.local,
+                                   frame.scale)
+                       : std::vector<IkHandle>()) {
+    handles.push_back({GrabKind::kIkTip, IkKey(tip.chain),
+                       tip.point + frame.corner, {}, {}, layer, tip.chain});
+  }
+  return handles;
+}
+
+std::optional<PoseTool::Handle> PoseTool::HandleAt(
+    QPointF point, const StageFrame& frame) const {
+  assert(frame.scale > 0.0);
+  assert(std::isfinite(point.x()) && std::isfinite(point.y()));
+  const std::vector<Handle> handles = HandlesOf(frame);
+  std::vector<QPointF> spots;
+  for (const Handle& handle : handles) {
+    spots.push_back(handle.spot);
+  }
+  const int nearest = NearestGrab(spots, point);
+  const bool is_hit = nearest >= 0;
+  return is_hit ? std::optional<Handle>(handles[static_cast<size_t>(nearest)])
+                : std::nullopt;
+}
+
+PoseTool::Hover PoseTool::HoverAt(QPointF point,
+                                  const StageFrame& frame) const {
+  assert(cache_ != nullptr);
+  assert(frame.scale > 0.0);
+  Hover hover;
+  const auto handle = HandleAt(point, frame);
+  if (handle) {
+    hover.kind = handle->kind;
+    hover.key = handle->key;
+    return hover;
+  }
+  const Project& project = managers_.history->current();
+  const Shot* shot = FindShot(project, frame.shot);
+  const auto hit =
+      shot != nullptr ? HitTest(project, *shot, frame.local,
+                                point - frame.corner, frame.scale, cache_)
+                      : std::nullopt;
+  if (hit) {
+    // A doll picked whole is hovered whole, like a press would take it.
+    const auto& picks = managers_.selection->picks();
+    const Pick whole{hit->layer, QString()};
+    const Pick pick = picks.contains(whole) ? whole
+                                            : Pick{hit->layer, hit->piece};
+    const bool is_unpicked = !picks.contains(pick);
+    hover.pick = is_unpicked ? std::optional<Pick>(pick) : std::nullopt;
+  }
+  return hover;
+}
+
+bool PoseTool::PressHandle(QPointF point, const StageFrame& frame) {
+  assert(frame.scale > 0.0);
+  assert(managers_.history != nullptr);
+  const auto handle = HandleAt(point, frame);
+  if (!handle) {
     return false;
   }
+  switch (handle->kind) {
+    case GrabKind::kLean:
+    case GrabKind::kSwivel:
+      GrabTurn(*handle, point, frame);
+      break;
+    case GrabKind::kWarpDot:
+      GrabWarp(*handle, point, frame);
+      break;
+    default:
+      GrabIk(*handle, point, frame);
+      break;
+  }
+  return drag_ != nullptr;
+}
+
+void PoseTool::GrabTurn(const Handle& handle, QPointF point,
+                        const StageFrame& frame) {
+  assert(handle.kind == GrabKind::kLean || handle.kind == GrabKind::kSwivel);
+  assert(frame.scale > 0.0);
+  const Project& project = managers_.history->current();
+  const Shot* shot = FindShot(project, frame.shot);
+  std::vector<LayerId> dolls;
+  for (const Pick& pick : GrabbablePicks(frame)) {
+    const bool is_doll = shot != nullptr && pick.piece.isEmpty() &&
+                         TurnHandlesOf(project, *shot, pick.layer,
+                                       frame.local, frame.scale, cache_)
+                             .has_value();
+    if (is_doll) {
+      dolls.push_back(pick.layer);
+    }
+  }
+  const bool has_dolls = !dolls.empty();
+  if (!has_dolls) {
+    return;
+  }
+  const bool is_lean = handle.kind == GrabKind::kLean;
   const Layer* first = FindLayer(*shot, dolls.front());
   const QString what =
       dolls.size() > 1
@@ -60,68 +209,47 @@ bool PoseTool::PressLean(QPointF point, const StageFrame& frame) {
   drag->kind = is_lean ? Kind::kLean : Kind::kSwivel;
   drag->frame = frame;
   drag->dolls = std::move(dolls);
+  drag->press = point;
   drag->start = point;
   drag->scope = std::make_unique<EditScope>(
       managers_.history, is_lean ? QObject::tr("Lean %1").arg(what)
                                  : QObject::tr("Swivel %1").arg(what));
   drag_ = std::move(drag);
-  return true;
 }
 
-std::optional<std::pair<WarpDot, QTransform>> PoseTool::DotAt(
-    QPointF point, const StageFrame& frame) const {
+void PoseTool::GrabWarp(const Handle& handle, QPointF point,
+                        const StageFrame& frame) {
+  assert(handle.kind == GrabKind::kWarpDot);
   assert(frame.scale > 0.0);
-  assert(managers_.selection != nullptr);
-  const Project& project = managers_.history->current();
-  const Shot* shot = FindShot(project, frame.shot);
-  const bool is_ready =
-      shot != nullptr && managers_.selection->shot() == frame.shot;
-  if (!is_ready) {
-    return std::nullopt;
-  }
-  for (const Pick& pick : managers_.selection->picks()) {
-    const auto warp =
-        pick.piece.isEmpty()
-            ? std::nullopt
-            : PieceWarpOnScreen(project, *shot, pick.layer, pick.piece,
-                                frame.local, frame.scale);
-    const bool has_grid = warp.has_value();
-    if (!has_grid) {
-      continue;
-    }
-    std::vector<QPointF> on_screen;
-    for (const QPointF& spot : warp->points) {
-      on_screen.push_back(warp->to_screen.map(spot) + frame.corner);
-    }
-    const int nearest = NearestPoint(on_screen, point, kHandleReach);
-    const bool is_hit = nearest >= 0;
-    if (is_hit) {
-      return std::pair(WarpDot{pick.layer, pick.piece, nearest},
-                       warp->to_screen);
-    }
-  }
-  return std::nullopt;
-}
-
-bool PoseTool::PressWarp(QPointF point, const StageFrame& frame) {
-  assert(frame.scale > 0.0);
-  assert(managers_.history != nullptr);
-  const auto hit = DotAt(point, frame);
-  if (!hit) {
-    return false;
-  }
   auto drag = std::make_unique<Drag>();
   drag->kind = Kind::kWarp;
   drag->frame = frame;
-  drag->layer = hit->first.layer;
-  drag->piece = hit->first.piece;
-  drag->point = hit->first.point;
-  drag->drawing_to_screen = hit->second;
+  drag->layer = handle.dot.layer;
+  drag->piece = handle.dot.piece;
+  drag->point = handle.dot.point;
+  drag->drawing_to_screen = handle.to_screen;
+  // The dot jumps under the cursor: the drag measures from its centre.
+  drag->press = point;
+  drag->start = handle.spot;
+  drag->scope = std::make_unique<EditScope>(
+      managers_.history, QObject::tr("Warp %1").arg(handle.dot.piece));
+  drag_ = std::move(drag);
+}
+
+void PoseTool::GrabIk(const Handle& handle, QPointF point,
+                      const StageFrame& frame) {
+  assert(handle.kind == GrabKind::kIkTip);
+  assert(frame.scale > 0.0);
+  auto drag = std::make_unique<Drag>();
+  drag->kind = Kind::kIk;
+  drag->frame = frame;
+  drag->layer = handle.layer;
+  drag->chain = handle.chain;
+  drag->press = point;
   drag->start = point;
   drag->scope = std::make_unique<EditScope>(
-      managers_.history, QObject::tr("Warp %1").arg(hit->first.piece));
+      managers_.history, QObject::tr("Bend %1").arg(handle.chain));
   drag_ = std::move(drag);
-  return true;
 }
 
 std::optional<WarpDot> PoseTool::PickedDot(const StageFrame& frame) const {
@@ -176,37 +304,6 @@ void PoseTool::ToggleDrag(const StageFrame& frame) {
     return;
   }
   Note(managers_.rig->ToggleDragNode(posed->doll, dot->piece, dot->point));
-}
-
-bool PoseTool::PressIk(QPointF point, const StageFrame& frame) {
-  assert(frame.scale > 0.0);
-  assert(managers_.selection != nullptr);
-  const LayerId layer = managers_.selection->layer();
-  const Project& project = managers_.history->current();
-  const Shot* shot = FindShot(project, frame.shot);
-  const bool is_ready = shot != nullptr && layer.IsValid() &&
-                        managers_.selection->shot() == frame.shot;
-  if (!is_ready) {
-    return false;
-  }
-  for (const IkHandle& handle :
-       IkHandles(project, *shot, layer, frame.local, frame.scale)) {
-    const bool is_near =
-        QLineF(handle.point + frame.corner, point).length() <= kHandleReach;
-    if (is_near) {
-      auto drag = std::make_unique<Drag>();
-      drag->kind = Kind::kIk;
-      drag->frame = frame;
-      drag->layer = layer;
-      drag->chain = handle.chain;
-      drag->start = point;
-      drag->scope = std::make_unique<EditScope>(
-          managers_.history, QObject::tr("Bend %1").arg(handle.chain));
-      drag_ = std::move(drag);
-      return true;
-    }
-  }
-  return false;
 }
 
 }  // namespace snapper

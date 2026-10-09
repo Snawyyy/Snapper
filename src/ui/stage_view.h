@@ -10,6 +10,8 @@
 
 #include "render/frame_renderer.h"
 #include "render/stage_geometry.h"
+#include "render/stage_hit.h"
+#include "ui/handle_hover.h"
 #include "ui/managers.h"
 #include "ui/pose_tool.h"
 
@@ -22,7 +24,9 @@ namespace snapper {
 // warp grid shows it as faint lines with yellow dots to drag; clicking
 // a dot picks it, and the wheel then sets how far it pulls its
 // neighbours. Right-clicking something offers to link the picked
-// things' movement to it, or to unlink them.
+// things' movement to it, or to unlink them. Before any press, a thin
+// dashed outline shows the thing a click would pick, the handle under
+// the cursor grows and the cursor says what dragging it does.
 class StageView final : public QWidget {
   Q_OBJECT
 
@@ -44,11 +48,19 @@ class StageView final : public QWidget {
   void mouseReleaseEvent(QMouseEvent* event) override;
   void mouseDoubleClickEvent(QMouseEvent* event) override;
   void wheelEvent(QWheelEvent* event) override;
+  void leaveEvent(QEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
   void contextMenuEvent(QContextMenuEvent* event) override;
 
  private:
   void PaintHandles(const StageFrame& frame, QPainter* painter);
+  // The thin outline of the thing under the cursor.
+  void PaintHover(const StageFrame& frame, QPainter* painter);
+  // A doll's lean and swivel bars.
+  void PaintTurn(const TurnHandles& turn, LayerId layer, QPainter* painter);
+  // Follows the cursor to the handle or thing under it.
+  void UpdateHover(QPointF point);
+  void ClearHover();
   // A picked piece's warp grid: faint lines and yellow dots.
   void PaintWarp(const StageFrame& frame, const Pick& pick,
                  QPainter* painter);
@@ -64,6 +76,8 @@ class StageView final : public QWidget {
   Managers managers_;
   FrameRenderer renderer_;
   PoseTool tool_;
+  HandleHover hover_;
+  std::optional<Pick> hover_pick_;
   // Wheel movement not yet a whole notch.
   int wheel_left_ = 0;
 };

@@ -64,13 +64,13 @@ snapper_module(ui
           export_dialog_actions.cpp file_menu.cpp main_window.cpp
           drag_box.cpp picked_dot.cpp point_motion_box.cpp shot_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
           layer_box_commits.cpp link_box.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
-          rig_canvas_input.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp
+          rig_canvas_input.cpp rig_canvas_handles.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp
           reel_preview.cpp reel_timeline.cpp reel_timeline_drop.cpp
           reel_timeline_commands.cpp reel_timeline_input.cpp
           shot_bin.cpp shot_strip.cpp slot_picker.cpp
           grab.cpp handle_hover.cpp
           motion.cpp motion_menu.cpp motion_table.cpp
-          stage_menu.cpp stage_view.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
+          stage_menu.cpp stage_view.cpp stage_view_paint.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
           timeline_view.cpp transition_picker.cpp video_page.cpp
   MODULES edit
   LIBS Qt6::Widgets)
@@ -106,7 +106,8 @@ if(BUILD_TESTING)
   snapper_test(ui SOURCES cast_panel_tests.cpp export_dialog_tests.cpp
                           grab_tests.cpp handle_hover_tests.cpp
                           inspector_tests.cpp link_ui_tests.cpp
-                          pose_tool_tests.cpp reel_timeline_tests.cpp
+                          pose_tool_tests.cpp pose_tool_grab_tests.cpp
+                          reel_timeline_tests.cpp
                           rig_ui_tests.cpp
                           shot_strip_tests.cpp slot_picker_tests.cpp
                           motion_tests.cpp theme_tests.cpp
