@@ -12,20 +12,19 @@
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/bar_text.h"
 #include "ui/toast_manager.h"
 
 namespace snapper {
 namespace {
 
-// "Undo Rotate head" when it can act, else greyed out saying why.
-void ShowStep(QAction* action, const QString& verb, const QString& label,
-              const QString& why_not) {
+// Puts a step's words, tooltip and enabled state on its menu entry.
+void ShowStep(QAction* action, const StepFace& face) {
   assert(action != nullptr);
-  assert(!verb.isEmpty());
-  const bool can_act = why_not.isEmpty();
-  action->setEnabled(can_act);
-  action->setText(can_act ? verb + QLatin1Char(' ') + label : verb);
-  action->setToolTip(why_not);
+  assert(!face.text.isEmpty());
+  action->setEnabled(face.enabled);
+  action->setText(face.text);
+  action->setToolTip(face.tooltip);
 }
 
 }  // namespace
@@ -258,10 +257,12 @@ void MainWindow::Refresh() {
   setWindowTitle(QStringLiteral("%1[*] (%2) - Snapper")
                      .arg(project.name, where));
   setWindowModified(managers_.history->IsDirty());
-  ShowStep(&undo_action_, tr("&Undo"), managers_.history->UndoLabel(),
-           managers_.history->WhyNoUndo());
-  ShowStep(&redo_action_, tr("&Redo"), managers_.history->RedoLabel(),
-           managers_.history->WhyNoRedo());
+  ShowStep(&undo_action_,
+           MakeStepFace(tr("&Undo"), managers_.history->UndoLabel(),
+                        managers_.history->WhyNoUndo()));
+  ShowStep(&redo_action_,
+           MakeStepFace(tr("&Redo"), managers_.history->RedoLabel(),
+                        managers_.history->WhyNoRedo()));
 }
 
 }  // namespace snapper
