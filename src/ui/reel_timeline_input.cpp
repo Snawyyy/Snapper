@@ -122,6 +122,7 @@ void ReelTimeline::StartDrag(ClipId clip, Drag drag, QPointF at) {
                         : Picked().size() > 1 ? tr("Move clips")
                                               : tr("Move clip");
   scope_ = std::make_unique<EditScope>(managers_.history, label);
+  GrabGhost();
 }
 
 void ReelTimeline::Follow(QPointF at) {
