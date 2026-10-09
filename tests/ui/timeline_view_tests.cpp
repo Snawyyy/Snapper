@@ -52,6 +52,7 @@ class TimelineViewTests final : public QObject {
   void DeleteRemovesPickedKeys();
   void RulerClickSeeks();
   void BoxShiftAndCtrlPickKeys();
+  void KeysGrabFromTwelvePixelsAndWaitFourToSlide();
   void StepModeToggles();
 };
 
@@ -115,7 +116,8 @@ void TimelineViewTests::BoxShiftAndCtrlPickKeys() {
   QVERIFY(bench.pose.KeyInPlace(kShot, LayerId(1), Frame(10)).has_value());
   TimelineView view(bench.All());
   view.resize(800, 200);
-  const QPoint from = Cell(view, 1) + QPoint(0, -5);
+  // Frame 1 is within reach of the key at 2 and would grab it.
+  const QPoint from = Cell(view, 0) + QPoint(0, -5);
   const QPoint to = Cell(view, 12) + QPoint(0, 5);
   QTest::mousePress(&view, Qt::LeftButton, {}, from);
   QTest::mouseMove(&view, to);
@@ -146,6 +148,25 @@ void TimelineViewTests::StepModeToggles() {
   QCOMPARE(toggle->text(), QString("Animation mode"));
   bench.playback.Step(1);
   QCOMPARE(bench.playback.frame(), Frame(2));
+}
+
+void TimelineViewTests::KeysGrabFromTwelvePixelsAndWaitFourToSlide() {
+  Bench bench;
+  Stage(&bench);
+  TimelineView view(bench.All());
+  view.resize(800, 200);
+  // The key is at frame 2; press 11 pixels from it, nearer to it than
+  // to any other.
+  const QPoint key = Cell(view, 2);
+  const QPoint near = key + QPoint(-11, 0);
+  QTest::mousePress(&view, Qt::LeftButton, {}, near);
+  QVERIFY(!bench.selection.keys().empty());
+  // 3 pixels of drag slide nothing; 4 and a frame of travel do.
+  QTest::mouseMove(&view, near + QPoint(3, 0));
+  QCOMPARE(DollKeys(bench)[0], Frame(2));
+  QTest::mouseMove(&view, Cell(view, 5));
+  QTest::mouseRelease(&view, Qt::LeftButton, {}, Cell(view, 5));
+  QCOMPARE(DollKeys(bench)[0], Frame(5));
 }
 
 }  // namespace snapper

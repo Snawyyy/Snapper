@@ -14,6 +14,7 @@
 #include "edit/playback_manager.h"
 #include "edit/reel_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/grab.h"
 #include "ui/reel_timeline.h"
 #include "ui/slot_picker.h"
 #include "ui/transition_picker.h"
@@ -21,11 +22,7 @@
 namespace snapper {
 namespace {
 
-// Ends are drawn 3 pixels wide but grab from further in.
-constexpr double kEdgeReach = 8.0;
 constexpr double kSnapPixels = 8.0;
-// Pixels the mouse goes before a press on a clip becomes a drag.
-constexpr double kDragStart = 3.0;
 
 }  // namespace
 
@@ -55,7 +52,7 @@ ClipId ReelTimeline::JointAt(QPointF at) const {
       managers_.history->current().reel.tracks[static_cast<size_t>(track)];
   for (const Clip& clip : row.clips) {
     const bool is_near =
-        std::abs(XOf(clip.end()) - at.x()) <= kEdgeReach &&
+        std::abs(XOf(clip.end()) - at.x()) <= kGrabReach &&
         NextTouching(row, clip) != nullptr;
     if (is_near) {
       return clip.id;
@@ -69,7 +66,7 @@ ReelTimeline::Drag ReelTimeline::DragFor(ClipId clip, QPointF at) const {
   const QRectF box = ClipRect(clip);
   assert(!box.isEmpty());
   // Narrow clips keep a middle to move by.
-  const double reach = std::min(kEdgeReach, box.width() / 3.0);
+  const double reach = std::min(kGrabReach, box.width() / 3.0);
   const bool is_left = at.x() - box.left() <= reach;
   const bool is_right = box.right() - at.x() <= reach;
   return is_left ? Drag::kTrimStart
@@ -131,9 +128,7 @@ void ReelTimeline::Follow(QPointF at) {
   assert(scope_ != nullptr);
   const Project& start = managers_.history->before();
   const Frame playhead = managers_.playback->FrameOn(Timeline::kReel);
-  const bool is_still = !has_moved_ &&
-                        std::abs(at.x() - press_.x()) < kDragStart &&
-                        std::abs(at.y() - press_.y()) < kDragStart;
+  const bool is_still = !has_moved_ && !IsPastDeadZone(press_, at);
   if (is_still) {
     return;
   }
@@ -250,7 +245,8 @@ void ReelTimeline::FinishBox() {
   drag_ = Drag::kNone;
   update();
   const QRectF box = QRectF(press_, box_to_).normalized();
-  const bool is_click = box.width() < kDragStart && box.height() < kDragStart;
+  const bool is_click =
+      box.width() < kDragDeadZone && box.height() < kDragDeadZone;
   if (is_click) {
     const bool is_plain = box_mode_ == PickMode::kReplace;
     if (is_plain) {

@@ -19,7 +19,8 @@ namespace snapper {
 
 TimelineView::TimelineView(const Managers& managers)
     : managers_(managers), step_mode_(this),
-      frame_width_(kDefaultFrameWidth) {
+      frame_width_(kDefaultFrameWidth),
+      hover_(managers.motion, this) {
   assert(managers_.IsComplete());
   step_mode_.setObjectName("step_mode");
   step_mode_.setCheckable(true);
@@ -33,6 +34,8 @@ TimelineView::TimelineView(const Managers& managers)
           &TimelineView::ShowStepMode);
   ShowStepMode();
   setFocusPolicy(Qt::StrongFocus);
+  setMouseTracking(true);
+  connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
   setMinimumHeight(kRulerHeight + kWaveHeight + 3 * kRowHeight);
   const auto update_me = [this] { update(); };
   connect(managers_.history, &HistoryManager::Changed, this, update_me);
@@ -246,15 +249,54 @@ std::optional<Frame> TimelineView::KeyNear(const TimelineRow& row,
                                            double x) const {
   assert(std::isfinite(x));
   assert(row.keys.size() == row.is_eased.size());
-  const double reach = std::max(frame_width_ / 2.0, kKeyReach);
+  // Wide frames let a click anywhere in the frame's half reach its key.
+  const double reach = std::max(frame_width_ / 2.0, kGrabReach);
+  std::vector<QPointF> spots;
   for (const Frame key : row.keys) {
-    const bool is_near =
-        std::abs(XOf(key) + frame_width_ / 2.0 - x) <= reach;
-    if (is_near) {
-      return key;
-    }
+    spots.emplace_back(XOf(key) + frame_width_ / 2.0, 0.0);
   }
-  return std::nullopt;
+  const int nearest = NearestGrab(spots, QPointF(x, 0.0), reach);
+  const bool is_hit = nearest >= 0;
+  return is_hit ? std::optional<Frame>(row.keys[static_cast<size_t>(nearest)])
+                : std::nullopt;
+}
+
+QString TimelineView::KeyName(size_t row, Frame frame) {
+  assert(frame.index() >= 0);
+  assert(row < 100000);
+  return QStringLiteral("%1/%2").arg(row).arg(frame.index());
+}
+
+void TimelineView::UpdateHover(QPointF point) {
+  assert(std::isfinite(point.x()) && std::isfinite(point.y()));
+  assert(key_drag_ == nullptr);
+  const Project& project = managers_.history->current();
+  const auto rows = TimelineRows(project, managers_.selection->shot());
+  const bool is_in_rows = point.y() >= kRulerHeight + kWaveHeight;
+  const int index = is_in_rows ? RowAt(point.y(), rows.size()) : -1;
+  const bool is_row = index >= 0;
+  const auto key = is_row ? KeyNear(rows[static_cast<size_t>(index)],
+                                    point.x())
+                          : std::nullopt;
+  if (!key) {
+    ClearHover();
+    return;
+  }
+  hover_.Set(GrabKind::kKey, KeyName(static_cast<size_t>(index), *key));
+  setCursor(CursorFor(GrabKind::kKey));
+}
+
+void TimelineView::ClearHover() {
+  hover_.Set(GrabKind::kNone, QString());
+  unsetCursor();
+  assert(hover_.kind() == GrabKind::kNone);
+}
+
+void TimelineView::leaveEvent(QEvent* event) {
+  assert(event != nullptr);
+  assert(hover_.kind() >= GrabKind::kNone);
+  ClearHover();
+  QWidget::leaveEvent(event);
 }
 
 }  // namespace snapper

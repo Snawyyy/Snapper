@@ -17,6 +17,7 @@
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/shot_manager.h"
+#include "ui/grab.h"
 #include "ui/theme.h"
 
 namespace snapper {
@@ -25,7 +26,6 @@ namespace {
 constexpr double kPixelsPerFrame = 2.0;
 constexpr double kMinBlock = 56.0;
 constexpr double kAddWidth = 28.0;
-constexpr double kEdgeReach = 5.0;
 constexpr int kStripHeight = 40;
 
 double WidthOf(const Shot& shot) {
@@ -120,7 +120,7 @@ void ShotStrip::mousePressEvent(QMouseEvent* event) {
     }
     const bool is_shift = event->modifiers().testFlag(Qt::ShiftModifier);
     const bool is_ctrl = event->modifiers().testFlag(Qt::ControlModifier);
-    const bool is_edge = block.rect.right() - at.x() <= kEdgeReach;
+    const bool is_edge = block.rect.right() - at.x() <= kGrabReach;
     const bool is_picked = managers_.selection->shots().contains(block.shot);
     const bool is_plain = !is_ctrl && !is_shift;
     const bool is_fresh = is_plain && !is_picked;
@@ -136,6 +136,7 @@ void ShotStrip::mousePressEvent(QMouseEvent* event) {
     dragged_ = block.shot;
     drag_start_x_ = at.x();
     drag_frames_ = 0;
+    is_started_ = false;
     scope_ = is_edge ? std::make_unique<EditScope>(managers_.history,
                                                     tr("Change shot length"))
                      : nullptr;
@@ -149,11 +150,15 @@ void ShotStrip::mouseMoveEvent(QMouseEvent* event) {
   bool is_on_edge = false;
   for (const Block& block : Blocks()) {
     is_on_edge = is_on_edge || (block.rect.contains(at) &&
-                                block.rect.right() - at.x() <= kEdgeReach);
+                                block.rect.right() - at.x() <= kGrabReach);
   }
   setCursor(is_on_edge || drag_ == Drag::kLength ? Qt::SizeHorCursor
                                                  : Qt::ArrowCursor);
-  const bool is_resizing = drag_ == Drag::kLength;
+  // The edge drag waits out the dead zone, then the edge jumps to the
+  // cursor.
+  is_started_ = is_started_ || IsPastDeadZone(QPointF(drag_start_x_, 0.0),
+                                              QPointF(at.x(), 0.0));
+  const bool is_resizing = drag_ == Drag::kLength && is_started_;
   if (is_resizing) {
     const int frames = static_cast<int>(
         std::lround((at.x() - drag_start_x_) / kPixelsPerFrame));
@@ -168,8 +173,10 @@ void ShotStrip::mouseMoveEvent(QMouseEvent* event) {
 
 void ShotStrip::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
-  const bool is_moving = drag_ == Drag::kMove &&
-                         std::abs(event->position().x() - drag_start_x_) > 4;
+  const bool is_moving =
+      drag_ == Drag::kMove &&
+      IsPastDeadZone(QPointF(drag_start_x_, 0.0),
+                     QPointF(event->position().x(), 0.0));
   if (is_moving) {
     int index = 0;
     for (const Block& block : Blocks()) {

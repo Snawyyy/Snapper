@@ -16,13 +16,12 @@
 namespace snapper {
 namespace {
 
-QPolygonF Diamond(QPointF center) {
+QPolygonF Diamond(QPointF center, double grow) {
   assert(std::isfinite(center.x()));
-  assert(kKeySize > 0.0);
-  return QPolygonF({center + QPointF(0, -kKeySize),
-                    center + QPointF(kKeySize, 0),
-                    center + QPointF(0, kKeySize),
-                    center + QPointF(-kKeySize, 0)});
+  assert(kKeySize > 0.0 && grow >= 1.0);
+  const double size = kKeySize * grow;
+  return QPolygonF({center + QPointF(0, -size), center + QPointF(size, 0),
+                    center + QPointF(0, size), center + QPointF(-size, 0)});
 }
 
 }  // namespace
@@ -35,6 +34,7 @@ void TimelineView::PaintRows(QPainter* painter,
   const auto& picked = managers_.selection->keys();
   painter->setRenderHint(QPainter::Antialiasing);
   double top = kRulerHeight + kWaveHeight;
+  size_t row_index = 0;
   for (const TimelineRow& row : rows) {
     const bool is_current =
         row.layer.IsValid() && row.layer == managers_.selection->layer();
@@ -65,10 +65,15 @@ void TimelineView::PaintRows(QPainter* painter,
                              key.track) != row.tracks.end();
           });
       painter->setPen(QPen(theme::kShadow, 1.0));
-      painter->setBrush(is_picked ? theme::kPick : theme::kText);
-      painter->drawPolygon(Diamond(QPointF(x, middle)));
+      const QString key_name = KeyName(row_index, row.keys[i]);
+      const double grow = hover_.ScaleOf(GrabKind::kKey, key_name);
+      // A hovered key also brightens.
+      const QColor fill = is_picked ? theme::kPick : theme::kText;
+      painter->setBrush(grow > 1.0 ? fill.lighter(125) : fill);
+      painter->drawPolygon(Diamond(QPointF(x, middle), grow));
     }
     top += kRowHeight;
+    ++row_index;
   }
   assert(project.shots.size() <= static_cast<size_t>(kMaxShots));
 }

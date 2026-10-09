@@ -5,6 +5,8 @@
 
 #include <array>
 
+#include "ui/grab.h"
+
 namespace snapper {
 
 // Sizes of the timeline, in pixels.
@@ -15,9 +17,8 @@ inline constexpr int kRowHeight = 22;
 inline constexpr double kDefaultFrameWidth = 12.0;
 inline constexpr double kMinFrameWidth = 3.0;
 inline constexpr double kMaxFrameWidth = 40.0;
-// Keys look small but grab big.
-inline constexpr double kKeyReach = 6.0;
-inline constexpr double kKeySize = 5.0;
+// Keys look small (like every handle) but grab big (kGrabReach).
+inline constexpr double kKeySize = kHandleDraw / 2;
 // Ruler numbers stay this many pixels apart, numbering every frame, or
 // every 2, 3, 6... as the timeline zooms out.
 inline constexpr double kMinLabelGap = 24.0;

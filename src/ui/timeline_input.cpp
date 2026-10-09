@@ -99,8 +99,16 @@ void TimelineView::mousePressEvent(QMouseEvent* event) {
         keys, is_shift ? PickMode::kAdd : PickMode::kReplace);
   }
   Seek(*key);
+  StartKeyDrag(*key, at);
+}
+
+void TimelineView::StartKeyDrag(Frame key, QPointF at) {
+  assert(key.index() >= 0);
+  assert(key_drag_ == nullptr);
   key_drag_ = std::make_unique<EditScope>(managers_.history, tr("Move keys"));
-  drag_frame_ = *key;
+  drag_frame_ = key;
+  press_ = at;
+  is_started_ = false;
 }
 
 void TimelineView::mouseMoveEvent(QMouseEvent* event) {
@@ -117,8 +125,14 @@ void TimelineView::mouseMoveEvent(QMouseEvent* event) {
     update();
     return;
   }
+  const bool is_dragging = key_drag_ != nullptr;
+  if (!is_dragging) {
+    UpdateHover(event->position());
+    return;
+  }
+  is_started_ = is_started_ || IsPastDeadZone(press_, event->position());
   const int step = frame->index() - drag_frame_.index();
-  const bool is_sliding = key_drag_ != nullptr && step != 0;
+  const bool is_sliding = is_started_ && step != 0;
   if (!is_sliding) {
     return;
   }
@@ -136,6 +150,7 @@ void TimelineView::mouseReleaseEvent(QMouseEvent* event) {
   assert(managers_.history != nullptr);
   is_scrubbing_ = false;
   key_drag_.reset();
+  is_started_ = false;
   if (is_boxing_) {
     FinishBox();
   }
@@ -146,7 +161,8 @@ void TimelineView::FinishBox() {
   assert(managers_.selection != nullptr);
   is_boxing_ = false;
   const QRectF box = QRectF(box_from_, box_to_).normalized();
-  const bool is_click = box.width() < 3.0 && box.height() < 3.0;
+  const bool is_click =
+      box.width() < kDragDeadZone && box.height() < kDragDeadZone;
   if (is_click) {
     // A plain click on empty space clears the keys and moves the
     // playhead there.

@@ -59,6 +59,8 @@ class ShotStrip final : public QWidget {
   Drag drag_ = Drag::kNone;
   ShotId dragged_;
   double drag_start_x_ = 0.0;
+  // True once the mouse has left the dead zone of the press.
+  bool is_started_ = false;
   // Frames already added by the edge drag in progress.
   int drag_frames_ = 0;
   std::unique_ptr<EditScope> scope_;

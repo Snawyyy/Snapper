@@ -13,6 +13,7 @@
 #include "edit/edit_scope.h"
 #include "edit/selection_manager.h"
 #include "edit/timeline_rows.h"
+#include "ui/handle_hover.h"
 #include "ui/managers.h"
 #include "ui/problem.h"
 
@@ -51,6 +52,7 @@ class TimelineView final : public QWidget {
   void contextMenuEvent(QContextMenuEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
   void wheelEvent(QWheelEvent* event) override;
+  void leaveEvent(QEvent* event) override;
 
  private:
   void PaintRuler(QPainter* painter) const;
@@ -63,11 +65,18 @@ class TimelineView final : public QWidget {
   void PaintPlayhead(QPainter* painter) const;
   // The row under y, or -1.
   int RowAt(double y, size_t count) const;
-  // A key of row near x, or nothing.
+  // The key of row nearest to x within reach, or nothing.
   std::optional<Frame> KeyNear(const TimelineRow& row, double x) const;
+  // Grows the key under the cursor and shows its cursor.
+  void UpdateHover(QPointF point);
+  void ClearHover();
+  // The name the hover knows a key by.
+  static QString KeyName(size_t row, Frame frame);
   // The playhead's frame in this shot, or nothing when it is elsewhere.
   std::optional<Frame> PlayheadHere() const;
   void Seek(Frame local);
+  // Opens the one undo step of a key drag that starts at at.
+  void StartKeyDrag(Frame key, QPointF at);
   void Report(const QString& problem) { emit Problem(problem); }
   void KeyMenu(const TimelineRow& row, Frame frame, QPoint where);
   void EmptyMenu(const TimelineRow& row, Frame frame, QPoint where);
@@ -90,6 +99,11 @@ class TimelineView final : public QWidget {
   PickMode box_mode_ = PickMode::kReplace;
   std::unique_ptr<EditScope> key_drag_;
   Frame drag_frame_;
+  // Where a key was pressed; it slides only once the mouse has gone
+  // kDragDeadZone, then jumps under the cursor.
+  QPointF press_;
+  bool is_started_ = false;
+  HandleHover hover_;
 };
 
 }  // namespace snapper
