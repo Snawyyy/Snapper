@@ -12,6 +12,7 @@
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/toast_manager.h"
 
 namespace snapper {
 namespace {
@@ -26,8 +27,6 @@ void ShowStep(QAction* action, const QString& verb, const QString& label,
   action->setText(can_act ? verb + QLatin1Char(' ') + label : verb);
   action->setToolTip(why_not);
 }
-
-constexpr int kStatusMs = 6000;
 
 }  // namespace
 
@@ -53,6 +52,8 @@ MainWindow::MainWindow(const Managers& managers)
       cast_(managers),
       inspector_dock_(tr("Inspector")),
       inspector_(managers),
+      toast_view_(managers.toasts, managers.motion, this, &pages_),
+      shaker_(managers.motion),
       export_dialog_(managers, this),
       export_action_(tr("&Export...")),
       play_menu_(tr("&Play")),
@@ -69,8 +70,9 @@ MainWindow::MainWindow(const Managers& managers)
   connect(&rig_canvas_, &RigCanvas::PickChanged, &rig_panel_,
           &RigPanel::SetPick);
   rig_canvas_.SetDoll(rig_panel_.doll());
-  const auto show_problem = [this](const QString& why) {
-    statusBar()->showMessage(why, kStatusMs);
+  ToastManager* toasts = managers_.toasts;
+  const auto show_problem = [toasts](const QString& why) {
+    toasts->Problem(why);
   };
   connect(&stage_, &StageView::Problem, this, show_problem);
   connect(&timeline_, &TimelineView::Problem, this, show_problem);
@@ -98,9 +100,8 @@ MainWindow::MainWindow(const Managers& managers)
   connect(managers_.document, &DocumentManager::PathChanged, this,
           &MainWindow::Refresh);
   connect(managers_.document, &DocumentManager::AutosaveFailed, this,
-          [this](const QString& why) {
-            statusBar()->showMessage(tr("Autosave failed: %1").arg(why),
-                                     kStatusMs);
+          [toasts](const QString& why) {
+            toasts->Problem(tr("Autosave failed: %1").arg(why));
           });
   setDockNestingEnabled(true);
   resize(1440, 900);

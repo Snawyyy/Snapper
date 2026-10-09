@@ -16,6 +16,8 @@
 #include "edit/selection_manager.h"
 #include "ui/form_helpers.h"
 #include "ui/reel_timeline.h"
+#include "ui/toast_manager.h"
+#include "ui/toast_queue.h"
 
 namespace snapper {
 
@@ -61,6 +63,14 @@ QString ReelTimeline::WhyNot(Command command) const {
   return managers_.reel->WhyNoPick(picked);
 }
 
+void ReelTimeline::DeletePicked(const Result<void>& result, size_t count) {
+  assert(managers_.toasts != nullptr);
+  assert(count < 1000000);
+  managers_.toasts->Finish(
+      ProblemOf(result), CountText(tr("Deleted"), static_cast<int>(count),
+                                   tr("clip"), tr("clips")));
+}
+
 void ReelTimeline::Run(Command command) {
   assert(managers_.reel != nullptr);
   assert(command != Command::kNone);
@@ -73,10 +83,10 @@ void ReelTimeline::Run(Command command) {
       Report(ProblemOf(reel.SplitAll(picked, now)));
       return;
     case Command::kRemove:
-      Report(ProblemOf(reel.RemoveAll(picked)));
+      DeletePicked(reel.RemoveAll(picked), picked.size());
       return;
     case Command::kRipple:
-      Report(ProblemOf(reel.RippleDeleteAll(picked)));
+      DeletePicked(reel.RippleDeleteAll(picked), picked.size());
       return;
     case Command::kCopy:
       Report(ProblemOf(reel.Copy(picked)));
@@ -173,7 +183,8 @@ void ReelTimeline::TrackMenu(int track, QPoint where) {
   QAction* remove = menu.addAction(tr("Remove track V%1").arg(track + 1));
   Explain(remove, managers_.reel->WhyNoRemoveTrack(track));
   connect(remove, &QAction::triggered, this, [this, track] {
-    Report(ProblemOf(managers_.reel->RemoveTrack(track)));
+    managers_.toasts->Finish(ProblemOf(managers_.reel->RemoveTrack(track)),
+                             tr("Removed track V%1").arg(track + 1));
   });
   menu.exec(where);
 }

@@ -19,6 +19,8 @@
 #include "edit/selection_manager.h"
 #include "ui/timeline_layout.h"
 #include "ui/timeline_view.h"
+#include "ui/toast_manager.h"
+#include "ui/toast_queue.h"
 
 namespace snapper {
 namespace {
@@ -284,8 +286,7 @@ void TimelineView::KeyMenu(const TimelineRow& row, Frame frame,
           });
   connect(menu.addAction(tr("Delete keys")), &QAction::triggered, this,
           [this] {
-            const auto& picked = managers_.selection->keys();
-            Report(ProblemOf(managers_.keys->Remove(picked)));
+            DeletePicked();
           });
   menu.exec(where);
 }
@@ -316,6 +317,16 @@ void TimelineView::EmptyMenu(const TimelineRow& row, Frame frame,
   menu.exec(where);
 }
 
+void TimelineView::DeletePicked() {
+  assert(managers_.toasts != nullptr);
+  const auto& picked = managers_.selection->keys();
+  assert(picked.size() < 1000000);
+  managers_.toasts->Finish(
+      ProblemOf(managers_.keys->Remove(picked)),
+      CountText(tr("Deleted"), static_cast<int>(picked.size()), tr("key"),
+                tr("keys")));
+}
+
 void TimelineView::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
   const auto& picked = managers_.selection->keys();
@@ -339,7 +350,7 @@ void TimelineView::keyPressEvent(QKeyEvent* event) {
   const auto here = PlayheadHere();
   const bool can_paste_here = is_paste && here.has_value();
   if (is_delete) {
-    Report(ProblemOf(managers_.keys->Remove(picked)));
+    DeletePicked();
   } else if (is_copy) {
     Report(ProblemOf(managers_.keys->Copy(picked)));
   } else if (can_paste_here) {

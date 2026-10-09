@@ -18,11 +18,13 @@
 #include "ui/inspector.h"
 #include "ui/managers.h"
 #include "ui/motion_menu.h"
+#include "ui/refusal_shaker.h"
 #include "ui/rig_canvas.h"
 #include "ui/rig_panel.h"
 #include "ui/shot_strip.h"
 #include "ui/stage_view.h"
 #include "ui/timeline_view.h"
+#include "ui/toast_view.h"
 #include "ui/video_page.h"
 
 namespace snapper {
@@ -88,6 +90,10 @@ class MainWindow final : public QMainWindow {
   CastPanel cast_;
   QDockWidget inspector_dock_;
   Inspector inspector_;
+  // Floats over the pages, so it comes after the panels it floats over.
+  ToastView toast_view_;
+  // A greyed control clicked anyway shakes and says why.
+  RefusalShaker shaker_;
   ExportDialog export_dialog_;
   QAction export_action_;
   QMenu play_menu_;

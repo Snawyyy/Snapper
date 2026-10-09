@@ -59,6 +59,10 @@ class HistoryManager final : public QObject {
   bool IsDirty() const { return revision_ != saved_revision_; }
   void MarkSaved();
   bool IsScopeOpen() const { return is_scope_open_; }
+  // Names the state the project is in: it changes with every step, and
+  // undo brings the old one back. A toast that announces a step keeps
+  // this to know the step is still the latest.
+  int revision() const { return revision_; }
 
  signals:
   // The project, or what undo, redo or dirty would say, changed.

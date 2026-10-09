@@ -340,12 +340,35 @@ are destroyed in reverse.
 | `PlaybackManager`      | Playhead on either timeline, play, loop, song  |
 | `ExportManager`        | MP4 and GIF export of the final video, threaded |
 | `MotionManager` (`ui`) | How long and how softly the UI moves: the Motion table, Full / Calm / Off, saved in settings |
+| `ToastManager` (`ui`)  | Toasts: the queue, their time, stacking, dismissal and the Undo they offer |
+| `RefusalShaker` (`ui`) | The shake and the reason on a greyed control clicked anyway |
 
 `MotionManager` lives in `ui` because it only serves widgets and holds no
 project state. Its table and curves (`motion_table.h`) are pure and
 tested without a widget; every animation asks `MotionManager` for its
 duration and curve, so the View > Motion switch changes all of them at
 once. Qt has no reduced-motion query, so a fresh install starts in Full.
+
+A problem the user caused is a toast, not a modal or status bar text:
+widgets pass the manager's error text to `ToastManager::Problem` (the
+window's problem signals all end there). `ToastQueue` (pure, tested
+without a widget) holds at most three toasts for four seconds each,
+oldest out first; the same text again refreshes instead of stacking.
+`ToastView` floats them over the bottom edge of the pages, so nothing
+jumps, never takes focus, fades through `MotionManager`, and a click or
+Escape dismisses. A big action (a delete) calls `ToastManager::Finish`,
+which on success shows a toast with an Undo button: the toast keeps the
+`HistoryManager::revision` of the step it announces and Undo runs only
+while that is still the latest step, so it can never undo something
+else; a newer edit takes the button away. Pinned hints (rig canvas) and
+file failures (warning boxes) stay as they are.
+
+`RefusalShaker` watches the whole application: a mouse press on a
+disabled widget that has a tooltip (the "greyed with a reason" rule,
+`Explain`) shakes it 4 px (`ShakeOffsetPx`, pure, tested) over the Move
+time and, on release, shows the reason beside the cursor. In Off it only
+shows the reason. No control opts in; a greyed control with no reason
+does not shake.
 
 Number fields get their hands-on feel from three small pieces. The math
 is pure and lives in `base`, tested without a widget: `EvalNumber`
