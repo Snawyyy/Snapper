@@ -40,7 +40,8 @@ PoseMap LeanPoses(const Doll& doll, const PoseMap& poses, double lean,
 // lean and swivel. Everything that draws or hit-tests a doll on stage
 // uses this.
 PoseMap ShownPoses(const Doll& doll, const Layer& layer, Frame frame,
-                   const LinkShifts& shifts = {});
+                   const LinkShifts& shifts = {},
+                   DragTrail* trail = nullptr);
 
 }  // namespace snapper
 

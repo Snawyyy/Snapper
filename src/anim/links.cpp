@@ -46,8 +46,9 @@ const PoseMap& LinkSolver::BasePoses(const Doll& doll, const Layer& layer,
   if (is_known) {
     return found->second;
   }
-  return poses_[key] = ShownPoses(doll, layer, frame, Shifts(doll, layer,
-                                                              frame));
+  DragTrail* trail = memo_ != nullptr ? memo_->TrailOf(layer.id) : nullptr;
+  return poses_[key] =
+             ShownPoses(doll, layer, frame, Shifts(doll, layer, frame), trail);
 }
 
 LinkShifts LinkSolver::Shifts(const Doll& doll, const Layer& layer,

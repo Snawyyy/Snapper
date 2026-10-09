@@ -1,3 +1,4 @@
+#include <QElapsedTimer>
 #include <QTest>
 
 #include <cmath>
@@ -46,6 +47,8 @@ class DragTests final : public QObject {
   void ReachSpreadsTheTrail();
   void EasesDragEveryFrame();
   void AnimationPlaysOnTheBeat();
+  void AResumedTrailGivesTheSamePoses();
+  void LateFramesCostLikeEarlyOnes();
 };
 
 void DragTests::StillDollsDontDrag() {
@@ -135,6 +138,50 @@ void DragTests::AnimationPlaysOnTheBeat() {
   QVERIFY(Trail(doll, layer, 9) < 9.0);
   QCOMPARE(DraggedPoses(doll, layer, Frame(6)).at("blob").warp.at(4).y(),
            0.0);
+}
+
+void DragTests::AResumedTrailGivesTheSamePoses() {
+  const Doll doll = Blob(0.7);
+  Layer layer = Jumping();
+  PiecePose back;
+  back.offset = QPointF(-4, 3);
+  SetKey(&layer.transform, {Frame(9), back, Ease::kLinear});
+  SetKey(&layer.transform, {Frame(15), PiecePose(), Ease::kLinear});
+  DragTrail trail;
+  // Forward, a jump, back to the start, the same frame twice.
+  for (int frame : {0, 1, 5, 6, 40, 40, 3, 0, 12, 90, 14, 200, 2}) {
+    QCOMPARE(DraggedPoses(doll, layer, Frame(frame), {}, &trail),
+             DraggedPoses(doll, layer, Frame(frame)));
+  }
+  QVERIFY(trail.frames().size() > 100);
+  // A trail made for another doll is dropped, not trusted.
+  Doll plain = Blob(0.7);
+  plain.rig.pieces[0].drag_nodes.clear();
+  QVERIFY(DraggedPoses(plain, layer, Frame(5), {}, &trail).empty());
+}
+
+void DragTests::LateFramesCostLikeEarlyOnes() {
+  const Doll doll = Blob(0.5);
+  const Layer layer = Jumping();
+  constexpr int kLate = 1500;
+  constexpr int kScrub = 30;
+  DragTrail trail;
+  DraggedPoses(doll, layer, Frame(kLate), {}, &trail);
+  QElapsedTimer clock;
+  clock.start();
+  for (int i = 1; i <= kScrub; ++i) {
+    DraggedPoses(doll, layer, Frame(kLate + i), {}, &trail);
+  }
+  const qint64 with_trail = clock.nsecsElapsed();
+  clock.restart();
+  for (int i = 1; i <= kScrub; ++i) {
+    DraggedPoses(doll, layer, Frame(kLate + i));
+  }
+  const qint64 without = clock.nsecsElapsed();
+  QVERIFY(trail.frames().size() > static_cast<size_t>(kLate));
+  // Each late frame is one more step, not 1500 of them.
+  QVERIFY2(with_trail * 20 < without,
+           qPrintable(QString("%1 vs %2 ns").arg(with_trail).arg(without)));
 }
 
 }  // namespace snapper
