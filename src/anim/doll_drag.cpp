@@ -3,6 +3,7 @@
 #include <QPointF>
 #include <QTransform>
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <iterator>
@@ -28,6 +29,9 @@ struct Spring final {
   QPointF at;
   QPointF speed;
 };
+
+// Lag below this eases into no trail at all.
+constexpr double kSnapLag = 0.1;
 
 double Mix(double from, double to, double amount) {
   assert(std::isfinite(amount));
@@ -80,6 +84,8 @@ std::map<Frame, bool> KeysOf(const Layer& layer) {
   for (const auto& [name, channel] : pieces) {
     add(channel);
   }
+  assert(keys.size() <= layer.transform.keys.size() +
+                            pieces.size() * kMaxTrailFrames);
   return keys;
 }
 
@@ -119,10 +125,16 @@ std::vector<Spring> SpringsOf(const Doll& doll) {
       const bool is_on_grid = node.point < rig.warp.PointCount();
       if (is_on_grid) {
         // More lag pulls softer; more bounce keeps more speed.
-        const double pull = Mix(0.5, 0.04, node.lag);
+        const double soft_pull = Mix(0.5, 0.04, node.lag);
         const double give = Mix(1.0, 0.08, node.bounce);
-        springs.push_back({rig.name, node, pull,
-                           2.0 * give * std::sqrt(pull), {}, {}});
+        const double soft_damping = 2.0 * give * std::sqrt(soft_pull);
+        // Below kSnapLag the spring blends into one with pull and
+        // damping 1, which lands on its point every frame, so lag 0
+        // trails nothing and the slider has no jump near 0.
+        const double snap =
+            std::clamp(1.0 - node.lag / kSnapLag, 0.0, 1.0);
+        springs.push_back({rig.name, node, Mix(soft_pull, 1.0, snap),
+                           Mix(soft_damping, 1.0, snap), {}, {}});
       }
     }
   }

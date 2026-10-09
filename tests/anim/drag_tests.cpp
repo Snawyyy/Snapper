@@ -1,7 +1,9 @@
 #include <QElapsedTimer>
 #include <QTest>
 
+#include <cassert>
 #include <cmath>
+#include <variant>
 
 #include "anim/doll_drag.h"
 #include "anim/sampler.h"
@@ -15,6 +17,8 @@ Doll Blob(double bounce) {
   doll.art.pieces = {{"blob", {"b.png"}, 0, {0, 0}, {20, 20}}};
   doll.rig.pieces = {{"blob", "", {10, 10}, 0, -1, {2, 2}}};
   doll.rig.pieces[0].drag_nodes = {{4, 0.5, bounce}};
+  assert(bounce >= 0.0 && bounce <= 1.0);
+  assert(doll.rig.pieces[0].warp.PointCount() == 9);
   return doll;
 }
 
@@ -26,11 +30,15 @@ Layer Jumping() {
   moved.offset = QPointF(10, 0);
   SetKey(&layer.transform, {Frame(0), PiecePose(), Ease::kStep});
   SetKey(&layer.transform, {Frame(2), moved, Ease::kStep});
+  assert(layer.transform.keys.size() == 2);
+  assert(std::holds_alternative<DollLayer>(layer.content));
   return layer;
 }
 
 double Trail(const Doll& doll, const Layer& layer, int frame,
              size_t point = 4) {
+  assert(frame >= 0);
+  assert(point < 9);
   const PoseMap poses = DraggedPoses(doll, layer, Frame(frame));
   return poses.at("blob").warp.at(point).x();
 }
@@ -44,6 +52,7 @@ class DragTests final : public QObject {
   void StillDollsDontDrag();
   void ANodeTrailsThenSettles();
   void BounceOvershoots();
+  void NoLagMeansNoTrail();
   void ReachSpreadsTheTrail();
   void EasesDragEveryFrame();
   void AnimationPlaysOnTheBeat();
@@ -94,6 +103,22 @@ void DragTests::BounceOvershoots() {
   QVERIFY(calm < 0.5);
 }
 
+void DragTests::NoLagMeansNoTrail() {
+  const Layer layer = Jumping();
+  for (double bounce : {0.0, 1.0}) {
+    Doll doll = Blob(bounce);
+    doll.rig.pieces[0].drag_nodes[0].lag = 0.0;
+    for (int frame = 0; frame < 12; ++frame) {
+      QVERIFY(std::abs(Trail(doll, layer, frame)) < 1e-9);
+    }
+  }
+  // Just above 0 it trails only a little: no jump on the slider.
+  Doll slight = Blob(0.0);
+  slight.rig.pieces[0].drag_nodes[0].lag = 0.01;
+  const double trail = Trail(slight, layer, 2);
+  QVERIFY(trail < 0.0 && trail > -1.5);
+}
+
 void DragTests::ReachSpreadsTheTrail() {
   Doll doll = Blob(0.0);
   const Layer layer = Jumping();
@@ -114,6 +139,7 @@ void DragTests::EasesDragEveryFrame() {
   layer.transform.keys[1].ease = Ease::kLinear;
   SetKey(&layer.transform, {Frame(12), far, Ease::kStep});
   QVERIFY(Trail(doll, layer, 5) != Trail(doll, layer, 4));
+  QVERIFY(Trail(doll, layer, 11) != Trail(doll, layer, 10));
 }
 
 void DragTests::AnimationPlaysOnTheBeat() {
