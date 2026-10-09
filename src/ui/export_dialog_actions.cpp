@@ -102,7 +102,8 @@ void ExportDialog::Refresh() {
                          static_cast<QWidget*>(&size_),
                          static_cast<QWidget*>(&path_),
                          static_cast<QWidget*>(&browse_)}) {
-    field->setEnabled(!is_running);
+    Explain(field, is_running ? tr("Not while exporting. Cancel first.")
+                              : QString());
   }
   assert(is_running || cancel_.text() == tr("Close"));
 }

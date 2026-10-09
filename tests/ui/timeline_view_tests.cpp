@@ -64,6 +64,10 @@ class TimelineViewTests final : public QObject {
   void KeyDragLeavesAGhostOfTheKey();
   void KeyDragSaysHowManyFrames();
   void EscapeCancelsTheKeyDrag();
+  void ANewKeyPopsAndADeletedOnePuffs();
+  void UndoRewindsAndTheDataIsAlreadyBack();
+  void ASlidKeyPopsNothingAndOffShowsNothing();
+  void UndoOfAMoveSlidesTheKeyBack();
 };
 
 void TimelineViewTests::FramesMapToPixels() {
@@ -235,6 +239,77 @@ void TimelineViewTests::EscapeCancelsTheKeyDrag() {
   QTest::mouseRelease(&view, Qt::LeftButton, {}, Cell(view, 9));
   QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(2)}));
   QVERIFY(bench.history.UndoLabel() != QString("Move keys"));
+}
+
+void TimelineViewTests::ANewKeyPopsAndADeletedOnePuffs() {
+  Bench bench;
+  Stage(&bench);
+  bench.motion.SetMode(MotionMode::kFull);
+  TimelineView view(bench.All());
+  view.resize(800, 200);
+  QTest::mouseDClick(&view, Qt::LeftButton, {}, Cell(view, 10));
+  // The key is in the data at once; only its paint pops.
+  QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(2), Frame(10)}));
+  QVERIFY(view.effects().ScaleOf(1, 0, Frame(10)) > 1.0);
+  QCOMPARE(view.effects().ScaleOf(1, 0, Frame(2)), 1.0);
+  QTRY_VERIFY(!view.effects().IsPlaying());
+  QTest::mouseClick(&view, Qt::LeftButton, {}, Cell(view, 2));
+  QTest::keyClick(&view, Qt::Key_Delete);
+  QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(10)}));
+  QCOMPARE(view.effects().Puffs().size(), size_t{1});
+  QCOMPARE(view.effects().Puffs()[0].frame, Frame(2));
+  QTRY_VERIFY(view.effects().Puffs().empty());
+}
+
+void TimelineViewTests::UndoRewindsAndTheDataIsAlreadyBack() {
+  Bench bench;
+  Stage(&bench);
+  bench.motion.SetMode(MotionMode::kFull);
+  TimelineView view(bench.All());
+  view.resize(800, 200);
+  QTest::mouseClick(&view, Qt::LeftButton, {}, Cell(view, 2));
+  QTest::keyClick(&view, Qt::Key_Delete);
+  QTRY_VERIFY(!view.effects().IsPlaying());
+  bench.history.Undo();
+  QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(2)}));
+  QVERIFY(view.effects().GlowOf(1, 0, Frame(2)) > 0.0);
+  QTRY_VERIFY(!view.effects().IsPlaying());
+  bench.history.Redo();
+  QVERIFY(DollKeys(bench).empty());
+  QCOMPARE(view.effects().Puffs().size(), size_t{1});
+}
+
+void TimelineViewTests::ASlidKeyPopsNothingAndOffShowsNothing() {
+  Bench bench;
+  Stage(&bench);
+  bench.motion.SetMode(MotionMode::kFull);
+  TimelineView view(bench.All());
+  view.resize(800, 200);
+  QTest::mousePress(&view, Qt::LeftButton, {}, Cell(view, 2));
+  QTest::mouseMove(&view, Cell(view, 6));
+  QTest::mouseRelease(&view, Qt::LeftButton, {}, Cell(view, 6));
+  QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(6)}));
+  QVERIFY(!view.effects().IsPlaying());
+  bench.motion.SetMode(MotionMode::kOff);
+  bench.history.Undo();
+  QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(2)}));
+  QVERIFY(!view.effects().IsPlaying());
+}
+
+void TimelineViewTests::UndoOfAMoveSlidesTheKeyBack() {
+  Bench bench;
+  Stage(&bench);
+  bench.motion.SetMode(MotionMode::kFull);
+  TimelineView view(bench.All());
+  view.resize(800, 200);
+  QTest::mousePress(&view, Qt::LeftButton, {}, Cell(view, 2));
+  QTest::mouseMove(&view, Cell(view, 6));
+  QTest::mouseRelease(&view, Qt::LeftButton, {}, Cell(view, 6));
+  QTRY_VERIFY(!view.effects().IsPlaying());
+  bench.history.Undo();
+  QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(2)}));
+  QCOMPARE(view.effects().SlideOffsetOf(1, 0, Frame(2)), 4.0);
+  QTRY_COMPARE(view.effects().SlideOffsetOf(1, 0, Frame(2)), 0.0);
 }
 
 }  // namespace snapper

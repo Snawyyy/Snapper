@@ -45,7 +45,9 @@ snapper_module(render
           stage_geometry.cpp stage_hit.cpp warp_raster.cpp
   MODULES anim)
 snapper_module(edit
-  SOURCES doll_library_manager.cpp document_manager.cpp edit_scope.cpp
+  SOURCES change_diff.cpp change_watcher.cpp
+          doll_library_manager.cpp document_manager.cpp
+          edit_scope.cpp
           export_manager.cpp
           history_manager.cpp key_clipboard.cpp key_manager.cpp
           playback_manager.cpp pose_clipboard.cpp pose_manager.cpp
@@ -60,15 +62,19 @@ snapper_module(edit
   MODULES io media render
   LIBS Qt6::Concurrent)
 snapper_module(ui
-  SOURCES cast_actions.cpp cast_panel.cpp export_dialog.cpp
+  SOURCES bar_text.cpp bump_label.cpp cast_actions.cpp cast_panel.cpp
+          change_effects.cpp export_dialog.cpp hover_fade.cpp mode_icons.cpp
+          mode_tabs.cpp snapper_style.cpp step_button.cpp top_bar.cpp
           export_dialog_actions.cpp file_menu.cpp main_window.cpp
           drag_box.cpp picked_dot.cpp point_motion_box.cpp shot_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
           layer_box_commits.cpp link_box.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
           rig_canvas_input.cpp rig_canvas_handles.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp pose_tool_readout.cpp
           reel_preview.cpp reel_timeline.cpp reel_timeline_drop.cpp
-          reel_timeline_commands.cpp reel_timeline_ghost.cpp reel_timeline_input.cpp
+          reel_timeline_commands.cpp reel_timeline_effects.cpp
+          reel_timeline_ghost.cpp reel_timeline_input.cpp
           shot_bin.cpp shot_strip.cpp shot_strip_ghost.cpp slot_picker.cpp
           drag_feedback.cpp drag_text.cpp grab.cpp handle_hover.cpp
+          playhead_settle.cpp
           motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
           refusal_shaker.cpp scrub_label.cpp toast_manager.cpp toast_queue.cpp toast_view.cpp
           stage_menu.cpp stage_view.cpp stage_view_paint.cpp stage_view_ghost.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
@@ -93,7 +99,9 @@ if(BUILD_TESTING)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp video_reader_tests.cpp)
   snapper_test(render SOURCES render_tests.cpp)
-  snapper_test(edit SOURCES document_tests.cpp export_tests.cpp
+  snapper_test(edit SOURCES change_diff_tests.cpp change_watcher_tests.cpp
+                            document_tests.cpp
+                            export_tests.cpp
                             history_tests.cpp
                             key_tests.cpp library_tests.cpp
                             link_manager_tests.cpp posing_tests.cpp
@@ -105,13 +113,16 @@ if(BUILD_TESTING)
                             selection_tests.cpp stage_tests.cpp
                             timeline_tests.cpp track_tests.cpp
                             video_frames_tests.cpp)
-  snapper_test(ui SOURCES cast_panel_tests.cpp export_dialog_tests.cpp
+  snapper_test(ui SOURCES bar_text_tests.cpp cast_panel_tests.cpp
+                          change_effects_tests.cpp
+                          playhead_settle_tests.cpp
+                          export_dialog_tests.cpp
                           drag_feedback_tests.cpp drag_text_tests.cpp
                           grab_tests.cpp
                           handle_hover_tests.cpp
                           inspector_tests.cpp link_ui_tests.cpp
                           pose_tool_tests.cpp pose_tool_grab_tests.cpp
-                          pose_tool_readout_tests.cpp
+                          pose_tool_readout_tests.cpp refusal_reason_tests.cpp
                           reel_timeline_tests.cpp
                           rig_ui_tests.cpp
                           shot_strip_tests.cpp slot_picker_tests.cpp

@@ -352,6 +352,7 @@ void ShotStrip::Menu(ShotId shot, QPoint where) {
   const Shot* found = FindShot(managers_.history->current(), shot);
   assert(found != nullptr);
   QMenu menu(this);
+  menu.setToolTipsVisible(true);
   connect(menu.addAction(tr("Rename...")), &QAction::triggered, this,
           [this, shot, name = found->name] {
             bool is_ok = false;

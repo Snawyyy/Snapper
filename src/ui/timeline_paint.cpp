@@ -9,6 +9,7 @@
 
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/change_effects.h"
 #include "ui/theme.h"
 #include "ui/timeline_layout.h"
 #include "ui/timeline_view.h"
@@ -18,7 +19,7 @@ namespace {
 
 QPolygonF Diamond(QPointF center, double grow) {
   assert(std::isfinite(center.x()));
-  assert(kKeySize > 0.0 && grow >= 1.0);
+  assert(kKeySize > 0.0 && grow >= 0.0);
   const double size = kKeySize * grow;
   return QPolygonF({center + QPointF(0, -size), center + QPointF(size, 0),
                     center + QPointF(0, size), center + QPointF(-size, 0)});
@@ -49,11 +50,10 @@ void TimelineView::PaintRows(QPainter* painter,
       painter->drawLine(QPointF(0, top + kRowHeight),
                         QPointF(width(), top + kRowHeight));
     }
-    for (size_t i = 0; i < row.keys.size(); ++i) {
-      const bool is_shown = !is_ghost || IsKeyPicked(row, row.keys[i]);
-      if (is_shown) {
-        PaintKey(painter, row, i, row_index, top + kRowHeight / 2.0);
-      }
+    const double middle = top + kRowHeight / 2.0;
+    PaintKeys(painter, row, row_index, middle, is_ghost);
+    if (!is_ghost) {
+      PaintPuffs(painter, row, middle);
     }
     top += kRowHeight;
     ++row_index;
@@ -71,28 +71,78 @@ bool TimelineView::IsKeyPicked(const TimelineRow& row, Frame frame) const {
   });
 }
 
-void TimelineView::PaintKey(QPainter* painter, const TimelineRow& row,
-                            size_t i, size_t row_index,
-                            double middle) const {
+void TimelineView::PaintKeys(QPainter* painter, const TimelineRow& row,
+                             size_t row_index, double middle,
+                             bool is_ghost) {
   assert(painter != nullptr);
-  assert(i < row.keys.size());
-  const double x = XOf(row.keys[i]) + frame_width_ / 2.0;
-  const bool has_next = i + 1 < row.keys.size();
-  const double next = has_next ? XOf(row.keys[i + 1]) + frame_width_ / 2.0
-                               : x + frame_width_;
-  // A hold is a bar; an ease or slide is a thin line.
-  const bool is_eased = row.is_eased[i] && has_next;
-  painter->fillRect(QRectF(x, middle - (is_eased ? 1.0 : 4.0), next - x,
-                           is_eased ? 2.0 : 8.0),
-                    theme::kFaceLight);
-  const bool is_picked = IsKeyPicked(row, row.keys[i]);
-  painter->setPen(QPen(theme::kShadow, 1.0));
-  const QString key_name = KeyName(row_index, row.keys[i]);
-  const double grow = hover_.ScaleOf(GrabKind::kKey, key_name);
-  // A hovered key also brightens.
-  const QColor fill = is_picked ? theme::kPick : theme::kText;
-  painter->setBrush(grow > 1.0 ? fill.lighter(125) : fill);
-  painter->drawPolygon(Diamond(QPointF(x, middle), grow));
+  assert(row.keys.size() == row.is_eased.size());
+  for (size_t i = 0; i < row.keys.size(); ++i) {
+    const bool is_shown = !is_ghost || IsKeyPicked(row, row.keys[i]);
+    if (!is_shown) {
+      continue;
+    }
+    const int lane = row.layer.value();
+    const double slide = effects_.SlideOffsetOf(lane, 0, row.keys[i]);
+    const double x = XOf(row.keys[i]) + frame_width_ / 2.0 +
+                     slide * frame_width_;
+    const bool has_next = i + 1 < row.keys.size();
+    const double next = has_next ? XOf(row.keys[i + 1]) + frame_width_ / 2.0
+                                 : x + frame_width_;
+    // A hold is a bar; an ease or slide is a thin line.
+    const bool is_eased = row.is_eased[i] && has_next;
+    painter->fillRect(QRectF(x, middle - (is_eased ? 1.0 : 4.0), next - x,
+                             is_eased ? 2.0 : 8.0),
+                      theme::kFaceLight);
+    const bool is_picked = IsKeyPicked(row, row.keys[i]);
+    painter->setPen(QPen(theme::kShadow, 1.0));
+    const QString key_name = KeyName(row_index, row.keys[i]);
+    // A hovered key grows and brightens; so does one popping in, and
+    // one coming back by undo flashes brighter still.
+    const double grow = hover_.ScaleOf(GrabKind::kKey, key_name) *
+                        effects_.ScaleOf(lane, 0, row.keys[i]);
+    const double glow = effects_.GlowOf(lane, 0, row.keys[i]);
+    const QColor fill = is_picked ? theme::kPick : theme::kText;
+    const bool is_lit = grow > 1.0;
+    painter->setBrush(fill.lighter((is_lit ? 125 : 100) +
+                                   static_cast<int>(100.0 * glow)));
+    painter->drawPolygon(Diamond(QPointF(x, middle), grow));
+    PaintRing(painter, QPointF(x, middle),
+              effects_.RingOf(lane, 0, row.keys[i]));
+  }
+}
+
+void TimelineView::PaintPuffs(QPainter* painter, const TimelineRow& row,
+                              double middle) {
+  assert(painter != nullptr);
+  assert(middle > 0.0);
+  for (const ChangeEffect& puff : effects_.Puffs()) {
+    const bool is_here = puff.lane == row.layer.value();
+    if (!is_here) {
+      continue;
+    }
+    QColor fill = theme::kText;
+    fill.setAlphaF(static_cast<float>(PuffOpacity(puff.t)));
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(fill);
+    const double x = XOf(puff.frame) + frame_width_ / 2.0;
+    painter->drawPolygon(Diamond(QPointF(x, middle), PuffScale(puff.t)));
+  }
+}
+
+void TimelineView::PaintRing(QPainter* painter, QPointF center,
+                             std::optional<double> progress) {
+  assert(painter != nullptr);
+  assert(std::isfinite(center.x()) && std::isfinite(center.y()));
+  const bool is_ringed = progress.has_value();
+  if (!is_ringed) {
+    return;
+  }
+  QColor ring = theme::kPick;
+  ring.setAlphaF(static_cast<float>(1.0 - *progress));
+  painter->setPen(QPen(ring, 2.0));
+  painter->setBrush(Qt::NoBrush);
+  const double radius = kKeySize * (1.0 + 1.6 * *progress);
+  painter->drawEllipse(center, radius, radius);
 }
 
 }  // namespace snapper

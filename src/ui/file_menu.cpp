@@ -10,6 +10,7 @@
 #include "edit/document_manager.h"
 #include "edit/history_manager.h"
 #include "io/project_file.h"
+#include "ui/form_helpers.h"
 #include "ui/new_project_dialog.h"
 
 namespace snapper {
@@ -44,6 +45,7 @@ FileMenu::FileMenu(DocumentManager* document, HistoryManager* history,
   save_as_action_.setShortcut(QKeySequence::SaveAs);
   quit_action_.setShortcut(QKeySequence::Quit);
   menu_.setToolTipsVisible(true);
+  recent_menu_.setToolTipsVisible(true);
   menu_.addActions({&new_action_, &open_action_});
   menu_.addMenu(&recent_menu_);
   menu_.addSeparator();
@@ -199,16 +201,16 @@ void FileMenu::RefreshRecent() {
     connect(item, &QAction::triggered, this,
             [this, path] { OpenPath(path); });
   }
-  recent_menu_.setEnabled(!recent.isEmpty());
+  Explain(recent_menu_.menuAction(),
+          recent.isEmpty() ? tr("No recent projects yet.") : QString());
   assert(recent_menu_.actions().size() == recent.size());
 }
 
 void FileMenu::Refresh() {
   assert(history_ != nullptr);
   const bool has_song = !history_->current().song.isEmpty();
-  remove_song_action_.setEnabled(has_song);
-  remove_song_action_.setToolTip(has_song ? QString()
-                                          : tr("There is no song yet."));
+  Explain(&remove_song_action_,
+          has_song ? QString() : tr("There is no song yet."));
   assert(remove_song_action_.isEnabled() == has_song);
 }
 

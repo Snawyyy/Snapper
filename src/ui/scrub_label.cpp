@@ -9,6 +9,7 @@
 #include <cmath>
 
 #include "ui/live_edit.h"
+#include "ui/refusal_shaker.h"
 
 namespace snapper {
 namespace {
@@ -141,7 +142,8 @@ void ScrubLabel::SyncWithBox() {
   assert(box_ != nullptr);
   assert(!text().isEmpty());
   const bool is_usable = box_->isEnabled();
-  const QString reason = box_->toolTip();
+  // A box greyed by a parent has no tip of its own: borrow the parent's.
+  const QString reason = is_usable ? box_->toolTip() : RefusalReason(box_);
   const QString how = tr("Drag sideways to change it. Shift is 10 times "
                          "faster, Alt is 10 times finer. Escape cancels.");
   const bool is_plain = is_usable && reason.isEmpty();

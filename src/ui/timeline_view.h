@@ -11,12 +11,15 @@
 #include <vector>
 
 #include "base/frame.h"
+#include "edit/change_watcher.h"
 #include "edit/edit_scope.h"
 #include "edit/selection_manager.h"
 #include "edit/timeline_rows.h"
+#include "ui/change_effects.h"
 #include "ui/drag_feedback.h"
 #include "ui/handle_hover.h"
 #include "ui/managers.h"
+#include "ui/playhead_settle.h"
 #include "ui/problem.h"
 
 namespace snapper {
@@ -43,6 +46,9 @@ class TimelineView final : public QWidget {
   double XOf(Frame frame) const;
   // The chip, ghost and flash of the key drag, for tests to look at.
   const DragFeedback& feedback() const { return feedback_; }
+  // The pops, puffs and rewinds of the last step, for tests to look at.
+  const ChangeEffects& effects() const { return effects_; }
+  const PlayheadSettle& settle() const { return settle_; }
 
  signals:
   void Problem(const QString& why);
@@ -68,13 +74,17 @@ class TimelineView final : public QWidget {
   // Names and keys of every row; as a ghost, only the picked keys.
   void PaintRows(QPainter* painter, const std::vector<TimelineRow>& rows,
                  bool is_ghost);
-  // One key: its hold bar and diamond, centred on middle.
-  void PaintKey(QPainter* painter, const TimelineRow& row, size_t i,
-                size_t row_index, double middle) const;
+  void PaintKeys(QPainter* painter, const TimelineRow& row,
+                 size_t row_index, double middle, bool is_ghost);
   bool IsKeyPicked(const TimelineRow& row, Frame frame) const;
   // As a key is grabbed: leaves a faint copy of the picked keys, drawn
-  // by PaintKey, where they sit now.
+  // by PaintKeys, where they sit now.
   void GrabGhost();
+  // Keys just deleted, still shrinking away on their row.
+  void PaintPuffs(QPainter* painter, const TimelineRow& row, double middle);
+  // The ring around a key that just popped in, when it has one.
+  static void PaintRing(QPainter* painter, QPointF center,
+                        std::optional<double> progress);
   void PaintPlayhead(QPainter* painter) const;
   // The row under y, or -1.
   int RowAt(double y, size_t count) const;
@@ -104,6 +114,9 @@ class TimelineView final : public QWidget {
   void KeyMenu(const TimelineRow& row, Frame frame, QPoint where);
   void EmptyMenu(const TimelineRow& row, Frame frame, QPoint where);
 
+  // A step landed: pops, puffs or rewinds the keys it changed on the
+  // picked shot.
+  void ShowStep(const Project& before, bool is_travel);
   // Shows and flips the playback's step mode.
   void ShowStepMode();
 
@@ -121,6 +134,8 @@ class TimelineView final : public QWidget {
   QPointF box_to_;
   PickMode box_mode_ = PickMode::kReplace;
   std::unique_ptr<EditScope> key_drag_;
+  // True while a key drag lands its step, so it does not slide again.
+  bool is_landing_drag_ = false;
   Frame drag_frame_;
   // The frame the dragged key was pressed on, and the pick then, for
   // Escape to restore.
@@ -132,6 +147,12 @@ class TimelineView final : public QWidget {
   bool is_started_ = false;
   HandleHover hover_;
   DragFeedback feedback_;
+  // Pops, puffs and rewinds of keys the last step made, took away or
+  // brought back; they only decorate the paint.
+  ChangeWatcher watcher_;
+  ChangeEffects effects_;
+  // The playhead overshoots a little as it lands on a frame.
+  PlayheadSettle settle_;
 };
 
 }  // namespace snapper

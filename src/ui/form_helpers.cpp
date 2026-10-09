@@ -195,8 +195,9 @@ QString TimeText(Frame frame) {
 void Explain(QWidget* widget, const QString& why_not) {
   assert(widget != nullptr);
   assert(why_not.size() < 100000);
-  widget->setEnabled(why_not.isEmpty());
+  // Reason first: children that copy it read it on the enabled change.
   widget->setToolTip(why_not);
+  widget->setEnabled(why_not.isEmpty());
 }
 
 void Explain(QWidget* widget, const QString& why_not, const QString& help) {
@@ -212,8 +213,8 @@ void Explain(QWidget* widget, const QString& why_not, const QString& help) {
 void Explain(QAction* action, const QString& why_not) {
   assert(action != nullptr);
   assert(why_not.size() < 100000);
-  action->setEnabled(why_not.isEmpty());
   action->setToolTip(why_not);
+  action->setEnabled(why_not.isEmpty());
 }
 
 }  // namespace snapper

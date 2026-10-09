@@ -364,11 +364,13 @@ else; a newer edit takes the button away. Pinned hints (rig canvas) and
 file failures (warning boxes) stay as they are.
 
 `RefusalShaker` watches the whole application: a mouse press on a
-disabled widget that has a tooltip (the "greyed with a reason" rule,
-`Explain`) shakes it 4 px (`ShakeOffsetPx`, pure, tested) over the Move
-time and, on release, shows the reason beside the cursor. In Off it only
-shows the reason. No control opts in; a greyed control with no reason
-does not shake.
+disabled widget (the "greyed with a reason" rule, `Explain`) shakes it
+4 px (`ShakeOffsetPx`, pure, tested) over the Move time and, on release,
+shows the reason beside the cursor (`RefusalReason`: its tooltip, else
+the nearest parent's, else "Not available right now"). In Off it only
+shows the reason. No control opts in. `Explain` sets the tooltip, then
+the enabled state; every disabled control or menu item goes through it,
+and a window test fails on any greyed control with an empty tooltip.
 
 Number fields get their hands-on feel from three small pieces. The math
 is pure and lives in `base`, tested without a widget: `EvalNumber`
@@ -406,6 +408,55 @@ or `Cancel`. As a drag is grabbed, the canvas calls `SetGhost` with
 the item (`PaintBlock`, `PaintClip`, `PaintKey`, `PaintJoint`,
 `PaintTip`, or `FrameRenderer::RenderLayers` on the stage) onto a
 clear image drawn at low opacity.
+
+Which keys and clips an edit made, took away or moved is worked out by
+pure helpers in `edit/change_diff.h`, tested without a widget:
+`DiffKeys` compares one shot's timeline rows before and after, and
+`DiffClips` compares the reel's clips by id. A key that kept its pose
+and changed frame is one move, not a removal and an addition. Views
+only animate the answer; the data never waits for an animation.
+`ChangeWatcher` (one per timeline) hands a view the project from before
+each step that lands: a drag is one step, a cancelled drag, a save and
+a newly opened file are none, and a step that returns to a state the
+history already visited (`HistoryManager::revision`) is flagged as
+undo or redo. `ChangeEffects` (`ui`, one per timeline) turns that into
+decoration through `MotionManager`: a new key pops 1.4 to 1 with a
+ring, a deleted one puffs out, what undo or redo brings back rewinds
+(a bright flash settling from 1.25), and a key moved without a drag
+(spacing, undo or redo of a move) or a reel clip moved the same way
+slides from its old place on the Move curve. The timeline draws
+these over the real project, so data and picking never wait for them;
+in Off there are none, and the final state shows at once. The pose
+timeline (`TimelineView`) animates keys per row; the reel
+(`ReelTimeline`) animates whole clips, growing only 5 % as a clip is
+long. Each timeline's playhead lands on a frame with a small overshoot
+(`PlayheadSettle`: an offset to draw by, none while playing or for a
+jump past `kMaxSettleFrames`, none in Off).
+
+The look of every button and tab lives in one place: `SnapperStyle`
+(`snapper_style.h`), a `QProxyStyle` over Windows that `theme::Apply`
+sets on the application. Raised bevels, the hover brighten, the sunk
+press and the chunky tab are drawn there, so no widget carries a
+stylesheet. What a button looks like in each state is `LookOfButton`
+(pure, tested). A widget that fades its hover sets the `kHoverProperty`
+number (0 to 1); without it the style uses the plain mouse-over state.
+
+The top bar (`TopBar`) holds the mode tabs (`ModeTabs`: a red bar
+slides under the active tab through `MotionManager`), the transport
+and the Undo and Redo buttons. It forwards clicks to `PlaybackManager`
+and `HistoryManager` and decides nothing: the words, tooltips and
+enabled states are `MakeStepFace`, `FrameCounterText`, `TimecodeText`
+and `PlayText` in `bar_text.h` (pure, tested). The window computes the
+Undo and Redo faces once from `HistoryManager` and shows them on the
+menu entries and the buttons, so they always agree. Bar buttons never
+take focus, so Space and the arrow keys stay on the menu entries.
+`HoverFade` eases a button's `kHoverProperty` (hover, Hover time) and
+`kPressProperty` (held down, Press time; springs back on release over
+the Pop time) through `MotionManager`; `SnapperStyle` squashes a pressed
+button by `SquashScale` (4 %). The tab icons are painted by `ModeIcon`
+(no image files), `BumpLabel` hops the frame counter when a step
+changes it, and `StepButton` slides the Undo and Redo words when they
+change. None of them moves in Off.
 
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.

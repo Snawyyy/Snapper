@@ -20,8 +20,12 @@ double ShakeOffsetPx(double progress);
 // The sideways travel of the first jerk, in pixels.
 inline constexpr double kShakePx = 4.0;
 
-// A greyed control that says why in its tooltip shakes when it is
-// clicked anyway, and shows that reason beside the cursor at once. It
+// Why a greyed widget cannot act: its own tooltip, else the nearest
+// parent's, else "Not available right now". Never empty.
+QString RefusalReason(const QWidget* widget);
+
+// A greyed control shakes when it is clicked anyway, and shows its
+// reason (RefusalReason) beside the cursor at once. It
 // watches the whole application, so no control has to opt in. The
 // shake is timed by MotionManager (the Move time; none in Off, which
 // still shows the reason).
