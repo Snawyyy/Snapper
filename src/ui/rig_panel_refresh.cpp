@@ -144,6 +144,7 @@ void RigPanel::RefreshPiece() {
   const QString no_twin = managers_.rig->WhyNoCopy(doll_, piece_);
   Explain(&copy_piece_, no_twin);
   Explain(&copy_side_, no_twin);
+  Explain(&mirror_nodes_, managers_.rig->WhyNoMirror(doll_, piece_));
   const bool has_piece = rig != nullptr && art != nullptr;
   if (!has_piece) {
     return;

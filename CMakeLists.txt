@@ -60,7 +60,7 @@ snapper_module(edit
           preset_manager.cpp saved_poses.cpp
           link_manager.cpp project_edits.cpp reel_batch.cpp reel_clipboard.cpp
           reel_cuts.cpp reel_edits.cpp reel_manager.cpp reel_markers.cpp
-          reel_transitions.cpp rig_batch.cpp rig_collider.cpp rig_dots.cpp
+          reel_transitions.cpp rig_batch.cpp rig_collider.cpp rig_dots.cpp rig_mirror_nodes.cpp
           rig_manager.cpp rig_mirror.cpp
           selection_manager.cpp selection_prune.cpp shot_batch.cpp
           shot_manager.cpp stage_batch.cpp stage_manager.cpp

@@ -22,6 +22,7 @@ RigPanel::RigPanel(const Managers& managers)
       collider_box_(managers),
       copy_piece_(tr("Copy to other side")),
       copy_side_(tr("Copy whole side")),
+      mirror_nodes_(tr("Mirror rig to other side")),
       save_rig_(tr("Save rig to library")),
       hint_(tr("Drag a yellow joint to move it. Double-click a joint, then "
                "click the part it hangs from. Drag a square to move an IK "
@@ -96,6 +97,10 @@ void RigPanel::BuildLayout() {
   layout_.addWidget(&collider_box_);
   mirror_buttons_.addWidget(&copy_piece_);
   mirror_buttons_.addWidget(&copy_side_);
+  mirror_buttons_.addWidget(&mirror_nodes_);
+  mirror_nodes_.setToolTip(tr("Copies this piece's drag and physics dots and "
+                              "its collider to its other-side twin, "
+                              "mirrored."));
   layout_.addLayout(&mirror_buttons_);
   layout_.addWidget(&chains_title_);
   layout_.addWidget(&chains_, 1);
@@ -179,6 +184,9 @@ void RigPanel::WireChains() {
   connect(&add_chain_, &QPushButton::clicked, this, &RigPanel::AddChain);
   connect(&copy_piece_, &QPushButton::clicked, this, [this, rig] {
     emit Problem(ProblemOf(rig->CopyAllToOtherSide(doll_, Picked())));
+  });
+  connect(&mirror_nodes_, &QPushButton::clicked, this, [this, rig] {
+    emit Problem(ProblemOf(rig->MirrorNodes(doll_, piece_)));
   });
   connect(&copy_side_, &QPushButton::clicked, this, [this, rig] {
     emit Problem(ProblemOf(rig->CopyToOtherSide(doll_, piece_, true)));

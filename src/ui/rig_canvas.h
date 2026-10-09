@@ -51,6 +51,8 @@ class RigCanvas final : public QWidget {
   void MakeCollider(const QString& piece);
   // Makes piece a plain piece again.
   void RemoveCollider(const QString& piece);
+  // Mirrors piece's drag and physics dots and collider onto its twin.
+  void MirrorToOtherSide(const QString& piece);
   // Deletes the picked collider dots (Delete does); one undo step.
   void DeletePickedDots();
   // The picked collider dots, as "piece:slot".

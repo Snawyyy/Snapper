@@ -60,6 +60,13 @@ inline PointMotion KeptMotion(PointMotion motion) {
   return motion;
 }
 
+// The middle of a piece's drawing in doll space.
+inline double ArtCentreX(const ArtPiece& art) {
+  assert(art.size.width() >= 0);
+  assert(std::isfinite(art.position.x()));
+  return art.position.x() + art.size.width() / 2.0;
+}
+
 // The same, for one piece of the rig.
 template <typename Change>
 Result<Project> WithPiece(const Project& project, const QString& doll,

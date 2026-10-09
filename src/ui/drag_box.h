@@ -5,6 +5,7 @@
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QPushButton>
 #include <QString>
 
 #include <array>
@@ -55,6 +56,7 @@ class DragBox final : public QGroupBox {
   QDoubleSpinBox lag_;
   QDoubleSpinBox bounce_;
   QCheckBox physics_;
+  QPushButton mirror_;
   QDoubleSpinBox stretch_;
   QDoubleSpinBox inertia_;
   QDoubleSpinBox air_;

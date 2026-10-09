@@ -231,6 +231,14 @@ A piece can:
   shape when leaning" in the rig), past a quarter turn the doll is
   upside down or seen from behind, and a piece clearly nearer than
   its parent, child or sibling draws in front of it.
+- mirror their dot setup to the other side: right-click a piece in the
+  rig (or the rig panel's button) > Mirror rig to other side copies its
+  drag and physics nodes and its collider, with which pieces it pushes,
+  onto its left or right twin, mirrored, replacing the twin's
+  (`RigManager::MirrorNodes`, twins found by `MirrorName`, the same
+  pairing Copy to other side uses). The Drag node panel's Mirror to
+  other side does it for just the picked dots (`MirrorDots`). Greyed
+  with the reason when the piece has no twin or its grid differs.
 - belong to a two-bone IK chain. IK is a posing tool: dragging a hand
   solves the chain and writes ordinary rotation keys. Playback only
   ever plays keys, so what was posed is what plays.

@@ -76,6 +76,12 @@ DragBox::DragBox(const Managers& managers)
     emit Problem(ProblemOf(managers_.rig->SetPhysicsAll(look.dots, !is_all)));
     Refresh();
   });
+  mirror_.setText(tr("Mirror to other side"));
+  mirror_.setObjectName("mirror_dots");
+  connect(&mirror_, &QPushButton::clicked, this, [this] {
+    emit Problem(ProblemOf(managers_.rig->MirrorDots(LookAtPick().dots)));
+  });
+  layout_.addRow(QString(), &mirror_);
   size_t index = 0;
   for (QDoubleSpinBox* field : AllFields()) {
     const DragField which = FieldAt(index++);
@@ -89,7 +95,7 @@ DragBox::DragBox(const Managers& managers)
   }
   Follow(managers_, this);
   Refresh();
-  assert(layout_.rowCount() == 9);
+  assert(layout_.rowCount() == 10);
 }
 
 DragField DragBox::FieldAt(size_t index) {
@@ -177,6 +183,14 @@ void DragBox::Refresh() {
     Explain(field, has_node ? QString() : why_not);
   }
   Explain(&physics_, has_node ? QString() : why_not);
+  QString why_no_twin = no_pick;
+  for (const DotRef& dot : look.dots) {
+    why_no_twin = managers_.rig->WhyNoMirror(dot.doll, dot.piece);
+    if (!why_no_twin.isEmpty()) {
+      break;
+    }
+  }
+  Explain(&mirror_, why_no_twin);
   drags_.setTristate(true);
   drags_.setCheckState(is_all_drag ? Qt::Checked
                        : has_node  ? Qt::PartiallyChecked

@@ -48,6 +48,7 @@ class RigTests final : public QObject {
   void PhysicsIsOneNamedUndoStep();
   void ColliderEditsAreNamedUndoSteps();
   void ManyDotsEditInOneNamedStep();
+  void MirrorNodesAndDotsOntoTheTwin();
   void UnknownDollsAndPiecesSayWhy();
   void OneSideCopiesToTheOther();
   void ManyPiecesChangeTogether();
@@ -231,6 +232,62 @@ void RigTests::ManyDotsEditInOneNamedStep() {
            size_t{4});
   QVERIFY(!rig.SetDragNodes({}, true).has_value());
   QVERIFY(!rig.SetDragNodes({{"Bob", "lower", 40}}, true).has_value());
+}
+
+void RigTests::MirrorNodesAndDotsOntoTheTwin() {
+  Doll doll;
+  doll.art.pieces = {{"arm_l", {"a.png"}, 0, {0, 0}, {20, 40}},
+                     {"arm_r", {"a.png"}, 0, {60, 0}, {20, 40}},
+                     {"head", {"h.png"}, 0, {30, 0}, {20, 20}}};
+  doll.rig.pieces = {{"arm_l", "", {0, 0}, 0, -1, {2, 2}},
+                     {"arm_r", "", {0, 0}, 0, -1, {2, 2}},
+                     {"head", "", {0, 0}, 0, -1, {2, 2}}};
+  RigPiece& left = doll.rig.pieces[0];
+  left.drag_nodes = {{0, 0.5, 0.5, true, 0.1, 0.6, 0.5, 0.3, 0.2},
+                     {1, 0.25, 0.75}};
+  left.collider = {4,
+                   {{{0, 0}, 0}, {{20, 0}, 1}, {{20, 40}, 2}, {{0, 40}, 3}},
+                   5.0,
+                   {"skirt"}};
+  doll.rig.pieces[1].drag_nodes = {{8, 0.9, 0.9}};
+  Project project;
+  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
+  HistoryManager history(project);
+  RigManager rig(&history);
+  QVERIFY(!rig.WhyNoMirror("Bob", "head").isEmpty());
+  QVERIFY(rig.WhyNoMirror("Bob", "arm_l").isEmpty());
+  QVERIFY(!rig.MirrorNodes("Bob", "head").has_value());
+  QVERIFY(rig.MirrorNodes("Bob", "arm_l").has_value());
+  QCOMPARE(history.UndoLabel(), QString("Mirror arm_l to arm_r"));
+  const RigPiece& right = *FindRig(BobRig(history), "arm_r");
+  // Dots land on their mirrored points; the old node is gone.
+  QCOMPARE(right.drag_nodes.size(), size_t{2});
+  QCOMPARE(right.drag_nodes[0].point, 2);
+  QVERIFY(right.drag_nodes[0].physics);
+  QCOMPARE(right.drag_nodes[0].stretch, 0.1);
+  QCOMPARE(right.drag_nodes[1].point, 1);
+  // The outline is mirrored across the middle, its ring turned round.
+  QCOMPARE(right.collider.ring_size, 4);
+  QCOMPARE(right.collider.dots[0], (ColliderDot{{20, 40}, 0}));
+  QCOMPARE(right.collider.dots[2], (ColliderDot{{0, 0}, 2}));
+  QCOMPARE(right.collider.dots[3], (ColliderDot{{20, 0}, 3}));
+  QCOMPARE(right.collider.spared, (std::vector<QString>{"skirt"}));
+  history.Undo();
+  QCOMPARE(FindRig(BobRig(history), "arm_r")->drag_nodes.size(), size_t{1});
+  QVERIFY(!FindRig(BobRig(history), "arm_r")->collider.IsOn());
+  // Just the picked dots: dot 0 has a node, dot 2 has none.
+  QVERIFY(rig.MirrorDots({{"Bob", "arm_l", 0}, {"Bob", "arm_l", 2}})
+              .has_value());
+  QCOMPARE(history.UndoLabel(), QString("Mirror 2 dots to the other side"));
+  const RigPiece& twin = *FindRig(BobRig(history), "arm_r");
+  QCOMPARE(twin.drag_nodes.size(), size_t{2});
+  QCOMPARE(twin.drag_nodes[1].point, 2);
+  QVERIFY(twin.drag_nodes[1].physics);
+  // A twin with another grid is refused, with the reason.
+  QVERIFY(rig.SetWarpGrid("Bob", "arm_r", {3, 3}).has_value());
+  QVERIFY(!rig.WhyNoMirror("Bob", "arm_l").isEmpty());
+  QVERIFY(!rig.MirrorDots({{"Bob", "arm_l", 0}}).has_value());
+  QVERIFY(!rig.MirrorDots({}).has_value());
 }
 
 void RigTests::ChainsNeedLinkedPieces() {
