@@ -18,8 +18,15 @@ bool PoseMemo::Bind(const Project& project, const Shot& shot) {
     return false;
   }
   const bool is_same = shot_ == *owner && dolls_ == project.dolls;
-  if (!is_same) {
+  const bool is_heavy = base_.size() > kMaxMemoWork ||
+                        pushes_.size() > kMaxMemoWork;
+  const bool is_stale = !is_same || is_heavy;
+  if (is_stale) {
     poses_.clear();
+    trails_.clear();
+    base_.clear();
+    pushes_.clear();
+    shifts_.clear();
     shot_ = *owner;
     dolls_ = project.dolls;
   }
@@ -42,6 +49,12 @@ void PoseMemo::Store(LayerId layer, Frame frame, const PoseMap& poses) {
     poses_.clear();
   }
   poses_[{layer.value(), frame.index()}] = poses;
+}
+
+DragTrail* PoseMemo::TrailOf(LayerId layer) {
+  assert(layer.value() >= 0);
+  assert(shot_ != nullptr);
+  return &trails_[layer.value()];
 }
 
 }  // namespace snapper

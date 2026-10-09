@@ -1,3 +1,4 @@
+#include <QElapsedTimer>
 #include <QLineF>
 #include <QTest>
 
@@ -123,6 +124,35 @@ double ArmTrail(const Project& project, int frame) {
   return has_warp ? QLineF(QPointF(), arm->second.warp[3]).length() : 0.0;
 }
 
+// Stage() with Bob's arm dragging behind the rising box he follows.
+Project LinkedDragProject() {
+  Doll doll = Body();
+  assert(!doll.rig.pieces.empty());
+  for (RigPiece& rig : doll.rig.pieces) {
+    const bool is_arm = rig.name == "arm";
+    if (is_arm) {
+      rig.warp = {2, 2};
+      rig.drag_nodes = {{3, 0.5, 0.5}};
+    }
+  }
+  Project project = Stage();
+  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
+  OnlyShot(&project).links = {
+      Link{{LayerId(3), "arm"}, {LayerId(1), {}}, Frame(0), 1.0}};
+  assert(project.shots.size() == 1);
+  return project;
+}
+
+// Bob's poses at frame from a fresh solver sharing memo.
+PoseMap BobPoses(const Project& project, PoseMemo* memo, int frame) {
+  assert(frame >= 0);
+  assert(project.dolls.contains("Bob"));
+  const Shot& shot = *project.shots[0];
+  LinkSolver links(project, shot, memo);
+  return links.Poses(*project.dolls.at("Bob"), *FindLayer(shot, LayerId(3)),
+                     Frame(frame));
+}
+
 }  // namespace
 
 class LinkTests final : public QObject {
@@ -136,6 +166,8 @@ class LinkTests final : public QObject {
   void ChainsPassMovesOn();
   void LoopsAreFound();
   void DragNodesFeelLinks();
+  void AKeptSolveGivesTheSamePoses();
+  void LateLinkedFramesCostLikeEarlyOnes();
 };
 
 void LinkTests::UnlinkedThingsStayPut() {
@@ -241,6 +273,39 @@ void LinkTests::DragNodesFeelLinks() {
   OnlyShot(&project).links = {
       Link{{LayerId(3), "arm"}, {LayerId(1), {}}, Frame(0), 1.0}};
   QVERIFY(ArmTrail(project, 5) > 1.0);
+}
+
+void LinkTests::AKeptSolveGivesTheSamePoses() {
+  const Project project = LinkedDragProject();
+  PoseMemo memo;
+  for (int frame : {0, 3, 7, 10, 5, 2, 10, 40, 12, 0}) {
+    QCOMPARE(BobPoses(project, &memo, frame),
+             BobPoses(project, nullptr, frame));
+  }
+  QVERIFY(ArmTrail(project, 5) > 1.0);
+  QVERIFY(memo.size() > 0);
+}
+
+void LinkTests::LateLinkedFramesCostLikeEarlyOnes() {
+  const Project project = LinkedDragProject();
+  QVERIFY(project.dolls.contains("Bob"));
+  constexpr int kLate = 400;
+  constexpr int kScrub = 10;
+  PoseMemo memo;
+  BobPoses(project, &memo, kLate);
+  QElapsedTimer clock;
+  clock.start();
+  for (int i = 1; i <= kScrub; ++i) {
+    BobPoses(project, &memo, kLate + i);
+  }
+  const qint64 kept = clock.nsecsElapsed();
+  clock.restart();
+  for (int i = 1; i <= kScrub; ++i) {
+    BobPoses(project, nullptr, kLate + i);
+  }
+  const qint64 fresh = clock.nsecsElapsed();
+  QVERIFY2(kept * 10 < fresh,
+           qPrintable(QString("%1 vs %2 ns").arg(kept).arg(fresh)));
 }
 
 }  // namespace snapper

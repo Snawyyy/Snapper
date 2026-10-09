@@ -60,12 +60,16 @@ class LinkSolver final {
   const Shot& shot_;
   // Null when poses are not kept across solvers.
   PoseMemo* memo_;
+  // What this solver and, with a memo, earlier ones worked out.
+  std::map<std::pair<int, int>, PoseMap> own_poses_;
+  std::map<std::pair<const Link*, int>, QPointF> own_pushes_;
+  LinkShifts own_shifts_;
   // ShownPoses by layer id and frame.
-  std::map<std::pair<int, int>, PoseMap> poses_;
+  std::map<std::pair<int, int>, PoseMap>* poses_;
   // Pushes worked out, by link and frame, and those being worked out:
   // meeting one of those again means a loop got into the file, and it
   // counts as no push.
-  std::map<std::pair<const Link*, int>, QPointF> pushes_;
+  std::map<std::pair<const Link*, int>, QPointF>* pushes_;
   std::set<std::pair<const Link*, int>> solving_;
 };
 

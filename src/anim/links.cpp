@@ -31,7 +31,9 @@ LinkSolver::LinkSolver(const Project& project, const Shot& shot,
                        PoseMemo* memo)
     : project_(project),
       shot_(shot),
-      memo_(memo != nullptr && memo->Bind(project, shot) ? memo : nullptr) {
+      memo_(memo != nullptr && memo->Bind(project, shot) ? memo : nullptr),
+      poses_(memo_ != nullptr ? memo_->base() : &own_poses_),
+      pushes_(memo_ != nullptr ? memo_->pushes() : &own_pushes_) {
   assert(shot_.links.size() <= static_cast<size_t>(kMaxLinksPerShot));
   assert(shot_.layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
 }
@@ -41,38 +43,46 @@ const PoseMap& LinkSolver::BasePoses(const Doll& doll, const Layer& layer,
   assert(frame.index() >= 0);
   assert(layer.id.value() >= 0);
   const std::pair<int, int> key(layer.id.value(), frame.index());
-  const auto found = poses_.find(key);
-  const bool is_known = found != poses_.end();
+  const auto found = poses_->find(key);
+  const bool is_known = found != poses_->end();
   if (is_known) {
     return found->second;
   }
-  return poses_[key] = ShownPoses(doll, layer, frame, Shifts(doll, layer,
-                                                              frame));
+  DragTrail* trail = memo_ != nullptr ? memo_->TrailOf(layer.id) : nullptr;
+  return (*poses_)[key] =
+             ShownPoses(doll, layer, frame, Shifts(doll, layer, frame), trail);
 }
 
 LinkShifts LinkSolver::Shifts(const Doll& doll, const Layer& layer,
                               Frame frame) {
   assert(frame.index() >= 0);
   assert(doll.rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
-  LinkShifts shifts;
+  LinkShifts own;
+  LinkShifts& shifts = memo_ != nullptr ? *memo_->shifts_of(layer.id) : own;
+  const size_t wanted = static_cast<size_t>(frame.index()) + 1;
   for (const RigPiece& rig : doll.rig.pieces) {
     const LinkEnd end{layer.id, rig.name};
-    const std::vector<LinkEnd> carriers = CarriersOf(project_, shot_, end);
-    const bool is_linked =
-        !rig.drag_nodes.empty() &&
-        std::any_of(carriers.begin(), carriers.end(),
-                    [this](const LinkEnd& carrier) {
-                      return FindLink(shot_, carrier) != nullptr;
-                    });
+    std::vector<const Link*> links;
+    for (const LinkEnd& carrier : CarriersOf(project_, shot_, end)) {
+      const Link* link = FindLink(shot_, carrier);
+      const bool is_linked_end = link != nullptr;
+      if (is_linked_end) {
+        links.push_back(link);
+      }
+    }
+    const bool is_linked = !rig.drag_nodes.empty() && !links.empty();
     if (!is_linked) {
       continue;
     }
-    // ponytail: a push per frame up to frame, and a dragging leader runs
-    // its springs for each, so frames x frames; cache by beat if slow.
+    // A push per frame, grown from where an earlier call stopped.
     std::vector<QPointF>& path = shifts[rig.name];
-    path.reserve(static_cast<size_t>(frame.index()) + 1);
-    for (int f = 0; f <= frame.index(); ++f) {
-      path.push_back(Carried(end, Frame(f)));
+    path.reserve(wanted);
+    for (size_t f = path.size(); f < wanted; ++f) {
+      QPointF moved;
+      for (const Link* link : links) {
+        moved += Push(*link, Frame(static_cast<int>(f)));
+      }
+      path.push_back(moved);
     }
   }
   return shifts;
@@ -141,8 +151,8 @@ QPointF LinkSolver::Push(const Link& link, Frame frame) {
   assert(frame.index() >= 0);
   assert(link.strength >= 0.0);
   const std::pair<const Link*, int> key(&link, frame.index());
-  const auto known = pushes_.find(key);
-  const bool is_known = known != pushes_.end();
+  const auto known = pushes_->find(key);
+  const bool is_known = known != pushes_->end();
   if (is_known) {
     return known->second;
   }
@@ -157,7 +167,7 @@ QPointF LinkSolver::Push(const Link& link, Frame frame) {
   const QPointF push =
       has_points ? (*now - *then) * link.strength : QPointF();
   const bool is_finite = std::isfinite(push.x()) && std::isfinite(push.y());
-  return pushes_[key] = is_finite ? push : QPointF();
+  return (*pushes_)[key] = is_finite ? push : QPointF();
 }
 
 std::optional<QPointF> LinkSolver::PointOf(const LinkEnd& end,

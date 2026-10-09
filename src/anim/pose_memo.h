@@ -3,10 +3,13 @@
 
 #include <QString>
 
+#include <QPointF>
+
 #include <map>
 #include <memory>
 #include <utility>
 
+#include "anim/doll_drag.h"
 #include "anim/doll_pose.h"
 #include "base/frame.h"
 #include "model/project.h"
@@ -16,6 +19,8 @@ namespace snapper {
 // At most this many solved poses are kept; past it the oldest shot's
 // worth is dropped whole.
 constexpr size_t kMaxMemoPoses = 512;
+// The same for the solver's working sets, checked when a solver binds.
+constexpr size_t kMaxMemoWork = 20000;
 
 // The poses a shot's doll layers show, kept by layer and frame so a
 // frame is solved once however many paints, hover tests and handle
@@ -34,12 +39,29 @@ class PoseMemo final {
   // The poses kept for layer at frame, or nullptr.
   const PoseMap* Find(LayerId layer, Frame frame) const;
   void Store(LayerId layer, Frame frame, const PoseMap& poses);
+  // Where layer's drag-node springs have been run to so far; goes with
+  // the poses when the shot changes.
+  DragTrail* TrailOf(LayerId layer);
+
+  // What a link solver works out on the way, kept so the next solver
+  // for the same shot starts from it: poses before links are added
+  // (by layer and frame), pushes (by link and frame) and the shifts
+  // links give drag-node pieces (by layer, grown as frames are asked).
+  using BaseKey = std::pair<int, int>;
+  using PushKey = std::pair<const Link*, int>;
+  std::map<BaseKey, PoseMap>* base() { return &base_; }
+  std::map<PushKey, QPointF>* pushes() { return &pushes_; }
+  LinkShifts* shifts_of(LayerId layer) { return &shifts_[layer.value()]; }
   size_t size() const { return poses_.size(); }
 
  private:
   std::shared_ptr<const Shot> shot_;
   std::map<QString, std::shared_ptr<const Doll>> dolls_;
   std::map<std::pair<int, int>, PoseMap> poses_;
+  std::map<int, DragTrail> trails_;
+  std::map<BaseKey, PoseMap> base_;
+  std::map<PushKey, QPointF> pushes_;
+  std::map<int, LinkShifts> shifts_;
 };
 
 }  // namespace snapper
