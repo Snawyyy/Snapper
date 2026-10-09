@@ -234,14 +234,14 @@ Result<void> KeyManager::Retime(const std::vector<TrackRef>& tracks,
 }
 
 Result<void> KeyManager::BakeTiming(const std::vector<TrackRef>& tracks,
-                                    Frame a, Frame b,
+                                    Frame a, Frame b, KeyMode mode,
+                                    const std::vector<int>& frames,
                                     const std::vector<double>& fractions,
                                     const QString& label) {
   assert(history_ != nullptr);
   assert(!label.isEmpty());
   const bool is_valid = b.index() - a.index() >= 2 &&
-                        static_cast<int>(fractions.size()) ==
-                            b.index() - a.index() - 1 &&
+                        frames.size() == fractions.size() &&
                         IsValidSpacing(fractions) && !tracks.empty();
   if (!is_valid) {
     return std::unexpected(
@@ -250,7 +250,7 @@ Result<void> KeyManager::BakeTiming(const std::vector<TrackRef>& tracks,
   Project next = history_->before();
   for (const TrackRef& track : tracks) {
     auto baked = WithTrack(next, track, [&](auto* channel) {
-      const bool fits = BakeChannel(channel, a, b, fractions);
+      const bool fits = BakeChannel(channel, a, b, frames, fractions, mode);
       return fits ? Result<void>()
                   : Result<void>(std::unexpected(
                         Error{Tr("That track is full of keys.")}));

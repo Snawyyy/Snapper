@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <string_view>
 #include <vector>
 
 #include "anim/sampler.h"
@@ -52,6 +53,24 @@ int NearestTick(const std::vector<double>& fractions, double fraction,
 // True when fractions is rising and inside (0, 1) with the minimum gap.
 bool IsValidSpacing(const std::vector<double>& fractions);
 
+// Which frames a chart keys. Existing keys only never adds a key: its
+// ticks are the keys already between A and B. The others key every 1st,
+// 2nd or 3rd frame from A (B is always keyed), and drop the in-between
+// keys that miss that grid.
+enum class KeyMode { kExisting, kOnes, kTwos, kThrees };
+constexpr int kKeyModeCount = 4;
+
+// The frames of the ticks, rising, strictly between a and b. existing
+// are the frames the thing already has keys on (any order, any range);
+// only Existing keys only reads them.
+std::vector<int> TickFrames(KeyMode mode, int a, int b,
+                            const std::vector<int>& existing);
+
+// The word a mode is saved as, and the mode a saved word names (the
+// fallback for anything else).
+const char* KeyModeKey(KeyMode mode);
+KeyMode KeyModeFromKey(std::string_view key, KeyMode fallback);
+
 // Frames from first up to (not including) last on which channel no
 // longer shows what original showed are keyed with original's pose, so
 // a chart leaves the motion outside A..B exactly as it was. Does
@@ -75,20 +94,23 @@ bool KeepFramesAs(Channel<T>* channel, const Channel<T>& original,
   return is_set;
 }
 
-// Bakes the chart into channel: a key on every frame from a to b. A
-// and B keep the pose the channel shows there now, each in-between
-// frame gets the blend at its fraction, and the keys that were between
-// are replaced. B keeps its own ease; the rest step, since each key
-// holds exactly one frame. Keys outside a..b are untouched, and frames
-// outside whose pose would change (an eased key next to A or B that had
-// no key there) are keyed with the pose they had. A channel
-// with no keys has no pose to follow and is left alone. False when the
-// channel has no room.
+// Bakes the chart into channel: a key on each of frames (the ticks,
+// from TickFrames), fraction i of the way from the pose A has to the
+// pose B has. A and B keep the pose the channel shows there now, and
+// the keys that were between are replaced. Existing keys only leaves
+// A, B and every other key where it is, re-poses just the keys
+// between (keeping their ease), and adds none; the other
+// modes step, since each key holds its frames, and B keeps its own
+// ease. Keys outside a..b are untouched, and frames outside whose pose
+// would change (an eased key next to A or B that had no key there) are
+// keyed with the pose they had. A channel with no keys has no pose to
+// follow and is left alone. False when the channel has no room.
 template <typename T>
 bool BakeChannel(Channel<T>* channel, Frame a, Frame b,
-                 const std::vector<double>& fractions) {
+                 const std::vector<int>& frames,
+                 const std::vector<double>& fractions, KeyMode mode) {
   assert(channel != nullptr);
-  assert(static_cast<int>(fractions.size()) == b.index() - a.index() - 1);
+  assert(frames.size() == fractions.size());
   const bool has_keys = !channel->keys.empty();
   if (!has_keys) {
     return true;
@@ -99,17 +121,33 @@ bool BakeChannel(Channel<T>* channel, Frame a, Frame b,
   const int b_at = KeyIndexAt(*channel, b);
   const Ease b_ease =
       b_at >= 0 ? channel->keys[static_cast<size_t>(b_at)].ease : Ease::kStep;
+  const bool is_existing = mode == KeyMode::kExisting;
   std::erase_if(channel->keys, [&](const Key<T>& key) {
-    return key.frame.index() >= a.index() && key.frame.index() <= b.index();
+    const bool is_in_range =
+        key.frame.index() >= a.index() && key.frame.index() <= b.index();
+    return !is_existing && is_in_range;
   });
-  bool is_set = SetKey(channel, Key<T>{a, from, Ease::kStep});
-  for (size_t i = 0; i < fractions.size(); ++i) {
-    const Frame frame(a.index() + 1 + static_cast<int>(i));
+  bool is_set = true;
+  if (!is_existing) {
+    is_set = SetKey(channel, Key<T>{a, from, Ease::kStep});
+  }
+  for (size_t i = 0; i < frames.size(); ++i) {
+    const Frame frame(frames[i]);
+    const int was_at = KeyIndexAt(original, frame);
+    const bool is_skipped = is_existing && was_at < 0;
+    if (is_skipped) {
+      continue;
+    }
+    const Ease ease =
+        is_existing ? original.keys[static_cast<size_t>(was_at)].ease
+                    : Ease::kStep;
     is_set = SetKey(channel, Key<T>{frame, Lerp(from, to, fractions[i]),
-                                    Ease::kStep}) &&
+                                    ease}) &&
              is_set;
   }
-  is_set = SetKey(channel, Key<T>{b, to, b_ease}) && is_set;
+  if (!is_existing) {
+    is_set = SetKey(channel, Key<T>{b, to, b_ease}) && is_set;
+  }
   // The keys just before A and after B must not bend differently now.
   const auto before = std::lower_bound(
       original.keys.begin(), original.keys.end(), a,

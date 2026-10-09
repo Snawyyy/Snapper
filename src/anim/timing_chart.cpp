@@ -58,6 +58,59 @@ std::vector<double> SpacingFractions(Spacing spacing, int count) {
   return fractions;
 }
 
+std::vector<int> TickFrames(KeyMode mode, int a, int b,
+                            const std::vector<int>& existing) {
+  assert(a >= 0);
+  assert(b - a >= 2 && b - a - 1 <= kMaxChartFrames);
+  std::vector<int> frames;
+  const bool is_existing = mode == KeyMode::kExisting;
+  if (is_existing) {
+    for (const int frame : existing) {
+      const bool is_between = frame > a && frame < b;
+      if (is_between) {
+        frames.push_back(frame);
+      }
+    }
+    std::ranges::sort(frames);
+    frames.erase(std::ranges::unique(frames).begin(), frames.end());
+    return frames;
+  }
+  const int step = mode == KeyMode::kOnes ? 1 : mode == KeyMode::kTwos ? 2 : 3;
+  for (int frame = a + step; frame < b; frame += step) {
+    frames.push_back(frame);
+  }
+  return frames;
+}
+
+const char* KeyModeKey(KeyMode mode) {
+  assert(static_cast<int>(mode) < kKeyModeCount);
+  assert(static_cast<int>(mode) >= 0);
+  switch (mode) {
+    case KeyMode::kExisting:
+      return "existing";
+    case KeyMode::kOnes:
+      return "ones";
+    case KeyMode::kTwos:
+      return "twos";
+    case KeyMode::kThrees:
+      return "threes";
+  }
+  return "ones";
+}
+
+KeyMode KeyModeFromKey(std::string_view key, KeyMode fallback) {
+  assert(static_cast<int>(fallback) < kKeyModeCount);
+  assert(static_cast<int>(fallback) >= 0);
+  for (int i = 0; i < kKeyModeCount; ++i) {
+    const auto mode = static_cast<KeyMode>(i);
+    const bool is_match = key == KeyModeKey(mode);
+    if (is_match) {
+      return mode;
+    }
+  }
+  return fallback;
+}
+
 std::vector<double> MoveTick(std::vector<double> fractions, int index,
                              double wanted) {
   const int count = static_cast<int>(fractions.size());

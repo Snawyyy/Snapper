@@ -103,8 +103,14 @@ History keeps at most `kMaxUndoSteps` steps and drops the oldest.
 - A timing chart sets the spacing of the in-betweens between two
   frames A and B without moving any frame or key in time. The math is
   pure (`anim/timing_chart.h`): presets to fractions, tick drag
-  clamping, and `BakeChannel`, which writes a key on every frame from A
-  to B at its fraction of the way from the pose A has to the pose B has.
+  clamping, `TickFrames` (which frames get ticks) and `BakeChannel`,
+  which writes a key on each tick frame at its fraction of the way
+  from the pose A has to the pose B has. The chart's Keys: choice
+  (`KeyMode`, remembered in settings) is Existing keys only (ticks are
+  the keys already between A and B, only their poses change, none is
+  added), or Add on 1s, 2s or 3s (a key every 1st, 2nd or 3rd frame
+  from A, B always keyed; in-between keys off that grid are removed).
+  Frames outside A..B never change in any mode.
 - The timeline's corner flips stepping between scrub mode (the arrow
   keys move one frame) and animation mode (they jump to the next frame
   where the picture changes: a key, a shot's start, or each frame of
