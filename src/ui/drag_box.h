@@ -7,6 +7,7 @@
 #include <QGroupBox>
 #include <QString>
 
+#include <array>
 #include <optional>
 
 #include "model/doll.h"
@@ -16,8 +17,9 @@
 namespace snapper {
 
 // The warp dot picked on the stage: whether it drags behind (as D does)
-// and, when it does, its lag and bounce. Greyed out with the reason
-// when no dot is picked.
+// and, when it does, its lag and bounce, or, with Physics ticked, the
+// five physics settings (stretch, inertia, air resistance, gravity,
+// bounce) instead. Greyed out with the reason when no dot is picked.
 class DragBox final : public QGroupBox {
   Q_OBJECT
 
@@ -38,6 +40,8 @@ class DragBox final : public QGroupBox {
   };
   std::optional<Picked> Pick() const;
   void Commit();
+  void SetUpPhysicsRows();
+  std::array<QDoubleSpinBox*, 7> AllFields();
 
   Managers managers_;
   QFormLayout layout_;
@@ -45,6 +49,12 @@ class DragBox final : public QGroupBox {
   QCheckBox drags_;
   QDoubleSpinBox lag_;
   QDoubleSpinBox bounce_;
+  QCheckBox physics_;
+  QDoubleSpinBox stretch_;
+  QDoubleSpinBox inertia_;
+  QDoubleSpinBox air_;
+  QDoubleSpinBox gravity_;
+  QDoubleSpinBox spring_;
 };
 
 }  // namespace snapper
