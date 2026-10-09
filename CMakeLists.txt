@@ -68,7 +68,7 @@ snapper_module(ui
           reel_preview.cpp reel_timeline.cpp reel_timeline_drop.cpp
           reel_timeline_commands.cpp reel_timeline_input.cpp
           shot_bin.cpp shot_strip.cpp slot_picker.cpp
-          drag_text.cpp grab.cpp handle_hover.cpp
+          drag_feedback.cpp drag_text.cpp grab.cpp handle_hover.cpp
           motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
           scrub_label.cpp
           stage_menu.cpp stage_view.cpp stage_view_paint.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
@@ -105,7 +105,8 @@ if(BUILD_TESTING)
                             timeline_tests.cpp track_tests.cpp
                             video_frames_tests.cpp)
   snapper_test(ui SOURCES cast_panel_tests.cpp export_dialog_tests.cpp
-                          drag_text_tests.cpp grab_tests.cpp
+                          drag_feedback_tests.cpp drag_text_tests.cpp
+                          grab_tests.cpp
                           handle_hover_tests.cpp
                           inspector_tests.cpp link_ui_tests.cpp
                           pose_tool_tests.cpp pose_tool_grab_tests.cpp

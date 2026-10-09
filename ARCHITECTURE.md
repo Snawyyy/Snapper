@@ -369,6 +369,13 @@ cursor is over and animates its growth through `MotionManager`; each
 canvas owns one. `CursorFor` gives each kind of handle its cursor. No
 widget keeps its own reach or drag threshold.
 
+Drags talk the same way everywhere. `DragFeedback` (one per canvas,
+drawing only) shows a value chip off the cursor, a faint ghost where
+the drag began, a flash when it snaps and a pop where it lets go,
+through `MotionManager` (nothing in Off). Escape clears it at once. The
+words and the 15 degree turn snap are pure functions in `drag_text.h`;
+a canvas picks the words and calls `Update`, `Settle` or `Cancel`.
+
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.
 
