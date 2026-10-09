@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "anim/doll_drag.h"
 #include "anim/doll_pose.h"
 #include "base/frame.h"
 #include "model/project.h"
@@ -34,12 +35,16 @@ class PoseMemo final {
   // The poses kept for layer at frame, or nullptr.
   const PoseMap* Find(LayerId layer, Frame frame) const;
   void Store(LayerId layer, Frame frame, const PoseMap& poses);
+  // Where layer's drag-node springs have been run to so far; goes with
+  // the poses when the shot changes.
+  DragTrail* TrailOf(LayerId layer);
   size_t size() const { return poses_.size(); }
 
  private:
   std::shared_ptr<const Shot> shot_;
   std::map<QString, std::shared_ptr<const Doll>> dolls_;
   std::map<std::pair<int, int>, PoseMap> poses_;
+  std::map<int, DragTrail> trails_;
 };
 
 }  // namespace snapper

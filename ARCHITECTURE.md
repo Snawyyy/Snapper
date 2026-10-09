@@ -313,7 +313,9 @@ as two triangles back into the drawing. Each renderer has its own
 hover hit tests bend a drawing once per pose, not once per paint. It also owns a
 `PoseMemo` (`anim/pose_memo.h`): the poses `LinkSolver` solved for the shot
 being drawn, by layer and frame, so paint, hit tests and handle overlays
-solve a frame once. It holds one shot by identity and empties itself when
+solve a frame once, and keeps each doll layer's `DragTrail` (where the
+drag-node springs stood after each frame) so a later frame carries on
+instead of running the springs from frame 0. It holds one shot by identity and empties itself when
 an edit makes new shot or doll pointers. Preview may render at a
 smaller scale; effects scale their sizes with it so they look the same.
 
