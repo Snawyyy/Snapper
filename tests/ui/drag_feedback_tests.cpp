@@ -3,6 +3,8 @@
 #include <QSignalSpy>
 #include <QTest>
 
+#include <cassert>
+
 #include "bench.h"
 #include "ui/drag_feedback.h"
 
@@ -22,6 +24,9 @@ class DragFeedbackTests final : public QObject {
   void SettleIsInstantInOff();
   void CancelClearsEverything();
   void PaintsTheChip();
+  void GhostPictureIsDrawnFaintAtTheStart();
+  void GhostPictureGoesOnCancelAndSettle();
+  void GhostPictureSurvivesOffMode();
   void PulseShowsThenFadesAfterARest();
   void NewPulseKeepsTheChipUp();
   void CancelClearsAPulse();
@@ -146,6 +151,78 @@ void DragFeedbackTests::PaintsTheChip() {
   painter.end();
   QVERIFY(image != blank);
   QVERIFY(feedback.is_active());
+}
+
+namespace {
+
+constexpr int kFullSize = 200;
+
+// A ghost with a solid red square at (30, 30), 20 px wide.
+Ghost RedSquare(GhostKind kind) {
+  assert(kind != GhostKind::kNone);
+  assert(kFullSize > 0);
+  return MakeGhost(kind, QSize(200, 100), 1.0, [](QPainter* painter) {
+    painter->fillRect(QRectF(30, 30, 20, 20), Qt::red);
+  });
+}
+
+QImage PaintedOnBlack(const DragFeedback& feedback) {
+  assert(kFullSize > 0);
+  assert(feedback.is_active());
+  QImage image(200, 100, QImage::Format_ARGB32);
+  image.fill(Qt::black);
+  QPainter painter(&image);
+  feedback.Paint(&painter, QRectF(0, 0, 200, 100));
+  painter.end();
+  return image;
+}
+
+}  // namespace
+
+void DragFeedbackTests::GhostPictureIsDrawnFaintAtTheStart() {
+  Bench bench;
+  QObject owner;
+  DragFeedback feedback(&bench.motion, &owner);
+  QCOMPARE(feedback.ghost_kind(), GhostKind::kNone);
+  feedback.SetGhost(RedSquare(GhostKind::kKey));
+  QCOMPARE(feedback.ghost_kind(), GhostKind::kKey);
+  feedback.Update(QPointF(40, 40), QPointF(150, 80), "+1 f", false);
+  const QColor seen = PaintedOnBlack(feedback).pixelColor(40, 40);
+  // Faint: some red shows, well short of full.
+  QVERIFY(seen.red() > 30);
+  QVERIFY(seen.red() < 200);
+  QCOMPARE(seen.green(), 0);
+}
+
+void DragFeedbackTests::GhostPictureGoesOnCancelAndSettle() {
+  Bench bench;
+  QObject owner;
+  DragFeedback feedback(&bench.motion, &owner);
+  feedback.SetGhost(RedSquare(GhostKind::kClip));
+  feedback.Update(QPointF(40, 40), QPointF(150, 80), "+1 f", false);
+  feedback.Cancel();
+  QCOMPARE(feedback.ghost_kind(), GhostKind::kNone);
+  feedback.SetGhost(RedSquare(GhostKind::kShot));
+  feedback.Update(QPointF(40, 40), QPointF(150, 80), "+1 f", false);
+  feedback.Settle();
+  QCOMPARE(feedback.ghost_kind(), GhostKind::kNone);
+  // A press that never moved drops its ghost on release.
+  feedback.SetGhost(RedSquare(GhostKind::kShot));
+  feedback.Settle();
+  QCOMPARE(feedback.ghost_kind(), GhostKind::kNone);
+  QVERIFY(!feedback.is_active());
+  QVERIFY(feedback.text().isEmpty());
+}
+
+void DragFeedbackTests::GhostPictureSurvivesOffMode() {
+  Bench bench;
+  bench.motion.SetMode(MotionMode::kOff);
+  QObject owner;
+  DragFeedback feedback(&bench.motion, &owner);
+  feedback.SetGhost(RedSquare(GhostKind::kRigHandle));
+  feedback.Update(QPointF(40, 40), QPointF(150, 80), "+1 px", false);
+  QCOMPARE(feedback.ghost_kind(), GhostKind::kRigHandle);
+  QVERIFY(PaintedOnBlack(feedback).pixelColor(40, 40).red() > 30);
 }
 
 void DragFeedbackTests::PulseShowsThenFadesAfterARest() {
