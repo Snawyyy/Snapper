@@ -116,6 +116,12 @@ void RefusalShaker::Shake(QWidget* widget) {
           target_->move(origin_.x() + qRound(dx), origin_.y());
         }
       });
+  // The jerk table is the shape already: an eased clock would squeeze
+  // every jerk into the first third and leave the rest at rest.
+  const bool is_running = !animation_.isNull();
+  if (is_running) {
+    animation_->setEasingCurve(QEasingCurve::Linear);
+  }
   // Done shaking: the widget is home, so forget it before a relayout
   // moves it and a later Settle would drag it back.
   const bool is_instant = animation_.isNull();
