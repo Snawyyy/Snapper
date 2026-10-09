@@ -77,6 +77,10 @@ class RigManager final {
   // that are not drag nodes are left alone. Refused when none is one.
   Result<void> SetDragField(const std::vector<DotRef>& dots, DragField field,
                             double value);
+  // The same, but math is typed text worked out on each dot's own
+  // number: "*2" doubles each, "+0.1" adds to each, "0.5" sets all.
+  Result<void> SetDragFieldMath(const std::vector<DotRef>& dots,
+                                DragField field, const QString& math);
   // Makes every dot a drag node (with the default lag and bounce), or a
   // plain point again.
   Result<void> SetDragNodes(const std::vector<DotRef>& dots, bool on);
@@ -91,6 +95,10 @@ class RigManager final {
   // is none; kind None takes a motion away.
   Result<void> SetMotionAll(const std::vector<DotRef>& dots,
                             MotionField field, double value);
+  // The same for a motion number (not its kind), the math worked out on
+  // each dot's own number.
+  Result<void> SetMotionMath(const std::vector<DotRef>& dots,
+                             MotionField field, const QString& math);
   // Makes piece a collider: the outline of the visible pixels of
   // drawing (its default drawing, as an image) as a ring of dots that
   // pushes the cloth of the pieces in front of it. Refused when
@@ -109,13 +117,14 @@ class RigManager final {
                                  const QString& other, bool pushes);
   // Why MirrorNodes can't act on piece; empty when it can.
   QString WhyNoMirror(const QString& doll, const QString& piece) const;
-  // Copies piece's drag and physics nodes and its collider (and which
-  // pieces it pushes) onto its left or right twin, mirrored, replacing
+  // Copies piece's drag and physics nodes, point motions and its
+  // collider (and which pieces it pushes) onto its left or right twin, mirrored, replacing
   // what the twin had there: one undo step. Needs the same warp grid
   // on both.
   Result<void> MirrorNodes(const QString& doll, const QString& piece);
-  // Copies just these dots' drag or physics nodes to the mirrored dots
-  // of their pieces' twins (a dot with none clears the twin's).
+  // Copies just these dots' drag or physics nodes and motions to the
+  // mirrored dots of their pieces' twins (a dot with none clears the
+  // twin's).
   Result<void> MirrorDots(const std::vector<DotRef>& dots);
   // Gives a warp grid point its motion, or changes it; kind kNone stops
   // it. Size, cycle and delay are kept in range.

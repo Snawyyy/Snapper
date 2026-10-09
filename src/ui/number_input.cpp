@@ -83,7 +83,15 @@ void NumberInput::Commit() {
   }
   // Only a double box has decimals; a whole-number box rounds.
   const bool is_whole = !box_->property("decimals").isValid();
+  // A sum on the current number ("*2", "+0.1") is told to whoever
+  // listens for the change, so a many-pick can work it on each of its
+  // own numbers; the note lasts only through that change.
+  const QString body = Body().trimmed();
+  const bool is_relative =
+      !body.isEmpty() && QStringLiteral("*/+").contains(body.front());
+  box_->setProperty(kRelativeProperty, is_relative ? body : QString());
   box_->setProperty("value", is_whole ? std::round(*result) : *result);
+  box_->setProperty(kRelativeProperty, QString());
   edit_->setModified(false);
 }
 

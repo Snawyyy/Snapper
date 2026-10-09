@@ -7,6 +7,7 @@
 
 #include "edit/rig_manager.h"
 #include "ui/follow.h"
+#include "ui/number_input.h"
 #include "ui/form_helpers.h"
 #include "ui/picked_dot.h"
 #include "ui/problem.h"
@@ -236,8 +237,13 @@ void DragBox::Commit(DragField field, const QDoubleSpinBox* box) {
   if (!has_node) {
     return;
   }
-  emit Problem(
-      ProblemOf(managers_.rig->SetDragField(look.dots, field, box->value())));
+  // Typed math ("*2") works on each dot's own number.
+  const QString math = box->property(kRelativeProperty).toString();
+  const bool is_math = !math.isEmpty();
+  emit Problem(ProblemOf(
+      is_math ? managers_.rig->SetDragFieldMath(look.dots, field, math)
+              : managers_.rig->SetDragField(look.dots, field,
+                                            box->value())));
 }
 
 }  // namespace snapper

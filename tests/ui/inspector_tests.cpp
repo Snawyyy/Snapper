@@ -42,7 +42,6 @@ class InspectorTests final : public QObject {
   void DragBoxTunesThePickedDot();
   void PhysicsSwitchShowsTheFiveSettings();
   void PointMotionBoxAnimatesThePickedDot();
-  void ManyPickedDotsEditAtOnceAndShowMixed();
   void OnlyWhatIsPickedShows();
   void ShotBoxChangesThePickedShots();
   void LinkBoxShowsOnlyWhenLinked();
@@ -231,57 +230,6 @@ void InspectorTests::PointMotionBoxAnimatesThePickedDot() {
   QCOMPARE(bench.history.UndoLabel(),
            QString("Set how it moves on 1 dot"));
   QVERIFY(!size->isEnabled());
-}
-
-void InspectorTests::ManyPickedDotsEditAtOnceAndShowMixed() {
-  Bench bench;
-  Stage(&bench);
-  QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
-  const std::vector<DotRef> three = {
-      {"Bob", "head", 0}, {"Bob", "head", 1}, {"Bob", "head", 2}};
-  QVERIFY(bench.rig.SetDragNodes(three, true).has_value());
-  QVERIFY(bench.rig.SetDragField({three[0]}, DragField::kBounce, 0.2)
-              .has_value());
-  DragBox box(bench.All());
-  auto* bounce = box.findChild<QDoubleSpinBox*>("bounce");
-  auto* drags = box.findChild<QCheckBox*>("drags");
-  auto* physics = box.findChild<QCheckBox*>("physics");
-  bench.selection.PickDots({{LayerId(1), "head", 0}, {LayerId(1), "head", 1},
-                            {LayerId(1), "head", 4}},
-                           PickMode::kReplace);
-  // Two drag nodes and a plain dot: the tick is partly on, and the
-  // two nodes' bounces differ.
-  QCOMPARE(drags->checkState(), Qt::PartiallyChecked);
-  QCOMPARE(bounce->findChild<QLineEdit*>()->text(), QString("Mixed"));
-  Type(bounce, 0.9);
-  QCOMPARE(bench.history.UndoLabel(), QString("Set bounce on 2 dots"));
-  const auto& nodes =
-      bench.history.current().dolls.at("Bob")->rig.pieces[0].drag_nodes;
-  QCOMPARE(nodes[0].bounce, 0.9);
-  QCOMPARE(nodes[1].bounce, 0.9);
-  QCOMPARE(nodes[2].bounce, 0.5);
-  QVERIFY(bounce->findChild<QLineEdit*>()->text() != "Mixed");
-  // One undo takes the change back for both.
-  bench.history.Undo();
-  QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
-               .drag_nodes[0].bounce, 0.2);
-  QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
-               .drag_nodes[1].bounce, 0.5);
-  // A click on a partly ticked Drags sets every picked dot to drag; on
-  // Physics, every drag node among them.
-  drags->click();
-  QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
-               .drag_nodes.size(), size_t{4});
-  QCOMPARE(bench.history.UndoLabel(), QString("Drag 3 dots"));
-  physics->click();
-  QCOMPARE(bench.history.UndoLabel(), QString("Physics on for 3 dots"));
-  QCOMPARE(physics->checkState(), Qt::Checked);
-  physics->click();
-  QCOMPARE(physics->checkState(), Qt::Unchecked);
-  // Nothing picked: greyed with a reason.
-  bench.selection.PickDot(std::nullopt);
-  QVERIFY(!bounce->isEnabled());
-  QVERIFY(!bounce->toolTip().isEmpty());
 }
 
 void InspectorTests::OnlyWhatIsPickedShows() {

@@ -8,6 +8,10 @@
 
 namespace snapper {
 
+// Set on the field, while a change is told, to what was typed when it
+// started with *, / or +; empty for any other change.
+inline constexpr char kRelativeProperty[] = "typed_math";
+
 // Lets a number field take math. Type "*2", "+15" or "90/2" and press
 // Enter (or leave the field) and the result lands, using EvalNumber.
 // Text it cannot read leaves the field as it was and says so: the
