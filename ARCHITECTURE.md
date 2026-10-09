@@ -340,7 +340,8 @@ are destroyed in reverse.
 | `LinkManager`          | Which things copy another's movement, how much |
 | `SelectionManager`     | What is picked: shots, layers, pieces, keys, clips |
 | `PoseManager`          | Pose edits, IK drags, copy, paste, mirror      |
-| `KeyManager`           | Keys on the timeline: move, space, ease, retime |
+| `KeyManager`           | Keys on the timeline: move, space, ease, retime, bake a timing chart |
+| `TimingChartManager`   | The timing chart session: picked thing and frames to chart, ticks, live preview in one `EditScope`, Apply or Cancel |
 | `PresetManager`        | Motion presets and saved poses                 |
 | `PlaybackManager`      | Playhead on either timeline, play, loop, song  |
 | `ExportManager`        | MP4 and GIF export of the final video, threaded |

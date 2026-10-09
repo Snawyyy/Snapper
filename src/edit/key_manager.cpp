@@ -6,6 +6,7 @@
 #include <set>
 
 #include "edit/history_manager.h"
+#include "anim/timing_chart.h"
 #include "edit/key_edits.h"
 #include "edit/project_edits.h"
 
@@ -230,6 +231,36 @@ Result<void> KeyManager::Retime(const std::vector<TrackRef>& tracks,
   }
   return history_->Apply(delta > 0 ? Tr("Insert frames") : Tr("Remove frames"),
                          std::move(next));
+}
+
+Result<void> KeyManager::BakeTiming(const std::vector<TrackRef>& tracks,
+                                    Frame a, Frame b,
+                                    const std::vector<double>& fractions,
+                                    const QString& label) {
+  assert(history_ != nullptr);
+  assert(!label.isEmpty());
+  const bool is_valid = b.index() - a.index() >= 2 &&
+                        static_cast<int>(fractions.size()) ==
+                            b.index() - a.index() - 1 &&
+                        IsValidSpacing(fractions) && !tracks.empty();
+  if (!is_valid) {
+    return std::unexpected(
+        Error{Tr("A timing chart needs two frames with a frame between.")});
+  }
+  Project next = history_->before();
+  for (const TrackRef& track : tracks) {
+    auto baked = WithTrack(next, track, [&](auto* channel) {
+      const bool fits = BakeChannel(channel, a, b, fractions);
+      return fits ? Result<void>()
+                  : Result<void>(std::unexpected(
+                        Error{Tr("That track is full of keys.")}));
+    });
+    if (!baked) {
+      return std::unexpected(baked.error());
+    }
+    next = std::move(*baked);
+  }
+  return history_->Apply(label, std::move(next));
 }
 
 }  // namespace snapper

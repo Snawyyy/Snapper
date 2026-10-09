@@ -18,6 +18,7 @@
 #include "edit/selection_manager.h"
 #include "edit/shot_manager.h"
 #include "edit/stage_manager.h"
+#include "edit/timing_chart_manager.h"
 #include "ui/main_window.h"
 #include "ui/motion.h"
 #include "ui/toast_manager.h"
@@ -53,6 +54,7 @@ class AppContext final {
   PlaybackManager playback_;
   ExportManager exporter_;
   MotionManager motion_;
+  TimingChartManager timing_;
   ToastManager toasts_;
   MainWindow window_;
 };

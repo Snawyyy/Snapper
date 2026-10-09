@@ -48,6 +48,15 @@ class KeyManager final {
   Result<void> Repeat(const std::vector<TrackRef>& tracks, Frame start,
                       Frame end, int times);
 
+  // Bakes a timing chart: on every track, a key on each frame from a to
+  // b, the in-betweens at fractions of the way from the pose at a to the
+  // pose at b. No existing key moves in time. Builds on the project a
+  // running drag started from, so it can be called again and again for
+  // a live preview; lands as one step named label.
+  Result<void> BakeTiming(const std::vector<TrackRef>& tracks, Frame a,
+                          Frame b, const std::vector<double>& fractions,
+                          const QString& label);
+
   Result<void> Copy(const std::set<KeyRef>& keys);
   // Puts the copied keys back with the first at frame, on the same
   // channels in shot. When onto is a layer, layer and piece keys go
