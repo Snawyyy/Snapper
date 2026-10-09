@@ -33,6 +33,30 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 - Keep `ARCHITECTURE.md` true: a new manager or module goes in it in the
   same commit.
 
+## Where we stopped
+
+Update this section at the end of every session: the last thing done,
+then the next steps. Full story: `docs/session-2026-10-08.md`.
+
+Last done (2026-10-09): all five PR branches reviewed, fixed and merged
+into `ui-test` (pushed, not merged to main). Linter fixed (it skipped
+namespaces). Five UI fixes built: Link panel only when linked, fixed mode
+tabs, per-warp-point motion, full video timeline editing, transitions on
+reel cuts. A playable HTML prototype of the "Win98 but juicier" redesign
+was built and opened for the owner (`docs/redesign/proto/index.html`;
+design doc `docs/redesign/index.html`).
+
+Next steps:
+
+1. The owner tries `ui-test` (`build/snapper`) and the prototype, then
+   says what to keep or change. No app code for the redesign before that.
+2. Fix what the owner finds, one change at a time, a test per bug.
+3. Build the redesign in the order in the design doc: motion table and
+   Motion setting, scrubbing number fields, hover outline and big grab
+   zones.
+4. Fix the ~163 old lint breaks on main so the `lint` ctest goes green.
+5. Merge to main only when the owner says "merge".
+
 ## UX language
 
 - Keys hold (step) unless told to ease.
