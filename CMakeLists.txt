@@ -44,6 +44,11 @@ snapper_module(render
   SOURCES effects.cpp frame_renderer.cpp image_cache.cpp layer_painter.cpp warp_cache.cpp
           stage_geometry.cpp stage_hit.cpp warp_raster.cpp
   MODULES anim)
+# The per-pixel loops of the warp are far too slow unoptimised, and a
+# debug build is what gets used while editing: they stay -O2 there.
+set_source_files_properties(
+  ${PROJECT_SOURCE_DIR}/src/render/warp_raster.cpp
+  PROPERTIES COMPILE_OPTIONS "$<$<CONFIG:Debug>:-O2>")
 snapper_module(edit
   SOURCES change_diff.cpp change_watcher.cpp
           doll_library_manager.cpp document_manager.cpp

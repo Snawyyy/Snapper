@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <variant>
 
 #include "anim/doll_lean.h"
@@ -16,6 +17,20 @@
 
 namespace snapper {
 namespace {
+
+// How many quarters of a drawing's size are enough to bend for it to
+// fill transform's pixels: a doll drawn at half size needs only half
+// the pixels each way. Rounds to the nearest quarter, up on a tie;
+// never less than a quarter.
+int DetailFor(const QTransform& transform) {
+  assert(kFullDetail > 1);
+  const double pixels_per_pixel =
+      std::sqrt(std::abs(transform.determinant()));
+  assert(pixels_per_pixel >= 0.0);
+  const int quarters =
+      static_cast<int>(std::ceil(pixels_per_pixel * 4.0 - 0.5));
+  return std::clamp(quarters, 1, kFullDetail);
+}
 
 // Each content kind draws itself; PaintLayer picks by visiting.
 struct Painter final {
@@ -57,11 +72,16 @@ void Painter::operator()(const DollLayer& layer) const {
     painter->setOpacity(layer_opacity * piece.opacity);
     const bool is_warped = !piece.warp_points.empty();
     if (is_warped) {
+      const QTransform on_screen = piece.transform * world;
       const WarpedImage& warped =
-          cache->Warped(piece.drawing, piece.grid, piece.warp_points);
-      painter->setTransform(QTransform::fromTranslate(warped.origin.x(),
+          cache->Warped(piece.drawing, piece.grid, piece.warp_points,
+                        DetailFor(on_screen));
+      // A small bend is drawn stretched back to the drawing's size.
+      painter->setTransform(QTransform::fromScale(1.0 / warped.detail,
+                                                  1.0 / warped.detail) *
+                            QTransform::fromTranslate(warped.origin.x(),
                                                       warped.origin.y()) *
-                            piece.transform * world);
+                            on_screen);
       painter->drawImage(0, 0, warped.image);
     } else {
       painter->setTransform(piece.transform * world);

@@ -15,6 +15,9 @@ namespace snapper {
 struct WarpedImage final {
   QImage image;
   QPointF origin;
+  // Pixels of image per pixel of the drawing: 1 unless it was bent
+  // small to save time (see WarpCache). origin is in drawing pixels.
+  double detail = 1.0;
 };
 
 // Bends source so each grid cell's rest corners land on points (one per

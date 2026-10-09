@@ -46,6 +46,7 @@ class WarpCacheTests final : public QObject {
   void ForgettingAPathDropsItsBends();
   void UnreadableDrawingsBendToNothing();
   void TheCacheStaysWithinItsCap();
+  void ASmallBendIsHalfTheSizeAndKeptApart();
 };
 
 void WarpCacheTests::SameBendIsMadeOnce() {
@@ -108,6 +109,21 @@ void WarpCacheTests::TheCacheStaysWithinItsCap() {
   }
   QCOMPARE(cache.size(), kMaxWarpEntries);
   QVERIFY(cache.bytes() <= kWarpCacheBytes);
+}
+
+void WarpCacheTests::ASmallBendIsHalfTheSizeAndKeptApart() {
+  QTemporaryDir dir;
+  const QString path = WriteDrawing(dir);
+  const QImage source(path);
+  WarpCache cache;
+  const std::vector<QPointF> points = Pushed(6.0);
+  const WarpedImage whole = cache.Bent(path, source, kGrid, points);
+  const WarpedImage half = cache.Bent(path, source, kGrid, points, 2);
+  QCOMPARE(whole.detail, 1.0);
+  QCOMPARE(half.detail, 0.5);
+  QCOMPARE(cache.size(), size_t{2});
+  QVERIFY(qAbs(half.image.width() * 2 - whole.image.width()) <= 3);
+  QVERIFY(qAbs(half.origin.x() - whole.origin.x()) <= 2.0);
 }
 
 }  // namespace snapper

@@ -29,7 +29,7 @@ struct Triangle final {
 // (red and blue in one word, alpha and green in another). Whole
 // weights in 256ths are exact to within one level of a 255 scale, and
 // mixing a colour with itself gives it back.
-QRgb Mix(QRgb x, QRgb y, std::uint32_t weight) {
+[[gnu::always_inline]] inline QRgb Mix(QRgb x, QRgb y, std::uint32_t weight) {
   assert(weight <= kWeightOne);
   assert(kWeightOne == 256);
   constexpr std::uint32_t kPairs = 0x00ff00ffu;
@@ -42,14 +42,14 @@ QRgb Mix(QRgb x, QRgb y, std::uint32_t weight) {
   return ((ag & kPairs) << 8) | (rb & kPairs);
 }
 
-std::uint32_t WeightOf(double fraction) {
+[[gnu::always_inline]] inline std::uint32_t WeightOf(double fraction) {
   assert(fraction >= 0.0 && fraction <= 1.0);
   assert(kWeightOne == 256);
   return static_cast<std::uint32_t>(fraction * kWeightOne + 0.5);
 }
 
 // Bilinear read of a premultiplied image; outside is clear.
-QRgb Sample(const QImage& image, QPointF at) {
+[[gnu::always_inline]] inline QRgb Sample(const QImage& image, QPointF at) {
   assert(image.format() == QImage::Format_ARGB32_Premultiplied);
   assert(std::isfinite(at.x()) && std::isfinite(at.y()));
   const double x = at.x() - 0.5;
@@ -129,27 +129,31 @@ void RowWeights(const Triangle& triangle, double area, double py,
   (*out)[2] = {-(u.slope + v.slope), 1.0 - u.base - v.base};
 }
 
-// Draws one row of the triangle between columns x0 and x1.
-void DrawRow(const QImage& source, const Triangle& triangle, double area,
-             QPointF origin, int y, int x0, int x1, QRgb* row) {
+// What f0, f1 and f2 (the value at each corner) mix to across a row.
+Line Mixed(const Line (&weights)[3], double f0, double f1, double f2) {
+  assert(std::isfinite(f0) && std::isfinite(f1) && std::isfinite(f2));
+  assert(kWeightOne == 256);
+  return {f0 * weights[0].slope + f1 * weights[1].slope +
+              f2 * weights[2].slope,
+          f0 * weights[0].base + f1 * weights[1].base + f2 * weights[2].base};
+}
+
+// Draws one row of the triangle between columns x0 and x1. Inside a
+// triangle the source position moves the same step for every pixel, so
+// it is found once and stepped along.
+void DrawRow(const QImage& source, const Triangle& triangle,
+             const Line (&weights)[3], double origin_x, int x0, int x1,
+             QRgb* row) {
   assert(row != nullptr);
   assert(x0 <= x1);
-  const QPointF& a = triangle.to[0];
-  const QPointF& b = triangle.to[1];
-  const QPointF& c = triangle.to[2];
+  const Line at_x = Mixed(weights, triangle.from[0].x(), triangle.from[1].x(),
+                          triangle.from[2].x());
+  const Line at_y = Mixed(weights, triangle.from[0].y(), triangle.from[1].y(),
+                          triangle.from[2].y());
   for (int x = x0; x < x1; ++x) {
-    const QPointF p(x + 0.5 + origin.x(), y + 0.5 + origin.y());
-    const double u = ((b.x() - p.x()) * (c.y() - p.y()) -
-                      (c.x() - p.x()) * (b.y() - p.y())) / area;
-    const double v = ((c.x() - p.x()) * (a.y() - p.y()) -
-                      (a.x() - p.x()) * (c.y() - p.y())) / area;
-    const double w = 1.0 - u - v;
-    const bool is_inside = u >= -kEdgeSlack && v >= -kEdgeSlack &&
-                           w >= -kEdgeSlack;
-    if (is_inside) {
-      row[x] = Sample(source, triangle.from[0] * u + triangle.from[1] * v +
-                                  triangle.from[2] * w);
-    }
+    const double px = x + 0.5 + origin_x;
+    row[x] = Sample(source, QPointF(at_x.slope * px + at_x.base,
+                                    at_y.slope * px + at_y.base));
   }
 }
 
@@ -184,13 +188,16 @@ void DrawTriangle(const QImage& source, const Triangle& triangle,
     if (!is_reached) {
       continue;
     }
-    // One pixel of margin each side covers rounding in the bounds.
-    const double first = std::floor(lo - 0.5 - origin.x()) - 1.0;
-    const double last = std::ceil(hi - 0.5 - origin.x()) + 2.0;
+    // Pixels whose centre lies between lo and hi.
+    const double first = std::ceil(lo - 0.5 - origin.x());
+    const double last = std::floor(hi - 0.5 - origin.x()) + 1.0;
     const int x0 = static_cast<int>(std::max<double>(first, box.left()));
     const int x1 = static_cast<int>(std::min<double>(last, box.right() + 1));
-    DrawRow(source, triangle, area, origin, y, x0, x1,
-            reinterpret_cast<QRgb*>(target->scanLine(y)));
+    const bool is_covered = x0 < x1;
+    if (is_covered) {
+      DrawRow(source, triangle, weights, origin.x(), x0, x1,
+              reinterpret_cast<QRgb*>(target->scanLine(y)));
+    }
   }
 }
 
