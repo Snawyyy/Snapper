@@ -41,7 +41,7 @@ snapper_module(media
   MODULES base
   LIBS Qt6::Gui Qt6::Multimedia PkgConfig::FFMPEG)
 snapper_module(render
-  SOURCES effects.cpp frame_renderer.cpp image_cache.cpp layer_painter.cpp
+  SOURCES effects.cpp frame_renderer.cpp image_cache.cpp layer_painter.cpp warp_cache.cpp
           stage_geometry.cpp stage_hit.cpp warp_raster.cpp
   MODULES anim)
 snapper_module(edit
@@ -98,7 +98,7 @@ if(BUILD_TESTING)
                     warp_motion_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp video_reader_tests.cpp)
-  snapper_test(render SOURCES render_tests.cpp)
+  snapper_test(render SOURCES render_tests.cpp warp_cache_tests.cpp)
   snapper_test(edit SOURCES change_diff_tests.cpp change_watcher_tests.cpp
                             document_tests.cpp
                             export_tests.cpp
