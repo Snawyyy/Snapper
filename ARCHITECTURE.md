@@ -415,7 +415,9 @@ ring, a deleted one puffs out, and what undo or redo brings back or
 moves rewinds (a bright flash settling from 1.25). The timeline draws
 these over the real project, so data and picking never wait for them;
 in Off there are none, and the final state shows at once. The pose
-timeline (`TimelineView`) animates keys per row.
+timeline (`TimelineView`) animates keys per row; the reel
+(`ReelTimeline`) animates whole clips, growing only 5 % as a clip is
+long.
 
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.

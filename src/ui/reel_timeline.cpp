@@ -38,6 +38,8 @@ ReelTimeline::ReelTimeline(const Managers& managers)
     : managers_(managers),
       hover_(managers.motion, this),
       feedback_(managers.motion, this),
+      watcher_(managers.history, this),
+      effects_(managers.motion, this),
       zoom_(kDefaultZoom) {
   assert(managers_.IsComplete());
   setFocusPolicy(Qt::ClickFocus);
@@ -45,6 +47,8 @@ ReelTimeline::ReelTimeline(const Managers& managers)
   setAcceptDrops(true);
   connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
   connect(&feedback_, &DragFeedback::Changed, this, [this] { update(); });
+  connect(&effects_, &ChangeEffects::Changed, this, [this] { update(); });
+  connect(&watcher_, &ChangeWatcher::Stepped, this, &ReelTimeline::ShowStep);
   const auto update_me = [this] {
     const int tracks =
         static_cast<int>(managers_.history->current().reel.tracks.size());
@@ -183,9 +187,10 @@ void ReelTimeline::PaintTracks(QPainter* painter) const {
   painter->setClipRect(QRectF(kHeaderWidth, kRulerHeight, width(), height()));
   for (const ReelTrack& track : reel.tracks) {
     for (const Clip& clip : track.clips) {
-      PaintClip(painter, clip);
+      PaintClipFx(painter, clip);
     }
   }
+  PaintPuffs(painter);
   painter->restore();
 }
 

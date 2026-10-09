@@ -14,9 +14,11 @@ class QMenu;
 #include <vector>
 
 #include "base/frame.h"
+#include "edit/change_watcher.h"
 #include "edit/edit_scope.h"
 #include "edit/selection_manager.h"
 #include "model/reel.h"
+#include "ui/change_effects.h"
 #include "ui/drag_feedback.h"
 #include "ui/handle_hover.h"
 #include "base/error.h"
@@ -71,6 +73,8 @@ class ReelTimeline final : public QWidget {
   void SetZoom(double pixels_per_frame);
   // The chip, ghost and snap flash of the drag, for tests to look at.
   const DragFeedback& feedback() const { return feedback_; }
+  // The pops, puffs and rewinds of the last step, for tests to look at.
+  const ChangeEffects& effects() const { return effects_; }
 
  signals:
   void Problem(const QString& why);
@@ -111,6 +115,11 @@ class ReelTimeline final : public QWidget {
   void PaintRuler(QPainter* painter) const;
   void PaintTracks(QPainter* painter) const;
   void PaintClip(QPainter* painter, const Clip& clip) const;
+  // PaintClip, grown, flashed or ringed while the clip pops in or is
+  // brought back by undo or redo.
+  void PaintClipFx(QPainter* painter, const Clip& clip) const;
+  // Clips just deleted, still shrinking away where they were.
+  void PaintPuffs(QPainter* painter) const;
   void PaintDrop(QPainter* painter) const;
   void PaintMarkers(QPainter* painter) const;
   void PaintPlayhead(QPainter* painter) const;
@@ -154,6 +163,8 @@ class ReelTimeline final : public QWidget {
   // The name the hover knows a clip start or end edge by.
   static QString EdgeKey(ClipId clip, bool is_start);
   void Report(const QString& problem) { emit Problem(problem); }
+  // A step landed: pops, puffs or rewinds the clips it changed.
+  void ShowStep(const Project& before, bool is_travel);
   // Passes on a delete's outcome; the toast offers Undo for that step.
   void DeletePicked(const Result<void>& result, size_t count);
 
@@ -161,6 +172,9 @@ class ReelTimeline final : public QWidget {
   // The clip edge under the cursor widens and brightens.
   HandleHover hover_;
   DragFeedback feedback_;
+  // Decoration only; the clips are in the project at once.
+  ChangeWatcher watcher_;
+  ChangeEffects effects_;
   double zoom_;
   // Frames scrolled off the left.
   double scroll_ = 0.0;
