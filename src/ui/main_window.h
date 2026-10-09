@@ -21,6 +21,7 @@
 #include "ui/rig_canvas.h"
 #include "ui/rig_panel.h"
 #include "ui/shot_strip.h"
+#include "ui/space_keys_action.h"
 #include "ui/stage_view.h"
 #include "ui/top_bar.h"
 #include "ui/timeline_view.h"
@@ -102,6 +103,8 @@ class MainWindow final : public QMainWindow {
   ExportDialog export_dialog_;
   TimingChartDialog timing_dialog_;
   QAction timing_action_;
+  // The 1 to 4 keys that space the picked keys.
+  SpaceKeysShortcuts space_keys_;
   QAction export_action_;
   QMenu play_menu_;
   QAction play_action_;

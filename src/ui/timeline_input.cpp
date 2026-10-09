@@ -17,6 +17,7 @@
 #include "edit/playback_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/space_keys_action.h"
 #include "ui/timeline_layout.h"
 #include "ui/timeline_view.h"
 #include "ui/timing_chart_action.h"
@@ -40,8 +41,6 @@ constexpr std::array<EaseChoice, kEaseCount> kEases = {{
 }};
 
 constexpr int kWheelUnit = 120;
-// Space evenly offers on 1s up to on this many.
-constexpr int kSpacings = 4;
 
 }  // namespace
 
@@ -244,23 +243,7 @@ void TimelineView::KeyMenu(const TimelineRow& row, Frame frame,
               Report(ProblemOf(managers_.keys->SetEase(picked, choice.ease)));
             });
   }
-  QMenu& space = *menu.addMenu(tr("Space evenly"));
-  const QString why_not = managers_.keys->WhyNoSpace(
-      managers_.selection->keys());
-  space.setEnabled(why_not.isEmpty());
-  space.menuAction()->setToolTip(why_not);
-  menu.setToolTipsVisible(true);
-  for (int step = 1; step <= kSpacings; ++step) {
-    connect(space.addAction(tr("On %1s").arg(step)), &QAction::triggered,
-            this, [this, step] {
-              const auto spaced =
-                  managers_.keys->Space(managers_.selection->keys(), step);
-              if (spaced) {
-                managers_.selection->SelectKeys(*spaced, false);
-              }
-              Report(ProblemOf(spaced));
-            });
-  }
+  AddSpaceKeysMenu(&menu, managers_);
   connect(menu.addAction(tr("Copy keys")), &QAction::triggered, this,
           [this] {
             const auto& picked = managers_.selection->keys();
