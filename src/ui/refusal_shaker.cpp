@@ -43,6 +43,21 @@ double ShakeOffsetPx(double progress) {
   return 0.0;
 }
 
+QString RefusalReason(const QWidget* widget) {
+  assert(widget != nullptr);
+  constexpr int kMaxDepth = 32;
+  const QWidget* at = widget;
+  for (int depth = 0; depth < kMaxDepth && at != nullptr; ++depth) {
+    const bool has_reason = !at->toolTip().isEmpty();
+    if (has_reason) {
+      return at->toolTip();
+    }
+    at = at->parentWidget();
+  }
+  assert(at == nullptr || at != widget);
+  return QObject::tr("Not available right now");
+}
+
 RefusalShaker::RefusalShaker(MotionManager* motion) : motion_(motion) {
   assert(motion_ != nullptr);
   qApp->installEventFilter(this);
@@ -58,8 +73,7 @@ bool RefusalShaker::eventFilter(QObject* watched, QEvent* event) {
   auto* widget =
       is_press || is_release ? qobject_cast<QWidget*>(watched) : nullptr;
   const bool is_widget = widget != nullptr;
-  const bool is_refused =
-      is_widget && !widget->isEnabled() && !widget->toolTip().isEmpty();
+  const bool is_refused = is_widget && !widget->isEnabled();
   const bool is_shake = is_refused && is_press;
   // The reason waits for the release: any mouse event closes a tip.
   const bool is_say = is_refused && is_release;
@@ -68,8 +82,8 @@ bool RefusalShaker::eventFilter(QObject* watched, QEvent* event) {
   }
   if (is_say) {
     const auto* mouse = static_cast<QMouseEvent*>(event);
-    QToolTip::showText(mouse->globalPosition().toPoint(), widget->toolTip(),
-                       widget);
+    QToolTip::showText(mouse->globalPosition().toPoint(),
+                       RefusalReason(widget), widget);
   }
   return false;
 }
