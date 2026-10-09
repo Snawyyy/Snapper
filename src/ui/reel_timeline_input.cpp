@@ -14,6 +14,7 @@
 #include "edit/playback_manager.h"
 #include "edit/reel_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/drag_text.h"
 #include "ui/grab.h"
 #include "ui/reel_timeline.h"
 #include "ui/slot_picker.h"
@@ -145,13 +146,28 @@ void ReelTimeline::Follow(QPointF at) {
     const int tracks =
         static_cast<int>(std::lround((press_.y() - at.y()) / kTrackHeight));
     Report(ProblemOf(managers_.reel->MoveAll(picked, tracks, frames)));
+    feedback_.Update(press_, at, FramesText(frames), frames != raw);
     return;
   }
-  const Frame edge = SnapFrame(start, FrameAt(at.x() + zoom_ / 2.0),
-                               SnapReach(), {dragged_}, playhead);
+  const Frame raw = FrameAt(at.x() + zoom_ / 2.0);
+  const Frame edge = SnapFrame(start, raw, SnapReach(), {dragged_}, playhead);
   const bool is_start = drag_ == Drag::kTrimStart;
   Report(ProblemOf(is_start ? managers_.reel->TrimStart(dragged_, edge)
                             : managers_.reel->TrimEnd(dragged_, edge)));
+  ShowTrim(raw, edge, at);
+}
+
+void ReelTimeline::ShowTrim(Frame raw, Frame edge, QPointF at) {
+  assert(drag_ == Drag::kTrimStart || drag_ == Drag::kTrimEnd);
+  assert(managers_.history != nullptr);
+  const Clip* clip = ClipOf(managers_.history->before().reel, dragged_);
+  const bool has_clip = clip != nullptr;
+  if (!has_clip) {
+    return;
+  }
+  const Frame was = drag_ == Drag::kTrimStart ? clip->start : clip->end();
+  feedback_.Update(press_, at, FramesText(edge.index() - was.index()),
+                   edge.index() != raw.index());
 }
 
 void ReelTimeline::mousePressEvent(QMouseEvent* event) {
@@ -237,6 +253,7 @@ void ReelTimeline::mouseReleaseEvent(QMouseEvent* event) {
   const bool was_click =
       drag_ == Drag::kMove && !has_moved_ && is_plain_press_;
   // Leaving the scope lands the drag as one step.
+  feedback_.Settle();
   scope_.reset();
   if (was_click) {
     managers_.selection->PickClips({dragged_}, PickMode::kReplace);
@@ -286,6 +303,7 @@ void ReelTimeline::mouseDoubleClickEvent(QMouseEvent* event) {
     return;
   }
   // The first click may have opened a drag; this picks instead.
+  feedback_.Cancel();
   scope_.reset();
   drag_ = Drag::kNone;
   const ClipId joint = JointAt(at);

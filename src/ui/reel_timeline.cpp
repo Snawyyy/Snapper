@@ -37,12 +37,14 @@ constexpr QColor kMixShade{0xff, 0xff, 0xff, 0x40};
 ReelTimeline::ReelTimeline(const Managers& managers)
     : managers_(managers),
       hover_(managers.motion, this),
+      feedback_(managers.motion, this),
       zoom_(kDefaultZoom) {
   assert(managers_.IsComplete());
   setFocusPolicy(Qt::ClickFocus);
   setMouseTracking(true);
   setAcceptDrops(true);
   connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
+  connect(&feedback_, &DragFeedback::Changed, this, [this] { update(); });
   const auto update_me = [this] {
     const int tracks =
         static_cast<int>(managers_.history->current().reel.tracks.size());
@@ -136,6 +138,7 @@ void ReelTimeline::paintEvent(QPaintEvent* event) {
   PaintMarkers(&painter);
   PaintPlayhead(&painter);
   PaintBox(&painter);
+  feedback_.Paint(&painter, QRectF(rect()));
 }
 
 void ReelTimeline::PaintRuler(QPainter* painter) const {

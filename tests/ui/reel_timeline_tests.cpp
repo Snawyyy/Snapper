@@ -43,6 +43,8 @@ class ReelTimelineTests final : public QObject {
  private slots:
   void BoxPicksAndEmptyClickClears();
   void EscapeCancelsADrag();
+  void ClipDragSaysFramesAndFlashesOnSnap();
+  void EscapeSilencesTheClipDrag();
   void KeysCopyPasteAndDuplicate();
   void ShiftDeleteClosesTheGap();
   void KeysThatCantActSayWhy();
@@ -84,6 +86,36 @@ void ReelTimelineTests::EscapeCancelsADrag() {
   QCOMPARE(s.bench.selection.clips(), (std::set<ClipId>{s.low}));
   QTest::keyClick(&s.timeline, Qt::Key_Escape);
   QVERIFY(s.bench.selection.clips().empty());
+}
+
+void ReelTimelineTests::ClipDragSaysFramesAndFlashesOnSnap() {
+  Scene s;
+  s.bench.motion.SetMode(MotionMode::kFull);
+  QVERIFY(!s.timeline.feedback().is_active());
+  QTest::mousePress(&s.timeline, Qt::LeftButton, {}, s.At(Frame(24), 0));
+  QTest::mouseMove(&s.timeline, s.At(Frame(36), 0));
+  QVERIFY(s.timeline.feedback().is_active());
+  QCOMPARE(s.timeline.feedback().text(), QString("+12 f"));
+  QCOMPARE(s.timeline.feedback().flash(), 0.0);
+  // 98 frames would leave the clip's start 2 short of the other clip's;
+  // it snaps to 100.
+  QTest::mouseMove(&s.timeline, s.At(Frame(122), 0));
+  QCOMPARE(s.timeline.feedback().text(), QString("+100 f"));
+  QVERIFY(s.timeline.feedback().flash() > 0.0);
+  QTest::mouseRelease(&s.timeline, Qt::LeftButton, {}, s.At(Frame(122), 0));
+  QVERIFY(!s.timeline.feedback().is_active());
+}
+
+void ReelTimelineTests::EscapeSilencesTheClipDrag() {
+  Scene s;
+  QTest::mousePress(&s.timeline, Qt::LeftButton, {}, s.At(Frame(24), 0));
+  QTest::mouseMove(&s.timeline, s.At(Frame(36), 0));
+  QVERIFY(s.timeline.feedback().is_active());
+  QTest::keyClick(&s.timeline, Qt::Key_Escape);
+  QVERIFY(!s.timeline.feedback().is_active());
+  QCOMPARE(s.timeline.feedback().settle(), 0.0);
+  QTest::mouseRelease(&s.timeline, Qt::LeftButton, {}, s.At(Frame(36), 0));
+  QVERIFY(!s.timeline.feedback().is_active());
 }
 
 void ReelTimelineTests::KeysCopyPasteAndDuplicate() {

@@ -186,6 +186,7 @@ void ReelTimeline::CancelOrClear() {
   if (is_editing) {
     scope_->Cancel();
     scope_.reset();
+    feedback_.Cancel();
   } else if (!is_boxing) {
     managers_.selection->PickClips({}, PickMode::kReplace);
   }
