@@ -19,23 +19,6 @@ constexpr int kStepMaxWidth = 190;
 constexpr int kStepMinWidth = 64;
 constexpr int kButtonPadPx = 12;
 
-// Button text is read for & mnemonics; a step's name may hold one.
-QString Plain(const QString& text) {
-  assert(text.size() >= 0);
-  assert(text.size() < 4096);
-  QString plain = text;
-  return plain.replace(QLatin1Char('&'), QStringLiteral("&&"));
-}
-
-void ShowStepOn(QPushButton* button, const StepFace& face) {
-  assert(button != nullptr);
-  assert(!face.text.isEmpty());
-  button->setEnabled(face.enabled);
-  button->setText(Plain(face.text));
-  // A name too long for the button is still readable in full.
-  button->setToolTip(face.enabled ? face.text : face.tooltip);
-}
-
 }  // namespace
 
 TopBar::TopBar(const Managers& managers)
@@ -49,8 +32,8 @@ TopBar::TopBar(const Managers& managers)
       last_(QStringLiteral(">|")),
       counter_(managers.motion),
       time_(managers.motion),
-      undo_(tr("Undo")),
-      redo_(tr("Redo")) {
+      undo_(tr("Undo"), managers.motion),
+      redo_(tr("Redo"), managers.motion) {
   assert(managers_.IsComplete());
   layout_.setContentsMargins(4, 4, 4, 2);
   layout_.setSpacing(2);
@@ -126,7 +109,7 @@ void TopBar::BuildSteps() {
   redo_.setObjectName(QStringLiteral("redo"));
   AddButton(&undo_, tr("Nothing to undo"));
   AddButton(&redo_, tr("Nothing to redo"));
-  for (QPushButton* step : {&undo_, &redo_}) {
+  for (StepButton* step : {&undo_, &redo_}) {
     step->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
     step->setMinimumWidth(kStepMinWidth);
     step->setMaximumWidth(kStepMaxWidth);
@@ -162,13 +145,13 @@ void TopBar::ShowPlayhead() {
 void TopBar::ShowUndo(const StepFace& face) {
   assert(!face.text.isEmpty());
   assert(managers_.history != nullptr);
-  ShowStepOn(&undo_, face);
+  undo_.ShowFace(face);
 }
 
 void TopBar::ShowRedo(const StepFace& face) {
   assert(!face.text.isEmpty());
   assert(managers_.history != nullptr);
-  ShowStepOn(&redo_, face);
+  redo_.ShowFace(face);
 }
 
 }  // namespace snapper

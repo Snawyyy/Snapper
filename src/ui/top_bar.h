@@ -10,6 +10,7 @@
 #include "ui/bump_label.h"
 #include "ui/managers.h"
 #include "ui/mode_tabs.h"
+#include "ui/step_button.h"
 
 namespace snapper {
 
@@ -53,8 +54,8 @@ class TopBar final : public QWidget {
   QPushButton last_;
   BumpLabel counter_;
   BumpLabel time_;
-  QPushButton undo_;
-  QPushButton redo_;
+  StepButton undo_;
+  StepButton redo_;
 };
 
 }  // namespace snapper

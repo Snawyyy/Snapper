@@ -13,6 +13,7 @@
 #include "ui/bump_label.h"
 #include "ui/main_window.h"
 #include "ui/mode_tabs.h"
+#include "ui/step_button.h"
 #include "ui/new_project_dialog.h"
 #include "ui/theme.h"
 
@@ -50,6 +51,7 @@ class WindowTests final : public QObject {
   void TopBarTransportDrivesPlayback();
   void RedBarSlidesToTheTab();
   void TabsWearIcons();
+  void UndoWordsSlideIn();
   void CounterHopsOnAStepNotInOff();
 };
 
@@ -245,6 +247,22 @@ void WindowTests::CounterHopsOnAStepNotInOff() {
   next->click();
   QCOMPARE(counter->text(), QString("F 002"));
   QCOMPARE(counter->lift(), 0);
+}
+
+void WindowTests::UndoWordsSlideIn() {
+  Bench rig;
+  MainWindow window(rig.All());
+  auto* undo = window.findChild<StepButton*>("undo");
+  QVERIFY(undo != nullptr);
+  QTRY_COMPARE(undo->slide(), 1.0);
+  QVERIFY(rig.shots.Add(-1).has_value());
+  QCOMPARE(undo->text(), QString("Undo Add shot"));
+  QVERIFY(undo->slide() < 1.0);
+  QTRY_COMPARE(undo->slide(), 1.0);
+  rig.motion.SetMode(MotionMode::kOff);
+  QVERIFY(rig.shots.Add(-1).has_value());
+  QCOMPARE(undo->slide(), 1.0);
+  QVERIFY(!undo->grab().isNull());
 }
 
 void WindowTests::TabsWearIcons() {
