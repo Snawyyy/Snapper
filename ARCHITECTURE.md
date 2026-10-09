@@ -100,6 +100,11 @@ History keeps at most `kMaxUndoSteps` steps and drops the oldest.
   length, it does not force them. Picked keys can be spaced evenly on
   1s to 4s (`KeyManager::Space`); keys after them slide along so later
   timing stays.
+- A timing chart sets the spacing of the in-betweens between two
+  frames A and B without moving any frame or key in time. The math is
+  pure (`anim/timing_chart.h`): presets to fractions, tick drag
+  clamping, and `BakeChannel`, which writes a key on every frame from A
+  to B at its fraction of the way from the pose A has to the pose B has.
 - The timeline's corner flips stepping between scrub mode (the arrow
   keys move one frame) and animation mode (they jump to the next frame
   where the picture changes: a key, a shot's start, or each frame of
