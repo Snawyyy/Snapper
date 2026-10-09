@@ -38,24 +38,33 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-09): all five PR branches reviewed, fixed and merged
-into `ui-test` (pushed, not merged to main). Linter fixed (it skipped
-namespaces). Five UI fixes built: Link panel only when linked, fixed mode
-tabs, per-warp-point motion, full video timeline editing, transitions on
-reel cuts. A playable HTML prototype of the "Win98 but juicier" redesign
-was built and opened for the owner (`docs/redesign/proto/index.html`;
-design doc `docs/redesign/index.html`).
+Last done (2026-10-09, later): the owner loved the prototype and kept
+all of it. Redesign steps 1 to 7 of section 12 in the design doc are
+built and merged into `ui-test` (not pushed, not on main): Motion table
+and View > Motion switch, scrub labels and math in number fields, hover
+and big grab zones, toasts with Undo and the refusal shake, drag chip
+and ghost, key pop/puff/rewind/slide, and the top bar. Owner answers
+recorded in the design doc: Teto red picks, sounds on and quiet,
+tiles animate on hover, key chip bar always over picked keys. Owner
+test fixes merged: typed math now applies, every greyed control says
+why, drag and wheel chips sit clear of the cursor, ghost is a faint
+copy of the dragged thing. Lint is down to 121 old breaks.
 
 Next steps:
 
-1. The owner tries `ui-test` (`build/snapper`) and the prototype, then
-   says what to keep or change. No app code for the redesign before that.
-2. Fix what the owner finds, one change at a time, a test per bug.
-3. Build the redesign in the order in the design doc: motion table and
-   Motion setting, scrubbing number fields, hover outline and big grab
-   zones.
-4. Fix the ~163 old lint breaks on main so the `lint` ctest goes green.
+1. The owner tests the latest `ui-test` build; fix what they find, one
+   change at a time, a test per bug.
+2. Performance is bad in the app: profile a Release build first (the
+   tested build is Debug), then fix the slow paths.
+3. Build redesign steps 8 to 13 in order: key chip bar, inspector
+   reshape, stage zoom/pan/guides, cards and drag-in, rig by touch,
+   extras (sounds go in here, on and quiet by default).
+4. Fix the 121 old lint breaks so the `lint` ctest goes green.
 5. Merge to main only when the owner says "merge".
+
+Agents: run test binaries only with `QT_QPA_PLATFORM=offscreen`, never
+launch `build/snapper`; merge `ui-test` into a branch before handing it
+back so conflicts are solved where the code was written.
 
 ## UX language
 
