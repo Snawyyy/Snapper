@@ -181,7 +181,8 @@ A piece can:
   Physics nodes next to each other on the grid are tied like cloth
   and may not stretch past their drawn distance (Stretch softens
   that); the grid points that are not physics nodes are pins the body
-  carries. Its settings, each 0 to 1, are Stretch, Inertia (keeps
+  carries, which limit a node (it may go about half a cell past its
+  drawn distance, more at high Stretch) but never freeze a lone node. Its settings, each 0 to 1, are Stretch, Inertia (keeps
   moving), Air resistance (motion dies down), Gravity (a steady pull
   down in shot space) and Bounce (a spring back to the drawn shape).
   The math is pure in `anim/cloth.h` (`StepCloth`: verlet with
