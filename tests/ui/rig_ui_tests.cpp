@@ -80,6 +80,8 @@ class RigUiTests final : public QObject {
   void HoveredJointGrowsAndShowsItsCursor();
   void JointDragSaysHowFarItWent();
   void EscapeSilencesTheJointDrag();
+  void JointDragLeavesAGhostOfTheJoint();
+  void EscapeRemovesTheJointGhost();
 };
 
 void RigUiTests::PanelPicksTheDollAndEditsAPiece() {
@@ -272,6 +274,35 @@ void RigUiTests::JointDragSaysHowFarItWent() {
   QTest::mouseRelease(&canvas, Qt::LeftButton, {}, joint + QPoint(30, -20));
   QVERIFY(!canvas.feedback().is_active());
   QVERIFY(bench.history.CanUndo());
+}
+
+void RigUiTests::JointDragLeavesAGhostOfTheJoint() {
+  Bench bench;
+  Stage(&bench);
+  bench.motion.SetMode(MotionMode::kOff);
+  RigCanvas canvas(bench.All());
+  canvas.resize(400, 400);
+  canvas.SetDoll("Bob");
+  const QPoint joint = canvas.World().map(QPointF(0, 0)).toPoint();
+  QTest::mousePress(&canvas, Qt::LeftButton, {}, joint);
+  QTest::mouseMove(&canvas, joint + QPoint(30, -20));
+  QCOMPARE(canvas.feedback().ghost_kind(), GhostKind::kRigHandle);
+  QTest::mouseRelease(&canvas, Qt::LeftButton, {}, joint);
+  QCOMPARE(canvas.feedback().ghost_kind(), GhostKind::kNone);
+}
+
+void RigUiTests::EscapeRemovesTheJointGhost() {
+  Bench bench;
+  Stage(&bench);
+  RigCanvas canvas(bench.All());
+  canvas.resize(400, 400);
+  canvas.SetDoll("Bob");
+  const QPoint joint = canvas.World().map(QPointF(0, 0)).toPoint();
+  QTest::mousePress(&canvas, Qt::LeftButton, {}, joint);
+  QTest::mouseMove(&canvas, joint + QPoint(30, 0));
+  QCOMPARE(canvas.feedback().ghost_kind(), GhostKind::kRigHandle);
+  QTest::keyClick(&canvas, Qt::Key_Escape);
+  QCOMPARE(canvas.feedback().ghost_kind(), GhostKind::kNone);
 }
 
 void RigUiTests::EscapeSilencesTheJointDrag() {

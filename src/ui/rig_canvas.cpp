@@ -136,59 +136,77 @@ void RigCanvas::PaintOverlay(QPainter* painter) const {
   assert(painter != nullptr);
   assert(!doll_.isEmpty());
   const Doll& doll = *FindDoll(managers_.history->current(), doll_);
-  const QTransform world = World();
   const auto pieces = RestPieces(doll);
-  const auto joint = [&](const RigPiece& rig) {
-    return (pieces.at(rig.name) * world).map(rig.pivot);
-  };
   for (const RigPiece& rig : doll.rig.pieces) {
     const bool is_placed = pieces.contains(rig.name);
-    if (!is_placed) {
-      continue;
+    if (is_placed) {
+      PaintJoint(painter, doll, pieces, rig);
     }
-    const RigPiece* parent =
-        rig.parent.isEmpty() ? nullptr : FindRig(doll.rig, rig.parent);
-    const bool has_bone = parent != nullptr && pieces.contains(parent->name);
-    if (has_bone) {
-      painter->setPen(QPen(theme::kHandle, 1.0, Qt::DashLine));
-      painter->drawLine(joint(*parent), joint(rig));
-    }
-    const bool is_picked = picked_.contains(rig.name);
-    // Picked is red and solid; the piece a click would pick is thin.
-    const bool is_hovered = rig.name == hover_piece_ && !is_picked;
-    const bool is_outlined = is_picked || is_hovered;
-    if (is_outlined) {
-      const ArtPiece* art = FindArt(doll, rig.name);
-      painter->setPen(is_picked ? QPen(theme::kPick, 2.0)
-                                : QPen(kHoverLine, 1.0, Qt::DashLine));
-      painter->setBrush(Qt::NoBrush);
-      painter->drawPolygon((pieces.at(rig.name) * world)
-                               .map(QPolygonF(QRectF(QPointF(),
-                                                     QSizeF(art->size)))));
-    }
-    const double radius = (is_picked ? kJointRadius * 1.6 : kJointRadius) *
-                          hover_.ScaleOf(GrabKind::kPivot, rig.name);
-    painter->setPen(QPen(theme::kShadow, 1.0));
-    painter->setBrush(theme::kHandle);
-    painter->drawEllipse(joint(rig), radius, radius);
   }
   const bool shows_hang = is_hanging_ && pieces.contains(piece_);
   if (shows_hang) {
+    const QTransform world = World();
+    const RigPiece& hung = *FindRig(doll.rig, piece_);
     painter->setPen(QPen(theme::kPick, 2.0, Qt::DashLine));
-    painter->drawLine(joint(*FindRig(doll.rig, piece_)), cursor_);
+    painter->drawLine((pieces.at(hung.name) * world).map(hung.pivot),
+                      cursor_);
   }
-  painter->setPen(QPen(theme::kShadow, 1.0));
-  painter->setBrush(theme::kHandle);
   for (const IkChain& chain : doll.rig.chains) {
     const bool is_placed = pieces.contains(chain.lower);
     if (is_placed) {
-      const QPointF tip = (pieces.at(chain.lower) * world).map(chain.tip);
-      const double side =
-          kHandleDraw * hover_.ScaleOf(GrabKind::kIkTip, chain.name);
-      painter->drawRect(QRectF(tip - QPointF(side / 2, side / 2),
-                               QSizeF(side, side)));
+      PaintTip(painter, pieces, chain);
     }
   }
+}
+
+void RigCanvas::PaintJoint(QPainter* painter, const Doll& doll,
+                           const std::map<QString, QTransform>& pieces,
+                           const RigPiece& rig) const {
+  assert(painter != nullptr);
+  assert(pieces.contains(rig.name));
+  const QTransform world = World();
+  const auto joint = [&](const RigPiece& piece) {
+    return (pieces.at(piece.name) * world).map(piece.pivot);
+  };
+  const RigPiece* parent =
+      rig.parent.isEmpty() ? nullptr : FindRig(doll.rig, rig.parent);
+  const bool has_bone = parent != nullptr && pieces.contains(parent->name);
+  if (has_bone) {
+    painter->setPen(QPen(theme::kHandle, 1.0, Qt::DashLine));
+    painter->drawLine(joint(*parent), joint(rig));
+  }
+  const bool is_picked = picked_.contains(rig.name);
+  // Picked is red and solid; the piece a click would pick is thin.
+  const bool is_hovered = rig.name == hover_piece_ && !is_picked;
+  const bool is_outlined = is_picked || is_hovered;
+  if (is_outlined) {
+    const ArtPiece* art = FindArt(doll, rig.name);
+    painter->setPen(is_picked ? QPen(theme::kPick, 2.0)
+                              : QPen(kHoverLine, 1.0, Qt::DashLine));
+    painter->setBrush(Qt::NoBrush);
+    painter->drawPolygon((pieces.at(rig.name) * world)
+                             .map(QPolygonF(QRectF(QPointF(),
+                                                   QSizeF(art->size)))));
+  }
+  const double radius = (is_picked ? kJointRadius * 1.6 : kJointRadius) *
+                        hover_.ScaleOf(GrabKind::kPivot, rig.name);
+  painter->setPen(QPen(theme::kShadow, 1.0));
+  painter->setBrush(theme::kHandle);
+  painter->drawEllipse(joint(rig), radius, radius);
+}
+
+void RigCanvas::PaintTip(QPainter* painter,
+                         const std::map<QString, QTransform>& pieces,
+                         const IkChain& chain) const {
+  assert(painter != nullptr);
+  assert(pieces.contains(chain.lower));
+  const QPointF tip = (pieces.at(chain.lower) * World()).map(chain.tip);
+  const double side =
+      kHandleDraw * hover_.ScaleOf(GrabKind::kIkTip, chain.name);
+  painter->setPen(QPen(theme::kShadow, 1.0));
+  painter->setBrush(theme::kHandle);
+  painter->drawRect(QRectF(tip - QPointF(side / 2, side / 2),
+                           QSizeF(side, side)));
 }
 
 }  // namespace snapper
