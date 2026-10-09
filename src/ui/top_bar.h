@@ -7,6 +7,7 @@
 #include <QWidget>
 
 #include "ui/bar_text.h"
+#include "ui/bump_label.h"
 #include "ui/managers.h"
 #include "ui/mode_tabs.h"
 
@@ -50,8 +51,8 @@ class TopBar final : public QWidget {
   QPushButton play_;
   QPushButton next_;
   QPushButton last_;
-  QLabel counter_;
-  QLabel time_;
+  BumpLabel counter_;
+  BumpLabel time_;
   QPushButton undo_;
   QPushButton redo_;
 };

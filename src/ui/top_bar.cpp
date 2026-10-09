@@ -47,6 +47,8 @@ TopBar::TopBar(const Managers& managers)
       play_(PlayText(false)),
       next_(QStringLiteral(">")),
       last_(QStringLiteral(">|")),
+      counter_(managers.motion),
+      time_(managers.motion),
       undo_(tr("Undo")),
       redo_(tr("Redo")) {
   assert(managers_.IsComplete());
@@ -93,10 +95,11 @@ void TopBar::BuildTransport() {
   }
   const int counter_wide =
       metrics.horizontalAdvance(QStringLiteral("F 9999"));
-  for (QLabel* label : {&counter_, &time_}) {
+  for (BumpLabel* label : {&counter_, &time_}) {
     label->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
     label->setMargin(2);
     label->setFixedWidth(counter_wide + 2 * kButtonPadPx);
+    label->setFixedHeight(label->sizeHint().height() + kBumpPx);
     layout_.addWidget(label);
   }
   connect(&first_, &QPushButton::clicked, playback,
@@ -149,7 +152,8 @@ void TopBar::ShowPlayhead() {
   assert(managers_.history != nullptr);
   const Frame frame = managers_.playback->frame();
   const bool is_playing = managers_.playback->IsPlaying();
-  counter_.setText(FrameCounterText(frame));
+  // At 24 frames a second the hop would only blur, so only a step hops.
+  counter_.SetText(FrameCounterText(frame), !is_playing);
   time_.setText(TimecodeText(frame));
   play_.setText(PlayText(is_playing));
   play_.setChecked(is_playing);

@@ -10,6 +10,7 @@
 #include <QTest>
 
 #include "bench.h"
+#include "ui/bump_label.h"
 #include "ui/main_window.h"
 #include "ui/mode_tabs.h"
 #include "ui/new_project_dialog.h"
@@ -49,6 +50,7 @@ class WindowTests final : public QObject {
   void TopBarTransportDrivesPlayback();
   void RedBarSlidesToTheTab();
   void TabsWearIcons();
+  void CounterHopsOnAStepNotInOff();
 };
 
 void WindowTests::TitleShowsNameDirtAndPlace() {
@@ -226,6 +228,23 @@ void WindowTests::RedBarSlidesToTheTab() {
   QVERIFY(bar.right() <= tabs->tabRect(2).right());
   window.SetMode(MainWindow::Mode::kPose);
   QVERIFY(tabs->bar().left() < bar.left());
+}
+
+void WindowTests::CounterHopsOnAStepNotInOff() {
+  Bench rig;
+  MainWindow window(rig.All());
+  QVERIFY(rig.shots.Add(-1).has_value());
+  auto* next = window.findChild<QPushButton*>("next");
+  auto* counter = window.findChild<BumpLabel*>("counter");
+  QVERIFY(next != nullptr && counter != nullptr);
+  QTRY_COMPARE(counter->lift(), 0);
+  next->click();
+  QVERIFY(counter->lift() > 0);
+  QTRY_COMPARE(counter->lift(), 0);
+  rig.motion.SetMode(MotionMode::kOff);
+  next->click();
+  QCOMPARE(counter->text(), QString("F 002"));
+  QCOMPARE(counter->lift(), 0);
 }
 
 void WindowTests::TabsWearIcons() {
