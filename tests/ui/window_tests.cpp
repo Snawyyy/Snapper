@@ -13,6 +13,7 @@
 #include "ui/bump_label.h"
 #include "ui/main_window.h"
 #include "ui/mode_tabs.h"
+#include "ui/snapper_style.h"
 #include "ui/step_button.h"
 #include "ui/new_project_dialog.h"
 #include "ui/theme.h"
@@ -52,6 +53,7 @@ class WindowTests final : public QObject {
   void RedBarSlidesToTheTab();
   void TabsWearIcons();
   void UndoWordsSlideIn();
+  void PressSquashesAndSprings();
   void CounterHopsOnAStepNotInOff();
 };
 
@@ -263,6 +265,21 @@ void WindowTests::UndoWordsSlideIn() {
   QVERIFY(rig.shots.Add(-1).has_value());
   QCOMPARE(undo->slide(), 1.0);
   QVERIFY(!undo->grab().isNull());
+}
+
+void WindowTests::PressSquashesAndSprings() {
+  Bench rig;
+  MainWindow window(rig.All());
+  auto* play = window.findChild<QPushButton*>("play");
+  QVERIFY(play != nullptr);
+  QTest::mousePress(play, Qt::LeftButton);
+  QTRY_VERIFY(play->property(kPressProperty).toDouble() > 0.5);
+  QTest::mouseRelease(play, Qt::LeftButton);
+  QTRY_COMPARE(play->property(kPressProperty).toDouble(), 0.0);
+  rig.motion.SetMode(MotionMode::kOff);
+  QTest::mousePress(play, Qt::LeftButton);
+  QCOMPARE(play->property(kPressProperty).toDouble(), 0.0);
+  QTest::mouseRelease(play, Qt::LeftButton);
 }
 
 void WindowTests::TabsWearIcons() {

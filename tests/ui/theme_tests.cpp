@@ -16,6 +16,7 @@ class ThemeTests final : public QObject {
   void IsDarkWindowsWithTetoRed();
   void PressSinksAndHoverBrightens();
   void ADeadButtonNeverReacts();
+  void PressSquashesFourPercent();
   void ButtonPaintsItsHover();
 };
 
@@ -50,6 +51,14 @@ void ThemeTests::ADeadButtonNeverReacts() {
   const ButtonLook poked = LookOfButton(false, true, false, 1.0);
   QCOMPARE(poked.fill, rest.fill);
   QVERIFY(!poked.is_sunk);
+}
+
+void ThemeTests::PressSquashesFourPercent() {
+  QCOMPARE(SquashScale(0.0), 1.0);
+  QCOMPARE(SquashScale(1.0), 0.96);
+  // Mid spring the button is a touch bigger than at rest.
+  QVERIFY(SquashScale(-0.2) > 1.0);
+  QVERIFY(SquashScale(-50.0) <= 1.02);
 }
 
 void ThemeTests::ButtonPaintsItsHover() {

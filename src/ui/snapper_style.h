@@ -11,6 +11,15 @@ namespace snapper {
 // style reads the plain mouse-over state, so hover still shows.
 inline constexpr char kHoverProperty[] = "snapper_hover";
 
+// The same for a press: 0 at rest, 1 held down, a little below 0 while
+// it springs back. The button is squashed by SquashScale of it.
+inline constexpr char kPressProperty[] = "snapper_press";
+// A held button shrinks by this fraction.
+inline constexpr double kSquash = 0.04;
+
+// The scale a button is drawn at for this press level.
+double SquashScale(double press);
+
 // How one button face looks: the colour it is filled with, and whether
 // its bevel is sunk. Pure, so the press and hover states are tested
 // without painting.

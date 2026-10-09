@@ -71,6 +71,12 @@ void DrawButton(const QStyleOption* option, QPainter* painter,
 
 }  // namespace
 
+double SquashScale(double press) {
+  assert(kSquash > 0.0 && kSquash < 0.5);
+  assert(press > -100.0 && press < 100.0);
+  return 1.0 - kSquash * std::clamp(press, -0.5, 1.0);
+}
+
 ButtonLook LookOfButton(bool is_enabled, bool is_down, bool is_checked,
                         double hover) {
   assert(hover >= 0.0 && hover <= 1.0);
@@ -133,6 +139,20 @@ void SnapperStyle::drawControl(ControlElement element,
     rect.translate(0, -lift);
     DrawBevel(painter, rect, is_picked ? theme::kFaceLight.darker(125)
                                        : look.fill, is_picked);
+    return;
+  }
+  const bool is_push = element == CE_PushButton && widget != nullptr;
+  const double press =
+      is_push ? widget->property(kPressProperty).toDouble() : 0.0;
+  const bool is_squashed = is_push && press != 0.0;
+  if (is_squashed) {
+    const QPointF middle = QRectF(option->rect).center();
+    painter->save();
+    painter->translate(middle);
+    painter->scale(SquashScale(press), SquashScale(press));
+    painter->translate(-middle);
+    QProxyStyle::drawControl(element, option, painter, widget);
+    painter->restore();
     return;
   }
   if (is_tab_label) {

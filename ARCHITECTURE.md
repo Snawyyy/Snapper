@@ -416,7 +416,13 @@ and `PlayText` in `bar_text.h` (pure, tested). The window computes the
 Undo and Redo faces once from `HistoryManager` and shows them on the
 menu entries and the buttons, so they always agree. Bar buttons never
 take focus, so Space and the arrow keys stay on the menu entries.
-`HoverFade` eases a button's `kHoverProperty` through `MotionManager`.
+`HoverFade` eases a button's `kHoverProperty` (hover, Hover time) and
+`kPressProperty` (held down, Press time; springs back on release over
+the Pop time) through `MotionManager`; `SnapperStyle` squashes a pressed
+button by `SquashScale` (4 %). The tab icons are painted by `ModeIcon`
+(no image files), `BumpLabel` hops the frame counter when a step
+changes it, and `StepButton` slides the Undo and Redo words when they
+change. None of them moves in Off.
 
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.
