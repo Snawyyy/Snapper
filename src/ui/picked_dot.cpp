@@ -8,22 +8,52 @@
 
 namespace snapper {
 
-std::optional<PickedDot> PickedDotOf(const Managers& managers) {
+namespace {
+
+std::optional<PickedDot> Resolve(const Managers& managers,
+                                 const WarpDot& dot) {
   assert(managers.selection != nullptr);
   assert(managers.history != nullptr);
-  const auto dot = managers.selection->dot();
   const Project& project = managers.history->current();
   const ShotId shot = managers.selection->shot();
-  const DollLayer* posed =
-      dot ? PosedLayerOf(project, shot, dot->layer) : nullptr;
-  const Doll* doll = dot ? DollOfLayer(project, shot, dot->layer) : nullptr;
+  const DollLayer* posed = PosedLayerOf(project, shot, dot.layer);
+  const Doll* doll = DollOfLayer(project, shot, dot.layer);
   const RigPiece* rig =
-      doll != nullptr ? FindRig(doll->rig, dot->piece) : nullptr;
+      doll != nullptr ? FindRig(doll->rig, dot.piece) : nullptr;
   const bool has_rig = rig != nullptr && posed != nullptr;
   if (!has_rig) {
     return std::nullopt;
   }
-  return PickedDot{posed->doll, dot->piece, dot->point, rig};
+  return PickedDot{posed->doll, dot.piece, dot.point, rig};
+}
+
+}  // namespace
+
+std::optional<PickedDot> PickedDotOf(const Managers& managers) {
+  assert(managers.selection != nullptr);
+  assert(managers.history != nullptr);
+  const auto dot = managers.selection->dot();
+  return dot ? Resolve(managers, *dot) : std::nullopt;
+}
+
+std::vector<PickedDot> PickedDotsOf(const Managers& managers) {
+  assert(managers.selection != nullptr);
+  assert(managers.history != nullptr);
+  std::vector<PickedDot> picked;
+  const auto focus = PickedDotOf(managers);
+  if (focus) {
+    picked.push_back(*focus);
+  }
+  for (const WarpDot& dot : managers.selection->dots()) {
+    const auto found = Resolve(managers, dot);
+    const bool is_other =
+        found && !(focus && focus->piece == found->piece &&
+                   focus->point == found->point && focus->doll == found->doll);
+    if (is_other) {
+      picked.push_back(*found);
+    }
+  }
+  return picked;
 }
 
 }  // namespace snapper

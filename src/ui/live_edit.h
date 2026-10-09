@@ -71,6 +71,26 @@ void MakeLive(Box* box, LiveEdit* live, const QString& label,
                    [live] { live->Finish(); });
 }
 
+// The same, with the step named as the field changes (label is called
+// then), for edits whose name says how many things they touch.
+template <typename Box, typename Label, typename Commit>
+void MakeLiveNamed(Box* box, LiveEdit* live, QObject* owner, Label label,
+                   Commit commit) {
+  assert(box != nullptr && live != nullptr);
+  assert(owner != nullptr);
+  box->setKeyboardTracking(false);
+  QObject::connect(box, &Box::valueChanged, owner,
+                   [box, live, label, commit] {
+                     const auto typed = box->value();
+                     live->Touch(label());
+                     const QSignalBlocker quiet(box);
+                     box->setValue(typed);
+                     commit();
+                   });
+  QObject::connect(box, &QAbstractSpinBox::editingFinished, owner,
+                   [live] { live->Finish(); });
+}
+
 }  // namespace snapper
 
 #endif  // SNAPPER_UI_LIVE_EDIT_H_

@@ -9,17 +9,22 @@
 
 #include <array>
 #include <optional>
+#include <vector>
 
+#include "edit/rig_manager.h"
 #include "model/doll.h"
 #include "ui/live_edit.h"
 #include "ui/managers.h"
 
 namespace snapper {
 
-// The warp dot picked on the stage: whether it drags behind (as D does)
-// and, when it does, its lag and bounce, or, with Physics ticked, the
-// five physics settings (stretch, inertia, air resistance, gravity,
-// bounce) instead. Greyed out with the reason when no dot is picked.
+// The warp dots picked on the stage: whether they drag behind (as D
+// does) and, when they do, their lag and bounce, or, with Physics
+// ticked, the five physics settings (stretch, inertia, air resistance,
+// gravity, bounce) instead. Every picked dot is edited at once: a
+// field whose numbers differ shows Mixed, a tick that is on for some
+// shows partly ticked, and a change sets them all as one undo step.
+// Greyed out with the reason when no dot is picked.
 class DragBox final : public QGroupBox {
   Q_OBJECT
 
@@ -31,16 +36,16 @@ class DragBox final : public QGroupBox {
   void Problem(const QString& why);
 
  private:
-  // The picked dot's doll name and drag node, if it is one.
-  struct Picked final {
-    QString doll;
-    QString piece;
-    int point = -1;
-    std::optional<DragNode> node;
+  // The picked dots, and the drag nodes among them.
+  struct Look final {
+    std::vector<DotRef> dots;
+    std::vector<const DragNode*> nodes;
   };
-  std::optional<Picked> Pick() const;
-  void Commit();
+  Look LookAtPick() const;
+  void Commit(DragField field, const QDoubleSpinBox* box);
   void SetUpPhysicsRows();
+  // The field that sets which number, in AllFields() order.
+  static DragField FieldAt(size_t index);
   std::array<QDoubleSpinBox*, 7> AllFields();
 
   Managers managers_;

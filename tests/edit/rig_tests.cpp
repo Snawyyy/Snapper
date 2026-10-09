@@ -47,6 +47,7 @@ class RigTests final : public QObject {
   void ChainsNeedLinkedPieces();
   void PhysicsIsOneNamedUndoStep();
   void ColliderEditsAreNamedUndoSteps();
+  void ManyDotsEditInOneNamedStep();
   void UnknownDollsAndPiecesSayWhy();
   void OneSideCopiesToTheOther();
   void ManyPiecesChangeTogether();
@@ -94,17 +95,19 @@ void RigTests::NewWarpGridClearsOldWarpKeys() {
   QVERIFY(rig.SetWarpReach("Bob", "lower", 0, -3.0).has_value());
   QCOMPARE(FindRig(BobRig(history), "lower")->warp_reach[0], 0.0);
   QCOMPARE(history.UndoLabel(), QString("Rubber reach of lower"));
-  QVERIFY(rig.ToggleDragNode("Bob", "lower", 4).has_value());
+  const std::vector<DotRef> four = {{"Bob", "lower", 4}};
+  QVERIFY(rig.SetDragNodes(four, true).has_value());
   QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes,
            (std::vector<DragNode>{{4, 0.5, 0.5}}));
-  QVERIFY(rig.SetDrag("Bob", "lower", {4, 2.0, 0.2}).has_value());
+  QVERIFY(rig.SetDragField(four, DragField::kLag, 2.0).has_value());
   QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].lag, 1.0);
-  QVERIFY(!rig.SetDrag("Bob", "lower", {5, 0.5, 0.5}).has_value());
-  QVERIFY(!rig.ToggleDragNode("Bob", "upper", 0).has_value());
-  QVERIFY(rig.ToggleDragNode("Bob", "lower", 4).has_value());
+  QVERIFY(!rig.SetDragField({{"Bob", "lower", 5}}, DragField::kLag, 0.5)
+               .has_value());
+  QVERIFY(!rig.SetDragNodes({{"Bob", "upper", 0}}, true).has_value());
+  QVERIFY(rig.SetDragNodes(four, false).has_value());
   QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes.empty());
-  QCOMPARE(history.UndoLabel(), QString("Stop dragging point of lower"));
-  QVERIFY(rig.ToggleDragNode("Bob", "lower", 4).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Stop dragging 1 dot"));
+  QVERIFY(rig.SetDragNodes(four, true).has_value());
   // A new grid starts with no reach and no drag nodes.
   QVERIFY(rig.SetWarpGrid("Bob", "lower", {3, 1}).has_value());
   QVERIFY(FindRig(BobRig(history), "lower")->warp_reach.empty());
@@ -122,29 +125,27 @@ void RigTests::PhysicsIsOneNamedUndoStep() {
   HistoryManager history(ArmProject());
   RigManager rig(&history);
   QVERIFY(rig.SetWarpGrid("Bob", "lower", {2, 2}).has_value());
+  const std::vector<DotRef> four = {{"Bob", "lower", 4}};
   // Only a drag node can become physics.
-  QVERIFY(!rig.SetPhysics("Bob", "lower", 4, true).has_value());
-  QVERIFY(rig.ToggleDragNode("Bob", "lower", 4).has_value());
-  QVERIFY(rig.SetPhysics("Bob", "lower", 4, true).has_value());
+  QVERIFY(!rig.SetPhysicsAll(four, true).has_value());
+  QVERIFY(rig.SetDragNodes(four, true).has_value());
+  QVERIFY(rig.SetPhysicsAll(four, true).has_value());
   QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
-  QCOMPARE(history.UndoLabel(), QString("Physics on for lower"));
-  DragNode node = FindRig(BobRig(history), "lower")->drag_nodes[0];
-  node.stretch = 3.0;
-  node.air = -1.0;
-  node.gravity = 0.9;
-  node.physics = false;
-  QVERIFY(rig.SetDrag("Bob", "lower", node).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Physics on for 1 dot"));
+  QVERIFY(rig.SetDragField(four, DragField::kStretch, 3.0).has_value());
+  QVERIFY(rig.SetDragField(four, DragField::kAir, -1.0).has_value());
+  QVERIFY(rig.SetDragField(four, DragField::kGravity, 0.9).has_value());
   const DragNode& kept = FindRig(BobRig(history), "lower")->drag_nodes[0];
   QCOMPARE(kept.stretch, 1.0);
   QCOMPARE(kept.air, 0.0);
   QCOMPARE(kept.gravity, 0.9);
   QVERIFY(kept.physics);
-  QCOMPARE(history.UndoLabel(), QString("Physics of lower"));
+  QCOMPARE(history.UndoLabel(), QString("Set gravity on 1 dot"));
   history.Undo();
   QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].gravity, 0.3);
-  QVERIFY(rig.SetPhysics("Bob", "lower", 4, false).has_value());
+  QVERIFY(rig.SetPhysicsAll(four, false).has_value());
   QVERIFY(!FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
-  QCOMPARE(history.UndoLabel(), QString("Physics off for lower"));
+  QCOMPARE(history.UndoLabel(), QString("Physics off for 1 dot"));
   history.Undo();
   QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
 }
@@ -187,6 +188,49 @@ void RigTests::ColliderEditsAreNamedUndoSteps() {
   QVERIFY(!FindRig(BobRig(history), "lower")->collider.IsOn());
   QCOMPARE(history.UndoLabel(), QString("Remove collider of lower"));
   QVERIFY(!rig.RemoveCollider("Bob", "lower").has_value());
+}
+
+void RigTests::ManyDotsEditInOneNamedStep() {
+  HistoryManager history(ArmProject());
+  RigManager rig(&history);
+  QVERIFY(rig.SetWarpGrid("Bob", "lower", {2, 2}).has_value());
+  std::vector<DotRef> dots;
+  for (int point = 0; point < 6; ++point) {
+    dots.push_back({"Bob", "lower", point});
+  }
+  QVERIFY(!rig.SetDragField(dots, DragField::kBounce, 0.7).has_value());
+  QVERIFY(rig.SetDragNodes(dots, true).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes.size(), size_t{6});
+  QCOMPARE(history.UndoLabel(), QString("Drag 6 dots"));
+  QVERIFY(rig.SetDragField(dots, DragField::kBounce, 1.7).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Set bounce on 6 dots"));
+  for (const DragNode& node : FindRig(BobRig(history), "lower")->drag_nodes) {
+    QCOMPARE(node.bounce, 1.0);
+  }
+  // One undo takes the whole change back.
+  history.Undo();
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[3].bounce, 0.5);
+  QVERIFY(rig.SetPhysicsAll({dots[0], dots[1]}, true).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Physics on for 2 dots"));
+  QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes[1].physics);
+  QVERIFY(!FindRig(BobRig(history), "lower")->drag_nodes[2].physics);
+  // Motions: a kind starts one on each dot, a number then edits them.
+  QVERIFY(rig.SetMotionAll(dots, MotionField::kKind,
+                           static_cast<double>(WarpMotionKind::kWave))
+              .has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->point_motions.size(),
+           size_t{6});
+  QVERIFY(rig.SetMotionAll(dots, MotionField::kSize, 20.0).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Set size on 6 dots"));
+  QCOMPARE(FindRig(BobRig(history), "lower")->point_motions[2].size, 20.0);
+  QVERIFY(!rig.SetMotionAll(dots, MotionField::kKind, 99.0).has_value());
+  QVERIFY(rig.ClearDots({dots[0], dots[5]}).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Clear 2 dots"));
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes.size(), size_t{4});
+  QCOMPARE(FindRig(BobRig(history), "lower")->point_motions.size(),
+           size_t{4});
+  QVERIFY(!rig.SetDragNodes({}, true).has_value());
+  QVERIFY(!rig.SetDragNodes({{"Bob", "lower", 40}}, true).has_value());
 }
 
 void RigTests::ChainsNeedLinkedPieces() {

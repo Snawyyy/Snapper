@@ -9,14 +9,16 @@
 #include <QString>
 
 #include "model/doll.h"
+#include "edit/rig_manager.h"
 #include "ui/live_edit.h"
 #include "ui/managers.h"
 
 namespace snapper {
 
-// The warp dot picked on the stage: whether it moves by itself (a
-// wave, a pulse...) and, when it does, its size, cycle, direction and
-// delay. Greyed out with the reason when no dot is picked.
+// The warp dots picked on the stage: whether they move by themselves
+// (a wave, a pulse...) and, when they do, their size, cycle, direction
+// and delay. Every picked dot is edited at once, a number that differs
+// shows Mixed. Greyed out with the reason when no dot is picked.
 class PointMotionBox final : public QGroupBox {
   Q_OBJECT
 
@@ -29,10 +31,11 @@ class PointMotionBox final : public QGroupBox {
 
  private:
   void Build();
-  // Gives the picked dot kind, keeping its other settings.
+  // Gives the picked dots kind, keeping their other settings.
   void SetKind(WarpMotionKind kind);
-  // Sends the number fields to the picked dot's motion.
-  void Commit();
+  // Sends one number field to the motion of every picked dot that has
+  // one.
+  void Commit(MotionField field, double value);
 
   Managers managers_;
   QFormLayout layout_;

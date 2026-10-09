@@ -12,6 +12,31 @@
 #include "ui/problem.h"
 
 namespace snapper {
+namespace {
+
+double NumberOf(const DragNode& node, DragField field) {
+  assert(static_cast<int>(field) >= 0);
+  assert(node.point >= 0);
+  switch (field) {
+    case DragField::kLag:
+      return node.lag;
+    case DragField::kBounce:
+      return node.bounce;
+    case DragField::kStretch:
+      return node.stretch;
+    case DragField::kInertia:
+      return node.inertia;
+    case DragField::kAir:
+      return node.air;
+    case DragField::kGravity:
+      return node.gravity;
+    case DragField::kSpring:
+      return node.spring;
+  }
+  return 0.0;
+}
+
+}  // namespace
 
 DragBox::DragBox(const Managers& managers)
     : QGroupBox(tr("Drag node")), managers_(managers), layout_(this),
@@ -35,25 +60,46 @@ DragBox::DragBox(const Managers& managers)
   AddNumberRow(&layout_, tr("Bounce"), &bounce_, &live_);
   SetUpPhysicsRows();
   connect(&drags_, &QCheckBox::clicked, this, [this] {
-    const auto picked = Pick();
-    if (picked) {
-      emit Problem(ProblemOf(managers_.rig->ToggleDragNode(
-          picked->doll, picked->piece, picked->point)));
-    }
+    const Look look = LookAtPick();
+    const bool is_all = !look.dots.empty() &&
+                        look.nodes.size() == look.dots.size();
+    emit Problem(ProblemOf(managers_.rig->SetDragNodes(look.dots, !is_all)));
+    Refresh();
   });
-  connect(&physics_, &QCheckBox::clicked, this, [this](bool on) {
-    const auto picked = Pick();
-    if (picked) {
-      emit Problem(ProblemOf(managers_.rig->SetPhysics(
-          picked->doll, picked->piece, picked->point, on)));
-    }
+  connect(&physics_, &QCheckBox::clicked, this, [this] {
+    const Look look = LookAtPick();
+    const bool is_all = !look.nodes.empty() &&
+                        std::all_of(look.nodes.begin(), look.nodes.end(),
+                                    [](const DragNode* n) {
+                                      return n->physics;
+                                    });
+    emit Problem(ProblemOf(managers_.rig->SetPhysicsAll(look.dots, !is_all)));
+    Refresh();
   });
+  size_t index = 0;
   for (QDoubleSpinBox* field : AllFields()) {
-    MakeLive(field, &live_, tr("Drag"), this, [this] { Commit(); });
+    const DragField which = FieldAt(index++);
+    MakeLiveNamed(
+        field, &live_, this,
+        [this, which] {
+          return RigManager::FieldLabel(
+              which, std::max<size_t>(LookAtPick().nodes.size(), 1));
+        },
+        [this, which, field] { Commit(which, field); });
   }
   Follow(managers_, this);
   Refresh();
   assert(layout_.rowCount() == 9);
+}
+
+DragField DragBox::FieldAt(size_t index) {
+  assert(index < 7);
+  assert(kMaxWarpPoints > 0);
+  constexpr DragField kOrder[] = {
+      DragField::kLag,     DragField::kBounce,  DragField::kStretch,
+      DragField::kInertia, DragField::kAir,     DragField::kGravity,
+      DragField::kSpring};
+  return kOrder[index];
 }
 
 std::array<QDoubleSpinBox*, 7> DragBox::AllFields() {
@@ -98,78 +144,85 @@ void DragBox::SetUpPhysicsRows() {
   }
 }
 
-std::optional<DragBox::Picked> DragBox::Pick() const {
+DragBox::Look DragBox::LookAtPick() const {
   assert(managers_.selection != nullptr);
-  const auto dot = PickedDotOf(managers_);
-  if (!dot) {
-    return std::nullopt;
+  assert(managers_.IsComplete());
+  Look look;
+  for (const PickedDot& dot : PickedDotsOf(managers_)) {
+    look.dots.push_back({dot.doll, dot.piece, dot.point});
+    const auto node = std::find_if(
+        dot.rig->drag_nodes.begin(), dot.rig->drag_nodes.end(),
+        [&dot](const DragNode& n) { return n.point == dot.point; });
+    const bool is_drag = node != dot.rig->drag_nodes.end();
+    if (is_drag) {
+      look.nodes.push_back(&*node);
+    }
   }
-  const std::vector<DragNode>& nodes = dot->rig->drag_nodes;
-  assert(nodes.size() <= static_cast<size_t>(kMaxWarpPoints));
-  const auto node =
-      std::find_if(nodes.begin(), nodes.end(),
-                   [&dot](const DragNode& n) { return n.point == dot->point; });
-  const bool is_drag = node != nodes.end();
-  return Picked{dot->doll, dot->piece, dot->point,
-                is_drag ? std::optional<DragNode>(*node) : std::nullopt};
+  return look;
 }
 
 void DragBox::Refresh() {
   assert(managers_.selection != nullptr);
   assert(managers_.IsComplete());
-  const auto picked = Pick();
-  Explain(&drags_, picked ? QString()
-                          : tr("Click a warp dot of a picked piece on the "
-                               "stage first."));
-  const bool is_drag = picked && picked->node.has_value();
+  const Look look = LookAtPick();
+  const bool has_pick = !look.dots.empty();
+  const bool has_node = !look.nodes.empty();
+  const bool is_all_drag = has_node && look.nodes.size() == look.dots.size();
+  const QString no_pick = tr("Click a warp dot of a picked piece on the "
+                             "stage first.");
+  Explain(&drags_, has_pick ? QString() : no_pick);
   const QString why_not =
-      !picked ? tr("Click a warp dot of a picked piece on the stage "
-                   "first.")
-              : tr("Tick \"Drags behind\" (or press D) first.");
+      !has_pick ? no_pick : tr("Tick \"Drags behind\" (or press D) first.");
   for (QDoubleSpinBox* field : AllFields()) {
-    Explain(field, is_drag ? QString() : why_not);
+    Explain(field, has_node ? QString() : why_not);
   }
-  Explain(&physics_, is_drag ? QString() : why_not);
-  drags_.setChecked(is_drag);
-  const bool is_physics = is_drag && picked->node->physics;
-  physics_.setChecked(is_physics);
+  Explain(&physics_, has_node ? QString() : why_not);
+  drags_.setTristate(true);
+  drags_.setCheckState(is_all_drag ? Qt::Checked
+                       : has_node  ? Qt::PartiallyChecked
+                                   : Qt::Unchecked);
+  const auto n_physics = std::count_if(
+      look.nodes.begin(), look.nodes.end(),
+      [](const DragNode* n) { return n->physics; });
+  const bool is_all_physics =
+      has_node && static_cast<size_t>(n_physics) == look.nodes.size();
+  physics_.setTristate(true);
+  physics_.setCheckState(is_all_physics ? Qt::Checked
+                         : n_physics > 0 ? Qt::PartiallyChecked
+                                         : Qt::Unchecked);
+  const bool has_plain = n_physics < static_cast<int>(look.nodes.size());
   for (QDoubleSpinBox* field : {&lag_, &bounce_}) {
-    layout_.setRowVisible(field, !is_physics);
+    layout_.setRowVisible(field, has_plain || !has_node);
   }
   for (QDoubleSpinBox* field :
        {&stretch_, &inertia_, &air_, &gravity_, &spring_}) {
-    layout_.setRowVisible(field, is_physics);
+    layout_.setRowVisible(field, n_physics > 0);
   }
-  if (is_drag) {
-    const DragNode& node = *picked->node;
-    ShowNumber(&lag_, node.lag);
-    ShowNumber(&bounce_, node.bounce);
-    ShowNumber(&stretch_, node.stretch);
-    ShowNumber(&inertia_, node.inertia);
-    ShowNumber(&air_, node.air);
-    ShowNumber(&gravity_, node.gravity);
-    ShowNumber(&spring_, node.spring);
+  if (!has_node) {
+    return;
+  }
+  size_t index = 0;
+  for (QDoubleSpinBox* field : AllFields()) {
+    const DragField which = FieldAt(index++);
+    std::vector<double> values;
+    for (const DragNode* node : look.nodes) {
+      const DragNode copy = *node;
+      values.push_back(NumberOf(copy, which));
+    }
+    ShowNumber(field, values.front(), values);
   }
 }
 
-void DragBox::Commit() {
+void DragBox::Commit(DragField field, const QDoubleSpinBox* box) {
   assert(managers_.IsComplete());
-  const auto picked = Pick();
-  const bool is_drag = picked && picked->node.has_value();
-  if (!is_drag) {
+  assert(box != nullptr);
+  const Look look = LookAtPick();
+  const bool has_node = !look.nodes.empty();
+  if (!has_node) {
     return;
   }
-  DragNode node = *picked->node;
-  node.lag = lag_.value();
-  node.bounce = bounce_.value();
-  node.stretch = stretch_.value();
-  node.inertia = inertia_.value();
-  node.air = air_.value();
-  node.gravity = gravity_.value();
-  node.spring = spring_.value();
   emit Problem(
-      ProblemOf(managers_.rig->SetDrag(picked->doll, picked->piece, node)));
-  assert(managers_.rig != nullptr);
+      ProblemOf(managers_.rig->SetDragField(look.dots, field, box->value())));
 }
 
 }  // namespace snapper

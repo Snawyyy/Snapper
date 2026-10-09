@@ -534,6 +534,18 @@ moved by 5 become 15 and 5. Managers offer these as `...All` or
 `Shift...` methods; widgets show the focused pick's value and send the
 difference.
 
+Warp dots pick the same way (`SelectionManager::PickDots`): a click
+on a dot picks it, Shift adds, Ctrl flips, and a box drawn from empty
+space on the stage picks every dot of a picked piece inside it (Shift
+adds, Ctrl takes out); a box over no dot picks pieces as before. On the
+rig canvas the same box picks collider dots. The Drag node and Dot
+animation panels edit every picked dot at once: a number that differs
+shows Mixed, a change sets them all and is one undo step named with the
+count ("Set bounce on 6 dots"; `RigManager::SetDragField`,
+`SetDragNodes`, `SetPhysicsAll`, `SetMotionAll`, all taking `DotRef`s).
+D switches every picked dot's drag node, and Delete clears the drag or
+physics node and the motion off every picked dot (`ClearDots`).
+
 The side panel shows only the settings of what is picked: the shot
 and its camera with nothing picked on the stage; pose, layer, motion
 and saved poses for picked pieces or layers; the drag node and dot

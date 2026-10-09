@@ -15,6 +15,30 @@ namespace snapper {
 
 class HistoryManager;
 
+// A warp dot of a doll's piece, by the doll's name.
+struct DotRef final {
+  QString doll;
+  QString piece;
+  int point = -1;
+
+  bool operator==(const DotRef&) const = default;
+};
+
+// The numbers of a drag node (kBounce is the drag's, kSpring the
+// physics one's; the panel calls both Bounce).
+enum class DragField {
+  kLag,
+  kBounce,
+  kStretch,
+  kInertia,
+  kAir,
+  kGravity,
+  kSpring
+};
+
+// What a point motion is made of; kKind takes a WarpMotionKind number.
+enum class MotionField { kKind, kSize, kCycle, kAngle, kDelay };
+
 // How a project doll is jointed: parents, pivots, draw order, default
 // drawings, warp grids, drag nodes, point motions and IK chains. Every
 // change is one undo step, or part of a drag.
@@ -43,26 +67,38 @@ class RigManager final {
   // moves it alone), kept from 0 to kMaxWarpCells.
   Result<void> SetWarpReach(const QString& doll, const QString& piece,
                             int point, double reach);
-  // Makes a warp grid point a drag node (with the default lag and
-  // bounce), or a plain point again if it is one.
-  Result<void> ToggleDragNode(const QString& doll, const QString& piece,
-                              int point);
-  // A drag node's lag, bounce and physics settings (stretch, inertia,
-  // air, gravity, spring), each kept 0 to 1. Not its physics switch.
-  Result<void> SetDrag(const QString& doll, const QString& piece,
-                       const DragNode& node);
-  // Switches a drag node to a physics node (cloth, soft flesh) or back
-  // to a plain drag node; its settings stay.
-  Result<void> SetPhysics(const QString& doll, const QString& piece,
-                          int point, bool on);
+  // The edits below take many dots at once (a single one is a list of
+  // one) and are one undo step each, named with how many dots they
+  // touched ("Set bounce on 6 dots").
+  // The name of the step SetDragField makes, for a field that opens it
+  // before it commits.
+  static QString FieldLabel(DragField field, size_t dots);
+  // Sets one number on every drag node among dots, kept 0 to 1; dots
+  // that are not drag nodes are left alone. Refused when none is one.
+  Result<void> SetDragField(const std::vector<DotRef>& dots, DragField field,
+                            double value);
+  // Makes every dot a drag node (with the default lag and bounce), or a
+  // plain point again.
+  Result<void> SetDragNodes(const std::vector<DotRef>& dots, bool on);
+  // Switches every drag node among dots to physics (cloth, soft flesh),
+  // or back to plain drag; its settings stay.
+  Result<void> SetPhysicsAll(const std::vector<DotRef>& dots, bool on);
+  // Takes away the drag or physics node and the motion of every dot.
+  Result<void> ClearDots(const std::vector<DotRef>& dots);
+  // The name of the step SetMotionAll makes.
+  static QString MotionLabel(MotionField field, size_t dots);
+  // Sets one part of the motion of every dot, starting one where there
+  // is none; kind None takes a motion away.
+  Result<void> SetMotionAll(const std::vector<DotRef>& dots,
+                            MotionField field, double value);
   // Makes piece a collider: the outline of the visible pixels of
   // drawing (its default drawing, as an image) as a ring of dots that
   // pushes the cloth of the pieces in front of it. Refused when
   // nothing is visible. Replaces an outline it had.
   Result<void> MakeCollider(const QString& doll, const QString& piece,
                             const QImage& drawing);
-  // Takes the dots on these ring slots (gone) out of piece's collider; the
-  // gaps push nothing. Refused when none of them is there.
+  // Takes the dots on these ring slots (gone) out of piece's collider;
+  // the gaps push nothing. Refused when none of them is there.
   Result<void> DeleteColliderDots(const QString& doll, const QString& piece,
                                   const std::vector<int>& gone);
   // Makes piece a plain piece again.

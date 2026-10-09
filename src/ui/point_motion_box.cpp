@@ -2,7 +2,10 @@
 
 #include <QSignalBlocker>
 
+#include <algorithm>
 #include <cassert>
+#include <cmath>
+#include <vector>
 
 #include "edit/rig_manager.h"
 #include "ui/follow.h"
@@ -34,14 +37,27 @@ QString KindLabel(WarpMotionKind kind) {
   return QString();
 }
 
-// The picked dot's motion, or a fresh one on it when it has none.
-PointMotion MotionOf(const PickedDot& dot) {
-  assert(dot.rig != nullptr);
-  assert(dot.point >= 0);
-  const PointMotion* found = FindMotion(*dot.rig, dot.point);
-  PointMotion fresh;
-  fresh.point = dot.point;
-  return found != nullptr ? *found : fresh;
+// The picked dots, and the motions the ones that move have.
+struct Look final {
+  std::vector<DotRef> dots;
+  std::vector<DotRef> moving;
+  std::vector<const PointMotion*> motions;
+};
+
+Look LookAt(const Managers& managers) {
+  assert(managers.selection != nullptr);
+  assert(managers.history != nullptr);
+  Look look;
+  for (const PickedDot& dot : PickedDotsOf(managers)) {
+    look.dots.push_back({dot.doll, dot.piece, dot.point});
+    const PointMotion* found = FindMotion(*dot.rig, dot.point);
+    const bool is_moving = found != nullptr;
+    if (is_moving) {
+      look.moving.push_back(look.dots.back());
+      look.motions.push_back(found);
+    }
+  }
+  return look;
 }
 
 }  // namespace
@@ -54,12 +70,23 @@ PointMotionBox::PointMotionBox(const Managers& managers)
   connect(&kind_, &QComboBox::activated, this, [this](int index) {
     SetKind(static_cast<WarpMotionKind>(index));
   });
-  for (QDoubleSpinBox* field : {&size_, &angle_, &delay_}) {
-    MakeLive(field, &live_, tr("Point animation"), this,
-             [this] { Commit(); });
-  }
-  MakeLive(&cycle_, &live_, tr("Point animation"), this,
-           [this] { Commit(); });
+  const auto label = [this](MotionField field) {
+    return RigManager::MotionLabel(
+        field, std::max<size_t>(LookAt(managers_).moving.size(), 1));
+  };
+  MakeLiveNamed(&size_, &live_, this,
+                [label] { return label(MotionField::kSize); },
+                [this] { Commit(MotionField::kSize, size_.value()); });
+  MakeLiveNamed(&angle_, &live_, this,
+                [label] { return label(MotionField::kAngle); },
+                [this] { Commit(MotionField::kAngle, angle_.value()); });
+  MakeLiveNamed(&delay_, &live_, this,
+                [label] { return label(MotionField::kDelay); },
+                [this] { Commit(MotionField::kDelay, delay_.value()); });
+  MakeLiveNamed(&cycle_, &live_, this,
+                [label] { return label(MotionField::kCycle); },
+                [this] { Commit(MotionField::kCycle, cycle_.value()); });
+  kind_.setPlaceholderText(tr("Mixed"));
   Follow(managers_, this);
   Refresh();
   assert(layout_.rowCount() == 5);
@@ -96,52 +123,49 @@ void PointMotionBox::SetKind(WarpMotionKind kind) {
   assert(static_cast<int>(kind) >= 0 &&
          static_cast<int>(kind) < kWarpMotionKindCount);
   assert(managers_.rig != nullptr);
-  const auto dot = PickedDotOf(managers_);
-  if (!dot) {
+  const Look look = LookAt(managers_);
+  const bool has_dots = !look.dots.empty();
+  if (!has_dots) {
     return;
   }
-  PointMotion motion = MotionOf(*dot);
-  motion.kind = kind;
-  emit Problem(ProblemOf(
-      managers_.rig->SetPointMotion(dot->doll, dot->piece, motion)));
+  emit Problem(ProblemOf(managers_.rig->SetMotionAll(
+      look.dots, MotionField::kKind, static_cast<double>(kind))));
 }
 
-void PointMotionBox::Commit() {
+void PointMotionBox::Commit(MotionField field, double value) {
   assert(managers_.rig != nullptr);
-  const auto dot = PickedDotOf(managers_);
-  const bool is_moving =
-      dot && FindMotion(*dot->rig, dot->point) != nullptr;
+  assert(std::isfinite(value));
+  const Look look = LookAt(managers_);
+  const bool is_moving = !look.moving.empty();
   if (!is_moving) {
     return;
   }
-  PointMotion motion = MotionOf(*dot);
-  motion.size = size_.value();
-  motion.cycle = cycle_.value();
-  motion.angle = angle_.value();
-  motion.delay = delay_.value();
-  emit Problem(ProblemOf(
-      managers_.rig->SetPointMotion(dot->doll, dot->piece, motion)));
-  assert(motion.point == dot->point);
+  emit Problem(
+      ProblemOf(managers_.rig->SetMotionAll(look.moving, field, value)));
 }
 
 void PointMotionBox::Refresh() {
   assert(kind_.count() == kWarpMotionKindCount);
   assert(managers_.selection != nullptr);
-  const auto dot = PickedDotOf(managers_);
-  const PointMotion* found =
-      dot ? FindMotion(*dot->rig, dot->point) : nullptr;
+  const Look look = LookAt(managers_);
+  const bool has_pick = !look.dots.empty();
+  const bool has_motion = !look.motions.empty();
   const QString no_dot =
-      dot ? QString()
-          : tr("Click a warp dot of a picked piece on the stage first.");
+      has_pick ? QString()
+               : tr("Click a warp dot of a picked piece on the stage first.");
   const QString why_not =
-      !dot ? no_dot : found != nullptr ? QString()
-                                       : tr("Pick how the dot moves first.");
+      !has_pick ? no_dot : has_motion ? QString()
+                                      : tr("Pick how the dot moves first.");
   const bool is_shiver =
-      found != nullptr && found->kind == WarpMotionKind::kShiver;
+      has_motion &&
+      std::all_of(look.motions.begin(), look.motions.end(),
+                  [](const PointMotion* m) {
+                    return m->kind == WarpMotionKind::kShiver;
+                  });
   Explain(&kind_, no_dot,
-          tr("Moves the dot by itself, on top of its keys: hair that "
-             "waves, a heart that beats. Its rubber reach takes the "
-             "dots around along."));
+          tr("Moves the dots by themselves, on top of their keys: hair "
+             "that waves, a heart that beats. Their rubber reach takes "
+             "the dots around along."));
   Explain(&size_, why_not, tr("How far the dot moves at most."));
   Explain(&cycle_, why_not, tr("Frames one cycle takes; 24 is a second."));
   Explain(&angle_,
@@ -150,13 +174,35 @@ void PointMotionBox::Refresh() {
   Explain(&delay_, why_not,
           tr("How late in its cycle the dot starts, 0 to 1. Give dots "
              "in a row rising delays for a ripple."));
-  const PointMotion shown = found != nullptr ? *found : PointMotion();
   const QSignalBlocker quiet(kind_);
-  kind_.setCurrentIndex(found != nullptr ? static_cast<int>(shown.kind) : 0);
-  ShowNumber(&size_, shown.size);
-  ShowNumber(&cycle_, shown.cycle);
-  ShowNumber(&angle_, shown.angle);
-  ShowNumber(&delay_, shown.delay);
+  const bool is_one_kind =
+      has_motion && look.motions.size() == look.dots.size() &&
+      std::all_of(look.motions.begin(), look.motions.end(),
+                  [&look](const PointMotion* m) {
+                    return m->kind == look.motions.front()->kind;
+                  });
+  kind_.setCurrentIndex(is_one_kind
+                            ? static_cast<int>(look.motions.front()->kind)
+                            : has_motion ? -1 : 0);
+  if (!has_motion) {
+    return;
+  }
+  const auto numbers = [&look](double PointMotion::*field) {
+    std::vector<double> values;
+    for (const PointMotion* m : look.motions) {
+      values.push_back(m->*field);
+    }
+    return values;
+  };
+  const PointMotion& first = *look.motions.front();
+  ShowNumber(&size_, first.size, numbers(&PointMotion::size));
+  ShowNumber(&angle_, first.angle, numbers(&PointMotion::angle));
+  ShowNumber(&delay_, first.delay, numbers(&PointMotion::delay));
+  std::vector<double> cycles;
+  for (const PointMotion* m : look.motions) {
+    cycles.push_back(m->cycle);
+  }
+  ShowNumber(&cycle_, first.cycle, cycles);
 }
 
 }  // namespace snapper

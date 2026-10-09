@@ -1,5 +1,6 @@
 // PoseTool's grabbing of handles: turn handles, warp dots, IK tips.
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <memory>
@@ -313,20 +314,55 @@ void PoseTool::WheelReach(const WarpDot& dot, int notches, bool is_fine,
       reach + notches * (is_fine ? kFineReachStep : kReachStep)));
 }
 
+std::vector<DotRef> PoseTool::PickedRefs(const StageFrame& frame) const {
+  assert(frame.scale > 0.0);
+  assert(managers_.history != nullptr);
+  std::vector<DotRef> refs;
+  for (const WarpDot& dot : PickedDots(frame)) {
+    const DollLayer* posed =
+        PosedLayerOf(managers_.history->current(), frame.shot, dot.layer);
+    const bool has_doll = posed != nullptr;
+    if (has_doll) {
+      refs.push_back({posed->doll, dot.piece, dot.point});
+    }
+  }
+  return refs;
+}
+
 void PoseTool::ToggleDrag(const StageFrame& frame) {
   assert(frame.scale > 0.0);
   assert(managers_.rig != nullptr);
-  const auto dot = PickedDot(frame);
-  const DollLayer* posed =
-      dot ? PosedLayerOf(managers_.history->current(), frame.shot,
-                         dot->layer)
-          : nullptr;
-  const bool has_dot = posed != nullptr;
-  if (!has_dot) {
+  const std::vector<DotRef> refs = PickedRefs(frame);
+  const bool has_dots = !refs.empty();
+  if (!has_dots) {
     problem_ = QObject::tr("Click a warp dot of a picked piece first.");
     return;
   }
-  Note(managers_.rig->ToggleDragNode(posed->doll, dot->piece, dot->point));
+  const Project& project = managers_.history->current();
+  const bool is_all_drag = std::all_of(
+      refs.begin(), refs.end(), [&project](const DotRef& ref) {
+        const Doll* doll = FindDoll(project, ref.doll);
+        const RigPiece* rig =
+            doll != nullptr ? FindRig(doll->rig, ref.piece) : nullptr;
+        return rig != nullptr &&
+               std::any_of(rig->drag_nodes.begin(), rig->drag_nodes.end(),
+                           [&ref](const DragNode& n) {
+                             return n.point == ref.point;
+                           });
+      });
+  Note(managers_.rig->SetDragNodes(refs, !is_all_drag));
+}
+
+bool PoseTool::ClearDots(const StageFrame& frame) {
+  assert(frame.scale > 0.0);
+  assert(managers_.rig != nullptr);
+  const std::vector<DotRef> refs = PickedRefs(frame);
+  const bool has_dots = !refs.empty();
+  if (!has_dots) {
+    return false;
+  }
+  Note(managers_.rig->ClearDots(refs));
+  return true;
 }
 
 }  // namespace snapper

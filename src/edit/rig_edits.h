@@ -49,6 +49,17 @@ Result<Project> WithRig(const Project& project, const QString& doll,
   return next;
 }
 
+// motion with every number kept in range.
+inline PointMotion KeptMotion(PointMotion motion) {
+  assert(std::isfinite(motion.size) && std::isfinite(motion.angle));
+  assert(std::isfinite(motion.delay));
+  motion.size = std::clamp(motion.size, 0.0, kMaxWarpMotionSize);
+  motion.cycle = std::clamp(motion.cycle, kMinWarpCycle, kMaxWarpCycle);
+  motion.angle = std::remainder(motion.angle, 360.0);
+  motion.delay = std::clamp(motion.delay, 0.0, 1.0);
+  return motion;
+}
+
 // The same, for one piece of the rig.
 template <typename Change>
 Result<Project> WithPiece(const Project& project, const QString& doll,
