@@ -129,7 +129,7 @@ if(BUILD_TESTING)
                           shot_strip_tests.cpp slot_picker_tests.cpp
                           motion_tests.cpp scrub_tests.cpp shake_tests.cpp theme_tests.cpp
                           toast_tests.cpp
-                          timeline_view_tests.cpp video_page_tests.cpp
+                          perf_tests.cpp timeline_view_tests.cpp video_page_tests.cpp
                           window_tests.cpp)
   snapper_checks()
 endif()
