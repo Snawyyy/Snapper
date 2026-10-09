@@ -117,6 +117,7 @@ void ReelTimeline::StartDrag(ClipId clip, Drag drag, QPointF at) {
   dragged_ = clip;
   press_ = at;
   has_moved_ = false;
+  drag_playhead_.Begin();
   const bool is_move = drag == Drag::kMove;
   const QString label = !is_move               ? tr("Trim clip")
                         : Picked().size() > 1 ? tr("Move clips")
@@ -129,7 +130,8 @@ void ReelTimeline::Follow(QPointF at) {
   assert(drag_ != Drag::kNone);
   assert(scope_ != nullptr);
   const Project& start = managers_.history->before();
-  const Frame playhead = managers_.playback->FrameOn(Timeline::kReel);
+  // Snaps go to where the playhead was, not to where the drag put it.
+  const Frame playhead = drag_playhead_.origin();
   const bool is_still = !has_moved_ && !IsPastDeadZone(press_, at);
   if (is_still) {
     return;
@@ -148,6 +150,11 @@ void ReelTimeline::Follow(QPointF at) {
         static_cast<int>(std::lround((press_.y() - at.y()) / kTrackHeight));
     Report(ProblemOf(managers_.reel->MoveAll(picked, tracks, frames)));
     feedback_.Update(press_, at, FramesText(frames), frames != raw);
+    const Clip* grabbed = ClipOf(start.reel, dragged_);
+    const bool has_grabbed = grabbed != nullptr;
+    if (has_grabbed) {
+      CarryPlayhead(Frame(std::max(0, grabbed->start.index() + frames)));
+    }
     return;
   }
   const Frame raw = FrameAt(at.x() + zoom_ / 2.0);
@@ -156,6 +163,13 @@ void ReelTimeline::Follow(QPointF at) {
   Report(ProblemOf(is_start ? managers_.reel->TrimStart(dragged_, edge)
                             : managers_.reel->TrimEnd(dragged_, edge)));
   ShowTrim(raw, edge, at);
+  CarryPlayhead(edge);
+}
+
+void ReelTimeline::CarryPlayhead(Frame landing) {
+  assert(landing.index() >= 0);
+  assert(drag_playhead_.is_active());
+  managers_.playback->Seek(landing);
 }
 
 void ReelTimeline::ShowTrim(Frame raw, Frame edge, QPointF at) {
@@ -258,6 +272,7 @@ void ReelTimeline::mouseReleaseEvent(QMouseEvent* event) {
   is_landing_drag_ = true;
   scope_.reset();
   is_landing_drag_ = false;
+  drag_playhead_.End();
   if (was_click) {
     managers_.selection->PickClips({dragged_}, PickMode::kReplace);
   }

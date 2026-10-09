@@ -42,6 +42,7 @@ ReelTimeline::ReelTimeline(const Managers& managers)
       effects_(managers.motion, this),
       settle_(managers.motion, managers.playback->FrameOn(Timeline::kReel),
               this),
+      drag_playhead_(managers.playback),
       zoom_(kDefaultZoom) {
   assert(managers_.IsComplete());
   setFocusPolicy(Qt::ClickFocus);

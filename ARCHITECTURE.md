@@ -396,6 +396,8 @@ are destroyed in reverse.
 | `ToastManager` (`ui`)  | Toasts: the queue, their time, stacking, dismissal and the Undo they offer |
 | `TimingChartDialog` (`ui`) | The floating timing chart window (Shift+T, or Define timing chart... in the stage and timeline menus); its strip only draws the ticks and forwards drags to `TimingChartManager` |
 | `SpaceKeysShortcuts` (`ui`) | The 1 to 4 window shortcuts and the Space evenly menu; both call `KeyManager::Space` through `RequestSpaceKeys` |
+| `DragPlayhead` (`ui`) | The playhead's place before a key or clip drag: the drag carries the playhead, Escape puts it back, no history |
+| `PaintClip` (`ui`) | RAII clip so timeline keys, bars, grid and playhead paint only in the frame area, never over the names |
 | `RefusalShaker` (`ui`) | The shake and the reason on a greyed control clicked anyway |
 
 `MotionManager` lives in `ui` because it only serves widgets and holds no
