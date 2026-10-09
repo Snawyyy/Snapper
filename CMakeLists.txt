@@ -98,7 +98,8 @@ if(BUILD_TESTING)
                     warp_motion_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp video_reader_tests.cpp)
-  snapper_test(render SOURCES render_tests.cpp warp_cache_tests.cpp)
+  snapper_test(render SOURCES render_tests.cpp warp_cache_tests.cpp
+                      warp_raster_tests.cpp)
   snapper_test(edit SOURCES change_diff_tests.cpp change_watcher_tests.cpp
                             document_tests.cpp
                             export_tests.cpp
