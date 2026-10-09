@@ -13,8 +13,10 @@ namespace snapper {
 //
 // A turn handle with Shift held snaps to this many degrees.
 inline constexpr double kTurnSnapDegrees = 15.0;
-// The chip rides this many pixels off the cursor.
-inline constexpr double kChipOffset = 14.0;
+// The arrow cursor covers a box this wide and tall, down and right of
+// its hotspot. The chip keeps kChipGap pixels clear of that box.
+inline constexpr double kCursorBox = 32.0;
+inline constexpr double kChipGap = 24.0;
 
 // Whole degrees with a unit: "34 deg", "-12 deg".
 QString AngleText(double degrees);
@@ -33,8 +35,10 @@ double SnapDegrees(double degrees, double step);
 // drag should flash. A tiny gap is the same spot, not a snap.
 bool DidSnap(double raw, double snapped);
 
-// Where the chip of the given size goes for a cursor: kChipOffset
-// down and right, pulled back inside bounds so it is never cut off.
+// Where the chip of the given size goes for a cursor hotspot: above
+// and to its left, kChipGap clear of the cursor box. Near an edge it
+// flips to the other side, then is pulled inside bounds. The drag chip
+// and the wheel chip both use it.
 QRectF ChipRect(QPointF cursor, QSizeF size, const QRectF& bounds);
 
 }  // namespace snapper
