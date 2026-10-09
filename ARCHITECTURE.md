@@ -108,8 +108,9 @@ History keeps at most `kMaxUndoSteps` steps and drops the oldest.
   which writes a key on each tick frame at its fraction of the way
   from the pose A has to the pose B has. The chart's Keys: choice
   (`KeyMode`, remembered in settings) is Existing keys only (ticks are
-  the keys already between A and B, only their poses change, none is
-  added), or Add on 1s, 2s or 3s (a key every 1st, 2nd or 3rd frame
+  the keys already between A and B, only their poses change; a key is
+  added only on A or B if missing), or Add on 1s, 2s or 3s (a key
+  every 1st, 2nd or 3rd frame
   from A, B always keyed; in-between keys off that grid are removed).
   Frames outside A..B never change in any mode.
 - The timeline's corner flips stepping between scrub mode (the arrow

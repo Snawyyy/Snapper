@@ -98,8 +98,9 @@ bool KeepFramesAs(Channel<T>* channel, const Channel<T>& original,
 // from TickFrames), fraction i of the way from the pose A has to the
 // pose B has. A and B keep the pose the channel shows there now, and
 // the keys that were between are replaced. Existing keys only leaves
-// A, B and every other key where it is, re-poses just the keys
-// between (keeping their ease), and adds none; the other
+// every key where it is and re-poses just the keys between (keeping
+// their ease); it adds a key only on A or B when there is none, holding
+// the pose there; the other
 // modes step, since each key holds its frames, and B keeps its own
 // ease. Keys outside a..b are untouched, and frames outside whose pose
 // would change (an eased key next to A or B that had no key there) are
@@ -128,7 +129,9 @@ bool BakeChannel(Channel<T>* channel, Frame a, Frame b,
     return !is_existing && is_in_range;
   });
   bool is_set = true;
-  if (!is_existing) {
+  const bool pins_a = !is_existing || KeyIndexAt(original, a) < 0;
+  const bool pins_b = !is_existing || b_at < 0;
+  if (pins_a) {
     is_set = SetKey(channel, Key<T>{a, from, Ease::kStep});
   }
   for (size_t i = 0; i < frames.size(); ++i) {
@@ -145,7 +148,7 @@ bool BakeChannel(Channel<T>* channel, Frame a, Frame b,
                                     ease}) &&
              is_set;
   }
-  if (!is_existing) {
+  if (pins_b) {
     is_set = SetKey(channel, Key<T>{b, to, b_ease}) && is_set;
   }
   // The keys just before A and after B must not bend differently now.

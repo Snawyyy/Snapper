@@ -48,6 +48,7 @@ class TimingChartTests final : public QObject {
   void BakeOnTwosAndThreesDropsOffGridKeys();
   void BakeExistingKeysOnlyAddsNoneAndMovesNone();
   void BakeKeepsFramesOutsideForEveryMode();
+  void BakeExistingKeysPinsAAndBWhenMissing();
 };
 
 void TimingChartTests::EvenTicksShareTheLine() {
@@ -250,6 +251,30 @@ void TimingChartTests::BakeKeepsFramesOutsideForEveryMode() {
         QCOMPARE(Sample(channel, Frame(f), -1.0),
                  Sample(before, Frame(f), -1.0));
       }
+    }
+  }
+}
+
+void TimingChartTests::BakeExistingKeysPinsAAndBWhenMissing() {
+  Channel<double> channel;
+  SetKey(&channel, {Frame(0), 0.0, Ease::kLinear});
+  SetKey(&channel, {Frame(6), 60.0, Ease::kStep});
+  SetKey(&channel, {Frame(20), 100.0, Ease::kStep});
+  const Channel<double> before = channel;
+  QVERIFY(BakeChannel(&channel, Frame(2), Frame(10), {6}, {0.9},
+                      KeyMode::kExisting));
+  QCOMPARE(FramesOf(channel), std::vector<int>({0, 2, 6, 10, 20}));
+  QCOMPARE(channel.keys[1].value, Sample(before, Frame(2), -1.0));
+  QCOMPARE(channel.keys[3].value, Sample(before, Frame(10), -1.0));
+  QCOMPARE(Sample(channel, Frame(6), -1.0),
+           Sample(before, Frame(2), -1.0) +
+               0.9 * (Sample(before, Frame(10), -1.0) -
+                      Sample(before, Frame(2), -1.0)));
+  for (int f = 0; f <= 30; ++f) {
+    const bool is_outside = f < 2 || f > 10;
+    if (is_outside) {
+      QCOMPARE(Sample(channel, Frame(f), -1.0),
+               Sample(before, Frame(f), -1.0));
     }
   }
 }
