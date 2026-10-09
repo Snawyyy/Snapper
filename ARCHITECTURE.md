@@ -399,6 +399,14 @@ through `MotionManager` (nothing in Off). Escape clears it at once. The
 words and the 15 degree turn snap are pure functions in `drag_text.h`;
 a canvas picks the words and calls `Update`, `Settle` or `Cancel`.
 
+The look of every button and tab lives in one place: `SnapperStyle`
+(`snapper_style.h`), a `QProxyStyle` over Windows that `theme::Apply`
+sets on the application. Raised bevels, the hover brighten, the sunk
+press and the chunky tab are drawn there, so no widget carries a
+stylesheet. What a button looks like in each state is `LookOfButton`
+(pure, tested). A widget that fades its hover sets the `kHoverProperty`
+number (0 to 1); without it the style uses the plain mouse-over state.
+
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.
 
