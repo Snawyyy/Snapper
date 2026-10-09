@@ -339,6 +339,24 @@ are destroyed in reverse.
 | `PresetManager`        | Motion presets and saved poses                 |
 | `PlaybackManager`      | Playhead on either timeline, play, loop, song  |
 | `ExportManager`        | MP4 and GIF export of the final video, threaded |
+| `MotionManager` (`ui`) | How long and how softly the UI moves: the Motion table, Full / Calm / Off, saved in settings |
+
+`MotionManager` lives in `ui` because it only serves widgets and holds no
+project state. Its table and curves (`motion_table.h`) are pure and
+tested without a widget; every animation asks `MotionManager` for its
+duration and curve, so the View > Motion switch changes all of them at
+once. Qt has no reduced-motion query, so a fresh install starts in Full.
+
+Number fields get their hands-on feel from three small pieces. The math
+is pure and lives in `base`, tested without a widget: `EvalNumber`
+(`number_text.h`: "*2", "+15", "90/2"), `HasMixedValues` (picks that
+differ show "Mixed") and `ScrubDrag` (`scrub_drag.h`: dead zone, Shift
+10, Alt 0.1, clamp, rounding). In `ui`, `ScrubLabel` turns a label drag
+into `ScrubDrag` values on the field, so the field's `LiveEdit` makes the
+drag one undo step (Escape cancels it), and `NumberInput` applies typed
+math on Enter or leaving the field, flashing the field red and keeping
+its value on bad text. `AddNumberRow` / `AddNumberPair` in
+`form_helpers.h` give a field all of this with one call.
 
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.

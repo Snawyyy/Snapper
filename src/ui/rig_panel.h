@@ -52,6 +52,9 @@ class RigPanel final : public QWidget {
   void WireChains();
   void RefreshPieces();
   void RefreshPiece();
+  // Draw order and rest turn of the focused piece; picks that differ
+  // say Mixed.
+  void ShowOrderAndRest(const Doll& doll, const RigPiece& focus);
   void RefreshChains();
   void AddChain();
   // The picked pieces, at least the focused one.

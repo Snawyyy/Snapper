@@ -35,7 +35,7 @@ TransitionPicker::TransitionPicker(const Transition& now, Frame longest,
   length_.setValue(is_cut ? std::min(kDefaultLength, longest_.index())
                           : now.length.index());
   layout_.addRow(tr("Kind"), &kind_);
-  layout_.addRow(tr("Length"), &length_);
+  AddNumberRow(&layout_, tr("Length"), &length_, nullptr);
   layout_.addRow(&buttons_);
   connect(&kind_, &QComboBox::currentIndexChanged, this, [this] { Show(); });
   connect(&buttons_, &QDialogButtonBox::accepted, this, &QDialog::accept);

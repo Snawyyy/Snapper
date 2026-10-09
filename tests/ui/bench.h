@@ -19,6 +19,7 @@
 #include "edit/shot_manager.h"
 #include "edit/stage_manager.h"
 #include "ui/managers.h"
+#include "ui/motion.h"
 
 namespace snapper {
 
@@ -39,11 +40,12 @@ struct Bench final {
   PresetManager presets{&history, QDir(dir.path()).filePath("poses.json")};
   PlaybackManager playback{&history};
   ExportManager exporter{&history, &playback};
+  MotionManager motion{document.SettingsPath()};
 
   Managers All() {
     return {&history, &document, &library, &rig, &shots, &stage,
             &selection, &pose, &keys, &presets, &playback, &exporter,
-            &links, &reel};
+            &links, &reel, &motion};
   }
 };
 

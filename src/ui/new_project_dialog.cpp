@@ -5,6 +5,8 @@
 #include <array>
 #include <cassert>
 
+#include "ui/form_helpers.h"
+
 namespace snapper {
 namespace {
 
@@ -37,12 +39,14 @@ NewProjectDialog::NewProjectDialog(QWidget* parent)
   for (QSpinBox* side : {&width_, &height_}) {
     side->setRange(kMinCanvasSide, kMaxCanvasSide);
     side->setSingleStep(2);
+    // Video sizes are even, so a drag moves two at a time.
+    SetScrubUnit(side, 2.0);
     side->setSuffix(tr(" px"));
   }
   layout_.addRow(tr("Name"), &name_);
   layout_.addRow(tr("Size"), &preset_);
-  layout_.addRow(tr("Width"), &width_);
-  layout_.addRow(tr("Height"), &height_);
+  AddNumberRow(&layout_, tr("Width"), &width_, nullptr);
+  AddNumberRow(&layout_, tr("Height"), &height_, nullptr);
   layout_.addRow(&buttons_);
   connect(&buttons_, &QDialogButtonBox::accepted, this, &QDialog::accept);
   connect(&buttons_, &QDialogButtonBox::rejected, this, &QDialog::reject);

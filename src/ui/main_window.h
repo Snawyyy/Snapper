@@ -17,6 +17,7 @@
 #include "ui/file_menu.h"
 #include "ui/inspector.h"
 #include "ui/managers.h"
+#include "ui/motion_menu.h"
 #include "ui/rig_canvas.h"
 #include "ui/rig_panel.h"
 #include "ui/shot_strip.h"
@@ -62,6 +63,8 @@ class MainWindow final : public QMainWindow {
   Managers managers_;
   FileMenu file_menu_;
   QMenu edit_menu_;
+  QMenu view_menu_;
+  MotionMenu motion_menu_;
   QAction undo_action_;
   QAction redo_action_;
   // The tabs sit in a fixed bar across the top, above the docks, so

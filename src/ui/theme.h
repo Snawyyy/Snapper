@@ -18,6 +18,8 @@ inline constexpr QColor kFaceLight{0x5c, 0x5c, 0x62};
 inline constexpr QColor kFaceDark{0x24, 0x24, 0x27};
 inline constexpr QColor kShadow{0x10, 0x10, 0x12};
 inline constexpr QColor kField{0x1c, 0x1c, 0x1f};
+// A field that could not read what was typed, for a moment.
+inline constexpr QColor kFieldBad{0x5a, 0x1c, 0x28};
 inline constexpr QColor kText{0xe6, 0xe6, 0xe6};
 inline constexpr QColor kTextOff{0x80, 0x80, 0x86};
 // Teto red: picks, the playhead, the active tab.

@@ -9,6 +9,7 @@ class ExportManager;
 class HistoryManager;
 class KeyManager;
 class LinkManager;
+class MotionManager;
 class PlaybackManager;
 class PoseManager;
 class PresetManager;
@@ -35,11 +36,12 @@ struct Managers final {
   ExportManager* exporter = nullptr;
   LinkManager* links = nullptr;
   ReelManager* reel = nullptr;
+  MotionManager* motion = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&
            selection && pose && keys && presets && playback && exporter &&
-           links && reel;
+           links && reel && motion;
   }
 };
 

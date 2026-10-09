@@ -59,8 +59,6 @@ void RigPanel::BuildLayout() {
   order_.setToolTip(tr("Higher draws in front."));
   SetUpNumber(&rest_, Number::kDegrees);
   rest_.setToolTip(tr("How the piece is turned when not posed."));
-  warp_columns_.setPrefix(tr("across "));
-  warp_rows_.setPrefix(tr("down "));
   for (QSpinBox* side : {&warp_columns_, &warp_rows_}) {
     side->setRange(1, kMaxWarpCells);
     side->setValue(kDefaultWarpCells);
@@ -78,13 +76,15 @@ void RigPanel::BuildLayout() {
                             "Good for heads."));
   AddTitle(&form_, &joint_title_, tr("Joint"));
   form_.addRow(tr("Hangs from"), &parent_);
-  form_.addRow(tr("Rest turn"), &rest_);
-  form_.addRow(tr("Draw order"), &order_);
+  AddNumberRow(&form_, tr("Rest turn"), &rest_, &live_);
+  AddNumberRow(&form_, tr("Draw order"), &order_, &live_);
   form_.addRow(tr("Drawing"), &drawing_);
   form_.addRow(QString(), &keep_shape_);
   AddTitle(&form_, &warp_title_, tr("Warp"));
   form_.addRow(QString(), &warp_on_);
-  AddPair(&form_, tr("Cells"), &warp_row_, &warp_columns_, &warp_rows_);
+  AddNumberPair(&form_, tr("Cells"), &warp_row_,
+                {tr("across"), &warp_columns_}, {tr("down"), &warp_rows_},
+                &live_);
   chain_buttons_.addWidget(&add_chain_);
   chain_buttons_.addWidget(&flip_chain_);
   chain_buttons_.addWidget(&remove_chain_);

@@ -2,8 +2,10 @@
 
 #include <QSignalBlocker>
 
+#include <array>
 #include <cassert>
 #include <type_traits>
+#include <vector>
 
 #include "anim/sampler.h"
 #include "edit/history_manager.h"
@@ -43,14 +45,41 @@ PiecePose PoseAt(const Project& project, const TrackRef& track,
 
 }  // namespace
 
+void PoseBox::ShowPose(const Project& project,
+                       const std::vector<TrackRef>& tracks, Frame frame,
+                       const PiecePose& focus) {
+  assert(frame.index() >= 0);
+  assert(!tracks.empty());
+  // What each pick shows, field by field: several that differ say Mixed.
+  std::array<std::vector<double>, kCount> spread;
+  for (const TrackRef& track : tracks) {
+    const PiecePose p = PoseAt(project, track, frame);
+    const std::array<double, kCount> shown = {
+        p.rotation, p.offset.x(), p.offset.y(), p.scale_x, p.scale_y,
+        p.skew,     p.opacity,    p.lean,       p.swivel};
+    for (size_t i = 0; i < shown.size(); ++i) {
+      spread[i].push_back(shown[i]);
+    }
+  }
+  ShowNumber(&fields_[kTurn], focus.rotation, spread[kTurn]);
+  ShowNumber(&fields_[kX], focus.offset.x(), spread[kX]);
+  ShowNumber(&fields_[kY], focus.offset.y(), spread[kY]);
+  ShowNumber(&fields_[kScaleX], focus.scale_x, spread[kScaleX]);
+  ShowNumber(&fields_[kScaleY], focus.scale_y, spread[kScaleY]);
+  ShowNumber(&fields_[kSkew], focus.skew, spread[kSkew]);
+  ShowNumber(&fields_[kOpacity], focus.opacity, spread[kOpacity]);
+  ShowNumber(&fields_[kLean], focus.lean, spread[kLean]);
+  ShowNumber(&fields_[kSwivel], focus.swivel, spread[kSwivel]);
+}
+
 PoseBox::PoseBox(const Managers& managers)
     : QGroupBox(tr("Pose at playhead")), managers_(managers),
       layout_(this), live_(managers.history) {
   assert(managers_.IsComplete());
-  SetUpNumber(&fields_[kX], Number::kPixels, tr("x "));
-  SetUpNumber(&fields_[kY], Number::kPixels, tr("y "));
-  SetUpNumber(&fields_[kScaleX], Number::kScale, tr("x "));
-  SetUpNumber(&fields_[kScaleY], Number::kScale, tr("y "));
+  SetUpNumber(&fields_[kX], Number::kPixels);
+  SetUpNumber(&fields_[kY], Number::kPixels);
+  SetUpNumber(&fields_[kScaleX], Number::kScale);
+  SetUpNumber(&fields_[kScaleY], Number::kScale);
   SetUpNumber(&fields_[kTurn], Number::kDegrees);
   SetUpNumber(&fields_[kSkew], Number::kLean);
   SetUpNumber(&fields_[kOpacity], Number::kFraction);
@@ -64,14 +93,16 @@ PoseBox::PoseBox(const Managers& managers)
     fields_[static_cast<size_t>(i)].setObjectName(
         QLatin1String(names[static_cast<size_t>(i)]));
   }
-  AddPair(&layout_, tr("Move"), &move_row_, &fields_[kX], &fields_[kY]);
-  AddPair(&layout_, tr("Scale"), &scale_row_, &fields_[kScaleX],
-          &fields_[kScaleY]);
-  layout_.addRow(tr("Turn"), &fields_[kTurn]);
-  layout_.addRow(tr("Skew"), &fields_[kSkew]);
-  layout_.addRow(tr("Opacity"), &fields_[kOpacity]);
-  layout_.addRow(tr("Lean"), &fields_[kLean]);
-  layout_.addRow(tr("Swivel"), &fields_[kSwivel]);
+  AddNumberPair(&layout_, tr("Move"), &move_row_,
+                {tr("x"), &fields_[kX]}, {tr("y"), &fields_[kY]}, &live_);
+  AddNumberPair(&layout_, tr("Scale"), &scale_row_,
+                {tr("x"), &fields_[kScaleX]}, {tr("y"), &fields_[kScaleY]},
+                &live_);
+  AddNumberRow(&layout_, tr("Turn"), &fields_[kTurn], &live_);
+  AddNumberRow(&layout_, tr("Skew"), &fields_[kSkew], &live_);
+  AddNumberRow(&layout_, tr("Opacity"), &fields_[kOpacity], &live_);
+  AddNumberRow(&layout_, tr("Lean"), &fields_[kLean], &live_);
+  AddNumberRow(&layout_, tr("Swivel"), &fields_[kSwivel], &live_);
   for (QDoubleSpinBox& field : fields_) {
     MakeLive(&field, &live_, tr("Pose"), this, [this] { Commit(); });
   }
@@ -96,15 +127,7 @@ void PoseBox::Refresh() {
   setTitle(picked > 1 ? tr("Pose at playhead (%1 picked, changes add to "
                            "each)").arg(picked)
                       : tr("Pose at playhead"));
-  ShowNumber(&fields_[kTurn], pose.rotation);
-  ShowNumber(&fields_[kX], pose.offset.x());
-  ShowNumber(&fields_[kY], pose.offset.y());
-  ShowNumber(&fields_[kScaleX], pose.scale_x);
-  ShowNumber(&fields_[kScaleY], pose.scale_y);
-  ShowNumber(&fields_[kSkew], pose.skew);
-  ShowNumber(&fields_[kOpacity], pose.opacity);
-  ShowNumber(&fields_[kLean], pose.lean);
-  ShowNumber(&fields_[kSwivel], pose.swivel);
+  ShowPose(project, managers_.selection->PickedTracks(), spot->local, pose);
   const bool is_whole_doll =
       track->kind == TrackKind::kLayer &&
       DollOfLayer(project, track->shot, track->layer) != nullptr;
@@ -173,8 +196,8 @@ CameraBox::CameraBox(const Managers& managers)
     : QGroupBox(tr("Camera at playhead")), managers_(managers),
       layout_(this), live_(managers.history) {
   assert(managers_.IsComplete());
-  SetUpNumber(&fields_[kX], Number::kPixels, tr("x "));
-  SetUpNumber(&fields_[kY], Number::kPixels, tr("y "));
+  SetUpNumber(&fields_[kX], Number::kPixels);
+  SetUpNumber(&fields_[kY], Number::kPixels);
   SetUpNumber(&fields_[kZoom], Number::kZoom);
   SetUpNumber(&fields_[kTurn], Number::kDegrees);
   SetUpNumber(&fields_[kShake], Number::kSize);
@@ -184,10 +207,11 @@ CameraBox::CameraBox(const Managers& managers)
     fields_[static_cast<size_t>(i)].setObjectName(
         QLatin1String(names[static_cast<size_t>(i)]));
   }
-  AddPair(&layout_, tr("Look at"), &look_row_, &fields_[kX], &fields_[kY]);
-  layout_.addRow(tr("Zoom"), &fields_[kZoom]);
-  layout_.addRow(tr("Turn"), &fields_[kTurn]);
-  layout_.addRow(tr("Shake"), &fields_[kShake]);
+  AddNumberPair(&layout_, tr("Look at"), &look_row_,
+                {tr("x"), &fields_[kX]}, {tr("y"), &fields_[kY]}, &live_);
+  AddNumberRow(&layout_, tr("Zoom"), &fields_[kZoom], &live_);
+  AddNumberRow(&layout_, tr("Turn"), &fields_[kTurn], &live_);
+  AddNumberRow(&layout_, tr("Shake"), &fields_[kShake], &live_);
   for (QDoubleSpinBox& field : fields_) {
     MakeLive(&field, &live_, tr("Move camera"), this, [this] { Commit(); });
   }

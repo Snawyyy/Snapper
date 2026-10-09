@@ -14,9 +14,10 @@
 
 namespace snapper {
 
-// Lets a number field change the project as it is typed or scrolled,
-// while one burst of changes (until Enter or leaving the field) stays a
-// single undo step.
+// Lets a number field change the project as it is scrolled, stepped,
+// scrubbed or entered, while one burst of changes (until Enter or
+// leaving the field) stays a single undo step. Typed text lands on
+// Enter, not per key, so math like "90/2" is never half applied.
 class LiveEdit final {
  public:
   explicit LiveEdit(HistoryManager* history) : history_(history) {
@@ -33,6 +34,14 @@ class LiveEdit final {
   }
   // Lands the burst as one step.
   void Finish() { scope_.reset(); }
+  // Drops the burst: the project goes back to how it was before it.
+  void Cancel() {
+    const bool is_open = scope_ != nullptr;
+    if (is_open) {
+      scope_->Cancel();
+    }
+    scope_.reset();
+  }
 
  private:
   HistoryManager* history_;
@@ -47,7 +56,7 @@ void MakeLive(Box* box, LiveEdit* live, const QString& label,
               QObject* owner, Commit commit) {
   assert(box != nullptr && live != nullptr);
   assert(owner != nullptr);
-  box->setKeyboardTracking(true);
+  box->setKeyboardTracking(false);
   QObject::connect(box, &Box::valueChanged, owner,
                    [box, live, label, commit] {
                      // Opening the step repaints the panels, which would

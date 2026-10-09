@@ -19,7 +19,7 @@ include(CTest)
 
 # Modules, lowest first. See ARCHITECTURE.md for what each one owns.
 snapper_module(base
-  SOURCES frame.cpp text.cpp
+  SOURCES frame.cpp number_text.cpp scrub_drag.cpp text.cpp
   LIBS Qt6::Core)
 snapper_module(model
   SOURCES doll.cpp layer.cpp project.cpp reel.cpp shot.cpp transition.cpp
@@ -68,6 +68,8 @@ snapper_module(ui
           reel_preview.cpp reel_timeline.cpp reel_timeline_drop.cpp
           reel_timeline_commands.cpp reel_timeline_input.cpp
           shot_bin.cpp shot_strip.cpp slot_picker.cpp
+          motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
+          scrub_label.cpp
           stage_menu.cpp stage_view.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
           timeline_view.cpp transition_picker.cpp video_page.cpp
   MODULES edit
@@ -81,7 +83,7 @@ target_include_directories(snapper PRIVATE src)
 set_target_properties(snapper PROPERTIES WIN32_EXECUTABLE TRUE)
 
 if(BUILD_TESTING)
-  snapper_test(base SOURCES base_tests.cpp)
+  snapper_test(base SOURCES base_tests.cpp number_tests.cpp)
   snapper_test(model SOURCES model_tests.cpp)
   snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp lean_tests.cpp
                     drag_tests.cpp link_tests.cpp reel_tests.cpp
@@ -106,7 +108,7 @@ if(BUILD_TESTING)
                           pose_tool_tests.cpp reel_timeline_tests.cpp
                           rig_ui_tests.cpp
                           shot_strip_tests.cpp slot_picker_tests.cpp
-                          theme_tests.cpp
+                          motion_tests.cpp scrub_tests.cpp theme_tests.cpp
                           timeline_view_tests.cpp video_page_tests.cpp
                           window_tests.cpp)
   snapper_checks()

@@ -49,8 +49,8 @@ void ExportDialog::BuildLayout() {
   buttons_.addWidget(&cancel_);
   layout_.addRow(tr("Format"), &format_);
   layout_.addRow(tr("Range"), &range_);
-  layout_.addRow(tr("From frame"), &from_);
-  layout_.addRow(tr("Up to frame"), &to_);
+  AddNumberRow(&layout_, tr("From frame"), &from_, nullptr);
+  AddNumberRow(&layout_, tr("Up to frame"), &to_, nullptr);
   layout_.addRow(tr("Size"), &size_);
   layout_.addRow(tr("File"), &file_row_);
   layout_.addRow(&progress_);

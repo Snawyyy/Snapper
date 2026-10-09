@@ -33,9 +33,7 @@ LayerBox::LayerBox(const Managers& managers)
 void LayerBox::BuildRows() {
   assert(layout_.rowCount() == 0);
   start_.setRange(0, kMaxFrame);
-  start_.setPrefix(tr("from "));
   length_.setRange(0, kMaxFrame);
-  length_.setPrefix(tr("for "));
   length_.setSpecialValueText(tr("to the end"));
   words_.setMaximumHeight(60);
   SetUpNumber(&size_, Number::kSize);
@@ -46,25 +44,27 @@ void LayerBox::BuildRows() {
     effect_.addItem(EffectName(static_cast<EffectKind>(kind)));
   }
   layout_.addRow(tr("Name"), &name_);
-  AddPair(&layout_, tr("Frames"), &timing_row_, &start_, &length_);
+  AddNumberPair(&layout_, tr("Frames"), &timing_row_,
+                {tr("from"), &start_}, {tr("for"), &length_}, &live_);
   layout_.addRow(QString(), &flip_);
   AddTitle(&layout_, &text_title_, tr("Text"));
   layout_.addRow(tr("Words"), &words_);
-  AddPair(&layout_, tr("Size"), &size_row_, &size_, &bold_);
+  AddNumberRow(&layout_, tr("Size"), &size_, &live_);
+  layout_.addRow(QString(), &bold_);
   AddPair(&layout_, tr("Colours"), &colour_row_, &fill_, &outline_);
-  layout_.addRow(tr("Outline"), &outline_width_);
+  AddNumberRow(&layout_, tr("Outline"), &outline_width_, &live_);
   AddTitle(&layout_, &effect_title_, tr("Effect"));
   AddPair(&layout_, tr("Kind"), &effect_row_, &effect_, &effect_colour_);
-  layout_.addRow(tr("Strength"), &strength_);
+  AddNumberRow(&layout_, tr("Strength"), &strength_, &live_);
   fill_.setToolTip(tr("Fill colour"));
   outline_.setToolTip(tr("Outline colour"));
   strength_.setToolTip(tr("Keyed at the playhead."));
-  assert(layout_.rowCount() == 11);
+  assert(layout_.rowCount() == 12);
 }
 
 void LayerBox::Wire() {
   assert(managers_.IsComplete());
-  assert(layout_.rowCount() == 11);
+  assert(layout_.rowCount() == 12);
   connect(&name_, &QLineEdit::editingFinished, this, &LayerBox::CommitName);
   for (QSpinBox* box : {&start_, &length_}) {
     MakeLive(box, &live_, tr("Change layer timing"), this,
@@ -120,7 +120,8 @@ void LayerBox::ShowRows(bool is_doll, bool is_text, bool is_effect) {
   layout_.setRowVisible(&flip_, is_doll);
   layout_.setRowVisible(&text_title_, is_text);
   layout_.setRowVisible(&words_, is_text);
-  layout_.setRowVisible(&size_row_, is_text);
+  layout_.setRowVisible(&size_, is_text);
+  layout_.setRowVisible(&bold_, is_text);
   layout_.setRowVisible(&colour_row_, is_text);
   layout_.setRowVisible(&outline_width_, is_text);
   layout_.setRowVisible(&effect_title_, is_effect);

@@ -86,10 +86,10 @@ void PointMotionBox::Build() {
   angle_.setWrapping(true);
   SetUpNumber(&delay_, Number::kFraction);
   layout_.addRow(tr("Moves"), &kind_);
-  layout_.addRow(tr("Size"), &size_);
-  layout_.addRow(tr("Cycle"), &cycle_);
-  layout_.addRow(tr("Direction"), &angle_);
-  layout_.addRow(tr("Delay"), &delay_);
+  AddNumberRow(&layout_, tr("Size"), &size_, &live_);
+  AddNumberRow(&layout_, tr("Cycle"), &cycle_, &live_);
+  AddNumberRow(&layout_, tr("Direction"), &angle_, &live_);
+  AddNumberRow(&layout_, tr("Delay"), &delay_, &live_);
 }
 
 void PointMotionBox::SetKind(WarpMotionKind kind) {

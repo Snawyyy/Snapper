@@ -8,6 +8,7 @@
 
 #include "anim/doll_pose.h"
 #include "bench.h"
+#include "inspector_stage.h"
 #include "edit/link_manager.h"
 #include "ui/drag_box.h"
 #include "ui/inspector.h"
@@ -21,42 +22,9 @@
 namespace snapper {
 namespace {
 
-const ShotId kShot(1);
-
-void Stage(Bench* bench) {
-  Doll doll;
-  doll.rig.pieces = {{"head", "", {}, 0, -1, {}}};
-  Layer bob;
-  bob.id = LayerId(1);
-  bob.name = "Bob";
-  bob.content = DollLayer{"Bob", {}, false};
-  Layer words;
-  words.id = LayerId(2);
-  words.name = "Words";
-  words.content = TextLayer{};
-  std::get<TextLayer>(words.content).text = "Hi";
-  Shot shot;
-  shot.id = kShot;
-  shot.layers = {bob, words};
-  Project project;
-  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
-  project.shots = {std::make_shared<const Shot>(shot)};
-  bench->history.Reset(project);
-  bench->selection.SelectLayer(LayerId(1));
-  bench->selection.SelectPieces({"head"}, false);
-}
-
 void Type(QDoubleSpinBox* box, double value) {
   box->setValue(value);
   emit box->editingFinished();
-}
-
-PiecePose Head(const Bench& bench, int frame) {
-  const PoseMap poses = SamplePoses(
-      std::get<DollLayer>(bench.history.current().shots[0]->layers[0].content),
-      Frame(frame));
-  const auto found = poses.find("head");
-  return found == poses.end() ? PiecePose() : found->second;
 }
 
 }  // namespace

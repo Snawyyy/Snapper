@@ -26,7 +26,7 @@ LinkBox::LinkBox(const Managers& managers)
   unlink_.setText(tr("Unlink"));
   unlink_.setObjectName("unlink");
   layout_.addRow(&follows_);
-  layout_.addRow(tr("Strength"), &strength_);
+  AddNumberRow(&layout_, tr("Strength"), &strength_, &live_);
   layout_.addRow(&unlink_);
   MakeLive(&strength_, &live_, tr("Link strength"), this,
            [this] { Commit(); });
@@ -72,6 +72,26 @@ const Link* LinkBox::Shown() const {
   return nullptr;
 }
 
+std::vector<double> LinkBox::Strengths() const {
+  assert(managers_.history != nullptr);
+  assert(managers_.selection != nullptr);
+  std::vector<double> strengths;
+  const Shot* shot =
+      FindShot(managers_.history->current(), managers_.selection->shot());
+  const bool has_shot = shot != nullptr;
+  if (!has_shot) {
+    return strengths;
+  }
+  for (const LinkEnd& end : Picked()) {
+    const Link* link = FindLink(*shot, end);
+    const bool is_linked = link != nullptr;
+    if (is_linked) {
+      strengths.push_back(link->strength);
+    }
+  }
+  return strengths;
+}
+
 bool LinkBox::IsLinked() const {
   assert(managers_.history != nullptr);
   assert(managers_.selection != nullptr);
@@ -92,7 +112,7 @@ void LinkBox::Refresh() {
           .arg(managers_.links->NameOf(managers_.selection->shot(),
                                        link->leader))
           .arg(link->from.index()));
-  ShowNumber(&strength_, link->strength);
+  ShowNumber(&strength_, link->strength, Strengths());
 }
 
 void LinkBox::Commit() {

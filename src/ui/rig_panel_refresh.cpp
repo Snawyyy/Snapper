@@ -3,6 +3,7 @@
 #include <QSignalBlocker>
 
 #include <cassert>
+#include <vector>
 
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
@@ -103,6 +104,23 @@ void RigPanel::RefreshPieces() {
   RefreshChains();
 }
 
+void RigPanel::ShowOrderAndRest(const Doll& doll, const RigPiece& focus) {
+  assert(!piece_.isEmpty());
+  assert(managers_.history != nullptr);
+  std::vector<double> orders;
+  std::vector<double> rests;
+  for (const QString& name : Picked()) {
+    const RigPiece* piece = FindRig(doll.rig, name);
+    const bool is_found = piece != nullptr;
+    if (is_found) {
+      orders.push_back(piece->order);
+      rests.push_back(piece->rest_rotation);
+    }
+  }
+  ShowNumber(&order_, focus.order, orders);
+  ShowNumber(&rest_, focus.rest_rotation, rests);
+}
+
 void RigPanel::RefreshPiece() {
   const Doll* doll = doll_.isEmpty()
                          ? nullptr
@@ -143,10 +161,8 @@ void RigPanel::RefreshPiece() {
                               ? 0
                               : std::max(0, parent_.findText(rig->parent)));
   {
-    const QSignalBlocker quiet_order(order_);
     const QSignalBlocker quiet_columns(warp_columns_);
     const QSignalBlocker quiet_rows(warp_rows_);
-    order_.setValue(rig->order);
     keep_shape_.setChecked(rig->keeps_shape);
     const bool has_grid = rig->warp.IsOn();
     warp_on_.setChecked(has_grid);
@@ -156,7 +172,7 @@ void RigPanel::RefreshPiece() {
       warp_rows_.setValue(rig->warp.rows);
     }
   }
-  ShowNumber(&rest_, rig->rest_rotation);
+  ShowOrderAndRest(*doll, *rig);
   drawing_.clear();
   drawing_.addItem(tr("As in Krita"));
   for (const QString& file : art->drawings) {
