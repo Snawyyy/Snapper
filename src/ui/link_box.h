@@ -36,6 +36,8 @@ class LinkBox final : public QGroupBox {
   std::vector<LinkEnd> Picked() const;
   // The first picked thing's link, the focused layer's first.
   const Link* Shown() const;
+  // The strength of every picked thing that follows something.
+  std::vector<double> Strengths() const;
   void Commit();
 
   Managers managers_;

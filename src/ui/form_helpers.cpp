@@ -1,10 +1,16 @@
 #include "ui/form_helpers.h"
 
 #include <QColorDialog>
+#include <QLineEdit>
 #include <QSignalBlocker>
 
 #include <cassert>
 #include <cmath>
+#include <memory>
+
+#include "base/number_text.h"
+#include "ui/number_input.h"
+#include "ui/scrub_label.h"
 
 namespace snapper {
 
@@ -17,25 +23,26 @@ void SetUpNumber(QDoubleSpinBox* box, Number kind, const QString& prefix) {
     double step;
     int decimals;
     const char* suffix;
+    double scrub_unit;
   };
   const auto shape = [kind]() -> Shape {
     switch (kind) {
       case Number::kPixels:
-        return {-100000, 100000, 1, 1, " px"};
+        return {-100000, 100000, 1, 1, " px", 1};
       case Number::kSize:
-        return {0, 10000, 1, 1, " px"};
+        return {0, 10000, 1, 1, " px", 1};
       case Number::kDegrees:
-        return {-3600, 3600, 1, 1, " deg"};
+        return {-3600, 3600, 1, 1, " deg", 1};
       case Number::kLean:
-        return {-85, 85, 1, 1, " deg"};
+        return {-85, 85, 1, 1, " deg", 1};
       case Number::kScale:
-        return {0, 10, 0.05, 2, ""};
+        return {0, 10, 0.05, 2, "", 0.01};
       case Number::kFraction:
-        return {0, 1, 0.05, 2, ""};
+        return {0, 1, 0.05, 2, "", 0.01};
       case Number::kZoom:
-        return {0.05, 10, 0.05, 2, ""};
+        return {0.05, 10, 0.05, 2, "", 0.01};
     }
-    return {0, 1, 0.05, 2, ""};
+    return {0, 1, 0.05, 2, "", 0.01};
   }();
   box->setRange(shape.low, shape.high);
   box->setSingleStep(shape.step);
@@ -44,6 +51,39 @@ void SetUpNumber(QDoubleSpinBox* box, Number kind, const QString& prefix) {
   box->setPrefix(prefix);
   box->setAccelerated(true);
   box->setMinimumWidth(64);
+  SetScrubUnit(box, shape.scrub_unit);
+}
+
+void SetScrubUnit(QAbstractSpinBox* box, double unit) {
+  assert(box != nullptr);
+  assert(unit > 0.0);
+  box->setProperty("scrub_unit", unit);
+}
+
+void AddNumberRow(QFormLayout* form, const QString& label,
+                  QAbstractSpinBox* box, LiveEdit* live) {
+  assert(form != nullptr && box != nullptr);
+  assert(!label.isEmpty());
+  NumberInput::Install(box);
+  // The form takes the label as its child, like a plain row's label.
+  auto scrub = std::make_unique<ScrubLabel>(label, box, live);
+  form->addRow(scrub.release(), box);
+}
+
+void AddNumberPair(QFormLayout* form, const QString& label, QHBoxLayout* row,
+                   const NumberPart& first, const NumberPart& second,
+                   LiveEdit* live) {
+  assert(form != nullptr && row != nullptr);
+  assert(first.box != nullptr && second.box != nullptr);
+  row->setSpacing(4);
+  for (const NumberPart* part : {&first, &second}) {
+    assert(part->box->property("prefix").toString().isEmpty());
+    NumberInput::Install(part->box);
+    auto scrub = std::make_unique<ScrubLabel>(part->text, part->box, live);
+    row->addWidget(scrub.release());
+    row->addWidget(part->box, 1);
+  }
+  form->addRow(label, row);
 }
 
 void AddTitle(QFormLayout* form, QLabel* title, const QString& text) {
@@ -87,6 +127,42 @@ void ShowNumber(QSpinBox* box, int value) {
   }
   const QSignalBlocker quiet(box);
   box->setValue(value);
+}
+
+void ShowMixed(QAbstractSpinBox* box) {
+  assert(box != nullptr);
+  assert(box->findChild<QLineEdit*>() != nullptr);
+  const bool is_typing = box->hasFocus();
+  if (is_typing) {
+    return;
+  }
+  // The box's own text slot would take "Mixed" for typing.
+  QLineEdit* edit = box->findChild<QLineEdit*>();
+  const QSignalBlocker quiet_box(box);
+  const QSignalBlocker quiet_edit(edit);
+  edit->setText(QObject::tr("Mixed"));
+}
+
+void ShowNumber(QDoubleSpinBox* box, double focus_value,
+                const std::vector<double>& picked) {
+  assert(box != nullptr);
+  assert(std::isfinite(focus_value));
+  ShowNumber(box, focus_value);
+  const bool is_mixed = HasMixedValues(picked);
+  if (is_mixed) {
+    ShowMixed(box);
+  }
+}
+
+void ShowNumber(QSpinBox* box, int focus_value,
+                const std::vector<double>& picked) {
+  assert(box != nullptr);
+  assert(box->maximum() >= box->minimum());
+  ShowNumber(box, focus_value);
+  const bool is_mixed = HasMixedValues(picked);
+  if (is_mixed) {
+    ShowMixed(box);
+  }
 }
 
 void ShowColour(QPushButton* button, const QColor& colour) {

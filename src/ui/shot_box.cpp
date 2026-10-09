@@ -23,17 +23,19 @@ ShotBox::ShotBox(const Managers& managers)
   length_.setObjectName("shot_length");
   length_.setRange(1, kMaxFrame);
   length_.setSuffix(tr(" frames"));
+  SetScrubUnit(&length_, 1.0);
   length_seconds_.setObjectName("shot_seconds");
   length_seconds_.setDecimals(2);
   length_seconds_.setRange(SecondsAtFrame(Frame(1)),
                            SecondsAtFrame(Frame(kMaxFrame)));
   length_seconds_.setSingleStep(0.5);
+  SetScrubUnit(&length_seconds_, 0.5);
   length_seconds_.setSuffix(tr(" s"));
   length_seconds_.setToolTip(
       tr("Length in seconds, rounded to the nearest frame."));
   layout_.addRow(tr("Name"), &name_);
-  AddPair(&layout_, tr("Length"), &length_row_, &length_,
-          &length_seconds_);
+  AddNumberRow(&layout_, tr("Length"), &length_, &live_);
+  AddNumberRow(&layout_, tr("Seconds"), &length_seconds_, &live_);
   layout_.addRow(tr("Background"), &background_);
   connect(&name_, &QLineEdit::editingFinished, this, [this] {
     const Shot* shot = Focused();
@@ -64,7 +66,7 @@ ShotBox::ShotBox(const Managers& managers)
           &ShotBox::PickBackground);
   Follow(managers_, this);
   Refresh();
-  assert(layout_.rowCount() == 3);
+  assert(layout_.rowCount() == 4);
 }
 
 const Shot* ShotBox::Focused() const {
@@ -115,8 +117,18 @@ void ShotBox::Refresh() {
       name_.setText(shot->name);
     }
   }
-  ShowNumber(&length_, shot->length.index());
-  ShowNumber(&length_seconds_, SecondsAtFrame(shot->length));
+  std::vector<double> frames;
+  std::vector<double> seconds;
+  for (const ShotId id : managers_.selection->shots()) {
+    const Shot* picked = FindShot(managers_.history->current(), id);
+    const bool is_found = picked != nullptr;
+    if (is_found) {
+      frames.push_back(picked->length.index());
+      seconds.push_back(SecondsAtFrame(picked->length));
+    }
+  }
+  ShowNumber(&length_, shot->length.index(), frames);
+  ShowNumber(&length_seconds_, SecondsAtFrame(shot->length), seconds);
   ShowColour(&background_, shot->background);
 }
 

@@ -5,6 +5,7 @@
 
 #include <cassert>
 #include <variant>
+#include <vector>
 
 #include "anim/sampler.h"
 #include "edit/history_manager.h"
@@ -41,14 +42,8 @@ void LayerBox::Refresh() {
   const auto* effect = std::get_if<EffectLayer>(&layer->content);
   ShowRows(doll != nullptr, text != nullptr, effect != nullptr);
   const QSignalBlocker quiet_name(name_);
-  const QSignalBlocker quiet_start(start_);
-  const QSignalBlocker quiet_length(length_);
   name_.setText(layer->name);
-  const bool is_timing_typed = start_.hasFocus() || length_.hasFocus();
-  if (!is_timing_typed) {
-    start_.setValue(layer->start.index());
-    length_.setValue(layer->length.index());
-  }
+  ShowTiming(*layer);
   flip_.setChecked(doll != nullptr && doll->is_flipped);
   const bool is_text = text != nullptr;
   // Never overwrite words while they are being typed.
@@ -73,6 +68,27 @@ void LayerBox::Refresh() {
     ShowNumber(&strength_,
                Sample(effect->amount, spot ? spot->local : Frame(0), 1.0));
   }
+}
+
+void LayerBox::ShowTiming(const Layer& layer) {
+  assert(managers_.selection != nullptr);
+  assert(layer.id.IsValid());
+  // The fields show the focused layer; picks that differ say Mixed.
+  std::vector<double> starts;
+  std::vector<double> lengths;
+  const Shot* shot =
+      FindShot(managers_.history->current(), managers_.selection->shot());
+  const bool has_shot = shot != nullptr;
+  for (const LayerId id : managers_.selection->PickedLayers()) {
+    const Layer* picked = has_shot ? FindLayer(*shot, id) : nullptr;
+    const bool is_found = picked != nullptr;
+    if (is_found) {
+      starts.push_back(picked->start.index());
+      lengths.push_back(picked->length.index());
+    }
+  }
+  ShowNumber(&start_, layer.start.index(), starts);
+  ShowNumber(&length_, layer.length.index(), lengths);
 }
 
 void LayerBox::CommitName() {

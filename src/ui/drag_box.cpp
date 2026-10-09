@@ -30,8 +30,8 @@ DragBox::DragBox(const Managers& managers)
   bounce_.setToolTip(tr("How much it wobbles before settling: 0 settles "
                         "softly, 1 keeps bouncing."));
   layout_.addRow(QString(), &drags_);
-  layout_.addRow(tr("Lag"), &lag_);
-  layout_.addRow(tr("Bounce"), &bounce_);
+  AddNumberRow(&layout_, tr("Lag"), &lag_, &live_);
+  AddNumberRow(&layout_, tr("Bounce"), &bounce_, &live_);
   connect(&drags_, &QCheckBox::clicked, this, [this] {
     const auto picked = Pick();
     if (picked) {

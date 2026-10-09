@@ -40,7 +40,6 @@ class ShotBox final : public QGroupBox {
   QFormLayout layout_;
   LiveEdit live_;
   QLineEdit name_;
-  QHBoxLayout length_row_;
   QSpinBox length_;
   QDoubleSpinBox length_seconds_;
   QPushButton background_;

@@ -68,7 +68,8 @@ snapper_module(ui
           reel_preview.cpp reel_timeline.cpp reel_timeline_drop.cpp
           reel_timeline_commands.cpp reel_timeline_input.cpp
           shot_bin.cpp shot_strip.cpp slot_picker.cpp
-          motion.cpp motion_menu.cpp motion_table.cpp
+          motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
+          scrub_label.cpp
           stage_menu.cpp stage_view.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
           timeline_view.cpp transition_picker.cpp video_page.cpp
   MODULES edit
@@ -107,7 +108,7 @@ if(BUILD_TESTING)
                           pose_tool_tests.cpp reel_timeline_tests.cpp
                           rig_ui_tests.cpp
                           shot_strip_tests.cpp slot_picker_tests.cpp
-                          motion_tests.cpp theme_tests.cpp
+                          motion_tests.cpp scrub_tests.cpp theme_tests.cpp
                           timeline_view_tests.cpp video_page_tests.cpp
                           window_tests.cpp)
   snapper_checks()

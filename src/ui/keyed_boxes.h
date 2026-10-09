@@ -8,7 +8,11 @@
 #include <QHBoxLayout>
 
 #include <array>
+#include <vector>
 
+#include "base/frame.h"
+#include "edit/track_ref.h"
+#include "model/project.h"
 #include "ui/live_edit.h"
 #include "ui/managers.h"
 
@@ -35,6 +39,8 @@ class PoseBox final : public QGroupBox {
 
   void Commit();
   void SwapDrawing(int index);
+  void ShowPose(const Project& project, const std::vector<TrackRef>& tracks,
+                Frame frame, const PiecePose& focus);
 
   Managers managers_;
   QFormLayout layout_;

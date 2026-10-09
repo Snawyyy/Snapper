@@ -35,9 +35,9 @@ MotionBox::MotionBox(const Managers& managers)
   length_.setValue(24);
   length_.setSuffix(tr(" frames"));
   layout_.addRow(tr("Loop"), &preset_);
-  layout_.addRow(tr("Amount"), &amount_);
+  AddNumberRow(&layout_, tr("Amount"), &amount_, nullptr);
   layout_.addRow(tr("Timing"), &hold_);
-  layout_.addRow(tr("Length"), &length_);
+  AddNumberRow(&layout_, tr("Length"), &length_, nullptr);
   layout_.addRow(&apply_);
   connect(&apply_, &QPushButton::clicked, this, &MotionBox::Apply);
   Follow(managers_, this);

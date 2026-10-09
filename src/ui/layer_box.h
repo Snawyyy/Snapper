@@ -38,6 +38,7 @@ class LayerBox final : public QGroupBox {
  private:
   void BuildRows();
   void Wire();
+  void ShowTiming(const Layer& layer);
   void CommitName();
   void CommitTiming();
   void CommitText();
@@ -51,7 +52,6 @@ class LayerBox final : public QGroupBox {
   LiveEdit live_;
   QLineEdit name_;
   QHBoxLayout timing_row_;
-  QHBoxLayout size_row_;
   QHBoxLayout colour_row_;
   QHBoxLayout effect_row_;
   QLabel text_title_;
