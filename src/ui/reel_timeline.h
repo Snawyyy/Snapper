@@ -19,6 +19,7 @@ class QMenu;
 #include "model/reel.h"
 #include "ui/drag_feedback.h"
 #include "ui/handle_hover.h"
+#include "base/error.h"
 #include "ui/managers.h"
 #include "ui/problem.h"
 
@@ -153,6 +154,8 @@ class ReelTimeline final : public QWidget {
   // The name the hover knows a clip start or end edge by.
   static QString EdgeKey(ClipId clip, bool is_start);
   void Report(const QString& problem) { emit Problem(problem); }
+  // Passes on a delete's outcome; the toast offers Undo for that step.
+  void DeletePicked(const Result<void>& result, size_t count);
 
   Managers managers_;
   // The clip edge under the cursor widens and brightens.

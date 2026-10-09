@@ -20,6 +20,7 @@
 #include "edit/stage_manager.h"
 #include "ui/main_window.h"
 #include "ui/motion.h"
+#include "ui/toast_manager.h"
 
 namespace snapper {
 
@@ -52,6 +53,7 @@ class AppContext final {
   PlaybackManager playback_;
   ExportManager exporter_;
   MotionManager motion_;
+  ToastManager toasts_;
   MainWindow window_;
 };
 

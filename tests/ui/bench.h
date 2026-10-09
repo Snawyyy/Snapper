@@ -20,6 +20,7 @@
 #include "edit/stage_manager.h"
 #include "ui/managers.h"
 #include "ui/motion.h"
+#include "ui/toast_manager.h"
 
 namespace snapper {
 
@@ -41,11 +42,12 @@ struct Bench final {
   PlaybackManager playback{&history};
   ExportManager exporter{&history, &playback};
   MotionManager motion{document.SettingsPath()};
+  ToastManager toasts{&history};
 
   Managers All() {
     return {&history, &document, &library, &rig, &shots, &stage,
             &selection, &pose, &keys, &presets, &playback, &exporter,
-            &links, &reel, &motion};
+            &links, &reel, &motion, &toasts};
   }
 };
 

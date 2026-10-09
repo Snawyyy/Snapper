@@ -90,6 +90,8 @@ class TimelineView final : public QWidget {
   // was running.
   bool CancelKeyDrag();
   void Report(const QString& problem) { emit Problem(problem); }
+  // Removes the picked keys; the toast offers Undo for that step.
+  void DeletePicked();
   void KeyMenu(const TimelineRow& row, Frame frame, QPoint where);
   void EmptyMenu(const TimelineRow& row, Frame frame, QPoint where);
 

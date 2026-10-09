@@ -66,6 +66,8 @@ class ShotStrip final : public QWidget {
   void Menu(ShotId shot, QPoint where);
   std::vector<ShotId> PickedShots() const;
   void Report(const QString& problem) { emit Problem(problem); }
+  // Removes shots; the toast offers Undo for exactly that step.
+  void DeletePicked(const std::vector<ShotId>& picked);
 
   Managers managers_;
   // The right edge under the cursor widens and brightens.
