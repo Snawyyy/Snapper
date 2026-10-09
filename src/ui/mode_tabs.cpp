@@ -4,6 +4,7 @@
 
 #include <cassert>
 
+#include "ui/mode_icons.h"
 #include "ui/motion.h"
 #include "ui/theme.h"
 
@@ -35,9 +36,26 @@ QRectF ModeTabs::BarUnder(int index) const {
                 tab.width() - 4, kBarHeightPx);
 }
 
+void ModeTabs::RefreshIcons() {
+  assert(count() <= 3);
+  assert(currentIndex() < count());
+  for (int i = 0; i < count(); ++i) {
+    const bool is_picked = i == currentIndex();
+    setTabIcon(i, ModeIcon(i, is_picked));
+  }
+}
+
+void ModeTabs::tabInserted(int index) {
+  QTabBar::tabInserted(index);
+  assert(index >= 0);
+  assert(index < count());
+  RefreshIcons();
+}
+
 void ModeTabs::SlideTo(int index) {
   assert(motion_ != nullptr);
   assert(index < count());
+  RefreshIcons();
   const bool is_running = !animation_.isNull();
   if (is_running) {
     animation_->stop();

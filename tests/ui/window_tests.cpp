@@ -48,6 +48,7 @@ class WindowTests final : public QObject {
   void TopBarUndoNamesTheStep();
   void TopBarTransportDrivesPlayback();
   void RedBarSlidesToTheTab();
+  void TabsWearIcons();
 };
 
 void WindowTests::TitleShowsNameDirtAndPlace() {
@@ -225,6 +226,20 @@ void WindowTests::RedBarSlidesToTheTab() {
   QVERIFY(bar.right() <= tabs->tabRect(2).right());
   window.SetMode(MainWindow::Mode::kPose);
   QVERIFY(tabs->bar().left() < bar.left());
+}
+
+void WindowTests::TabsWearIcons() {
+  Bench rig;
+  MainWindow window(rig.All());
+  auto* tabs = window.findChild<ModeTabs*>("modes");
+  QVERIFY(tabs != nullptr);
+  for (int i = 0; i < tabs->count(); ++i) {
+    QVERIFY(!tabs->tabIcon(i).isNull());
+  }
+  const QImage rest = tabs->tabIcon(1).pixmap(16, 16).toImage();
+  window.SetMode(MainWindow::Mode::kRig);
+  const QImage picked = tabs->tabIcon(1).pixmap(16, 16).toImage();
+  QVERIFY(rest != picked);
 }
 
 }  // namespace snapper

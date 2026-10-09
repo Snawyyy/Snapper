@@ -27,8 +27,11 @@ class ModeTabs final : public QTabBar {
  protected:
   void paintEvent(QPaintEvent* event) override;
   void tabLayoutChange() override;
+  void tabInserted(int index) override;
 
  private:
+  // Draws each tab's icon, red on the picked one.
+  void RefreshIcons();
   // Slides the bar under the tab at index.
   void SlideTo(int index);
   QRectF BarUnder(int index) const;
