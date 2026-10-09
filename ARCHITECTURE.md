@@ -405,6 +405,11 @@ pure helpers in `edit/change_diff.h`, tested without a widget:
 `DiffClips` compares the reel's clips by id. A key that kept its pose
 and changed frame is one move, not a removal and an addition. Views
 only animate the answer; the data never waits for an animation.
+`ChangeWatcher` (one per timeline) hands a view the project from before
+each step that lands: a drag is one step, a cancelled drag, a save and
+a newly opened file are none, and a step that returns to a state the
+history already visited (`HistoryManager::revision`) is flagged as
+undo or redo.
 
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.

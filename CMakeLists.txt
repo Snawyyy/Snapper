@@ -45,7 +45,8 @@ snapper_module(render
           stage_geometry.cpp stage_hit.cpp warp_raster.cpp
   MODULES anim)
 snapper_module(edit
-  SOURCES change_diff.cpp doll_library_manager.cpp document_manager.cpp
+  SOURCES change_diff.cpp change_watcher.cpp
+          doll_library_manager.cpp document_manager.cpp
           edit_scope.cpp
           export_manager.cpp
           history_manager.cpp key_clipboard.cpp key_manager.cpp
@@ -94,7 +95,8 @@ if(BUILD_TESTING)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp video_reader_tests.cpp)
   snapper_test(render SOURCES render_tests.cpp)
-  snapper_test(edit SOURCES change_diff_tests.cpp document_tests.cpp
+  snapper_test(edit SOURCES change_diff_tests.cpp change_watcher_tests.cpp
+                            document_tests.cpp
                             export_tests.cpp
                             history_tests.cpp
                             key_tests.cpp library_tests.cpp
