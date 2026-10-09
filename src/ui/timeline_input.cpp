@@ -100,6 +100,7 @@ void TimelineView::mousePressEvent(QMouseEvent* event) {
     managers_.selection->PickKeys(
         keys, is_shift ? PickMode::kAdd : PickMode::kReplace);
   }
+  drag_playhead_.Begin();
   Seek(*key);
   StartKeyDrag(*key, at);
 }

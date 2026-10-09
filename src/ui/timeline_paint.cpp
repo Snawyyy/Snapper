@@ -10,6 +10,7 @@
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/change_effects.h"
+#include "ui/paint_clip.h"
 #include "ui/theme.h"
 #include "ui/timeline_layout.h"
 #include "ui/timeline_view.h"
@@ -51,6 +52,8 @@ void TimelineView::PaintRows(QPainter* painter,
                         QPointF(width(), top + kRowHeight));
     }
     const double middle = top + kRowHeight / 2.0;
+    // Scrolled keys, bars and puffs never reach over the names.
+    const PaintClip keep_in(painter, FrameArea(kRulerHeight + kWaveHeight));
     PaintKeys(painter, row, row_index, middle, is_ghost);
     if (!is_ghost) {
       PaintPuffs(painter, row, middle);
@@ -58,6 +61,12 @@ void TimelineView::PaintRows(QPainter* painter,
     top += kRowHeight;
     ++row_index;
   }
+}
+
+QRectF TimelineView::FrameArea(double top) const {
+  assert(width() > kNameWidth);
+  assert(top >= 0.0);
+  return QRectF(kNameWidth, top, width() - kNameWidth, height() - top);
 }
 
 bool TimelineView::IsKeyPicked(const TimelineRow& row, Frame frame) const {

@@ -53,6 +53,8 @@ void TimelineView::SlideKeys(Frame frame, QPointF at) {
     if (moved) {
       drag_frame_ = frame;
       managers_.selection->SelectKeys(*moved, false);
+      // The playhead shows the frame the key would drop on.
+      Seek(drag_frame_);
     } else {
       emit Problem(moved.error().message);
     }
@@ -69,6 +71,7 @@ void TimelineView::EndKeyDrag() {
   key_drag_.reset();
   is_landing_drag_ = false;
   is_started_ = false;
+  drag_playhead_.End();
   assert(key_drag_ == nullptr);
 }
 
@@ -84,6 +87,7 @@ bool TimelineView::CancelKeyDrag() {
   is_started_ = false;
   feedback_.Cancel();
   managers_.selection->SelectKeys(drag_keys_, false);
+  drag_playhead_.Restore();
   update();
   return true;
 }

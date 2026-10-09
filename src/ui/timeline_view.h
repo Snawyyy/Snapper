@@ -17,6 +17,7 @@
 #include "edit/timeline_rows.h"
 #include "ui/change_effects.h"
 #include "ui/drag_feedback.h"
+#include "ui/drag_playhead.h"
 #include "ui/handle_hover.h"
 #include "ui/managers.h"
 #include "ui/playhead_settle.h"
@@ -66,6 +67,8 @@ class TimelineView final : public QWidget {
 
  private:
   void PaintRuler(QPainter* painter) const;
+  // Where frames show: right of the names, from top down.
+  QRectF FrameArea(double top) const;
   // Faint lines down the rows at each frame's start.
   void PaintGrid(QPainter* painter) const;
   // Frames between ruler numbers at the current zoom.
@@ -153,6 +156,9 @@ class TimelineView final : public QWidget {
   ChangeEffects effects_;
   // The playhead overshoots a little as it lands on a frame.
   PlayheadSettle settle_;
+  // The playhead before the press: a key drag carries it, Escape
+  // brings it back.
+  DragPlayhead drag_playhead_;
 };
 
 }  // namespace snapper

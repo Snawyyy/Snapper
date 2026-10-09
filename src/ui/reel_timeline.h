@@ -20,6 +20,7 @@ class QMenu;
 #include "model/reel.h"
 #include "ui/change_effects.h"
 #include "ui/drag_feedback.h"
+#include "ui/drag_playhead.h"
 #include "ui/handle_hover.h"
 #include "base/error.h"
 #include "ui/managers.h"
@@ -143,6 +144,8 @@ class ReelTimeline final : public QWidget {
   // that drag, drawn by PaintClip, where they sit now.
   void GrabGhost();
   void Follow(QPointF at);
+  // Moves the playhead to the frame the dragged clip edge lands on.
+  void CarryPlayhead(Frame landing);
   // Shows a trim: how many frames the edge went from its start, and a
   // flash when it snapped from the frame under the cursor (raw).
   void ShowTrim(Frame raw, Frame edge, QPointF at);
@@ -184,6 +187,8 @@ class ReelTimeline final : public QWidget {
   ChangeEffects effects_;
   // The playhead overshoots a little as it lands on a frame.
   PlayheadSettle settle_;
+  // The playhead before a drag: the drag carries it, Escape returns it.
+  DragPlayhead drag_playhead_;
   double zoom_;
   // Frames scrolled off the left.
   double scroll_ = 0.0;
