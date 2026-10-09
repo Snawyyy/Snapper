@@ -116,7 +116,7 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
   assert(shot.layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
   QImage frame = Blank(project, scale, shot.background);
   const QTransform view = ViewTransform(project, shot, local, scale);
-  LinkSolver links(project, shot);
+  LinkSolver links(project, shot, cache_.poses());
   for (const Layer& layer : shot.layers) {
     const bool is_live = IsLayerLive(layer, local, shot.length);
     if (!is_live) {
@@ -145,7 +145,7 @@ QImage FrameRenderer::RenderLayers(
   assert(shot.layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
   QImage frame = Blank(project, scale, Qt::transparent);
   const QTransform view = ViewTransform(project, shot, local, scale);
-  LinkSolver links(project, shot);
+  LinkSolver links(project, shot, cache_.poses());
   QPainter painter(&frame);
   for (const Layer& layer : shot.layers) {
     const auto chosen = only.find(layer.id);

@@ -10,6 +10,7 @@
 #include <optional>
 #include <vector>
 
+#include "anim/pose_memo.h"
 #include "base/frame.h"
 #include "model/project.h"
 
@@ -21,7 +22,8 @@ namespace snapper {
 // A layer's space to screen.
 std::optional<QTransform> LayerToScreen(const Project& project,
                                         const Shot& shot, LayerId layer,
-                                        Frame local, double scale);
+                                        Frame local, double scale,
+                                        PoseMemo* memo = nullptr);
 
 // The space a piece's offset moves in (its parent's, or the layer's for
 // a root piece) to screen. Mouse moves are mapped back through it so a
@@ -29,7 +31,8 @@ std::optional<QTransform> LayerToScreen(const Project& project,
 std::optional<QTransform> PieceParentToScreen(const Project& project,
                                               const Shot& shot, LayerId layer,
                                               const QString& piece,
-                                              Frame local, double scale);
+                                              Frame local, double scale,
+                                              PoseMemo* memo = nullptr);
 
 // A piece's drawing outline and joint on screen.
 struct PieceOutline final {
@@ -39,7 +42,8 @@ struct PieceOutline final {
 std::optional<PieceOutline> PieceOnScreen(const Project& project,
                                           const Shot& shot, LayerId layer,
                                           const QString& piece, Frame local,
-                                          double scale);
+                                          double scale,
+                                          PoseMemo* memo = nullptr);
 
 // A piece's warp grid on screen: its points row by row (as shown,
 // pushed by the pose's warp, in drawing pixels), the grid's size, each
@@ -59,7 +63,8 @@ struct WarpOnScreen final {
 std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
                                               const Shot& shot, LayerId layer,
                                               const QString& piece,
-                                              Frame local, double scale);
+                                              Frame local, double scale,
+                                              PoseMemo* memo = nullptr);
 
 // The draggable tip of each IK chain of a doll layer.
 struct IkHandle final {
@@ -67,7 +72,8 @@ struct IkHandle final {
   QPointF point;
 };
 std::vector<IkHandle> IkHandles(const Project& project, const Shot& shot,
-                                LayerId layer, Frame local, double scale);
+                                LayerId layer, Frame local, double scale,
+                                PoseMemo* memo = nullptr);
 
 }  // namespace snapper
 

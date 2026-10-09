@@ -12,6 +12,7 @@
 
 #include "anim/doll_drag.h"
 #include "anim/doll_pose.h"
+#include "anim/pose_memo.h"
 #include "base/frame.h"
 #include "model/project.h"
 
@@ -30,7 +31,10 @@ namespace snapper {
 // so a frame is solved once. Not shared between threads.
 class LinkSolver final {
  public:
-  LinkSolver(const Project& project, const Shot& shot);
+  // memo, when given, keeps the poses of doll layers across solvers
+  // (see PoseMemo); the shared pieces are the same either way.
+  LinkSolver(const Project& project, const Shot& shot,
+             PoseMemo* memo = nullptr);
 
   // Layer space to shot space at frame, moved by the link on the layer.
   QTransform LayerTransform(const Layer& layer, Frame frame);
@@ -54,6 +58,8 @@ class LinkSolver final {
 
   const Project& project_;
   const Shot& shot_;
+  // Null when poses are not kept across solvers.
+  PoseMemo* memo_;
   // ShownPoses by layer id and frame.
   std::map<std::pair<int, int>, PoseMap> poses_;
   // Pushes worked out, by link and frame, and those being worked out:

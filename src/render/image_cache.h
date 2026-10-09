@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "anim/pose_memo.h"
 #include "model/doll.h"
 #include "render/warp_cache.h"
 #include "render/warp_raster.h"
@@ -35,6 +36,8 @@ class ImageCache final {
   // Forgets path, for when a file changed on disk.
   void Forget(const QString& path);
   std::int64_t bytes() const { return bytes_; }
+  // The poses solved so far for the shot being drawn (see PoseMemo).
+  PoseMemo* poses() { return &poses_; }
 
  private:
   struct Entry final {
@@ -49,6 +52,7 @@ class ImageCache final {
   std::list<QString> uses_;
   std::int64_t bytes_ = 0;
   WarpCache warps_;
+  PoseMemo poses_;
 };
 
 }  // namespace snapper

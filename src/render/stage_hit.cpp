@@ -132,7 +132,7 @@ std::optional<StageHit> HitTest(const Project& project, const Shot& shot,
   assert(scale > 0.0);
   const QTransform view =
       FrameRenderer::ViewTransform(project, shot, local, scale);
-  LinkSolver links(project, shot);
+  LinkSolver links(project, shot, cache->poses());
   for (auto it = shot.layers.rbegin(); it != shot.layers.rend(); ++it) {
     const QTransform world = links.LayerTransform(*it, local) * view;
     bool is_invertible = false;
@@ -159,7 +159,8 @@ QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
   assert(cache != nullptr);
   assert(scale > 0.0);
   const Layer* found = layer.IsValid() ? FindLayer(shot, layer) : nullptr;
-  const auto to_screen = LayerToScreen(project, shot, layer, local, scale);
+  const auto to_screen =
+      LayerToScreen(project, shot, layer, local, scale, cache->poses());
   const bool is_found = found != nullptr && to_screen.has_value();
   if (!is_found) {
     return QPolygonF();
@@ -181,7 +182,7 @@ QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
     // One box around every posed piece, in the layer's own space, so it
     // turns and scales with the doll.
     own = QRectF();
-    LinkSolver links(project, shot);
+    LinkSolver links(project, shot, cache->poses());
     for (const PlacedPiece& piece :
          PlaceDoll(*doll, links.Poses(*doll, *found, local))) {
       own = own.united(
@@ -251,7 +252,8 @@ std::vector<StageHit> HitBox(const Project& project, const Shot& shot,
     if (is_doll) {
       for (const RigPiece& piece : doll->rig.pieces) {
         const auto outline =
-            PieceOnScreen(project, shot, layer.id, piece.name, local, scale);
+            PieceOnScreen(project, shot, layer.id, piece.name, local, scale,
+                          cache->poses());
         QPainterPath shape;
         shape.addPolygon(outline ? outline->outline : QPolygonF());
         const bool is_caught = outline.has_value() && area.intersects(shape);

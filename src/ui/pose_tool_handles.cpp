@@ -91,7 +91,8 @@ std::vector<PoseTool::Handle> PoseTool::HandlesOf(
     const auto warp =
         is_whole ? std::nullopt
                  : PieceWarpOnScreen(project, *shot, pick.layer, pick.piece,
-                                     frame.local, frame.scale);
+                                     frame.local, frame.scale,
+                                     cache_->poses());
     for (size_t i = 0; warp && i < warp->points.size(); ++i) {
       const WarpDot dot{pick.layer, pick.piece, static_cast<int>(i)};
       handles.push_back({GrabKind::kWarpDot, WarpKey(dot),
@@ -105,7 +106,7 @@ std::vector<PoseTool::Handle> PoseTool::HandlesOf(
       is_live ? managers_.selection->layer() : shown_layer_;
   for (const IkHandle& tip :
        layer.IsValid() ? IkHandles(project, *shot, layer, frame.local,
-                                   frame.scale)
+                                   frame.scale, cache_->poses())
                        : std::vector<IkHandle>()) {
     handles.push_back({GrabKind::kIkTip, IkKey(tip.chain),
                        tip.point + frame.corner, {}, {}, layer, tip.chain});

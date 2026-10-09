@@ -106,7 +106,14 @@ struct Scene final {
   std::unique_ptr<PaintCounter> counter;
 
   bool Open(bool is_animated = false) {
-    StageBigDoll(&bench, is_animated);
+    // SNAPPER_PERF_PROJECT=<file> measures a real project instead.
+    const QString real = qEnvironmentVariable("SNAPPER_PERF_PROJECT");
+    const bool is_real = !real.isEmpty();
+    if (is_real) {
+      assert(bench.document.Open(real).has_value());
+    } else {
+      StageBigDoll(&bench, is_animated);
+    }
     window = std::make_unique<MainWindow>(bench.All());
     window->resize(1600, 900);
     window->show();

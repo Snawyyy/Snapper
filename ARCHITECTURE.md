@@ -304,7 +304,11 @@ test. Warped pieces are drawn by `WarpImage`, which maps each grid cell
 as two triangles back into the drawing. Each renderer has its own
 `ImageCache`; nothing is shared across threads. The cache also holds a
 `WarpCache` of bent drawings (`ImageCache::Warped`), so painting and
-hover hit tests bend a drawing once per pose, not once per paint. Preview may render at a
+hover hit tests bend a drawing once per pose, not once per paint. It also owns a
+`PoseMemo` (`anim/pose_memo.h`): the poses `LinkSolver` solved for the shot
+being drawn, by layer and frame, so paint, hit tests and handle overlays
+solve a frame once. It holds one shot by identity and empties itself when
+an edit makes new shot or doll pointers. Preview may render at a
 smaller scale; effects scale their sizes with it so they look the same.
 
 `RenderReel` draws a reel frame: shot clips through `RenderShot`, video

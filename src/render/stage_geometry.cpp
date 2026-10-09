@@ -23,7 +23,8 @@ struct PosedDoll final {
 
 // The doll layer's pieces in layer space, and layer space to screen.
 std::optional<PosedDoll> Pose(const Project& project, const Shot& shot,
-                              LayerId layer, Frame local, double scale) {
+                              LayerId layer, Frame local, double scale,
+                              PoseMemo* memo) {
   assert(scale > 0.0);
   assert(local.index() >= 0);
   const Layer* found = layer.IsValid() ? FindLayer(shot, layer) : nullptr;
@@ -35,7 +36,7 @@ std::optional<PosedDoll> Pose(const Project& project, const Shot& shot,
   if (!is_doll) {
     return std::nullopt;
   }
-  LinkSolver links(project, shot);
+  LinkSolver links(project, shot, memo);
   return PosedDoll{doll,
                    PieceTransforms(*doll, links.Poses(*doll, *found, local)),
                    links.LayerTransform(*found, local) *
@@ -47,7 +48,8 @@ std::optional<PosedDoll> Pose(const Project& project, const Shot& shot,
 
 std::optional<QTransform> LayerToScreen(const Project& project,
                                         const Shot& shot, LayerId layer,
-                                        Frame local, double scale) {
+                                        Frame local, double scale,
+                                        PoseMemo* memo) {
   assert(scale > 0.0);
   assert(local.index() >= 0);
   const Layer* found = layer.IsValid() ? FindLayer(shot, layer) : nullptr;
@@ -55,7 +57,7 @@ std::optional<QTransform> LayerToScreen(const Project& project,
   if (!is_found) {
     return std::nullopt;
   }
-  LinkSolver links(project, shot);
+  LinkSolver links(project, shot, memo);
   return links.LayerTransform(*found, local) *
          FrameRenderer::ViewTransform(project, shot, local, scale);
 }
@@ -63,10 +65,11 @@ std::optional<QTransform> LayerToScreen(const Project& project,
 std::optional<QTransform> PieceParentToScreen(const Project& project,
                                               const Shot& shot, LayerId layer,
                                               const QString& piece,
-                                              Frame local, double scale) {
+                                              Frame local, double scale,
+                                              PoseMemo* memo) {
   assert(!piece.isEmpty());
   assert(scale > 0.0);
-  const auto posed = Pose(project, shot, layer, local, scale);
+  const auto posed = Pose(project, shot, layer, local, scale, memo);
   const RigPiece* rig =
       posed ? FindRig(posed->doll->rig, piece) : nullptr;
   const bool is_piece = rig != nullptr;
@@ -85,10 +88,11 @@ std::optional<QTransform> PieceParentToScreen(const Project& project,
 std::optional<PieceOutline> PieceOnScreen(const Project& project,
                                           const Shot& shot, LayerId layer,
                                           const QString& piece, Frame local,
-                                          double scale) {
+                                          double scale,
+                                          PoseMemo* memo) {
   assert(!piece.isEmpty());
   assert(scale > 0.0);
-  const auto posed = Pose(project, shot, layer, local, scale);
+  const auto posed = Pose(project, shot, layer, local, scale, memo);
   const ArtPiece* art = posed ? FindArt(*posed->doll, piece) : nullptr;
   const RigPiece* rig = posed ? FindRig(posed->doll->rig, piece) : nullptr;
   const bool is_piece = art != nullptr && rig != nullptr &&
@@ -105,10 +109,11 @@ std::optional<PieceOutline> PieceOnScreen(const Project& project,
 std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
                                               const Shot& shot, LayerId layer,
                                               const QString& piece,
-                                              Frame local, double scale) {
+                                              Frame local, double scale,
+                                              PoseMemo* memo) {
   assert(!piece.isEmpty());
   assert(scale > 0.0);
-  const auto posed = Pose(project, shot, layer, local, scale);
+  const auto posed = Pose(project, shot, layer, local, scale, memo);
   const ArtPiece* art = posed ? FindArt(*posed->doll, piece) : nullptr;
   const RigPiece* rig = posed ? FindRig(posed->doll->rig, piece) : nullptr;
   const bool has_grid = art != nullptr && rig != nullptr &&
@@ -143,11 +148,12 @@ std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
 }
 
 std::vector<IkHandle> IkHandles(const Project& project, const Shot& shot,
-                                LayerId layer, Frame local, double scale) {
+                                LayerId layer, Frame local, double scale,
+                                PoseMemo* memo) {
   assert(scale > 0.0);
   assert(local.index() >= 0);
   std::vector<IkHandle> handles;
-  const auto posed = Pose(project, shot, layer, local, scale);
+  const auto posed = Pose(project, shot, layer, local, scale, memo);
   if (!posed) {
     return handles;
   }
