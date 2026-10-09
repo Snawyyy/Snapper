@@ -7,6 +7,7 @@
 #include "anim/doll_pose.h"
 #include "edit/history_manager.h"
 #include "render/stage_hit.h"
+#include "ui/collider_keys.h"
 #include "ui/rig_canvas.h"
 
 namespace snapper {
@@ -37,6 +38,17 @@ std::vector<RigCanvas::Handle> RigCanvas::HandlesOf() const {
     if (is_placed) {
       handles.push_back(
           {GrabKind::kPivot, rig.name, (at->second * world).map(rig.pivot)});
+    }
+  }
+  for (const RigPiece& rig : doll->rig.pieces) {
+    const auto at = pieces.find(rig.name);
+    const bool is_shown = at != pieces.end() && picked_.contains(rig.name);
+    if (!is_shown) {
+      continue;
+    }
+    for (const ColliderDot& dot : rig.collider.dots) {
+      handles.push_back({GrabKind::kColliderDot, DotKey(rig.name, dot.slot),
+                         (at->second * world).map(dot.at)});
     }
   }
   return handles;

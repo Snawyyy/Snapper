@@ -26,6 +26,8 @@ inline constexpr QColor kTextOff{0x80, 0x80, 0x86};
 inline constexpr QColor kPick{0xd8, 0x30, 0x4f};
 // Handles you can drag.
 inline constexpr QColor kHandle{0xf2, 0xc2, 0x30};
+// Collider outline dots in the rig: cool, apart from the yellow handles.
+inline constexpr QColor kCollider{0x2e, 0xc4, 0xd6};
 inline constexpr int kFontPoints = 9;
 
 // Sets the style, palette and font on the whole application.

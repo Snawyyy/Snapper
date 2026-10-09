@@ -241,9 +241,12 @@ void DollFileTests::OldDragNodesLoadAsPlainDrags() {
 void DollFileTests::CollidersRoundTripAndOldFilesHaveNone() {
   QTemporaryDir dir;
   Rig rig;
-  rig.pieces = {{"thigh", "", {0, 0}, 0, -1, {}}, {"skirt", "", {0, 0}, 1, -1, {}}};
+  rig.pieces = {{"thigh", "", {0, 0}, 0, -1, {}},
+                {"skirt", "", {0, 0}, 1, -1, {}}};
   rig.pieces[0].collider = {6,
-                            {{{1.5, 2.0}, 0}, {{3.0, 2.5}, 1}, {{9.0, 8.0}, 4}},
+                            {{{1.5, 2.0}, 0},
+                             {{3.0, 2.5}, 1},
+                             {{9.0, 8.0}, 4}},
                             12.5,
                             {"belt"}};
   QVERIFY(WriteRig(dir.path(), rig).has_value());

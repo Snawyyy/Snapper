@@ -201,7 +201,12 @@ A piece can:
   out of a leg and can fly away from it. It pushes the physics nodes
   of the same doll's pieces drawn in front of it (a higher order),
   except the ones it spares (`CollidersFor`). With no collider, or no
-  physics node, nothing changes.
+  physics node, nothing changes. The dots show (teal, small look big
+  grab) on the rig canvas only while their piece is picked: click picks
+  one, Shift adds, Delete removes the picked ones as one undo step,
+  Escape lets go. They are never drawn on the stage. The rig panel's
+  `ColliderBox` lists the pieces in front, ticked while pushed
+  (`RigManager::SetColliderPushes`).
   A dot can also move by itself (a point motion: wave, pulse,
   breathe, sway, shiver), with a size in pixels, a cycle in frames, a
   direction and a delay. Its neighbours follow by its rubber reach, as
@@ -375,7 +380,7 @@ are destroyed in reverse.
 | `HistoryManager`       | Current project, undo, redo, dirty state       |
 | `DocumentManager`      | New, open, save, autosave, recent files        |
 | `DollLibraryManager`   | Doll folders, loading, reload on re-export     |
-| `RigManager`           | Rig edits: joints, IK, warp grids, their dots  |
+| `RigManager`           | Rig edits: joints, IK, warp grids, their dots, drag and physics nodes, colliders |
 | `ShotManager`          | Shots on the master track: order, length, look |
 | `ReelManager`          | The reel: clips, tracks, cuts, transitions     |
 | `StageManager`         | What is in a shot: actors, props, text, effects |
