@@ -347,6 +347,17 @@ tested without a widget; every animation asks `MotionManager` for its
 duration and curve, so the View > Motion switch changes all of them at
 once. Qt has no reduced-motion query, so a fresh install starts in Full.
 
+Handles look small and grab big, the same on the stage, the rig canvas
+and the timelines. `grab.h` (pure, no widget) holds the one set of
+numbers (drawn 8 px, grabbed within 12 px, 4 px dead zone before a drag,
+100 ms grace for a handle that just hid, 15 % hover growth) and the one
+hit-test: `NearestGrab` picks the nearest handle within reach, and
+`IsPastDeadZone` says when a press has become a drag, after which the
+handle jumps under the cursor. `HandleHover` holds which handle the
+cursor is over and animates its growth through `MotionManager`; each
+canvas owns one. `CursorFor` gives each kind of handle its cursor. No
+widget keeps its own reach or drag threshold.
+
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.
 
