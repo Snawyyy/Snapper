@@ -194,11 +194,29 @@ void StageView::PaintWarp(const StageFrame& frame, const Pick& pick,
                          radius);
   }
   PaintMarks(*warp, painter);
+  PaintPickedDots(frame, pick, *warp, painter);
   const auto dot = tool_.PickedDot(frame);
   const bool is_dot_here =
       dot.has_value() && dot->layer == pick.layer && dot->piece == pick.piece;
   if (is_dot_here) {
     PaintReach(*warp, dot->point, painter);
+  }
+}
+
+void StageView::PaintPickedDots(const StageFrame& frame, const Pick& pick,
+                                const WarpOnScreen& warp, QPainter* painter) {
+  assert(painter != nullptr);
+  assert(!pick.piece.isEmpty());
+  painter->setPen(QPen(theme::kPick, 2.0));
+  painter->setBrush(Qt::NoBrush);
+  for (const WarpDot& picked : tool_.PickedDots(frame)) {
+    const bool is_here =
+        picked.layer == pick.layer && picked.piece == pick.piece;
+    if (is_here) {
+      painter->drawEllipse(
+          warp.to_screen.map(warp.points[static_cast<size_t>(picked.point)]),
+          kWarpDot + 2, kWarpDot + 2);
+    }
   }
 }
 

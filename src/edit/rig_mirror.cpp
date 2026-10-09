@@ -7,17 +7,11 @@
 #include "anim/warp.h"
 #include "base/text.h"
 #include "edit/history_manager.h"
+#include "edit/rig_edits.h"
 #include "edit/rig_manager.h"
 
 namespace snapper {
 namespace {
-
-// The middle of a piece's drawing in doll space.
-double CentreX(const ArtPiece& art) {
-  assert(art.size.width() >= 0);
-  assert(std::isfinite(art.position.x()));
-  return art.position.x() + art.size.width() / 2.0;
-}
 
 // to's rig made the mirror of from's: the joint lands on the spot
 // mirrored across the line halfway between the two drawings, so a doll
@@ -31,7 +25,7 @@ void MirrorPiece(const Doll& doll, const RigPiece& from, RigPiece* to) {
   if (!has_art) {
     return;
   }
-  const double axis = (CentreX(*from_art) + CentreX(*to_art)) / 2.0;
+  const double axis = (ArtCentreX(*from_art) + ArtCentreX(*to_art)) / 2.0;
   const QPointF joint = from_art->position + from.pivot;
   to->pivot = QPointF(2.0 * axis - joint.x(), joint.y()) - to_art->position;
   to->rest_rotation = -from.rest_rotation;
@@ -77,7 +71,7 @@ void MirrorChain(const Doll& doll, const IkChain& chain, Rig* rig) {
   if (!can_add) {
     return;
   }
-  const double axis = (CentreX(*from) + CentreX(*to)) / 2.0;
+  const double axis = (ArtCentreX(*from) + ArtCentreX(*to)) / 2.0;
   const QPointF tip = from->position + chain.tip;
   const QString name = MirrorName(chain.name);
   rig->chains.push_back(

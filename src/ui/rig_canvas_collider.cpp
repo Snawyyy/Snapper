@@ -45,6 +45,13 @@ void RigCanvas::RemoveCollider(const QString& piece) {
   update();
 }
 
+void RigCanvas::MirrorToOtherSide(const QString& piece) {
+  assert(managers_.history != nullptr);
+  assert(!piece.isEmpty());
+  emit Problem(ProblemOf(managers_.rig->MirrorNodes(doll_, piece)));
+  update();
+}
+
 void RigCanvas::contextMenuEvent(QContextMenuEvent* event) {
   assert(event != nullptr);
   assert(managers_.history != nullptr);
@@ -64,15 +71,21 @@ void RigCanvas::contextMenuEvent(QContextMenuEvent* event) {
   QAction* make = menu.addAction(is_collider ? tr("Remake collider")
                                              : tr("Make collider"));
   QAction* remove = menu.addAction(tr("Remove collider"));
+  menu.addSeparator();
+  QAction* mirror = menu.addAction(tr("Mirror rig to other side"));
+  Explain(mirror, managers_.rig->WhyNoMirror(doll_, *hit));
   Explain(remove, is_collider ? QString()
                               : tr("%1 is not a collider yet.").arg(*hit));
   const QAction* chosen = menu.exec(event->globalPos());
   const bool is_make = chosen == make;
   const bool is_remove = chosen == remove;
+  const bool is_mirror = chosen == mirror;
   if (is_make) {
     MakeCollider(*hit);
   } else if (is_remove) {
     RemoveCollider(*hit);
+  } else if (is_mirror) {
+    MirrorToOtherSide(*hit);
   }
 }
 

@@ -201,7 +201,10 @@ A piece can:
   out to it, one-sided, so nothing holds or pulls it: the cloth pushes
   out of a leg and can fly away from it. It pushes the physics nodes
   of the same doll's pieces drawn in front of it (a higher order),
-  except the ones it spares (`CollidersFor`). With no collider, or no
+  except the ones it spares (`CollidersFor`). The cloth between two
+  physics dots is pushed out as well when an outline comes across it
+  (the leg turning up through a hem), though cloth already lying
+  across one at the last frame is left as drawn. With no collider, or no
   physics node, nothing changes. The dots show (teal, small look big
   grab) on the rig canvas only while their piece is picked: click picks
   one, Shift adds, Delete removes the picked ones as one undo step,
@@ -229,6 +232,14 @@ A piece can:
   shape when leaning" in the rig), past a quarter turn the doll is
   upside down or seen from behind, and a piece clearly nearer than
   its parent, child or sibling draws in front of it.
+- mirror their dot setup to the other side: right-click a piece in the
+  rig (or the rig panel's button) > Mirror rig to other side copies its
+  drag and physics nodes and its collider, with which pieces it pushes,
+  onto its left or right twin, mirrored, replacing the twin's
+  (`RigManager::MirrorNodes`, twins found by `MirrorName`, the same
+  pairing Copy to other side uses). The Drag node panel's Mirror to
+  other side does it for just the picked dots (`MirrorDots`). Greyed
+  with the reason when the piece has no twin or its grid differs.
 - belong to a two-bone IK chain. IK is a posing tool: dragging a hand
   solves the chain and writes ordinary rotation keys. Playback only
   ever plays keys, so what was posed is what plays.
@@ -533,6 +544,18 @@ each thing's own value, so they keep their differences: x 10 and x 0
 moved by 5 become 15 and 5. Managers offer these as `...All` or
 `Shift...` methods; widgets show the focused pick's value and send the
 difference.
+
+Warp dots pick the same way (`SelectionManager::PickDots`): a click
+on a dot picks it, Shift adds, Ctrl flips, and a box drawn from empty
+space on the stage picks every dot of a picked piece inside it (Shift
+adds, Ctrl takes out); a box over no dot picks pieces as before. On the
+rig canvas the same box picks collider dots. The Drag node and Dot
+animation panels edit every picked dot at once: a number that differs
+shows Mixed, a change sets them all and is one undo step named with the
+count ("Set bounce on 6 dots"; `RigManager::SetDragField`,
+`SetDragNodes`, `SetPhysicsAll`, `SetMotionAll`, all taking `DotRef`s).
+D switches every picked dot's drag node, and Delete clears the drag or
+physics node and the motion off every picked dot (`ClearDots`).
 
 The side panel shows only the settings of what is picked: the shot
 and its camera with nothing picked on the stage; pose, layer, motion

@@ -12,17 +12,6 @@
 namespace snapper {
 namespace {
 
-// motion with every number kept in range.
-PointMotion Kept(PointMotion motion) {
-  assert(std::isfinite(motion.size) && std::isfinite(motion.angle));
-  assert(std::isfinite(motion.delay));
-  motion.size = std::clamp(motion.size, 0.0, kMaxWarpMotionSize);
-  motion.cycle = std::clamp(motion.cycle, kMinWarpCycle, kMaxWarpCycle);
-  motion.angle = std::remainder(motion.angle, 360.0);
-  motion.delay = std::clamp(motion.delay, 0.0, 1.0);
-  return motion;
-}
-
 }  // namespace
 
 RigManager::RigManager(HistoryManager* history) : history_(history) {
@@ -194,7 +183,7 @@ Result<void> RigManager::SetPointMotion(const QString& doll,
   const bool was_moving = old != nullptr;
   const bool is_stopping = motion.kind == WarpMotionKind::kNone;
   // Nothing changes, so there is nothing to undo.
-  const bool is_same = was_moving ? *old == Kept(motion)
+  const bool is_same = was_moving ? *old == KeptMotion(motion)
                                   : is_stopping && rig != nullptr;
   if (is_same) {
     return {};
@@ -218,7 +207,7 @@ Result<void> RigManager::SetPointMotion(const QString& doll,
                                   return m.point == motion.point;
                                 });
                   if (!is_stopping) {
-                    edited->point_motions.push_back(Kept(motion));
+                    edited->point_motions.push_back(KeptMotion(motion));
                   }
                   return {};
                 }));

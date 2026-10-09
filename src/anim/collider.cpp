@@ -105,4 +105,33 @@ QPointF PushedOut(const std::vector<ColliderEdge>& edges, QPointF point) {
   return pushed;
 }
 
+QPointF PushedOutDeep(const std::vector<ColliderEdge>& edges, QPointF point) {
+  assert(std::isfinite(point.x()) && std::isfinite(point.y()));
+  assert(edges.size() <= kMaxColliderEdges);
+  const ColliderEdge* nearest = nullptr;
+  double least = 0.0;
+  double foot = 0.0;
+  for (const ColliderEdge& edge : edges) {
+    const QPointF along = edge.b - edge.a;
+    const QPointF rel = point - edge.a;
+    const double len2 = along.x() * along.x() + along.y() * along.y();
+    const double t = (rel.x() * along.x() + rel.y() * along.y()) / len2;
+    const QPointF spot = edge.a + along * std::clamp(t, 0.0, 1.0);
+    const double away = std::hypot(point.x() - spot.x(), point.y() - spot.y());
+    const bool is_nearer = nearest == nullptr || away < least;
+    if (is_nearer) {
+      nearest = &edge;
+      least = away;
+      foot = t;
+    }
+  }
+  const bool is_along = nearest != nullptr && foot >= 0.0 && foot <= 1.0;
+  if (!is_along) {
+    return point;
+  }
+  const double behind = -((point - nearest->a).x() * nearest->out.x() +
+                          (point - nearest->a).y() * nearest->out.y());
+  return behind > 0.0 ? point + nearest->out * behind : point;
+}
+
 }  // namespace snapper

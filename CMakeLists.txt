@@ -60,7 +60,7 @@ snapper_module(edit
           preset_manager.cpp saved_poses.cpp
           link_manager.cpp project_edits.cpp reel_batch.cpp reel_clipboard.cpp
           reel_cuts.cpp reel_edits.cpp reel_manager.cpp reel_markers.cpp
-          reel_transitions.cpp rig_batch.cpp rig_collider.cpp rig_drag.cpp
+          reel_transitions.cpp rig_batch.cpp rig_collider.cpp rig_dots.cpp rig_mirror_nodes.cpp
           rig_manager.cpp rig_mirror.cpp
           selection_manager.cpp selection_prune.cpp shot_batch.cpp
           shot_manager.cpp stage_batch.cpp stage_manager.cpp
@@ -118,7 +118,7 @@ if(BUILD_TESTING)
                             playback_tests.cpp preset_tests.cpp
                             reel_editing_tests.cpp reel_manager_tests.cpp
                             reel_transition_tests.cpp
-                            rig_tests.cpp
+                            rig_tests.cpp rig_dots_tests.cpp
                             shot_tests.cpp
                             selection_tests.cpp stage_tests.cpp
                             timeline_tests.cpp timing_chart_edit_tests.cpp track_tests.cpp
@@ -134,7 +134,7 @@ if(BUILD_TESTING)
                           pose_tool_tests.cpp pose_tool_grab_tests.cpp
                           pose_tool_readout_tests.cpp refusal_reason_tests.cpp
                           reel_timeline_tests.cpp
-                          rig_ui_tests.cpp collider_ui_tests.cpp number_field_tests.cpp
+                          rig_ui_tests.cpp collider_ui_tests.cpp pose_tool_dots_tests.cpp number_field_tests.cpp
                           shot_strip_tests.cpp slot_picker_tests.cpp
                           motion_tests.cpp scrub_tests.cpp shake_tests.cpp theme_tests.cpp
                           toast_tests.cpp space_keys_tests.cpp

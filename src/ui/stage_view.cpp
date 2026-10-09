@@ -243,6 +243,15 @@ void StageView::keyPressEvent(QKeyEvent* event) {
     return;
   }
   const auto frame = CurrentFrame();
+  const bool is_erase =
+      event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace;
+  const bool has_cleared =
+      is_erase && frame.has_value() && tool_.ClearDots(*frame);
+  if (has_cleared) {
+    ReportTool();
+    event->accept();
+    return;
+  }
   const bool is_drag_key = event->key() == Qt::Key_D &&
                            event->modifiers() == Qt::NoModifier &&
                            frame.has_value();

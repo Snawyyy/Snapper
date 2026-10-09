@@ -196,6 +196,22 @@ void RigCanvas::FinishBox() {
       box.width() < kDragDeadZone && box.height() < kDragDeadZone;
   std::set<QString> caught;
   const bool is_drawn = doll != nullptr && !is_click;
+  // A box over collider dots of picked pieces picks those dots; over
+  // none it picks pieces as it always did.
+  std::set<QString> dots;
+  for (const Handle& handle : is_drawn ? HandlesOf() : std::vector<Handle>()) {
+    const bool is_dot_in = handle.kind == GrabKind::kColliderDot &&
+                           box.contains(handle.spot);
+    if (is_dot_in) {
+      dots.insert(handle.key);
+    }
+  }
+  const bool has_dots = !dots.empty();
+  if (has_dots) {
+    picked_dots_ = Combine(picked_dots_, dots, box_mode_);
+    update();
+    return;
+  }
   if (is_drawn) {
     const QTransform world = World();
     QPainterPath area;
@@ -291,6 +307,12 @@ void RigCanvas::mouseReleaseEvent(QMouseEvent* event) {
 
 void RigCanvas::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
+  const bool stops_box = event->key() == Qt::Key_Escape && is_boxing_;
+  if (stops_box) {
+    is_boxing_ = false;
+    update();
+    return;
+  }
   const bool stops_hang = event->key() == Qt::Key_Escape && is_hanging_;
   const bool clears = event->key() == Qt::Key_Escape && scope_ == nullptr &&
                       !is_hanging_;

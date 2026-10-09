@@ -92,6 +92,7 @@ class RigPanel final : public QWidget {
   QHBoxLayout mirror_buttons_;
   QPushButton copy_piece_;
   QPushButton copy_side_;
+  QPushButton mirror_nodes_;
   QPushButton save_rig_;
   QLabel hint_;
 };

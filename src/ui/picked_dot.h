@@ -4,6 +4,7 @@
 #include <QString>
 
 #include <optional>
+#include <vector>
 
 #include "model/doll.h"
 #include "ui/managers.h"
@@ -22,6 +23,9 @@ struct PickedDot final {
 
 // The picked dot, or nothing when no dot of a doll piece is picked.
 std::optional<PickedDot> PickedDotOf(const Managers& managers);
+
+// Every picked dot of a doll piece, the focused one first.
+std::vector<PickedDot> PickedDotsOf(const Managers& managers);
 
 }  // namespace snapper
 

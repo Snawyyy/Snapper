@@ -122,6 +122,7 @@ void MoveSpring(const Carry& carry, int f, Spring* spring) {
 // physics nodes, carried over grid.
 void StepPiece(const Doll& doll, const ShotGrid& grid,
                const std::vector<ColliderEdge>& edges,
+               const std::vector<ColliderEdge>& edges_before,
                const std::vector<size_t>& indices, int f,
                std::vector<Spring>* springs) {
   assert(springs != nullptr);
@@ -131,6 +132,7 @@ void StepPiece(const Doll& doll, const ShotGrid& grid,
   ClothPiece cloth;
   cloth.grid = rig->warp;
   cloth.edges = edges;
+  cloth.edges_before = edges_before;
   for (const size_t i : indices) {
     const Spring& spring = (*springs)[i];
     cloth.points.push_back(spring.node.point);
@@ -191,6 +193,8 @@ void Step(const Doll& doll, const Layer& layer, int f,
     StepPiece(doll, *grids[piece],
               CollidersFor(doll, layer, keyed, placed, shifts, piece,
                            Frame(f)),
+              f > 0 ? CollidersAt(doll, layer, shifts, piece, Frame(f - 1))
+                    : std::vector<ColliderEdge>(),
               indices, f, springs);
   }
 }

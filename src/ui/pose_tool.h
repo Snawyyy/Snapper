@@ -15,6 +15,7 @@
 
 #include "base/frame.h"
 #include "edit/edit_scope.h"
+#include "edit/rig_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/track_ref.h"
 #include "model/pose.h"
@@ -78,10 +79,18 @@ class PoseTool final {
   // The picked warp dot while its piece is still picked and the dot
   // still on its grid.
   std::optional<WarpDot> PickedDot(const StageFrame& frame) const;
-  // Escape: drops the picked dot; false when there was none.
+  // Every picked warp dot, while its piece is still picked.
+  std::vector<WarpDot> PickedDots(const StageFrame& frame) const;
+  // The warp dots of picked pieces that lie inside box (widget pixels).
+  std::set<WarpDot> DotsIn(const QRectF& box, const StageFrame& frame) const;
+  // Escape: drops the picked dots; false when there were none.
   bool DropDot();
-  // D: makes the picked dot drag behind, or stop dragging.
+  // D: makes the picked dots drag behind, or stop dragging when they
+  // all do already.
   void ToggleDrag(const StageFrame& frame);
+  // Delete: takes the drag or physics node and the motion off every
+  // picked dot; false when none is picked.
+  bool ClearDots(const StageFrame& frame);
 
   // What is under the pointer before any press: the handle (kNone when
   // none) and, when no handle, the unpicked thing a click would pick.
@@ -172,6 +181,7 @@ class PoseTool final {
 
   // The picks whose handles are grabbable now: the live ones, or the
   // ones that hid within kGraceMs.
+  std::vector<DotRef> PickedRefs(const StageFrame& frame) const;
   std::set<Pick> GrabbablePicks(const StageFrame& frame) const;
   std::vector<Handle> HandlesOf(const StageFrame& frame) const;
   std::optional<Handle> HandleAt(QPointF point,
