@@ -45,6 +45,7 @@ class RigTests final : public QObject {
   void PivotOrderAndDrawingAreUndoable();
   void NewWarpGridClearsOldWarpKeys();
   void ChainsNeedLinkedPieces();
+  void PhysicsIsOneNamedUndoStep();
   void UnknownDollsAndPiecesSayWhy();
   void OneSideCopiesToTheOther();
   void ManyPiecesChangeTogether();
@@ -114,6 +115,37 @@ void RigTests::NewWarpGridClearsOldWarpKeys() {
   const auto& before = std::get<DollLayer>(
       history.current().shots[0]->layers[0].content);
   QCOMPARE(before.pieces.at("lower").keys[0].value.warp.size(), size_t{9});
+}
+
+void RigTests::PhysicsIsOneNamedUndoStep() {
+  HistoryManager history(ArmProject());
+  RigManager rig(&history);
+  QVERIFY(rig.SetWarpGrid("Bob", "lower", {2, 2}).has_value());
+  // Only a drag node can become physics.
+  QVERIFY(!rig.SetPhysics("Bob", "lower", 4, true).has_value());
+  QVERIFY(rig.ToggleDragNode("Bob", "lower", 4).has_value());
+  QVERIFY(rig.SetPhysics("Bob", "lower", 4, true).has_value());
+  QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
+  QCOMPARE(history.UndoLabel(), QString("Physics on for lower"));
+  DragNode node = FindRig(BobRig(history), "lower")->drag_nodes[0];
+  node.stretch = 3.0;
+  node.air = -1.0;
+  node.gravity = 0.9;
+  node.physics = false;
+  QVERIFY(rig.SetDrag("Bob", "lower", node).has_value());
+  const DragNode& kept = FindRig(BobRig(history), "lower")->drag_nodes[0];
+  QCOMPARE(kept.stretch, 1.0);
+  QCOMPARE(kept.air, 0.0);
+  QCOMPARE(kept.gravity, 0.9);
+  QVERIFY(kept.physics);
+  QCOMPARE(history.UndoLabel(), QString("Physics of lower"));
+  history.Undo();
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].gravity, 0.3);
+  QVERIFY(rig.SetPhysics("Bob", "lower", 4, false).has_value());
+  QVERIFY(!FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
+  QCOMPARE(history.UndoLabel(), QString("Physics off for lower"));
+  history.Undo();
+  QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
 }
 
 void RigTests::ChainsNeedLinkedPieces() {

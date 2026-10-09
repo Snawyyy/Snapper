@@ -46,9 +46,14 @@ class RigManager final {
   // bounce), or a plain point again if it is one.
   Result<void> ToggleDragNode(const QString& doll, const QString& piece,
                               int point);
-  // A drag node's lag and bounce, each kept 0 to 1.
+  // A drag node's lag, bounce and physics settings (stretch, inertia,
+  // air, gravity, spring), each kept 0 to 1. Not its physics switch.
   Result<void> SetDrag(const QString& doll, const QString& piece,
                        const DragNode& node);
+  // Switches a drag node to a physics node (cloth, soft flesh) or back
+  // to a plain drag node; its settings stay.
+  Result<void> SetPhysics(const QString& doll, const QString& piece,
+                          int point, bool on);
   // Gives a warp grid point its motion, or changes it; kind kNone stops
   // it. Size, cycle and delay are kept in range.
   Result<void> SetPointMotion(const QString& doll, const QString& piece,
