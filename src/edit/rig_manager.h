@@ -1,6 +1,7 @@
 #ifndef SNAPPER_EDIT_RIG_MANAGER_H_
 #define SNAPPER_EDIT_RIG_MANAGER_H_
 
+#include <QImage>
 #include <QPointF>
 #include <QString>
 
@@ -54,6 +55,22 @@ class RigManager final {
   // to a plain drag node; its settings stay.
   Result<void> SetPhysics(const QString& doll, const QString& piece,
                           int point, bool on);
+  // Makes piece a collider: the outline of the visible pixels of
+  // drawing (its default drawing, as an image) as a ring of dots that
+  // pushes the cloth of the pieces in front of it. Refused when
+  // nothing is visible. Replaces an outline it had.
+  Result<void> MakeCollider(const QString& doll, const QString& piece,
+                            const QImage& drawing);
+  // Takes the dots on these ring slots (gone) out of piece's collider; the
+  // gaps push nothing. Refused when none of them is there.
+  Result<void> DeleteColliderDots(const QString& doll, const QString& piece,
+                                  const std::vector<int>& gone);
+  // Makes piece a plain piece again.
+  Result<void> RemoveCollider(const QString& doll, const QString& piece);
+  // Whether piece's collider pushes the cloth of other (it does until
+  // spared).
+  Result<void> SetColliderPushes(const QString& doll, const QString& piece,
+                                 const QString& other, bool pushes);
   // Gives a warp grid point its motion, or changes it; kind kNone stops
   // it. Size, cycle and delay are kept in range.
   Result<void> SetPointMotion(const QString& doll, const QString& piece,

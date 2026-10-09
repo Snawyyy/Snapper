@@ -46,6 +46,7 @@ class RigTests final : public QObject {
   void NewWarpGridClearsOldWarpKeys();
   void ChainsNeedLinkedPieces();
   void PhysicsIsOneNamedUndoStep();
+  void ColliderEditsAreNamedUndoSteps();
   void UnknownDollsAndPiecesSayWhy();
   void OneSideCopiesToTheOther();
   void ManyPiecesChangeTogether();
@@ -146,6 +147,46 @@ void RigTests::PhysicsIsOneNamedUndoStep() {
   QCOMPARE(history.UndoLabel(), QString("Physics off for lower"));
   history.Undo();
   QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
+}
+
+void RigTests::ColliderEditsAreNamedUndoSteps() {
+  HistoryManager history(ArmProject());
+  RigManager rig(&history);
+  QImage blank(40, 40, QImage::Format_ARGB32);
+  blank.fill(Qt::transparent);
+  QVERIFY(!rig.MakeCollider("Bob", "lower", blank).has_value());
+  QImage block = blank;
+  block.fill(Qt::transparent);
+  for (int y = 10; y < 30; ++y) {
+    for (int x = 5; x < 35; ++x) {
+      block.setPixelColor(x, y, QColor(10, 10, 10, 255));
+    }
+  }
+  QVERIFY(rig.MakeCollider("Bob", "lower", block).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Make collider of lower"));
+  const Collider made = FindRig(BobRig(history), "lower")->collider;
+  QVERIFY(made.IsOn());
+  QCOMPARE(made.ring_size, static_cast<int>(made.dots.size()));
+  QCOMPARE(made.depth, 10.0);
+  QVERIFY(!rig.DeleteColliderDots("Bob", "lower", {999}).has_value());
+  QVERIFY(rig.DeleteColliderDots("Bob", "lower", {0, 1}).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->collider.dots.size(),
+           made.dots.size() - 2);
+  QCOMPARE(history.UndoLabel(), QString("Delete collider dots of lower"));
+  QVERIFY(rig.SetColliderPushes("Bob", "lower", "upper", false).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->collider.spared,
+           (std::vector<QString>{"upper"}));
+  QVERIFY(rig.SetColliderPushes("Bob", "lower", "upper", true).has_value());
+  QVERIFY(FindRig(BobRig(history), "lower")->collider.spared.empty());
+  QVERIFY(!rig.SetColliderPushes("Bob", "upper", "lower", false).has_value());
+  history.Undo();
+  history.Undo();
+  history.Undo();
+  QCOMPARE(FindRig(BobRig(history), "lower")->collider, made);
+  QVERIFY(rig.RemoveCollider("Bob", "lower").has_value());
+  QVERIFY(!FindRig(BobRig(history), "lower")->collider.IsOn());
+  QCOMPARE(history.UndoLabel(), QString("Remove collider of lower"));
+  QVERIFY(!rig.RemoveCollider("Bob", "lower").has_value());
 }
 
 void RigTests::ChainsNeedLinkedPieces() {
