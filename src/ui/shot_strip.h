@@ -12,6 +12,7 @@
 #include "edit/edit_scope.h"
 #include "edit/selection_manager.h"
 #include "model/shot.h"
+#include "ui/drag_feedback.h"
 #include "ui/handle_hover.h"
 #include "ui/managers.h"
 #include "ui/problem.h"
@@ -22,7 +23,10 @@ namespace snapper {
 // Click picks a shot and jumps the playhead to it; drag a shot to
 // reorder it, drag its right edge to change its length; the + block
 // adds a shot after the picked one; right-click for rename, copy,
-// colour and delete. Transitions live on the reel (Video tab).
+// colour and delete. A drag shows a chip (frames added, or the place a
+// shot would land), a faint ghost where it began, a flash per frame
+// step and a pop on letting go; Escape drops it. Transitions live on
+// the reel (Video tab).
 class ShotStrip final : public QWidget {
   Q_OBJECT
 
@@ -36,6 +40,8 @@ class ShotStrip final : public QWidget {
   // Where each shot is drawn, left to right, and the + block.
   std::vector<Block> Blocks() const;
   QRectF AddBlock() const;
+  // The chip, ghost and flash of the drag, for tests to look at.
+  const DragFeedback& feedback() const { return feedback_; }
 
  signals:
   void Problem(const QString& why);
@@ -53,6 +59,10 @@ class ShotStrip final : public QWidget {
   enum class Drag { kNone, kMove, kLength };
 
   void Pick(ShotId shot);
+  // Where a shot dropped with the mouse at x would land, from 0.
+  int DropIndex(double x) const;
+  // Escape: drops the drag in progress; false when there was none.
+  bool CancelDrag();
   void Menu(ShotId shot, QPoint where);
   std::vector<ShotId> PickedShots() const;
   void Report(const QString& problem) { emit Problem(problem); }
@@ -60,6 +70,7 @@ class ShotStrip final : public QWidget {
   Managers managers_;
   // The right edge under the cursor widens and brightens.
   HandleHover hover_;
+  DragFeedback feedback_;
   Drag drag_ = Drag::kNone;
   ShotId dragged_;
   double drag_start_x_ = 0.0;

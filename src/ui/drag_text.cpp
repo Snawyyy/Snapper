@@ -45,6 +45,12 @@ QString FramesText(int frames) {
   return QStringLiteral("%1 f").arg(Signed(frames));
 }
 
+QString PositionText(int position) {
+  assert(position >= 1);
+  assert(position < 1000000000);
+  return QStringLiteral("Place %1").arg(position);
+}
+
 QString ScaleText(double factor) {
   assert(std::isfinite(factor));
   assert(factor >= 0.0);

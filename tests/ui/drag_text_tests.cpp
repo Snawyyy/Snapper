@@ -12,6 +12,7 @@ class DragTextTests final : public QObject {
   void OffsetsCarryASign();
   void FramesCarryASign();
   void ScaleIsAPercentage();
+  void PositionCountsFromOne();
   void SnapRoundsToTheStep();
   void TinyGapsAreNotSnaps();
   void ChipRidesOffTheCursor();
@@ -38,6 +39,11 @@ void DragTextTests::FramesCarryASign() {
 void DragTextTests::ScaleIsAPercentage() {
   QCOMPARE(ScaleText(1.5), QStringLiteral("150 %"));
   QCOMPARE(ScaleText(0.5), QStringLiteral("50 %"));
+}
+
+void DragTextTests::PositionCountsFromOne() {
+  QCOMPARE(PositionText(1), QStringLiteral("Place 1"));
+  QCOMPARE(PositionText(12), QStringLiteral("Place 12"));
 }
 
 void DragTextTests::SnapRoundsToTheStep() {

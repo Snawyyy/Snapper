@@ -22,6 +22,8 @@ QString AngleText(double degrees);
 QString OffsetText(QPointF pixels);
 // A time shift in frames, signed: "+3 f", "-2 f", "0 f".
 QString FramesText(int frames);
+// Where a dragged item would land in a row, counting from 1: "Place 3".
+QString PositionText(int position);
 // A size change as a percentage of the start: 1.5 gives "150 %".
 QString ScaleText(double factor);
 
