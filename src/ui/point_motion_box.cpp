@@ -9,6 +9,7 @@
 
 #include "edit/rig_manager.h"
 #include "ui/follow.h"
+#include "ui/number_input.h"
 #include "ui/form_helpers.h"
 #include "ui/picked_dot.h"
 #include "ui/problem.h"
@@ -76,16 +77,16 @@ PointMotionBox::PointMotionBox(const Managers& managers)
   };
   MakeLiveNamed(&size_, &live_, this,
                 [label] { return label(MotionField::kSize); },
-                [this] { Commit(MotionField::kSize, size_.value()); });
+                [this] { Commit(MotionField::kSize, &size_); });
   MakeLiveNamed(&angle_, &live_, this,
                 [label] { return label(MotionField::kAngle); },
-                [this] { Commit(MotionField::kAngle, angle_.value()); });
+                [this] { Commit(MotionField::kAngle, &angle_); });
   MakeLiveNamed(&delay_, &live_, this,
                 [label] { return label(MotionField::kDelay); },
-                [this] { Commit(MotionField::kDelay, delay_.value()); });
+                [this] { Commit(MotionField::kDelay, &delay_); });
   MakeLiveNamed(&cycle_, &live_, this,
                 [label] { return label(MotionField::kCycle); },
-                [this] { Commit(MotionField::kCycle, cycle_.value()); });
+                [this] { Commit(MotionField::kCycle, &cycle_); });
   kind_.setPlaceholderText(tr("Mixed"));
   Follow(managers_, this);
   Refresh();
@@ -132,16 +133,23 @@ void PointMotionBox::SetKind(WarpMotionKind kind) {
       look.dots, MotionField::kKind, static_cast<double>(kind))));
 }
 
-void PointMotionBox::Commit(MotionField field, double value) {
+void PointMotionBox::Commit(MotionField field,
+                            const QAbstractSpinBox* box) {
   assert(managers_.rig != nullptr);
-  assert(std::isfinite(value));
+  assert(box != nullptr);
   const Look look = LookAt(managers_);
   const bool is_moving = !look.moving.empty();
   if (!is_moving) {
     return;
   }
-  emit Problem(
-      ProblemOf(managers_.rig->SetMotionAll(look.moving, field, value)));
+  // Typed math ("*2") works on each dot's own number.
+  const QString math = box->property(kRelativeProperty).toString();
+  const bool is_math = !math.isEmpty();
+  emit Problem(ProblemOf(
+      is_math ? managers_.rig->SetMotionMath(look.moving, field, math)
+              : managers_.rig->SetMotionAll(
+                    look.moving, field,
+                    box->property("value").toDouble())));
 }
 
 void PointMotionBox::Refresh() {

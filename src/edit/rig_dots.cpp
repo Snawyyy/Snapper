@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cmath>
 
+#include "base/number_text.h"
 #include "edit/history_manager.h"
 #include "edit/rig_edits.h"
 #include "edit/rig_manager.h"
@@ -145,6 +146,25 @@ Result<void> NeedDots() {
   return std::unexpected(Error{Tr("Pick one or more warp dots first.")});
 }
 
+// The number a field of motion holds now.
+double MotionNumber(const PointMotion& motion, MotionField field) {
+  assert(static_cast<int>(field) >= 0);
+  assert(motion.point >= 0);
+  switch (field) {
+    case MotionField::kKind:
+      return static_cast<double>(motion.kind);
+    case MotionField::kSize:
+      return motion.size;
+    case MotionField::kCycle:
+      return motion.cycle;
+    case MotionField::kAngle:
+      return motion.angle;
+    case MotionField::kDelay:
+      return motion.delay;
+  }
+  return 0.0;
+}
+
 // Sets one field of the motion of point, starting one when it has none.
 void ChangeMotion(RigPiece* rig, int point, MotionField field, double value) {
   assert(rig != nullptr);
@@ -198,21 +218,36 @@ Result<void> RigManager::SetDragField(const std::vector<DotRef>& dots,
   if (!is_number) {
     return std::unexpected(Error{Tr("That value is off the map.")});
   }
+  return SetDragFieldMath(dots, field, QString::number(value, 'f', 12));
+}
+
+Result<void> RigManager::SetDragFieldMath(const std::vector<DotRef>& dots,
+                                          DragField field,
+                                          const QString& math) {
+  assert(history_ != nullptr);
+  assert(static_cast<int>(field) >= 0);
   const std::vector<DotRef> nodes = DragNodesOf(history_->current(), dots);
   const bool has_nodes = !nodes.empty();
   if (!has_nodes) {
     return NeedNodes();
   }
-  const double kept = std::clamp(value, 0.0, 1.0);
   return history_->Apply(
       FieldLabel(field, nodes.size()),
       WithDots(history_->current(), nodes,
-               [field, kept](RigPiece* rig, int point) -> Result<void> {
+               [field, &math](RigPiece* rig, int point) -> Result<void> {
                  DragNode* node = FindNode(rig, point);
                  const bool is_node = node != nullptr;
-                 if (is_node) {
-                   *FieldOf(node, field) = kept;
+                 if (!is_node) {
+                   return {};
                  }
+                 // Each dot works the math on its own number.
+                 const auto result = EvalNumber(math, *FieldOf(node, field));
+                 const bool is_read = result.has_value();
+                 if (!is_read) {
+                   return std::unexpected(
+                       Error{Tr("That value is off the map.")});
+                 }
+                 *FieldOf(node, field) = std::clamp(*result, 0.0, 1.0);
                  return {};
                }));
 }
@@ -319,6 +354,35 @@ Result<void> RigManager::SetMotionAll(const std::vector<DotRef>& dots,
       WithDots(history_->current(), dots,
                [field, value](RigPiece* rig, int point) -> Result<void> {
                  ChangeMotion(rig, point, field, value);
+                 return {};
+               }));
+}
+
+Result<void> RigManager::SetMotionMath(const std::vector<DotRef>& dots,
+                                       MotionField field,
+                                       const QString& math) {
+  assert(history_ != nullptr);
+  assert(field != MotionField::kKind);
+  const bool has_dots = !dots.empty();
+  if (!has_dots) {
+    return NeedDots();
+  }
+  return history_->Apply(
+      MotionLabel(field, dots.size()),
+      WithDots(history_->current(), dots,
+               [field, &math](RigPiece* rig, int point) -> Result<void> {
+                 const PointMotion* old = FindMotion(*rig, point);
+                 PointMotion fresh;
+                 fresh.point = point;
+                 const auto result = EvalNumber(
+                     math, MotionNumber(old != nullptr ? *old : fresh,
+                                        field));
+                 const bool is_read = result.has_value();
+                 if (!is_read) {
+                   return std::unexpected(
+                       Error{Tr("That value is off the map.")});
+                 }
+                 ChangeMotion(rig, point, field, *result);
                  return {};
                }));
 }

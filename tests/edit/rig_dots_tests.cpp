@@ -33,6 +33,7 @@ class RigDotsTests final : public QObject {
  private slots:
   void ManyDotsEditInOneNamedStep();
   void MirrorNodesAndDotsOntoTheTwin();
+  void MathWorksOnEachDotsOwnNumber();
 };
 
 void RigDotsTests::ManyDotsEditInOneNamedStep() {
@@ -132,6 +133,31 @@ void RigDotsTests::MirrorNodesAndDotsOntoTheTwin() {
   QVERIFY(!rig.WhyNoMirror("Bob", "arm_l").isEmpty());
   QVERIFY(!rig.MirrorDots({{"Bob", "arm_l", 0}}).has_value());
   QVERIFY(!rig.MirrorDots({}).has_value());
+}
+
+void RigDotsTests::MathWorksOnEachDotsOwnNumber() {
+  HistoryManager history(DotsProject());
+  RigManager rig(&history);
+  const std::vector<DotRef> two = {{"Bob", "lower", 0}, {"Bob", "lower", 1}};
+  QVERIFY(rig.SetMotionAll(two, MotionField::kKind,
+                           static_cast<double>(WarpMotionKind::kWave))
+              .has_value());
+  QVERIFY(rig.SetMotionAll({two[0]}, MotionField::kSize, 10.0).has_value());
+  QVERIFY(rig.SetMotionAll({two[1]}, MotionField::kSize, 30.0).has_value());
+  QVERIFY(rig.SetMotionMath(two, MotionField::kSize, "*2").has_value());
+  const auto& motions = BobRig(history).pieces[0].point_motions;
+  QCOMPARE(motions[0].size, 20.0);
+  QCOMPARE(motions[1].size, 60.0);
+  QCOMPARE(history.UndoLabel(), QString("Set size on 2 dots"));
+  history.Undo();
+  QCOMPARE(BobRig(history).pieces[0].point_motions[1].size, 30.0);
+  // Text that is not math is refused and changes nothing.
+  QVERIFY(!rig.SetMotionMath(two, MotionField::kSize, "oops").has_value());
+  QCOMPARE(BobRig(history).pieces[0].point_motions[0].size, 10.0);
+  QVERIFY(rig.SetDragNodes(two, true).has_value());
+  QVERIFY(!rig.SetDragFieldMath(two, DragField::kLag, "/0").has_value());
+  QVERIFY(rig.SetDragFieldMath(two, DragField::kLag, "+0.25").has_value());
+  QCOMPARE(BobRig(history).pieces[0].drag_nodes[1].lag, 0.75);
 }
 
 }  // namespace snapper

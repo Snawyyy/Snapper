@@ -1,6 +1,7 @@
 #ifndef SNAPPER_UI_POINT_MOTION_BOX_H_
 #define SNAPPER_UI_POINT_MOTION_BOX_H_
 
+#include <QAbstractSpinBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
@@ -35,7 +36,7 @@ class PointMotionBox final : public QGroupBox {
   void SetKind(WarpMotionKind kind);
   // Sends one number field to the motion of every picked dot that has
   // one.
-  void Commit(MotionField field, double value);
+  void Commit(MotionField field, const QAbstractSpinBox* box);
 
   Managers managers_;
   QFormLayout layout_;
