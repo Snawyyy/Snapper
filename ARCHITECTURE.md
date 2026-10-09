@@ -399,6 +399,13 @@ through `MotionManager` (nothing in Off). Escape clears it at once. The
 words and the 15 degree turn snap are pure functions in `drag_text.h`;
 a canvas picks the words and calls `Update`, `Settle` or `Cancel`.
 
+Which keys and clips an edit made, took away or moved is worked out by
+pure helpers in `edit/change_diff.h`, tested without a widget:
+`DiffKeys` compares one shot's timeline rows before and after, and
+`DiffClips` compares the reel's clips by id. A key that kept its pose
+and changed frame is one move, not a removal and an addition. Views
+only animate the answer; the data never waits for an animation.
+
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.
 
