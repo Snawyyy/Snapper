@@ -210,8 +210,8 @@ void ChangeDiffTests::AClipMovedToAnotherTrackIsMoved() {
   const Project before = ReelOf({{ClipOn(1, 0, 10)}, {}});
   const Project after = ReelOf({{}, {ClipOn(1, 0, 10)}});
   const ClipChanges got = DiffClips(before, after);
-  QCOMPARE(got.moved,
-           std::vector<ClipChange>({{ClipId(1), 1, Frame(0), Frame(10)}}));
+  QCOMPARE(got.moved, std::vector<ClipChange>({{ClipId(1), 1, Frame(0),
+                                                Frame(10), 0, Frame(0)}}));
   const Project slid = ReelOf({{ClipOn(1, 5, 10)}, {}});
   QCOMPARE(DiffClips(before, slid).moved.size(), size_t{1});
 }

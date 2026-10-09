@@ -254,7 +254,9 @@ void ReelTimeline::mouseReleaseEvent(QMouseEvent* event) {
       drag_ == Drag::kMove && !has_moved_ && is_plain_press_;
   // Leaving the scope lands the drag as one step.
   feedback_.Settle();
+  is_landing_drag_ = true;
   scope_.reset();
+  is_landing_drag_ = false;
   if (was_click) {
     managers_.selection->PickClips({dragged_}, PickMode::kReplace);
   }

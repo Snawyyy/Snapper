@@ -149,7 +149,10 @@ ClipChanges DiffClips(const Project& before, const Project& after) {
       const Clip& old_clip = *ClipOf(before.reel, clip.id);
       const bool is_moved = was.track != t || old_clip.start != clip.start;
       if (is_moved) {
-        changes.moved.push_back(now);
+        ClipChange moved = now;
+        moved.from_track = was.track;
+        moved.from_start = old_clip.start;
+        changes.moved.push_back(moved);
       }
     }
   }

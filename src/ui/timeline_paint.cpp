@@ -63,7 +63,7 @@ void TimelineView::PaintKeys(QPainter* painter, const TimelineRow& row,
   const auto& picked = managers_.selection->keys();
   for (size_t i = 0; i < row.keys.size(); ++i) {
     const int lane = row.layer.value();
-    const double slide = effects_.SlideOffsetOf(lane, row.keys[i]);
+    const double slide = effects_.SlideOffsetOf(lane, 0, row.keys[i]);
     const double x = XOf(row.keys[i]) + frame_width_ / 2.0 +
                      slide * frame_width_;
     const bool has_next = i + 1 < row.keys.size();

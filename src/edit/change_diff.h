@@ -54,6 +54,9 @@ struct ClipChange final {
   int track = 0;
   Frame start;
   Frame length;
+  // For a moved clip: the track and start it came from; -1 otherwise.
+  int from_track = -1;
+  Frame from_start = Frame(0);
 
   bool operator==(const ClipChange&) const = default;
 };

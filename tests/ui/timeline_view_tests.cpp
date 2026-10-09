@@ -290,8 +290,8 @@ void TimelineViewTests::UndoOfAMoveSlidesTheKeyBack() {
   QTRY_VERIFY(!view.effects().IsPlaying());
   bench.history.Undo();
   QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(2)}));
-  QCOMPARE(view.effects().SlideOffsetOf(1, Frame(2)), 4.0);
-  QTRY_COMPARE(view.effects().SlideOffsetOf(1, Frame(2)), 0.0);
+  QCOMPARE(view.effects().SlideOffsetOf(1, 0, Frame(2)), 4.0);
+  QTRY_COMPARE(view.effects().SlideOffsetOf(1, 0, Frame(2)), 0.0);
 }
 
 }  // namespace snapper

@@ -123,15 +123,17 @@ void ChangeEffects::ShowClips(const ClipChanges& changes, bool is_travel) {
     plan.grow.push_back(ClipEffect(arrival, clip));
   }
   for (const ClipChange& clip : changes.moved) {
-    if (is_travel) {
-      plan.grow.push_back(ClipEffect(arrival, clip));
-    }
+    ChangeEffect slide = ClipEffect(ChangeEffectKind::kSlide, clip);
+    slide.from = clip.from_start;
+    slide.from_lane = clip.from_track;
+    plan.slide.push_back(slide);
   }
   for (const ClipChange& clip : changes.removed) {
     plan.puff.push_back(ClipEffect(ChangeEffectKind::kPuff, clip));
   }
   Start(std::move(plan.grow), true);
   Start(std::move(plan.puff), false);
+  Start(std::move(plan.slide), false);
 }
 
 void ChangeEffects::Start(std::vector<ChangeEffect> effects,
@@ -224,16 +226,28 @@ double ChangeEffects::GlowOf(int lane, int item, Frame frame) const {
   return is_rewinding ? RewindGlow(effect->t) : 0.0;
 }
 
-double ChangeEffects::SlideOffsetOf(int lane, Frame frame) const {
+std::optional<ChangeEffect> ChangeEffects::SlideOf(int lane, int item,
+                                                   Frame frame) const {
   assert(lane >= 0);
   assert(frame.index() >= 0);
-  const ChangeEffect* effect = Find(lane, 0, frame);
+  const ChangeEffect* effect = Find(lane, item, frame);
   const bool is_sliding =
       effect != nullptr && effect->kind == ChangeEffectKind::kSlide;
   if (!is_sliding) {
+    return std::nullopt;
+  }
+  return *effect;
+}
+
+double ChangeEffects::SlideOffsetOf(int lane, int item, Frame frame) const {
+  assert(lane >= 0);
+  assert(item >= 0);
+  const auto slide = SlideOf(lane, item, frame);
+  const bool is_sliding = slide.has_value();
+  if (!is_sliding) {
     return 0.0;
   }
-  return (effect->from.index() - frame.index()) * (1.0 - effect->t);
+  return (slide->from.index() - frame.index()) * (1.0 - slide->t);
 }
 
 std::optional<double> ChangeEffects::RingOf(int lane, int item,

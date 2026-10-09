@@ -39,6 +39,8 @@ struct ChangeEffect final {
   Frame length = Frame(1);
   // Where a slide began; frame is where it ends.
   Frame from;
+  // Where a clip's slide began, as a lane; -1 for keys.
+  int from_lane = -1;
   double t = 0.0;
   int batch = 0;
 };
@@ -70,9 +72,11 @@ class ChangeEffects final : public QObject {
   void ShowClips(const ClipChanges& changes, bool is_travel);
 
   bool IsPlaying() const { return !effects_.empty(); }
-  // Frames to add to a key's place to draw it where it is sliding from;
-  // 0 when it is not sliding.
-  double SlideOffsetOf(int lane, Frame frame) const;
+  // Frames to add to a thing's place to draw it where it is sliding
+  // from; 0 when it is not sliding.
+  double SlideOffsetOf(int lane, int item, Frame frame) const;
+  // The slide a thing is in, or nothing.
+  std::optional<ChangeEffect> SlideOf(int lane, int item, Frame frame) const;
   // The size to draw a thing still in the project at: 1 when nothing
   // pops or rewinds it.
   double ScaleOf(int lane, int item, Frame frame) const;

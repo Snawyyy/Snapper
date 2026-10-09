@@ -120,6 +120,8 @@ class ReelTimeline final : public QWidget {
   // PaintClip, grown, flashed or ringed while the clip pops in or is
   // brought back by undo or redo.
   void PaintClipFx(QPainter* painter, const Clip& clip) const;
+  // How far to draw clip (on track) from its place while it slides.
+  QPointF SlideShift(const Clip& clip, int track) const;
   // Clips just deleted, still shrinking away where they were.
   void PaintPuffs(QPainter* painter) const;
   void PaintDrop(QPainter* painter) const;
@@ -188,6 +190,8 @@ class ReelTimeline final : public QWidget {
   // A plain click on a clip already in a bigger pick picks just it, once
   // it is clear the click was not a drag.
   bool is_plain_press_ = false;
+  // True while a drag lands its step, so its clips do not slide again.
+  bool is_landing_drag_ = false;
   bool has_moved_ = false;
   // The rubber band while picking by box, and how it combines.
   QPointF box_to_;

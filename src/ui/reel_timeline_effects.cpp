@@ -34,11 +34,34 @@ QRectF Shrunk(const QRectF& box, double scale) {
 
 }  // namespace
 
+QPointF ReelTimeline::SlideShift(const Clip& clip, int track) const {
+  assert(track >= 0);
+  assert(zoom_ > 0.0);
+  const auto slide = effects_.SlideOf(track, clip.id.value(), clip.start);
+  const bool is_sliding = slide.has_value();
+  if (!is_sliding) {
+    return QPointF();
+  }
+  const double left = 1.0 - slide->t;
+  const int tracks =
+      static_cast<int>(managers_.history->current().reel.tracks.size());
+  const bool has_old_track =
+      slide->from_lane >= 0 && slide->from_lane < tracks;
+  const double rise =
+      has_old_track ? TrackTop(slide->from_lane) - TrackTop(track) : 0.0;
+  return QPointF((slide->from.index() - clip.start.index()) * zoom_ * left,
+                 rise * left);
+}
+
 void ReelTimeline::ShowStep(const Project& before, bool is_travel) {
   assert(managers_.history != nullptr);
   assert(before.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
-  effects_.ShowClips(DiffClips(before, managers_.history->current()),
-                     is_travel);
+  ClipChanges changes = DiffClips(before, managers_.history->current());
+  // A drag already showed the clips moving.
+  if (is_landing_drag_) {
+    changes.moved.clear();
+  }
+  effects_.ShowClips(changes, is_travel);
 }
 
 void ReelTimeline::PaintClipFx(QPainter* painter, const Clip& clip) const {
@@ -51,6 +74,7 @@ void ReelTimeline::PaintClipFx(QPainter* painter, const Clip& clip) const {
                 kClipGrowShare;
   const QRectF box = ClipRect(clip.id);
   painter->save();
+  painter->translate(SlideShift(clip, lane));
   painter->translate(box.center());
   painter->scale(grow, grow);
   painter->translate(-box.center());

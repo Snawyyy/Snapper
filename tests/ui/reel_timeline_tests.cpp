@@ -52,6 +52,7 @@ class ReelTimelineTests final : public QObject {
   void PickerOffersKindAndLength();
   void ANewClipPopsAndADeletedOnePuffs();
   void UndoRewindsAClipAndOffShowsNothing();
+  void UndoOfAMoveSlidesTheClipBack();
 };
 
 void ReelTimelineTests::BoxPicksAndEmptyClickClears() {
@@ -224,6 +225,21 @@ void ReelTimelineTests::UndoRewindsAClipAndOffShowsNothing() {
   s.bench.history.Redo();
   QVERIFY(!FindClip(s.bench.history.current().reel, s.low).IsValid());
   QVERIFY(!s.timeline.effects().IsPlaying());
+}
+
+void ReelTimelineTests::UndoOfAMoveSlidesTheClipBack() {
+  Scene s;
+  s.bench.motion.SetMode(MotionMode::kFull);
+  QVERIFY(s.bench.reel.MoveAll({s.low}, 0, 30).has_value());
+  // A move made by a command, not a drag, slides too.
+  QVERIFY(s.timeline.effects().SlideOffsetOf(0, s.low.value(), Frame(30)) <
+          0.0);
+  QTRY_VERIFY(!s.timeline.effects().IsPlaying());
+  s.bench.history.Undo();
+  QCOMPARE(ClipOf(s.bench.history.current().reel, s.low)->start, Frame(0));
+  QCOMPARE(s.timeline.effects().SlideOffsetOf(0, s.low.value(), Frame(0)),
+           30.0);
+  QTRY_VERIFY(!s.timeline.effects().IsPlaying());
 }
 
 }  // namespace snapper

@@ -42,6 +42,7 @@ class ChangeEffectsTests final : public QObject {
   void OffShowsNothing();
   void CalmStillPlays();
   void ClipsPopPuffAndRewindToo();
+  void AMovedClipSlidesFromItsOldTrackAndStart();
   void ThingsAreToldApartByLaneItemAndFrame();
   void ASongsWorthOfKeysIsCapped();
 };
@@ -119,10 +120,10 @@ void ChangeEffectsTests::AMovedKeySlidesFromItsOldFrame() {
   moved.moved.push_back({kBob, Frame(2), Frame(6)});
   effects.ShowKeys(moved, false);
   // Drawn at the old frame to begin with, 4 frames behind the new one.
-  QCOMPARE(effects.SlideOffsetOf(1, Frame(6)), -4.0);
-  QCOMPARE(effects.SlideOffsetOf(1, Frame(2)), 0.0);
+  QCOMPARE(effects.SlideOffsetOf(1, 0, Frame(6)), -4.0);
+  QCOMPARE(effects.SlideOffsetOf(1, 0, Frame(2)), 0.0);
   QCOMPARE(effects.ScaleOf(1, 0, Frame(6)), 1.0);
-  QTRY_COMPARE(effects.SlideOffsetOf(1, Frame(6)), 0.0);
+  QTRY_COMPARE(effects.SlideOffsetOf(1, 0, Frame(6)), 0.0);
   QVERIFY(!effects.IsPlaying());
 }
 
@@ -166,6 +167,23 @@ void ChangeEffectsTests::ClipsPopPuffAndRewindToo() {
   effects.ShowClips(changes, true);
   QVERIFY(effects.GlowOf(1, 3, Frame(10)) > 0.0);
   QTRY_VERIFY(!effects.IsPlaying());
+}
+
+void ChangeEffectsTests::AMovedClipSlidesFromItsOldTrackAndStart() {
+  Bench bench;
+  bench.motion.SetMode(MotionMode::kFull);
+  QObject owner;
+  ChangeEffects effects(&bench.motion, &owner);
+  ClipChanges changes;
+  changes.moved.push_back(
+      {ClipId(3), 1, Frame(30), Frame(20), 0, Frame(10)});
+  effects.ShowClips(changes, false);
+  QCOMPARE(effects.SlideOffsetOf(1, 3, Frame(30)), -20.0);
+  const auto slide = effects.SlideOf(1, 3, Frame(30));
+  QVERIFY(slide.has_value());
+  QCOMPARE(slide->from_lane, 0);
+  QTRY_COMPARE(effects.SlideOffsetOf(1, 3, Frame(30)), 0.0);
+  QVERIFY(!effects.IsPlaying());
 }
 
 void ChangeEffectsTests::ThingsAreToldApartByLaneItemAndFrame() {
