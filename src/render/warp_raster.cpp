@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 
 #include "anim/warp.h"
 
@@ -16,21 +17,35 @@ namespace {
 constexpr double kEdgeSlack = 1e-6;
 // A warp may push a drawing at most this far past its own size.
 constexpr int kMaxWarpedSide = 16384;
+// Mixing weights run 0 to this, so a weight of one is a whole step.
+constexpr std::uint32_t kWeightOne = 256;
 
 struct Triangle final {
   QPointF to[3];
   QPointF from[3];
 };
 
-QRgb Blend(QRgb a, QRgb b, double t) {
-  assert(t >= 0.0 && t <= 1.0);
-  const auto mix = [t](int x, int y) {
-    return static_cast<int>(std::lround(x + (y - x) * t));
-  };
-  const QRgb out = qRgba(mix(qRed(a), qRed(b)), mix(qGreen(a), qGreen(b)),
-                         mix(qBlue(a), qBlue(b)), mix(qAlpha(a), qAlpha(b)));
-  assert(qAlpha(out) >= 0);
-  return out;
+// x and y mixed, weight/256 of the way to y, all four channels at once
+// (red and blue in one word, alpha and green in another). Whole
+// weights in 256ths are exact to within one level of a 255 scale, and
+// mixing a colour with itself gives it back.
+QRgb Mix(QRgb x, QRgb y, std::uint32_t weight) {
+  assert(weight <= kWeightOne);
+  assert(kWeightOne == 256);
+  constexpr std::uint32_t kPairs = 0x00ff00ffu;
+  constexpr std::uint32_t kHalf = 0x00800080u;
+  const std::uint32_t keep = kWeightOne - weight;
+  const std::uint32_t rb =
+      ((x & kPairs) * keep + (y & kPairs) * weight + kHalf) >> 8;
+  const std::uint32_t ag =
+      (((x >> 8) & kPairs) * keep + ((y >> 8) & kPairs) * weight + kHalf) >> 8;
+  return ((ag & kPairs) << 8) | (rb & kPairs);
+}
+
+std::uint32_t WeightOf(double fraction) {
+  assert(fraction >= 0.0 && fraction <= 1.0);
+  assert(kWeightOne == 256);
+  return static_cast<std::uint32_t>(fraction * kWeightOne + 0.5);
 }
 
 // Bilinear read of a premultiplied image; outside is clear.
@@ -41,17 +56,101 @@ QRgb Sample(const QImage& image, QPointF at) {
   const double y = at.y() - 0.5;
   const int left = static_cast<int>(std::floor(x));
   const int top = static_cast<int>(std::floor(y));
+  const std::uint32_t fx = WeightOf(x - left);
+  const std::uint32_t fy = WeightOf(y - top);
+  const bool is_inside = left >= 0 && top >= 0 && left + 1 < image.width() &&
+                         top + 1 < image.height();
+  if (is_inside) {
+    // All four neighbours are in the picture: no edge checks.
+    const auto* upper = reinterpret_cast<const QRgb*>(image.constScanLine(top));
+    const auto* lower =
+        reinterpret_cast<const QRgb*>(image.constScanLine(top + 1));
+    return Mix(Mix(upper[left], upper[left + 1], fx),
+               Mix(lower[left], lower[left + 1], fx), fy);
+  }
   const auto pixel = [&image](int px, int py) -> QRgb {
-    const bool is_inside = px >= 0 && py >= 0 && px < image.width() &&
-                           py < image.height();
+    const bool is_in = px >= 0 && py >= 0 && px < image.width() &&
+                       py < image.height();
     const auto* row = reinterpret_cast<const QRgb*>(image.constScanLine(
-        is_inside ? py : 0));
-    return is_inside ? row[px] : 0u;
+        is_in ? py : 0));
+    return is_in ? row[px] : 0u;
   };
-  const double fx = x - left;
-  const double fy = y - top;
-  return Blend(Blend(pixel(left, top), pixel(left + 1, top), fx),
-               Blend(pixel(left, top + 1), pixel(left + 1, top + 1), fx), fy);
+  return Mix(Mix(pixel(left, top), pixel(left + 1, top), fx),
+             Mix(pixel(left, top + 1), pixel(left + 1, top + 1), fx), fy);
+}
+
+// How far a barycentric weight moves per pixel to the right, and its
+// value at the row's left edge (px = 0): weight = slope * px + base.
+struct Line final {
+  double slope;
+  double base;
+};
+
+// The columns (in px, the target pixel's centre in the picture's space)
+// where all three weights are inside the triangle, widened a little:
+// the exact test is still made on each pixel, this only skips the
+// ones that can't pass.
+bool InsideColumns(const Line (&weights)[3], double* lo, double* hi) {
+  assert(lo != nullptr && hi != nullptr);
+  assert(kEdgeSlack > 0.0);
+  *lo = -1e300;
+  *hi = 1e300;
+  for (const Line& line : weights) {
+    const bool is_steady = std::abs(line.slope) < 1e-12;
+    if (is_steady) {
+      const bool is_out = line.base < -kEdgeSlack;
+      if (is_out) {
+        return false;
+      }
+      continue;
+    }
+    const double edge = (-kEdgeSlack - line.base) / line.slope;
+    const bool is_lower_bound = line.slope > 0.0;
+    *lo = is_lower_bound ? std::max(*lo, edge) : *lo;
+    *hi = is_lower_bound ? *hi : std::min(*hi, edge);
+  }
+  return *lo <= *hi;
+}
+
+// The weights of a, b and c at row py, as lines over px.
+void RowWeights(const Triangle& triangle, double area, double py,
+                Line (*out)[3]) {
+  assert(out != nullptr);
+  assert(area != 0.0);
+  const QPointF& a = triangle.to[0];
+  const QPointF& b = triangle.to[1];
+  const QPointF& c = triangle.to[2];
+  const Line u{(b.y() - c.y()) / area,
+               (b.x() * (c.y() - py) - c.x() * (b.y() - py)) / area};
+  const Line v{(c.y() - a.y()) / area,
+               (c.x() * (a.y() - py) - a.x() * (c.y() - py)) / area};
+  (*out)[0] = u;
+  (*out)[1] = v;
+  (*out)[2] = {-(u.slope + v.slope), 1.0 - u.base - v.base};
+}
+
+// Draws one row of the triangle between columns x0 and x1.
+void DrawRow(const QImage& source, const Triangle& triangle, double area,
+             QPointF origin, int y, int x0, int x1, QRgb* row) {
+  assert(row != nullptr);
+  assert(x0 <= x1);
+  const QPointF& a = triangle.to[0];
+  const QPointF& b = triangle.to[1];
+  const QPointF& c = triangle.to[2];
+  for (int x = x0; x < x1; ++x) {
+    const QPointF p(x + 0.5 + origin.x(), y + 0.5 + origin.y());
+    const double u = ((b.x() - p.x()) * (c.y() - p.y()) -
+                      (c.x() - p.x()) * (b.y() - p.y())) / area;
+    const double v = ((c.x() - p.x()) * (a.y() - p.y()) -
+                      (a.x() - p.x()) * (c.y() - p.y())) / area;
+    const double w = 1.0 - u - v;
+    const bool is_inside = u >= -kEdgeSlack && v >= -kEdgeSlack &&
+                           w >= -kEdgeSlack;
+    if (is_inside) {
+      row[x] = Sample(source, triangle.from[0] * u + triangle.from[1] * v +
+                                  triangle.from[2] * w);
+    }
+  }
 }
 
 void DrawTriangle(const QImage& source, const Triangle& triangle,
@@ -76,26 +175,22 @@ void DrawTriangle(const QImage& source, const Triangle& triangle,
                         .translated(-origin)
                         .toAlignedRect()
                         .intersected(target->rect());
-  const int x0 = box.left();
-  const int x1 = box.right() + 1;
-  const int y0 = box.top();
-  const int y1 = box.bottom() + 1;
-  for (int y = y0; y < y1; ++y) {
-    auto* row = reinterpret_cast<QRgb*>(target->scanLine(y));
-    for (int x = x0; x < x1; ++x) {
-      const QPointF p(x + 0.5 + origin.x(), y + 0.5 + origin.y());
-      const double u = ((b.x() - p.x()) * (c.y() - p.y()) -
-                        (c.x() - p.x()) * (b.y() - p.y())) / area;
-      const double v = ((c.x() - p.x()) * (a.y() - p.y()) -
-                        (a.x() - p.x()) * (c.y() - p.y())) / area;
-      const double w = 1.0 - u - v;
-      const bool is_inside = u >= -kEdgeSlack && v >= -kEdgeSlack &&
-                             w >= -kEdgeSlack;
-      if (is_inside) {
-        row[x] = Sample(source, triangle.from[0] * u + triangle.from[1] * v +
-                                    triangle.from[2] * w);
-      }
+  for (int y = box.top(); y < box.bottom() + 1; ++y) {
+    Line weights[3];
+    RowWeights(triangle, area, y + 0.5 + origin.y(), &weights);
+    double lo = 0.0;
+    double hi = 0.0;
+    const bool is_reached = InsideColumns(weights, &lo, &hi);
+    if (!is_reached) {
+      continue;
     }
+    // One pixel of margin each side covers rounding in the bounds.
+    const double first = std::floor(lo - 0.5 - origin.x()) - 1.0;
+    const double last = std::ceil(hi - 0.5 - origin.x()) + 2.0;
+    const int x0 = static_cast<int>(std::max<double>(first, box.left()));
+    const int x1 = static_cast<int>(std::min<double>(last, box.right() + 1));
+    DrawRow(source, triangle, area, origin, y, x0, x1,
+            reinterpret_cast<QRgb*>(target->scanLine(y)));
   }
 }
 

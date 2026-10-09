@@ -7,6 +7,11 @@
 #include <cstdint>
 #include <list>
 #include <unordered_map>
+#include <vector>
+
+#include "model/doll.h"
+#include "render/warp_cache.h"
+#include "render/warp_raster.h"
 
 namespace snapper {
 
@@ -21,6 +26,11 @@ class ImageCache final {
   // can't be read. A missing file is remembered so it isn't retried
   // every frame.
   const QImage& Get(const QString& path);
+  // The drawing at path bent by grid over points (see WarpImage),
+  // kept so the same bend is made once. An empty image if path can't
+  // be read. The reference holds until the next call.
+  const WarpedImage& Warped(const QString& path, WarpGrid grid,
+                            const std::vector<QPointF>& points);
   // Forgets path, for when a file changed on disk.
   void Forget(const QString& path);
   std::int64_t bytes() const { return bytes_; }
@@ -37,6 +47,7 @@ class ImageCache final {
   // Most recently used first.
   std::list<QString> uses_;
   std::int64_t bytes_ = 0;
+  WarpCache warps_;
 };
 
 }  // namespace snapper

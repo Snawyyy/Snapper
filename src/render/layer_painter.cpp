@@ -57,8 +57,8 @@ void Painter::operator()(const DollLayer& layer) const {
     painter->setOpacity(layer_opacity * piece.opacity);
     const bool is_warped = !piece.warp_points.empty();
     if (is_warped) {
-      const WarpedImage warped =
-          WarpImage(image, piece.grid, piece.warp_points);
+      const WarpedImage& warped =
+          cache->Warped(piece.drawing, piece.grid, piece.warp_points);
       painter->setTransform(QTransform::fromTranslate(warped.origin.x(),
                                                       warped.origin.y()) *
                             piece.transform * world);

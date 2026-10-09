@@ -17,6 +17,15 @@
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
     },
     {
+      "name": "relwithdebinfo",
+      "inherits": "debug",
+      "binaryDir": "${sourceDir}/build-rel",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-O2 -g -fno-omit-frame-pointer"
+      }
+    },
+    {
       "name": "sanitize",
       "inherits": "debug",
       "binaryDir": "${sourceDir}/build-sanitize",
@@ -28,12 +37,18 @@
   "buildPresets": [
     { "name": "debug", "configurePreset": "debug" },
     { "name": "release", "configurePreset": "release" },
+    { "name": "relwithdebinfo", "configurePreset": "relwithdebinfo" },
     { "name": "sanitize", "configurePreset": "sanitize" }
   ],
   "testPresets": [
     {
       "name": "debug",
       "configurePreset": "debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "relwithdebinfo",
+      "configurePreset": "relwithdebinfo",
       "output": { "outputOnFailure": true }
     },
     {

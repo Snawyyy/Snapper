@@ -33,6 +33,14 @@ bool IsSolidAt(const QImage& image, QPointF point) {
   return is_inside && qAlpha(image.pixel(x, y)) >= kSolidAlpha;
 }
 
+// IsSolidAt for a bent drawing; point is in the drawing's own pixels.
+bool IsWarpedSolidAt(const WarpedImage& warped, QPointF point) {
+  assert(std::isfinite(point.x()) && std::isfinite(point.y()));
+  assert(warped.image.isNull() || warped.image.width() > 0);
+  return !warped.image.isNull() &&
+         IsSolidAt(warped.image, point - warped.origin);
+}
+
 }  // namespace
 
 std::optional<QString> HitDollPiece(const Doll& doll, const PoseMap& poses,
@@ -54,11 +62,10 @@ std::optional<QString> HitDollPiece(const Doll& doll, const PoseMap& poses,
     }
     const QPointF in_drawing = back.map(point);
     const bool is_warped = !it->warp_points.empty();
-    const WarpedImage warped =
-        is_warped ? WarpImage(image, it->grid, it->warp_points)
-                  : WarpedImage{QImage(), QPointF()};
     const bool is_hit =
-        is_warped ? IsSolidAt(warped.image, in_drawing - warped.origin)
+        is_warped ? IsWarpedSolidAt(cache->Warped(it->drawing, it->grid,
+                                                  it->warp_points),
+                                    in_drawing)
                   : IsSolidAt(image, QPointF(in_drawing.x() * image.width() /
                                                  it->size.width(),
                                              in_drawing.y() * image.height() /
