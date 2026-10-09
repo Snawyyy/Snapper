@@ -70,6 +70,8 @@ class PoseTool final {
   void Release();
   void Cancel();
   void Wheel(int notches, bool is_fine, const StageFrame& frame);
+  // The degrees a wheel turn of notches turns the picked things by.
+  static double WheelDegrees(int notches, bool is_fine);
   // Double-click: picks the whole doll (or layer) under point as one
   // group, so it moves, scales and turns as one.
   void PickWhole(QPointF point, const StageFrame& frame);

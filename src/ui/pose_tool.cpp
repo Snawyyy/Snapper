@@ -334,8 +334,14 @@ void PoseTool::Wheel(int notches, bool is_fine, const StageFrame& frame) {
   }
   PoseDelta delta;
   // Wheel up turns counterclockwise, like a knob.
-  delta.rotation = -notches * (is_fine ? kFineWheelStep : kWheelStep);
+  delta.rotation = WheelDegrees(notches, is_fine);
   Note(managers_.pose->Shift(tracks, frame.local, delta));
+}
+
+double PoseTool::WheelDegrees(int notches, bool is_fine) {
+  assert(notches > -1000000 && notches < 1000000);
+  assert(kWheelStep > kFineWheelStep);
+  return -notches * (is_fine ? kFineWheelStep : kWheelStep);
 }
 
 void PoseTool::Note(const Result<void>& result) {

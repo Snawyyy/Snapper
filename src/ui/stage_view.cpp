@@ -15,6 +15,7 @@
 #include "edit/project_edits.h"
 #include "render/stage_geometry.h"
 #include "render/stage_hit.h"
+#include "ui/drag_text.h"
 #include "ui/playhead.h"
 #include "ui/theme.h"
 
@@ -200,9 +201,14 @@ void StageView::wheelEvent(QWheelEvent* event) {
   const bool is_usable = notches != 0 && frame.has_value() &&
                          !tool_.IsDragging();
   if (is_usable) {
-    tool_.Wheel(notches, event->modifiers().testFlag(Qt::ShiftModifier),
-                *frame);
+    const bool is_fine = event->modifiers().testFlag(Qt::ShiftModifier);
+    const bool was_dot = tool_.PickedDot(*frame).has_value();
+    tool_.Wheel(notches, is_fine, *frame);
     ReportTool();
+    const bool has_turned = !was_dot && tool_.problem().isEmpty();
+    if (has_turned) {
+      ShowWheel(event->position(), notches, is_fine);
+    }
   }
   event->accept();
   assert(event->isAccepted());
@@ -289,6 +295,16 @@ void StageView::ShowDrag() {
     feedback_.Update(readout->start, readout->cursor, readout->text,
                      readout->is_snapped);
   }
+}
+
+void StageView::ShowWheel(QPointF cursor, int notches, bool is_fine) {
+  assert(notches != 0);
+  assert(std::isfinite(cursor.x()) && std::isfinite(cursor.y()));
+  // A rested chip has faded: the next turn counts from nothing.
+  const bool is_fresh = feedback_.pulse() <= 0.0;
+  wheel_degrees_ = is_fresh ? 0.0 : wheel_degrees_;
+  wheel_degrees_ += PoseTool::WheelDegrees(notches, is_fine);
+  feedback_.Pulse(cursor, AngleText(wheel_degrees_));
 }
 
 void StageView::ReportTool() {

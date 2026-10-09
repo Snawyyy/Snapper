@@ -41,6 +41,32 @@ DragFeedback::DragFeedback(MotionManager* motion, QObject* parent)
     : QObject(parent), motion_(motion) {
   assert(motion_ != nullptr);
   assert(!is_active_);
+  rest_timer_.setSingleShot(true);
+  rest_timer_.setInterval(kRestMs);
+  connect(&rest_timer_, &QTimer::timeout, this, [this] { StartFade(); });
+}
+
+void DragFeedback::Pulse(QPointF cursor, const QString& text) {
+  assert(std::isfinite(cursor.x()) && std::isfinite(cursor.y()));
+  assert(!text.isEmpty());
+  if (pulse_animation_) {
+    pulse_animation_->stop();
+  }
+  pulse_text_ = text;
+  pulse_at_ = cursor;
+  pulse_ = 1.0;
+  rest_timer_.start();
+  emit Changed();
+}
+
+void DragFeedback::StartFade() {
+  assert(motion_ != nullptr);
+  assert(pulse_ > 0.0);
+  pulse_animation_ = motion_->Animate(
+      this, MotionKind::kCap, 1.0, 0.0, [this](const QVariant& value) {
+        pulse_ = std::max(0.0, value.toDouble());
+        emit Changed();
+      });
 }
 
 void DragFeedback::Update(QPointF start, QPointF cursor, const QString& text,
@@ -109,6 +135,11 @@ void DragFeedback::Cancel() {
   if (settle_animation_) {
     settle_animation_->stop();
   }
+  if (pulse_animation_) {
+    pulse_animation_->stop();
+  }
+  rest_timer_.stop();
+  pulse_ = 0.0;
   is_active_ = false;
   was_snapped_ = false;
   flash_ = 0.0;
@@ -129,31 +160,37 @@ void DragFeedback::Paint(QPainter* painter, const QRectF& bounds) const {
                          Qt::DashLine));
     painter->setBrush(Qt::NoBrush);
     painter->drawEllipse(ghost_, kHandleDraw, kHandleDraw);
-    PaintChip(painter, bounds);
+    PaintChip(painter, bounds, cursor_, text_);
+  }
+  const bool is_pulsing = pulse_ > 0.0 && !is_active_;
+  if (is_pulsing) {
+    painter->setOpacity(std::min(pulse_, 1.0));
+    PaintChip(painter, bounds, pulse_at_, pulse_text_);
   }
   painter->restore();
 }
 
-void DragFeedback::PaintChip(QPainter* painter, const QRectF& bounds) const {
+void DragFeedback::PaintChip(QPainter* painter, const QRectF& bounds,
+                             QPointF cursor, const QString& text) const {
   assert(painter != nullptr);
-  assert(is_active_);
+  assert(!text.isEmpty());
   const QFontMetricsF metrics(painter->font());
-  const QSizeF size(metrics.horizontalAdvance(text_) + 2.0 * kChipPadX,
+  const QSizeF size(metrics.horizontalAdvance(text) + 2.0 * kChipPadX,
                     metrics.height() + 2.0 * kChipPadY);
-  const QRectF chip = ChipRect(cursor_, size, bounds);
+  const QRectF chip = ChipRect(cursor, size, bounds);
   QColor border = theme::kFaceLight;
   border = flash_ > 0.0 ? theme::kHandle : border;
   painter->setPen(QPen(border, 1.0 + flash_));
   painter->setBrush(WithAlpha(theme::kShadow, kChipAlpha / 255.0));
   painter->drawRoundedRect(chip, kChipRadius, kChipRadius);
   painter->setPen(theme::kText);
-  painter->drawText(chip, Qt::AlignCenter, text_);
-  const bool is_flashing = flash_ > 0.0;
+  painter->drawText(chip, Qt::AlignCenter, text);
+  const bool is_flashing = flash_ > 0.0 && is_active_;
   if (is_flashing) {
     const double reach = kHandleDraw + kFlashReach * (1.0 - flash_);
     painter->setPen(QPen(WithAlpha(theme::kHandle, flash_), 2.0));
     painter->setBrush(Qt::NoBrush);
-    painter->drawEllipse(cursor_, reach, reach);
+    painter->drawEllipse(cursor, reach, reach);
   }
 }
 

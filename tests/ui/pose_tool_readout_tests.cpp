@@ -35,6 +35,7 @@ class PoseToolReadoutTests final : public QObject {
   void TurnSaysDegrees();
   void ShiftSnapsTheTurnToFifteen();
   void CancelSilencesAndRestores();
+  void WheelTurnsFiveADegreeNotchOrOneWithShift();
 };
 
 void PoseToolReadoutTests::SilentUntilTheDeadZoneIsLeft() {
@@ -129,6 +130,12 @@ void PoseToolReadoutTests::CancelSilencesAndRestores() {
   QVERIFY(!tool.ReadoutOf().has_value());
   QCOMPARE(LeanOf(bench), 0.0);
   QVERIFY(!bench.history.CanUndo());
+}
+
+void PoseToolReadoutTests::WheelTurnsFiveADegreeNotchOrOneWithShift() {
+  QCOMPARE(PoseTool::WheelDegrees(1, false), -5.0);
+  QCOMPARE(PoseTool::WheelDegrees(-3, false), 15.0);
+  QCOMPARE(PoseTool::WheelDegrees(2, true), -2.0);
 }
 
 }  // namespace snapper

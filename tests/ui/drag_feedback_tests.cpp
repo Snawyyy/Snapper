@@ -22,6 +22,9 @@ class DragFeedbackTests final : public QObject {
   void SettleIsInstantInOff();
   void CancelClearsEverything();
   void PaintsTheChip();
+  void PulseShowsThenFadesAfterARest();
+  void NewPulseKeepsTheChipUp();
+  void CancelClearsAPulse();
 };
 
 void DragFeedbackTests::StartsQuiet() {
@@ -143,6 +146,44 @@ void DragFeedbackTests::PaintsTheChip() {
   painter.end();
   QVERIFY(image != blank);
   QVERIFY(feedback.is_active());
+}
+
+void DragFeedbackTests::PulseShowsThenFadesAfterARest() {
+  Bench bench;
+  bench.motion.SetMode(MotionMode::kFull);
+  QObject owner;
+  DragFeedback feedback(&bench.motion, &owner);
+  feedback.Pulse(QPointF(5, 5), "-10 deg");
+  QCOMPARE(feedback.pulse(), 1.0);
+  QCOMPARE(feedback.pulse_text(), QStringLiteral("-10 deg"));
+  QVERIFY(!feedback.is_active());
+  QTRY_COMPARE_WITH_TIMEOUT(feedback.pulse(), 0.0, kRestMs + 2000);
+}
+
+void DragFeedbackTests::NewPulseKeepsTheChipUp() {
+  Bench bench;
+  bench.motion.SetMode(MotionMode::kOff);
+  QObject owner;
+  DragFeedback feedback(&bench.motion, &owner);
+  feedback.Pulse(QPointF(5, 5), "-5 deg");
+  QTest::qWait(kRestMs / 2);
+  feedback.Pulse(QPointF(5, 5), "-10 deg");
+  QTest::qWait(kRestMs / 2 + 100);
+  QCOMPARE(feedback.pulse(), 1.0);
+  QCOMPARE(feedback.pulse_text(), QStringLiteral("-10 deg"));
+  QTRY_COMPARE_WITH_TIMEOUT(feedback.pulse(), 0.0, kRestMs + 1000);
+}
+
+void DragFeedbackTests::CancelClearsAPulse() {
+  Bench bench;
+  QObject owner;
+  DragFeedback feedback(&bench.motion, &owner);
+  feedback.Pulse(QPointF(5, 5), "-5 deg");
+  QCOMPARE(feedback.pulse(), 1.0);
+  feedback.Cancel();
+  QCOMPARE(feedback.pulse(), 0.0);
+  QTest::qWait(kRestMs + 100);
+  QCOMPARE(feedback.pulse(), 0.0);
 }
 
 }  // namespace snapper

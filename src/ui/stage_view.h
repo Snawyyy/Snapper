@@ -72,6 +72,9 @@ class StageView final : public QWidget {
   void ReportTool();
   // Shows what the drag in progress says: chip, ghost and snap flash.
   void ShowDrag();
+  // Shows the angle the wheel has turned the picked things by since it
+  // last rested.
+  void ShowWheel(QPointF cursor, int notches, bool is_fine);
   // Ctrl+A: every piece of the picked doll, or every layer.
   void PickAll();
   // The right-click menu's link actions, for the thing at point; empty
@@ -86,6 +89,8 @@ class StageView final : public QWidget {
   std::optional<Pick> hover_pick_;
   // Wheel movement not yet a whole notch.
   int wheel_left_ = 0;
+  // Degrees turned by the wheel since the chip last faded.
+  double wheel_degrees_ = 0.0;
 };
 
 }  // namespace snapper

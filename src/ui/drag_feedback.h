@@ -6,6 +6,7 @@
 #include <QPointer>
 #include <QRectF>
 #include <QString>
+#include <QTimer>
 #include <QVariantAnimation>
 
 class QPainter;
@@ -13,6 +14,10 @@ class QPainter;
 namespace snapper {
 
 class MotionManager;
+
+// A pulse chip starts to fade this many milliseconds after the last
+// Pulse.
+inline constexpr int kRestMs = 700;
 
 // What a drag shows besides the thing it drags: a value chip beside the
 // cursor, a faint ghost where the drag began, a flash when it snaps,
@@ -36,6 +41,10 @@ class DragFeedback final : public QObject {
   void Settle();
   // Escape: everything vanishes at once, no pop.
   void Cancel();
+  // A value with no drag behind it (the wheel turning a handle): the
+  // chip shows beside the cursor, and fades out through Motion once
+  // no Pulse has come for kRestMs. No ghost, no flash.
+  void Pulse(QPointF cursor, const QString& text);
 
   bool is_active() const { return is_active_; }
   const QString& text() const { return text_; }
@@ -43,6 +52,9 @@ class DragFeedback final : public QObject {
   QPointF cursor() const { return cursor_; }
   // 1 as a snap flashes, easing to 0.
   double flash() const { return flash_; }
+  // 1 while a pulse chip shows, easing to 0 as it fades; 0 when none.
+  double pulse() const { return pulse_; }
+  const QString& pulse_text() const { return pulse_text_; }
   // 1 as the pop starts, easing to exactly 0 when it is over (it may dip
   // below 0 on the way, the overshoot); 0 when none is playing.
   double settle() const { return settle_; }
@@ -57,7 +69,9 @@ class DragFeedback final : public QObject {
  private:
   void StartFlash();
   void StartSettle();
-  void PaintChip(QPainter* painter, const QRectF& bounds) const;
+  void PaintChip(QPainter* painter, const QRectF& bounds, QPointF cursor,
+                 const QString& text) const;
+  void StartFade();
   void PaintPop(QPainter* painter) const;
 
   MotionManager* motion_;
@@ -69,6 +83,11 @@ class DragFeedback final : public QObject {
   double flash_ = 0.0;
   double settle_ = 0.0;
   QPointF settle_at_;
+  QString pulse_text_;
+  QPointF pulse_at_;
+  double pulse_ = 0.0;
+  QTimer rest_timer_;
+  QPointer<QVariantAnimation> pulse_animation_;
   QPointer<QVariantAnimation> flash_animation_;
   QPointer<QVariantAnimation> settle_animation_;
 };
