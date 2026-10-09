@@ -18,6 +18,7 @@ class TimingChartTests final : public QObject {
   void BakeKeysEveryFrameAndKeepsOutsideKeys();
   void BakeFollowsTheSpacing();
   void BakeLeavesAnEmptyChannelAlone();
+  void BakeKeepsEveryFrameOutsideTheRange();
 };
 
 void TimingChartTests::EvenTicksShareTheLine() {
@@ -110,6 +111,33 @@ void TimingChartTests::BakeLeavesAnEmptyChannelAlone() {
   QVERIFY(BakeChannel(&channel, Frame(0), Frame(2),
                       std::vector<double>({0.5})));
   QVERIFY(channel.keys.empty());
+}
+
+void TimingChartTests::BakeKeepsEveryFrameOutsideTheRange() {
+  const Ease eases[] = {Ease::kStep, Ease::kLinear, Ease::kEaseIn,
+                        Ease::kEaseOut, Ease::kEaseInOut};
+  for (const Ease ease : eases) {
+    Channel<double> channel;
+    SetKey(&channel, {Frame(0), 0.0, ease});
+    SetKey(&channel, {Frame(3), 30.0, ease});
+    SetKey(&channel, {Frame(16), 100.0, ease});
+    SetKey(&channel, {Frame(20), 7.0, ease});
+    // A on 6 and B on 12 have no key; neighbours are eased.
+    const Channel<double> before = channel;
+    QVERIFY(BakeChannel(&channel, Frame(6), Frame(12),
+                        std::vector<double>({0.1, 0.2, 0.3, 0.4, 0.9})));
+    for (int f = 0; f <= 30; ++f) {
+      const bool is_outside = f < 6 || f > 12;
+      if (is_outside) {
+        QCOMPARE(Sample(channel, Frame(f), -1.0),
+                 Sample(before, Frame(f), -1.0));
+      }
+    }
+    QCOMPARE(Sample(channel, Frame(6), -1.0),
+             Sample(before, Frame(6), -1.0));
+    QCOMPARE(Sample(channel, Frame(12), -1.0),
+             Sample(before, Frame(12), -1.0));
+  }
 }
 
 }  // namespace snapper
