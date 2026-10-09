@@ -41,7 +41,10 @@ NumberInput::NumberInput(QAbstractSpinBox* box)
   // Math is applied whole, on Enter; per-key updates would rewrite the
   // text under the cursor ("+1" would turn into "1.0 deg").
   box_->setKeyboardTracking(false);
+  // Keys and focus land on the box when it holds the keyboard and on
+  // its line edit when that does; listen to both.
   edit_->installEventFilter(this);
+  box_->installEventFilter(this);
 }
 
 QString NumberInput::Body() const {
@@ -110,10 +113,11 @@ bool NumberInput::eventFilter(QObject* watched, QEvent* event) {
   assert(watched != nullptr);
   assert(event != nullptr);
   const QEvent::Type type = event->type();
-  const bool is_key = watched == edit_ && type == QEvent::KeyPress;
+  const bool is_ours = watched == edit_ || watched == box_;
+  const bool is_key = is_ours && type == QEvent::KeyPress;
   const int key = is_key ? static_cast<QKeyEvent*>(event)->key() : 0;
   const bool is_enter = key == Qt::Key_Return || key == Qt::Key_Enter;
-  const bool is_left = watched == edit_ && type == QEvent::FocusOut;
+  const bool is_left = is_ours && type == QEvent::FocusOut;
   const bool is_commit = is_enter || is_left;
   if (is_commit) {
     Commit();
