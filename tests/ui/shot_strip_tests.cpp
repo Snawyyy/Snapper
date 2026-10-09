@@ -33,6 +33,7 @@ class ShotStripTests final : public QObject {
   void DraggingAShotReordersIt();
   void DeleteRemovesThePickedShot();
   void ManyShotsResizeAndDeleteTogether();
+  void DragsLeaveAGhostOfTheShot();
   void EdgeDragSaysFramesAndReorderSaysPlace();
   void EscapeDropsTheEdgeDrag();
 };
@@ -133,6 +134,26 @@ void ShotStripTests::ManyShotsResizeAndDeleteTogether() {
   QCOMPARE(shots[2]->length, Frame(60));
   QTest::keyClick(&strip, Qt::Key_Delete);
   QCOMPARE(Names(bench), QStringList({"Shot 2"}));
+}
+
+void ShotStripTests::DragsLeaveAGhostOfTheShot() {
+  Bench bench;
+  bench.motion.SetMode(MotionMode::kOff);
+  for (int i = 0; i < 3; ++i) {
+    QVERIFY(bench.shots.Add(-1).has_value());
+  }
+  ShotStrip strip(bench.All());
+  strip.resize(800, 40);
+  const QRectF block = strip.Blocks()[0].rect;
+  const QPoint middle(static_cast<int>(block.center().x()),
+                      static_cast<int>(block.center().y()));
+  QTest::mousePress(&strip, Qt::LeftButton, {}, middle);
+  QCOMPARE(strip.feedback().ghost_kind(), GhostKind::kShot);
+  QTest::mouseMove(&strip, middle + QPoint(150, 0));
+  QCOMPARE(strip.feedback().ghost_kind(), GhostKind::kShot);
+  QTest::keyClick(&strip, Qt::Key_Escape);
+  QCOMPARE(strip.feedback().ghost_kind(), GhostKind::kNone);
+  QTest::mouseRelease(&strip, Qt::LeftButton, {}, middle);
 }
 
 void ShotStripTests::EdgeDragSaysFramesAndReorderSaysPlace() {
