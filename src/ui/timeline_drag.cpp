@@ -5,6 +5,7 @@
 #include "edit/history_manager.h"
 #include "edit/key_manager.h"
 #include "edit/selection_manager.h"
+#include "edit/timeline_rows.h"
 #include "ui/drag_text.h"
 #include "ui/grab.h"
 #include "ui/timeline_view.h"
@@ -20,6 +21,21 @@ void TimelineView::StartKeyDrag(Frame key, QPointF at) {
   drag_keys_ = managers_.selection->keys();
   press_ = at;
   is_started_ = false;
+  GrabGhost();
+}
+
+void TimelineView::GrabGhost() {
+  assert(key_drag_ != nullptr);
+  assert(managers_.history != nullptr);
+  const auto rows =
+      TimelineRows(managers_.history->current(), managers_.selection->shot());
+  const bool has_rows = !rows.empty();
+  if (!has_rows) {
+    return;
+  }
+  feedback_.SetGhost(MakeGhost(
+      GhostKind::kKey, size(), devicePixelRatioF(),
+      [&](QPainter* painter) { PaintRows(painter, rows, true); }));
 }
 
 void TimelineView::SlideKeys(Frame frame, QPointF at) {

@@ -65,7 +65,16 @@ class TimelineView final : public QWidget {
   // Frames between ruler numbers at the current zoom.
   int LabelStep() const;
   void PaintWave(QPainter* painter) const;
-  void PaintRows(QPainter* painter, const std::vector<TimelineRow>& rows);
+  // Names and keys of every row; as a ghost, only the picked keys.
+  void PaintRows(QPainter* painter, const std::vector<TimelineRow>& rows,
+                 bool is_ghost);
+  // One key: its hold bar and diamond, centred on middle.
+  void PaintKey(QPainter* painter, const TimelineRow& row, size_t i,
+                size_t row_index, double middle) const;
+  bool IsKeyPicked(const TimelineRow& row, Frame frame) const;
+  // As a key is grabbed: leaves a faint copy of the picked keys, drawn
+  // by PaintKey, where they sit now.
+  void GrabGhost();
   void PaintPlayhead(QPainter* painter) const;
   // The row under y, or -1.
   int RowAt(double y, size_t count) const;
