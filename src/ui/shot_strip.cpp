@@ -19,6 +19,8 @@
 #include "edit/shot_manager.h"
 #include "ui/grab.h"
 #include "ui/theme.h"
+#include "ui/toast_manager.h"
+#include "ui/toast_queue.h"
 
 namespace snapper {
 namespace {
@@ -240,6 +242,15 @@ void ShotStrip::contextMenuEvent(QContextMenuEvent* event) {
   }
 }
 
+void ShotStrip::DeletePicked(const std::vector<ShotId>& picked) {
+  assert(managers_.toasts != nullptr);
+  assert(!picked.empty());
+  managers_.toasts->Finish(
+      ProblemOf(managers_.shots->RemoveAll(picked)),
+      CountText(tr("Deleted"), static_cast<int>(picked.size()), tr("shot"),
+                tr("shots")));
+}
+
 void ShotStrip::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
   const std::vector<ShotId> picked = PickedShots();
@@ -248,7 +259,7 @@ void ShotStrip::keyPressEvent(QKeyEvent* event) {
                           event->key() == Qt::Key_Backspace);
   const bool is_all = event->matches(QKeySequence::SelectAll);
   if (is_delete) {
-    Report(ProblemOf(managers_.shots->RemoveAll(picked)));
+    DeletePicked(picked);
     return;
   }
   if (is_all) {
@@ -307,9 +318,8 @@ void ShotStrip::Menu(ShotId shot, QPoint where) {
           [this] {
             Report(ProblemOf(managers_.shots->DuplicateAll(PickedShots())));
           });
-  connect(menu.addAction(tr("Delete")), &QAction::triggered, this, [this] {
-    Report(ProblemOf(managers_.shots->RemoveAll(PickedShots())));
-  });
+  connect(menu.addAction(tr("Delete")), &QAction::triggered, this,
+          [this] { DeletePicked(PickedShots()); });
   menu.exec(where);
 }
 

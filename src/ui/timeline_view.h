@@ -78,6 +78,8 @@ class TimelineView final : public QWidget {
   // Opens the one undo step of a key drag that starts at at.
   void StartKeyDrag(Frame key, QPointF at);
   void Report(const QString& problem) { emit Problem(problem); }
+  // Removes the picked keys; the toast offers Undo for that step.
+  void DeletePicked();
   void KeyMenu(const TimelineRow& row, Frame frame, QPoint where);
   void EmptyMenu(const TimelineRow& row, Frame frame, QPoint where);
 

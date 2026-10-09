@@ -7,6 +7,7 @@
 
 #include "bench.h"
 #include "ui/main_window.h"
+#include "ui/shot_strip.h"
 #include "ui/toast_manager.h"
 #include "ui/toast_queue.h"
 #include "ui/toast_view.h"
@@ -30,6 +31,7 @@ class ToastTests final : public QObject {
   void WindowShowsToastsAndNeverTakesFocus();
   void ClickAndEscapeDismiss();
   void PressingUndoOnAToastUndoes();
+  void DeletingAShotOffersUndoForThatShot();
 };
 
 namespace {
@@ -209,6 +211,23 @@ void ToastTests::PressingUndoOnAToastUndoes() {
   QTest::mouseClick(undo, Qt::LeftButton);
   QCOMPARE(rig.history.current().name, QString("Kept"));
   QVERIFY(rig.toasts.queue().empty());
+}
+
+void ToastTests::DeletingAShotOffersUndoForThatShot() {
+  Bench rig;
+  QVERIFY(rig.shots.Add(-1).has_value());
+  QVERIFY(rig.shots.Add(-1).has_value());
+  ShotStrip strip(rig.All());
+  strip.resize(800, 40);
+  QTest::mouseClick(&strip, Qt::LeftButton, {},
+                    strip.Blocks()[1].rect.center().toPoint());
+  QTest::keyClick(&strip, Qt::Key_Delete);
+  QCOMPARE(static_cast<int>(rig.history.current().shots.size()), 1);
+  const Toast toast = rig.toasts.queue().toasts().back();
+  QCOMPARE(toast.text, QString("Deleted 1 shot"));
+  QVERIFY(toast.has_undo);
+  rig.toasts.Undo(toast.id);
+  QCOMPARE(static_cast<int>(rig.history.current().shots.size()), 2);
 }
 
 }  // namespace snapper

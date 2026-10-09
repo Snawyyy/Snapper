@@ -7,6 +7,8 @@
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/stage_manager.h"
+#include "ui/toast_manager.h"
+#include "ui/toast_queue.h"
 
 namespace snapper {
 CastPanel::CastPanel(const Managers& managers)
@@ -80,8 +82,12 @@ void CastPanel::Wire() {
         managers_.selection->shot(), managers_.selection->PickedLayers())));
   });
   connect(&remove_, &QPushButton::clicked, this, [this] {
-    Report(ProblemOf(managers_.stage->RemoveAll(
-        managers_.selection->shot(), managers_.selection->PickedLayers())));
+    const auto picked = managers_.selection->PickedLayers();
+    managers_.toasts->Finish(
+        ProblemOf(managers_.stage->RemoveAll(managers_.selection->shot(),
+                                             picked)),
+        CountText(tr("Deleted"), static_cast<int>(picked.size()),
+                  tr("layer"), tr("layers")));
   });
   connect(&up_, &QPushButton::clicked, this, [this] { Restack(1); });
   connect(&down_, &QPushButton::clicked, this, [this] { Restack(-1); });
