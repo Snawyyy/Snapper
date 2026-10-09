@@ -40,6 +40,8 @@ ReelTimeline::ReelTimeline(const Managers& managers)
       feedback_(managers.motion, this),
       watcher_(managers.history, this),
       effects_(managers.motion, this),
+      settle_(managers.motion, managers.playback->FrameOn(Timeline::kReel),
+              this),
       zoom_(kDefaultZoom) {
   assert(managers_.IsComplete());
   setFocusPolicy(Qt::ClickFocus);
@@ -49,6 +51,11 @@ ReelTimeline::ReelTimeline(const Managers& managers)
   connect(&feedback_, &DragFeedback::Changed, this, [this] { update(); });
   connect(&effects_, &ChangeEffects::Changed, this, [this] { update(); });
   connect(&watcher_, &ChangeWatcher::Stepped, this, &ReelTimeline::ShowStep);
+  connect(&settle_, &PlayheadSettle::Changed, this, [this] { update(); });
+  connect(managers_.playback, &PlaybackManager::FrameChanged, this, [this] {
+    settle_.MoveTo(managers_.playback->FrameOn(Timeline::kReel),
+                   managers_.playback->IsPlaying());
+  });
   const auto update_me = [this] {
     const int tracks =
         static_cast<int>(managers_.history->current().reel.tracks.size());
@@ -305,7 +312,8 @@ void ReelTimeline::PaintMarkers(QPainter* painter) const {
 void ReelTimeline::PaintPlayhead(QPainter* painter) const {
   assert(painter != nullptr);
   assert(managers_.playback != nullptr);
-  const double x = XOf(managers_.playback->FrameOn(Timeline::kReel));
+  const double x = XOf(managers_.playback->FrameOn(Timeline::kReel)) +
+                   settle_.offset() * zoom_;
   const bool is_shown = x >= kHeaderWidth;
   if (is_shown) {
     painter->setPen(QPen(theme::kPick, 1.0));

@@ -23,6 +23,7 @@ class QMenu;
 #include "ui/handle_hover.h"
 #include "base/error.h"
 #include "ui/managers.h"
+#include "ui/playhead_settle.h"
 #include "ui/problem.h"
 
 namespace snapper {
@@ -75,6 +76,7 @@ class ReelTimeline final : public QWidget {
   const DragFeedback& feedback() const { return feedback_; }
   // The pops, puffs and rewinds of the last step, for tests to look at.
   const ChangeEffects& effects() const { return effects_; }
+  const PlayheadSettle& settle() const { return settle_; }
 
  signals:
   void Problem(const QString& why);
@@ -175,6 +177,8 @@ class ReelTimeline final : public QWidget {
   // Decoration only; the clips are in the project at once.
   ChangeWatcher watcher_;
   ChangeEffects effects_;
+  // The playhead overshoots a little as it lands on a frame.
+  PlayheadSettle settle_;
   double zoom_;
   // Frames scrolled off the left.
   double scroll_ = 0.0;

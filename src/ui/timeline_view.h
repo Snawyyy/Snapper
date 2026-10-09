@@ -19,6 +19,7 @@
 #include "ui/drag_feedback.h"
 #include "ui/handle_hover.h"
 #include "ui/managers.h"
+#include "ui/playhead_settle.h"
 #include "ui/problem.h"
 
 namespace snapper {
@@ -47,6 +48,7 @@ class TimelineView final : public QWidget {
   const DragFeedback& feedback() const { return feedback_; }
   // The pops, puffs and rewinds of the last step, for tests to look at.
   const ChangeEffects& effects() const { return effects_; }
+  const PlayheadSettle& settle() const { return settle_; }
 
  signals:
   void Problem(const QString& why);
@@ -141,6 +143,8 @@ class TimelineView final : public QWidget {
   // brought back; they only decorate the paint.
   ChangeWatcher watcher_;
   ChangeEffects effects_;
+  // The playhead overshoots a little as it lands on a frame.
+  PlayheadSettle settle_;
 };
 
 }  // namespace snapper

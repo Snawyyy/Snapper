@@ -417,7 +417,9 @@ these over the real project, so data and picking never wait for them;
 in Off there are none, and the final state shows at once. The pose
 timeline (`TimelineView`) animates keys per row; the reel
 (`ReelTimeline`) animates whole clips, growing only 5 % as a clip is
-long.
+long. Each timeline's playhead lands on a frame with a small overshoot
+(`PlayheadSettle`: an offset to draw by, none while playing or for a
+jump past `kMaxSettleFrames`, none in Off).
 
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.
