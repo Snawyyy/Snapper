@@ -63,6 +63,27 @@ bool HasKeys(const Project& project, const TrackRef& track) {
   return is_keyed;
 }
 
+// The frames any of the tracks has a key on.
+std::vector<int> KeyFramesOf(const Project& project,
+                             const std::vector<TrackRef>& tracks) {
+  assert(tracks.size() < 100000);
+  assert(project.shots.size() <= static_cast<size_t>(kMaxShots));
+  std::set<int> frames;
+  for (const TrackRef& track : tracks) {
+    const Shot* shot = FindShot(project, track.shot);
+    const bool has_shot = shot != nullptr;
+    if (!has_shot) {
+      continue;
+    }
+    ReadTrack(*shot, track, [&](const auto& channel) {
+      for (const auto& key : channel.keys) {
+        frames.insert(key.frame.index());
+      }
+    });
+  }
+  return std::vector<int>(frames.begin(), frames.end());
+}
+
 QString NameOf(const Project& project, ShotId shot,
                const std::set<Pick>& picks) {
   assert(!picks.empty());
@@ -179,9 +200,11 @@ Result<void> TimingChartManager::Open() {
   playhead_ = playback_->frame();
   playback_->Pause();
   scope_ = std::make_unique<EditScope>(history_, label_);
-  const auto even = SpacingFractions(
-      Spacing::kEven, b_.index() - a_.index() - 1);
-  const auto set = SetFractions(even);
+  existing_ = KeyFramesOf(history_->current(), tracks_);
+  spacing_ = Spacing::kEven;
+  frames_ = TickFrames(key_mode_, a_.index(), b_.index(), existing_);
+  const auto set = SetFractions(SpacingFractions(
+      spacing_, static_cast<int>(frames_.size())));
   const bool has_failed = !set.has_value();
   if (has_failed) {
     Close(false);
@@ -194,21 +217,52 @@ Result<void> TimingChartManager::Open() {
 Result<void> TimingChartManager::SetSpacing(Spacing spacing) {
   assert(IsOpen());
   assert(static_cast<int>(spacing) < kSpacingCount);
+  spacing_ = spacing;
   return SetFractions(
-      SpacingFractions(spacing, b_.index() - a_.index() - 1));
+      SpacingFractions(spacing, static_cast<int>(frames_.size())));
+}
+
+void TimingChartManager::ChoosePreset(Spacing spacing) {
+  assert(IsOpen());
+  assert(static_cast<int>(spacing) < kSpacingCount);
+  spacing_ = spacing;
+}
+
+Result<void> TimingChartManager::SetKeyMode(KeyMode mode) {
+  assert(IsOpen());
+  assert(static_cast<int>(mode) < kKeyModeCount);
+  const KeyMode old_mode = key_mode_;
+  const std::vector<int> old_frames = frames_;
+  frames_ = TickFrames(mode, a_.index(), b_.index(), existing_);
+  key_mode_ = mode;
+  const auto set = SetSpacing(spacing_);
+  const bool has_failed = !set.has_value();
+  if (has_failed) {
+    key_mode_ = old_mode;
+    frames_ = old_frames;
+  }
+  return set;
+}
+
+QString TimingChartManager::WhyNoApply() const {
+  assert(IsOpen());
+  assert(frames_.size() == fractions_.size());
+  const bool is_empty =
+      key_mode_ == KeyMode::kExisting && frames_.empty();
+  return is_empty ? Tr("No keys between A and B to respace") : QString();
 }
 
 Result<void> TimingChartManager::SetFractions(
     const std::vector<double>& fractions) {
   assert(IsOpen());
   assert(fractions.size() <= static_cast<size_t>(kMaxChartFrames));
-  const bool is_valid = IsValidSpacing(fractions) &&
-                        static_cast<int>(fractions.size()) ==
-                            b_.index() - a_.index() - 1;
+  const bool is_valid =
+      IsValidSpacing(fractions) && fractions.size() == frames_.size();
   if (!is_valid) {
     return std::unexpected(Error{Tr("Those ticks don't fit the chart.")});
   }
-  const auto baked = keys_->BakeTiming(tracks_, a_, b_, fractions, label_);
+  const auto baked = keys_->BakeTiming(tracks_, a_, b_, key_mode_,
+                                      frames_, fractions, label_);
   const bool has_failed = !baked.has_value();
   if (has_failed) {
     return baked;
@@ -255,9 +309,12 @@ void TimingChartManager::EndTickDrag() {
 
 void TimingChartManager::ShowTick(int index) {
   assert(IsOpen());
-  const int count = static_cast<int>(fractions_.size());
-  assert(count >= 1);
-  const int at = a_.index() + 1 + std::clamp(index, -1, count);
+  const int count = static_cast<int>(frames_.size());
+  assert(count >= 0);
+  const int slot = std::clamp(index, -1, count);
+  const int at = slot < 0 ? a_.index()
+                          : slot >= count ? b_.index()
+                                          : frames_[static_cast<size_t>(slot)];
   const int shot_index = ShotIndex(history_->current(), shot_);
   const bool has_shot = shot_index >= 0;
   if (has_shot) {
@@ -269,7 +326,8 @@ void TimingChartManager::ShowTick(int index) {
 void TimingChartManager::Apply() {
   assert(IsOpen());
   assert(scope_ != nullptr);
-  Close(true);
+  const bool is_idle = !WhyNoApply().isEmpty();
+  Close(!is_idle);
 }
 
 void TimingChartManager::Cancel() {

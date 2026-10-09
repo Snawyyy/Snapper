@@ -110,6 +110,11 @@ class TimingChartEditTests final : public QObject {
   void CancelPutsEverythingBack();
   void ApplyIsOneUndoStep();
   void EscapeDuringADragRestoresTheTicks();
+  void ExistingKeysOnlyRespacesTheKeysThere();
+  void ExistingKeysOnlyWithNoneBetweenCannotApply();
+  void TwosAndThreesKeyTheGridAndKeepOutsideFrames();
+  void ChangingTheModeRebuildsTheTicksWithThePreset();
+  void EveryModeIsOneUndoStepAndKeepsOutsideFrames();
 };
 
 void TimingChartEditTests::RefusesWithAReason() {
@@ -197,6 +202,100 @@ void TimingChartEditTests::EscapeDuringADragRestoresTheTicks() {
   QCOMPARE(rig.chart.fractions(), start);
   QVERIFY(rig.chart.IsOpen());
   rig.chart.Cancel();
+}
+
+void TimingChartEditTests::ExistingKeysOnlyRespacesTheKeysThere() {
+  ChartRig rig;
+  QVERIFY(rig.chart.Open().has_value());
+  QVERIFY(rig.chart.SetKeyMode(KeyMode::kExisting).has_value());
+  QCOMPARE(rig.chart.frames(), std::vector<int>({4}));
+  QCOMPARE(rig.chart.fractions().size(), size_t(1));
+  QVERIFY(rig.chart.SetSpacing(Spacing::kSlowIn).has_value());
+  QVERIFY(rig.chart.MoveTick(0, 0.25).has_value());
+  // No key was added or moved; only the arm's key on 4 changed pose.
+  QCOMPARE(FramesOf(Piece(rig.history, "arm")),
+           std::vector<int>({0, 4, 8, 12}));
+  QCOMPARE(FramesOf(Piece(rig.history, "head")), std::vector<int>({0, 8, 12}));
+  QCOMPARE(ArmAt(rig.history, 4), 20.0);
+  QCOMPARE(ArmAt(rig.history, 0), 0.0);
+  QCOMPARE(ArmAt(rig.history, 8), 80.0);
+  QVERIFY(rig.chart.WhyNoApply().isEmpty());
+  rig.chart.Cancel();
+}
+
+void TimingChartEditTests::ExistingKeysOnlyWithNoneBetweenCannotApply() {
+  ChartRig rig;
+  const TrackRef arm{kShot, TrackKind::kPiece, LayerId(1), "arm"};
+  rig.selection.PickKeys({{arm, Frame(8)}, {arm, Frame(12)}},
+                         PickMode::kReplace);
+  QCOMPARE(rig.chart.WhyNoChart(), QString());
+  QVERIFY(rig.chart.Open().has_value());
+  QVERIFY(rig.chart.SetKeyMode(KeyMode::kExisting).has_value());
+  QVERIFY(rig.chart.frames().empty());
+  QVERIFY(rig.chart.fractions().empty());
+  QCOMPARE(rig.chart.WhyNoApply(),
+           QString("No keys between A and B to respace"));
+  rig.chart.Apply();
+  QVERIFY(!rig.chart.IsOpen());
+  QVERIFY(!rig.history.CanUndo());
+  QCOMPARE(FramesOf(Piece(rig.history, "arm")),
+           std::vector<int>({0, 4, 8, 12}));
+}
+
+void TimingChartEditTests::TwosAndThreesKeyTheGridAndKeepOutsideFrames() {
+  ChartRig rig;
+  QVERIFY(rig.chart.Open().has_value());
+  QVERIFY(rig.chart.SetKeyMode(KeyMode::kTwos).has_value());
+  QCOMPARE(rig.chart.frames(), std::vector<int>({2, 4, 6}));
+  QCOMPARE(FramesOf(Piece(rig.history, "arm")),
+           std::vector<int>({0, 2, 4, 6, 8, 12}));
+  QVERIFY(rig.chart.SetKeyMode(KeyMode::kThrees).has_value());
+  QCOMPARE(rig.chart.frames(), std::vector<int>({3, 6}));
+  QCOMPARE(FramesOf(Piece(rig.history, "arm")),
+           std::vector<int>({0, 3, 6, 8, 12}));
+  QCOMPARE(FramesOf(Piece(rig.history, "head")),
+           std::vector<int>({0, 3, 6, 8, 12}));
+  QCOMPARE(ArmAt(rig.history, 12), 90.0);
+  rig.chart.Cancel();
+}
+
+void TimingChartEditTests::ChangingTheModeRebuildsTheTicksWithThePreset() {
+  ChartRig rig;
+  QVERIFY(rig.chart.Open().has_value());
+  QVERIFY(rig.chart.SetSpacing(Spacing::kSlowOut).has_value());
+  QVERIFY(rig.chart.MoveTick(2, 0.9).has_value());
+  QVERIFY(rig.chart.SetKeyMode(KeyMode::kTwos).has_value());
+  QCOMPARE(rig.chart.spacing(), Spacing::kSlowOut);
+  QCOMPARE(rig.chart.fractions(), SpacingFractions(Spacing::kSlowOut, 3));
+  QCOMPARE(rig.chart.key_mode(), KeyMode::kTwos);
+  QVERIFY(rig.chart.SetKeyMode(KeyMode::kOnes).has_value());
+  QCOMPARE(rig.chart.frames().size(), size_t(7));
+  rig.chart.Cancel();
+}
+
+void TimingChartEditTests::EveryModeIsOneUndoStepAndKeepsOutsideFrames() {
+  const KeyMode modes[] = {KeyMode::kExisting, KeyMode::kOnes, KeyMode::kTwos,
+                           KeyMode::kThrees};
+  for (const KeyMode mode : modes) {
+    ChartRig rig;
+    const auto before = Piece(rig.history, "arm");
+    QVERIFY(rig.chart.Open().has_value());
+    QVERIFY(rig.chart.SetKeyMode(mode).has_value());
+    QVERIFY(rig.chart.SetSpacing(Spacing::kSlowOut).has_value());
+    QVERIFY(!rig.history.CanUndo());
+    rig.chart.Apply();
+    QCOMPARE(rig.history.UndoLabel(), QString("Timing chart on Bob"));
+    for (int f = 0; f <= 20; ++f) {
+      const bool is_outside = f > 8;
+      if (is_outside) {
+        QCOMPARE(ArmAt(rig.history, f),
+                 Sample(before, Frame(f), PiecePose()).rotation);
+      }
+    }
+    rig.history.Undo();
+    QVERIFY(Piece(rig.history, "arm") == before);
+    QVERIFY(!rig.history.CanUndo());
+  }
 }
 
 }  // namespace snapper

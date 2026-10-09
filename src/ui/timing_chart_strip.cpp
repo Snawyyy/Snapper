@@ -113,12 +113,13 @@ void TimingChartStrip::PaintTicks(QPainter* painter) const {
                          is_live ? 3 : 2));
     painter->drawLine(QPointF(x, kLineY - kTickHalf),
                       QPointF(x, kLineY + kTickHalf));
+    const int frame = chart_->frames()[static_cast<size_t>(i)];
     const bool has_label = is_live || i % stride == 0;
     if (has_label) {
       painter->setPen(theme::kText);
       painter->drawText(QRectF(x - 14, kLineY + kTickHalf + 2, 28, 14),
                         Qt::AlignHCenter,
-                        QString::number(chart_->a().index() + 1 + i));
+                        QString::number(frame));
     }
   }
 }

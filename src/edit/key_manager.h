@@ -6,6 +6,7 @@
 #include <variant>
 #include <vector>
 
+#include "anim/timing_chart.h"
 #include "base/error.h"
 #include "base/frame.h"
 #include "edit/track_ref.h"
@@ -48,13 +49,17 @@ class KeyManager final {
   Result<void> Repeat(const std::vector<TrackRef>& tracks, Frame start,
                       Frame end, int times);
 
-  // Bakes a timing chart: on every track, a key on each frame from a to
-  // b, the in-betweens at fractions of the way from the pose at a to the
-  // pose at b. No existing key moves in time. Builds on the project a
-  // running drag started from, so it can be called again and again for
-  // a live preview; lands as one step named label.
+  // Bakes a timing chart: on every track, a key on each of frames
+  // (strictly between a and b, as TickFrames gives them) at fractions
+  // of the way from the pose at a to the pose at b; mode says whether
+  // the in-between keys are replaced or only re-posed. No existing key
+  // moves in time. Builds on the project a running drag started from,
+  // so it can be called again and again for a live preview; lands as
+  // one step named label.
   Result<void> BakeTiming(const std::vector<TrackRef>& tracks, Frame a,
-                          Frame b, const std::vector<double>& fractions,
+                          Frame b, KeyMode mode,
+                          const std::vector<int>& frames,
+                          const std::vector<double>& fractions,
                           const QString& label);
 
   Result<void> Copy(const std::set<KeyRef>& keys);

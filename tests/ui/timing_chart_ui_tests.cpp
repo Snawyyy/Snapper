@@ -63,6 +63,9 @@ class TimingChartUiTests final : public QObject {
   void DraggingATickMovesIt();
   void EscapeCancelsTheDragThenClosesTheWindow();
   void EnterApplies();
+  void KeysDropdownRebuildsTicksAndReadsThePreset();
+  void KeysChoiceIsRemembered();
+  void ExistingKeysWithNoneBetweenGreysApplyWithAReason();
 };
 
 void TimingChartUiTests::MenuItemIsGreyedWithAReason() {
@@ -140,6 +143,59 @@ void TimingChartUiTests::EnterApplies() {
   QVERIFY(!bench.timing.IsOpen());
   QCOMPARE(bench.history.UndoLabel(), QString("Timing chart on Bob"));
   QCOMPARE(bench.toasts.queue().toasts().size(), size_t(1));
+}
+
+void TimingChartUiTests::KeysDropdownRebuildsTicksAndReadsThePreset() {
+  Bench bench;
+  PickRange(&bench);
+  TimingChartDialog dialog(bench.All(), nullptr);
+  RequestTimingChart(bench.All());
+  QCOMPARE(dialog.key_modes()->currentIndex(), 1);
+  QCOMPARE(dialog.key_modes()->itemText(0), QString("Existing keys only"));
+  QCOMPARE(dialog.key_modes()->itemText(3), QString("Add on 3s"));
+  emit dialog.presets()->activated(2);
+  QCOMPARE(bench.timing.spacing(), Spacing::kSlowOut);
+  QVERIFY(bench.timing.MoveTick(0, 0.9).has_value());
+  emit dialog.presets()->activated(-1);
+  emit dialog.key_modes()->activated(2);
+  QCOMPARE(bench.timing.frames(), std::vector<int>({2, 4, 6}));
+  QCOMPARE(bench.timing.fractions(), SpacingFractions(Spacing::kSlowOut, 3));
+  QCOMPARE(dialog.presets()->currentIndex(), 2);
+  QVERIFY(dialog.apply_button()->isEnabled());
+  dialog.reject();
+}
+
+void TimingChartUiTests::KeysChoiceIsRemembered() {
+  Bench bench;
+  PickRange(&bench);
+  {
+    TimingChartDialog dialog(bench.All(), nullptr);
+    RequestTimingChart(bench.All());
+    emit dialog.key_modes()->activated(3);
+    QCOMPARE(bench.timing.key_mode(), KeyMode::kThrees);
+    dialog.reject();
+  }
+  TimingChartDialog again(bench.All(), nullptr);
+  RequestTimingChart(bench.All());
+  QCOMPARE(bench.timing.key_mode(), KeyMode::kThrees);
+  QCOMPARE(again.key_modes()->currentIndex(), 3);
+  QCOMPARE(bench.timing.frames(), std::vector<int>({3, 6}));
+  again.reject();
+}
+
+void TimingChartUiTests::ExistingKeysWithNoneBetweenGreysApplyWithAReason() {
+  Bench bench;
+  PickRange(&bench);
+  TimingChartDialog dialog(bench.All(), nullptr);
+  RequestTimingChart(bench.All());
+  emit dialog.key_modes()->activated(0);
+  QVERIFY(bench.timing.frames().empty());
+  QVERIFY(!dialog.apply_button()->isEnabled());
+  QCOMPARE(dialog.apply_button()->toolTip(),
+           QString("No keys between A and B to respace"));
+  emit dialog.key_modes()->activated(1);
+  QVERIFY(dialog.apply_button()->isEnabled());
+  dialog.reject();
 }
 
 }  // namespace snapper

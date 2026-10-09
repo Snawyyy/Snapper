@@ -1,10 +1,34 @@
 #include <QTest>
 
+#include <cassert>
 #include <vector>
 
 #include "anim/timing_chart.h"
 
 namespace snapper {
+namespace {
+
+// Bakes a one-frame-each chart, as the old behaviour did.
+bool BakeOnes(Channel<double>* channel, int a, int b,
+              const std::vector<double>& fractions) {
+  assert(channel != nullptr);
+  assert(a < b);
+  return BakeChannel(channel, Frame(a), Frame(b),
+                     TickFrames(KeyMode::kOnes, a, b, {}), fractions,
+                     KeyMode::kOnes);
+}
+
+std::vector<int> FramesOf(const Channel<double>& channel) {
+  assert(channel.keys.size() < 1000);
+  assert(kKeyModeCount == 4);
+  std::vector<int> frames;
+  for (const auto& key : channel.keys) {
+    frames.push_back(key.frame.index());
+  }
+  return frames;
+}
+
+}  // namespace
 
 class TimingChartTests final : public QObject {
   Q_OBJECT
@@ -19,6 +43,12 @@ class TimingChartTests final : public QObject {
   void BakeFollowsTheSpacing();
   void BakeLeavesAnEmptyChannelAlone();
   void BakeKeepsEveryFrameOutsideTheRange();
+  void TickFramesPerMode();
+  void KeyModeNamesRoundTrip();
+  void BakeOnTwosAndThreesDropsOffGridKeys();
+  void BakeExistingKeysOnlyAddsNoneAndMovesNone();
+  void BakeKeepsFramesOutsideForEveryMode();
+  void BakeExistingKeysPinsAAndBWhenMissing();
 };
 
 void TimingChartTests::EvenTicksShareTheLine() {
@@ -82,8 +112,7 @@ void TimingChartTests::BakeKeysEveryFrameAndKeepsOutsideKeys() {
   SetKey(&channel, {Frame(2), 99.0, Ease::kStep});
   SetKey(&channel, {Frame(4), 100.0, Ease::kEaseIn});
   SetKey(&channel, {Frame(9), 7.0, Ease::kStep});
-  QVERIFY(BakeChannel(&channel, Frame(0), Frame(4),
-                      std::vector<double>({0.5, 0.75, 0.9})));
+  QVERIFY(BakeOnes(&channel, 0, 4, {0.5, 0.75, 0.9}));
   std::vector<int> frames;
   for (const auto& key : channel.keys) {
     frames.push_back(key.frame.index());
@@ -99,8 +128,7 @@ void TimingChartTests::BakeFollowsTheSpacing() {
   Channel<double> channel;
   SetKey(&channel, {Frame(0), 0.0, Ease::kStep});
   SetKey(&channel, {Frame(4), 100.0, Ease::kStep});
-  QVERIFY(BakeChannel(&channel, Frame(0), Frame(4),
-                      std::vector<double>({0.1, 0.2, 0.9})));
+  QVERIFY(BakeOnes(&channel, 0, 4, {0.1, 0.2, 0.9}));
   QCOMPARE(Sample(channel, Frame(1), -1.0), 10.0);
   QCOMPARE(Sample(channel, Frame(2), -1.0), 20.0);
   QCOMPARE(Sample(channel, Frame(3), -1.0), 90.0);
@@ -108,8 +136,7 @@ void TimingChartTests::BakeFollowsTheSpacing() {
 
 void TimingChartTests::BakeLeavesAnEmptyChannelAlone() {
   Channel<double> channel;
-  QVERIFY(BakeChannel(&channel, Frame(0), Frame(2),
-                      std::vector<double>({0.5})));
+  QVERIFY(BakeOnes(&channel, 0, 2, {0.5}));
   QVERIFY(channel.keys.empty());
 }
 
@@ -124,8 +151,7 @@ void TimingChartTests::BakeKeepsEveryFrameOutsideTheRange() {
     SetKey(&channel, {Frame(20), 7.0, ease});
     // A on 6 and B on 12 have no key; neighbours are eased.
     const Channel<double> before = channel;
-    QVERIFY(BakeChannel(&channel, Frame(6), Frame(12),
-                        std::vector<double>({0.1, 0.2, 0.3, 0.4, 0.9})));
+    QVERIFY(BakeOnes(&channel, 6, 12, {0.1, 0.2, 0.3, 0.4, 0.9}));
     for (int f = 0; f <= 30; ++f) {
       const bool is_outside = f < 6 || f > 12;
       if (is_outside) {
@@ -137,6 +163,119 @@ void TimingChartTests::BakeKeepsEveryFrameOutsideTheRange() {
              Sample(before, Frame(6), -1.0));
     QCOMPARE(Sample(channel, Frame(12), -1.0),
              Sample(before, Frame(12), -1.0));
+  }
+}
+
+void TimingChartTests::TickFramesPerMode() {
+  const std::vector<int> existing = {0, 3, 3, 5, 9, 12, 40};
+  QCOMPARE(TickFrames(KeyMode::kExisting, 0, 12, existing),
+           std::vector<int>({3, 5, 9}));
+  QVERIFY(TickFrames(KeyMode::kExisting, 0, 12, {0, 12}).empty());
+  QCOMPARE(TickFrames(KeyMode::kOnes, 2, 6, existing),
+           std::vector<int>({3, 4, 5}));
+  QCOMPARE(TickFrames(KeyMode::kTwos, 2, 9, existing),
+           std::vector<int>({4, 6, 8}));
+  QCOMPARE(TickFrames(KeyMode::kTwos, 2, 8, existing),
+           std::vector<int>({4, 6}));
+  QCOMPARE(TickFrames(KeyMode::kThrees, 0, 10, existing),
+           std::vector<int>({3, 6, 9}));
+  QVERIFY(TickFrames(KeyMode::kThrees, 0, 3, existing).empty());
+}
+
+void TimingChartTests::KeyModeNamesRoundTrip() {
+  for (int i = 0; i < kKeyModeCount; ++i) {
+    const auto mode = static_cast<KeyMode>(i);
+    QCOMPARE(KeyModeFromKey(KeyModeKey(mode), KeyMode::kOnes), mode);
+  }
+  QCOMPARE(KeyModeFromKey("junk", KeyMode::kTwos), KeyMode::kTwos);
+  QCOMPARE(KeyModeFromKey("", KeyMode::kOnes), KeyMode::kOnes);
+}
+
+void TimingChartTests::BakeOnTwosAndThreesDropsOffGridKeys() {
+  Channel<double> channel;
+  SetKey(&channel, {Frame(0), 0.0, Ease::kStep});
+  SetKey(&channel, {Frame(3), 50.0, Ease::kStep});
+  SetKey(&channel, {Frame(8), 80.0, Ease::kStep});
+  Channel<double> threes = channel;
+  const auto twos_frames = TickFrames(KeyMode::kTwos, 0, 8, {});
+  QVERIFY(BakeChannel(&channel, Frame(0), Frame(8), twos_frames,
+                      {0.25, 0.5, 0.75}, KeyMode::kTwos));
+  QCOMPARE(FramesOf(channel), std::vector<int>({0, 2, 4, 6, 8}));
+  QCOMPARE(Sample(channel, Frame(4), -1.0), 40.0);
+  const auto threes_frames = TickFrames(KeyMode::kThrees, 0, 8, {});
+  QVERIFY(BakeChannel(&threes, Frame(0), Frame(8), threes_frames,
+                      {0.25, 0.5}, KeyMode::kThrees));
+  QCOMPARE(FramesOf(threes), std::vector<int>({0, 3, 6, 8}));
+  QCOMPARE(Sample(threes, Frame(3), -1.0), 20.0);
+}
+
+void TimingChartTests::BakeExistingKeysOnlyAddsNoneAndMovesNone() {
+  Channel<double> channel;
+  SetKey(&channel, {Frame(0), 0.0, Ease::kStep});
+  SetKey(&channel, {Frame(2), 10.0, Ease::kLinear});
+  SetKey(&channel, {Frame(6), 20.0, Ease::kStep});
+  SetKey(&channel, {Frame(8), 80.0, Ease::kEaseIn});
+  // A second thing keyed on 4 only: its tick has no key here.
+  const std::vector<int> frames = {2, 4, 6};
+  QVERIFY(BakeChannel(&channel, Frame(0), Frame(8), frames,
+                      {0.1, 0.2, 0.9}, KeyMode::kExisting));
+  QCOMPARE(FramesOf(channel), std::vector<int>({0, 2, 6, 8}));
+  QCOMPARE(channel.keys[1].value, 8.0);
+  QCOMPARE(channel.keys[1].ease, Ease::kLinear);
+  QCOMPARE(channel.keys[2].value, 72.0);
+  QCOMPARE(channel.keys[0].value, 0.0);
+  QCOMPARE(channel.keys[3].value, 80.0);
+  QCOMPARE(channel.keys[3].ease, Ease::kEaseIn);
+}
+
+void TimingChartTests::BakeKeepsFramesOutsideForEveryMode() {
+  const KeyMode modes[] = {KeyMode::kExisting, KeyMode::kOnes,
+                           KeyMode::kTwos, KeyMode::kThrees};
+  for (const KeyMode mode : modes) {
+    Channel<double> channel;
+    SetKey(&channel, {Frame(1), 5.0, Ease::kEaseIn});
+    SetKey(&channel, {Frame(8), 30.0, Ease::kEaseOut});
+    SetKey(&channel, {Frame(10), 90.0, Ease::kEaseInOut});
+    SetKey(&channel, {Frame(20), 7.0, Ease::kLinear});
+    SetKey(&channel, {Frame(30), 1.0, Ease::kStep});
+    const Channel<double> before = channel;
+    // A on 4 and B on 14 carry no keys; 8 and 10 sit between them.
+    const auto frames = TickFrames(mode, 4, 14, {8, 10});
+    const std::vector<double> fractions = SpacingFractions(
+        Spacing::kSlowIn, static_cast<int>(frames.size()));
+    QVERIFY(BakeChannel(&channel, Frame(4), Frame(14), frames, fractions,
+                        mode));
+    for (int f = 0; f <= 40; ++f) {
+      const bool is_outside = f < 4 || f > 14;
+      if (is_outside) {
+        QCOMPARE(Sample(channel, Frame(f), -1.0),
+                 Sample(before, Frame(f), -1.0));
+      }
+    }
+  }
+}
+
+void TimingChartTests::BakeExistingKeysPinsAAndBWhenMissing() {
+  Channel<double> channel;
+  SetKey(&channel, {Frame(0), 0.0, Ease::kLinear});
+  SetKey(&channel, {Frame(6), 60.0, Ease::kStep});
+  SetKey(&channel, {Frame(20), 100.0, Ease::kStep});
+  const Channel<double> before = channel;
+  QVERIFY(BakeChannel(&channel, Frame(2), Frame(10), {6}, {0.9},
+                      KeyMode::kExisting));
+  QCOMPARE(FramesOf(channel), std::vector<int>({0, 2, 6, 10, 20}));
+  QCOMPARE(channel.keys[1].value, Sample(before, Frame(2), -1.0));
+  QCOMPARE(channel.keys[3].value, Sample(before, Frame(10), -1.0));
+  QCOMPARE(Sample(channel, Frame(6), -1.0),
+           Sample(before, Frame(2), -1.0) +
+               0.9 * (Sample(before, Frame(10), -1.0) -
+                      Sample(before, Frame(2), -1.0)));
+  for (int f = 0; f <= 30; ++f) {
+    const bool is_outside = f < 2 || f > 10;
+    if (is_outside) {
+      QCOMPARE(Sample(channel, Frame(f), -1.0),
+               Sample(before, Frame(f), -1.0));
+    }
   }
 }
 

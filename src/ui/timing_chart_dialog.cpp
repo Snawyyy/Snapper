@@ -1,9 +1,12 @@
 #include "ui/timing_chart_dialog.h"
 
+#include <QSettings>
+
 #include <algorithm>
 #include <cassert>
 #include <iterator>
 
+#include "edit/document_manager.h"
 #include "edit/timing_chart_manager.h"
 #include "ui/motion.h"
 #include "ui/toast_manager.h"
@@ -23,6 +26,19 @@ constexpr PresetName kPresets[] = {
     {Spacing::kSlowInOut, "Slow in and out"},
     {Spacing::kHalvesA, "Halves (favor A)"},
     {Spacing::kHalvesB, "Halves (favor B)"}};
+
+struct KeyModeName final {
+  KeyMode mode;
+  const char* label;
+};
+
+constexpr KeyModeName kKeyModes[] = {
+    {KeyMode::kExisting, "Existing keys only"},
+    {KeyMode::kOnes, "Add on 1s"},
+    {KeyMode::kTwos, "Add on 2s"},
+    {KeyMode::kThrees, "Add on 3s"}};
+
+const char* const kKeyModeSetting = "timingChartKeys";
 
 }  // namespace
 
@@ -46,6 +62,8 @@ TimingChartDialog::TimingChartDialog(const Managers& managers,
   connect(&cancel_, &QPushButton::clicked, this, &QDialog::reject);
   connect(&presets_, &QComboBox::activated, this,
           &TimingChartDialog::PickPreset);
+  connect(&key_modes_, &QComboBox::activated, this,
+          &TimingChartDialog::PickKeyMode);
   connect(&strip_, &TimingChartStrip::Edited, this,
           [this] { presets_.setCurrentIndex(-1); });
 }
@@ -61,14 +79,23 @@ void TimingChartDialog::BuildLayout() {
   presets_.setToolTip(tr("Ready-made spacings for the ticks."));
   options_.addWidget(&spacing_label_);
   options_.addWidget(&presets_, 1);
+  keys_label_.setText(tr("Keys:"));
+  for (const KeyModeName& entry : kKeyModes) {
+    key_modes_.addItem(tr(entry.label));
+  }
+  key_modes_.setToolTip(
+      tr("Which frames between A and B get keys. Existing keys only adds "
+         "none and only re-poses the keys already there."));
+  key_options_.addWidget(&keys_label_);
+  key_options_.addWidget(&key_modes_, 1);
   apply_.setDefault(true);
-  apply_.setToolTip(tr("Key every frame from A to B at these spacings."));
   buttons_.addStretch(1);
   buttons_.addWidget(&apply_);
   buttons_.addWidget(&cancel_);
   layout_.addWidget(&title_);
   layout_.addWidget(&strip_);
   layout_.addLayout(&options_);
+  layout_.addLayout(&key_options_);
   layout_.addLayout(&buttons_);
   setLayout(&layout_);
   assert(layout() == &layout_);
@@ -82,10 +109,60 @@ void TimingChartDialog::Show() {
                      .arg(managers_.timing->name())
                      .arg(managers_.timing->a().index())
                      .arg(managers_.timing->b().index()));
-  presets_.setCurrentIndex(0);
+  const QSettings settings(managers_.document->SettingsPath(),
+                           QSettings::IniFormat);
+  const KeyMode saved = KeyModeFromKey(
+      settings.value(kKeyModeSetting).toString().toStdString(),
+      KeyMode::kOnes);
+  const bool is_new_mode = saved != managers_.timing->key_mode();
+  if (is_new_mode) {
+    const auto set = managers_.timing->SetKeyMode(saved);
+    assert(set.has_value());
+    static_cast<void>(set);
+  }
+  Refresh();
   show();
   raise();
   activateWindow();
+}
+
+void TimingChartDialog::Refresh() {
+  assert(managers_.timing->IsOpen());
+  assert(static_cast<int>(managers_.timing->spacing()) < kSpacingCount);
+  presets_.setCurrentIndex(static_cast<int>(managers_.timing->spacing()));
+  key_modes_.setCurrentIndex(static_cast<int>(managers_.timing->key_mode()));
+  const QString why_not = managers_.timing->WhyNoApply();
+  const bool can_apply = why_not.isEmpty();
+  apply_.setEnabled(can_apply);
+  apply_.setToolTip(can_apply ? tr("Set the keys from A to B at these "
+                                   "spacings.")
+                              : why_not);
+  strip_.update();
+}
+
+void TimingChartDialog::PickKeyMode(int index) {
+  assert(index < static_cast<int>(std::size(kKeyModes)));
+  assert(managers_.timing != nullptr);
+  const bool is_open = managers_.timing->IsOpen();
+  const bool is_pick = is_open && index >= 0;
+  if (!is_pick) {
+    return;
+  }
+  const bool is_gliding = glide_ != nullptr;
+  if (is_gliding) {
+    glide_->stop();
+  }
+  const KeyMode mode = kKeyModes[index].mode;
+  const auto set = managers_.timing->SetKeyMode(mode);
+  const bool has_failed = !set.has_value();
+  if (has_failed) {
+    managers_.toasts->Problem(set.error().message);
+  }
+  QSettings settings(managers_.document->SettingsPath(),
+                     QSettings::IniFormat);
+  const KeyMode kept = managers_.timing->key_mode();
+  settings.setValue(kKeyModeSetting, QString::fromLatin1(KeyModeKey(kept)));
+  Refresh();
 }
 
 void TimingChartDialog::PickPreset(int index) {
@@ -96,6 +173,7 @@ void TimingChartDialog::PickPreset(int index) {
   if (!is_pick) {
     return;
   }
+  managers_.timing->ChoosePreset(kPresets[index].spacing);
   const std::vector<double> from = managers_.timing->fractions();
   const std::vector<double> to = SpacingFractions(
       kPresets[index].spacing, static_cast<int>(from.size()));
@@ -125,7 +203,8 @@ void TimingChartDialog::accept() {
   assert(managers_.timing != nullptr);
   assert(managers_.toasts != nullptr);
   const bool is_open = managers_.timing->IsOpen();
-  if (is_open) {
+  const bool can_apply = is_open && managers_.timing->WhyNoApply().isEmpty();
+  if (can_apply) {
     const QString name = managers_.timing->name();
     managers_.timing->Apply();
     managers_.toasts->Done(tr("Timing chart on %1").arg(name));
