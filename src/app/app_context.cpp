@@ -22,9 +22,11 @@ AppContext::AppContext(const QString& data_folder)
       playback_(&history_),
       exporter_(&history_, &playback_),
       motion_(document_.SettingsPath()),
+      toasts_(&history_),
       window_(Managers{&history_, &document_, &library_, &rig_, &shots_,
                        &stage_, &selection_, &pose_, &keys_, &presets_,
-                       &playback_, &exporter_, &links_, &reel_, &motion_}) {
+                       &playback_, &exporter_, &links_, &reel_, &motion_,
+                       &toasts_}) {
   assert(!data_folder.isEmpty());
   assert(!history_.IsDirty());
 }
