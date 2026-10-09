@@ -17,6 +17,7 @@
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/shot_manager.h"
+#include "ui/grab.h"
 #include "ui/theme.h"
 
 namespace snapper {
@@ -25,7 +26,6 @@ namespace {
 constexpr double kPixelsPerFrame = 2.0;
 constexpr double kMinBlock = 56.0;
 constexpr double kAddWidth = 28.0;
-constexpr double kEdgeReach = 5.0;
 constexpr int kStripHeight = 40;
 
 double WidthOf(const Shot& shot) {
@@ -37,11 +37,13 @@ double WidthOf(const Shot& shot) {
 
 }  // namespace
 
-ShotStrip::ShotStrip(const Managers& managers) : managers_(managers) {
+ShotStrip::ShotStrip(const Managers& managers)
+    : managers_(managers), hover_(managers.motion, this) {
   assert(managers_.IsComplete());
   setFixedHeight(kStripHeight);
   setFocusPolicy(Qt::ClickFocus);
   setMouseTracking(true);
+  connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
   const auto update_me = [this] { update(); };
   connect(managers_.history, &HistoryManager::Changed, this, update_me);
   connect(managers_.selection, &SelectionManager::Changed, this, update_me);
@@ -84,6 +86,15 @@ void ShotStrip::paintEvent(QPaintEvent* event) {
     painter.setPen(QPen(is_picked ? theme::kPick : theme::kShadow,
                         is_focus ? 2.0 : 1.0));
     painter.drawRect(block.rect);
+    const double edge = HoverAmount(hover_.ScaleOf(
+        GrabKind::kEdge, QString::number(block.shot.value())));
+    const bool shows_edge = edge > 0.0;
+    if (shows_edge) {
+      painter.fillRect(
+          QRectF(block.rect.right() - 3 - 3 * edge, block.rect.top(),
+                 3 + 3 * edge, block.rect.height()),
+          theme::kHandle.lighter(100 + int(40 * edge)));
+    }
     painter.setPen(theme::kText);
     painter.drawText(block.rect.adjusted(10, 2, -4, -2),
                      Qt::AlignLeft | Qt::AlignTop, shot.name);
@@ -120,7 +131,7 @@ void ShotStrip::mousePressEvent(QMouseEvent* event) {
     }
     const bool is_shift = event->modifiers().testFlag(Qt::ShiftModifier);
     const bool is_ctrl = event->modifiers().testFlag(Qt::ControlModifier);
-    const bool is_edge = block.rect.right() - at.x() <= kEdgeReach;
+    const bool is_edge = block.rect.right() - at.x() <= kGrabReach;
     const bool is_picked = managers_.selection->shots().contains(block.shot);
     const bool is_plain = !is_ctrl && !is_shift;
     const bool is_fresh = is_plain && !is_picked;
@@ -136,6 +147,7 @@ void ShotStrip::mousePressEvent(QMouseEvent* event) {
     dragged_ = block.shot;
     drag_start_x_ = at.x();
     drag_frames_ = 0;
+    is_started_ = false;
     scope_ = is_edge ? std::make_unique<EditScope>(managers_.history,
                                                     tr("Change shot length"))
                      : nullptr;
@@ -147,13 +159,27 @@ void ShotStrip::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
   const QPointF at = event->position();
   bool is_on_edge = false;
+  ShotId edge_shot;
   for (const Block& block : Blocks()) {
-    is_on_edge = is_on_edge || (block.rect.contains(at) &&
-                                block.rect.right() - at.x() <= kEdgeReach);
+    const bool is_here = block.rect.contains(at) &&
+                         block.rect.right() - at.x() <= kGrabReach;
+    if (is_here) {
+      edge_shot = block.shot;
+    }
+    is_on_edge = is_on_edge || is_here;
+  }
+  const bool is_free = drag_ == Drag::kNone;
+  if (is_free) {
+    hover_.Set(is_on_edge ? GrabKind::kEdge : GrabKind::kNone,
+               is_on_edge ? QString::number(edge_shot.value()) : QString());
   }
   setCursor(is_on_edge || drag_ == Drag::kLength ? Qt::SizeHorCursor
                                                  : Qt::ArrowCursor);
-  const bool is_resizing = drag_ == Drag::kLength;
+  // The edge drag waits out the dead zone, then the edge jumps to the
+  // cursor.
+  is_started_ = is_started_ || IsPastDeadZone(QPointF(drag_start_x_, 0.0),
+                                              QPointF(at.x(), 0.0));
+  const bool is_resizing = drag_ == Drag::kLength && is_started_;
   if (is_resizing) {
     const int frames = static_cast<int>(
         std::lround((at.x() - drag_start_x_) / kPixelsPerFrame));
@@ -166,10 +192,19 @@ void ShotStrip::mouseMoveEvent(QMouseEvent* event) {
   }
 }
 
+void ShotStrip::leaveEvent(QEvent* event) {
+  assert(event != nullptr);
+  assert(hover_.kind() >= GrabKind::kNone);
+  hover_.Set(GrabKind::kNone, QString());
+  QWidget::leaveEvent(event);
+}
+
 void ShotStrip::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
-  const bool is_moving = drag_ == Drag::kMove &&
-                         std::abs(event->position().x() - drag_start_x_) > 4;
+  const bool is_moving =
+      drag_ == Drag::kMove &&
+      IsPastDeadZone(QPointF(drag_start_x_, 0.0),
+                     QPointF(event->position().x(), 0.0));
   if (is_moving) {
     int index = 0;
     for (const Block& block : Blocks()) {

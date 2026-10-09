@@ -23,45 +23,24 @@ namespace {
 
 // Room left around the frame so handles at its edge stay grabbable.
 constexpr double kMargin = 0.94;
-constexpr double kHandleRadius = 4.0;
-constexpr double kBarThin = 6.0;
-// Warp grids: faint lines, small dots (they grab big).
-constexpr QColor kWarpLine{255, 255, 255, 70};
-constexpr double kWarpDot = 2.5;
-constexpr double kBarLong = 14.0;
 constexpr int kWheelUnit = 120;
-
-// Rings drag nodes and squares dots that move by themselves, in
-// yellow, so they read apart from plain dots.
-void PaintMarks(const WarpOnScreen& warp, QPainter* painter) {
-  assert(painter != nullptr);
-  assert(warp.points.size() == static_cast<size_t>(warp.grid.PointCount()));
-  painter->setPen(QPen(theme::kHandle, 1.5));
-  painter->setBrush(Qt::NoBrush);
-  for (const int drag : warp.drags) {
-    painter->drawEllipse(
-        warp.to_screen.map(warp.points[static_cast<size_t>(drag)]),
-        kWarpDot + 3.5, kWarpDot + 3.5);
-  }
-  constexpr double kSquare = kWarpDot + 5.0;
-  for (const int move : warp.moves) {
-    painter->drawRect(QRectF(
-        warp.to_screen.map(warp.points[static_cast<size_t>(move)]) -
-            QPointF(kSquare, kSquare),
-        QSizeF(kSquare * 2, kSquare * 2)));
-  }
-}
 
 }  // namespace
 
 StageView::StageView(const Managers& managers)
-    : managers_(managers), tool_(managers, renderer_.cache()) {
+    : managers_(managers),
+      tool_(managers, renderer_.cache()),
+      hover_(managers.motion, this) {
   assert(managers_.IsComplete());
   setFocusPolicy(Qt::StrongFocus);
+  setMouseTracking(true);
   setMinimumSize(320, 180);
   const auto update_me = [this] { update(); };
   connect(managers_.history, &HistoryManager::Changed, this, update_me);
   connect(managers_.selection, &SelectionManager::Changed, this, update_me);
+  connect(managers_.selection, &SelectionManager::Changed, this,
+          [this] { tool_.Observe(); });
+  connect(&hover_, &HandleHover::Changed, this, update_me);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
           update_me);
   assert(focusPolicy() == Qt::StrongFocus);
@@ -100,6 +79,7 @@ void StageView::paintEvent(QPaintEvent* event) {
       managers_.playback->FrameOn(Timeline::kShots), frame->scale);
   painter.drawImage(frame->corner, image);
   painter.setRenderHint(QPainter::Antialiasing);
+  PaintHover(*frame, &painter);
   PaintHandles(*frame, &painter);
   const QRectF box = tool_.Box();
   const bool has_box = !box.isEmpty();
@@ -110,140 +90,6 @@ void StageView::paintEvent(QPaintEvent* event) {
                             theme::kPick.blue(), 40));
     painter.drawRect(box);
   }
-}
-
-void StageView::PaintHandles(const StageFrame& frame, QPainter* painter) {
-  assert(painter != nullptr);
-  assert(frame.scale > 0.0);
-  const Project& project = managers_.history->current();
-  const SelectionManager& selection = *managers_.selection;
-  const Shot* shot = FindShot(project, frame.shot);
-  const bool is_picked = shot != nullptr && selection.shot() == frame.shot &&
-                         !selection.picks().empty();
-  if (!is_picked) {
-    return;
-  }
-  painter->translate(frame.corner);
-  for (const Pick& pick : selection.picks()) {
-    const bool is_whole = pick.piece.isEmpty();
-    painter->setPen(QPen(theme::kPick, 2.0));
-    painter->setBrush(Qt::NoBrush);
-    if (is_whole) {
-      painter->drawPolygon(LayerShape(project, *shot, pick.layer, frame.local,
-                                      frame.scale, renderer_.cache()));
-      const auto turn = TurnHandlesOf(project, *shot, pick.layer,
-                                      frame.local, frame.scale,
-                                      renderer_.cache());
-      if (turn) {
-        // Long the way they drag: lean up and down, swivel sideways.
-        painter->setPen(QPen(theme::kShadow, 1.0));
-        painter->setBrush(theme::kHandle);
-        painter->drawRect(QRectF(turn->lean - QPointF(kBarThin / 2,
-                                                      kBarLong / 2),
-                                 QSizeF(kBarThin, kBarLong)));
-        painter->drawRect(QRectF(turn->swivel - QPointF(kBarLong / 2,
-                                                        kBarThin / 2),
-                                 QSizeF(kBarLong, kBarThin)));
-      }
-      continue;
-    }
-    const auto outline = PieceOnScreen(project, *shot, pick.layer,
-                                       pick.piece, frame.local, frame.scale);
-    PaintWarp(frame, pick, painter);
-    painter->setPen(QPen(theme::kPick, 2.0));
-    painter->setBrush(Qt::NoBrush);
-    if (outline) {
-      painter->drawPolygon(outline->outline);
-      painter->setPen(QPen(theme::kShadow, 1.0));
-      painter->setBrush(theme::kHandle);
-      painter->drawEllipse(outline->pivot, kHandleRadius, kHandleRadius);
-    }
-  }
-  painter->setPen(QPen(theme::kShadow, 1.0));
-  painter->setBrush(theme::kHandle);
-  for (const IkHandle& handle : IkHandles(project, *shot, selection.layer(),
-                                          frame.local, frame.scale)) {
-    painter->drawRect(QRectF(handle.point - QPointF(kHandleRadius,
-                                                    kHandleRadius),
-                             QSizeF(kHandleRadius * 2, kHandleRadius * 2)));
-  }
-}
-
-void StageView::PaintWarp(const StageFrame& frame, const Pick& pick,
-                          QPainter* painter) {
-  assert(painter != nullptr);
-  assert(!pick.piece.isEmpty());
-  const Project& project = managers_.history->current();
-  const Shot* shot = FindShot(project, frame.shot);
-  const auto warp =
-      shot != nullptr ? PieceWarpOnScreen(project, *shot, pick.layer,
-                                          pick.piece, frame.local,
-                                          frame.scale)
-                      : std::nullopt;
-  if (!warp) {
-    return;
-  }
-  const int across = warp->grid.columns + 1;
-  const auto at = [&warp, across](int row, int column) {
-    return warp->to_screen.map(
-        warp->points[static_cast<size_t>(row * across + column)]);
-  };
-  // A faint grid, so the dots read as one sheet.
-  painter->setPen(QPen(kWarpLine, 1.0));
-  painter->setBrush(Qt::NoBrush);
-  for (int row = 0; row <= warp->grid.rows; ++row) {
-    for (int column = 0; column <= warp->grid.columns; ++column) {
-      const bool has_right = column < warp->grid.columns;
-      if (has_right) {
-        painter->drawLine(at(row, column), at(row, column + 1));
-      }
-      const bool has_below = row < warp->grid.rows;
-      if (has_below) {
-        painter->drawLine(at(row, column), at(row + 1, column));
-      }
-    }
-  }
-  painter->setPen(QPen(theme::kShadow, 1.0));
-  painter->setBrush(theme::kHandle);
-  for (const QPointF& point : warp->points) {
-    painter->drawEllipse(warp->to_screen.map(point), kWarpDot, kWarpDot);
-  }
-  PaintMarks(*warp, painter);
-  const auto dot = tool_.PickedDot(frame);
-  const bool is_dot_here =
-      dot.has_value() && dot->layer == pick.layer && dot->piece == pick.piece;
-  if (is_dot_here) {
-    PaintReach(*warp, dot->point, painter);
-  }
-}
-
-void StageView::PaintReach(const WarpOnScreen& warp, int point,
-                           QPainter* painter) {
-  assert(painter != nullptr);
-  assert(point >= 0 && point < warp.grid.PointCount());
-  const QPointF spot = warp.points[static_cast<size_t>(point)];
-  const double reach = warp.reach[static_cast<size_t>(point)];
-  const QPointF on_screen = warp.to_screen.map(spot);
-  // Picked is orange; the faint ring is how far the rubber reaches, in
-  // the drawing's own grid cells.
-  painter->setPen(QPen(theme::kPick, 2.0));
-  painter->setBrush(Qt::NoBrush);
-  painter->drawEllipse(on_screen, kWarpDot + 2, kWarpDot + 2);
-  const bool has_reach = reach > 0.0;
-  if (has_reach) {
-    painter->save();
-    painter->setTransform(warp.to_screen, true);
-    QColor faint = theme::kPick;
-    faint.setAlpha(150);
-    painter->setPen(QPen(faint, 0.0, Qt::DashLine));
-    painter->drawEllipse(spot,
-                         reach * warp.size.width() / warp.grid.columns,
-                         reach * warp.size.height() / warp.grid.rows);
-    painter->restore();
-  }
-  painter->setPen(theme::kText);
-  painter->drawText(on_screen + QPointF(kWarpDot + 4, -kWarpDot - 4),
-                    tr("reach %1").arg(reach, 0, 'f', 1));
 }
 
 void StageView::mousePressEvent(QMouseEvent* event) {
@@ -268,8 +114,50 @@ void StageView::mouseMoveEvent(QMouseEvent* event) {
                event->modifiers().testFlag(Qt::ShiftModifier));
     ReportTool();
     update();
+    return;
   }
+  UpdateHover(event->position());
   assert(event->type() == QEvent::MouseMove);
+}
+
+void StageView::UpdateHover(QPointF point) {
+  assert(std::isfinite(point.x()) && std::isfinite(point.y()));
+  assert(!tool_.IsDragging());
+  const auto frame = CurrentFrame();
+  if (!frame) {
+    ClearHover();
+    return;
+  }
+  const PoseTool::Hover now = tool_.HoverAt(point, *frame);
+  hover_.Set(now.kind, now.key);
+  const bool is_pick_changed = now.pick != hover_pick_;
+  hover_pick_ = now.pick;
+  // A handle shows its own cursor; a thing a click would pick, move.
+  setCursor(now.kind != GrabKind::kNone ? CursorFor(now.kind)
+            : now.pick.has_value()    ? Qt::SizeAllCursor
+                                      : Qt::ArrowCursor);
+  if (is_pick_changed) {
+    update();
+  }
+}
+
+void StageView::ClearHover() {
+  assert(managers_.motion != nullptr);
+  hover_.Set(GrabKind::kNone, QString());
+  hover_pick_.reset();
+  unsetCursor();
+  update();
+  assert(!hover_pick_.has_value());
+}
+
+void StageView::leaveEvent(QEvent* event) {
+  assert(event != nullptr);
+  assert(managers_.selection != nullptr);
+  const bool is_idle = !tool_.IsDragging();
+  if (is_idle) {
+    ClearHover();
+  }
+  QWidget::leaveEvent(event);
 }
 
 void StageView::mouseReleaseEvent(QMouseEvent* event) {

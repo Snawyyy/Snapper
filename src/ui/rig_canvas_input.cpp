@@ -1,7 +1,6 @@
 // RigCanvas's mouse and keys.
 
 #include <QKeyEvent>
-#include <QLineF>
 #include <QMouseEvent>
 #include <QPainterPath>
 
@@ -12,7 +11,7 @@
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
 #include "render/stage_hit.h"
-#include "ui/pose_tool.h"
+#include "ui/grab.h"
 #include "ui/problem.h"
 #include "ui/rig_canvas.h"
 
@@ -39,63 +38,35 @@ std::optional<QPointF> IntoPiece(const Doll& doll, const QString& piece,
 
 bool RigCanvas::PressHandle(QPointF point) {
   assert(std::isfinite(point.x()));
-  const Doll* doll = FindDoll(managers_.history->current(), doll_);
-  assert(doll != nullptr);
-  const QTransform world = World();
-  const auto pieces = PieceTransforms(*doll, PoseMap());
-  for (const IkChain& chain : doll->rig.chains) {
-    const auto lower = pieces.find(chain.lower);
-    const bool is_near =
-        lower != pieces.end() &&
-        QLineF((lower->second * world).map(chain.tip), point).length() <=
-            kHandleReach;
-    if (is_near) {
-      drag_ = Drag::kTip;
-      chain_ = chain.name;
-      scope_ = std::make_unique<EditScope>(
-          managers_.history, tr("Move IK tip of %1").arg(chain.name));
-      return true;
-    }
+  assert(managers_.history != nullptr);
+  const auto handle = HandleAt(point);
+  if (!handle) {
+    return false;
+  }
+  press_ = point;
+  is_started_ = false;
+  // The handle jumps under the cursor: moves measure from its centre.
+  last_ = handle->spot;
+  const bool is_tip = handle->kind == GrabKind::kIkTip;
+  if (is_tip) {
+    drag_ = Drag::kTip;
+    chain_ = handle->key;
+    scope_ = std::make_unique<EditScope>(
+        managers_.history, tr("Move IK tip of %1").arg(handle->key));
+    return true;
   }
   // Any joint can be grabbed; a picked one drags every picked joint.
-  const QString joint = JointAt(point);
-  const bool is_on_joint = !joint.isEmpty();
-  if (is_on_joint) {
-    const bool is_in_pick = picked_.contains(joint);
-    if (!is_in_pick) {
-      ApplyPick({joint}, PickMode::kReplace, joint);
-    }
-    drag_ = Drag::kPivot;
-    last_ = point;
-    scope_ = std::make_unique<EditScope>(
-        managers_.history, picked_.size() > 1
-                               ? tr("Move %1 joints").arg(picked_.size())
-                               : tr("Move pivot of %1").arg(joint));
+  const QString joint = handle->key;
+  const bool is_in_pick = picked_.contains(joint);
+  if (!is_in_pick) {
+    ApplyPick({joint}, PickMode::kReplace, joint);
   }
-  return is_on_joint;
-}
-
-QString RigCanvas::JointAt(QPointF point) const {
-  assert(std::isfinite(point.x()));
-  const Doll* doll =
-      doll_.isEmpty() ? nullptr : FindDoll(managers_.history->current(), doll_);
-  const bool has_doll = doll != nullptr;
-  if (!has_doll) {
-    return QString();
-  }
-  const QTransform world = World();
-  const auto pieces = PieceTransforms(*doll, PoseMap());
-  for (const RigPiece& rig : doll->rig.pieces) {
-    const bool is_near =
-        pieces.contains(rig.name) &&
-        QLineF((pieces.at(rig.name) * world).map(rig.pivot), point)
-                .length() <= kHandleReach;
-    if (is_near) {
-      return rig.name;
-    }
-  }
-  assert(doll->rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
-  return QString();
+  drag_ = Drag::kPivot;
+  scope_ = std::make_unique<EditScope>(
+      managers_.history, picked_.size() > 1
+                             ? tr("Move %1 joints").arg(picked_.size())
+                             : tr("Move pivot of %1").arg(joint));
+  return true;
 }
 
 void RigCanvas::StopHanging() {
@@ -202,7 +173,8 @@ void RigCanvas::FinishBox() {
   const Doll* doll = doll_.isEmpty()
                          ? nullptr
                          : FindDoll(managers_.history->current(), doll_);
-  const bool is_click = box.width() < 3.0 && box.height() < 3.0;
+  const bool is_click =
+      box.width() < kDragDeadZone && box.height() < kDragDeadZone;
   std::set<QString> caught;
   const bool is_drawn = doll != nullptr && !is_click;
   if (is_drawn) {
@@ -238,6 +210,11 @@ void RigCanvas::mouseMoveEvent(QMouseEvent* event) {
   }
   const bool is_dragging = drag_ != Drag::kNone;
   if (!is_dragging) {
+    UpdateHover(event->position());
+    return;
+  }
+  is_started_ = is_started_ || IsPastDeadZone(press_, event->position());
+  if (!is_started_) {
     return;
   }
   const Doll* doll = FindDoll(managers_.history->current(), doll_);
@@ -280,6 +257,7 @@ void RigCanvas::mouseReleaseEvent(QMouseEvent* event) {
   scope_.reset();
   drag_ = Drag::kNone;
   chain_.clear();
+  is_started_ = false;
   assert(scope_ == nullptr);
 }
 

@@ -35,11 +35,14 @@ constexpr QColor kMixShade{0xff, 0xff, 0xff, 0x40};
 }  // namespace
 
 ReelTimeline::ReelTimeline(const Managers& managers)
-    : managers_(managers), zoom_(kDefaultZoom) {
+    : managers_(managers),
+      hover_(managers.motion, this),
+      zoom_(kDefaultZoom) {
   assert(managers_.IsComplete());
   setFocusPolicy(Qt::ClickFocus);
   setMouseTracking(true);
   setAcceptDrops(true);
+  connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
   const auto update_me = [this] {
     const int tracks =
         static_cast<int>(managers_.history->current().reel.tracks.size());
@@ -221,13 +224,36 @@ void ReelTimeline::PaintClip(QPainter* painter, const Clip& clip) const {
   painter->setPen(QPen(is_picked ? theme::kPick : theme::kShadow,
                        is_picked ? 2.0 : 1.0));
   painter->drawRect(box);
-  if (is_picked) {
-    // The ends trim: yellow, like every handle.
-    painter->fillRect(QRectF(box.left(), box.top(), 3, box.height()),
-                      theme::kHandle);
-    painter->fillRect(QRectF(box.right() - 3, box.top(), 3, box.height()),
-                      theme::kHandle);
+  // The ends trim: yellow, like every handle. A hovered one widens and
+  // brightens, even on a clip that is not picked.
+  const double start =
+      HoverAmount(hover_.ScaleOf(GrabKind::kEdge, EdgeKey(clip.id, true)));
+  const double end =
+      HoverAmount(hover_.ScaleOf(GrabKind::kEdge, EdgeKey(clip.id, false)));
+  const bool shows_ends = is_picked || start > 0.0 || end > 0.0;
+  if (shows_ends) {
+    const QColor lit_start = theme::kHandle.lighter(100 + int(40 * start));
+    const QColor lit_end = theme::kHandle.lighter(100 + int(40 * end));
+    painter->fillRect(
+        QRectF(box.left(), box.top(), 3 + 3 * start, box.height()),
+        lit_start);
+    painter->fillRect(QRectF(box.right() - 3 - 3 * end, box.top(),
+                             3 + 3 * end, box.height()),
+                      lit_end);
   }
+}
+
+QString ReelTimeline::EdgeKey(ClipId clip, bool is_start) {
+  assert(clip.IsValid());
+  assert(clip.value() > 0);
+  return QStringLiteral("%1/%2").arg(clip.value()).arg(is_start ? 's' : 'e');
+}
+
+void ReelTimeline::leaveEvent(QEvent* event) {
+  assert(event != nullptr);
+  assert(hover_.kind() >= GrabKind::kNone);
+  hover_.Set(GrabKind::kNone, QString());
+  QWidget::leaveEvent(event);
 }
 
 void ReelTimeline::PaintDrop(QPainter* painter) const {

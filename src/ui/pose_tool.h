@@ -1,14 +1,16 @@
 #ifndef SNAPPER_UI_POSE_TOOL_H_
 #define SNAPPER_UI_POSE_TOOL_H_
 
+#include <QElapsedTimer>
 #include <QPointF>
 #include <QRectF>
 #include <QString>
 #include <QTransform>
 
+#include <cstdint>
 #include <memory>
 #include <optional>
-#include <utility>
+#include <set>
 #include <vector>
 
 #include "base/frame.h"
@@ -17,13 +19,11 @@
 #include "edit/track_ref.h"
 #include "model/pose.h"
 #include "render/image_cache.h"
+#include "ui/grab.h"
 #include "ui/managers.h"
 
 namespace snapper {
 
-// Pick handles at least this close, in screen pixels: they look small
-// but grab big.
-constexpr double kHandleReach = 10.0;
 constexpr double kWheelStep = 5.0;
 constexpr double kFineWheelStep = 1.0;
 // Dragging this many pixels doubles (or halves) the size.
@@ -80,6 +80,22 @@ class PoseTool final {
   // D: makes the picked dot drag behind, or stop dragging.
   void ToggleDrag(const StageFrame& frame);
 
+  // What is under the pointer before any press: the handle (kNone when
+  // none) and, when no handle, the unpicked thing a click would pick.
+  struct Hover final {
+    GrabKind kind = GrabKind::kNone;
+    QString key;
+    std::optional<Pick> pick;
+  };
+  Hover HoverAt(QPointF point, const StageFrame& frame) const;
+  // The selection changed: notes whether handles are on show, so a
+  // press just after they hide still lands.
+  void Observe();
+  // The names a handle is known by, for hovering and drawing it.
+  static QString WarpKey(const WarpDot& dot);
+  static QString TurnKey(LayerId layer);
+  static QString IkKey(const QString& chain);
+
   bool IsDragging() const { return drag_ != nullptr; }
   // The pick box being drawn, in widget pixels; empty when none.
   QRectF Box() const;
@@ -102,6 +118,9 @@ class PoseTool final {
     QTransform drawing_to_screen;
     // For lean and swivel drags: every doll picked whole.
     std::vector<LayerId> dolls;
+    // Where the mouse went down, for the dead zone; the drag measures
+    // from start, which is a handle's own spot when it is one.
+    QPointF press;
     QPointF start;
     // How far the drag had got at the last move, so each move adds
     // only its own part.
@@ -109,23 +128,48 @@ class PoseTool final {
     double scaled = 1.0;
     // Ctrl-clicking a picked thing takes it out, unless it was dragged.
     std::optional<Pick> toggle;
+    // True once the mouse has left the dead zone.
     bool has_moved = false;
     PickMode box_mode = PickMode::kReplace;
     QPointF corner;
     std::unique_ptr<EditScope> scope;
   };
 
-  bool PressIk(QPointF point, const StageFrame& frame);
-  bool PressLean(QPointF point, const StageFrame& frame);
-  bool PressWarp(QPointF point, const StageFrame& frame);
-  // The dot of a picked piece's warp grid under point, and that
-  // piece's drawing pixels to screen.
-  std::optional<std::pair<WarpDot, QTransform>> DotAt(
-      QPointF point, const StageFrame& frame) const;
+  // A handle on the stage: where it sits and what grabbing it needs.
+  struct Handle final {
+    GrabKind kind = GrabKind::kNone;
+    QString key;
+    // Widget pixels.
+    QPointF spot;
+    // Warp dots: which, and its drawing pixels to screen.
+    WarpDot dot;
+    QTransform to_screen;
+    // IK tips: layer and chain.
+    LayerId layer;
+    QString chain;
+  };
+
+  // The picks whose handles are grabbable now: the live ones, or the
+  // ones that hid within kGraceMs.
+  std::set<Pick> GrabbablePicks(const StageFrame& frame) const;
+  std::vector<Handle> HandlesOf(const StageFrame& frame) const;
+  std::optional<Handle> HandleAt(QPointF point,
+                                 const StageFrame& frame) const;
+  bool PressHandle(QPointF point, const StageFrame& frame);
+  void GrabTurn(const Handle& handle, QPointF point,
+                const StageFrame& frame);
+  void GrabWarp(const Handle& handle, QPointF point,
+                const StageFrame& frame);
+  void GrabIk(const Handle& handle, QPointF point,
+              const StageFrame& frame);
+  int64_t NowMs() const { return clock_.elapsed(); }
   void WheelReach(const WarpDot& dot, int notches, bool is_fine,
                   const StageFrame& frame);
   void PressPick(const Pick& pick, bool is_shift, bool is_ctrl,
                  const StageFrame& frame, QPointF point);
+  // True once a drag may change things: the mouse has left the dead
+  // zone (a pick box has none).
+  bool LeftDeadZone(QPointF point);
   void MoveAll(QPointF total);
   void ScaleAll(double factor);
   void Note(const Result<void>& result);
@@ -134,6 +178,12 @@ class PoseTool final {
   ImageCache* cache_;
   std::unique_ptr<Drag> drag_;
   QString problem_;
+  QElapsedTimer clock_;
+  HandleGrace grace_;
+  // The picks, layer and shot whose handles were last on show.
+  std::set<Pick> shown_picks_;
+  LayerId shown_layer_;
+  ShotId shown_shot_;
 };
 
 }  // namespace snapper

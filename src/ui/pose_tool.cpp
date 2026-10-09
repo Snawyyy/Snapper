@@ -1,7 +1,5 @@
 #include "ui/pose_tool.h"
 
-#include <QLineF>
-
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -35,6 +33,8 @@ PoseTool::PoseTool(const Managers& managers, ImageCache* cache)
     : managers_(managers), cache_(cache) {
   assert(managers_.IsComplete());
   assert(cache_ != nullptr);
+  clock_.start();
+  Observe();
 }
 
 void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
@@ -43,8 +43,8 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
   assert(frame.scale > 0.0);
   Cancel();
   problem_.clear();
-  const bool is_handle = PressLean(point, frame) ||
-                         PressWarp(point, frame) || PressIk(point, frame);
+  Observe();
+  const bool is_handle = PressHandle(point, frame);
   const bool is_on_dot = drag_ != nullptr && drag_->kind == Kind::kWarp;
   if (!is_on_dot) {
     managers_.selection->PickDot(std::nullopt);
@@ -71,6 +71,7 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
   auto drag = std::make_unique<Drag>();
   drag->kind = Kind::kBox;
   drag->frame = frame;
+  drag->press = point;
   drag->start = point;
   drag->corner = point;
   drag->box_mode = is_shift  ? PickMode::kAdd
@@ -104,6 +105,7 @@ void PoseTool::PressPick(const Pick& pick, bool is_shift, bool is_ctrl,
                                               : pick.piece;
   drag->kind = is_ctrl ? Kind::kScale : Kind::kMove;
   drag->frame = frame;
+  drag->press = point;
   drag->start = point;
   drag->scope = std::make_unique<EditScope>(
       managers_.history, is_ctrl ? QObject::tr("Scale %1").arg(what)
@@ -131,12 +133,9 @@ void PoseTool::Move(QPointF point, bool is_shift) {
     const bool is_sideways = std::abs(total.x()) >= std::abs(total.y());
     total = is_sideways ? QPointF(total.x(), 0) : QPointF(0, total.y());
   }
-  const bool is_moved = QLineF(QPointF(), total).length() > 2.0;
-  if (is_moved) {
-    // A Ctrl-click that turned into a drag doesn't flip the pick, and a
-    // click on a warp dot that turned into a drag doesn't pick the dot.
-    drag_->toggle.reset();
-    drag_->has_moved = true;
+  const bool is_waiting = !LeftDeadZone(point);
+  if (is_waiting) {
+    return;
   }
   switch (drag_->kind) {
     case Kind::kBox:
@@ -185,6 +184,22 @@ void PoseTool::Move(QPointF point, bool is_shift) {
                                 total.x() * kTurnPerPixel));
       break;
   }
+}
+
+bool PoseTool::LeftDeadZone(QPointF point) {
+  assert(drag_ != nullptr);
+  assert(std::isfinite(point.x()) && std::isfinite(point.y()));
+  // The pick box follows the mouse from the first pixel.
+  const bool is_box = drag_->kind == Kind::kBox;
+  const bool is_new = !drag_->has_moved &&
+                      IsPastDeadZone(drag_->press, point);
+  if (is_new) {
+    // A Ctrl-click that turned into a drag doesn't flip the pick, and a
+    // click on a warp dot that turned into a drag doesn't pick the dot.
+    drag_->toggle.reset();
+    drag_->has_moved = true;
+  }
+  return is_box || drag_->has_moved;
 }
 
 void PoseTool::MoveAll(QPointF total) {

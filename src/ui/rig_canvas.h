@@ -7,11 +7,15 @@
 #include <QWidget>
 
 #include <memory>
+#include <optional>
 #include <set>
+#include <vector>
 
 #include "edit/edit_scope.h"
 #include "edit/selection_manager.h"
 #include "render/image_cache.h"
+#include "ui/grab.h"
+#include "ui/handle_hover.h"
 #include "ui/managers.h"
 
 namespace snapper {
@@ -21,8 +25,12 @@ namespace snapper {
 // a box on empty space picks what it touches, and joints of all picked
 // pieces drag together; double-click a joint, then click the part the
 // picked pieces should hang from; drag a square IK tip to set where the chain
-// reaches from. Lines join each joint to its parent's. Escape cancels a
-// drag or a hang.
+// reaches from. Lines join each joint to its parent's. A press grabs the
+// handle nearest to it within kGrabReach; nothing moves until the mouse
+// has gone kDragDeadZone, then the handle jumps under the cursor. Before
+// any press the handle under the cursor grows, shows its cursor, and a
+// thin dashed outline marks the piece a click would pick. Escape cancels
+// a drag or a hang.
 class RigCanvas final : public QWidget {
   Q_OBJECT
 
@@ -50,14 +58,29 @@ class RigCanvas final : public QWidget {
   void mouseReleaseEvent(QMouseEvent* event) override;
   void mouseDoubleClickEvent(QMouseEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
+  void leaveEvent(QEvent* event) override;
 
  private:
   enum class Drag { kNone, kPivot, kTip };
 
+  // A joint or IK tip: what it is, its name, and where it is drawn.
+  struct Handle final {
+    GrabKind kind = GrabKind::kNone;
+    QString key;
+    QPointF spot;
+  };
+
   void PaintOverlay(QPainter* painter) const;
   bool PressHandle(QPointF point);
-  // The piece whose joint is under point, or empty.
+  // Every joint and IK tip, in widget pixels.
+  std::vector<Handle> HandlesOf() const;
+  // The handle nearest to point within reach.
+  std::optional<Handle> HandleAt(QPointF point) const;
+  // The piece whose joint is nearest to point within reach, or empty.
   QString JointAt(QPointF point) const;
+  // Follows the cursor to the handle or piece under it.
+  void UpdateHover(QPointF point);
+  void ClearHover();
   // Ends hang mode, telling the window.
   void StopHanging();
   void ApplyPick(const std::set<QString>& pieces, PickMode mode,
@@ -65,11 +88,18 @@ class RigCanvas final : public QWidget {
   void FinishBox();
 
   Managers managers_;
+  HandleHover hover_;
+  // The piece a click would pick, outlined thinly; empty when none.
+  QString hover_piece_;
   ImageCache cache_;
   QString doll_;
   QString piece_;
   std::set<QString> picked_;
   QPointF last_;
+  // Where the mouse went down; a drag waits until it leaves the dead
+  // zone around it.
+  QPointF press_;
+  bool is_started_ = false;
   bool is_boxing_ = false;
   QPointF box_from_;
   QPointF box_to_;
