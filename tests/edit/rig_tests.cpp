@@ -45,6 +45,8 @@ class RigTests final : public QObject {
   void PivotOrderAndDrawingAreUndoable();
   void NewWarpGridClearsOldWarpKeys();
   void ChainsNeedLinkedPieces();
+  void PhysicsIsOneNamedUndoStep();
+  void ColliderEditsAreNamedUndoSteps();
   void UnknownDollsAndPiecesSayWhy();
   void OneSideCopiesToTheOther();
   void ManyPiecesChangeTogether();
@@ -114,6 +116,77 @@ void RigTests::NewWarpGridClearsOldWarpKeys() {
   const auto& before = std::get<DollLayer>(
       history.current().shots[0]->layers[0].content);
   QCOMPARE(before.pieces.at("lower").keys[0].value.warp.size(), size_t{9});
+}
+
+void RigTests::PhysicsIsOneNamedUndoStep() {
+  HistoryManager history(ArmProject());
+  RigManager rig(&history);
+  QVERIFY(rig.SetWarpGrid("Bob", "lower", {2, 2}).has_value());
+  // Only a drag node can become physics.
+  QVERIFY(!rig.SetPhysics("Bob", "lower", 4, true).has_value());
+  QVERIFY(rig.ToggleDragNode("Bob", "lower", 4).has_value());
+  QVERIFY(rig.SetPhysics("Bob", "lower", 4, true).has_value());
+  QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
+  QCOMPARE(history.UndoLabel(), QString("Physics on for lower"));
+  DragNode node = FindRig(BobRig(history), "lower")->drag_nodes[0];
+  node.stretch = 3.0;
+  node.air = -1.0;
+  node.gravity = 0.9;
+  node.physics = false;
+  QVERIFY(rig.SetDrag("Bob", "lower", node).has_value());
+  const DragNode& kept = FindRig(BobRig(history), "lower")->drag_nodes[0];
+  QCOMPARE(kept.stretch, 1.0);
+  QCOMPARE(kept.air, 0.0);
+  QCOMPARE(kept.gravity, 0.9);
+  QVERIFY(kept.physics);
+  QCOMPARE(history.UndoLabel(), QString("Physics of lower"));
+  history.Undo();
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].gravity, 0.3);
+  QVERIFY(rig.SetPhysics("Bob", "lower", 4, false).has_value());
+  QVERIFY(!FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
+  QCOMPARE(history.UndoLabel(), QString("Physics off for lower"));
+  history.Undo();
+  QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
+}
+
+void RigTests::ColliderEditsAreNamedUndoSteps() {
+  HistoryManager history(ArmProject());
+  RigManager rig(&history);
+  QImage blank(40, 40, QImage::Format_ARGB32);
+  blank.fill(Qt::transparent);
+  QVERIFY(!rig.MakeCollider("Bob", "lower", blank).has_value());
+  QImage block = blank;
+  block.fill(Qt::transparent);
+  for (int y = 10; y < 30; ++y) {
+    for (int x = 5; x < 35; ++x) {
+      block.setPixelColor(x, y, QColor(10, 10, 10, 255));
+    }
+  }
+  QVERIFY(rig.MakeCollider("Bob", "lower", block).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Make collider of lower"));
+  const Collider made = FindRig(BobRig(history), "lower")->collider;
+  QVERIFY(made.IsOn());
+  QCOMPARE(made.ring_size, static_cast<int>(made.dots.size()));
+  QCOMPARE(made.depth, 10.0);
+  QVERIFY(!rig.DeleteColliderDots("Bob", "lower", {999}).has_value());
+  QVERIFY(rig.DeleteColliderDots("Bob", "lower", {0, 1}).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->collider.dots.size(),
+           made.dots.size() - 2);
+  QCOMPARE(history.UndoLabel(), QString("Delete collider dots of lower"));
+  QVERIFY(rig.SetColliderPushes("Bob", "lower", "upper", false).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->collider.spared,
+           (std::vector<QString>{"upper"}));
+  QVERIFY(rig.SetColliderPushes("Bob", "lower", "upper", true).has_value());
+  QVERIFY(FindRig(BobRig(history), "lower")->collider.spared.empty());
+  QVERIFY(!rig.SetColliderPushes("Bob", "upper", "lower", false).has_value());
+  history.Undo();
+  history.Undo();
+  history.Undo();
+  QCOMPARE(FindRig(BobRig(history), "lower")->collider, made);
+  QVERIFY(rig.RemoveCollider("Bob", "lower").has_value());
+  QVERIFY(!FindRig(BobRig(history), "lower")->collider.IsOn());
+  QCOMPARE(history.UndoLabel(), QString("Remove collider of lower"));
+  QVERIFY(!rig.RemoveCollider("Bob", "lower").has_value());
 }
 
 void RigTests::ChainsNeedLinkedPieces() {

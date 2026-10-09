@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "model/doll.h"
+#include "ui/collider_box.h"
 #include "ui/live_edit.h"
 #include "ui/managers.h"
 
@@ -87,6 +88,7 @@ class RigPanel final : public QWidget {
   QPushButton add_chain_;
   QPushButton flip_chain_;
   QPushButton remove_chain_;
+  ColliderBox collider_box_;
   QHBoxLayout mirror_buttons_;
   QPushButton copy_piece_;
   QPushButton copy_side_;

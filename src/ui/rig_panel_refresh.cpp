@@ -129,6 +129,7 @@ void RigPanel::RefreshPiece() {
       doll != nullptr && !piece_.isEmpty() ? FindRig(doll->rig, piece_)
                                            : nullptr;
   const ArtPiece* art = rig != nullptr ? FindArt(*doll, piece_) : nullptr;
+  collider_box_.Show(doll_, piece_);
   const QString why_not = rig != nullptr ? QString()
                                          : tr("Pick a piece first.");
   for (QWidget* field : {static_cast<QWidget*>(&parent_),

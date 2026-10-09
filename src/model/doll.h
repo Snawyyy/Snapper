@@ -52,10 +52,27 @@ struct WarpGrid final {
 // A warp grid point that trails behind when the doll moves and bounces
 // back, like hair or a chest. lag is how far it trails and bounce how
 // much it wobbles before settling, both 0 to 1.
+//
+// With physics on it is a physics node instead: a point of cloth or
+// soft flesh. Points of the grid next to each other that are physics
+// nodes hang together like cloth; the other points of the grid carry
+// them. lag and bounce are then not used; the settings below are, each
+// 0 to 1.
 struct DragNode final {
   int point = 0;
   double lag = 0.5;
   double bounce = 0.5;
+  bool physics = false;
+  // 0 keeps the cloth its length between linked points, 1 is rubbery.
+  double stretch = 0.2;
+  // How much it keeps moving when the doll stops or turns.
+  double inertia = 0.6;
+  // How fast its motion dies down.
+  double air = 0.5;
+  // A steady pull down in shot space, so cloth hangs and sags.
+  double gravity = 0.3;
+  // A spring back to its drawn shape: 0 none (cloth), 1 very springy.
+  double spring = 0.2;
 
   bool operator==(const DragNode&) const = default;
 };
@@ -95,6 +112,36 @@ struct PointMotion final {
   bool operator==(const PointMotion&) const = default;
 };
 
+// The most dots a collider outline has.
+constexpr int kMaxColliderDots = 96;
+
+// One dot of a collider's outline, in the piece's drawing pixels.
+// slot is its place on the ring the outline was made with.
+struct ColliderDot final {
+  QPointF at;
+  int slot = 0;
+
+  bool operator==(const ColliderDot&) const = default;
+};
+
+// A piece's outline that pushes the cloth of pieces drawn in front of
+// it, so a leg never passes through a skirt. The ring was traced from
+// the drawing's visible pixels, ring_size slots in all; dots the user
+// deleted leave gaps, and an edge joins two dots only when they are
+// next to each other on the ring. Empty dots mean no collider.
+struct Collider final {
+  int ring_size = 0;
+  std::vector<ColliderDot> dots;
+  // How far inside the outline a point is still pushed out, in drawing
+  // pixels; deeper points are taken to be on the far side.
+  double depth = 0.0;
+  // Pieces in front that it does not push.
+  std::vector<QString> spared;
+
+  bool IsOn() const { return !dots.empty(); }
+  bool operator==(const Collider&) const = default;
+};
+
 // How Snapper moves a piece: rig.json.
 struct RigPiece final {
   QString name;
@@ -122,6 +169,8 @@ struct RigPiece final {
   std::vector<DragNode> drag_nodes{};
   // Grid points that move by themselves, each at most once.
   std::vector<PointMotion> point_motions{};
+  // The outline that pushes cloth in front of this piece, if any.
+  Collider collider{};
 
   bool operator==(const RigPiece&) const = default;
 };

@@ -57,6 +57,7 @@ void RigCanvas::SetDoll(const QString& doll) {
   doll_ = doll;
   piece_.clear();
   picked_.clear();
+  picked_dots_.clear();
   StopHanging();
   update();
   assert(piece_.isEmpty());
@@ -72,6 +73,7 @@ void RigCanvas::SetPick(const QStringList& picked, const QString& focus) {
   assert(picked.size() <= kMaxDollPieces);
   assert(focus.size() < 100000);
   picked_ = std::set<QString>(picked.begin(), picked.end());
+  PruneDots();
   piece_ = focus;
   update();
 }
@@ -141,6 +143,10 @@ void RigCanvas::PaintOverlay(QPainter* painter) const {
     const bool is_placed = pieces.contains(rig.name);
     if (is_placed) {
       PaintJoint(painter, doll, pieces, rig);
+    }
+    const bool shows_collider = is_placed && picked_.contains(rig.name);
+    if (shows_collider) {
+      PaintCollider(painter, pieces, rig);
     }
   }
   const bool shows_hang = is_hanging_ && pieces.contains(piece_);

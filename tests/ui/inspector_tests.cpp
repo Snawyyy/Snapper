@@ -40,6 +40,7 @@ class InspectorTests final : public QObject {
   void FieldsApplyAsYouTypeAsOneStep();
   void FieldsChangeEveryPickByTheSameAmount();
   void DragBoxTunesThePickedDot();
+  void PhysicsSwitchShowsTheFiveSettings();
   void PointMotionBoxAnimatesThePickedDot();
   void OnlyWhatIsPickedShows();
   void ShotBoxChangesThePickedShots();
@@ -155,6 +156,40 @@ void InspectorTests::DragBoxTunesThePickedDot() {
   QCOMPARE(nodes.size(), size_t{1});
   QCOMPARE(nodes[0].lag, 0.8);
   QVERIFY(drags->isChecked());
+}
+
+void InspectorTests::PhysicsSwitchShowsTheFiveSettings() {
+  Bench bench;
+  Stage(&bench);
+  QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
+  DragBox box(bench.All());
+  auto* physics = box.findChild<QCheckBox*>("physics");
+  auto* lag = box.findChild<QDoubleSpinBox*>("lag");
+  auto* gravity = box.findChild<QDoubleSpinBox*>("gravity");
+  QVERIFY(!physics->isEnabled());
+  QVERIFY(!physics->toolTip().isEmpty());
+  QVERIFY(!gravity->toolTip().isEmpty());
+  bench.selection.PickDot(WarpDot{LayerId(1), "head", 4});
+  box.findChild<QCheckBox*>("drags")->click();
+  QVERIFY(physics->isEnabled());
+  QVERIFY(lag->isVisibleTo(&box));
+  QVERIFY(!gravity->isVisibleTo(&box));
+  physics->click();
+  QCOMPARE(bench.history.UndoLabel(), QString("Physics on for head"));
+  QVERIFY(!lag->isVisibleTo(&box));
+  for (const char* name :
+       {"stretch", "inertia", "air", "gravity", "spring"}) {
+    QVERIFY(box.findChild<QDoubleSpinBox*>(name)->isVisibleTo(&box));
+  }
+  Type(gravity, 0.9);
+  const auto& nodes =
+      bench.history.current().dolls.at("Bob")->rig.pieces[0].drag_nodes;
+  QVERIFY(nodes[0].physics);
+  QCOMPARE(nodes[0].gravity, 0.9);
+  physics->click();
+  QVERIFY(lag->isVisibleTo(&box));
+  QVERIFY(!bench.history.current().dolls.at("Bob")->rig.pieces[0]
+               .drag_nodes[0].physics);
 }
 
 void InspectorTests::PointMotionBoxAnimatesThePickedDot() {

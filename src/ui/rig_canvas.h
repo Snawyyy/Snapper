@@ -6,6 +6,7 @@
 #include <QTransform>
 #include <QWidget>
 
+#include <map>
 #include <memory>
 #include <optional>
 #include <set>
@@ -45,6 +46,15 @@ class RigCanvas final : public QWidget {
   void SetPick(const QStringList& picked, const QString& focus);
   // Doll space to widget pixels.
   QTransform World() const;
+  // Makes piece a collider from its drawing (as right-click > Make
+  // collider does) and picks it, so its dots show.
+  void MakeCollider(const QString& piece);
+  // Makes piece a plain piece again.
+  void RemoveCollider(const QString& piece);
+  // Deletes the picked collider dots (Delete does); one undo step.
+  void DeletePickedDots();
+  // The picked collider dots, as "piece:slot".
+  const std::set<QString>& picked_dots() const { return picked_dots_; }
   // The chip, ghost and pop of the drag, for tests to look at.
   const DragFeedback& feedback() const { return feedback_; }
 
@@ -63,6 +73,7 @@ class RigCanvas final : public QWidget {
   void mouseDoubleClickEvent(QMouseEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
   void leaveEvent(QEvent* event) override;
+  void contextMenuEvent(QContextMenuEvent* event) override;
 
  private:
   enum class Drag { kNone, kPivot, kTip };
@@ -86,7 +97,15 @@ class RigCanvas final : public QWidget {
   // As a joint or tip is grabbed: leaves a faint copy of what drags,
   // drawn by PaintJoint or PaintTip, where it sits now.
   void GrabGhost();
-  bool PressHandle(QPointF point);
+  bool PressHandle(QPointF point, Qt::KeyboardModifiers modifiers);
+  // One piece's collider outline, in the rig colour for colliders.
+  void PaintCollider(QPainter* painter,
+                     const std::map<QString, QTransform>& pieces,
+                     const RigPiece& rig) const;
+  // Picks or flips a collider dot by its key.
+  void PickDot(const QString& key, PickMode mode);
+  // Forgets picked dots of pieces that are no longer picked.
+  void PruneDots();
   // Every joint and IK tip, in widget pixels.
   std::vector<Handle> HandlesOf() const;
   // The handle nearest to point within reach.
@@ -113,6 +132,7 @@ class RigCanvas final : public QWidget {
   QString doll_;
   QString piece_;
   std::set<QString> picked_;
+  std::set<QString> picked_dots_;
   QPointF last_;
   // Where the dragged handle sat when it was grabbed.
   QPointF start_;

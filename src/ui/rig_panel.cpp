@@ -19,6 +19,7 @@ RigPanel::RigPanel(const Managers& managers)
       add_chain_(tr("Add for piece")),
       flip_chain_(tr("Flip bend")),
       remove_chain_(tr("Remove")),
+      collider_box_(managers),
       copy_piece_(tr("Copy to other side")),
       copy_side_(tr("Copy whole side")),
       save_rig_(tr("Save rig to library")),
@@ -27,6 +28,7 @@ RigPanel::RigPanel(const Managers& managers)
                "tip.")) {
   assert(managers_.IsComplete());
   BuildLayout();
+  connect(&collider_box_, &ColliderBox::Problem, this, &RigPanel::Problem);
   Wire();
   Refresh();
   assert(layout_.count() > 0);
@@ -91,6 +93,7 @@ void RigPanel::BuildLayout() {
   layout_.addWidget(&dolls_);
   layout_.addWidget(&pieces_, 2);
   layout_.addLayout(&form_);
+  layout_.addWidget(&collider_box_);
   mirror_buttons_.addWidget(&copy_piece_);
   mirror_buttons_.addWidget(&copy_side_);
   layout_.addLayout(&mirror_buttons_);

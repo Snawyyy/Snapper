@@ -176,6 +176,37 @@ A piece can:
   the shot's first frame, so every render of a frame is the same, and
   shows only on the doll's own beat (its keys, each frame of an ease,
   the same spacing through a long hold), so a doll on 3s drags on 3s.
+  A drag node can be switched to Physics (a tick in the Drag node
+  panel, `RigManager::SetPhysics`): a point of cloth or soft flesh.
+  Physics nodes next to each other on the grid are tied like cloth
+  and may not stretch past their drawn distance (Stretch softens
+  that); the grid points that are not physics nodes are pins the body
+  carries. Its settings, each 0 to 1, are Stretch, Inertia (keeps
+  moving), Air resistance (motion dies down), Gravity (a steady pull
+  down in shot space) and Bounce (a spring back to the drawn shape).
+  The math is pure in `anim/cloth.h` (`StepCloth`: verlet with
+  `kTieRounds` fixed tie rounds); `DraggedPoses` runs it on the same
+  beat and in the same `DragTrail` as plain drag nodes, so a late
+  frame costs like an early one. `doll_beat.h` holds the beat. With
+  Physics off a node is the spring it always was.
+  A piece can be a collider (right-click it in the rig: Make
+  collider): the outline of its visible pixels, traced into a ring of
+  dots about 12 px apart (`TraceOutline`, pure, in `anim`; at most
+  `kMaxColliderDots`), kept in the piece's drawing pixels so it follows
+  the pose, the warp grid (`ShotDots`) and links. Dots can be deleted
+  in the rig; an edge joins only dots that were neighbours on the
+  ring, so a gap pushes nothing. Inside `StepCloth` a physics node
+  that ends up behind an edge (within the collider's depth) is moved
+  out to it, one-sided, so nothing holds or pulls it: the cloth pushes
+  out of a leg and can fly away from it. It pushes the physics nodes
+  of the same doll's pieces drawn in front of it (a higher order),
+  except the ones it spares (`CollidersFor`). With no collider, or no
+  physics node, nothing changes. The dots show (teal, small look big
+  grab) on the rig canvas only while their piece is picked: click picks
+  one, Shift adds, Delete removes the picked ones as one undo step,
+  Escape lets go. They are never drawn on the stage. The rig panel's
+  `ColliderBox` lists the pieces in front, ticked while pushed
+  (`RigManager::SetColliderPushes`).
   A dot can also move by itself (a point motion: wave, pulse,
   breathe, sway, shiver), with a size in pixels, a cycle in frames, a
   direction and a delay. Its neighbours follow by its rubber reach, as
@@ -349,7 +380,7 @@ are destroyed in reverse.
 | `HistoryManager`       | Current project, undo, redo, dirty state       |
 | `DocumentManager`      | New, open, save, autosave, recent files        |
 | `DollLibraryManager`   | Doll folders, loading, reload on re-export     |
-| `RigManager`           | Rig edits: joints, IK, warp grids, their dots  |
+| `RigManager`           | Rig edits: joints, IK, warp grids, their dots, drag and physics nodes, colliders |
 | `ShotManager`          | Shots on the master track: order, length, look |
 | `ReelManager`          | The reel: clips, tracks, cuts, transitions     |
 | `StageManager`         | What is in a shot: actors, props, text, effects |

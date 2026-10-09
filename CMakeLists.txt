@@ -26,12 +26,13 @@ snapper_module(model
   MODULES base
   LIBS Qt6::Gui)
 snapper_module(anim
-  SOURCES doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp pose_memo.cpp jitter.cpp links.cpp
+  SOURCES cloth.cpp collider.cpp doll_beat.cpp doll_colliders.cpp
+          outline_trace.cpp shot_grid.cpp doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp pose_memo.cpp jitter.cpp links.cpp
           master_timeline.cpp mirror.cpp presets.cpp reel_timeline.cpp
           sampler.cpp timing_chart.cpp warp.cpp warp_motion.cpp
   MODULES model)
 snapper_module(io
-  SOURCES doll_file.cpp doll_json.cpp json_file.cpp json_values.cpp
+  SOURCES collider_json.cpp doll_file.cpp doll_json.cpp json_file.cpp json_values.cpp
           layer_json.cpp legacy_doll.cpp pose_file.cpp project_file.cpp
           point_motion_json.cpp reconcile.cpp reel_json.cpp
   MODULES model)
@@ -59,7 +60,7 @@ snapper_module(edit
           preset_manager.cpp saved_poses.cpp
           link_manager.cpp project_edits.cpp reel_batch.cpp reel_clipboard.cpp
           reel_cuts.cpp reel_edits.cpp reel_manager.cpp reel_markers.cpp
-          reel_transitions.cpp rig_batch.cpp
+          reel_transitions.cpp rig_batch.cpp rig_collider.cpp rig_drag.cpp
           rig_manager.cpp rig_mirror.cpp
           selection_manager.cpp selection_prune.cpp shot_batch.cpp
           shot_manager.cpp stage_batch.cpp stage_manager.cpp
@@ -73,6 +74,7 @@ snapper_module(ui
           export_dialog_actions.cpp file_menu.cpp main_window.cpp
           drag_box.cpp picked_dot.cpp point_motion_box.cpp shot_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
           layer_box_commits.cpp link_box.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
+          rig_canvas_collider.cpp collider_box.cpp collider_keys.cpp
           rig_canvas_input.cpp rig_canvas_handles.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp pose_tool_readout.cpp
           reel_preview.cpp reel_timeline.cpp reel_timeline_drop.cpp
           reel_timeline_commands.cpp reel_timeline_effects.cpp
@@ -100,7 +102,7 @@ if(BUILD_TESTING)
   snapper_test(base SOURCES base_tests.cpp number_tests.cpp)
   snapper_test(model SOURCES model_tests.cpp)
   snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp lean_tests.cpp
-                    drag_tests.cpp link_tests.cpp pose_memo_tests.cpp
+                    cloth_tests.cpp collider_tests.cpp drag_tests.cpp link_tests.cpp pose_memo_tests.cpp
                     reel_tests.cpp timing_chart_tests.cpp
                     warp_motion_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
@@ -132,7 +134,7 @@ if(BUILD_TESTING)
                           pose_tool_tests.cpp pose_tool_grab_tests.cpp
                           pose_tool_readout_tests.cpp refusal_reason_tests.cpp
                           reel_timeline_tests.cpp
-                          rig_ui_tests.cpp number_field_tests.cpp
+                          rig_ui_tests.cpp collider_ui_tests.cpp number_field_tests.cpp
                           shot_strip_tests.cpp slot_picker_tests.cpp
                           motion_tests.cpp scrub_tests.cpp shake_tests.cpp theme_tests.cpp
                           toast_tests.cpp space_keys_tests.cpp

@@ -37,12 +37,22 @@ std::optional<QPointF> IntoPiece(const Doll& doll, const QString& piece,
 
 }  // namespace
 
-bool RigCanvas::PressHandle(QPointF point) {
+bool RigCanvas::PressHandle(QPointF point,
+                            Qt::KeyboardModifiers modifiers) {
   assert(std::isfinite(point.x()));
   assert(managers_.history != nullptr);
   const auto handle = HandleAt(point);
   if (!handle) {
     return false;
+  }
+  const bool is_dot = handle->kind == GrabKind::kColliderDot;
+  if (is_dot) {
+    const bool is_shift = modifiers.testFlag(Qt::ShiftModifier);
+    const bool is_ctrl = modifiers.testFlag(Qt::ControlModifier);
+    PickDot(handle->key, is_shift  ? PickMode::kAdd
+                         : is_ctrl ? PickMode::kToggle
+                                   : PickMode::kReplace);
+    return true;
   }
   press_ = point;
   is_started_ = false;
@@ -136,7 +146,7 @@ void RigCanvas::mousePressEvent(QMouseEvent* event) {
         managers_.rig->SetParentAll(doll_, children, parent)));
     return;
   }
-  const bool is_handle = PressHandle(event->position());
+  const bool is_handle = PressHandle(event->position(), event->modifiers());
   if (is_handle) {
     return;
   }
@@ -165,6 +175,7 @@ void RigCanvas::ApplyPick(const std::set<QString>& pieces, PickMode mode,
   assert(pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   assert(focus.size() < 100000);
   picked_ = Combine(picked_, pieces, mode);
+  PruneDots();
   const bool keeps_focus = picked_.contains(focus);
   piece_ = keeps_focus           ? focus
            : picked_.empty()     ? QString()
@@ -288,8 +299,21 @@ void RigCanvas::keyPressEvent(QKeyEvent* event) {
     StopHanging();
     return;
   }
+  const bool clears_dots = clears && !picked_dots_.empty();
+  if (clears_dots) {
+    picked_dots_.clear();
+    update();
+    return;
+  }
   if (clears) {
     ApplyPick({}, PickMode::kReplace, QString());
+    return;
+  }
+  const bool is_delete = (event->key() == Qt::Key_Delete ||
+                          event->key() == Qt::Key_Backspace) &&
+                         !picked_dots_.empty() && scope_ == nullptr;
+  if (is_delete) {
+    DeletePickedDots();
     return;
   }
   if (is_all) {
