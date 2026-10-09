@@ -17,6 +17,7 @@ class GrabTests final : public QObject {
   void GraceKeepsHiddenHandlesFor100Ms();
   void GraceEndsWhenHandlesShowAgain();
   void EachKindHasItsCursor();
+  void HoverAmountRunsFromZeroToOne();
 };
 
 void GrabTests::ConstantsAreTheDesign() {
@@ -98,6 +99,13 @@ void GrabTests::EachKindHasItsCursor() {
   QCOMPARE(CursorFor(GrabKind::kIkTip), Qt::CrossCursor);
   QCOMPARE(CursorFor(GrabKind::kPivot), Qt::SizeAllCursor);
   QVERIFY(CursorFor(GrabKind::kWarpDot) != CursorFor(GrabKind::kPivot));
+}
+
+void GrabTests::HoverAmountRunsFromZeroToOne() {
+  QCOMPARE(HoverAmount(1.0), 0.0);
+  QCOMPARE(HoverAmount(kHoverGrow), 1.0);
+  QVERIFY(HoverAmount(1.075) > 0.4 && HoverAmount(1.075) < 0.6);
+  QCOMPARE(HoverAmount(2.0), 1.0);
 }
 
 }  // namespace snapper

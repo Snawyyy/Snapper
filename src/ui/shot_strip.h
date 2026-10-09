@@ -12,6 +12,7 @@
 #include "edit/edit_scope.h"
 #include "edit/selection_manager.h"
 #include "model/shot.h"
+#include "ui/handle_hover.h"
 #include "ui/managers.h"
 #include "ui/problem.h"
 
@@ -43,6 +44,7 @@ class ShotStrip final : public QWidget {
   void paintEvent(QPaintEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;
+  void leaveEvent(QEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;
   void contextMenuEvent(QContextMenuEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
@@ -56,6 +58,8 @@ class ShotStrip final : public QWidget {
   void Report(const QString& problem) { emit Problem(problem); }
 
   Managers managers_;
+  // The right edge under the cursor widens and brightens.
+  HandleHover hover_;
   Drag drag_ = Drag::kNone;
   ShotId dragged_;
   double drag_start_x_ = 0.0;

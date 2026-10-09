@@ -2,6 +2,7 @@
 
 #include <QLineF>
 
+#include <algorithm>
 #include <cassert>
 
 namespace snapper {
@@ -45,6 +46,12 @@ int NearestGrab(const std::vector<QPointF>& spots, QPointF point,
     }
   }
   return best;
+}
+
+double HoverAmount(double scale) {
+  assert(kHoverGrow > 1.0);
+  assert(scale >= 1.0);
+  return std::clamp((scale - 1.0) / (kHoverGrow - 1.0), 0.0, 1.0);
 }
 
 bool IsPastDeadZone(QPointF press, QPointF now) {

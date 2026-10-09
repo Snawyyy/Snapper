@@ -14,8 +14,9 @@ class MotionManager;
 
 // Which handle the cursor is over and how far it has grown: 1.0 up to
 // kHoverGrow, eased by the Motion manager's hover curve (instant in
-// Off), and shrunk back the same way when the cursor leaves. One of these serves each canvas that draws handles, so the
-// stage, the rig canvas and the timeline grow them the same way.
+// Off), and shrunk back the same way when the cursor leaves. One of
+// these serves each canvas that draws handles, so the stage, the rig
+// canvas and the timeline grow them the same way.
 class HandleHover final : public QObject {
   Q_OBJECT
 

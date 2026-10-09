@@ -37,11 +37,13 @@ double WidthOf(const Shot& shot) {
 
 }  // namespace
 
-ShotStrip::ShotStrip(const Managers& managers) : managers_(managers) {
+ShotStrip::ShotStrip(const Managers& managers)
+    : managers_(managers), hover_(managers.motion, this) {
   assert(managers_.IsComplete());
   setFixedHeight(kStripHeight);
   setFocusPolicy(Qt::ClickFocus);
   setMouseTracking(true);
+  connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
   const auto update_me = [this] { update(); };
   connect(managers_.history, &HistoryManager::Changed, this, update_me);
   connect(managers_.selection, &SelectionManager::Changed, this, update_me);
@@ -84,6 +86,15 @@ void ShotStrip::paintEvent(QPaintEvent* event) {
     painter.setPen(QPen(is_picked ? theme::kPick : theme::kShadow,
                         is_focus ? 2.0 : 1.0));
     painter.drawRect(block.rect);
+    const double edge = HoverAmount(hover_.ScaleOf(
+        GrabKind::kEdge, QString::number(block.shot.value())));
+    const bool shows_edge = edge > 0.0;
+    if (shows_edge) {
+      painter.fillRect(
+          QRectF(block.rect.right() - 3 - 3 * edge, block.rect.top(),
+                 3 + 3 * edge, block.rect.height()),
+          theme::kHandle.lighter(100 + int(40 * edge)));
+    }
     painter.setPen(theme::kText);
     painter.drawText(block.rect.adjusted(10, 2, -4, -2),
                      Qt::AlignLeft | Qt::AlignTop, shot.name);
@@ -148,9 +159,19 @@ void ShotStrip::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
   const QPointF at = event->position();
   bool is_on_edge = false;
+  ShotId edge_shot;
   for (const Block& block : Blocks()) {
-    is_on_edge = is_on_edge || (block.rect.contains(at) &&
-                                block.rect.right() - at.x() <= kGrabReach);
+    const bool is_here = block.rect.contains(at) &&
+                         block.rect.right() - at.x() <= kGrabReach;
+    if (is_here) {
+      edge_shot = block.shot;
+    }
+    is_on_edge = is_on_edge || is_here;
+  }
+  const bool is_free = drag_ == Drag::kNone;
+  if (is_free) {
+    hover_.Set(is_on_edge ? GrabKind::kEdge : GrabKind::kNone,
+               is_on_edge ? QString::number(edge_shot.value()) : QString());
   }
   setCursor(is_on_edge || drag_ == Drag::kLength ? Qt::SizeHorCursor
                                                  : Qt::ArrowCursor);
@@ -169,6 +190,13 @@ void ShotStrip::mouseMoveEvent(QMouseEvent* event) {
       drag_frames_ = frames;
     }
   }
+}
+
+void ShotStrip::leaveEvent(QEvent* event) {
+  assert(event != nullptr);
+  assert(hover_.kind() >= GrabKind::kNone);
+  hover_.Set(GrabKind::kNone, QString());
+  QWidget::leaveEvent(event);
 }
 
 void ShotStrip::mouseReleaseEvent(QMouseEvent* event) {

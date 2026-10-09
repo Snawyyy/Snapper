@@ -17,6 +17,7 @@ class QMenu;
 #include "edit/edit_scope.h"
 #include "edit/selection_manager.h"
 #include "model/reel.h"
+#include "ui/handle_hover.h"
 #include "ui/managers.h"
 #include "ui/problem.h"
 
@@ -71,6 +72,7 @@ class ReelTimeline final : public QWidget {
   void paintEvent(QPaintEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;
+  void leaveEvent(QEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;
   void mouseDoubleClickEvent(QMouseEvent* event) override;
   void contextMenuEvent(QContextMenuEvent* event) override;
@@ -139,9 +141,13 @@ class ReelTimeline final : public QWidget {
   void SeekTo(double x);
   // How many frames of snapping reach the zoom gives.
   int SnapReach() const;
+  // The name the hover knows a clip start or end edge by.
+  static QString EdgeKey(ClipId clip, bool is_start);
   void Report(const QString& problem) { emit Problem(problem); }
 
   Managers managers_;
+  // The clip edge under the cursor widens and brightens.
+  HandleHover hover_;
   double zoom_;
   // Frames scrolled off the left.
   double scroll_ = 0.0;

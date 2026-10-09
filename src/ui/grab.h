@@ -25,6 +25,10 @@ inline constexpr int kGraceMs = 100;
 // A hovered handle grows by this factor.
 inline constexpr double kHoverGrow = 1.15;
 
+// How far along a hover is, 0 (not hovered) to 1 (fully grown), from
+// the growth HandleHover reports; edges use it to widen and brighten.
+double HoverAmount(double scale);
+
 // What a handle does when dragged; the cursor says it before the press.
 enum class GrabKind {
   kNone,

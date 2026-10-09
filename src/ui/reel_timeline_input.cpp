@@ -200,6 +200,14 @@ void ReelTimeline::mouseMoveEvent(QMouseEvent* event) {
   const bool is_trimming =
       drag_ == Drag::kTrimStart || drag_ == Drag::kTrimEnd;
   setCursor(is_edge || is_trimming ? Qt::SizeHorCursor : Qt::ArrowCursor);
+  const Drag side = is_edge ? DragFor(hover, at) : Drag::kNone;
+  const bool is_free = drag_ == Drag::kNone;
+  if (is_free) {
+    const bool has_side = side != Drag::kNone;
+    hover_.Set(has_side ? GrabKind::kEdge : GrabKind::kNone,
+               has_side ? EdgeKey(hover, side == Drag::kTrimStart)
+                        : QString());
+  }
   const bool is_joint = JointAt(at).IsValid();
   setToolTip(is_joint ? tr("Double-click to pick the transition here.")
                       : QString());
