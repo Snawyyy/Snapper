@@ -38,7 +38,7 @@ class ChangeEffectsTests final : public QObject {
   void AFreshKeyPopsWithARing();
   void ADeletedKeyPuffsThenGoes();
   void UndoRewindsWhatItBringsBack();
-  void ASlideShowsOnlyOnUndoAndRedo();
+  void AMovedKeySlidesFromItsOldFrame();
   void OffShowsNothing();
   void CalmStillPlays();
   void ClipsPopPuffAndRewindToo();
@@ -110,7 +110,7 @@ void ChangeEffectsTests::UndoRewindsWhatItBringsBack() {
   QTRY_VERIFY(!effects.IsPlaying());
 }
 
-void ChangeEffectsTests::ASlideShowsOnlyOnUndoAndRedo() {
+void ChangeEffectsTests::AMovedKeySlidesFromItsOldFrame() {
   Bench bench;
   bench.motion.SetMode(MotionMode::kFull);
   QObject owner;
@@ -118,10 +118,12 @@ void ChangeEffectsTests::ASlideShowsOnlyOnUndoAndRedo() {
   KeyChanges moved;
   moved.moved.push_back({kBob, Frame(2), Frame(6)});
   effects.ShowKeys(moved, false);
+  // Drawn at the old frame to begin with, 4 frames behind the new one.
+  QCOMPARE(effects.SlideOffsetOf(1, Frame(6)), -4.0);
+  QCOMPARE(effects.SlideOffsetOf(1, Frame(2)), 0.0);
+  QCOMPARE(effects.ScaleOf(1, 0, Frame(6)), 1.0);
+  QTRY_COMPARE(effects.SlideOffsetOf(1, Frame(6)), 0.0);
   QVERIFY(!effects.IsPlaying());
-  effects.ShowKeys(moved, true);
-  QVERIFY(effects.GlowOf(1, 0, Frame(6)) > 0.0);
-  QCOMPARE(effects.GlowOf(1, 0, Frame(2)), 0.0);
 }
 
 void ChangeEffectsTests::OffShowsNothing() {

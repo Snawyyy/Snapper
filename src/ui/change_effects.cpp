@@ -17,6 +17,7 @@ constexpr size_t kMaxEffects = 256;
 struct Plan final {
   std::vector<ChangeEffect> grow;
   std::vector<ChangeEffect> puff;
+  std::vector<ChangeEffect> slide;
 };
 
 ChangeEffect KeyEffect(ChangeEffectKind kind, LayerId layer, Frame frame) {
@@ -94,10 +95,10 @@ void ChangeEffects::ShowKeys(const KeyChanges& changes, bool is_travel) {
     plan.grow.push_back(KeyEffect(arrival, key.layer, key.frame));
   }
   for (const KeyMove& move : changes.moved) {
-    // A slide shows only when undo or redo makes it.
-    if (is_travel) {
-      plan.grow.push_back(KeyEffect(arrival, move.layer, move.to));
-    }
+    ChangeEffect slide =
+        KeyEffect(ChangeEffectKind::kSlide, move.layer, move.to);
+    slide.from = move.from;
+    plan.slide.push_back(slide);
   }
   for (const KeyChange& key : changes.removed) {
     plan.puff.push_back(
@@ -105,6 +106,7 @@ void ChangeEffects::ShowKeys(const KeyChanges& changes, bool is_travel) {
   }
   Start(std::move(plan.grow), true);
   Start(std::move(plan.puff), false);
+  Start(std::move(plan.slide), false);
 }
 
 void ChangeEffects::ShowClips(const ClipChanges& changes, bool is_travel) {
@@ -205,6 +207,10 @@ double ChangeEffects::ScaleOf(int lane, int item, Frame frame) const {
   if (!is_playing) {
     return 1.0;
   }
+  const bool is_slide = effect->kind == ChangeEffectKind::kSlide;
+  if (is_slide) {
+    return 1.0;
+  }
   const bool is_pop = effect->kind == ChangeEffectKind::kPop;
   return is_pop ? PopScale(effect->t) : RewindScale(effect->t);
 }
@@ -216,6 +222,18 @@ double ChangeEffects::GlowOf(int lane, int item, Frame frame) const {
   const bool is_rewinding =
       effect != nullptr && effect->kind == ChangeEffectKind::kRewind;
   return is_rewinding ? RewindGlow(effect->t) : 0.0;
+}
+
+double ChangeEffects::SlideOffsetOf(int lane, Frame frame) const {
+  assert(lane >= 0);
+  assert(frame.index() >= 0);
+  const ChangeEffect* effect = Find(lane, 0, frame);
+  const bool is_sliding =
+      effect != nullptr && effect->kind == ChangeEffectKind::kSlide;
+  if (!is_sliding) {
+    return 0.0;
+  }
+  return (effect->from.index() - frame.index()) * (1.0 - effect->t);
 }
 
 std::optional<double> ChangeEffects::RingOf(int lane, int item,

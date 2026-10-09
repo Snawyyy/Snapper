@@ -66,6 +66,7 @@ class TimelineViewTests final : public QObject {
   void ANewKeyPopsAndADeletedOnePuffs();
   void UndoRewindsAndTheDataIsAlreadyBack();
   void ASlidKeyPopsNothingAndOffShowsNothing();
+  void UndoOfAMoveSlidesTheKeyBack();
 };
 
 void TimelineViewTests::FramesMapToPixels() {
@@ -275,6 +276,22 @@ void TimelineViewTests::ASlidKeyPopsNothingAndOffShowsNothing() {
   bench.history.Undo();
   QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(2)}));
   QVERIFY(!view.effects().IsPlaying());
+}
+
+void TimelineViewTests::UndoOfAMoveSlidesTheKeyBack() {
+  Bench bench;
+  Stage(&bench);
+  bench.motion.SetMode(MotionMode::kFull);
+  TimelineView view(bench.All());
+  view.resize(800, 200);
+  QTest::mousePress(&view, Qt::LeftButton, {}, Cell(view, 2));
+  QTest::mouseMove(&view, Cell(view, 6));
+  QTest::mouseRelease(&view, Qt::LeftButton, {}, Cell(view, 6));
+  QTRY_VERIFY(!view.effects().IsPlaying());
+  bench.history.Undo();
+  QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(2)}));
+  QCOMPARE(view.effects().SlideOffsetOf(1, Frame(2)), 4.0);
+  QTRY_COMPARE(view.effects().SlideOffsetOf(1, Frame(2)), 0.0);
 }
 
 }  // namespace snapper

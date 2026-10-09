@@ -411,8 +411,10 @@ a newly opened file are none, and a step that returns to a state the
 history already visited (`HistoryManager::revision`) is flagged as
 undo or redo. `ChangeEffects` (`ui`, one per timeline) turns that into
 decoration through `MotionManager`: a new key pops 1.4 to 1 with a
-ring, a deleted one puffs out, and what undo or redo brings back or
-moves rewinds (a bright flash settling from 1.25). The timeline draws
+ring, a deleted one puffs out, what undo or redo brings back rewinds
+(a bright flash settling from 1.25), and a key moved without a drag
+(spacing, undo or redo of a move) slides from its old frame on the
+Move curve. The timeline draws
 these over the real project, so data and picking never wait for them;
 in Off there are none, and the final state shows at once. The pose
 timeline (`TimelineView`) animates keys per row; the reel

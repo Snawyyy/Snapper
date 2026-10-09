@@ -65,9 +65,13 @@ TimelineView::TimelineView(const Managers& managers)
 void TimelineView::ShowStep(const Project& before, bool is_travel) {
   assert(managers_.history != nullptr);
   assert(managers_.selection != nullptr);
-  effects_.ShowKeys(DiffKeys(before, managers_.history->current(),
-                             managers_.selection->shot()),
-                    is_travel);
+  KeyChanges changes = DiffKeys(before, managers_.history->current(),
+                                managers_.selection->shot());
+  // A drag already showed the keys moving.
+  if (is_landing_drag_) {
+    changes.moved.clear();
+  }
+  effects_.ShowKeys(changes, is_travel);
 }
 
 void TimelineView::ShowStepMode() {

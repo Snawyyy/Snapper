@@ -21,7 +21,10 @@ enum class ChangeEffectKind {
   kPuff,
   // A thing undo or redo brought back or moved flashes bright and
   // settles from 1.25 times its size.
-  kRewind
+  kRewind,
+  // A key moved without a drag (spacing, undo or redo of a move) slides
+  // from its old frame to the new one.
+  kSlide
 };
 
 // One thing animating. lane is the row it sits on (a layer's id on the
@@ -34,6 +37,8 @@ struct ChangeEffect final {
   int item = 0;
   Frame frame;
   Frame length = Frame(1);
+  // Where a slide began; frame is where it ends.
+  Frame from;
   double t = 0.0;
   int batch = 0;
 };
@@ -65,6 +70,9 @@ class ChangeEffects final : public QObject {
   void ShowClips(const ClipChanges& changes, bool is_travel);
 
   bool IsPlaying() const { return !effects_.empty(); }
+  // Frames to add to a key's place to draw it where it is sliding from;
+  // 0 when it is not sliding.
+  double SlideOffsetOf(int lane, Frame frame) const;
   // The size to draw a thing still in the project at: 1 when nothing
   // pops or rewinds it.
   double ScaleOf(int lane, int item, Frame frame) const;
@@ -83,7 +91,7 @@ class ChangeEffects final : public QObject {
  private:
   const ChangeEffect* Find(int lane, int item, Frame frame) const;
   // Plays effects together as one batch, timed by the pop time (or the
-  // move time when no overshoot is wanted).
+  // move time when no overshoot is wanted: puffs and slides).
   void Start(std::vector<ChangeEffect> effects, bool is_overshoot);
   void SetProgress(int batch, double t);
   void Finish(int batch);

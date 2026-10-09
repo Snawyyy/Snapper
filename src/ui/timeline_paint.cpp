@@ -62,7 +62,10 @@ void TimelineView::PaintKeys(QPainter* painter, const TimelineRow& row,
   assert(row.keys.size() == row.is_eased.size());
   const auto& picked = managers_.selection->keys();
   for (size_t i = 0; i < row.keys.size(); ++i) {
-    const double x = XOf(row.keys[i]) + frame_width_ / 2.0;
+    const int lane = row.layer.value();
+    const double slide = effects_.SlideOffsetOf(lane, row.keys[i]);
+    const double x = XOf(row.keys[i]) + frame_width_ / 2.0 +
+                     slide * frame_width_;
     const bool has_next = i + 1 < row.keys.size();
     const double next = has_next ? XOf(row.keys[i + 1]) + frame_width_ / 2.0
                                  : x + frame_width_;
@@ -79,7 +82,6 @@ void TimelineView::PaintKeys(QPainter* painter, const TimelineRow& row,
         });
     painter->setPen(QPen(theme::kShadow, 1.0));
     const QString key_name = KeyName(row_index, row.keys[i]);
-    const int lane = row.layer.value();
     // A hovered key grows and brightens; so does one popping in, and
     // one coming back by undo flashes brighter still.
     const double grow = hover_.ScaleOf(GrabKind::kKey, key_name) *

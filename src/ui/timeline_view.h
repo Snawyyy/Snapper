@@ -128,6 +128,8 @@ class TimelineView final : public QWidget {
   QPointF box_to_;
   PickMode box_mode_ = PickMode::kReplace;
   std::unique_ptr<EditScope> key_drag_;
+  // True while a key drag lands its step, so it does not slide again.
+  bool is_landing_drag_ = false;
   Frame drag_frame_;
   // The frame the dragged key was pressed on, and the pick then, for
   // Escape to restore.
