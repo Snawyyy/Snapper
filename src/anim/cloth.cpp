@@ -17,6 +17,11 @@ constexpr int kTieRounds = 40;
 constexpr double kGravityPull = 1.5;
 // The pull back to the carried place a spring of 1 gives, per frame.
 constexpr double kSpringPull = 0.35;
+// Rounds of pushing out at the end of a frame, so the pushes of
+// neighbouring cloth settle together.
+constexpr int kSettlePasses = 6;
+// A middle this close to an outline counts as on it, not across it.
+constexpr double kAcrossSlack = 0.1;
 // How much of a tie's overshoot one round fixes at stretch 1.
 constexpr double kRubberStiffness = 0.02;
 
@@ -127,8 +132,8 @@ QPointF Tethered(QPointF at, QPointF anchor) {
 }
 
 // Pushes every node that is behind an edge out to it.
-void PushAll(const std::vector<ColliderEdge>& edges,
-             std::vector<QPointF>* at) {
+void PushNodes(const std::vector<ColliderEdge>& edges,
+               std::vector<QPointF>* at) {
   assert(at != nullptr);
   assert(edges.size() <= kMaxColliderEdges);
   const bool has_edges = !edges.empty();
@@ -137,6 +142,38 @@ void PushAll(const std::vector<ColliderEdge>& edges,
   }
   for (QPointF& point : *at) {
     point = PushedOut(edges, point);
+  }
+}
+
+// Pushes out the cloth between two nodes that an outline has come
+// across since the last frame: its middle is tested, and both nodes
+// move by what it needs. before holds where the nodes stood then.
+void PushCloth(const ClothPiece& piece, const std::vector<Tie>& ties,
+               const std::vector<QPointF>& before,
+               std::vector<QPointF>* at) {
+  assert(at != nullptr);
+  assert(before.size() == at->size());
+  const bool has_edges = !piece.edges.empty();
+  if (!has_edges) {
+    return;
+  }
+  for (const Tie& tie : ties) {
+    const bool is_pair = tie.other >= 0;
+    if (!is_pair) {
+      continue;
+    }
+    const size_t other = static_cast<size_t>(tie.other);
+    const QPointF was = (before[tie.node] + before[other]) / 2.0;
+    const bool was_across =
+        Length(PushedOutDeep(piece.edges_before, was) - was) >
+        kAcrossSlack;
+    const QPointF mid = ((*at)[tie.node] + (*at)[other]) / 2.0;
+    const QPointF moved = PushedOutDeep(piece.edges, mid) - mid;
+    const bool is_new = !was_across && Length(moved) > kAcrossSlack;
+    if (is_new) {
+      (*at)[tie.node] += moved;
+      (*at)[other] += moved;
+    }
   }
 }
 
@@ -177,13 +214,17 @@ void StepCloth(const std::vector<QPointF>& carried, ClothPiece* piece) {
     for (const Tie& tie : ties) {
       Fix(tie, *piece, &piece->at);
     }
-    PushAll(piece->edges, &piece->at);
+    PushNodes(piece->edges, &piece->at);
+    PushCloth(*piece, ties, before, &piece->at);
   }
   for (size_t i = 0; i < count; ++i) {
     const QPointF anchor = carried[static_cast<size_t>(piece->points[i])];
     piece->at[i] = Tethered(piece->at[i], anchor);
   }
-  PushAll(piece->edges, &piece->at);
+  for (int pass = 0; pass < kSettlePasses; ++pass) {
+    PushCloth(*piece, ties, before, &piece->at);
+    PushNodes(piece->edges, &piece->at);
+  }
   for (size_t i = 0; i < count; ++i) {
     piece->speed[i] = piece->at[i] - before[i];
   }

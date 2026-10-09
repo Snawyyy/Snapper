@@ -25,6 +25,12 @@ std::vector<ColliderEdge> CollidersFor(
     const std::map<QString, QTransform>& placed, const LinkShifts& shifts,
     const QString& piece, Frame frame);
 
+// The same at frame under the layer's own keys, for a frame other than
+// the one being worked out.
+std::vector<ColliderEdge> CollidersAt(const Doll& doll, const Layer& layer,
+                                      const LinkShifts& shifts,
+                                      const QString& piece, Frame frame);
+
 }  // namespace snapper
 
 #endif  // SNAPPER_ANIM_DOLL_COLLIDERS_H_

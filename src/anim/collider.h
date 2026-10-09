@@ -48,6 +48,13 @@ std::vector<ColliderEdge> ColliderEdges(const Collider& collider,
 // outside, or moving away, is never held or pulled.
 QPointF PushedOut(const std::vector<ColliderEdge>& edges, QPointF point);
 
+// Where point ends up if it is inside the outline however deep: it goes
+// out through the nearest edge, as long as the nearest spot of the
+// outline lies along an edge, not at the end of a gap. For something
+// that came across in one jump, so it cannot have come from far side.
+QPointF PushedOutDeep(const std::vector<ColliderEdge>& edges,
+                      QPointF point);
+
 }  // namespace snapper
 
 #endif  // SNAPPER_ANIM_COLLIDER_H_

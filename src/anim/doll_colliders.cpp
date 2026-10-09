@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <cassert>
 
+#include <variant>
+
+#include "anim/sampler.h"
 #include "anim/shot_grid.h"
 
 namespace snapper {
@@ -43,6 +46,23 @@ std::vector<ColliderEdge> CollidersFor(
     edges.insert(edges.end(), made.begin(), made.end());
   }
   return edges;
+}
+
+std::vector<ColliderEdge> CollidersAt(const Doll& doll, const Layer& layer,
+                                      const LinkShifts& shifts,
+                                      const QString& piece, Frame frame) {
+  assert(frame.index() >= 0);
+  assert(std::holds_alternative<DollLayer>(layer.content));
+  const bool has_collider =
+      std::any_of(doll.rig.pieces.begin(), doll.rig.pieces.end(),
+                  [](const RigPiece& rig) { return rig.collider.IsOn(); });
+  if (!has_collider) {
+    return {};
+  }
+  const PoseMap keyed =
+      SamplePoses(std::get<DollLayer>(layer.content), frame);
+  return CollidersFor(doll, layer, keyed, PieceTransforms(doll, keyed),
+                      shifts, piece, frame);
 }
 
 }  // namespace snapper

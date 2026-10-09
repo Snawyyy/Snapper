@@ -34,8 +34,10 @@ struct ClothPiece final {
   std::vector<ClothSettings> settings;
   std::vector<QPointF> at;
   std::vector<QPointF> speed;
-  // Outlines that push the nodes out, in shot space.
+  // Outlines that push the nodes out, in shot space, and where they
+  // stood a frame before (empty on the first frame).
   std::vector<ColliderEdge> edges;
+  std::vector<ColliderEdge> edges_before;
 };
 
 // Runs one frame of the cloth of piece. carried holds every point of
@@ -47,8 +49,12 @@ struct ClothPiece final {
 // slowed by air), is pulled down (gravity) and back to its carried
 // place (spring), and the ties then pull it in. A node that ends up
 // behind an edge is then pushed out to it (one-sided: nothing holds or
-// pulls a node that is outside or moving away). Deterministic: the same
-// input gives the same output.
+// pulls a node that is outside or moving away). The cloth between two
+// nodes is kept out too: when an outline has come across it since the
+// last frame (the leg turning up through the hem), the two nodes are
+// pushed out together, though cloth that already lay across an outline
+// (a skirt drawn over the leg) is left as drawn. Deterministic: the
+// same input gives the same output.
 void StepCloth(const std::vector<QPointF>& carried, ClothPiece* piece);
 
 // Puts every node of piece at its carried place, at rest: the cloth as

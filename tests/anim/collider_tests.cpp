@@ -9,6 +9,7 @@
 
 #include "anim/collider.h"
 #include "anim/doll_drag.h"
+#include "anim/doll_pose.h"
 #include "anim/outline_trace.h"
 #include "anim/sampler.h"
 
@@ -97,6 +98,8 @@ class ColliderTests final : public QObject {
   void DeletedDotsLeaveAGapThatDoesNotPush();
   void NoColliderMeansTheSamePoses();
   void AResumedTrailGivesTheSamePoses();
+  void ARaisedThighNeverEndsInsideTheSkirt();
+  void TheSkirtEdgeBetweenNodesStaysOutToo();
 };
 
 void ColliderTests::TracesARectangleIntoAClosedRing() {
@@ -159,7 +162,11 @@ void ColliderTests::ASkirtPointDrivenIntoAThighEndsOutside() {
   const Layer layer = Still();
   for (int frame : {0, 1, 2, 5, 20, 60}) {
     const QPointF at = MiddleNode(doll, layer, frame);
-    const bool is_outside_thigh = at.x() >= 25.0 - 1e-6 || at.x() <= 5.0;
+    // On the thigh's edge counts as out; inside it by half a pixel
+    // does not.
+    const bool is_inside_thigh = at.x() > 5.5 && at.x() < 24.5 &&
+                                 at.y() > 0.5 && at.y() < 59.5;
+    const bool is_outside_thigh = !is_inside_thigh;
     QVERIFY2(is_outside_thigh,
              qPrintable(QString::number(frame) + " " +
                         QString::number(at.x())));
@@ -250,6 +257,94 @@ void ColliderTests::AResumedTrailGivesTheSamePoses() {
              DraggedPoses(doll, layer, Frame(frame)));
   }
   QVERIFY(trail.frames().size() > 50);
+}
+
+// A skirt (40 wide, hem at y 30, a 2 by 3 grid) above a thigh that
+// starts level under the hem and turns up about its left end, in front
+// of which the skirt is drawn.
+Doll RaisingThigh() {
+  assert(kMaxColliderDots > 8);
+  assert(kMaxColliderEdges > 8);
+  Doll doll = LegAndSkirt();
+  doll.art.pieces[0] = {"thigh", {"t.png"}, 0, {10, 34}, {60, 16}};
+  doll.rig.pieces[0].pivot = QPointF(0, 8);
+  doll.rig.pieces[0].collider = {
+      8,
+      {{{0, 0}, 0}, {{30, 0}, 1}, {{60, 0}, 2}, {{60, 8}, 3},
+       {{60, 16}, 4}, {{30, 16}, 5}, {{0, 16}, 6}, {{0, 8}, 7}},
+      8.0,
+      {}};
+  return doll;
+}
+
+// Jumps the thigh up in equal beats, to 60 degrees in all.
+Layer RaisedInBeats(double sign, int beats = 3, double total = 60.0) {
+  assert(beats > 0 && total > 0.0);
+  Layer layer = Still();
+  auto& thigh = std::get<DollLayer>(layer.content).pieces["thigh"];
+  for (int beat = 0; beat <= beats; ++beat) {
+    PiecePose pose;
+    pose.rotation = sign * total / beats * beat;
+    SetKey(&thigh, {Frame(beat * 3), pose, Ease::kStep});
+  }
+  assert(thigh.keys.size() == static_cast<size_t>(beats) + 1);
+  return layer;
+}
+
+// Whether shot point p is inside the thigh's rectangle by more than 0.5.
+bool IsInsideThigh(const Doll& doll, const PoseMap& poses, QPointF p) {
+  assert(poses.contains("thigh"));
+  assert(doll.art.pieces.size() == 2);
+  bool is_invertible = false;
+  const QTransform back =
+      PieceTransforms(doll, poses).at("thigh").inverted(&is_invertible);
+  assert(is_invertible);
+  const QPointF at = back.map(p);
+  return at.x() > 0.5 && at.x() < 59.5 && at.y() > 0.5 && at.y() < 15.5;
+}
+
+void ColliderTests::ARaisedThighNeverEndsInsideTheSkirt() {
+  assert(kOutlineSpacing > 0.0);
+  Doll doll = RaisingThigh();
+  auto& dots = doll.rig.pieces[0].collider.dots;
+  dots.erase(std::remove_if(dots.begin(), dots.end(), [](const ColliderDot& d) {
+    return d.slot == 3 || d.slot == 7;
+  }), dots.end());
+  for (const int beats : {1, 3, 6}) {
+   for (const double total : {60.0, 90.0, 120.0, 150.0}) {
+    const Layer layer = RaisedInBeats(-1.0, beats, total);
+    for (int frame = 0; frame <= 30; ++frame) {
+      const PoseMap poses = DraggedPoses(doll, layer, Frame(frame));
+      for (int point = 3; point < 12; ++point) {
+        const QPointF at = QPointF(point % 3 * 20.0, point / 3 * 10.0) +
+                           poses.at("skirt").warp.at(
+                               static_cast<size_t>(point));
+        QVERIFY2(!IsInsideThigh(doll, poses, at),
+                 qPrintable(QString("beats %1 total %4 frame %2 point %3")
+                                .arg(beats).arg(frame).arg(point).arg(total)));
+      }
+    }
+   }
+  }
+}
+
+void ColliderTests::TheSkirtEdgeBetweenNodesStaysOutToo() {
+  assert(kOutlineSpacing > 0.0);
+  const Doll doll = RaisingThigh();
+  const Layer layer = RaisedInBeats(-1.0);
+  for (int frame = 0; frame <= 30; ++frame) {
+    const PoseMap poses = DraggedPoses(doll, layer, Frame(frame));
+    const auto at = [&](int point) {
+      return QPointF(point % 3 * 20.0, point / 3 * 10.0) +
+             poses.at("skirt").warp.at(static_cast<size_t>(point));
+    };
+    // The hem, from the left corner to the right one.
+    for (const int point : {9, 10}) {
+      const QPointF mid = (at(point) + at(point + 1)) / 2.0;
+      QVERIFY2(!IsInsideThigh(doll, poses, mid),
+               qPrintable(QString("frame %1 hem %2").arg(frame).arg(point)));
+    }
+  }
 }
 
 }  // namespace snapper
