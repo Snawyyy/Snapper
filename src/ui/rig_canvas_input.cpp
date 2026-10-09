@@ -11,6 +11,7 @@
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
 #include "render/stage_hit.h"
+#include "ui/drag_text.h"
 #include "ui/grab.h"
 #include "ui/problem.h"
 #include "ui/rig_canvas.h"
@@ -47,6 +48,7 @@ bool RigCanvas::PressHandle(QPointF point) {
   is_started_ = false;
   // The handle jumps under the cursor: moves measure from its centre.
   last_ = handle->spot;
+  start_ = handle->spot;
   const bool is_tip = handle->kind == GrabKind::kIkTip;
   if (is_tip) {
     drag_ = Drag::kTip;
@@ -70,6 +72,7 @@ bool RigCanvas::PressHandle(QPointF point) {
 }
 
 void RigCanvas::StopHanging() {
+  assert(managers_.history != nullptr);
   const bool was_hanging = is_hanging_;
   is_hanging_ = false;
   unsetCursor();
@@ -88,6 +91,7 @@ void RigCanvas::mouseDoubleClickEvent(QMouseEvent* event) {
     return;
   }
   scope_.reset();
+  feedback_.Cancel();
   drag_ = Drag::kNone;
   const bool is_in_pick = picked_.contains(joint);
   if (!is_in_pick) {
@@ -106,6 +110,7 @@ void RigCanvas::mouseDoubleClickEvent(QMouseEvent* event) {
 
 void RigCanvas::mousePressEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  assert(managers_.history != nullptr);
   const Doll* doll =
       doll_.isEmpty() ? nullptr : FindDoll(managers_.history->current(), doll_);
   const bool is_usable = doll != nullptr && event->button() == Qt::LeftButton;
@@ -168,6 +173,7 @@ void RigCanvas::ApplyPick(const std::set<QString>& pieces, PickMode mode,
 
 void RigCanvas::FinishBox() {
   assert(is_boxing_);
+  assert(managers_.history != nullptr);
   is_boxing_ = false;
   const QRectF box = QRectF(box_from_, box_to_).normalized();
   const Doll* doll = doll_.isEmpty()
@@ -198,6 +204,7 @@ void RigCanvas::FinishBox() {
 
 void RigCanvas::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  assert(managers_.history != nullptr);
   cursor_ = event->position();
   if (is_hanging_) {
     update();
@@ -217,6 +224,7 @@ void RigCanvas::mouseMoveEvent(QMouseEvent* event) {
   if (!is_started_) {
     return;
   }
+  ShowDrag(event->position());
   const Doll* doll = FindDoll(managers_.history->current(), doll_);
   const IkChain* chain =
       chain_.isEmpty() || doll == nullptr ? nullptr
@@ -249,11 +257,18 @@ void RigCanvas::mouseMoveEvent(QMouseEvent* event) {
   emit Problem(ProblemOf(managers_.rig->MovePivots(doll_, offsets)));
 }
 
+void RigCanvas::ShowDrag(QPointF cursor) {
+  assert(drag_ != Drag::kNone);
+  assert(std::isfinite(cursor.x()) && std::isfinite(cursor.y()));
+  feedback_.Update(start_, cursor, OffsetText(cursor - start_), false);
+}
+
 void RigCanvas::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
   if (is_boxing_) {
     FinishBox();
   }
+  feedback_.Settle();
   scope_.reset();
   drag_ = Drag::kNone;
   chain_.clear();
@@ -291,6 +306,7 @@ void RigCanvas::keyPressEvent(QKeyEvent* event) {
   if (is_cancel) {
     scope_->Cancel();
     scope_.reset();
+    feedback_.Cancel();
     drag_ = Drag::kNone;
     return;
   }

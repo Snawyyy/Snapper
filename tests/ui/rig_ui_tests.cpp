@@ -7,6 +7,8 @@
 #include <QSignalSpy>
 #include <QTest>
 
+#include <cassert>
+
 #include "anim/doll_pose.h"
 #include "bench.h"
 #include "ui/grab.h"
@@ -19,6 +21,7 @@ namespace {
 
 // An arm hanging off a body, with drawings on disk.
 void Stage(Bench* bench) {
+  assert(bench != nullptr);
   QImage grey(20, 20, QImage::Format_ARGB32);
   grey.fill(Qt::gray);
   QVERIFY(grey.save(QDir(bench->dir.path()).filePath("p.png")));
@@ -35,10 +38,14 @@ void Stage(Bench* bench) {
 }
 
 const Rig& BobRig(const Bench& bench) {
+  assert(FindDoll(bench.history.current(), "Bob") != nullptr);
+  assert(!bench.dir.path().isEmpty());
   return FindDoll(bench.history.current(), "Bob")->rig;
 }
 
 QPushButton* Button(QWidget* parent, const QString& text) {
+  assert(parent != nullptr);
+  assert(!text.isEmpty());
   for (QPushButton* button : parent->findChildren<QPushButton*>()) {
     const bool is_match = button->text() == text;
     if (is_match) {
@@ -71,6 +78,8 @@ class RigUiTests final : public QObject {
   void ShiftPickedJointsDragTogether();
   void JointsGrabFromTwelvePixelsAndWaitFourToDrag();
   void HoveredJointGrowsAndShowsItsCursor();
+  void JointDragSaysHowFarItWent();
+  void EscapeSilencesTheJointDrag();
 };
 
 void RigUiTests::PanelPicksTheDollAndEditsAPiece() {
@@ -243,6 +252,42 @@ void RigUiTests::HoveredJointGrowsAndShowsItsCursor() {
   QTest::mousePress(&canvas, Qt::LeftButton, {}, joint + QPoint(5, 0));
   QTest::keyClick(&canvas, Qt::Key_Escape);
   QTest::mouseRelease(&canvas, Qt::LeftButton, {}, joint + QPoint(5, 0));
+  QVERIFY(!bench.history.CanUndo());
+}
+
+void RigUiTests::JointDragSaysHowFarItWent() {
+  Bench bench;
+  Stage(&bench);
+  bench.motion.SetMode(MotionMode::kOff);
+  RigCanvas canvas(bench.All());
+  canvas.resize(400, 400);
+  canvas.SetDoll("Bob");
+  const QPoint joint = canvas.World().map(QPointF(0, 0)).toPoint();
+  QVERIFY(!canvas.feedback().is_active());
+  QTest::mousePress(&canvas, Qt::LeftButton, {}, joint);
+  QTest::mouseMove(&canvas, joint + QPoint(30, -20));
+  QVERIFY(canvas.feedback().is_active());
+  QCOMPARE(canvas.feedback().text(), QString("+30, -20 px"));
+  QVERIFY((canvas.feedback().ghost() - QPointF(joint)).manhattanLength() < 1.0);
+  QTest::mouseRelease(&canvas, Qt::LeftButton, {}, joint + QPoint(30, -20));
+  QVERIFY(!canvas.feedback().is_active());
+  QVERIFY(bench.history.CanUndo());
+}
+
+void RigUiTests::EscapeSilencesTheJointDrag() {
+  Bench bench;
+  Stage(&bench);
+  bench.motion.SetMode(MotionMode::kOff);
+  RigCanvas canvas(bench.All());
+  canvas.resize(400, 400);
+  canvas.SetDoll("Bob");
+  const QPoint joint = canvas.World().map(QPointF(0, 0)).toPoint();
+  QTest::mousePress(&canvas, Qt::LeftButton, {}, joint);
+  QTest::mouseMove(&canvas, joint + QPoint(30, 0));
+  QVERIFY(canvas.feedback().is_active());
+  QTest::keyClick(&canvas, Qt::Key_Escape);
+  QVERIFY(!canvas.feedback().is_active());
+  QTest::mouseRelease(&canvas, Qt::LeftButton, {}, joint + QPoint(30, 0));
   QVERIFY(!bench.history.CanUndo());
 }
 
