@@ -214,6 +214,8 @@ void MainWindow::BuildMenus() {
   edit_menu_.addAction(&redo_action_);
   // Disabled actions still show why on hover.
   edit_menu_.setToolTipsVisible(true);
+  view_menu_.setToolTipsVisible(true);
+  play_menu_.setToolTipsVisible(true);
   play_action_.setShortcut(Qt::Key_Space);
   next_action_.setShortcuts({Qt::Key_Right, Qt::Key_Period});
   back_action_.setShortcuts({Qt::Key_Left, Qt::Key_Comma});

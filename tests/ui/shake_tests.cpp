@@ -19,7 +19,8 @@ class ShakeTests final : public QObject {
   void OffsetJerksBothWaysAndFades();
   void ClickingAGreyedControlShakesItAndComesHome();
   void OffShowsTheReasonAndDoesNotMove();
-  void AnEnabledOrSilentControlDoesNotShake();
+  void AnEnabledControlDoesNotShake();
+  void ASilentGreyedControlShakesWithAGenericReason();
 };
 
 namespace {
@@ -83,18 +84,26 @@ void ShakeTests::OffShowsTheReasonAndDoesNotMove() {
   QCOMPARE(QToolTip::text(), QString("Pick a doll first."));
 }
 
-void ShakeTests::AnEnabledOrSilentControlDoesNotShake() {
+void ShakeTests::AnEnabledControlDoesNotShake() {
+  Refused refused(true);
+  refused.rig.motion.SetMode(MotionMode::kFull);
+  const QPoint home = refused.button.pos();
+  refused.button.setEnabled(true);
+  QTest::mouseClick(&refused.button, Qt::LeftButton);
+  QTest::qWait(60);
+  QCOMPARE(refused.button.pos(), home);
+  QVERIFY(refused.button.isEnabled());
+}
+
+void ShakeTests::ASilentGreyedControlShakesWithAGenericReason() {
   Refused silent(false);
   silent.rig.motion.SetMode(MotionMode::kFull);
   const QPoint home = silent.button.pos();
   QTest::mouseClick(&silent.button, Qt::LeftButton);
-  QTest::qWait(60);
-  QCOMPARE(silent.button.pos(), home);
-  silent.button.setToolTip("Reason");
-  silent.button.setEnabled(true);
-  QTest::mouseClick(&silent.button, Qt::LeftButton);
-  QTest::qWait(60);
-  QCOMPARE(silent.button.pos(), home);
+  QTRY_VERIFY(silent.button.pos() != home);
+  QTRY_COMPARE(silent.button.pos(), home);
+  QTRY_VERIFY(QToolTip::isVisible());
+  QCOMPARE(QToolTip::text(), QString("Not available right now"));
 }
 
 }  // namespace snapper

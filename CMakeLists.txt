@@ -122,7 +122,7 @@ if(BUILD_TESTING)
                           handle_hover_tests.cpp
                           inspector_tests.cpp link_ui_tests.cpp
                           pose_tool_tests.cpp pose_tool_grab_tests.cpp
-                          pose_tool_readout_tests.cpp
+                          pose_tool_readout_tests.cpp refusal_reason_tests.cpp
                           reel_timeline_tests.cpp
                           rig_ui_tests.cpp
                           shot_strip_tests.cpp slot_picker_tests.cpp

@@ -234,6 +234,7 @@ void TimelineView::KeyMenu(const TimelineRow& row, Frame frame,
   assert(!row.tracks.empty());
   assert(frame.index() >= 0);
   QMenu menu(this);
+  menu.setToolTipsVisible(true);
   QMenu& ease = *menu.addMenu(tr("Ease to next key"));
   for (const EaseChoice& choice : kEases) {
     connect(ease.addAction(tr(choice.label)), &QAction::triggered, this,
