@@ -57,7 +57,8 @@ struct StageFrame final {
 // in depth; dragging a dot of a picked piece's warp grid bends the
 // drawing there, and clicking one picks it so the wheel sets how far it
 // pulls its neighbours (clicking it again, or anything else, drops
-// it). A drag is one undo step and Escape (Cancel) undoes it on the
+// it). Shift on a turn handle snaps the turn to 15 degrees. A drag is
+// one undo step and Escape (Cancel) undoes it on the
 // spot.
 class PoseTool final {
  public:
@@ -96,6 +97,18 @@ class PoseTool final {
   static QString TurnKey(LayerId layer);
   static QString IkKey(const QString& chain);
 
+  // What a drag in progress should say: the live value in plain words
+  // (a turn snapped by Shift says so), the point it began and the
+  // cursor. Empty until the drag has left the dead zone, and for the
+  // pick box.
+  struct Readout final {
+    QString text;
+    bool is_snapped = false;
+    QPointF start;
+    QPointF cursor;
+  };
+  std::optional<Readout> ReadoutOf() const;
+
   bool IsDragging() const { return drag_ != nullptr; }
   // The pick box being drawn, in widget pixels; empty when none.
   QRectF Box() const;
@@ -130,6 +143,8 @@ class PoseTool final {
     std::optional<Pick> toggle;
     // True once the mouse has left the dead zone.
     bool has_moved = false;
+    // What the drag says at the last move; empty before the first.
+    Readout readout;
     PickMode box_mode = PickMode::kReplace;
     QPointF corner;
     std::unique_ptr<EditScope> scope;
@@ -170,6 +185,13 @@ class PoseTool final {
   // True once a drag may change things: the mouse has left the dead
   // zone (a pick box has none).
   bool LeftDeadZone(QPointF point);
+  // Turns every doll of the drag by the mouse's pixels, snapped to
+  // kTurnSnapDegrees with Shift, and notes what it says.
+  void MoveTurn(QPointF total, QPointF point, bool is_swivel,
+                bool is_shift);
+  // Notes what the drag says now, with the cursor at point.
+  void Say(const QString& text, bool is_snapped, QPointF point);
+  void MoveIk(QPointF point);
   void MoveAll(QPointF total);
   void ScaleAll(double factor);
   void Note(const Result<void>& result);

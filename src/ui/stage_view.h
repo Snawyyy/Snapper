@@ -11,6 +11,7 @@
 #include "render/frame_renderer.h"
 #include "render/stage_geometry.h"
 #include "render/stage_hit.h"
+#include "ui/drag_feedback.h"
 #include "ui/handle_hover.h"
 #include "ui/managers.h"
 #include "ui/pose_tool.h"
@@ -26,7 +27,9 @@ namespace snapper {
 // neighbours. Right-clicking something offers to link the picked
 // things' movement to it, or to unlink them. Before any press, a thin
 // dashed outline shows the thing a click would pick, the handle under
-// the cursor grows and the cursor says what dragging it does.
+// the cursor grows and the cursor says what dragging it does. While a
+// drag runs, a chip beside the cursor says its value, a faint ghost
+// marks where it began, a snap flashes, and letting go pops.
 class StageView final : public QWidget {
   Q_OBJECT
 
@@ -67,6 +70,8 @@ class StageView final : public QWidget {
   // The picked warp dot: an orange ring, its rubber reach and a label.
   void PaintReach(const WarpOnScreen& warp, int point, QPainter* painter);
   void ReportTool();
+  // Shows what the drag in progress says: chip, ghost and snap flash.
+  void ShowDrag();
   // Ctrl+A: every piece of the picked doll, or every layer.
   void PickAll();
   // The right-click menu's link actions, for the thing at point; empty
@@ -77,6 +82,7 @@ class StageView final : public QWidget {
   FrameRenderer renderer_;
   PoseTool tool_;
   HandleHover hover_;
+  DragFeedback feedback_;
   std::optional<Pick> hover_pick_;
   // Wheel movement not yet a whole notch.
   int wheel_left_ = 0;

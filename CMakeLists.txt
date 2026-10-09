@@ -64,7 +64,7 @@ snapper_module(ui
           export_dialog_actions.cpp file_menu.cpp main_window.cpp
           drag_box.cpp picked_dot.cpp point_motion_box.cpp shot_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
           layer_box_commits.cpp link_box.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
-          rig_canvas_input.cpp rig_canvas_handles.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp
+          rig_canvas_input.cpp rig_canvas_handles.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp pose_tool_readout.cpp
           reel_preview.cpp reel_timeline.cpp reel_timeline_drop.cpp
           reel_timeline_commands.cpp reel_timeline_input.cpp
           shot_bin.cpp shot_strip.cpp slot_picker.cpp
@@ -110,6 +110,7 @@ if(BUILD_TESTING)
                           handle_hover_tests.cpp
                           inspector_tests.cpp link_ui_tests.cpp
                           pose_tool_tests.cpp pose_tool_grab_tests.cpp
+                          pose_tool_readout_tests.cpp
                           reel_timeline_tests.cpp
                           rig_ui_tests.cpp
                           shot_strip_tests.cpp slot_picker_tests.cpp

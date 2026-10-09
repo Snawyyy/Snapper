@@ -30,7 +30,8 @@ constexpr int kWheelUnit = 120;
 StageView::StageView(const Managers& managers)
     : managers_(managers),
       tool_(managers, renderer_.cache()),
-      hover_(managers.motion, this) {
+      hover_(managers.motion, this),
+      feedback_(managers.motion, this) {
   assert(managers_.IsComplete());
   setFocusPolicy(Qt::StrongFocus);
   setMouseTracking(true);
@@ -41,6 +42,7 @@ StageView::StageView(const Managers& managers)
   connect(managers_.selection, &SelectionManager::Changed, this,
           [this] { tool_.Observe(); });
   connect(&hover_, &HandleHover::Changed, this, update_me);
+  connect(&feedback_, &DragFeedback::Changed, this, update_me);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
           update_me);
   assert(focusPolicy() == Qt::StrongFocus);
@@ -90,6 +92,8 @@ void StageView::paintEvent(QPaintEvent* event) {
                             theme::kPick.blue(), 40));
     painter.drawRect(box);
   }
+  painter.resetTransform();
+  feedback_.Paint(&painter, QRectF(rect()));
 }
 
 void StageView::mousePressEvent(QMouseEvent* event) {
@@ -113,6 +117,7 @@ void StageView::mouseMoveEvent(QMouseEvent* event) {
     tool_.Move(event->position(),
                event->modifiers().testFlag(Qt::ShiftModifier));
     ReportTool();
+    ShowDrag();
     update();
     return;
   }
@@ -165,6 +170,7 @@ void StageView::mouseReleaseEvent(QMouseEvent* event) {
   const bool is_left = event->button() == Qt::LeftButton;
   if (is_left) {
     tool_.Release();
+    feedback_.Settle();
     update();
   }
   assert(!is_left || !tool_.IsDragging());
@@ -211,6 +217,7 @@ void StageView::keyPressEvent(QKeyEvent* event) {
     // dot, then the pick.
     const bool was_dragging = tool_.IsDragging();
     tool_.Cancel();
+    feedback_.Cancel();
     const bool had_dot = !was_dragging && tool_.DropDot();
     const bool is_clearing = !was_dragging && !had_dot;
     if (is_clearing) {
@@ -242,6 +249,7 @@ void StageView::keyPressEvent(QKeyEvent* event) {
 void StageView::PickAll() {
   const auto frame = CurrentFrame();
   assert(managers_.selection != nullptr);
+  assert(managers_.history != nullptr);
   const Shot* shot =
       frame ? FindShot(managers_.history->current(), frame->shot) : nullptr;
   const bool has_shot = shot != nullptr;
@@ -271,6 +279,16 @@ void StageView::PickAll() {
   }
   managers_.selection->SelectShot(frame->shot);
   managers_.selection->PickThings(all, PickMode::kReplace, focus);
+}
+
+void StageView::ShowDrag() {
+  assert(tool_.IsDragging());
+  assert(managers_.motion != nullptr);
+  const auto readout = tool_.ReadoutOf();
+  if (readout) {
+    feedback_.Update(readout->start, readout->cursor, readout->text,
+                     readout->is_snapped);
+  }
 }
 
 void StageView::ReportTool() {
