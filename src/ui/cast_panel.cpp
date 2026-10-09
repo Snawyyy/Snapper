@@ -41,6 +41,7 @@ void CastPanel::BuildLayout() {
   library_buttons_.addWidget(&place_);
   add_.setText(tr("Add"));
   add_.setMenu(&add_menu_);
+  add_menu_.setToolTipsVisible(true);
   add_.setPopupMode(QToolButton::InstantPopup);
   for (QWidget* button : {static_cast<QWidget*>(&add_),
                           static_cast<QWidget*>(&copy_),

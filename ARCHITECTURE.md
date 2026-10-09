@@ -364,11 +364,13 @@ else; a newer edit takes the button away. Pinned hints (rig canvas) and
 file failures (warning boxes) stay as they are.
 
 `RefusalShaker` watches the whole application: a mouse press on a
-disabled widget that has a tooltip (the "greyed with a reason" rule,
-`Explain`) shakes it 4 px (`ShakeOffsetPx`, pure, tested) over the Move
-time and, on release, shows the reason beside the cursor. In Off it only
-shows the reason. No control opts in; a greyed control with no reason
-does not shake.
+disabled widget (the "greyed with a reason" rule, `Explain`) shakes it
+4 px (`ShakeOffsetPx`, pure, tested) over the Move time and, on release,
+shows the reason beside the cursor (`RefusalReason`: its tooltip, else
+the nearest parent's, else "Not available right now"). In Off it only
+shows the reason. No control opts in. `Explain` sets the tooltip, then
+the enabled state; every disabled control or menu item goes through it,
+and a window test fails on any greyed control with an empty tooltip.
 
 Number fields get their hands-on feel from three small pieces. The math
 is pure and lives in `base`, tested without a widget: `EvalNumber`
