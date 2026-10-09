@@ -260,6 +260,28 @@ std::optional<WarpDot> PoseTool::PickedDot(const StageFrame& frame) const {
   return is_here ? managers_.selection->dot() : std::nullopt;
 }
 
+std::vector<WarpDot> PoseTool::PickedDots(const StageFrame& frame) const {
+  assert(frame.scale > 0.0);
+  assert(managers_.selection != nullptr);
+  const bool is_here = managers_.selection->shot() == frame.shot;
+  return is_here ? managers_.selection->dots() : std::vector<WarpDot>();
+}
+
+std::set<WarpDot> PoseTool::DotsIn(const QRectF& box,
+                                   const StageFrame& frame) const {
+  assert(frame.scale > 0.0);
+  assert(box.width() >= 0.0 && box.height() >= 0.0);
+  std::set<WarpDot> caught;
+  for (const Handle& handle : HandlesOf(frame)) {
+    const bool is_in = handle.kind == GrabKind::kWarpDot &&
+                       box.contains(handle.spot);
+    if (is_in) {
+      caught.insert(handle.dot);
+    }
+  }
+  return caught;
+}
+
 bool PoseTool::DropDot() {
   assert(managers_.selection != nullptr);
   const bool had_dot = managers_.selection->dot().has_value();

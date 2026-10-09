@@ -71,6 +71,9 @@ class StageView final : public QWidget {
                  QPainter* painter);
   // The picked warp dot: an orange ring, its rubber reach and a label.
   void PaintReach(const WarpOnScreen& warp, int point, QPainter* painter);
+  // A ring round every picked dot of pick's piece.
+  void PaintPickedDots(const StageFrame& frame, const Pick& pick,
+                       const WarpOnScreen& warp, QPainter* painter);
   void ReportTool();
   // As a drag is grabbed: leaves a faint copy of the picked pieces or
   // layers, drawn by the frame renderer, where they sit now.

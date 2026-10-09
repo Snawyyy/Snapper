@@ -35,6 +35,7 @@ struct WarpDot final {
   QString piece;
   int point = -1;
 
+  auto operator<=>(const WarpDot&) const = default;
   bool operator==(const WarpDot&) const = default;
 };
 
@@ -88,9 +89,11 @@ class SelectionManager final : public QObject {
   std::vector<TrackRef> PickedTracks() const;
   const std::set<KeyRef>& keys() const { return keys_; }
   const std::set<ClipId>& clips() const { return clips_; }
-  // The picked warp dot, while its piece is picked and the dot is still
-  // on its grid.
+  // The focused warp dot of the picked ones, while its piece is picked
+  // and the dot is still on its grid.
   std::optional<WarpDot> dot() const;
+  // Every picked warp dot that is still real, in order.
+  std::vector<WarpDot> dots() const;
 
   // Focusing another shot drops what was picked inside the old one.
   void SelectShot(ShotId shot);
@@ -105,8 +108,12 @@ class SelectionManager final : public QObject {
   void PickKeys(const std::set<KeyRef>& keys, PickMode mode);
   void ClearKeys();
   void PickClips(const std::set<ClipId>& clips, PickMode mode);
-  // Picks a warp dot of a picked piece; nothing drops it.
+  // Picks a warp dot of a picked piece, replacing the dots picked (or
+  // none); nothing drops it.
   void PickDot(std::optional<WarpDot> dot);
+  // Picks many warp dots at once, combined as mode says; the first of
+  // dots takes the focus.
+  void PickDots(const std::set<WarpDot>& dots, PickMode mode);
   void Clear();
 
  signals:
@@ -125,6 +132,9 @@ class SelectionManager final : public QObject {
   std::set<Pick> picks_;
   std::set<KeyRef> keys_;
   std::set<ClipId> clips_;
+  bool IsRealDot(const WarpDot& dot) const;
+
+  std::set<WarpDot> dots_;
   std::optional<WarpDot> dot_;
 };
 

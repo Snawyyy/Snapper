@@ -47,8 +47,17 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
   Observe();
   const bool is_handle = PressHandle(point, frame);
   const bool is_on_dot = drag_ != nullptr && drag_->kind == Kind::kWarp;
-  if (!is_on_dot) {
+  // Shift and Ctrl add to, or take from, the picked dots; a plain press
+  // anywhere else lets them go.
+  const bool keeps_dots = is_shift || is_ctrl;
+  const bool lets_go = !is_on_dot && !keeps_dots;
+  if (lets_go) {
     managers_.selection->PickDot(std::nullopt);
+  }
+  if (is_on_dot) {
+    drag_->box_mode = is_shift  ? PickMode::kAdd
+                      : is_ctrl ? PickMode::kToggle
+                                : PickMode::kReplace;
   }
   if (is_handle) {
     return;
@@ -263,7 +272,16 @@ void PoseTool::Release() {
     std::set<Pick> caught;
     const bool is_box_drawn = shot != nullptr && box.width() > 2.0 &&
                               box.height() > 2.0;
-    if (is_box_drawn) {
+    // A box over warp dots of a picked piece picks those dots; over
+    // none it picks pieces and layers as it always did.
+    const std::set<WarpDot> dots =
+        is_box_drawn ? DotsIn(box, at) : std::set<WarpDot>();
+    const bool has_dots = !dots.empty();
+    if (has_dots) {
+      managers_.selection->PickDots(dots, drag_->box_mode);
+    }
+    const bool picks_pieces = is_box_drawn && !has_dots;
+    if (picks_pieces) {
       for (const StageHit& hit :
            HitBox(project, *shot, at.local,
                   box.translated(-at.corner), at.scale, cache_)) {
@@ -272,7 +290,9 @@ void PoseTool::Release() {
     }
     const LayerId focus = caught.empty() ? managers_.selection->layer()
                                          : caught.begin()->layer;
-    managers_.selection->PickThings(caught, drag_->box_mode, focus);
+    if (!has_dots) {
+      managers_.selection->PickThings(caught, drag_->box_mode, focus);
+    }
   }
   const bool flips = drag_ != nullptr && drag_->toggle.has_value();
   if (flips) {
@@ -286,9 +306,13 @@ void PoseTool::Release() {
     // Clicking a dot picks it for the wheel; clicking it again drops it.
     drag_->scope->Cancel();
     const WarpDot dot{drag_->layer, drag_->piece, drag_->point};
-    const bool is_again = managers_.selection->dot() == dot;
-    managers_.selection->PickDot(is_again ? std::nullopt
-                                          : std::optional<WarpDot>(dot));
+    // A plain click on the only picked dot drops it.
+    const bool is_only = managers_.selection->dots() ==
+                         std::vector<WarpDot>{dot};
+    const bool is_again = is_only && drag_->box_mode == PickMode::kReplace;
+    managers_.selection->PickDots(
+        is_again ? std::set<WarpDot>() : std::set<WarpDot>{dot},
+        is_again ? PickMode::kReplace : drag_->box_mode);
   }
   drag_.reset();
 }
@@ -296,7 +320,9 @@ void PoseTool::Release() {
 void PoseTool::Cancel() {
   assert(cache_ != nullptr);
   assert(managers_.history != nullptr);
-  if (drag_) {
+  // A pick box has no edit to take back.
+  const bool has_scope = drag_ != nullptr && drag_->scope != nullptr;
+  if (has_scope) {
     drag_->scope->Cancel();
   }
   drag_.reset();

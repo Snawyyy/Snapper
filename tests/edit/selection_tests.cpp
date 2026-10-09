@@ -9,7 +9,8 @@ namespace {
 
 Project Stage() {
   Doll doll;
-  doll.rig.pieces = {{"head", "", {}, 0, -1, {}}, {"arm", "", {}, 0, -1, {}}};
+  doll.rig.pieces = {{"head", "", {}, 0, -1, {2, 2}},
+                     {"arm", "", {}, 0, -1, {}}};
   Shot shot;
   shot.id = ShotId(1);
   Layer layer;
@@ -42,6 +43,7 @@ class SelectionTests final : public QObject {
   void EditsDropWhatIsGone();
   void ManyThingsCombineByMode();
   void ManyShotsKeepAFocus();
+  void ManyWarpDotsCombineByMode();
 };
 
 void SelectionTests::StartsOnTheFirstShot() {
@@ -139,6 +141,35 @@ void SelectionTests::ManyShotsKeepAFocus() {
   QCOMPARE(selection.shot(), ShotId(2));
   selection.PickShots({ShotId(2)}, PickMode::kRemove);
   QCOMPARE(selection.shots(), std::set<ShotId>({ShotId(2)}));
+}
+
+void SelectionTests::ManyWarpDotsCombineByMode() {
+  HistoryManager history(Stage());
+  SelectionManager selection(&history);
+  const auto dot = [](int point) {
+    return WarpDot{LayerId(1), "head", point};
+  };
+  // A dot of a piece that is not picked is not real.
+  selection.PickDots({dot(0)}, PickMode::kReplace);
+  QVERIFY(selection.dots().empty());
+  selection.SelectLayer(LayerId(1));
+  selection.PickThings({{LayerId(1), "head"}}, PickMode::kReplace,
+                       LayerId(1));
+  selection.PickDots({dot(1), dot(2), dot(3)}, PickMode::kReplace);
+  QCOMPARE(selection.dots().size(), size_t{3});
+  QCOMPARE(selection.dot(), std::optional<WarpDot>(dot(1)));
+  selection.PickDots({dot(2), dot(4)}, PickMode::kToggle);
+  QCOMPARE(selection.dots(), (std::vector<WarpDot>{dot(1), dot(3), dot(4)}));
+  selection.PickDots({dot(1)}, PickMode::kRemove);
+  QCOMPARE(selection.dots(), (std::vector<WarpDot>{dot(3), dot(4)}));
+  // A dot off the grid is dropped; a single pick still replaces.
+  selection.PickDots({dot(40)}, PickMode::kAdd);
+  QCOMPARE(selection.dots().size(), size_t{2});
+  selection.PickDot(dot(4));
+  QCOMPARE(selection.dots(), (std::vector<WarpDot>{dot(4)}));
+  selection.PickDot(std::nullopt);
+  QVERIFY(selection.dots().empty());
+  QVERIFY(!selection.dot().has_value());
 }
 
 }  // namespace snapper

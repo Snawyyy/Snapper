@@ -78,7 +78,11 @@ class PoseTool final {
   // The picked warp dot while its piece is still picked and the dot
   // still on its grid.
   std::optional<WarpDot> PickedDot(const StageFrame& frame) const;
-  // Escape: drops the picked dot; false when there was none.
+  // Every picked warp dot, while its piece is still picked.
+  std::vector<WarpDot> PickedDots(const StageFrame& frame) const;
+  // The warp dots of picked pieces that lie inside box (widget pixels).
+  std::set<WarpDot> DotsIn(const QRectF& box, const StageFrame& frame) const;
+  // Escape: drops the picked dots; false when there were none.
   bool DropDot();
   // D: makes the picked dot drag behind, or stop dragging.
   void ToggleDrag(const StageFrame& frame);
