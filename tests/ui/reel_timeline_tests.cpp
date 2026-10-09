@@ -50,6 +50,9 @@ class ReelTimelineTests final : public QObject {
   void KeysThatCantActSayWhy();
   void JointsAreWhereTouchingClipsMeet();
   void PickerOffersKindAndLength();
+  void ANewClipPopsAndADeletedOnePuffs();
+  void UndoRewindsAClipAndOffShowsNothing();
+  void UndoOfAMoveSlidesTheClipBack();
 };
 
 void ReelTimelineTests::BoxPicksAndEmptyClickClears() {
@@ -187,6 +190,56 @@ void ReelTimelineTests::PickerOffersKindAndLength() {
   TransitionPicker tight(Transition{TransitionKind::kCrossfade, Frame(1)},
                          Frame(1));
   QCOMPARE(tight.findChild<QSpinBox*>("transition_length")->maximum(), 1);
+}
+
+void ReelTimelineTests::ANewClipPopsAndADeletedOnePuffs() {
+  Scene s;
+  s.bench.motion.SetMode(MotionMode::kFull);
+  QTRY_VERIFY(!s.timeline.effects().IsPlaying());
+  const ClipId fresh = *s.bench.reel.AddShot(ShotId(1), 2, Frame(0));
+  // It is on the reel at once; only its paint pops.
+  QVERIFY(FindClip(s.bench.history.current().reel, fresh).IsValid());
+  QVERIFY(s.timeline.effects().ScaleOf(2, fresh.value(), Frame(0)) > 1.0);
+  QVERIFY(s.timeline.effects().RingOf(2, fresh.value(), Frame(0)));
+  QCOMPARE(s.timeline.effects().ScaleOf(0, s.low.value(), Frame(0)), 1.0);
+  QTRY_VERIFY(!s.timeline.effects().IsPlaying());
+  s.bench.selection.PickClips({s.low}, PickMode::kReplace);
+  QTest::keyClick(&s.timeline, Qt::Key_Delete);
+  QVERIFY(!FindClip(s.bench.history.current().reel, s.low).IsValid());
+  QCOMPARE(s.timeline.effects().Puffs().size(), size_t{1});
+  QCOMPARE(s.timeline.effects().Puffs()[0].item, s.low.value());
+  QTRY_VERIFY(s.timeline.effects().Puffs().empty());
+}
+
+void ReelTimelineTests::UndoRewindsAClipAndOffShowsNothing() {
+  Scene s;
+  s.bench.motion.SetMode(MotionMode::kFull);
+  s.bench.selection.PickClips({s.low}, PickMode::kReplace);
+  QTest::keyClick(&s.timeline, Qt::Key_Delete);
+  QTRY_VERIFY(!s.timeline.effects().IsPlaying());
+  s.bench.history.Undo();
+  QVERIFY(FindClip(s.bench.history.current().reel, s.low).IsValid());
+  QVERIFY(s.timeline.effects().GlowOf(0, s.low.value(), Frame(0)) > 0.0);
+  QTRY_VERIFY(!s.timeline.effects().IsPlaying());
+  s.bench.motion.SetMode(MotionMode::kOff);
+  s.bench.history.Redo();
+  QVERIFY(!FindClip(s.bench.history.current().reel, s.low).IsValid());
+  QVERIFY(!s.timeline.effects().IsPlaying());
+}
+
+void ReelTimelineTests::UndoOfAMoveSlidesTheClipBack() {
+  Scene s;
+  s.bench.motion.SetMode(MotionMode::kFull);
+  QVERIFY(s.bench.reel.MoveAll({s.low}, 0, 30).has_value());
+  // A move made by a command, not a drag, slides too.
+  QVERIFY(s.timeline.effects().SlideOffsetOf(0, s.low.value(), Frame(30)) <
+          0.0);
+  QTRY_VERIFY(!s.timeline.effects().IsPlaying());
+  s.bench.history.Undo();
+  QCOMPARE(ClipOf(s.bench.history.current().reel, s.low)->start, Frame(0));
+  QCOMPARE(s.timeline.effects().SlideOffsetOf(0, s.low.value(), Frame(0)),
+           30.0);
+  QTRY_VERIFY(!s.timeline.effects().IsPlaying());
 }
 
 }  // namespace snapper

@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include "anim/master_timeline.h"
+#include "edit/change_diff.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
@@ -21,7 +22,11 @@ TimelineView::TimelineView(const Managers& managers)
     : managers_(managers), step_mode_(this),
       frame_width_(kDefaultFrameWidth),
       hover_(managers.motion, this),
-      feedback_(managers.motion, this) {
+      feedback_(managers.motion, this),
+      watcher_(managers.history, this),
+      effects_(managers.motion, this),
+      settle_(managers.motion, managers.playback->FrameOn(Timeline::kShots),
+              this) {
   assert(managers_.IsComplete());
   step_mode_.setObjectName("step_mode");
   step_mode_.setCheckable(true);
@@ -38,6 +43,14 @@ TimelineView::TimelineView(const Managers& managers)
   setMouseTracking(true);
   connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
   connect(&feedback_, &DragFeedback::Changed, this, [this] { update(); });
+  connect(&effects_, &ChangeEffects::Changed, this, [this] { update(); });
+  connect(&watcher_, &ChangeWatcher::Stepped, this, &TimelineView::ShowStep);
+  connect(&settle_, &PlayheadSettle::Changed, this, [this] { update(); });
+  connect(managers_.playback, &PlaybackManager::FrameChanged, this,
+          [this] {
+            settle_.MoveTo(managers_.playback->FrameOn(Timeline::kShots),
+                           managers_.playback->IsPlaying());
+          });
   setMinimumHeight(kRulerHeight + kWaveHeight + 3 * kRowHeight);
   const auto update_me = [this] { update(); };
   connect(managers_.history, &HistoryManager::Changed, this, update_me);
@@ -47,6 +60,18 @@ TimelineView::TimelineView(const Managers& managers)
   connect(managers_.playback, &PlaybackManager::SongChanged, this,
           update_me);
   assert(frame_width_ > 0.0);
+}
+
+void TimelineView::ShowStep(const Project& before, bool is_travel) {
+  assert(managers_.history != nullptr);
+  assert(managers_.selection != nullptr);
+  KeyChanges changes = DiffKeys(before, managers_.history->current(),
+                                managers_.selection->shot());
+  // A drag already showed the keys moving.
+  if (is_landing_drag_) {
+    changes.moved.clear();
+  }
+  effects_.ShowKeys(changes, is_travel);
 }
 
 void TimelineView::ShowStepMode() {
@@ -219,7 +244,8 @@ void TimelineView::PaintPlayhead(QPainter* painter) const {
   if (!here) {
     return;
   }
-  const double x = XOf(*here) + frame_width_ / 2.0;
+  const double x =
+      XOf(*here) + frame_width_ / 2.0 + settle_.offset() * frame_width_;
   painter->setPen(QPen(theme::kPick, 2.0));
   painter->drawLine(QPointF(x, 0), QPointF(x, height()));
   // The frame the playhead is on, in a tag on the ruler.

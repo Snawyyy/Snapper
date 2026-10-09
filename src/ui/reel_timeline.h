@@ -14,13 +14,16 @@ class QMenu;
 #include <vector>
 
 #include "base/frame.h"
+#include "edit/change_watcher.h"
 #include "edit/edit_scope.h"
 #include "edit/selection_manager.h"
 #include "model/reel.h"
+#include "ui/change_effects.h"
 #include "ui/drag_feedback.h"
 #include "ui/handle_hover.h"
 #include "base/error.h"
 #include "ui/managers.h"
+#include "ui/playhead_settle.h"
 #include "ui/problem.h"
 
 namespace snapper {
@@ -71,6 +74,9 @@ class ReelTimeline final : public QWidget {
   void SetZoom(double pixels_per_frame);
   // The chip, ghost and snap flash of the drag, for tests to look at.
   const DragFeedback& feedback() const { return feedback_; }
+  // The pops, puffs and rewinds of the last step, for tests to look at.
+  const ChangeEffects& effects() const { return effects_; }
+  const PlayheadSettle& settle() const { return settle_; }
 
  signals:
   void Problem(const QString& why);
@@ -111,6 +117,13 @@ class ReelTimeline final : public QWidget {
   void PaintRuler(QPainter* painter) const;
   void PaintTracks(QPainter* painter) const;
   void PaintClip(QPainter* painter, const Clip& clip) const;
+  // PaintClip, grown, flashed or ringed while the clip pops in or is
+  // brought back by undo or redo.
+  void PaintClipFx(QPainter* painter, const Clip& clip) const;
+  // How far to draw clip (on track) from its place while it slides.
+  QPointF SlideShift(const Clip& clip, int track) const;
+  // Clips just deleted, still shrinking away where they were.
+  void PaintPuffs(QPainter* painter) const;
   void PaintDrop(QPainter* painter) const;
   void PaintMarkers(QPainter* painter) const;
   void PaintPlayhead(QPainter* painter) const;
@@ -154,6 +167,8 @@ class ReelTimeline final : public QWidget {
   // The name the hover knows a clip start or end edge by.
   static QString EdgeKey(ClipId clip, bool is_start);
   void Report(const QString& problem) { emit Problem(problem); }
+  // A step landed: pops, puffs or rewinds the clips it changed.
+  void ShowStep(const Project& before, bool is_travel);
   // Passes on a delete's outcome; the toast offers Undo for that step.
   void DeletePicked(const Result<void>& result, size_t count);
 
@@ -161,6 +176,11 @@ class ReelTimeline final : public QWidget {
   // The clip edge under the cursor widens and brightens.
   HandleHover hover_;
   DragFeedback feedback_;
+  // Decoration only; the clips are in the project at once.
+  ChangeWatcher watcher_;
+  ChangeEffects effects_;
+  // The playhead overshoots a little as it lands on a frame.
+  PlayheadSettle settle_;
   double zoom_;
   // Frames scrolled off the left.
   double scroll_ = 0.0;
@@ -170,6 +190,8 @@ class ReelTimeline final : public QWidget {
   // A plain click on a clip already in a bigger pick picks just it, once
   // it is clear the click was not a drag.
   bool is_plain_press_ = false;
+  // True while a drag lands its step, so its clips do not slide again.
+  bool is_landing_drag_ = false;
   bool has_moved_ = false;
   // The rubber band while picking by box, and how it combines.
   QPointF box_to_;

@@ -49,7 +49,9 @@ void TimelineView::SlideKeys(Frame frame, QPointF at) {
 void TimelineView::EndKeyDrag() {
   assert(managers_.history != nullptr);
   feedback_.Settle();
+  is_landing_drag_ = true;
   key_drag_.reset();
+  is_landing_drag_ = false;
   is_started_ = false;
   assert(key_drag_ == nullptr);
 }

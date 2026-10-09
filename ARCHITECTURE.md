@@ -399,6 +399,30 @@ through `MotionManager` (nothing in Off). Escape clears it at once. The
 words and the 15 degree turn snap are pure functions in `drag_text.h`;
 a canvas picks the words and calls `Update`, `Settle` or `Cancel`.
 
+Which keys and clips an edit made, took away or moved is worked out by
+pure helpers in `edit/change_diff.h`, tested without a widget:
+`DiffKeys` compares one shot's timeline rows before and after, and
+`DiffClips` compares the reel's clips by id. A key that kept its pose
+and changed frame is one move, not a removal and an addition. Views
+only animate the answer; the data never waits for an animation.
+`ChangeWatcher` (one per timeline) hands a view the project from before
+each step that lands: a drag is one step, a cancelled drag, a save and
+a newly opened file are none, and a step that returns to a state the
+history already visited (`HistoryManager::revision`) is flagged as
+undo or redo. `ChangeEffects` (`ui`, one per timeline) turns that into
+decoration through `MotionManager`: a new key pops 1.4 to 1 with a
+ring, a deleted one puffs out, what undo or redo brings back rewinds
+(a bright flash settling from 1.25), and a key moved without a drag
+(spacing, undo or redo of a move) or a reel clip moved the same way
+slides from its old place on the Move curve. The timeline draws
+these over the real project, so data and picking never wait for them;
+in Off there are none, and the final state shows at once. The pose
+timeline (`TimelineView`) animates keys per row; the reel
+(`ReelTimeline`) animates whole clips, growing only 5 % as a clip is
+long. Each timeline's playhead lands on a frame with a small overshoot
+(`PlayheadSettle`: an offset to draw by, none while playing or for a
+jump past `kMaxSettleFrames`, none in Off).
+
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.
 
