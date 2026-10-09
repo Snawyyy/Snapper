@@ -186,7 +186,8 @@ void DragBox::Refresh() {
   QString why_no_twin = no_pick;
   for (const DotRef& dot : look.dots) {
     why_no_twin = managers_.rig->WhyNoMirror(dot.doll, dot.piece);
-    if (!why_no_twin.isEmpty()) {
+    const bool is_refused = !why_no_twin.isEmpty();
+    if (is_refused) {
       break;
     }
   }

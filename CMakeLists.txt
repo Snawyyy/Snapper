@@ -118,7 +118,7 @@ if(BUILD_TESTING)
                             playback_tests.cpp preset_tests.cpp
                             reel_editing_tests.cpp reel_manager_tests.cpp
                             reel_transition_tests.cpp
-                            rig_tests.cpp
+                            rig_tests.cpp rig_dots_tests.cpp
                             shot_tests.cpp
                             selection_tests.cpp stage_tests.cpp
                             timeline_tests.cpp timing_chart_edit_tests.cpp track_tests.cpp
