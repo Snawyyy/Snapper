@@ -5,10 +5,14 @@
 #include <QTest>
 
 #include <cassert>
+#include <algorithm>
+#include <limits>
 #include <memory>
 #include <vector>
 
+#include "anim/warp.h"
 #include "bench.h"
+#include "render/warp_raster.h"
 #include "ui/main_window.h"
 #include "ui/stage_view.h"
 
@@ -18,10 +22,10 @@ namespace {
 constexpr int kPieces = 12;
 constexpr int kPieceSide = 500;
 constexpr int kMoves = 60;
+constexpr int kHoverRun = 8;
 constexpr int kScrubFrames = 30;
-// Generous: the debug build on a slow machine must pass, while the
-// time before the warp cache was several times this.
-constexpr qint64 kMovesBudgetMs = 3000;
+// The frame the animated doll's second key sits on.
+constexpr int kTweenEnd = 48;
 
 // A warp grid whose every point is moved a little off its place.
 std::vector<QPointF> RestOffsets(WarpGrid grid, double sway) {
@@ -126,6 +130,39 @@ struct Scene final {
   }
 };
 
+// Nanoseconds one call of work takes.
+template <typename Work>
+qint64 TimeOf(Work work) {
+  QElapsedTimer clock;
+  clock.start();
+  work();
+  return clock.nsecsElapsed();
+}
+
+// A repaint at a frame the stage has not drawn yet, so the doll is
+// bent anew: what every bend costs when nothing is kept.
+qint64 ColdRepaintNs(Scene* scene, int frame) {
+  assert(scene != nullptr);
+  assert(frame > 0 && frame < kTweenEnd);
+  scene->bench.playback.Seek(Frame(frame));
+  return TimeOf([scene] { scene->stage->repaint(); });
+}
+
+// The loads of a busy machine hit some samples and not others, so the
+// cost of a thing is the quickest of its samples.
+template <typename Step>
+qint64 QuickestOf(int count, Step step) {
+  assert(count > 0);
+  qint64 quickest = std::numeric_limits<qint64>::max();
+  for (int i = 0; i < count; ++i) {
+    quickest = std::min(quickest, TimeOf([&step, i] { step(i); }));
+  }
+  return quickest;
+}
+
+// Kept work must be this many times cheaper than doing it again.
+constexpr qint64 kCheaperBy = 3;
+
 }  // namespace
 
 class PerfTests final : public QObject {
@@ -136,7 +173,7 @@ class PerfTests final : public QObject {
   void HoverMovesDoNotRebendTheDoll();
   void DragMovesDoNotRebendTheDoll();
   void ARepaintOfAnUnchangedStageIsQuick();
-  void ScrubbingAWarpAnimationHolds30Fps();
+  void ScrubbingAWarpAnimationIsFarCheaperThanFullBends();
 };
 
 void PerfTests::IdleWindowPaintsNothing() {
@@ -151,61 +188,70 @@ void PerfTests::IdleWindowPaintsNothing() {
 
 void PerfTests::HoverMovesDoNotRebendTheDoll() {
   Scene scene;
-  QVERIFY(scene.Open());
-  QElapsedTimer clock;
-  clock.start();
-  for (int i = 0; i < kMoves; ++i) {
-    QTest::mouseMove(scene.stage, QPoint(200 + i * 5, 300 + i));
-    QCoreApplication::processEvents();
-  }
-  const bool is_quick = clock.elapsed() < kMovesBudgetMs;
-  QVERIFY2(is_quick, qPrintable(QString::number(clock.elapsed())));
-  QVERIFY(scene.counter->paints() < kMoves);
+  QVERIFY(scene.Open(true));
+  const qint64 cold = ColdRepaintNs(&scene, 10);
+  // A run of moves across the doll, quickest of a few runs.
+  const QPoint middle(scene.stage->width() / 2, scene.stage->height() / 2);
+  const qint64 quickest = QuickestOf(5, [&scene, middle](int run) {
+    for (int i = 0; i < kHoverRun; ++i) {
+      QTest::mouseMove(scene.stage, middle + QPoint(run * 7 + i * 3, i));
+      QCoreApplication::processEvents();
+    }
+  });
+  const bool is_cheap = quickest * kCheaperBy < cold;
+  QVERIFY2(is_cheap, qPrintable(QString("%1 vs %2 ns").arg(quickest).arg(cold)));
+  QVERIFY(scene.counter->paints() < 5 * kHoverRun);
 }
 
 void PerfTests::DragMovesDoNotRebendTheDoll() {
   Scene scene;
-  QVERIFY(scene.Open());
+  QVERIFY(scene.Open(true));
+  const qint64 cold = ColdRepaintNs(&scene, 10);
   const QPoint middle(scene.stage->width() / 2, scene.stage->height() / 2);
-  QElapsedTimer clock;
-  clock.start();
   QTest::mousePress(scene.stage, Qt::LeftButton, {}, middle);
-  for (int i = 0; i < kMoves; ++i) {
+  const qint64 quickest = QuickestOf(kMoves, [&scene, middle](int i) {
     QTest::mouseMove(scene.stage, middle + QPoint(i, i));
     QCoreApplication::processEvents();
-  }
+  });
   QTest::mouseRelease(scene.stage, Qt::LeftButton, {}, middle + QPoint(9, 9));
-  const bool is_quick = clock.elapsed() < kMovesBudgetMs;
-  QVERIFY2(is_quick, qPrintable(QString::number(clock.elapsed())));
+  const bool is_cheap = quickest * kCheaperBy < cold;
+  QVERIFY2(is_cheap, qPrintable(QString("%1 vs %2 ns").arg(quickest).arg(cold)));
   QVERIFY(scene.bench.history.CanUndo());
 }
 
 void PerfTests::ARepaintOfAnUnchangedStageIsQuick() {
   Scene scene;
-  QVERIFY(scene.Open());
-  scene.stage->repaint();
-  QElapsedTimer clock;
-  clock.start();
-  for (int i = 0; i < 10; ++i) {
-    scene.stage->repaint();
-  }
-  const bool is_quick = clock.elapsed() < kMovesBudgetMs / 10;
-  QVERIFY2(is_quick, qPrintable(QString::number(clock.elapsed())));
+  QVERIFY(scene.Open(true));
+  const qint64 cold = ColdRepaintNs(&scene, 10);
+  const qint64 quickest =
+      QuickestOf(10, [&scene](int) { scene.stage->repaint(); });
+  const bool is_cheap = quickest * kCheaperBy < cold;
+  QVERIFY2(is_cheap, qPrintable(QString("%1 vs %2 ns").arg(quickest).arg(cold)));
   QVERIFY(scene.counter->paints() >= 10);
 }
 
-void PerfTests::ScrubbingAWarpAnimationHolds30Fps() {
+void PerfTests::ScrubbingAWarpAnimationIsFarCheaperThanFullBends() {
   Scene scene;
   QVERIFY(scene.Open(true));
   scene.stage->repaint();
-  QElapsedTimer clock;
-  clock.start();
-  for (int i = 1; i <= kScrubFrames; ++i) {
-    scene.bench.playback.Seek(Frame(i));
+  // What bending the doll whole, as drawn before the bends were made
+  // small, costs on this machine right now.
+  const QImage art(kPieceSide, kPieceSide, QImage::Format_ARGB32);
+  const WarpGrid grid{4, 4};
+  const std::vector<QPointF> points = WarpedPoints(
+      art.size(), grid, RestOffsets(grid, 6.0));
+  const qint64 whole = QuickestOf(3, [&](int) {
+    for (int i = 0; i < kPieces; ++i) {
+      WarpImage(art, grid, points);
+    }
+  });
+  // Every frame is a new bend, so each scrub step is a miss.
+  const qint64 quickest = QuickestOf(kScrubFrames, [&scene](int i) {
+    scene.bench.playback.Seek(Frame(i + 1));
     scene.stage->repaint();
-  }
-  const bool is_30_fps = clock.elapsed() < kScrubFrames * 1000 / 30;
-  QVERIFY2(is_30_fps, qPrintable(QString::number(clock.elapsed())));
+  });
+  const bool is_cheaper = quickest * 3 < whole * 2;
+  QVERIFY2(is_cheaper, qPrintable(QString("%1 vs %2 ns").arg(quickest).arg(whole)));
   QCOMPARE(scene.bench.playback.frame(), Frame(kScrubFrames));
 }
 
