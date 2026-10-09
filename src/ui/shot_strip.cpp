@@ -77,39 +77,45 @@ QRectF ShotStrip::AddBlock() const {
   return QRectF(x, 2.0, kAddWidth, kStripHeight - 4.0);
 }
 
+void ShotStrip::PaintBlock(QPainter* painter, const Block& block) const {
+  assert(painter != nullptr);
+  assert(block.rect.isValid());
+  const Project& project = managers_.history->current();
+  const Shot& shot = *FindShot(project, block.shot);
+  const bool is_focus = block.shot == managers_.selection->shot();
+  const bool is_picked = managers_.selection->shots().contains(block.shot);
+  painter->fillRect(block.rect, is_picked ? theme::kFaceLight : theme::kFace);
+  painter->fillRect(
+      QRectF(block.rect.topLeft(), QSizeF(6, block.rect.height())),
+      shot.background);
+  painter->setPen(QPen(is_picked ? theme::kPick : theme::kShadow,
+                       is_focus ? 2.0 : 1.0));
+  painter->drawRect(block.rect);
+  const double edge = HoverAmount(hover_.ScaleOf(
+      GrabKind::kEdge, QString::number(block.shot.value())));
+  const bool shows_edge = edge > 0.0;
+  if (shows_edge) {
+    painter->fillRect(
+        QRectF(block.rect.right() - 3 - 3 * edge, block.rect.top(),
+               3 + 3 * edge, block.rect.height()),
+        theme::kHandle.lighter(100 + int(40 * edge)));
+  }
+  painter->setPen(theme::kText);
+  painter->drawText(block.rect.adjusted(10, 2, -4, -2),
+                    Qt::AlignLeft | Qt::AlignTop, shot.name);
+  painter->setPen(theme::kTextOff);
+  painter->drawText(block.rect.adjusted(10, 2, -4, -2),
+                    Qt::AlignLeft | Qt::AlignBottom,
+                    tr("%1 f").arg(shot.length.index()));
+}
+
 void ShotStrip::paintEvent(QPaintEvent* event) {
   assert(managers_.history != nullptr);
   assert(event != nullptr);
-  const Project& project = managers_.history->current();
   QPainter painter(this);
   painter.fillRect(rect(), theme::kFaceDark);
   for (const Block& block : Blocks()) {
-    const Shot& shot = *FindShot(project, block.shot);
-    const bool is_focus = block.shot == managers_.selection->shot();
-    const bool is_picked = managers_.selection->shots().contains(block.shot);
-    painter.fillRect(block.rect, is_picked ? theme::kFaceLight : theme::kFace);
-    painter.fillRect(
-        QRectF(block.rect.topLeft(), QSizeF(6, block.rect.height())),
-        shot.background);
-    painter.setPen(QPen(is_picked ? theme::kPick : theme::kShadow,
-                        is_focus ? 2.0 : 1.0));
-    painter.drawRect(block.rect);
-    const double edge = HoverAmount(hover_.ScaleOf(
-        GrabKind::kEdge, QString::number(block.shot.value())));
-    const bool shows_edge = edge > 0.0;
-    if (shows_edge) {
-      painter.fillRect(
-          QRectF(block.rect.right() - 3 - 3 * edge, block.rect.top(),
-                 3 + 3 * edge, block.rect.height()),
-          theme::kHandle.lighter(100 + int(40 * edge)));
-    }
-    painter.setPen(theme::kText);
-    painter.drawText(block.rect.adjusted(10, 2, -4, -2),
-                     Qt::AlignLeft | Qt::AlignTop, shot.name);
-    painter.setPen(theme::kTextOff);
-    painter.drawText(block.rect.adjusted(10, 2, -4, -2),
-                     Qt::AlignLeft | Qt::AlignBottom,
-                     tr("%1 f").arg(shot.length.index()));
+    PaintBlock(&painter, block);
   }
   const QRectF add = AddBlock();
   painter.fillRect(add, theme::kFace);
@@ -161,6 +167,7 @@ void ShotStrip::mousePressEvent(QMouseEvent* event) {
     scope_ = is_edge ? std::make_unique<EditScope>(managers_.history,
                                                     tr("Change shot length"))
                      : nullptr;
+    GrabGhost();
     return;
   }
 }

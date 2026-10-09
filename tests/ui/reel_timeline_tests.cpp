@@ -44,6 +44,7 @@ class ReelTimelineTests final : public QObject {
   void BoxPicksAndEmptyClickClears();
   void EscapeCancelsADrag();
   void ClipDragSaysFramesAndFlashesOnSnap();
+  void ClipDragLeavesAGhostOfTheClip();
   void EscapeSilencesTheClipDrag();
   void KeysCopyPasteAndDuplicate();
   void ShiftDeleteClosesTheGap();
@@ -107,6 +108,20 @@ void ReelTimelineTests::ClipDragSaysFramesAndFlashesOnSnap() {
   QVERIFY(s.timeline.feedback().flash() > 0.0);
   QTest::mouseRelease(&s.timeline, Qt::LeftButton, {}, s.At(Frame(122), 0));
   QVERIFY(!s.timeline.feedback().is_active());
+}
+
+void ReelTimelineTests::ClipDragLeavesAGhostOfTheClip() {
+  Scene s;
+  s.bench.motion.SetMode(MotionMode::kOff);
+  QCOMPARE(s.timeline.feedback().ghost_kind(), GhostKind::kNone);
+  QTest::mousePress(&s.timeline, Qt::LeftButton, {}, s.At(Frame(24), 0));
+  QCOMPARE(s.timeline.feedback().ghost_kind(), GhostKind::kClip);
+  QTest::mouseMove(&s.timeline, s.At(Frame(36), 0));
+  QCOMPARE(s.timeline.feedback().ghost_kind(), GhostKind::kClip);
+  QTest::keyClick(&s.timeline, Qt::Key_Escape);
+  QCOMPARE(s.timeline.feedback().ghost_kind(), GhostKind::kNone);
+  QTest::mouseRelease(&s.timeline, Qt::LeftButton, {}, s.At(Frame(36), 0));
+  QCOMPARE(s.timeline.feedback().ghost_kind(), GhostKind::kNone);
 }
 
 void ReelTimelineTests::EscapeSilencesTheClipDrag() {

@@ -20,7 +20,7 @@ void PoseTool::Say(const QString& text, bool is_snapped, QPointF point) {
 }
 
 std::optional<PoseTool::Readout> PoseTool::ReadoutOf() const {
-  assert(kChipOffset > 0.0);
+  assert(kChipGap > 0.0);
   const bool is_talking = drag_ != nullptr && !drag_->readout.text.isEmpty();
   assert(!is_talking || drag_->kind != Kind::kBox);
   return is_talking ? std::optional<Readout>(drag_->readout) : std::nullopt;

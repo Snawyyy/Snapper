@@ -395,11 +395,19 @@ canvas owns one. `CursorFor` gives each kind of handle its cursor. No
 widget keeps its own reach or drag threshold.
 
 Drags talk the same way everywhere. `DragFeedback` (one per canvas,
-drawing only) shows a value chip off the cursor, a faint ghost where
-the drag began, a flash when it snaps and a pop where it lets go,
-through `MotionManager` (nothing in Off). Escape clears it at once. The
-words and the 15 degree turn snap are pure functions in `drag_text.h`;
-a canvas picks the words and calls `Update`, `Settle` or `Cancel`.
+drawing only) shows a value chip above and left of the cursor (one
+placement rule, `ChipRect`, for drag and wheel chips: 24 px clear of
+the arrow, flipping near edges), a faint copy of the dragged thing
+where the drag began, a flash when it snaps and a pop where it lets
+go. Flash and pop go through `MotionManager` (nothing in Off); the
+ghost shows in every mode. Escape clears it at once. The words, the
+chip place and the 15 degree turn snap are pure functions in
+`drag_text.h`; a canvas picks the words and calls `Update`, `Settle`
+or `Cancel`. As a drag is grabbed, the canvas calls `SetGhost` with
+`MakeGhost` (`drag_ghost.h`), which runs the view's own paint code for
+the item (`PaintBlock`, `PaintClip`, `PaintKey`, `PaintJoint`,
+`PaintTip`, or `FrameRenderer::RenderLayers` on the stage) onto a
+clear image drawn at low opacity.
 
 Which keys and clips an edit made, took away or moved is worked out by
 pure helpers in `edit/change_diff.h`, tested without a widget:

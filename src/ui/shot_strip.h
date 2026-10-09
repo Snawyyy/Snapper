@@ -58,6 +58,12 @@ class ShotStrip final : public QWidget {
  private:
   enum class Drag { kNone, kMove, kLength };
 
+  // One shot's block: colour, outline, edge handle, name and length.
+  void PaintBlock(QPainter* painter, const Block& block) const;
+  // As a shot or its edge is grabbed: leaves a faint copy of the shot
+  // blocks that drag, drawn by PaintBlock, where they sit now.
+  void GrabGhost();
+
   void Pick(ShotId shot);
   // Where a shot dropped with the mouse at x would land, from 0.
   int DropIndex(double x) const;

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <utility>
 
 #include "ui/drag_text.h"
 #include "ui/grab.h"
@@ -21,6 +22,8 @@ constexpr double kChipPadX = 6.0;
 constexpr double kChipPadY = 3.0;
 constexpr double kChipRadius = 4.0;
 constexpr int kGhostAlpha = 90;
+// The ghost picture is drawn at this fraction of full strength.
+constexpr double kGhostOpacity = 0.35;
 constexpr int kChipAlpha = 230;
 constexpr int kFullAlpha = 255;
 // The flash ring and the settle ring open this far past a handle.
@@ -69,6 +72,12 @@ void DragFeedback::StartFade() {
       });
 }
 
+void DragFeedback::SetGhost(Ghost ghost) {
+  assert(!is_active_);
+  assert(ghost.kind != GhostKind::kNone);
+  ghost_picture_ = std::move(ghost);
+}
+
 void DragFeedback::Update(QPointF start, QPointF cursor, const QString& text,
                           bool is_snapped) {
   assert(std::isfinite(start.x()) && std::isfinite(start.y()));
@@ -108,6 +117,8 @@ void DragFeedback::Settle() {
   assert(motion_ != nullptr);
   const bool was_active = is_active_;
   if (!was_active) {
+    // A press that never became a drag leaves its ghost unused.
+    ghost_picture_ = Ghost();
     return;
   }
   settle_at_ = cursor_;
@@ -145,6 +156,7 @@ void DragFeedback::Cancel() {
   flash_ = 0.0;
   settle_ = 0.0;
   text_.clear();
+  ghost_picture_ = Ghost();
   emit Changed();
   assert(!is_active_ && text_.isEmpty());
 }
@@ -156,10 +168,7 @@ void DragFeedback::Paint(QPainter* painter, const QRectF& bounds) const {
   painter->setRenderHint(QPainter::Antialiasing);
   PaintPop(painter);
   if (is_active_) {
-    painter->setPen(QPen(WithAlpha(theme::kText, kGhostAlpha / 255.0), 1.0,
-                         Qt::DashLine));
-    painter->setBrush(Qt::NoBrush);
-    painter->drawEllipse(ghost_, kHandleDraw, kHandleDraw);
+    PaintGhost(painter);
     PaintChip(painter, bounds, cursor_, text_);
   }
   const bool is_pulsing = pulse_ > 0.0 && !is_active_;
@@ -168,6 +177,22 @@ void DragFeedback::Paint(QPainter* painter, const QRectF& bounds) const {
     PaintChip(painter, bounds, pulse_at_, pulse_text_);
   }
   painter->restore();
+}
+
+void DragFeedback::PaintGhost(QPainter* painter) const {
+  assert(painter != nullptr);
+  assert(is_active_);
+  const bool has_picture = !ghost_picture_.image.isNull();
+  if (has_picture) {
+    painter->setOpacity(kGhostOpacity);
+    painter->drawImage(QPointF(0, 0), ghost_picture_.image);
+    painter->setOpacity(1.0);
+    return;
+  }
+  painter->setPen(QPen(WithAlpha(theme::kText, kGhostAlpha / 255.0), 1.0,
+                       Qt::DashLine));
+  painter->setBrush(Qt::NoBrush);
+  painter->drawEllipse(ghost_, kHandleDraw, kHandleDraw);
 }
 
 void DragFeedback::PaintChip(QPainter* painter, const QRectF& bounds,

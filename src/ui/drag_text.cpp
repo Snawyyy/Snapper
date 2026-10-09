@@ -72,12 +72,21 @@ bool DidSnap(double raw, double snapped) {
 QRectF ChipRect(QPointF cursor, QSizeF size, const QRectF& bounds) {
   assert(size.width() >= 0.0 && size.height() >= 0.0);
   assert(bounds.isValid());
+  // Default: above and left, the side the arrow does not cover.
+  double x = cursor.x() - kChipGap - size.width();
+  double y = cursor.y() - kChipGap - size.height();
+  const bool is_off_left = x < bounds.left();
+  const bool is_off_top = y < bounds.top();
+  x = is_off_left ? cursor.x() + kChipGap : x;
+  // Below the cursor box when it would be on its right side too.
+  y = is_off_top ? cursor.y() + kChipGap : y;
+  y = is_off_top && is_off_left ? cursor.y() + kCursorBox + kChipGap : y;
   const double max_x = std::max(bounds.left(), bounds.right() - size.width());
   const double max_y =
       std::max(bounds.top(), bounds.bottom() - size.height());
-  const double x = std::clamp(cursor.x() + kChipOffset, bounds.left(), max_x);
-  const double y = std::clamp(cursor.y() + kChipOffset, bounds.top(), max_y);
-  return QRectF(QPointF(x, y), size);
+  return QRectF(QPointF(std::clamp(x, bounds.left(), max_x),
+                        std::clamp(y, bounds.top(), max_y)),
+                size);
 }
 
 }  // namespace snapper

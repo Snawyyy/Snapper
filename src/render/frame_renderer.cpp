@@ -138,6 +138,29 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
   return frame;
 }
 
+QImage FrameRenderer::RenderLayers(
+    const Project& project, const Shot& shot, Frame local, double scale,
+    const std::map<LayerId, std::set<QString>>& only) {
+  assert(scale > 0.0);
+  assert(shot.layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
+  QImage frame = Blank(project, scale, Qt::transparent);
+  const QTransform view = ViewTransform(project, shot, local, scale);
+  LinkSolver links(project, shot);
+  QPainter painter(&frame);
+  for (const Layer& layer : shot.layers) {
+    const auto chosen = only.find(layer.id);
+    const bool is_chosen = chosen != only.end() &&
+                           IsLayerLive(layer, local, shot.length) &&
+                           !std::holds_alternative<EffectLayer>(layer.content);
+    if (is_chosen) {
+      const bool is_whole = chosen->second.empty();
+      PaintLayer(project, layer, local, view, &links, &cache_, &painter,
+                 is_whole ? nullptr : &chosen->second);
+    }
+  }
+  return frame;
+}
+
 QImage FrameRenderer::RenderFrame(const Project& project, Frame master,
                                   double scale) {
   assert(scale > 0.0);

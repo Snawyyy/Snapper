@@ -61,6 +61,7 @@ class TimelineViewTests final : public QObject {
   void BoxShiftAndCtrlPickKeys();
   void KeysGrabFromTwelvePixelsAndWaitFourToSlide();
   void StepModeToggles();
+  void KeyDragLeavesAGhostOfTheKey();
   void KeyDragSaysHowManyFrames();
   void EscapeCancelsTheKeyDrag();
   void ANewKeyPopsAndADeletedOnePuffs();
@@ -183,6 +184,23 @@ void TimelineViewTests::KeysGrabFromTwelvePixelsAndWaitFourToSlide() {
   QTest::mouseMove(&view, Cell(view, 5));
   QTest::mouseRelease(&view, Qt::LeftButton, {}, Cell(view, 5));
   QCOMPARE(DollKeys(bench)[0], Frame(5));
+}
+
+void TimelineViewTests::KeyDragLeavesAGhostOfTheKey() {
+  Bench bench;
+  Stage(&bench);
+  bench.motion.SetMode(MotionMode::kOff);
+  TimelineView view(bench.All());
+  view.resize(800, 200);
+  QCOMPARE(view.feedback().ghost_kind(), GhostKind::kNone);
+  QTest::mousePress(&view, Qt::LeftButton, {}, Cell(view, 2));
+  QCOMPARE(view.feedback().ghost_kind(), GhostKind::kKey);
+  QTest::mouseMove(&view, Cell(view, 6));
+  QCOMPARE(view.feedback().ghost_kind(), GhostKind::kKey);
+  QTest::keyClick(&view, Qt::Key_Escape);
+  QCOMPARE(view.feedback().ghost_kind(), GhostKind::kNone);
+  QTest::mouseRelease(&view, Qt::LeftButton, {}, Cell(view, 6));
+  QCOMPARE(DollKeys(bench)[0], Frame(2));
 }
 
 void TimelineViewTests::KeyDragSaysHowManyFrames() {

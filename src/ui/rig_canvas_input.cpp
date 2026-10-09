@@ -55,6 +55,7 @@ bool RigCanvas::PressHandle(QPointF point) {
     chain_ = handle->key;
     scope_ = std::make_unique<EditScope>(
         managers_.history, tr("Move IK tip of %1").arg(handle->key));
+    GrabGhost();
     return true;
   }
   // Any joint can be grabbed; a picked one drags every picked joint.
@@ -68,6 +69,7 @@ bool RigCanvas::PressHandle(QPointF point) {
       managers_.history, picked_.size() > 1
                              ? tr("Move %1 joints").arg(picked_.size())
                              : tr("Move pivot of %1").arg(joint));
+  GrabGhost();
   return true;
 }
 

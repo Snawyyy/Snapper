@@ -9,6 +9,8 @@
 #include <QTimer>
 #include <QVariantAnimation>
 
+#include "ui/drag_ghost.h"
+
 class QPainter;
 
 namespace snapper {
@@ -19,13 +21,14 @@ class MotionManager;
 // Pulse.
 inline constexpr int kRestMs = 700;
 
-// What a drag shows besides the thing it drags: a value chip beside the
-// cursor, a faint ghost where the drag began, a flash when it snaps,
-// and a settle pop where it lets go. One of these serves each canvas
-// (the stage, the rig canvas, the timelines), so they all talk the
-// same way. It only draws; the canvas decides the words (drag_text.h)
-// and when a drag starts, snaps, ends or is cancelled. Every movement
-// goes through the Motion manager, so Off shows no flash and no pop.
+// What a drag shows besides the thing it drags: a value chip above and
+// left of the cursor, a faint copy of the thing where the drag began, a
+// flash when it snaps, and a settle pop where it lets go. One of these
+// serves each canvas (the stage, the rig canvas, the timelines), so
+// they all talk the same way. It only draws; the canvas decides the
+// words (drag_text.h) and when a drag starts, snaps, ends or is
+// cancelled. Flash and pop go through the Motion manager, so Off shows
+// neither; the ghost is no animation and shows in every mode.
 class DragFeedback final : public QObject {
   Q_OBJECT
 
@@ -37,6 +40,10 @@ class DragFeedback final : public QObject {
   // snap (is_snapped, with new text) flashes.
   void Update(QPointF start, QPointF cursor, const QString& text,
               bool is_snapped);
+  // The picture the ghost shows instead of the ring. Call it as the
+  // drag is grabbed, before the first Update, while the thing still
+  // sits where it began; Cancel and Settle drop it.
+  void SetGhost(Ghost ghost);
   // The drag was let go: chip and ghost go, the pop plays at the cursor.
   void Settle();
   // Escape: everything vanishes at once, no pop.
@@ -49,6 +56,7 @@ class DragFeedback final : public QObject {
   bool is_active() const { return is_active_; }
   const QString& text() const { return text_; }
   QPointF ghost() const { return ghost_; }
+  GhostKind ghost_kind() const { return ghost_picture_.kind; }
   QPointF cursor() const { return cursor_; }
   // 1 as a snap flashes, easing to 0.
   double flash() const { return flash_; }
@@ -73,11 +81,13 @@ class DragFeedback final : public QObject {
                  const QString& text) const;
   void StartFade();
   void PaintPop(QPainter* painter) const;
+  void PaintGhost(QPainter* painter) const;
 
   MotionManager* motion_;
   bool is_active_ = false;
   QString text_;
   QPointF ghost_;
+  Ghost ghost_picture_;
   QPointF cursor_;
   bool was_snapped_ = false;
   double flash_ = 0.0;

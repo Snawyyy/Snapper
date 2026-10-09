@@ -106,6 +106,10 @@ void StageView::mousePressEvent(QMouseEvent* event) {
     tool_.Press(event->position(),
                 event->modifiers().testFlag(Qt::ShiftModifier),
                 event->modifiers().testFlag(Qt::ControlModifier), *frame);
+    const bool is_moving = tool_.IsDragging() && !tool_.IsBoxing();
+    if (is_moving) {
+      GrabGhost(*frame);
+    }
     ReportTool();
   }
   assert(!tool_.IsDragging() || is_usable);

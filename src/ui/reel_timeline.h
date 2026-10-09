@@ -139,6 +139,9 @@ class ReelTimeline final : public QWidget {
   // Which drag pressing at on clip starts: an end or the body.
   Drag DragFor(ClipId clip, QPointF at) const;
   void StartDrag(ClipId clip, Drag drag, QPointF at);
+  // As a clip or its end is grabbed: leaves a faint copy of the clips
+  // that drag, drawn by PaintClip, where they sit now.
+  void GrabGhost();
   void Follow(QPointF at);
   // Shows a trim: how many frames the edge went from its start, and a
   // flash when it snapped from the frame under the cursor (raw).

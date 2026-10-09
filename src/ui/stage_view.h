@@ -39,6 +39,8 @@ class StageView final : public QWidget {
   // Where the frame under the playhead is drawn; nothing when the
   // playhead is past every shot.
   std::optional<StageFrame> CurrentFrame() const;
+  // The chip, ghost and pop of the drag, for tests to look at.
+  const DragFeedback& feedback() const { return feedback_; }
 
  signals:
   // Something the user tried didn't work; empty clears it.
@@ -70,6 +72,9 @@ class StageView final : public QWidget {
   // The picked warp dot: an orange ring, its rubber reach and a label.
   void PaintReach(const WarpOnScreen& warp, int point, QPainter* painter);
   void ReportTool();
+  // As a drag is grabbed: leaves a faint copy of the picked pieces or
+  // layers, drawn by the frame renderer, where they sit now.
+  void GrabGhost(const StageFrame& frame);
   // Shows what the drag in progress says: chip, ghost and snap flash.
   void ShowDrag();
   // Shows the angle the wheel has turned the picked things by since it

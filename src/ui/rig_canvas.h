@@ -75,6 +75,17 @@ class RigCanvas final : public QWidget {
   };
 
   void PaintOverlay(QPainter* painter) const;
+  // One joint: its bone to the parent, the piece outline, the dot.
+  void PaintJoint(QPainter* painter, const Doll& doll,
+                  const std::map<QString, QTransform>& pieces,
+                  const RigPiece& rig) const;
+  // One IK tip square.
+  void PaintTip(QPainter* painter,
+                const std::map<QString, QTransform>& pieces,
+                const IkChain& chain) const;
+  // As a joint or tip is grabbed: leaves a faint copy of what drags,
+  // drawn by PaintJoint or PaintTip, where it sits now.
+  void GrabGhost();
   bool PressHandle(QPointF point);
   // Every joint and IK tip, in widget pixels.
   std::vector<Handle> HandlesOf() const;

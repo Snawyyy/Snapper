@@ -120,4 +120,34 @@ void RigCanvas::leaveEvent(QEvent* event) {
   QWidget::leaveEvent(event);
 }
 
+void RigCanvas::GrabGhost() {
+  assert(drag_ != Drag::kNone);
+  assert(managers_.history != nullptr);
+  const Doll* doll = FindDoll(managers_.history->current(), doll_);
+  const bool has_doll = doll != nullptr;
+  if (!has_doll) {
+    return;
+  }
+  const auto pieces = PieceTransforms(*doll, PoseMap());
+  const bool is_tip = drag_ == Drag::kTip;
+  feedback_.SetGhost(MakeGhost(
+      GhostKind::kRigHandle, size(), devicePixelRatioF(),
+      [&](QPainter* painter) {
+        for (const IkChain& chain : doll->rig.chains) {
+          const bool is_dragged = is_tip && chain.name == chain_ &&
+                                  pieces.contains(chain.lower);
+          if (is_dragged) {
+            PaintTip(painter, pieces, chain);
+          }
+        }
+        for (const RigPiece& rig : doll->rig.pieces) {
+          const bool is_dragged = !is_tip && picked_.contains(rig.name) &&
+                                  pieces.contains(rig.name);
+          if (is_dragged) {
+            PaintJoint(painter, *doll, pieces, rig);
+          }
+        }
+      }));
+}
+
 }  // namespace snapper

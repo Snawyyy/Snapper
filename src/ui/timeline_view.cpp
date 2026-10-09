@@ -123,7 +123,7 @@ void TimelineView::paintEvent(QPaintEvent* event) {
   PaintRuler(&painter);
   PaintWave(&painter);
   PaintGrid(&painter);
-  PaintRows(&painter, rows);
+  PaintRows(&painter, rows, false);
   PaintPlayhead(&painter);
   if (is_boxing_) {
     painter.setPen(QPen(theme::kPick, 1.0, Qt::DashLine));

@@ -71,13 +71,13 @@ snapper_module(ui
           rig_canvas_input.cpp rig_canvas_handles.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp pose_tool_readout.cpp
           reel_preview.cpp reel_timeline.cpp reel_timeline_drop.cpp
           reel_timeline_commands.cpp reel_timeline_effects.cpp
-          reel_timeline_input.cpp
-          shot_bin.cpp shot_strip.cpp slot_picker.cpp
+          reel_timeline_ghost.cpp reel_timeline_input.cpp
+          shot_bin.cpp shot_strip.cpp shot_strip_ghost.cpp slot_picker.cpp
           drag_feedback.cpp drag_text.cpp grab.cpp handle_hover.cpp
           playhead_settle.cpp
           motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
           refusal_shaker.cpp scrub_label.cpp toast_manager.cpp toast_queue.cpp toast_view.cpp
-          stage_menu.cpp stage_view.cpp stage_view_paint.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
+          stage_menu.cpp stage_view.cpp stage_view_paint.cpp stage_view_ghost.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
           timeline_drag.cpp timeline_view.cpp transition_picker.cpp
           video_page.cpp
   MODULES edit

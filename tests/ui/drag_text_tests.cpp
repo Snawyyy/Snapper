@@ -1,5 +1,7 @@
 #include <QTest>
 
+#include <cassert>
+
 #include "ui/drag_text.h"
 
 namespace snapper {
@@ -15,8 +17,10 @@ class DragTextTests final : public QObject {
   void PositionCountsFromOne();
   void SnapRoundsToTheStep();
   void TinyGapsAreNotSnaps();
-  void ChipRidesOffTheCursor();
-  void ChipStaysInsideBounds();
+  void ChipSitsAboveLeftOfTheCursor();
+  void ChipFlipsAndStaysInsideNearEveryEdge();
+  void ChipFlipsRightWhenLeftIsShort();
+  void ChipFitsATinyCanvas();
 };
 
 void DragTextTests::AnglesAreWholeDegrees() {
@@ -59,20 +63,54 @@ void DragTextTests::TinyGapsAreNotSnaps() {
   QVERIFY(!DidSnap(30.0, 30.0));
 }
 
-void DragTextTests::ChipRidesOffTheCursor() {
+namespace {
+
+// The box the arrow cursor covers: down and right of the hotspot,
+// plus the same box centered on it, to be safe for other cursors.
+bool HitsCursor(const QRectF& chip, QPointF cursor) {
+  assert(chip.isValid());
+  assert(kCursorBox > 0.0);
+  const QRectF down_right(cursor, QSizeF(kCursorBox, kCursorBox));
+  const QRectF centered(cursor - QPointF(kCursorBox, kCursorBox) / 2.0,
+                        QSizeF(kCursorBox, kCursorBox));
+  return chip.intersects(down_right) || chip.intersects(centered);
+}
+
+}  // namespace
+
+void DragTextTests::ChipSitsAboveLeftOfTheCursor() {
   const QRectF bounds(0, 0, 400, 300);
-  const QRectF chip = ChipRect(QPointF(100, 50), QSizeF(60, 20), bounds);
-  QCOMPARE(chip.topLeft(), QPointF(100 + kChipOffset, 50 + kChipOffset));
+  const QRectF chip = ChipRect(QPointF(200, 150), QSizeF(60, 20), bounds);
+  QCOMPARE(chip.bottomRight(),
+           QPointF(200 - kChipGap, 150 - kChipGap));
   QCOMPARE(chip.size(), QSizeF(60, 20));
 }
 
-void DragTextTests::ChipStaysInsideBounds() {
+void DragTextTests::ChipFlipsAndStaysInsideNearEveryEdge() {
   const QRectF bounds(0, 0, 400, 300);
-  const QRectF chip = ChipRect(QPointF(390, 295), QSizeF(60, 20), bounds);
-  QVERIFY(bounds.contains(chip));
+  const QSizeF size(60, 20);
+  const QPointF spots[] = {{5, 150},   {395, 150}, {200, 5},   {200, 295},
+                           {5, 5},     {395, 5},   {5, 295},   {395, 295},
+                           {30, 150},  {200, 30},  {200, 150}};
+  for (const QPointF& spot : spots) {
+    const QRectF chip = ChipRect(spot, size, bounds);
+    QVERIFY(bounds.contains(chip));
+    QVERIFY2(!HitsCursor(chip, spot), "chip under the cursor");
+  }
+}
+
+void DragTextTests::ChipFlipsRightWhenLeftIsShort() {
+  const QRectF bounds(0, 0, 400, 300);
+  const QRectF chip = ChipRect(QPointF(20, 150), QSizeF(60, 20), bounds);
+  QCOMPARE(chip.left(), 20 + kChipGap);
+  QVERIFY(chip.bottom() <= 150 - kChipGap);
+}
+
+void DragTextTests::ChipFitsATinyCanvas() {
   const QRectF tiny = ChipRect(QPointF(5, 5), QSizeF(60, 20),
                                QRectF(0, 0, 30, 10));
   QCOMPARE(tiny.topLeft(), QPointF(0, 0));
+  QCOMPARE(tiny.size(), QSizeF(60, 20));
 }
 
 }  // namespace snapper
