@@ -19,6 +19,7 @@
 #include "edit/shot_manager.h"
 #include "edit/stage_manager.h"
 #include "ui/main_window.h"
+#include "ui/motion.h"
 
 namespace snapper {
 
@@ -50,6 +51,7 @@ class AppContext final {
   PresetManager presets_;
   PlaybackManager playback_;
   ExportManager exporter_;
+  MotionManager motion_;
   MainWindow window_;
 };
 

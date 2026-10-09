@@ -35,6 +35,8 @@ MainWindow::MainWindow(const Managers& managers)
     : managers_(managers),
       file_menu_(managers.document, managers.history, this),
       edit_menu_(tr("&Edit")),
+      view_menu_(tr("&View")),
+      motion_menu_(managers.motion),
       undo_action_(tr("&Undo")),
       redo_action_(tr("&Redo")),
       modes_bar_(tr("Modes")),
@@ -230,6 +232,8 @@ void MainWindow::BuildMenus() {
   });
   menuBar()->addMenu(file_menu_.menu());
   menuBar()->addMenu(&edit_menu_);
+  view_menu_.addMenu(motion_menu_.menu());
+  menuBar()->addMenu(&view_menu_);
   menuBar()->addMenu(&play_menu_);
   PlaybackManager* playback = managers_.playback;
   connect(&play_action_, &QAction::triggered, playback,

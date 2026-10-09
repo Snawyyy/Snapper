@@ -339,6 +339,13 @@ are destroyed in reverse.
 | `PresetManager`        | Motion presets and saved poses                 |
 | `PlaybackManager`      | Playhead on either timeline, play, loop, song  |
 | `ExportManager`        | MP4 and GIF export of the final video, threaded |
+| `MotionManager` (`ui`) | How long and how softly the UI moves: the Motion table, Full / Calm / Off, saved in settings |
+
+`MotionManager` lives in `ui` because it only serves widgets and holds no
+project state. Its table and curves (`motion_table.h`) are pure and
+tested without a widget; every animation asks `MotionManager` for its
+duration and curve, so the View > Motion switch changes all of them at
+once. Qt has no reduced-motion query, so a fresh install starts in Full.
 
 A manager that grows past one concern is split, not grown; a file stops
 at 400 lines.

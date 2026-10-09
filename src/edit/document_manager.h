@@ -53,6 +53,8 @@ class DocumentManager final : public QObject {
   Result<void> Recover();
   // Removes the autosave; for a clean exit or a declined recovery.
   void DiscardAutosave();
+  // The file the app's settings live in, shared by whoever saves one.
+  QString SettingsPath() const;
 
  signals:
   void PathChanged();
@@ -62,7 +64,6 @@ class DocumentManager final : public QObject {
 
  private:
   void Remember(const QString& path);
-  QString SettingsPath() const;
 
   HistoryManager* history_;
   QString data_folder_;
