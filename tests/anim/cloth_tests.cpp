@@ -98,7 +98,9 @@ void ClothTests::StretchZeroKeepsTheLength() {
       for (const int next : {point + 1, point + kAcross}) {
         const bool is_edge = (next == point + 1 && has_right) ||
                              (next == point + kAcross && has_below);
-        if (is_edge) {
+        // A pin (the top row) gives by design; cloth ties do not.
+        const bool is_cloth_edge = is_edge && point >= kAcross;
+        if (is_cloth_edge) {
           const QPointF gap = Rest(next) + warp[static_cast<size_t>(next)] -
                               Rest(point) - warp[static_cast<size_t>(point)];
           longest = std::max(longest, std::hypot(gap.x(), gap.y()));
