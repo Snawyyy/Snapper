@@ -50,6 +50,7 @@ class DollFileTests final : public QObject {
   void SpreadsAnOldPieceMotionOverItsPoints();
   void PhysicsNodesRoundTrip();
   void OldDragNodesLoadAsPlainDrags();
+  void CollidersRoundTripAndOldFilesHaveNone();
 };
 
 void DollFileTests::ReadsArtAndGivesNewPiecesADefaultRig() {
@@ -235,6 +236,36 @@ void DollFileTests::OldDragNodesLoadAsPlainDrags() {
   QCOMPARE(nodes[0].lag, 0.25);
   QCOMPARE(nodes[0].bounce, 0.75);
   QCOMPARE(nodes[0].inertia, DragNode().inertia);
+}
+
+void DollFileTests::CollidersRoundTripAndOldFilesHaveNone() {
+  QTemporaryDir dir;
+  Rig rig;
+  rig.pieces = {{"thigh", "", {0, 0}, 0, -1, {}}, {"skirt", "", {0, 0}, 1, -1, {}}};
+  rig.pieces[0].collider = {6,
+                            {{{1.5, 2.0}, 0}, {{3.0, 2.5}, 1}, {{9.0, 8.0}, 4}},
+                            12.5,
+                            {"belt"}};
+  QVERIFY(WriteRig(dir.path(), rig).has_value());
+  const auto read = ReadRig(dir.path());
+  QVERIFY(read.has_value());
+  QCOMPARE(*read, rig);
+  QVERIFY(read->pieces[0].collider.IsOn());
+  QVERIFY(!read->pieces[1].collider.IsOn());
+  // A file from before colliders, and a broken collider, give none.
+  const QJsonObject old{
+      {"format", "snapper-rig"},
+      {"version", 1},
+      {"pieces",
+       QJsonArray{
+           QJsonObject{{"name", "a"}},
+           QJsonObject{{"name", "b"},
+                       {"collider", QJsonObject{{"dots", QJsonArray{7}}}}}}}};
+  Write(QDir(dir.path()).filePath("rig.json"), old);
+  const auto loaded = ReadRig(dir.path());
+  QVERIFY(loaded.has_value());
+  QVERIFY(!loaded->pieces[0].collider.IsOn());
+  QVERIFY(!loaded->pieces[1].collider.IsOn());
 }
 
 }  // namespace snapper

@@ -8,6 +8,7 @@
 #include <cmath>
 #include <vector>
 
+#include "io/collider_json.h"
 #include "io/point_motion_json.h"
 
 namespace snapper {
@@ -173,6 +174,7 @@ QJsonObject RigToJson(const Rig& rig) {
         {"reach", ReachToJson(piece.warp_reach)},
         {"drag", DragToJson(piece.drag_nodes)},
         {"motions", PointMotionsToJson(piece.point_motions)},
+        {"collider", ColliderToJson(piece.collider)},
         {"warp", QJsonArray{piece.warp.columns, piece.warp.rows}}});
   }
   QJsonArray chains;
@@ -205,7 +207,8 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
                           piece.value("keep_shape").toBool(),
                           ReachFromJson(piece.value("reach"), grid),
                           DragFromJson(piece.value("drag"), grid),
-                          PointMotionsFromJson(piece, grid, issues)});
+                          PointMotionsFromJson(piece, grid, issues),
+                          ColliderFromJson(piece.value("collider"))});
   }
   const QJsonArray chains =
       Bounded(object.value("chains"), kMaxIkChains, "IK chains", issues);

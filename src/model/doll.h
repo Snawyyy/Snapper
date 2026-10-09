@@ -112,6 +112,36 @@ struct PointMotion final {
   bool operator==(const PointMotion&) const = default;
 };
 
+// The most dots a collider outline has.
+constexpr int kMaxColliderDots = 96;
+
+// One dot of a collider's outline, in the piece's drawing pixels.
+// slot is its place on the ring the outline was made with.
+struct ColliderDot final {
+  QPointF at;
+  int slot = 0;
+
+  bool operator==(const ColliderDot&) const = default;
+};
+
+// A piece's outline that pushes the cloth of pieces drawn in front of
+// it, so a leg never passes through a skirt. The ring was traced from
+// the drawing's visible pixels, ring_size slots in all; dots the user
+// deleted leave gaps, and an edge joins two dots only when they are
+// next to each other on the ring. Empty dots mean no collider.
+struct Collider final {
+  int ring_size = 0;
+  std::vector<ColliderDot> dots;
+  // How far inside the outline a point is still pushed out, in drawing
+  // pixels; deeper points are taken to be on the far side.
+  double depth = 0.0;
+  // Pieces in front that it does not push.
+  std::vector<QString> spared;
+
+  bool IsOn() const { return !dots.empty(); }
+  bool operator==(const Collider&) const = default;
+};
+
 // How Snapper moves a piece: rig.json.
 struct RigPiece final {
   QString name;
@@ -139,6 +169,8 @@ struct RigPiece final {
   std::vector<DragNode> drag_nodes{};
   // Grid points that move by themselves, each at most once.
   std::vector<PointMotion> point_motions{};
+  // The outline that pushes cloth in front of this piece, if any.
+  Collider collider{};
 
   bool operator==(const RigPiece&) const = default;
 };

@@ -31,7 +31,7 @@ snapper_module(anim
           sampler.cpp timing_chart.cpp warp.cpp warp_motion.cpp
   MODULES model)
 snapper_module(io
-  SOURCES doll_file.cpp doll_json.cpp json_file.cpp json_values.cpp
+  SOURCES collider_json.cpp doll_file.cpp doll_json.cpp json_file.cpp json_values.cpp
           layer_json.cpp legacy_doll.cpp pose_file.cpp project_file.cpp
           point_motion_json.cpp reconcile.cpp reel_json.cpp
   MODULES model)
