@@ -307,7 +307,9 @@ a new clip over it, as one undo step.
 runs the same in the window, in an export thread and in a headless
 test. Warped pieces are drawn by `WarpImage`, which maps each grid cell
 as two triangles back into the drawing. Each renderer has its own
-`ImageCache`; nothing is shared across threads. Preview may render at a
+`ImageCache`; nothing is shared across threads. The cache also holds a
+`WarpCache` of bent drawings (`ImageCache::Warped`), so painting and
+hover hit tests bend a drawing once per pose, not once per paint. Preview may render at a
 smaller scale; effects scale their sizes with it so they look the same.
 
 `RenderReel` draws a reel frame: shot clips through `RenderShot`, video
