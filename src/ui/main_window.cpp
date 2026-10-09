@@ -53,6 +53,7 @@ MainWindow::MainWindow(const Managers& managers)
       inspector_dock_(tr("Inspector")),
       inspector_(managers),
       toast_view_(managers.toasts, managers.motion, this, &pages_),
+      shaker_(managers.motion),
       export_dialog_(managers, this),
       export_action_(tr("&Export...")),
       play_menu_(tr("&Play")),

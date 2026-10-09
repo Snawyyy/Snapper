@@ -341,6 +341,7 @@ are destroyed in reverse.
 | `ExportManager`        | MP4 and GIF export of the final video, threaded |
 | `MotionManager` (`ui`) | How long and how softly the UI moves: the Motion table, Full / Calm / Off, saved in settings |
 | `ToastManager` (`ui`)  | Toasts: the queue, their time, stacking, dismissal and the Undo they offer |
+| `RefusalShaker` (`ui`) | The shake and the reason on a greyed control clicked anyway |
 
 `MotionManager` lives in `ui` because it only serves widgets and holds no
 project state. Its table and curves (`motion_table.h`) are pure and
@@ -361,6 +362,13 @@ which on success shows a toast with an Undo button: the toast keeps the
 while that is still the latest step, so it can never undo something
 else; a newer edit takes the button away. Pinned hints (rig canvas) and
 file failures (warning boxes) stay as they are.
+
+`RefusalShaker` watches the whole application: a mouse press on a
+disabled widget that has a tooltip (the "greyed with a reason" rule,
+`Explain`) shakes it 4 px (`ShakeOffsetPx`, pure, tested) over the Move
+time and, on release, shows the reason beside the cursor. In Off it only
+shows the reason. No control opts in; a greyed control with no reason
+does not shake.
 
 Number fields get their hands-on feel from three small pieces. The math
 is pure and lives in `base`, tested without a widget: `EvalNumber`
