@@ -52,6 +52,8 @@ class TimingChartManager final : public QObject {
   // A tick drag remembers the start; Cancel puts the ticks back.
   void BeginTickDrag();
   Result<void> CancelTickDrag();
+  // Mouse let go: the drag stays.
+  void EndTickDrag();
   // Shows the stage at tick index's frame: -1 is A, the tick count is B.
   void ShowTick(int index);
 

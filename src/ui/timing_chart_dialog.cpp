@@ -1,0 +1,146 @@
+#include "ui/timing_chart_dialog.h"
+
+#include <algorithm>
+#include <cassert>
+#include <iterator>
+
+#include "edit/timing_chart_manager.h"
+#include "ui/motion.h"
+#include "ui/toast_manager.h"
+
+namespace snapper {
+namespace {
+
+struct PresetName final {
+  Spacing spacing;
+  const char* label;
+};
+
+constexpr PresetName kPresets[] = {
+    {Spacing::kEven, "Even"},
+    {Spacing::kSlowIn, "Slow in"},
+    {Spacing::kSlowOut, "Slow out"},
+    {Spacing::kSlowInOut, "Slow in and out"},
+    {Spacing::kHalvesA, "Halves (favor A)"},
+    {Spacing::kHalvesB, "Halves (favor B)"}};
+
+}  // namespace
+
+TimingChartDialog::TimingChartDialog(const Managers& managers,
+                                     QWidget* parent)
+    : QDialog(parent),
+      managers_(managers),
+      strip_(managers.timing),
+      apply_(tr("Apply")),
+      cancel_(tr("Cancel")) {
+  assert(managers_.timing != nullptr);
+  assert(managers_.toasts != nullptr);
+  setModal(true);
+  setWindowTitle(tr("Timing chart"));
+  BuildLayout();
+  connect(managers_.timing, &TimingChartManager::Opened, this,
+          &TimingChartDialog::Show);
+  connect(managers_.timing, &TimingChartManager::Closed, this,
+          [this] { hide(); });
+  connect(&apply_, &QPushButton::clicked, this, &QDialog::accept);
+  connect(&cancel_, &QPushButton::clicked, this, &QDialog::reject);
+  connect(&presets_, &QComboBox::activated, this,
+          &TimingChartDialog::PickPreset);
+  connect(&strip_, &TimingChartStrip::Edited, this,
+          [this] { presets_.setCurrentIndex(-1); });
+}
+
+void TimingChartDialog::BuildLayout() {
+  assert(layout() == nullptr);
+  title_.setWordWrap(true);
+  spacing_label_.setText(tr("Spacing"));
+  for (const PresetName& preset : kPresets) {
+    presets_.addItem(tr(preset.label));
+  }
+  presets_.setPlaceholderText(tr("Custom"));
+  presets_.setToolTip(tr("Ready-made spacings for the ticks."));
+  options_.addWidget(&spacing_label_);
+  options_.addWidget(&presets_, 1);
+  apply_.setDefault(true);
+  apply_.setToolTip(tr("Key every frame from A to B at these spacings."));
+  buttons_.addStretch(1);
+  buttons_.addWidget(&apply_);
+  buttons_.addWidget(&cancel_);
+  layout_.addWidget(&title_);
+  layout_.addWidget(&strip_);
+  layout_.addLayout(&options_);
+  layout_.addLayout(&buttons_);
+  setLayout(&layout_);
+  assert(layout() == &layout_);
+}
+
+void TimingChartDialog::Show() {
+  assert(managers_.timing->IsOpen());
+  assert(!managers_.timing->name().isEmpty());
+  title_.setText(tr("%1: frames %2 to %3. Drag the ticks to space the "
+                    "frames between.")
+                     .arg(managers_.timing->name())
+                     .arg(managers_.timing->a().index())
+                     .arg(managers_.timing->b().index()));
+  presets_.setCurrentIndex(0);
+  show();
+  raise();
+  activateWindow();
+}
+
+void TimingChartDialog::PickPreset(int index) {
+  assert(index < static_cast<int>(std::size(kPresets)));
+  assert(managers_.motion != nullptr);
+  const bool is_open = managers_.timing->IsOpen();
+  const bool is_pick = is_open && index >= 0;
+  if (!is_pick) {
+    return;
+  }
+  const std::vector<double> from = managers_.timing->fractions();
+  const std::vector<double> to = SpacingFractions(
+      kPresets[index].spacing, static_cast<int>(from.size()));
+  const bool is_gliding = glide_ != nullptr;
+  if (is_gliding) {
+    glide_->stop();
+  }
+  TimingChartManager* chart = managers_.timing;
+  glide_ = managers_.motion->Animate(
+      this, MotionKind::kMove, 0.0, 1.0, [chart, from, to](const QVariant& v) {
+        const bool is_open_now = chart->IsOpen();
+        if (!is_open_now) {
+          return;
+        }
+        std::vector<double> step = to;
+        const double t = std::clamp(v.toDouble(), 0.0, 1.0);
+        for (size_t i = 0; i < step.size(); ++i) {
+          step[i] = from[i] + (to[i] - from[i]) * t;
+        }
+        const bool is_set = chart->SetFractions(step).has_value();
+        assert(is_set);
+        static_cast<void>(is_set);
+      });
+}
+
+void TimingChartDialog::accept() {
+  assert(managers_.timing != nullptr);
+  assert(managers_.toasts != nullptr);
+  const bool is_open = managers_.timing->IsOpen();
+  if (is_open) {
+    const QString name = managers_.timing->name();
+    managers_.timing->Apply();
+    managers_.toasts->Done(tr("Timing chart on %1").arg(name));
+  }
+  QDialog::accept();
+}
+
+void TimingChartDialog::reject() {
+  assert(managers_.timing != nullptr);
+  assert(glide_ == nullptr || glide_->parent() == this);
+  const bool is_open = managers_.timing->IsOpen();
+  if (is_open) {
+    managers_.timing->Cancel();
+  }
+  QDialog::reject();
+}
+
+}  // namespace snapper

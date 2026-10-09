@@ -1,5 +1,7 @@
 #include <QTest>
 
+#include <cassert>
+
 #include <vector>
 
 #include "edit/history_manager.h"
@@ -14,6 +16,8 @@ namespace {
 const ShotId kShot(1);
 
 PiecePose Turned(double degrees) {
+  assert(kShot.value() == 1);
+  assert(kShot.value() > 0);
   PiecePose pose;
   pose.rotation = degrees;
   return pose;
@@ -22,6 +26,8 @@ PiecePose Turned(double degrees) {
 // Bob's head and arm keyed on 0, 4 (arm only), 8 and 12; the arm turns
 // 0, 33, 80, 90 degrees.
 Project Stage() {
+  assert(kShot.value() == 1);
+  assert(kShot.value() > 0);
   DollLayer posed{"Bob", {}, false};
   const double arm[] = {0.0, 80.0, 90.0};
   const int frames[] = {0, 8, 12};
@@ -47,11 +53,15 @@ Project Stage() {
 
 const Channel<PiecePose>& Piece(const HistoryManager& history,
                                 const QString& name) {
+  assert(kShot.value() == 1);
+  assert(kShot.value() > 0);
   return std::get<DollLayer>(history.current().shots[0]->layers[0].content)
       .pieces.at(name);
 }
 
 std::vector<int> FramesOf(const Channel<PiecePose>& channel) {
+  assert(kShot.value() == 1);
+  assert(kShot.value() > 0);
   std::vector<int> frames;
   for (const auto& key : channel.keys) {
     frames.push_back(key.frame.index());
@@ -60,6 +70,8 @@ std::vector<int> FramesOf(const Channel<PiecePose>& channel) {
 }
 
 double ArmAt(const HistoryManager& history, int frame) {
+  assert(kShot.value() == 1);
+  assert(kShot.value() > 0);
   return Sample(Piece(history, "arm"), Frame(frame), PiecePose()).rotation;
 }
 

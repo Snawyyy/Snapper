@@ -247,6 +247,12 @@ Result<void> TimingChartManager::CancelTickDrag() {
   return SetFractions(start);
 }
 
+void TimingChartManager::EndTickDrag() {
+  assert(IsOpen());
+  assert(drag_start_.size() <= static_cast<size_t>(kMaxChartFrames));
+  drag_start_.clear();
+}
+
 void TimingChartManager::ShowTick(int index) {
   assert(IsOpen());
   const int count = static_cast<int>(fractions_.size());

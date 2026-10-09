@@ -78,7 +78,8 @@ snapper_module(ui
           motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
           refusal_shaker.cpp scrub_label.cpp toast_manager.cpp toast_queue.cpp toast_view.cpp
           stage_menu.cpp stage_view.cpp stage_view_paint.cpp stage_view_ghost.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
-          timeline_drag.cpp timeline_view.cpp transition_picker.cpp
+          timeline_drag.cpp timeline_view.cpp timing_chart_action.cpp
+          timing_chart_dialog.cpp timing_chart_strip.cpp transition_picker.cpp
           video_page.cpp
   MODULES edit
   LIBS Qt6::Widgets)
@@ -128,7 +129,8 @@ if(BUILD_TESTING)
                           shot_strip_tests.cpp slot_picker_tests.cpp
                           motion_tests.cpp scrub_tests.cpp shake_tests.cpp theme_tests.cpp
                           toast_tests.cpp
-                          timeline_view_tests.cpp video_page_tests.cpp
+                          timeline_view_tests.cpp timing_chart_ui_tests.cpp
+                          video_page_tests.cpp
                           window_tests.cpp)
   snapper_checks()
 endif()

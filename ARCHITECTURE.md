@@ -347,6 +347,7 @@ are destroyed in reverse.
 | `ExportManager`        | MP4 and GIF export of the final video, threaded |
 | `MotionManager` (`ui`) | How long and how softly the UI moves: the Motion table, Full / Calm / Off, saved in settings |
 | `ToastManager` (`ui`)  | Toasts: the queue, their time, stacking, dismissal and the Undo they offer |
+| `TimingChartDialog` (`ui`) | The floating timing chart window (Shift+T, or Define timing chart... in the stage and timeline menus); its strip only draws the ticks and forwards drags to `TimingChartManager` |
 | `RefusalShaker` (`ui`) | The shake and the reason on a greyed control clicked anyway |
 
 `MotionManager` lives in `ui` because it only serves widgets and holds no

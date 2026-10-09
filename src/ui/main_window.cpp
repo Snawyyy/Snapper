@@ -13,6 +13,7 @@
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/bar_text.h"
+#include "ui/timing_chart_action.h"
 #include "ui/toast_manager.h"
 
 namespace snapper {
@@ -55,6 +56,8 @@ MainWindow::MainWindow(const Managers& managers)
       toast_view_(managers.toasts, managers.motion, this, &pages_),
       shaker_(managers.motion),
       export_dialog_(managers, this),
+      timing_dialog_(managers, this),
+      timing_action_(tr("Define &timing chart...")),
       export_action_(tr("&Export...")),
       play_menu_(tr("&Play")),
       play_action_(tr("&Play / pause")),
@@ -212,6 +215,11 @@ void MainWindow::BuildMenus() {
       {QKeySequence(Qt::CTRL | Qt::Key_Y), QKeySequence(QKeySequence::Redo)});
   edit_menu_.addAction(&undo_action_);
   edit_menu_.addAction(&redo_action_);
+  edit_menu_.addSeparator();
+  timing_action_.setShortcut(TimingChartShortcut());
+  edit_menu_.addAction(&timing_action_);
+  connect(&timing_action_, &QAction::triggered, this,
+          [this] { RequestTimingChart(managers_); });
   // Disabled actions still show why on hover.
   edit_menu_.setToolTipsVisible(true);
   view_menu_.setToolTipsVisible(true);
