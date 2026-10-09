@@ -14,6 +14,7 @@
 #include "edit/edit_scope.h"
 #include "edit/selection_manager.h"
 #include "render/image_cache.h"
+#include "ui/drag_feedback.h"
 #include "ui/grab.h"
 #include "ui/handle_hover.h"
 #include "ui/managers.h"
@@ -29,8 +30,9 @@ namespace snapper {
 // handle nearest to it within kGrabReach; nothing moves until the mouse
 // has gone kDragDeadZone, then the handle jumps under the cursor. Before
 // any press the handle under the cursor grows, shows its cursor, and a
-// thin dashed outline marks the piece a click would pick. Escape cancels
-// a drag or a hang.
+// thin dashed outline marks the piece a click would pick. A drag shows
+// a chip with how far it went, a faint ghost where the handle was, and
+// pops on letting go. Escape cancels a drag or a hang.
 class RigCanvas final : public QWidget {
   Q_OBJECT
 
@@ -43,6 +45,8 @@ class RigCanvas final : public QWidget {
   void SetPick(const QStringList& picked, const QString& focus);
   // Doll space to widget pixels.
   QTransform World() const;
+  // The chip, ghost and pop of the drag, for tests to look at.
+  const DragFeedback& feedback() const { return feedback_; }
 
  signals:
   // The picked pieces and which one the panel shows.
@@ -86,9 +90,12 @@ class RigCanvas final : public QWidget {
   void ApplyPick(const std::set<QString>& pieces, PickMode mode,
                  const QString& focus);
   void FinishBox();
+  // Shows what the joint or tip drag says: chip, ghost and snap flash.
+  void ShowDrag(QPointF cursor);
 
   Managers managers_;
   HandleHover hover_;
+  DragFeedback feedback_;
   // The piece a click would pick, outlined thinly; empty when none.
   QString hover_piece_;
   ImageCache cache_;
@@ -96,6 +103,8 @@ class RigCanvas final : public QWidget {
   QString piece_;
   std::set<QString> picked_;
   QPointF last_;
+  // Where the dragged handle sat when it was grabbed.
+  QPointF start_;
   // Where the mouse went down; a drag waits until it leaves the dead
   // zone around it.
   QPointF press_;

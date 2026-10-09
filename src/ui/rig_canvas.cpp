@@ -39,13 +39,16 @@ std::map<QString, QTransform> RestPieces(const Doll& doll) {
 }  // namespace
 
 RigCanvas::RigCanvas(const Managers& managers)
-    : managers_(managers), hover_(managers.motion, this) {
+    : managers_(managers),
+      hover_(managers.motion, this),
+      feedback_(managers.motion, this) {
   assert(managers_.IsComplete());
   setFocusPolicy(Qt::StrongFocus);
   setMouseTracking(true);
   connect(managers_.history, &HistoryManager::Changed, this,
           [this] { update(); });
   connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
+  connect(&feedback_, &DragFeedback::Changed, this, [this] { update(); });
   assert(drag_ == Drag::kNone);
 }
 
@@ -74,6 +77,7 @@ void RigCanvas::SetPick(const QStringList& picked, const QString& focus) {
 }
 
 QTransform RigCanvas::World() const {
+  assert(managers_.history != nullptr);
   const Doll* doll = doll_.isEmpty()
                          ? nullptr
                          : FindDoll(managers_.history->current(), doll_);
@@ -95,6 +99,7 @@ QTransform RigCanvas::World() const {
 
 void RigCanvas::paintEvent(QPaintEvent* event) {
   assert(event != nullptr);
+  assert(managers_.history != nullptr);
   QPainter painter(this);
   painter.fillRect(rect(), theme::kFaceDark);
   const Project& project = managers_.history->current();
@@ -124,6 +129,7 @@ void RigCanvas::paintEvent(QPaintEvent* event) {
                             theme::kPick.blue(), 40));
     painter.drawRect(QRectF(box_from_, box_to_).normalized());
   }
+  feedback_.Paint(&painter, QRectF(rect()));
 }
 
 void RigCanvas::PaintOverlay(QPainter* painter) const {

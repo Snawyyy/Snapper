@@ -17,6 +17,7 @@ class QMenu;
 #include "edit/edit_scope.h"
 #include "edit/selection_manager.h"
 #include "model/reel.h"
+#include "ui/drag_feedback.h"
 #include "ui/handle_hover.h"
 #include "base/error.h"
 #include "ui/managers.h"
@@ -33,7 +34,10 @@ namespace snapper {
 // box over empty space to pick what it touches, Ctrl+A picks all and
 // Escape or a click on empty space clears. Drag a clip to move it,
 // along or to another track; drag its ends to trim it. Drags snap to
-// other clips' cuts, cut markers and the playhead; Escape cancels one.
+// other clips' cuts, cut markers and the playhead, and flash when they
+// do; a chip beside the cursor says how many frames the drag went, a
+// faint ghost marks where it began, and letting go pops. Escape cancels
+// one.
 // Click or drag the ruler to move the playhead. Cut markers (Mark cut
 // on the Video tab) show as yellow notches and dashed lines;
 // double-click a track between two of them to pick which part of a
@@ -65,6 +69,8 @@ class ReelTimeline final : public QWidget {
   // Pixels per frame.
   double zoom() const { return zoom_; }
   void SetZoom(double pixels_per_frame);
+  // The chip, ghost and snap flash of the drag, for tests to look at.
+  const DragFeedback& feedback() const { return feedback_; }
 
  signals:
   void Problem(const QString& why);
@@ -121,6 +127,9 @@ class ReelTimeline final : public QWidget {
   Drag DragFor(ClipId clip, QPointF at) const;
   void StartDrag(ClipId clip, Drag drag, QPointF at);
   void Follow(QPointF at);
+  // Shows a trim: how many frames the edge went from its start, and a
+  // flash when it snapped from the frame under the cursor (raw).
+  void ShowTrim(Frame raw, Frame edge, QPointF at);
   void Pick(ClipId clip, Qt::KeyboardModifiers modifiers);
   std::vector<ClipId> Picked() const;
   // Picks the clips the box touches, or clears on a plain click.
@@ -151,6 +160,7 @@ class ReelTimeline final : public QWidget {
   Managers managers_;
   // The clip edge under the cursor widens and brightens.
   HandleHover hover_;
+  DragFeedback feedback_;
   double zoom_;
   // Frames scrolled off the left.
   double scroll_ = 0.0;

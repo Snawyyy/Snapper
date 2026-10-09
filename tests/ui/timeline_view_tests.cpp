@@ -1,4 +1,6 @@
 #include <QTest>
+
+#include <cassert>
 #include <QToolButton>
 
 #include "bench.h"
@@ -13,6 +15,7 @@ const ShotId kShot(1);
 
 // One doll layer with a key at frame 2, in a 48-frame shot.
 void Stage(Bench* bench) {
+  assert(bench != nullptr);
   Doll doll;
   doll.rig.pieces = {{"head", "", {}, 0, -1, {}}};
   Layer layer;
@@ -31,12 +34,16 @@ void Stage(Bench* bench) {
 
 // The middle of frame's cell on the doll's row.
 QPoint Cell(const TimelineView& view, int frame) {
+  assert(frame >= 0);
+  assert(view.XOf(Frame(frame)) >= 0.0);
   return QPoint(static_cast<int>(view.XOf(Frame(frame)) +
                                  kDefaultFrameWidth / 2.0),
                 kRulerHeight + kWaveHeight + kRowHeight / 2);
 }
 
 std::vector<Frame> DollKeys(const Bench& bench) {
+  assert(!bench.history.current().shots.empty());
+  assert(!TimelineRows(bench.history.current(), kShot).empty());
   return TimelineRows(bench.history.current(), kShot)[0].keys;
 }
 
@@ -54,6 +61,8 @@ class TimelineViewTests final : public QObject {
   void BoxShiftAndCtrlPickKeys();
   void KeysGrabFromTwelvePixelsAndWaitFourToSlide();
   void StepModeToggles();
+  void KeyDragSaysHowManyFrames();
+  void EscapeCancelsTheKeyDrag();
 };
 
 void TimelineViewTests::FramesMapToPixels() {
@@ -86,6 +95,7 @@ void TimelineViewTests::DoubleClickKeysThePose() {
   Stage(&bench);
   TimelineView view(bench.All());
   view.resize(800, 200);
+  QVERIFY(view.isEnabled());
   QTest::mouseDClick(&view, Qt::LeftButton, {}, Cell(view, 10));
   QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(2), Frame(10)}));
 }
@@ -95,6 +105,7 @@ void TimelineViewTests::DeleteRemovesPickedKeys() {
   Stage(&bench);
   TimelineView view(bench.All());
   view.resize(800, 200);
+  QVERIFY(view.isEnabled());
   QTest::mouseClick(&view, Qt::LeftButton, {}, Cell(view, 2));
   QTest::keyClick(&view, Qt::Key_Delete);
   QVERIFY(DollKeys(bench).empty());
@@ -105,6 +116,7 @@ void TimelineViewTests::RulerClickSeeks() {
   Stage(&bench);
   TimelineView view(bench.All());
   view.resize(800, 200);
+  QVERIFY(view.isEnabled());
   const QPoint ruler(Cell(view, 9).x(), kRulerHeight / 2);
   QTest::mouseClick(&view, Qt::LeftButton, {}, ruler);
   QCOMPARE(bench.playback.frame(), Frame(9));
@@ -167,6 +179,44 @@ void TimelineViewTests::KeysGrabFromTwelvePixelsAndWaitFourToSlide() {
   QTest::mouseMove(&view, Cell(view, 5));
   QTest::mouseRelease(&view, Qt::LeftButton, {}, Cell(view, 5));
   QCOMPARE(DollKeys(bench)[0], Frame(5));
+}
+
+void TimelineViewTests::KeyDragSaysHowManyFrames() {
+  Bench bench;
+  Stage(&bench);
+  bench.motion.SetMode(MotionMode::kOff);
+  TimelineView view(bench.All());
+  view.resize(800, 200);
+  QTest::mousePress(&view, Qt::LeftButton, {}, Cell(view, 2));
+  QVERIFY(!view.feedback().is_active());
+  QTest::mouseMove(&view, Cell(view, 6));
+  QVERIFY(view.feedback().is_active());
+  QCOMPARE(view.feedback().text(), QString("+4 f"));
+  QTest::mouseMove(&view, Cell(view, 1));
+  QCOMPARE(view.feedback().text(), QString("-1 f"));
+  QTest::mouseRelease(&view, Qt::LeftButton, {}, Cell(view, 1));
+  QVERIFY(!view.feedback().is_active());
+  QCOMPARE(bench.history.UndoLabel(), QString("Move keys"));
+}
+
+void TimelineViewTests::EscapeCancelsTheKeyDrag() {
+  Bench bench;
+  Stage(&bench);
+  bench.motion.SetMode(MotionMode::kOff);
+  TimelineView view(bench.All());
+  view.resize(800, 200);
+  QTest::mousePress(&view, Qt::LeftButton, {}, Cell(view, 2));
+  const std::set<KeyRef> picked = bench.selection.keys();
+  QTest::mouseMove(&view, Cell(view, 6));
+  QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(6)}));
+  QTest::keyClick(&view, Qt::Key_Escape);
+  QVERIFY(!view.feedback().is_active());
+  QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(2)}));
+  QCOMPARE(bench.selection.keys(), picked);
+  QTest::mouseMove(&view, Cell(view, 9));
+  QTest::mouseRelease(&view, Qt::LeftButton, {}, Cell(view, 9));
+  QCOMPARE(DollKeys(bench), std::vector<Frame>({Frame(2)}));
+  QVERIFY(bench.history.UndoLabel() != QString("Move keys"));
 }
 
 }  // namespace snapper

@@ -17,6 +17,7 @@
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/shot_manager.h"
+#include "ui/drag_text.h"
 #include "ui/grab.h"
 #include "ui/theme.h"
 #include "ui/toast_manager.h"
@@ -40,12 +41,15 @@ double WidthOf(const Shot& shot) {
 }  // namespace
 
 ShotStrip::ShotStrip(const Managers& managers)
-    : managers_(managers), hover_(managers.motion, this) {
+    : managers_(managers),
+      hover_(managers.motion, this),
+      feedback_(managers.motion, this) {
   assert(managers_.IsComplete());
   setFixedHeight(kStripHeight);
   setFocusPolicy(Qt::ClickFocus);
   setMouseTracking(true);
   connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
+  connect(&feedback_, &DragFeedback::Changed, this, [this] { update(); });
   const auto update_me = [this] { update(); };
   connect(managers_.history, &HistoryManager::Changed, this, update_me);
   connect(managers_.selection, &SelectionManager::Changed, this, update_me);
@@ -66,6 +70,7 @@ std::vector<ShotStrip::Block> ShotStrip::Blocks() const {
 }
 
 QRectF ShotStrip::AddBlock() const {
+  assert(managers_.history != nullptr);
   const auto blocks = Blocks();
   const double x = blocks.empty() ? 2.0 : blocks.back().rect.right() + 2.0;
   assert(x >= 0.0);
@@ -73,6 +78,7 @@ QRectF ShotStrip::AddBlock() const {
 }
 
 void ShotStrip::paintEvent(QPaintEvent* event) {
+  assert(managers_.history != nullptr);
   assert(event != nullptr);
   const Project& project = managers_.history->current();
   QPainter painter(this);
@@ -109,9 +115,11 @@ void ShotStrip::paintEvent(QPaintEvent* event) {
   painter.fillRect(add, theme::kFace);
   painter.setPen(theme::kText);
   painter.drawText(add, Qt::AlignCenter, QStringLiteral("+"));
+  feedback_.Paint(&painter, QRectF(rect()));
 }
 
 void ShotStrip::mousePressEvent(QMouseEvent* event) {
+  assert(managers_.selection != nullptr);
   assert(event != nullptr);
   const QPointF at = event->position();
   const bool is_left = event->button() == Qt::LeftButton;
@@ -158,6 +166,7 @@ void ShotStrip::mousePressEvent(QMouseEvent* event) {
 }
 
 void ShotStrip::mouseMoveEvent(QMouseEvent* event) {
+  assert(managers_.history != nullptr);
   assert(event != nullptr);
   const QPointF at = event->position();
   bool is_on_edge = false;
@@ -191,7 +200,42 @@ void ShotStrip::mouseMoveEvent(QMouseEvent* event) {
       Report(ProblemOf(managers_.shots->ShiftLength(PickedShots(), step)));
       drag_frames_ = frames;
     }
+    feedback_.Update(QPointF(drag_start_x_, at.y()), at,
+                     FramesText(drag_frames_), drag_frames_ != 0);
   }
+  const bool is_reordering = drag_ == Drag::kMove && is_started_;
+  if (is_reordering) {
+    feedback_.Update(QPointF(drag_start_x_, at.y()), at,
+                     PositionText(DropIndex(at.x()) + 1), false);
+  }
+}
+
+int ShotStrip::DropIndex(double x) const {
+  assert(std::isfinite(x));
+  int index = 0;
+  for (const Block& block : Blocks()) {
+    const bool is_past = block.rect.center().x() < x && block.shot != dragged_;
+    index += is_past ? 1 : 0;
+  }
+  assert(index >= 0);
+  return index;
+}
+
+bool ShotStrip::CancelDrag() {
+  assert(feedback_.parent() == this);
+  assert(managers_.history != nullptr);
+  const bool is_dragging = drag_ != Drag::kNone;
+  if (!is_dragging) {
+    return false;
+  }
+  if (scope_) {
+    scope_->Cancel();
+  }
+  scope_.reset();
+  drag_ = Drag::kNone;
+  feedback_.Cancel();
+  update();
+  return true;
 }
 
 void ShotStrip::leaveEvent(QEvent* event) {
@@ -202,18 +246,14 @@ void ShotStrip::leaveEvent(QEvent* event) {
 }
 
 void ShotStrip::mouseReleaseEvent(QMouseEvent* event) {
+  assert(managers_.history != nullptr);
   assert(event != nullptr);
   const bool is_moving =
       drag_ == Drag::kMove &&
       IsPastDeadZone(QPointF(drag_start_x_, 0.0),
                      QPointF(event->position().x(), 0.0));
   if (is_moving) {
-    int index = 0;
-    for (const Block& block : Blocks()) {
-      const bool is_past = block.rect.center().x() < event->position().x() &&
-                           block.shot != dragged_;
-      index += is_past ? 1 : 0;
-    }
+    const int index = DropIndex(event->position().x());
     Report(ProblemOf(managers_.shots->Move(dragged_, index)));
   }
   const bool is_click = drag_ == Drag::kMove && !is_moving;
@@ -221,11 +261,13 @@ void ShotStrip::mouseReleaseEvent(QMouseEvent* event) {
     // A plain click on a shot already in a bigger pick picks just it.
     Pick(dragged_);
   }
+  feedback_.Settle();
   scope_.reset();
   drag_ = Drag::kNone;
 }
 
 void ShotStrip::contextMenuEvent(QContextMenuEvent* event) {
+  assert(managers_.selection != nullptr);
   assert(event != nullptr);
   for (const Block& block : Blocks()) {
     const bool is_hit = block.rect.contains(event->pos());
@@ -252,7 +294,13 @@ void ShotStrip::DeletePicked(const std::vector<ShotId>& picked) {
 }
 
 void ShotStrip::keyPressEvent(QKeyEvent* event) {
+  assert(managers_.history != nullptr);
   assert(event != nullptr);
+  const bool is_escape = event->key() == Qt::Key_Escape;
+  const bool was_dragging = is_escape && CancelDrag();
+  if (was_dragging) {
+    return;
+  }
   const std::vector<ShotId> picked = PickedShots();
   const bool is_delete = !picked.empty() &&
                          (event->key() == Qt::Key_Delete ||
@@ -274,6 +322,7 @@ void ShotStrip::keyPressEvent(QKeyEvent* event) {
 }
 
 void ShotStrip::Pick(ShotId shot) {
+  assert(managers_.selection != nullptr);
   assert(shot.IsValid());
   const Project& project = managers_.history->current();
   const int index = ShotIndex(project, shot);
@@ -285,6 +334,7 @@ void ShotStrip::Pick(ShotId shot) {
 }
 
 std::vector<ShotId> ShotStrip::PickedShots() const {
+  assert(managers_.history != nullptr);
   const auto& picked = managers_.selection->shots();
   assert(picked.size() <= static_cast<size_t>(kMaxShots));
   return std::vector<ShotId>(picked.begin(), picked.end());

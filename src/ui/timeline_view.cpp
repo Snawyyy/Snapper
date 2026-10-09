@@ -20,7 +20,8 @@ namespace snapper {
 TimelineView::TimelineView(const Managers& managers)
     : managers_(managers), step_mode_(this),
       frame_width_(kDefaultFrameWidth),
-      hover_(managers.motion, this) {
+      hover_(managers.motion, this),
+      feedback_(managers.motion, this) {
   assert(managers_.IsComplete());
   step_mode_.setObjectName("step_mode");
   step_mode_.setCheckable(true);
@@ -36,6 +37,7 @@ TimelineView::TimelineView(const Managers& managers)
   setFocusPolicy(Qt::StrongFocus);
   setMouseTracking(true);
   connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
+  connect(&feedback_, &DragFeedback::Changed, this, [this] { update(); });
   setMinimumHeight(kRulerHeight + kWaveHeight + 3 * kRowHeight);
   const auto update_me = [this] { update(); };
   connect(managers_.history, &HistoryManager::Changed, this, update_me);
@@ -104,6 +106,7 @@ void TimelineView::paintEvent(QPaintEvent* event) {
                             theme::kPick.blue(), 40));
     painter.drawRect(QRectF(box_from_, box_to_).normalized());
   }
+  feedback_.Paint(&painter, QRectF(rect()));
 }
 
 int TimelineView::LabelStep() const {
@@ -179,6 +182,7 @@ void TimelineView::PaintGrid(QPainter* painter) const {
 
 void TimelineView::PaintWave(QPainter* painter) const {
   assert(painter != nullptr);
+  assert(managers_.playback != nullptr);
   const auto song = managers_.playback->song();
   const Project& project = managers_.history->current();
   const int index = ShotIndex(project, managers_.selection->shot());
@@ -287,6 +291,7 @@ void TimelineView::UpdateHover(QPointF point) {
 }
 
 void TimelineView::ClearHover() {
+  assert(managers_.history != nullptr);
   hover_.Set(GrabKind::kNone, QString());
   unsetCursor();
   assert(hover_.kind() == GrabKind::kNone);

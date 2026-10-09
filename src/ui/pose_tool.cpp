@@ -11,6 +11,7 @@
 #include "render/frame_renderer.h"
 #include "render/stage_geometry.h"
 #include "render/stage_hit.h"
+#include "ui/drag_text.h"
 #include "ui/playhead.h"
 
 namespace snapper {
@@ -117,8 +118,27 @@ void PoseTool::PressPick(const Pick& pick, bool is_shift, bool is_ctrl,
 QRectF PoseTool::Box() const {
   const bool is_box = drag_ != nullptr && drag_->kind == Kind::kBox;
   assert(!is_box || drag_->frame.scale > 0.0);
+  assert(!is_box || drag_->kind == Kind::kBox);
   return is_box ? QRectF(drag_->start, drag_->corner).normalized()
                 : QRectF();
+}
+
+void PoseTool::MoveIk(QPointF point) {
+  assert(drag_ != nullptr);
+  assert(managers_.pose != nullptr);
+  const Project& project = managers_.history->current();
+  const Shot* shot = FindShot(project, drag_->frame.shot);
+  const StageFrame& at = drag_->frame;
+  const auto to_screen =
+      shot != nullptr
+          ? LayerToScreen(project, *shot, drag_->layer, at.local, at.scale)
+          : std::nullopt;
+  if (to_screen) {
+    Note(managers_.pose->DragIk(at.shot, drag_->layer, drag_->chain,
+                                at.local,
+                                Back(*to_screen, point, at.corner)));
+  }
+  Say(OffsetText(point - drag_->start), false, point);
 }
 
 void PoseTool::Move(QPointF point, bool is_shift) {
@@ -141,32 +161,20 @@ void PoseTool::Move(QPointF point, bool is_shift) {
     case Kind::kBox:
       drag_->corner = point;
       break;
-    case Kind::kIk: {
-      const Project& project = managers_.history->current();
-      const Shot* shot = FindShot(project, drag_->frame.shot);
-      const StageFrame& at = drag_->frame;
-      const auto to_screen =
-          shot != nullptr
-              ? LayerToScreen(project, *shot, drag_->layer, at.local, at.scale)
-              : std::nullopt;
-      if (to_screen) {
-        Note(managers_.pose->DragIk(at.shot, drag_->layer, drag_->chain,
-                                    at.local,
-                                    Back(*to_screen, point, at.corner)));
-      }
+    case Kind::kIk:
+      MoveIk(point);
       break;
-    }
     case Kind::kMove:
       MoveAll(total);
+      Say(OffsetText(total), false, point);
       break;
     case Kind::kScale:
       // Right or up grows, left or down shrinks.
       ScaleAll(std::pow(2.0, (total.x() - total.y()) / kScalePixels));
+      Say(ScaleText(drag_->scaled), false, point);
       break;
     case Kind::kLean:
-      Note(managers_.pose->Lean(drag_->frame.shot, drag_->dolls,
-                                drag_->frame.local,
-                                total.y() * kTurnPerPixel, 0.0));
+      MoveTurn(total, point, false, is_shift);
       break;
     case Kind::kWarp: {
       const StageFrame& at = drag_->frame;
@@ -176,12 +184,11 @@ void PoseTool::Move(QPointF point, bool is_shift) {
       Note(managers_.pose->Pull(
           {at.shot, TrackKind::kPiece, drag_->layer, drag_->piece},
           at.local, drag_->point, moved));
+      Say(OffsetText(point - drag_->start), false, point);
       break;
     }
     case Kind::kSwivel:
-      Note(managers_.pose->Lean(drag_->frame.shot, drag_->dolls,
-                                drag_->frame.local, 0.0,
-                                total.x() * kTurnPerPixel));
+      MoveTurn(total, point, true, is_shift);
       break;
   }
 }
@@ -204,6 +211,7 @@ bool PoseTool::LeftDeadZone(QPointF point) {
 
 void PoseTool::MoveAll(QPointF total) {
   assert(drag_ != nullptr);
+  assert(std::isfinite(total.x()) && std::isfinite(total.y()));
   const Project& project = managers_.history->current();
   const StageFrame& at = drag_->frame;
   const Shot* shot = FindShot(project, at.shot);
@@ -326,8 +334,14 @@ void PoseTool::Wheel(int notches, bool is_fine, const StageFrame& frame) {
   }
   PoseDelta delta;
   // Wheel up turns counterclockwise, like a knob.
-  delta.rotation = -notches * (is_fine ? kFineWheelStep : kWheelStep);
+  delta.rotation = WheelDegrees(notches, is_fine);
   Note(managers_.pose->Shift(tracks, frame.local, delta));
+}
+
+double PoseTool::WheelDegrees(int notches, bool is_fine) {
+  assert(notches > -1000000 && notches < 1000000);
+  assert(kWheelStep > kFineWheelStep);
+  return -notches * (is_fine ? kFineWheelStep : kWheelStep);
 }
 
 void PoseTool::Note(const Result<void>& result) {

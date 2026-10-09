@@ -1,5 +1,7 @@
 #include <QTest>
 
+#include <cassert>
+
 #include "anim/master_timeline.h"
 #include "bench.h"
 #include "ui/shot_strip.h"
@@ -10,6 +12,8 @@ namespace {
 QPoint Middle(const QRectF& rect) { return rect.center().toPoint(); }
 
 QStringList Names(const Bench& bench) {
+  assert(!bench.dir.path().isEmpty());
+  assert(bench.history.current().shots.size() < 1000);
   QStringList names;
   for (const auto& shot : bench.history.current().shots) {
     names.append(shot->name);
@@ -29,6 +33,8 @@ class ShotStripTests final : public QObject {
   void DraggingAShotReordersIt();
   void DeleteRemovesThePickedShot();
   void ManyShotsResizeAndDeleteTogether();
+  void EdgeDragSaysFramesAndReorderSaysPlace();
+  void EscapeDropsTheEdgeDrag();
 };
 
 void ShotStripTests::PlusAddsAfterThePickedShot() {
@@ -127,6 +133,51 @@ void ShotStripTests::ManyShotsResizeAndDeleteTogether() {
   QCOMPARE(shots[2]->length, Frame(60));
   QTest::keyClick(&strip, Qt::Key_Delete);
   QCOMPARE(Names(bench), QStringList({"Shot 2"}));
+}
+
+void ShotStripTests::EdgeDragSaysFramesAndReorderSaysPlace() {
+  Bench bench;
+  bench.motion.SetMode(MotionMode::kOff);
+  for (int i = 0; i < 3; ++i) {
+    QVERIFY(bench.shots.Add(-1).has_value());
+  }
+  ShotStrip strip(bench.All());
+  strip.resize(800, 40);
+  QVERIFY(!strip.feedback().is_active());
+  const QRectF block = strip.Blocks()[0].rect;
+  const QPoint edge(static_cast<int>(block.right()) - 2,
+                    static_cast<int>(block.center().y()));
+  QTest::mousePress(&strip, Qt::LeftButton, {}, edge);
+  QTest::mouseMove(&strip, edge + QPoint(24, 0));
+  QCOMPARE(strip.feedback().text(), QString("+12 f"));
+  QTest::mouseRelease(&strip, Qt::LeftButton, {}, edge + QPoint(24, 0));
+  QVERIFY(!strip.feedback().is_active());
+  const QPoint grab = Middle(strip.Blocks()[0].rect);
+  QTest::mousePress(&strip, Qt::LeftButton, {}, grab);
+  QTest::mouseMove(&strip, Middle(strip.Blocks()[2].rect) + QPoint(20, 0));
+  QCOMPARE(strip.feedback().text(), QString("Place 3"));
+  QTest::mouseRelease(&strip, Qt::LeftButton, {},
+                      Middle(strip.Blocks()[2].rect) + QPoint(20, 0));
+  QVERIFY(!strip.feedback().is_active());
+}
+
+void ShotStripTests::EscapeDropsTheEdgeDrag() {
+  Bench bench;
+  bench.motion.SetMode(MotionMode::kOff);
+  QVERIFY(bench.shots.Add(-1).has_value());
+  ShotStrip strip(bench.All());
+  strip.resize(800, 40);
+  const QRectF block = strip.Blocks()[0].rect;
+  const QPoint edge(static_cast<int>(block.right()) - 2,
+                    static_cast<int>(block.center().y()));
+  QTest::mousePress(&strip, Qt::LeftButton, {}, edge);
+  QTest::mouseMove(&strip, edge + QPoint(24, 0));
+  QCOMPARE(bench.history.current().shots[0]->length, Frame(60));
+  QTest::keyClick(&strip, Qt::Key_Escape);
+  QVERIFY(!strip.feedback().is_active());
+  QCOMPARE(bench.history.current().shots[0]->length, Frame(48));
+  QTest::mouseRelease(&strip, Qt::LeftButton, {}, edge + QPoint(24, 0));
+  QCOMPARE(bench.history.current().shots[0]->length, Frame(48));
 }
 
 }  // namespace snapper
