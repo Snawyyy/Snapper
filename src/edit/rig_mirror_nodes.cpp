@@ -106,6 +106,11 @@ Result<void> RigManager::MirrorNodes(const QString& doll,
                   for (DragNode& node : to->drag_nodes) {
                     node.point = MirroredPoint(from.warp, node.point);
                   }
+                  to->point_motions.clear();
+                  for (const PointMotion& motion : from.point_motions) {
+                    to->point_motions.push_back(
+                        MirroredMotion(motion, from.warp));
+                  }
                   to->collider = MirroredCollider(found, from, *to);
                   return {};
                 }));
@@ -131,6 +136,7 @@ Result<void> RigManager::MirrorDots(const std::vector<DotRef>& dots) {
     for (const DragNode& n : from.drag_nodes) {
       node = n.point == dot.point ? &n : node;
     }
+    const PointMotion* moving = FindMotion(from, dot.point);
     const int point = MirroredPoint(from.warp, dot.point);
     next = WithPiece(
         *next, dot.doll, MirrorName(dot.piece),
@@ -143,6 +149,13 @@ Result<void> RigManager::MirrorDots(const std::vector<DotRef>& dots) {
             DragNode copy = *node;
             copy.point = point;
             to->drag_nodes.push_back(copy);
+          }
+          std::erase_if(to->point_motions, [point](const PointMotion& m) {
+            return m.point == point;
+          });
+          const bool is_moving = moving != nullptr;
+          if (is_moving) {
+            to->point_motions.push_back(MirroredMotion(*moving, from.warp));
           }
           return {};
         });

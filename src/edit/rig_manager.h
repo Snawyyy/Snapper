@@ -117,13 +117,14 @@ class RigManager final {
                                  const QString& other, bool pushes);
   // Why MirrorNodes can't act on piece; empty when it can.
   QString WhyNoMirror(const QString& doll, const QString& piece) const;
-  // Copies piece's drag and physics nodes and its collider (and which
-  // pieces it pushes) onto its left or right twin, mirrored, replacing
+  // Copies piece's drag and physics nodes, point motions and its
+  // collider (and which pieces it pushes) onto its left or right twin, mirrored, replacing
   // what the twin had there: one undo step. Needs the same warp grid
   // on both.
   Result<void> MirrorNodes(const QString& doll, const QString& piece);
-  // Copies just these dots' drag or physics nodes to the mirrored dots
-  // of their pieces' twins (a dot with none clears the twin's).
+  // Copies just these dots' drag or physics nodes and motions to the
+  // mirrored dots of their pieces' twins (a dot with none clears the
+  // twin's).
   Result<void> MirrorDots(const std::vector<DotRef>& dots);
   // Gives a warp grid point its motion, or changes it; kind kNone stops
   // it. Size, cycle and delay are kept in range.

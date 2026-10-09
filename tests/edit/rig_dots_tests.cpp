@@ -34,6 +34,7 @@ class RigDotsTests final : public QObject {
   void ManyDotsEditInOneNamedStep();
   void MirrorNodesAndDotsOntoTheTwin();
   void MathWorksOnEachDotsOwnNumber();
+  void MirrorCopiesPointMotionsWithTheirDirectionFlipped();
 };
 
 void RigDotsTests::ManyDotsEditInOneNamedStep() {
@@ -158,6 +159,43 @@ void RigDotsTests::MathWorksOnEachDotsOwnNumber() {
   QVERIFY(!rig.SetDragFieldMath(two, DragField::kLag, "/0").has_value());
   QVERIFY(rig.SetDragFieldMath(two, DragField::kLag, "+0.25").has_value());
   QCOMPARE(BobRig(history).pieces[0].drag_nodes[1].lag, 0.75);
+}
+
+void RigDotsTests::MirrorCopiesPointMotionsWithTheirDirectionFlipped() {
+  Doll doll;
+  doll.art.pieces = {{"arm_l", {"a.png"}, 0, {0, 0}, {20, 40}},
+                     {"arm_r", {"a.png"}, 0, {60, 0}, {20, 40}}};
+  doll.rig.pieces = {{"arm_l", "", {0, 0}, 0, -1, {2, 2}},
+                     {"arm_r", "", {0, 0}, 0, -1, {2, 2}}};
+  doll.rig.pieces[0].point_motions = {
+      {0, WarpMotionKind::kWave, 8.0, 24, 30.0, 0.25},
+      {1, WarpMotionKind::kPulse, 4.0, 12, 90.0, 0.0}};
+  doll.rig.pieces[1].point_motions = {
+      {5, WarpMotionKind::kShiver, 2.0, 6, 0.0, 0.0}};
+  Project project;
+  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
+  HistoryManager history(project);
+  RigManager rig(&history);
+  // The whole piece: motions land on mirrored points, left and right
+  // swapped; the twin's old motion is gone.
+  QVERIFY(rig.MirrorNodes("Bob", "arm_l").has_value());
+  const auto& motions = BobRig(history).pieces[1].point_motions;
+  QCOMPARE(motions.size(), size_t{2});
+  QCOMPARE(motions[0],
+           (PointMotion{2, WarpMotionKind::kWave, 8.0, 24, 150.0, 0.25}));
+  QCOMPARE(motions[1],
+           (PointMotion{1, WarpMotionKind::kPulse, 4.0, 12, 90.0, 0.0}));
+  history.Undo();
+  // Just picked dots: dot 0 has a wave, dot 3 has none.
+  QVERIFY(rig.MirrorDots({{"Bob", "arm_l", 0}, {"Bob", "arm_l", 3}})
+              .has_value());
+  const auto& some = BobRig(history).pieces[1].point_motions;
+  QCOMPARE(some.size(), size_t{1});
+  const PointMotion* wave = FindMotion(BobRig(history).pieces[1], 2);
+  QVERIFY(wave != nullptr);
+  QCOMPARE(wave->angle, 150.0);
+  // The twin's own motion on point 5 (the mirror of dot 3) was cleared.
+  QVERIFY(FindMotion(BobRig(history).pieces[1], 5) == nullptr);
 }
 
 }  // namespace snapper

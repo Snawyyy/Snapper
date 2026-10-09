@@ -42,11 +42,9 @@ void MirrorPiece(const Doll& doll, const RigPiece& from, RigPiece* to) {
   for (DragNode& node : to->drag_nodes) {
     node.point = MirroredPoint(from.warp, node.point);
   }
-  to->point_motions = from.point_motions;
-  for (PointMotion& motion : to->point_motions) {
-    motion.point = MirroredPoint(from.warp, motion.point);
-    // Left and right swap, up and down stay.
-    motion.angle = std::remainder(180.0 - motion.angle, 360.0);
+  to->point_motions.clear();
+  for (const PointMotion& motion : from.point_motions) {
+    to->point_motions.push_back(MirroredMotion(motion, from.warp));
   }
   const QString parent = MirrorName(from.parent);
   const bool has_mirrored_parent =

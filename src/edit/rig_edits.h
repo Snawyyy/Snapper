@@ -10,6 +10,7 @@
 #include <memory>
 #include <variant>
 
+#include "anim/warp.h"
 #include "base/error.h"
 #include "base/text.h"
 #include "model/project.h"
@@ -65,6 +66,16 @@ inline double ArtCentreX(const ArtPiece& art) {
   assert(art.size.width() >= 0);
   assert(std::isfinite(art.position.x()));
   return art.position.x() + art.size.width() / 2.0;
+}
+
+// motion as it is on the other side of a piece with warp grid: on the
+// mirrored point, left and right swapped, up and down staying.
+inline PointMotion MirroredMotion(PointMotion motion, WarpGrid grid) {
+  assert(grid.IsOn());
+  assert(motion.point >= 0 && motion.point < grid.PointCount());
+  motion.point = MirroredPoint(grid, motion.point);
+  motion.angle = std::remainder(180.0 - motion.angle, 360.0);
+  return motion;
 }
 
 // The same, for one piece of the rig.
