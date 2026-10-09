@@ -102,15 +102,6 @@ void TimelineView::mousePressEvent(QMouseEvent* event) {
   StartKeyDrag(*key, at);
 }
 
-void TimelineView::StartKeyDrag(Frame key, QPointF at) {
-  assert(key.index() >= 0);
-  assert(key_drag_ == nullptr);
-  key_drag_ = std::make_unique<EditScope>(managers_.history, tr("Move keys"));
-  drag_frame_ = key;
-  press_ = at;
-  is_started_ = false;
-}
-
 void TimelineView::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
   const auto frame = FrameAt(std::max<double>(event->position().x(),
@@ -130,27 +121,14 @@ void TimelineView::mouseMoveEvent(QMouseEvent* event) {
     UpdateHover(event->position());
     return;
   }
-  is_started_ = is_started_ || IsPastDeadZone(press_, event->position());
-  const int step = frame->index() - drag_frame_.index();
-  const bool is_sliding = is_started_ && step != 0;
-  if (!is_sliding) {
-    return;
-  }
-  const auto moved = managers_.keys->Shift(managers_.selection->keys(), step);
-  if (moved) {
-    drag_frame_ = *frame;
-    managers_.selection->SelectKeys(*moved, false);
-  } else {
-    emit Problem(moved.error().message);
-  }
+  SlideKeys(*frame, event->position());
 }
 
 void TimelineView::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
   assert(managers_.history != nullptr);
   is_scrubbing_ = false;
-  key_drag_.reset();
-  is_started_ = false;
+  EndKeyDrag();
   if (is_boxing_) {
     FinishBox();
   }
@@ -201,6 +179,7 @@ void TimelineView::FinishBox() {
 
 void TimelineView::mouseDoubleClickEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  assert(managers_.selection != nullptr);
   const Project& project = managers_.history->current();
   const ShotId shot = managers_.selection->shot();
   const auto rows = TimelineRows(project, shot);
@@ -223,6 +202,7 @@ void TimelineView::mouseDoubleClickEvent(QMouseEvent* event) {
 
 void TimelineView::contextMenuEvent(QContextMenuEvent* event) {
   assert(event != nullptr);
+  assert(managers_.selection != nullptr);
   const Project& project = managers_.history->current();
   const auto rows = TimelineRows(project, managers_.selection->shot());
   const int index = RowAt(event->pos().y(), rows.size());
@@ -318,10 +298,16 @@ void TimelineView::EmptyMenu(const TimelineRow& row, Frame frame,
 
 void TimelineView::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
+  assert(managers_.keys != nullptr);
   const auto& picked = managers_.selection->keys();
   const bool is_delete = event->key() == Qt::Key_Delete ||
                          event->key() == Qt::Key_Backspace;
   const bool is_copy = event->matches(QKeySequence::Copy);
+  const bool is_escape = event->key() == Qt::Key_Escape;
+  const bool was_dragging = is_escape && CancelKeyDrag();
+  if (was_dragging) {
+    return;
+  }
   const bool is_all = event->matches(QKeySequence::SelectAll);
   if (is_all) {
     const Project& project = managers_.history->current();
@@ -367,6 +353,7 @@ void TimelineView::wheelEvent(QWheelEvent* event) {
 
 void TimelineView::Seek(Frame local) {
   assert(local.index() >= 0);
+  assert(managers_.playback != nullptr);
   const Project& project = managers_.history->current();
   const int index = ShotIndex(project, managers_.selection->shot());
   const bool has_shot = index >= 0;

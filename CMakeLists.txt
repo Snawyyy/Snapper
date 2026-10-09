@@ -72,7 +72,8 @@ snapper_module(ui
           motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
           scrub_label.cpp
           stage_menu.cpp stage_view.cpp stage_view_paint.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
-          timeline_view.cpp transition_picker.cpp video_page.cpp
+          timeline_drag.cpp timeline_view.cpp transition_picker.cpp
+          video_page.cpp
   MODULES edit
   LIBS Qt6::Widgets)
 

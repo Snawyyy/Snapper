@@ -6,6 +6,7 @@
 #include <QWidget>
 
 #include <memory>
+#include <set>
 #include <optional>
 #include <vector>
 
@@ -13,6 +14,7 @@
 #include "edit/edit_scope.h"
 #include "edit/selection_manager.h"
 #include "edit/timeline_rows.h"
+#include "ui/drag_feedback.h"
 #include "ui/handle_hover.h"
 #include "ui/managers.h"
 #include "ui/problem.h"
@@ -39,6 +41,8 @@ class TimelineView final : public QWidget {
   // Shot frame under x, or nothing left of the frames.
   std::optional<Frame> FrameAt(double x) const;
   double XOf(Frame frame) const;
+  // The chip, ghost and flash of the key drag, for tests to look at.
+  const DragFeedback& feedback() const { return feedback_; }
 
  signals:
   void Problem(const QString& why);
@@ -77,6 +81,14 @@ class TimelineView final : public QWidget {
   void Seek(Frame local);
   // Opens the one undo step of a key drag that starts at at.
   void StartKeyDrag(Frame key, QPointF at);
+  // The mouse moved to frame at at during a key drag: slides the picked
+  // keys there once past the dead zone and says how far they went.
+  void SlideKeys(Frame frame, QPointF at);
+  // The mouse let go: lands the drag as one step and pops.
+  void EndKeyDrag();
+  // Escape: puts the keys and the pick back. False when no key drag
+  // was running.
+  bool CancelKeyDrag();
   void Report(const QString& problem) { emit Problem(problem); }
   void KeyMenu(const TimelineRow& row, Frame frame, QPoint where);
   void EmptyMenu(const TimelineRow& row, Frame frame, QPoint where);
@@ -99,11 +111,16 @@ class TimelineView final : public QWidget {
   PickMode box_mode_ = PickMode::kReplace;
   std::unique_ptr<EditScope> key_drag_;
   Frame drag_frame_;
+  // The frame the dragged key was pressed on, and the pick then, for
+  // Escape to restore.
+  Frame drag_origin_;
+  std::set<KeyRef> drag_keys_;
   // Where a key was pressed; it slides only once the mouse has gone
   // kDragDeadZone, then jumps under the cursor.
   QPointF press_;
   bool is_started_ = false;
   HandleHover hover_;
+  DragFeedback feedback_;
 };
 
 }  // namespace snapper
