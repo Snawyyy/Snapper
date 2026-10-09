@@ -112,6 +112,10 @@ class PoseTool final {
   std::optional<Readout> ReadoutOf() const;
 
   bool IsDragging() const { return drag_ != nullptr; }
+  // True while the drag is drawing the pick box, not moving anything.
+  bool IsBoxing() const {
+    return drag_ != nullptr && drag_->kind == Kind::kBox;
+  }
   // The pick box being drawn, in widget pixels; empty when none.
   QRectF Box() const;
   // The last thing that went wrong, for the status bar; empty if none.

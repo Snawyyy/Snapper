@@ -4,6 +4,9 @@
 #include <QImage>
 #include <QTransform>
 
+#include <map>
+#include <set>
+
 #include "base/frame.h"
 #include "model/project.h"
 #include "render/image_cache.h"
@@ -31,6 +34,13 @@ class FrameRenderer final {
   // One shot on its own, at a frame of its own.
   QImage RenderShot(const Project& project, const Shot& shot, Frame local,
                     double scale);
+
+  // Only some layers of a shot on a clear picture, with no effects: a
+  // layer that maps to an empty set is drawn whole, one that maps to
+  // piece names only draws those pieces of its doll.
+  QImage RenderLayers(const Project& project, const Shot& shot, Frame local,
+                      double scale,
+                      const std::map<LayerId, std::set<QString>>& only);
 
   // Shot space (origin at the canvas middle) to output pixels, with the
   // shot's camera at local. Tools use it to hit-test what was drawn.

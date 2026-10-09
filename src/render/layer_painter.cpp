@@ -26,6 +26,7 @@ struct Painter final {
   LinkSolver* links;
   ImageCache* cache;
   QPainter* painter;
+  const std::set<QString>* only_pieces = nullptr;
 
   void operator()(const DollLayer& layer) const;
   void operator()(const ImageLayer& layer) const;
@@ -46,7 +47,10 @@ void Painter::operator()(const DollLayer& layer) const {
        PlaceDoll(*doll, links != nullptr ? links->Poses(*doll, whole, frame)
                                          : ShownPoses(*doll, whole, frame))) {
     const QImage& image = cache->Get(piece.drawing);
-    const bool is_drawable = !image.isNull() && piece.opacity > 0.0;
+    const bool is_chosen =
+        only_pieces == nullptr || only_pieces->contains(piece.name);
+    const bool is_drawable =
+        is_chosen && !image.isNull() && piece.opacity > 0.0;
     if (!is_drawable) {
       continue;
     }
@@ -138,7 +142,7 @@ QRectF TextBox(const TextLayer& text) {
 
 void PaintLayer(const Project& project, const Layer& layer, Frame frame,
                 const QTransform& view, LinkSolver* links, ImageCache* cache,
-                QPainter* painter) {
+                QPainter* painter, const std::set<QString>* only_pieces) {
   assert(cache != nullptr);
   assert(painter != nullptr && painter->isActive());
   const PiecePose pose = Sample(layer.transform, frame, PiecePose());
@@ -150,7 +154,8 @@ void PaintLayer(const Project& project, const Layer& layer, Frame frame,
                                 ? links->LayerTransform(layer, frame)
                                 : LayerTransform(layer, frame)) *
                            view;
-  std::visit(Painter{project, layer, frame, world, links, cache, painter},
+  std::visit(Painter{project, layer, frame, world, links, cache, painter,
+                     only_pieces},
              layer.content);
   painter->restore();
 }

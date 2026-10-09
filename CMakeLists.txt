@@ -71,7 +71,7 @@ snapper_module(ui
           drag_feedback.cpp drag_text.cpp grab.cpp handle_hover.cpp
           motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
           refusal_shaker.cpp scrub_label.cpp toast_manager.cpp toast_queue.cpp toast_view.cpp
-          stage_menu.cpp stage_view.cpp stage_view_paint.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
+          stage_menu.cpp stage_view.cpp stage_view_paint.cpp stage_view_ghost.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
           timeline_drag.cpp timeline_view.cpp transition_picker.cpp
           video_page.cpp
   MODULES edit

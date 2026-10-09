@@ -6,6 +6,8 @@
 #include <QRectF>
 #include <QTransform>
 
+#include <set>
+
 #include "anim/doll_pose.h"
 #include "anim/links.h"
 #include "base/frame.h"
@@ -23,10 +25,12 @@ QFont TextFont(const TextLayer& text);
 // Draws one picture layer (doll, image or text) through view, which
 // maps shot space to the output, moved by its shot's links (links may
 // be nullptr for a layer outside any shot). Effect layers are not drawn
-// here: they change what is already drawn.
+// here: they change what is already drawn. With only_pieces, a doll
+// draws just the pieces so named (the others keep their place, unseen).
 void PaintLayer(const Project& project, const Layer& layer, Frame frame,
                 const QTransform& view, LinkSolver* links, ImageCache* cache,
-                QPainter* painter);
+                QPainter* painter,
+                const std::set<QString>* only_pieces = nullptr);
 
 }  // namespace snapper
 

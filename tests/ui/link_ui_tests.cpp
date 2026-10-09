@@ -3,6 +3,7 @@
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QMenu>
+#include <QPainter>
 #include <QTest>
 #include <QTimer>
 
@@ -96,7 +97,34 @@ class LinkUiTests final : public QObject {
   void RightClickLinksThePick();
   void LinkingToItselfIsGreyedOut();
   void LinkBoxSetsStrengthAndUnlinks();
+  void StageDragLeavesAFaintCopyAtTheStart();
 };
+
+void LinkUiTests::StageDragLeavesAFaintCopyAtTheStart() {
+  Bench bench;
+  Stage(&bench);
+  bench.motion.SetMode(MotionMode::kOff);
+  StageView stage(bench.All());
+  stage.resize(400, 400);
+  const auto frame = stage.CurrentFrame();
+  QVERIFY(frame.has_value());
+  const QPoint start = (frame->corner + QPointF(15, 15) * frame->scale)
+                           .toPoint();
+  QTest::mousePress(&stage, Qt::LeftButton, {}, start);
+  QCOMPARE(stage.feedback().ghost_kind(), GhostKind::kStagePick);
+  QTest::mouseMove(&stage, start + QPoint(80, 80));
+  QImage seen(400, 400, QImage::Format_ARGB32);
+  seen.fill(Qt::black);
+  QPainter painter(&seen);
+  stage.feedback().Paint(&painter, QRectF(0, 0, 400, 400));
+  painter.end();
+  // The blue box shows faintly where it was grabbed, not as the red doll.
+  QVERIFY(seen.pixelColor(start).blue() > 30);
+  QCOMPARE(seen.pixelColor(start).red(), 0);
+  QTest::keyClick(&stage, Qt::Key_Escape);
+  QCOMPARE(stage.feedback().ghost_kind(), GhostKind::kNone);
+  QTest::mouseRelease(&stage, Qt::LeftButton, {}, start);
+}
 
 void LinkUiTests::RightClickLinksThePick() {
   Bench bench;
