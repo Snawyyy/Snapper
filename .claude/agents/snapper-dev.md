@@ -44,8 +44,8 @@ You change the Snapper code base (C++23, Qt 6, CMake). The project
   `-silent`: failures and totals only; pass `-silent` too if you run
   a test program by hand)
 - At the end, once: `cmake --build --preset debug 2>&1 | tail -20`
-  and `ctest --preset debug 2>&1 | tail -15`. The `lint` test fails
-  on old breaks; check only that none are in files you touched.
+  and `ctest --preset debug 2>&1 | tail -15`; all of it must pass,
+  `lint` included.
 - Pipe build output through `tail` or `grep error`; never print a
   whole build log.
 - Never launch `build/snapper`. Tests run offscreen

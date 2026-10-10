@@ -32,8 +32,7 @@ Law hook lints each file as it is saved, so breaks show up at once.
 Before calling it done, one full build and `ctest --preset debug`.
 `ctest` also runs the linter over every file and the layer check, so
 a green run means the code builds, passes its tests, follows the rules
-and respects the module order. Until the old lint breaks are fixed
-the `lint` test fails: check only that it lists nothing in your files.
+and respects the module order.
 
 ## Krita exporter
 
@@ -89,11 +88,9 @@ Next steps:
 3. Build redesign steps 8 to 13 in order: key chip bar, inspector
    reshape, stage zoom/pan/guides, cards and drag-in, rig by touch,
    extras (sounds go in here, on and quiet by default).
-4. Fix the 121 old lint breaks so the `lint` ctest goes green.
-5. Faster links: install mold (`sudo pacman -S mold`); then think
-   about one test program per module instead of one per file, since
+4. Faster links: mold is in; next, think about one test program per module instead of one per file, since
    every change relinks about 100 of them.
-6. Merge to main only when the owner says "merge".
+5. Merge to main only when the owner says "merge".
 
 Agents: hand code changes to the `snapper-dev` agent (six tools, so
 it starts at about 14k tokens against 44k for general-purpose; it has
