@@ -60,7 +60,15 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-10): warp mesh detail lowered (Few 10, Normal 25,
+Last done (2026-10-10, branch `workflow`, merged into `ui-test`):
+agent speed. Past agent logs showed builds took most of their tool
+time, so builds moved off the NTFS drive (a one-file change rebuilt in
+70 s, now 20 s; one test target in under a second), ccache is on, mold
+is used when installed, agent worktrees start from the current branch,
+and `docs/feature-map.md` sends an agent straight to the section,
+files, manager and test it needs. 22 old merged worktrees removed.
+
+Before that (2026-10-10): warp mesh detail lowered (Few 10, Normal 25,
 Many 60); reach set on many picked dots at once (wheel and a Reach
 field) and copied by Mirror; drag nodes got a kind (Drag, Cloth,
 Jelly) replacing the Physics tick; Jelly physics (one smooth blob
@@ -82,7 +90,10 @@ Next steps:
    reshape, stage zoom/pan/guides, cards and drag-in, rig by touch,
    extras (sounds go in here, on and quiet by default).
 4. Fix the 121 old lint breaks so the `lint` ctest goes green.
-5. Merge to main only when the owner says "merge".
+5. Faster links: install mold (`sudo pacman -S mold`); then think
+   about one test program per module instead of one per file, since
+   every change relinks about 100 of them.
+6. Merge to main only when the owner says "merge".
 
 Agents: run test binaries only with `QT_QPA_PLATFORM=offscreen`, never
 launch `build/snapper`; merge `ui-test` into a branch before handing it
