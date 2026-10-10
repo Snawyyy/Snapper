@@ -45,6 +45,7 @@ class PoseMemoTests final : public QObject {
   void AShotOutsideTheProjectKeepsNothing();
   void ASolverReusesWhatAnotherSolved();
   void IsBoundedInSize();
+  void AnOverrideStandsInForTheSolvedPoses();
 };
 
 void PoseMemoTests::KeepsAPoseForItsLayerAndFrame() {
@@ -108,6 +109,24 @@ void PoseMemoTests::IsBoundedInSize() {
   }
   QVERIFY(memo.size() <= kMaxMemoPoses);
   QVERIFY(memo.size() > 0);
+}
+
+void PoseMemoTests::AnOverrideStandsInForTheSolvedPoses() {
+  const Project project = OneShotProject();
+  const Shot& shot = *project.shots[0];
+  PoseMemo memo;
+  LinkSolver plain(project, shot, &memo);
+  const Doll& doll = *project.dolls.at("Dot");
+  QVERIFY(plain.Poses(doll, shot.layers[0], Frame(3)).empty());
+  memo.SetOverride(kLayer, OnePose(7.0));
+  LinkSolver poked(project, shot, &memo);
+  const PoseMap shown = poked.Poses(doll, shot.layers[0], Frame(3));
+  QCOMPARE(shown.at("body").rotation, 7.0);
+  QCOMPARE(memo.OverrideOf(kLayer)->size(), size_t(1));
+  memo.ClearOverride(kLayer);
+  QVERIFY(memo.OverrideOf(kLayer) == nullptr);
+  LinkSolver after(project, shot, &memo);
+  QVERIFY(after.Poses(doll, shot.layers[0], Frame(3)).empty());
 }
 
 }  // namespace snapper

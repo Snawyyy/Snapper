@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <utility>
 
 namespace snapper {
 
@@ -55,6 +56,26 @@ DragTrail* PoseMemo::TrailOf(LayerId layer) {
   assert(layer.value() >= 0);
   assert(shot_ != nullptr);
   return &trails_[layer.value()];
+}
+
+void PoseMemo::SetOverride(LayerId layer, PoseMap poses) {
+  assert(layer.value() >= 0);
+  assert(overrides_.size() < 4096);
+  overrides_[layer.value()] = std::move(poses);
+}
+
+void PoseMemo::ClearOverride(LayerId layer) {
+  assert(layer.value() >= 0);
+  assert(overrides_.size() < 4096);
+  overrides_.erase(layer.value());
+}
+
+const PoseMap* PoseMemo::OverrideOf(LayerId layer) const {
+  assert(layer.value() >= 0);
+  assert(overrides_.size() < 4096);
+  const auto found = overrides_.find(layer.value());
+  const bool is_set = found != overrides_.end();
+  return is_set ? &found->second : nullptr;
 }
 
 }  // namespace snapper

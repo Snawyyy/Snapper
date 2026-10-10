@@ -11,6 +11,7 @@
 
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
+#include "edit/poke_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/project_edits.h"
 #include "render/stage_geometry.h"
@@ -31,6 +32,7 @@ constexpr int kWheelUnit = 120;
 StageView::StageView(const Managers& managers)
     : managers_(managers),
       tool_(managers, renderer_.cache()),
+      poke_(managers),
       hover_(managers.motion, this),
       feedback_(managers.motion, this) {
   assert(managers_.IsComplete());
@@ -42,6 +44,7 @@ StageView::StageView(const Managers& managers)
   connect(managers_.selection, &SelectionManager::Changed, this, update_me);
   connect(managers_.selection, &SelectionManager::Changed, this,
           [this] { tool_.Observe(); });
+  connect(managers_.poke, &PokeManager::Changed, this, update_me);
   connect(&hover_, &HandleHover::Changed, this, update_me);
   connect(&feedback_, &DragFeedback::Changed, this, update_me);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
@@ -77,6 +80,7 @@ void StageView::paintEvent(QPaintEvent* event) {
                      tr("No shot here. Add one in the shot strip above."));
     return;
   }
+  poke_.Sync(renderer_.cache()->poses());
   const QImage image = renderer_.RenderFrame(
       managers_.history->current(),
       managers_.playback->FrameOn(Timeline::kShots), frame->scale);
@@ -102,6 +106,12 @@ void StageView::mousePressEvent(QMouseEvent* event) {
   const auto frame = CurrentFrame();
   const bool is_usable = frame.has_value() &&
                          event->button() == Qt::LeftButton;
+  const bool is_poke = is_usable && poke_.Press(
+      event->position(), LayerUnder(event->position(), *frame), *frame);
+  if (is_poke) {
+    setCursor(Qt::ClosedHandCursor);
+    return;
+  }
   if (is_usable) {
     tool_.Press(event->position(),
                 event->modifiers().testFlag(Qt::ShiftModifier),
@@ -117,6 +127,12 @@ void StageView::mousePressEvent(QMouseEvent* event) {
 
 void StageView::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  const auto poke_frame = CurrentFrame();
+  const bool is_poking = poke_.IsPoking() && poke_frame.has_value();
+  if (is_poking) {
+    poke_.Move(event->position(), *poke_frame);
+    return;
+  }
   const bool is_dragging = tool_.IsDragging();
   if (is_dragging) {
     tool_.Move(event->position(),
@@ -143,7 +159,11 @@ void StageView::UpdateHover(QPointF point) {
   const bool is_pick_changed = now.pick != hover_pick_;
   hover_pick_ = now.pick;
   // A handle shows its own cursor; a thing a click would pick, move.
-  setCursor(now.kind != GrabKind::kNone ? CursorFor(now.kind)
+  const Qt::CursorShape poke_cursor = poke_.CursorOver(
+      now.pick ? now.pick->layer : LayerId(), *frame);
+  const bool is_poke_cursor = poke_cursor != Qt::ArrowCursor;
+  setCursor(is_poke_cursor          ? poke_cursor
+            : now.kind != GrabKind::kNone ? CursorFor(now.kind)
             : now.pick.has_value()    ? Qt::SizeAllCursor
                                       : Qt::ArrowCursor);
   if (is_pick_changed) {
@@ -173,6 +193,12 @@ void StageView::leaveEvent(QEvent* event) {
 void StageView::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
   const bool is_left = event->button() == Qt::LeftButton;
+  const bool was_poking = is_left && poke_.IsPoking();
+  if (was_poking) {
+    poke_.Release();
+    UpdateHover(event->position());
+    return;
+  }
   if (is_left) {
     tool_.Release();
     feedback_.Settle();
@@ -222,6 +248,17 @@ void StageView::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
   const bool is_escape = event->key() == Qt::Key_Escape;
   const bool is_all = event->matches(QKeySequence::SelectAll);
+  const bool was_poke_ended = is_escape && poke_.Cancel();
+  if (was_poke_ended) {
+    update();
+    event->accept();
+    return;
+  }
+  const bool was_poke_key = PokeKey(event, true);
+  if (was_poke_key) {
+    event->accept();
+    return;
+  }
   if (is_escape) {
     // Escape backs out one thing at a time: the drag, the picked warp
     // dot, then the pick.

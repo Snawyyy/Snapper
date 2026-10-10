@@ -30,7 +30,7 @@ snapper_module(anim
   SOURCES cloth.cpp cloth_parts.cpp collider.cpp doll_beat.cpp doll_collide.cpp doll_colliders.cpp grid_fold.cpp grid_push.cpp jelly.cpp node_feel.cpp
           outline_trace.cpp shot_grid.cpp doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp pose_memo.cpp jitter.cpp links.cpp
           master_timeline.cpp mirror.cpp presets.cpp reel_timeline.cpp
-          sampler.cpp timing_chart.cpp warp.cpp warp_motion.cpp
+          poke_layer.cpp sampler.cpp timing_chart.cpp warp.cpp warp_motion.cpp
           delaunay.cpp mask_rings.cpp mesh_carry.cpp mesh_outline.cpp shape_mesh.cpp
           warp_shape.cpp
   MODULES model)
@@ -59,7 +59,7 @@ snapper_module(edit
           edit_scope.cpp
           export_manager.cpp
           history_manager.cpp key_clipboard.cpp key_manager.cpp
-          playback_manager.cpp pose_clipboard.cpp pose_manager.cpp
+          playback_manager.cpp poke_manager.cpp pose_clipboard.cpp pose_manager.cpp
           preset_manager.cpp saved_poses.cpp
           link_manager.cpp project_edits.cpp reel_batch.cpp reel_clipboard.cpp
           reel_cuts.cpp reel_edits.cpp reel_manager.cpp reel_markers.cpp
@@ -87,7 +87,7 @@ snapper_module(ui
           playhead_settle.cpp
           motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
           refusal_shaker.cpp scrub_label.cpp space_keys_action.cpp toast_manager.cpp toast_queue.cpp toast_view.cpp
-          stage_menu.cpp stage_view.cpp stage_view_paint.cpp stage_view_ghost.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
+          stage_menu.cpp stage_view.cpp stage_poke.cpp stage_view_poke.cpp stage_view_paint.cpp stage_view_ghost.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
           timeline_drag.cpp drag_playhead.cpp timeline_view.cpp timing_chart_action.cpp
           timing_chart_dialog.cpp timing_chart_strip.cpp transition_picker.cpp
           video_page.cpp
@@ -109,7 +109,8 @@ if(BUILD_TESTING)
                     collider_push_tests.cpp drag_tests.cpp link_tests.cpp pose_memo_tests.cpp
                     reel_tests.cpp timing_chart_tests.cpp
                     warp_motion_tests.cpp shape_mesh_tests.cpp
-                    mesh_dots_tests.cpp jelly_tests.cpp node_feel_tests.cpp)
+                    mesh_dots_tests.cpp jelly_tests.cpp node_feel_tests.cpp
+                    poke_layer_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp
                    warp_json_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp video_reader_tests.cpp)
@@ -121,7 +122,7 @@ if(BUILD_TESTING)
                             history_tests.cpp
                             key_tests.cpp library_tests.cpp
                             link_manager_tests.cpp posing_tests.cpp
-                            playback_tests.cpp preset_tests.cpp
+                            playback_tests.cpp poke_manager_tests.cpp preset_tests.cpp
                             reel_editing_tests.cpp reel_manager_tests.cpp
                             reel_transition_tests.cpp
                             rig_tests.cpp rig_dots_tests.cpp mesh_edit_tests.cpp
@@ -135,7 +136,7 @@ if(BUILD_TESTING)
                           export_dialog_tests.cpp
                           drag_feedback_tests.cpp drag_text_tests.cpp
                           dot_shape_tests.cpp grab_tests.cpp
-                          handle_hover_tests.cpp
+                          handle_hover_tests.cpp stage_poke_tests.cpp
                           inspector_tests.cpp link_ui_tests.cpp
                           pose_tool_tests.cpp pose_tool_grab_tests.cpp
                           pose_tool_readout_tests.cpp refusal_reason_tests.cpp
