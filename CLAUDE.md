@@ -30,6 +30,8 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 - Reuse the shared pieces: one key type, one sampler, one renderer, one
   edit path. If something looks like a copy of existing code, it is.
 - New logic leaves a test behind in `tests/<module>/`.
+- A small tweak to existing tested logic (a number, a label) needs no
+  new test, just a rebuild.
 - Keep `ARCHITECTURE.md` true: a new manager or module goes in it in the
   same commit.
 
