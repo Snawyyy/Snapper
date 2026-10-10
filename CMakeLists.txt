@@ -27,7 +27,7 @@ snapper_module(model
   MODULES base
   LIBS Qt6::Gui)
 snapper_module(anim
-  SOURCES cloth.cpp collider.cpp doll_beat.cpp doll_collide.cpp doll_colliders.cpp grid_fold.cpp grid_push.cpp
+  SOURCES cloth.cpp cloth_parts.cpp collider.cpp doll_beat.cpp doll_collide.cpp doll_colliders.cpp grid_fold.cpp grid_push.cpp
           outline_trace.cpp shot_grid.cpp doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp pose_memo.cpp jitter.cpp links.cpp
           master_timeline.cpp mirror.cpp presets.cpp reel_timeline.cpp
           sampler.cpp timing_chart.cpp warp.cpp warp_motion.cpp
