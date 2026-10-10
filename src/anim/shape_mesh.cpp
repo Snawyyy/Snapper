@@ -330,13 +330,13 @@ int DotsFor(MeshDetail detail) {
   assert(static_cast<int>(detail) < kMeshDetailCount);
   switch (detail) {
     case MeshDetail::kFew:
-      return 24;
+      return 10;
     case MeshDetail::kNormal:
-      return 60;
+      return 25;
     case MeshDetail::kMany:
-      return 140;
+      return 60;
   }
-  return 60;
+  return 25;
 }
 
 }  // namespace snapper
