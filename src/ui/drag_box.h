@@ -19,7 +19,8 @@
 
 namespace snapper {
 
-// The warp dots picked on the stage: whether they drag behind (as D
+// The warp dots picked on the stage: their rubber reach, whether they
+// drag behind (as D
 // does) and, when they do, their lag and bounce, or, with Physics
 // ticked, the five physics settings (stretch, inertia, air resistance,
 // gravity, bounce) instead. Every picked dot is edited at once: a
@@ -40,10 +41,15 @@ class DragBox final : public QGroupBox {
   // The picked dots, and the drag nodes among them.
   struct Look final {
     std::vector<DotRef> dots;
+    std::vector<double> reaches;
     std::vector<const DragNode*> nodes;
   };
   Look LookAtPick() const;
   void Commit(DragField field, const QDoubleSpinBox* box);
+  void CommitReach();
+  // Why the picked dots can't be mirrored; empty when they can.
+  QString WhyNoTwin(const std::vector<DotRef>& dots) const;
+  void SetUpReachRow();
   void SetUpPhysicsRows();
   // The field that sets which number, in AllFields() order.
   static DragField FieldAt(size_t index);
@@ -52,6 +58,7 @@ class DragBox final : public QGroupBox {
   Managers managers_;
   QFormLayout layout_;
   LiveEdit live_;
+  QDoubleSpinBox reach_;
   QCheckBox drags_;
   QDoubleSpinBox lag_;
   QDoubleSpinBox bounce_;

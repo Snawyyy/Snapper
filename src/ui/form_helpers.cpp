@@ -1,3 +1,4 @@
+#include "model/doll.h"
 #include "ui/form_helpers.h"
 
 #include <QColorDialog>
@@ -41,6 +42,8 @@ void SetUpNumber(QDoubleSpinBox* box, Number kind, const QString& prefix) {
         return {0, 1, 0.05, 2, "", 0.01};
       case Number::kZoom:
         return {0.05, 10, 0.05, 2, "", 0.01};
+      case Number::kCells:
+        return {0, kMaxWarpCells, 0.5, 1, " cells", 0.02};
     }
     return {0, 1, 0.05, 2, "", 0.01};
   }();

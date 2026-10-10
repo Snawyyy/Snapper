@@ -56,6 +56,7 @@ DragBox::DragBox(const Managers& managers)
                      "far."));
   bounce_.setToolTip(tr("How much it wobbles before settling: 0 settles "
                         "softly, 1 keeps bouncing."));
+  SetUpReachRow();
   layout_.addRow(QString(), &drags_);
   AddNumberRow(&layout_, tr("Lag"), &lag_, &live_);
   AddNumberRow(&layout_, tr("Bounce"), &bounce_, &live_);
@@ -96,7 +97,25 @@ DragBox::DragBox(const Managers& managers)
   }
   Follow(managers_, this);
   Refresh();
-  assert(layout_.rowCount() == 10);
+  assert(layout_.rowCount() == 11);
+}
+
+void DragBox::SetUpReachRow() {
+  assert(layout_.rowCount() == 0);
+  assert(managers_.IsComplete());
+  SetUpNumber(&reach_, Number::kCells);
+  reach_.setObjectName("reach");
+  reach_.setToolTip(tr("How far pulling the dot drags the dots around it, "
+                       "like rubber: 0 moves it alone. The mouse wheel "
+                       "over a picked dot changes it too."));
+  AddNumberRow(&layout_, tr("Reach"), &reach_, &live_);
+  MakeLiveNamed(
+      &reach_, &live_, this,
+      [this] {
+        return RigManager::ReachLabel(
+            std::max<size_t>(LookAtPick().dots.size(), 1));
+      },
+      [this] { CommitReach(); });
 }
 
 DragField DragBox::FieldAt(size_t index) {
@@ -116,7 +135,7 @@ std::array<QDoubleSpinBox*, 7> DragBox::AllFields() {
 }
 
 void DragBox::SetUpPhysicsRows() {
-  assert(layout_.rowCount() == 3);
+  assert(layout_.rowCount() == 4);
   assert(managers_.IsComplete());
   physics_.setText(tr("Physics"));
   physics_.setObjectName("physics");
@@ -163,6 +182,7 @@ DragBox::Look DragBox::LookAtPick() const {
   Look look;
   for (const PickedDot& dot : PickedDotsOf(managers_)) {
     look.dots.push_back({dot.doll, dot.piece, dot.point});
+    look.reaches.push_back(ReachOf(*dot.rig, dot.point));
     const auto node = std::find_if(
         dot.rig->drag_nodes.begin(), dot.rig->drag_nodes.end(),
         [&dot](const DragNode& n) { return n.point == dot.point; });
@@ -184,21 +204,17 @@ void DragBox::Refresh() {
   const QString no_pick = tr("Click a warp dot of a picked piece on the "
                              "stage first.");
   Explain(&drags_, has_pick ? QString() : no_pick);
+  Explain(&reach_, has_pick ? QString() : no_pick);
+  if (has_pick) {
+    ShowNumber(&reach_, look.reaches.front(), look.reaches);
+  }
   const QString why_not =
       !has_pick ? no_pick : tr("Tick \"Drags behind\" (or press D) first.");
   for (QDoubleSpinBox* field : AllFields()) {
     Explain(field, has_node ? QString() : why_not);
   }
   Explain(&physics_, has_node ? QString() : why_not);
-  QString why_no_twin = no_pick;
-  for (const DotRef& dot : look.dots) {
-    why_no_twin = managers_.rig->WhyNoMirror(dot.doll, dot.piece);
-    const bool is_refused = !why_no_twin.isEmpty();
-    if (is_refused) {
-      break;
-    }
-  }
-  Explain(&mirror_, why_no_twin);
+  Explain(&mirror_, has_pick ? WhyNoTwin(look.dots) : no_pick);
   drags_.setTristate(true);
   drags_.setCheckState(is_all_drag ? Qt::Checked
                        : has_node  ? Qt::PartiallyChecked
@@ -250,6 +266,35 @@ void DragBox::Commit(DragField field, const QDoubleSpinBox* box) {
       is_math ? managers_.rig->SetDragFieldMath(look.dots, field, math)
               : managers_.rig->SetDragField(look.dots, field,
                                             box->value())));
+}
+
+QString DragBox::WhyNoTwin(const std::vector<DotRef>& dots) const {
+  assert(!dots.empty());
+  assert(managers_.rig != nullptr);
+  for (const DotRef& dot : dots) {
+    const QString why = managers_.rig->WhyNoMirror(dot.doll, dot.piece);
+    const bool is_refused = !why.isEmpty();
+    if (is_refused) {
+      return why;
+    }
+  }
+  return QString();
+}
+
+void DragBox::CommitReach() {
+  assert(managers_.IsComplete());
+  assert(managers_.rig != nullptr);
+  const Look look = LookAtPick();
+  const bool has_pick = !look.dots.empty();
+  if (!has_pick) {
+    return;
+  }
+  // Typed math ("+1") works on each dot's own reach.
+  const QString math = reach_.property(kRelativeProperty).toString();
+  const bool is_math = !math.isEmpty();
+  emit Problem(ProblemOf(
+      is_math ? managers_.rig->SetWarpReachMath(look.dots, math)
+              : managers_.rig->SetWarpReach(look.dots, reach_.value())));
 }
 
 }  // namespace snapper
