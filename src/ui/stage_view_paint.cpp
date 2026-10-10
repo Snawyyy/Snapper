@@ -2,6 +2,7 @@
 
 #include <QLineF>
 #include <QPainter>
+#include <QPolygonF>
 
 #include <cassert>
 
@@ -10,6 +11,8 @@
 #include "edit/selection_manager.h"
 #include "render/stage_geometry.h"
 #include "render/stage_hit.h"
+#include "ui/dot_shape.h"
+#include "ui/motion.h"
 #include "ui/stage_view.h"
 #include "ui/theme.h"
 
@@ -33,18 +36,13 @@ QRectF Box(QPointF centre, double w, double h, double scale) {
                 size);
 }
 
-// Rings drag nodes and squares dots that move by themselves, in
-// yellow, so they read apart from plain dots.
+// Squares dots that move by themselves, in yellow, so they read apart
+// from plain dots.
 void PaintMarks(const WarpOnScreen& warp, QPainter* painter) {
   assert(painter != nullptr);
   assert(warp.points.size() == static_cast<size_t>(warp.grid.PointCount()));
   painter->setPen(QPen(theme::kHandle, 1.5));
   painter->setBrush(Qt::NoBrush);
-  for (const int drag : warp.drags) {
-    painter->drawEllipse(
-        warp.to_screen.map(warp.points[static_cast<size_t>(drag)]),
-        kWarpDot + 3.5, kWarpDot + 3.5);
-  }
   constexpr double kSquare = kWarpDot + 5.0;
   for (const int move : warp.moves) {
     painter->drawRect(QRectF(
@@ -52,6 +50,55 @@ void PaintMarks(const WarpOnScreen& warp, QPainter* painter) {
             QPointF(kSquare, kSquare),
         QSizeF(kSquare * 2, kSquare * 2)));
   }
+}
+
+// A ring round the centre with a tail on the side the dot trails.
+void PaintRing(double radius, QPointF tail, QPainter* painter) {
+  assert(painter != nullptr);
+  assert(radius > 0.0);
+  const double ring = radius + 3.5;
+  painter->setPen(QPen(theme::kHandle, 1.5));
+  painter->setBrush(Qt::NoBrush);
+  painter->drawEllipse(QPointF(), ring, ring);
+  const double length = QLineF(QPointF(), tail).length();
+  const bool has_tail = length > 0.0;
+  if (has_tail) {
+    painter->drawLine(QPointF(), tail * ((ring + length) / length));
+  }
+}
+
+// A dot of one shape at centre, radius already grown by hover. The
+// offset is how far the dot is shown from its keyed place, on screen.
+void PaintDot(QPointF centre, double radius, DotShape shape,
+              QPointF offset, bool is_animated, QPainter* painter) {
+  assert(painter != nullptr);
+  assert(radius > 0.0);
+  const bool is_round = shape == DotShape::kPlain || shape == DotShape::kRing;
+  const bool is_ring = shape == DotShape::kRing;
+  const bool is_diamond = shape == DotShape::kDiamond;
+  const bool is_blob = shape == DotShape::kBlob;
+  painter->save();
+  painter->translate(centre);
+  painter->setPen(QPen(theme::kShadow, 1.0));
+  painter->setBrush(theme::kHandle);
+  if (is_round) {
+    painter->drawEllipse(QPointF(), radius, radius);
+  }
+  if (is_ring) {
+    PaintRing(radius, TailOf(offset), painter);
+  }
+  if (is_diamond) {
+    const double reach = radius * 1.4;
+    painter->drawPolygon(QPolygonF({QPointF(0, -reach), QPointF(reach, 0),
+                                    QPointF(0, reach), QPointF(-reach, 0)}));
+  }
+  if (is_blob) {
+    const Squish squish = SquishOf(offset, is_animated);
+    painter->rotate(squish.angle);
+    painter->drawEllipse(QPointF(), radius * squish.along,
+                         radius * squish.across);
+  }
+  painter->restore();
 }
 
 // Where the keys alone put each dot, as a faint ring tied to the dot by
@@ -198,15 +245,15 @@ void StageView::PaintWarp(const StageFrame& frame, const Pick& pick,
   for (const MeshEdge& edge : WarpEdges(warp->grid)) {
     painter->drawLine(at(edge.first), at(edge.second));
   }
-  painter->setPen(QPen(theme::kShadow, 1.0));
-  painter->setBrush(theme::kHandle);
+  const bool is_animated = managers_.motion->mode() != MotionMode::kOff;
   for (size_t i = 0; i < warp->points.size(); ++i) {
     const WarpDot dot{pick.layer, pick.piece, static_cast<int>(i)};
     const double grow =
         hover_.ScaleOf(GrabKind::kWarpDot, PoseTool::WarpKey(dot));
-    const double radius = kWarpDot * grow;
-    painter->drawEllipse(warp->to_screen.map(warp->points[i]), radius,
-                         radius);
+    const QPointF shown = warp->to_screen.map(warp->points[i]);
+    const QPointF keyed = warp->to_screen.map(warp->keyed[i]);
+    PaintDot(shown, kWarpDot * grow, ShapeOf(warp->kinds[i]), shown - keyed,
+             is_animated, painter);
   }
   PaintMarks(*warp, painter);
   PaintPickedDots(frame, pick, *warp, painter);
