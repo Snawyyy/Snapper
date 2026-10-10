@@ -1,5 +1,30 @@
 # Shared target setup, so every module and test is built the same way.
 
+# Every change relinks ~100 test programs, so cache objects (ccache)
+# and link with mold when they are installed.
+find_program(SNAPPER_CCACHE ccache)
+if(SNAPPER_CCACHE)
+  set(CMAKE_CXX_COMPILER_LAUNCHER ${SNAPPER_CCACHE})
+endif()
+if(NOT DEFINED CMAKE_LINKER_TYPE)
+  # Not gold: it warns on every object GCC 16 writes.
+  find_program(SNAPPER_MOLD mold)
+  if(SNAPPER_MOLD)
+    set(CMAKE_LINKER_TYPE MOLD)
+  endif()
+endif()
+
+# The presets build outside the checkout (the source drive is slow);
+# a link named like the build folder keeps paths like build/snapper.
+cmake_path(GET PROJECT_BINARY_DIR FILENAME snapper_build_name)
+cmake_path(IS_PREFIX PROJECT_SOURCE_DIR "${PROJECT_BINARY_DIR}"
+  snapper_build_inside)
+set(snapper_build_link ${PROJECT_SOURCE_DIR}/${snapper_build_name})
+if(NOT snapper_build_inside AND NOT EXISTS ${snapper_build_link}
+    AND NOT IS_SYMLINK ${snapper_build_link})
+  file(CREATE_LINK ${PROJECT_BINARY_DIR} ${snapper_build_link} SYMBOLIC)
+endif()
+
 function(snapper_warnings target)
   if(MSVC)
     target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
