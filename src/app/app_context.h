@@ -18,6 +18,7 @@
 #include "edit/selection_manager.h"
 #include "edit/shot_manager.h"
 #include "edit/stage_manager.h"
+#include "edit/poke_manager.h"
 #include "edit/timing_chart_manager.h"
 #include "ui/main_window.h"
 #include "ui/motion.h"
@@ -56,6 +57,7 @@ class AppContext final {
   MotionManager motion_;
   TimingChartManager timing_;
   ToastManager toasts_;
+  PokeManager poke_;
   MainWindow window_;
 };
 

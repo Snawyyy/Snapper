@@ -318,6 +318,29 @@ A piece can:
   solves the chain and writes ordinary rotation keys. Playback only
   ever plays keys, so what was posed is what plays.
 
+## Poking
+
+Holding P over a doll on the stage and dragging or flicking pokes it
+like a toy: its drag, cloth and jelly dots wobble and settle. Nothing
+is keyed and nothing goes into history; the project never changes.
+`PokeManager` (edit) owns the live session. `PokeLayer` (anim) makes a
+copy of the doll's layer that holds its pose at the poked frame and is
+shoved by a share of the mouse move (`PokeShove`, small and capped) on
+each virtual frame after it; `ShownPoses` on that copy at frame + k
+gives the wobble, through the manager's own `DragTrail`, so each tick
+is cheap. A timer ticks one virtual frame at the film rate while the
+poke lives. It ends by itself when the dots have been calm for a few
+frames after the mouse is let go, after six seconds, when the playhead
+moves or the doll is gone; Escape or a click ends it at once. An edit
+(a setting tuned in a panel) runs the same poke again on the edited
+doll. The stage hands the poked poses to the shared `PoseMemo` as an
+override for that layer (`SetOverride`), which `LinkSolver::Poses`
+returns first, so painting, hover and handles all see the wobble.
+`StagePoke` (ui) is the stage's side: P arms it (open hand over a
+pokeable doll, closed hand while poking, a toast saying why when the
+spot or doll cannot be poked), a press starts the poke, the mouse
+shoves it, release lets it settle. P is free of other shortcuts.
+
 ## Shots
 
 A project is one song and an ordered list of shots on a master track.
@@ -467,6 +490,7 @@ are destroyed in reverse.
 | `DocumentManager`      | New, open, save, autosave, recent files        |
 | `DollLibraryManager`   | Doll folders, loading, reload on re-export     |
 | `RigManager`           | Rig edits: joints, IK, shape meshes and warp grids, their dots, drag and physics nodes, colliders |
+| `PokeManager`          | Live poke of a doll on the stage: never in history (see Poking) |
 | `ShotManager`          | Shots on the master track: order, length, look |
 | `ReelManager`          | The reel: clips, tracks, cuts, transitions     |
 | `StageManager`         | What is in a shot: actors, props, text, effects |

@@ -43,6 +43,13 @@ class PoseMemo final {
   // the poses when the shot changes.
   DragTrail* TrailOf(LayerId layer);
 
+  // Poses that stand in for layer's solved ones at every frame until
+  // cleared: a live poke of the doll. Not edits, so they are neither
+  // kept by Bind nor dropped by it.
+  void SetOverride(LayerId layer, PoseMap poses);
+  void ClearOverride(LayerId layer);
+  const PoseMap* OverrideOf(LayerId layer) const;
+
   // What a link solver works out on the way, kept so the next solver
   // for the same shot starts from it: poses before links are added
   // (by layer and frame), pushes (by link and frame) and the shifts
@@ -59,6 +66,7 @@ class PoseMemo final {
   std::map<QString, std::shared_ptr<const Doll>> dolls_;
   std::map<std::pair<int, int>, PoseMap> poses_;
   std::map<int, DragTrail> trails_;
+  std::map<int, PoseMap> overrides_;
   std::map<BaseKey, PoseMap> base_;
   std::map<PushKey, QPointF> pushes_;
   std::map<int, LinkShifts> shifts_;
