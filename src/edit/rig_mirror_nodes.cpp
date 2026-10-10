@@ -79,6 +79,30 @@ int MirroredDot(const Doll& doll, const RigPiece& from, int point) {
   return is_on_warp ? pairs[static_cast<size_t>(point)] : -1;
 }
 
+// Puts a dot's drag node, motion and reach (node and moving may be
+// null) on point of to, replacing what point had.
+void PutTwinDot(const DragNode* node, const PointMotion* moving,
+                double reach, int point, RigPiece* to) {
+  assert(to != nullptr);
+  assert(point >= 0 && point < to->warp.PointCount());
+  std::erase_if(to->drag_nodes,
+                [point](const DragNode& n) { return n.point == point; });
+  const bool is_node = node != nullptr;
+  if (is_node) {
+    DragNode copy = *node;
+    copy.point = point;
+    to->drag_nodes.push_back(copy);
+  }
+  std::erase_if(to->point_motions,
+                [point](const PointMotion& m) { return m.point == point; });
+  const bool is_moving = moving != nullptr;
+  if (is_moving) {
+    to->point_motions.push_back(MirroredMotion(*moving, point));
+  }
+  to->warp_reach.resize(static_cast<size_t>(to->warp.PointCount()), 0.0);
+  to->warp_reach[static_cast<size_t>(point)] = reach;
+}
+
 }  // namespace
 
 QString RigManager::WhyNoMirror(const QString& doll,
@@ -173,6 +197,7 @@ Result<void> RigManager::MirrorDots(const std::vector<DotRef>& dots) {
       node = n.point == dot.point ? &n : node;
     }
     const PointMotion* moving = FindMotion(from, dot.point);
+    const double reach = ReachOf(from, dot.point);
     const int point = MirroredDot(found, from, dot.point);
     const bool is_paired = point >= 0;
     if (!is_paired) {
@@ -182,22 +207,7 @@ Result<void> RigManager::MirrorDots(const std::vector<DotRef>& dots) {
     next = WithPiece(
         *next, dot.doll, MirrorName(dot.piece),
         [&](RigPiece* to) -> Result<void> {
-          std::erase_if(to->drag_nodes, [point](const DragNode& n) {
-            return n.point == point;
-          });
-          const bool is_node = node != nullptr;
-          if (is_node) {
-            DragNode copy = *node;
-            copy.point = point;
-            to->drag_nodes.push_back(copy);
-          }
-          std::erase_if(to->point_motions, [point](const PointMotion& m) {
-            return m.point == point;
-          });
-          const bool is_moving = moving != nullptr;
-          if (is_moving) {
-            to->point_motions.push_back(MirroredMotion(*moving, point));
-          }
+          PutTwinDot(node, moving, reach, point, to);
           return {};
         });
     const bool is_refused = !next;

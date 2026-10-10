@@ -120,7 +120,9 @@ void RigDotsTests::MirrorNodesAndDotsOntoTheTwin() {
   history.Undo();
   QCOMPARE(FindRig(BobRig(history), "arm_r")->drag_nodes.size(), size_t{1});
   QVERIFY(!FindRig(BobRig(history), "arm_r")->collider.IsOn());
-  // Just the picked dots: dot 0 has a node, dot 2 has none.
+  // Just the picked dots: dot 0 has a node, dot 2 has none; both
+  // carry their reach.
+  QVERIFY(rig.SetWarpReach({{"Bob", "arm_l", 2}}, 1.5).has_value());
   QVERIFY(rig.MirrorDots({{"Bob", "arm_l", 0}, {"Bob", "arm_l", 2}})
               .has_value());
   QCOMPARE(history.UndoLabel(), QString("Mirror 2 dots to the other side"));
@@ -128,6 +130,8 @@ void RigDotsTests::MirrorNodesAndDotsOntoTheTwin() {
   QCOMPARE(twin.drag_nodes.size(), size_t{2});
   QCOMPARE(twin.drag_nodes[1].point, 2);
   QVERIFY(twin.drag_nodes[1].physics);
+  QCOMPARE(ReachOf(twin, 0), 1.5);
+  QCOMPARE(ReachOf(twin, 2), 0.0);
   // A twin with another grid is refused, with the reason.
   QVERIFY(rig.SetWarpGrid("Bob", "arm_r", {3, 3}).has_value());
   QVERIFY(!rig.WhyNoMirror("Bob", "arm_l").isEmpty());
