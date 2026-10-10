@@ -34,6 +34,7 @@ int DepthOf(const Rig& rig, const QString& piece) {
 }  // namespace
 
 void RigPanel::PickPiece(const QString& piece) {
+  assert(managers_.IsComplete());
   assert(piece.size() < 100000);
   SetPick(piece.isEmpty() ? QStringList() : QStringList{piece}, piece);
 }
@@ -58,6 +59,7 @@ void RigPanel::SetPick(const QStringList& picked, const QString& focus) {
 }
 
 void RigPanel::Refresh() {
+  assert(managers_.IsComplete());
   const Project& project = managers_.history->current();
   const bool is_gone = !doll_.isEmpty() && FindDoll(project, doll_) == nullptr;
   if (is_gone) {
@@ -85,6 +87,7 @@ void RigPanel::Refresh() {
 }
 
 void RigPanel::RefreshPieces() {
+  assert(managers_.IsComplete());
   const Doll* doll = doll_.isEmpty()
                          ? nullptr
                          : FindDoll(managers_.history->current(), doll_);
@@ -122,6 +125,8 @@ void RigPanel::ShowOrderAndRest(const Doll& doll, const RigPiece& focus) {
 }
 
 void RigPanel::RefreshPiece() {
+  assert(form_.rowCount() == 11);
+  assert(managers_.IsComplete());
   const Doll* doll = doll_.isEmpty()
                          ? nullptr
                          : FindDoll(managers_.history->current(), doll_);
@@ -130,6 +135,7 @@ void RigPanel::RefreshPiece() {
                                            : nullptr;
   const ArtPiece* art = rig != nullptr ? FindArt(*doll, piece_) : nullptr;
   collider_box_.Show(doll_, piece_);
+  ShowWarp(rig);
   const QString why_not = rig != nullptr ? QString()
                                          : tr("Pick a piece first.");
   for (QWidget* field : {static_cast<QWidget*>(&parent_),
@@ -162,18 +168,7 @@ void RigPanel::RefreshPiece() {
   parent_.setCurrentIndex(rig->parent.isEmpty()
                               ? 0
                               : std::max(0, parent_.findText(rig->parent)));
-  {
-    const QSignalBlocker quiet_columns(warp_columns_);
-    const QSignalBlocker quiet_rows(warp_rows_);
-    keep_shape_.setChecked(rig->keeps_shape);
-    const bool has_grid = rig->warp.IsOn();
-    warp_on_.setChecked(has_grid);
-    // Off keeps the last sizes ready for switching back on.
-    if (has_grid) {
-      warp_columns_.setValue(rig->warp.columns);
-      warp_rows_.setValue(rig->warp.rows);
-    }
-  }
+  keep_shape_.setChecked(rig->keeps_shape);
   ShowOrderAndRest(*doll, *rig);
   drawing_.clear();
   drawing_.addItem(tr("As in Krita"));
@@ -181,16 +176,43 @@ void RigPanel::RefreshPiece() {
     drawing_.addItem(file);
   }
   drawing_.setCurrentIndex(rig->default_drawing + 1);
-  const QString no_grid =
-      rig->warp.IsOn() ? QString() : tr("Tick \"Bend with a grid\" first.");
-  Explain(&warp_columns_, no_grid);
-  Explain(&warp_rows_, no_grid);
   Explain(&add_chain_, rig->parent.isEmpty()
                            ? tr("A chain needs the piece to hang from one.")
                            : QString());
 }
 
+void RigPanel::ShowWarp(const RigPiece* rig) {
+  assert(managers_.rig != nullptr);
+  assert(form_.rowCount() == 11);
+  const QSignalBlocker quiet_columns(warp_columns_);
+  const QSignalBlocker quiet_rows(warp_rows_);
+  const QSignalBlocker quiet_detail(detail_);
+  const bool has_warp = rig != nullptr && rig->warp.IsOn();
+  warp_on_.setChecked(has_warp);
+  const bool is_grid = has_warp && !rig->warp.IsMesh();
+  // Off keeps the last sizes and detail ready for switching back on.
+  if (is_grid) {
+    warp_columns_.setValue(rig->warp.columns);
+    warp_rows_.setValue(rig->warp.rows);
+  }
+  const bool is_mesh = has_warp && rig->warp.IsMesh();
+  if (is_mesh) {
+    detail_.setCurrentIndex(static_cast<int>(rig->warp.mesh->detail));
+  }
+  const QString no_cells =
+      rig == nullptr ? tr("Pick a piece first.")
+      : is_grid      ? QString()
+      : is_mesh ? tr("A shape mesh places its dots itself; set its Detail "
+                     "instead.")
+                : tr("Tick \"Bend\" first.");
+  Explain(&warp_columns_, no_cells);
+  Explain(&warp_rows_, no_cells);
+  Explain(&detail_, managers_.rig->WhyNoDetail(doll_, piece_));
+  Explain(&convert_, managers_.rig->WhyNoConvert(doll_, piece_));
+}
+
 void RigPanel::RefreshChains() {
+  assert(managers_.IsComplete());
   const Doll* doll = doll_.isEmpty()
                          ? nullptr
                          : FindDoll(managers_.history->current(), doll_);
@@ -220,6 +242,7 @@ void RigPanel::RefreshChains() {
 }
 
 void RigPanel::AddChain() {
+  assert(managers_.IsComplete());
   const Doll* doll = FindDoll(managers_.history->current(), doll_);
   const RigPiece* rig =
       doll != nullptr ? FindRig(doll->rig, piece_) : nullptr;

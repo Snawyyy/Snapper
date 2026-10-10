@@ -109,7 +109,8 @@ Result<void> RigManager::SetDefaultDrawing(const QString& doll,
 }
 
 Result<void> RigManager::SetWarpGrid(const QString& doll,
-                                     const QString& piece, WarpGrid grid) {
+                                     const QString& piece,
+                                     const WarpGrid& grid) {
   assert(history_ != nullptr);
   assert(!piece.isEmpty());
   const bool is_off = grid.columns == 0 && grid.rows == 0;

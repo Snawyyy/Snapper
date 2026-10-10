@@ -73,7 +73,7 @@ class RigUiTests final : public QObject {
   void ChainsComeFromThePickedPiece();
   void DraggingAJointMovesThePivot();
   void DoubleClickAJointThenClickItsParent();
-  void WarpSwitchesOnAtThreeByThree();
+  void WarpSwitchesOnAsAShapeMesh();
   void KeepShapeTicksOn();
   void ShiftPickedJointsDragTogether();
   void JointsGrabFromTwelvePixelsAndWaitFourToDrag();
@@ -161,7 +161,7 @@ void RigUiTests::DoubleClickAJointThenClickItsParent() {
   QVERIFY(FindRig(BobRig(bench), "arm")->parent.isEmpty());
 }
 
-void RigUiTests::WarpSwitchesOnAtThreeByThree() {
+void RigUiTests::WarpSwitchesOnAsAShapeMesh() {
   Bench bench;
   Stage(&bench);
   RigPanel panel(bench.All());
@@ -169,7 +169,8 @@ void RigUiTests::WarpSwitchesOnAtThreeByThree() {
   auto* on = panel.findChild<QCheckBox*>("warp_on");
   QVERIFY(on->isEnabled());
   on->click();
-  QCOMPARE(FindRig(BobRig(bench), "arm")->warp, (WarpGrid{3, 3}));
+  QVERIFY(FindRig(BobRig(bench), "arm")->warp.IsMesh());
+  QCOMPARE(bench.history.UndoLabel(), QString("Shape mesh of arm"));
   on->click();
   QVERIFY(!FindRig(BobRig(bench), "arm")->warp.IsOn());
 }

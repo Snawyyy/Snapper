@@ -40,26 +40,45 @@ QString LayerKind(const Layer& layer) {
 // what the rig lost because the art no longer has it.
 QString Outcome(
     const Result<std::map<QString, ReconcileReport>>& reports) {
+  assert(reports.has_value() || !reports.error().message.isEmpty());
   const bool is_failed = !reports.has_value();
   if (is_failed) {
     return reports.error().message;
   }
   QStringList lost;
+  QStringList remeshed;
+  int carried = 0;
+  int let_go = 0;
   for (const auto& [doll, report] : *reports) {
     for (const QString& gone : report.missing + report.dropped_chains) {
       lost.append(doll + ": " + gone);
     }
+    remeshed += report.remeshed;
+    carried += report.carried;
+    let_go += report.lost;
   }
   assert(lost.size() < 100000);
-  return lost.isEmpty() ? QString()
-                        : QObject::tr("Gone from the art, so dropped from "
-                                      "the rig: %1")
-                              .arg(lost.join(", "));
+  QStringList said;
+  const bool has_lost = !lost.isEmpty();
+  if (has_lost) {
+    said.append(QObject::tr("Gone from the art, so dropped from the rig: %1")
+                    .arg(lost.join(", ")));
+  }
+  const bool has_remeshed = !remeshed.isEmpty();
+  if (has_remeshed) {
+    said.append(QObject::tr("Redrawn, so meshed again: %1 (%2 dots' "
+                            "settings carried over, %3 let go)")
+                    .arg(remeshed.join(", "))
+                    .arg(carried)
+                    .arg(let_go));
+  }
+  return said.join(". ");
 }
 
 }  // namespace
 
 void CastPanel::RefreshLibrary() {
+  assert(managers_.IsComplete());
   assert(managers_.library != nullptr);
   // Keep every picked doll picked across the rebuild.
   QSet<QString> picked;
@@ -91,6 +110,7 @@ void CastPanel::RefreshLibrary() {
 }
 
 void CastPanel::RefreshLayers() {
+  assert(managers_.IsComplete());
   assert(managers_.selection != nullptr);
   const QSignalBlocker quiet(layers_);
   layers_.clear();
@@ -114,6 +134,7 @@ void CastPanel::RefreshLayers() {
 }
 
 void CastPanel::RefreshButtons() {
+  assert(managers_.IsComplete());
   assert(managers_.library != nullptr);
   const QStringList out = PickedDolls(false);
   const bool is_in = !PickedDolls(true).isEmpty();
@@ -157,6 +178,7 @@ QStringList CastPanel::PickedDolls(bool is_in_project) const {
 }
 
 void CastPanel::Import() {
+  assert(managers_.IsComplete());
   const QStringList dolls = PickedDolls(false);
   assert(managers_.library != nullptr);
   Report(Outcome(managers_.library->ImportAll(dolls)));
@@ -166,6 +188,7 @@ void CastPanel::Import() {
 }
 
 void CastPanel::Reload() {
+  assert(managers_.IsComplete());
   const QStringList dolls = PickedDolls(true);
   assert(managers_.library != nullptr);
   Report(Outcome(managers_.library->ReloadAll(dolls)));
@@ -176,6 +199,7 @@ void CastPanel::Reload() {
 }
 
 void CastPanel::Place() {
+  assert(managers_.IsComplete());
   const QStringList dolls = PickedDolls(true);
   assert(managers_.stage != nullptr);
   const auto layers =

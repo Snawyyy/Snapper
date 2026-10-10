@@ -9,6 +9,7 @@
 #include "base/text.h"
 #include "edit/edit_scope.h"
 #include "edit/history_manager.h"
+#include "edit/mesh_edits.h"
 
 namespace snapper {
 namespace {
@@ -64,6 +65,7 @@ QString DollLibraryManager::WhyNoImport(const QString& name) const {
 }
 
 Result<ReconcileReport> DollLibraryManager::Import(const QString& name) {
+  assert(!name.isEmpty());
   assert(history_ != nullptr);
   const QString why_not = WhyNoImport(name);
   const bool can_import = why_not.isEmpty();
@@ -104,6 +106,11 @@ Result<ReconcileReport> DollLibraryManager::Reload(const QString& name) {
   fresh.rig = Reconcile(*art, doll->rig, &report);
   Project next = history_->current();
   next.dolls[name] = std::make_shared<const Doll>(std::move(fresh));
+  // Redrawn pieces get their shape mesh made again, keeping their dots.
+  CarryCount carried;
+  next = WithFreshMeshes(next, name, &carried, &report.remeshed);
+  report.carried = carried.carried;
+  report.lost = carried.dropped;
   auto applied = history_->Apply(Tr("Reload %1").arg(name), std::move(next));
   if (!applied) {
     return std::unexpected(applied.error());

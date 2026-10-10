@@ -6,12 +6,65 @@
 #include "anim/mirror.h"
 #include "anim/warp.h"
 #include "base/text.h"
+#include "anim/warp_shape.h"
 #include "edit/history_manager.h"
+#include "edit/mesh_edits.h"
 #include "edit/rig_edits.h"
 #include "edit/rig_manager.h"
 
 namespace snapper {
 namespace {
+
+// to's warp made like from's (its own shape mesh at from's detail, or
+// the same grid) with from's dot settings on the mirrored dots.
+void MirrorDotsOnto(const Doll& doll, const RigPiece& from, RigPiece* to) {
+  assert(to != nullptr);
+  assert(from.name != to->name);
+  const bool is_mesh = from.warp.IsMesh();
+  const Result<WarpGrid> own =
+      is_mesh ? ShapeMeshOf(doll, to->name, from.warp.mesh->detail)
+              : Result<WarpGrid>(from.warp);
+  to->warp = own.has_value() ? *own : from.warp;
+  const std::vector<int> pairs =
+      MirroredPoints(from.warp, ArtSizeOf(doll, from.name), to->warp,
+                     ArtSizeOf(doll, to->name));
+  const auto pair = [&pairs](int point) {
+    return point >= 0 && static_cast<size_t>(point) < pairs.size()
+               ? pairs[static_cast<size_t>(point)]
+               : -1;
+  };
+  to->warp_reach.clear();
+  const bool has_reach = static_cast<int>(from.warp_reach.size()) ==
+                         from.warp.PointCount();
+  if (has_reach) {
+    to->warp_reach.assign(static_cast<size_t>(to->warp.PointCount()), 0.0);
+  }
+  for (int point = 0; has_reach && point < from.warp.PointCount(); ++point) {
+    const int dot = pair(point);
+    const bool is_paired = dot >= 0;
+    if (is_paired) {
+      to->warp_reach[static_cast<size_t>(dot)] =
+          from.warp_reach[static_cast<size_t>(point)];
+    }
+  }
+  to->drag_nodes.clear();
+  to->point_motions.clear();
+  for (const DragNode& node : from.drag_nodes) {
+    DragNode copy = node;
+    copy.point = pair(node.point);
+    const bool is_paired = copy.point >= 0;
+    if (is_paired) {
+      to->drag_nodes.push_back(copy);
+    }
+  }
+  for (const PointMotion& motion : from.point_motions) {
+    const int dot = pair(motion.point);
+    const bool is_paired = dot >= 0;
+    if (is_paired) {
+      to->point_motions.push_back(MirroredMotion(motion, dot));
+    }
+  }
+}
 
 // to's rig made the mirror of from's: the joint lands on the spot
 // mirrored across the line halfway between the two drawings, so a doll
@@ -29,23 +82,8 @@ void MirrorPiece(const Doll& doll, const RigPiece& from, RigPiece* to) {
   const QPointF joint = from_art->position + from.pivot;
   to->pivot = QPointF(2.0 * axis - joint.x(), joint.y()) - to_art->position;
   to->rest_rotation = -from.rest_rotation;
-  to->warp = from.warp;
   to->keeps_shape = from.keeps_shape;
-  to->warp_reach = from.warp_reach;
-  const bool has_reach = static_cast<int>(from.warp_reach.size()) ==
-                         from.warp.PointCount();
-  for (int point = 0; has_reach && point < from.warp.PointCount(); ++point) {
-    to->warp_reach[static_cast<size_t>(MirroredPoint(from.warp, point))] =
-        from.warp_reach[static_cast<size_t>(point)];
-  }
-  to->drag_nodes = from.drag_nodes;
-  for (DragNode& node : to->drag_nodes) {
-    node.point = MirroredPoint(from.warp, node.point);
-  }
-  to->point_motions.clear();
-  for (const PointMotion& motion : from.point_motions) {
-    to->point_motions.push_back(MirroredMotion(motion, from.warp));
-  }
+  MirrorDotsOnto(doll, from, to);
   const QString parent = MirrorName(from.parent);
   const bool has_mirrored_parent =
       !from.parent.isEmpty() && FindRig(doll.rig, parent) != nullptr;

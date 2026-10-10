@@ -161,9 +161,34 @@ A piece can:
 
 - rotate, move, scale (separately in x and y) and skew,
 - swap between its drawings,
-- warp locally through a grid of handles, so one-piece parts such as a
-  trunk can still crease at the collar or chest.
-  On the stage a picked piece shows its grid as faint lines with
+- warp locally through a shape mesh, so one-piece parts such as a
+  trunk can still crease at the collar or chest. Ticking Bend in the
+  rig makes the mesh from the piece's drawings (all of them, so any
+  swap is covered): every outline of what is visible (alpha 8 and up,
+  holes and separate shapes included) is grown a pixel or two and
+  straightened, dots go along it and on an even lattice inside, and
+  Delaunay triangles join them, outline sides kept as mesh sides
+  (`BuildShapeMesh`, `anim/shape_mesh.h`; the outline tracing is the
+  collider's, `anim/mask_rings.h`). Every visible pixel is inside a
+  triangle and nothing is meshed where nothing is drawn. Detail (Few,
+  Normal, Many) sets how many dots; the same drawings and detail always
+  give the same mesh. The model keeps the mesh (`WarpMesh`, inside
+  `WarpGrid`, shared between snapshots) and works out its sides, its
+  average side (one cell of reach) and how far apart each two dots are
+  walking along the sides, so a pull never jumps a gap in the drawing.
+  Everything built on dots asks `anim/warp_shape.h` what a warp is made
+  of (`WarpEdges`, `WarpTriangles`, `CellSize`, `CarriedAt`,
+  `MirroredPoints`), so drawing, folding, cloth, collider pushes, point
+  motions and mirroring work the same on a mesh and on the older
+  rectangular grid, which old files keep and which renders exactly as
+  it always did; its fields and Convert to shape mesh show only for it.
+  Making a mesh again (a new Detail, a converted grid, or art redrawn
+  in Krita and reloaded, `WithFreshMeshes`) is one undo step that
+  carries each dot's settings to the nearest new dot within a cell
+  (cloth to every new dot in its patch) and every warp key by position
+  (`CarryDots`, `CarryOffsets`, `anim/mesh_carry.h`; `edit/mesh_edits.h`);
+  a toast says how many dots' settings carried over.
+  On the stage a picked piece shows its mesh as faint lines with
   yellow dots, where the drawing has them at that frame (keys, drag
   and physics nodes, point motions and collider pushes all in,
   `PieceWarpOnScreen`); where something moved a dot off its key, a
@@ -195,7 +220,9 @@ A piece can:
   upright drawing stays as drawn, a doll that falls over has its skirt
   and hair hang down) and Bounce (a spring back to the drawn shape).
   Ties never let cloth fold flat, and a grid that would turn over is
-  eased back (`Unfold`, `anim/grid_fold.h`). The math is pure in
+  eased back (`Unfold`, `anim/grid_fold.h`). On a mesh, cloth is also
+  tied across each two triangles and a triangle it turns over is
+  turned back by mirroring its node across the facing side. The math is pure in
   `anim/cloth.h` (`StepCloth`); `DraggedPoses` runs it on the same
   beat and in the same `DragTrail` as plain drag nodes, so a late
   frame costs like an early one. `doll_beat.h` holds the beat; a long
@@ -222,7 +249,8 @@ A piece can:
   held or pulled, so the skirt is free to fly up off the leg. Every
   drawn edge between two dots is pushed out the same way (seven spots
   along it), each push spreads to the neighbours by the dot's rubber
-  reach (at least `kMinPushSpread` cells) so the drawing bends instead
+  reach (at least `MinPushSpread`: on a mesh as far as on a 3 by 3
+  grid) so the drawing bends instead
   of kinking, and a push that would fold the drawing gives way
   (`PushGrid`, `anim/grid_push.h`). Plain dots are pushed per frame
   from where the keys put them, with no history (`CollidePoses`, in
@@ -263,8 +291,12 @@ A piece can:
   onto its left or right twin, mirrored, replacing the twin's
   (`RigManager::MirrorNodes`, twins found by `MirrorName`, the same
   pairing Copy to other side uses). The Drag node panel's Mirror to
-  other side does it for just the picked dots (`MirrorDots`). Greyed
-  with the reason when the piece has no twin or its grid differs.
+  other side does it for just the picked dots (`MirrorDots`). Dots pair
+  by place: an old grid with the same grid dot for dot, a mesh with the
+  twin's dot at the mirrored spot (`MirroredPoints`); Copy to other side
+  gives a meshed twin its own mesh from its own drawing. Greyed with
+  the reason when the piece has no twin, either does not bend, or two
+  old grids differ.
 - belong to a two-bone IK chain. IK is a posing tool: dragging a hand
   solves the chain and writes ordinary rotation keys. Playback only
   ever plays keys, so what was posed is what plays.
@@ -381,8 +413,8 @@ a new clip over it, as one undo step.
 
 `FrameRenderer` draws on the CPU with `QPainter` into a `QImage`, so it
 runs the same in the window, in an export thread and in a headless
-test. Warped pieces are drawn by `WarpImage`, which maps each grid cell
-as two triangles back into the drawing. Each renderer has its own
+test. Warped pieces are drawn by `WarpImage`, which maps each triangle
+(a mesh's own, or each grid cell as two) back into the drawing. Each renderer has its own
 `ImageCache`; nothing is shared across threads. The cache also holds a
 `WarpCache` of bent drawings (`ImageCache::Warped`), so painting and
 hover hit tests bend a drawing once per pose, not once per paint. It also owns a
@@ -417,7 +449,7 @@ are destroyed in reverse.
 | `HistoryManager`       | Current project, undo, redo, dirty state       |
 | `DocumentManager`      | New, open, save, autosave, recent files        |
 | `DollLibraryManager`   | Doll folders, loading, reload on re-export     |
-| `RigManager`           | Rig edits: joints, IK, warp grids, their dots, drag and physics nodes, colliders |
+| `RigManager`           | Rig edits: joints, IK, shape meshes and warp grids, their dots, drag and physics nodes, colliders |
 | `ShotManager`          | Shots on the master track: order, length, look |
 | `ReelManager`          | The reel: clips, tracks, cuts, transitions     |
 | `StageManager`         | What is in a shot: actors, props, text, effects |

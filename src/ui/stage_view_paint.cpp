@@ -5,6 +5,7 @@
 
 #include <cassert>
 
+#include "anim/warp_shape.h"
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
 #include "render/stage_geometry.h"
@@ -186,26 +187,16 @@ void StageView::PaintWarp(const StageFrame& frame, const Pick& pick,
   if (!warp) {
     return;
   }
-  const int across = warp->grid.columns + 1;
-  const auto at = [&warp, across](int row, int column) {
-    return warp->to_screen.map(
-        warp->points[static_cast<size_t>(row * across + column)]);
+  const auto at = [&warp](int point) {
+    return warp->to_screen.map(warp->points[static_cast<size_t>(point)]);
   };
   PaintKeyed(*warp, painter);
-  // A faint grid, so the dots read as one sheet.
+  // A faint grid (a shape mesh's triangles), so the dots read as one
+  // sheet.
   painter->setPen(QPen(kWarpLine, 1.0));
   painter->setBrush(Qt::NoBrush);
-  for (int row = 0; row <= warp->grid.rows; ++row) {
-    for (int column = 0; column <= warp->grid.columns; ++column) {
-      const bool has_right = column < warp->grid.columns;
-      if (has_right) {
-        painter->drawLine(at(row, column), at(row, column + 1));
-      }
-      const bool has_below = row < warp->grid.rows;
-      if (has_below) {
-        painter->drawLine(at(row, column), at(row + 1, column));
-      }
-    }
+  for (const MeshEdge& edge : WarpEdges(warp->grid)) {
+    painter->drawLine(at(edge.first), at(edge.second));
   }
   painter->setPen(QPen(theme::kShadow, 1.0));
   painter->setBrush(theme::kHandle);
@@ -263,9 +254,8 @@ void StageView::PaintReach(const WarpOnScreen& warp, int point,
     QColor faint = theme::kPick;
     faint.setAlpha(150);
     painter->setPen(QPen(faint, 0.0, Qt::DashLine));
-    painter->drawEllipse(spot,
-                         reach * warp.size.width() / warp.grid.columns,
-                         reach * warp.size.height() / warp.grid.rows);
+    const QSizeF cell = CellSize(warp.grid, warp.size);
+    painter->drawEllipse(spot, reach * cell.width(), reach * cell.height());
     painter->restore();
   }
   painter->setPen(theme::kText);

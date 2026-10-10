@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "anim/warp.h"
+#include "anim/warp_shape.h"
 
 namespace snapper {
 namespace {
@@ -203,7 +204,7 @@ void DrawTriangle(const QImage& source, const Triangle& triangle,
 
 }  // namespace
 
-WarpedImage WarpImage(const QImage& source, WarpGrid grid,
+WarpedImage WarpImage(const QImage& source, const WarpGrid& grid,
                       const std::vector<QPointF>& points) {
   assert(!source.isNull());
   assert(points.size() <= static_cast<size_t>(kMaxWarpPoints));
@@ -224,22 +225,14 @@ WarpedImage WarpImage(const QImage& source, WarpGrid grid,
   WarpedImage warped{QImage(area.size(), QImage::Format_ARGB32_Premultiplied),
                      QPointF(area.topLeft())};
   warped.image.fill(Qt::transparent);
-  const int width = grid.columns + 1;
-  for (int row = 0; row < grid.rows; ++row) {
-    for (int column = 0; column < grid.columns; ++column) {
-      const auto at = [width, row, column](int dr, int dc) {
-        return static_cast<size_t>((row + dr) * width + column + dc);
-      };
-      const size_t tl = at(0, 0), tr = at(0, 1), bl = at(1, 0), br = at(1, 1);
-      DrawTriangle(premultiplied,
-                   {{points[tl], points[tr], points[br]},
-                    {rest[tl], rest[tr], rest[br]}},
-                   warped.origin, &warped.image);
-      DrawTriangle(premultiplied,
-                   {{points[tl], points[br], points[bl]},
-                    {rest[tl], rest[br], rest[bl]}},
-                   warped.origin, &warped.image);
-    }
+  for (const MeshTriangle& t : WarpTriangles(grid)) {
+    const auto a = static_cast<size_t>(t[0]);
+    const auto b = static_cast<size_t>(t[1]);
+    const auto c = static_cast<size_t>(t[2]);
+    DrawTriangle(premultiplied,
+                 {{points[a], points[b], points[c]},
+                  {rest[a], rest[b], rest[c]}},
+                 warped.origin, &warped.image);
   }
   return warped;
 }

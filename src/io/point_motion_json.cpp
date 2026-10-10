@@ -56,7 +56,7 @@ struct OldMotion final {
 
 // How far point is from old's anchor edge, 0 on it to 1 on the far
 // side, on a grid that is on.
-double Along(const OldMotion& old, WarpGrid grid, int point) {
+double Along(const OldMotion& old, const WarpGrid& grid, int point) {
   assert(grid.IsOn());
   assert(point >= 0 && point < grid.PointCount());
   const double x = static_cast<double>(point % (grid.columns + 1)) /
@@ -70,7 +70,7 @@ double Along(const OldMotion& old, WarpGrid grid, int point) {
 }
 
 // From the middle of the drawing out to point, -1 to 1 each way.
-QPointF Outward(WarpGrid grid, int point) {
+QPointF Outward(const WarpGrid& grid, int point) {
   assert(grid.IsOn());
   assert(point >= 0 && point < grid.PointCount());
   const QPointF spot(
@@ -82,7 +82,7 @@ QPointF Outward(WarpGrid grid, int point) {
 // The motion that gives point the push old gave it: hanging motions
 // swing across their edge, scaled (and for a wave delayed) by how far
 // the point hangs; swelling ones push out from the middle.
-PointMotion PointOf(const OldMotion& old, WarpGrid grid, int point) {
+PointMotion PointOf(const OldMotion& old, const WarpGrid& grid, int point) {
   assert(old.kind != WarpMotionKind::kNone);
   assert(point >= 0 && point < grid.PointCount());
   PointMotion motion{point, old.kind, old.size, old.cycle, 0.0, 0.0};
@@ -116,7 +116,8 @@ PointMotion PointOf(const OldMotion& old, WarpGrid grid, int point) {
 // gets the motion that keeps its old push, and points that never moved
 // get none.
 std::vector<PointMotion> FromOldMotion(const QJsonObject& object,
-                                       WarpGrid grid, JsonIssues* issues) {
+                                       const WarpGrid& grid,
+                                       JsonIssues* issues) {
   assert(issues != nullptr);
   assert(grid.columns >= 0 && grid.rows >= 0);
   OldMotion old;
@@ -159,12 +160,14 @@ QJsonArray PointMotionsToJson(const std::vector<PointMotion>& motions) {
 }
 
 std::vector<PointMotion> PointMotionsFromJson(const QJsonObject& piece,
-                                              WarpGrid grid,
+                                              const WarpGrid& grid,
                                               JsonIssues* issues) {
   assert(issues != nullptr);
   assert(grid.columns >= 0 && grid.rows >= 0);
   const QJsonValue old = piece.value("motion");
-  const bool is_old = !piece.contains("motions") && old.isObject();
+  // Only an old grid can have an old motion; a mesh is newer than it.
+  const bool is_old = !piece.contains("motions") && old.isObject() &&
+                      !grid.IsMesh();
   if (is_old) {
     return FromOldMotion(old.toObject(), grid, issues);
   }

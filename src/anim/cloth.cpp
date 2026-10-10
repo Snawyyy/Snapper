@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "anim/grid_fold.h"
+#include "anim/warp_shape.h"
 
 namespace snapper {
 namespace {
@@ -38,6 +39,11 @@ constexpr double kPushKick = 0.3;
 // The shortest a tie may get, as a share of its drawn length: cloth
 // buckles, but never folds flat onto itself.
 constexpr double kLeastLength = 0.5;
+// The shortest a tie across two mesh triangles may get: it holds the
+// sheet open so a fine mesh does not crumple.
+constexpr double kLeastBend = 0.9;
+// Rounds of turning back mesh triangles the cloth turned over.
+constexpr int kFlipRounds = 4;
 
 // Two things the cloth ties together: a node and another node, or a
 // node and a pin (other < 0, held at pin).
@@ -75,9 +81,10 @@ double Longest(const ClothPiece& piece, int node, double rest) {
   return rest * (1.0 + kMaxStretch * stretch);
 }
 
-// A tie across one grid edge from point to next, if a node is on it.
+// A tie across one grid edge from point to next, if a node is on it,
+// never shorter than least of its drawn length.
 void AddTie(const ClothPiece& piece, const std::vector<QPointF>& carried,
-            int point, int next, std::vector<Tie>* ties) {
+            int point, int next, double least, std::vector<Tie>* ties) {
   assert(ties != nullptr);
   assert(static_cast<size_t>(next) < carried.size());
   const int a = NodeAt(piece, point);
@@ -99,28 +106,25 @@ void AddTie(const ClothPiece& piece, const std::vector<QPointF>& carried,
                                  : Longest(piece, node, rest);
   const double give = 1.0 - piece.settings[static_cast<size_t>(node)].stretch;
   ties->push_back({static_cast<size_t>(node), other, is_pair ? QPointF() : pin,
-                   rest, rest * kLeastLength, longest,
+                   rest, rest * least, longest,
                    kFirmness * give * give});
 }
 
-// Every tie of the grid: each point to the one at its right and below.
+// Every tie of the grid: one across each drawn side with a node on it.
 std::vector<Tie> TiesOf(const ClothPiece& piece,
                         const std::vector<QPointF>& carried) {
   assert(static_cast<int>(carried.size()) == piece.grid.PointCount());
   assert(piece.points.size() == piece.at.size());
   std::vector<Tie> ties;
-  const int across = piece.grid.columns + 1;
-  for (int point = 0; point < piece.grid.PointCount(); ++point) {
-    const bool has_right = point % across < piece.grid.columns;
-    const bool has_below = point / across < piece.grid.rows;
-    if (has_right) {
-      AddTie(piece, carried, point, point + 1, &ties);
-    }
-    if (has_below) {
-      AddTie(piece, carried, point, point + across, &ties);
-    }
+  for (const MeshEdge& edge : WarpEdges(piece.grid)) {
+    AddTie(piece, carried, edge.first, edge.second, kLeastLength, &ties);
   }
-  assert(ties.size() <= static_cast<size_t>(2 * kMaxWarpPoints));
+  // A mesh's triangles alone let cloth crease flat; ties across each
+  // two of them keep it a sheet.
+  for (const MeshEdge& bend : WarpBends(piece.grid)) {
+    AddTie(piece, carried, bend.first, bend.second, kLeastBend, &ties);
+  }
+  assert(ties.size() <= static_cast<size_t>(6 * kMaxWarpPoints));
   return ties;
 }
 
@@ -221,6 +225,68 @@ void UnfoldNodes(const std::vector<QPointF>& carried, ClothPiece* piece) {
   }
 }
 
+// q mirrored across the line through u and v.
+QPointF Mirrored(QPointF q, QPointF u, QPointF v) {
+  assert(IsFinite(q) && IsFinite(u));
+  assert(IsFinite(v));
+  const QPointF d = v - u;
+  const double length2 = d.x() * d.x() + d.y() * d.y();
+  const bool is_point = length2 < 1e-12;
+  if (is_point) {
+    return q;
+  }
+  const QPointF foot =
+      u + d * (((q - u).x() * d.x() + (q - u).y() * d.y()) / length2);
+  return foot * 2.0 - q;
+}
+
+// Turns back every mesh triangle the cloth turned over against how the
+// body carries it: a node corner is mirrored across the side facing
+// it, which keeps every tie to that side as long as it was, so the
+// sheet stays a sheet instead of crumpling. A grid keeps its own rules.
+void UnflipNodes(const std::vector<QPointF>& carried, ClothPiece* piece) {
+  assert(piece != nullptr);
+  assert(static_cast<int>(carried.size()) == piece->grid.PointCount());
+  const bool is_mesh = piece->grid.IsMesh();
+  if (!is_mesh) {
+    return;
+  }
+  std::vector<QPointF> at = carried;
+  std::vector<int> node_of(carried.size(), -1);
+  for (size_t i = 0; i < piece->at.size(); ++i) {
+    at[static_cast<size_t>(piece->points[i])] = piece->at[i];
+    node_of[static_cast<size_t>(piece->points[i])] = static_cast<int>(i);
+  }
+  const auto turn = [](QPointF a, QPointF b, QPointF c) {
+    return (b.x() - a.x()) * (c.y() - a.y()) -
+           (b.y() - a.y()) * (c.x() - a.x());
+  };
+  for (int round = 0; round < kFlipRounds; ++round) {
+    bool is_any = false;
+    for (const MeshTriangle& t : piece->grid.mesh->triangles) {
+      const auto p = [&t](size_t k) { return static_cast<size_t>(t[k]); };
+      const double was = turn(carried[p(0)], carried[p(1)], carried[p(2)]);
+      const double now = turn(at[p(0)], at[p(1)], at[p(2)]);
+      const bool is_flipped = was * now < 0.0;
+      for (size_t k = 0; k < 3 && is_flipped; ++k) {
+        const bool is_node = node_of[p(k)] >= 0;
+        if (is_node) {
+          at[p(k)] = Mirrored(at[p(k)], at[p((k + 1) % 3)],
+                              at[p((k + 2) % 3)]);
+          is_any = true;
+          break;
+        }
+      }
+    }
+    if (!is_any) {
+      break;
+    }
+  }
+  for (size_t i = 0; i < piece->at.size(); ++i) {
+    piece->at[i] = at[static_cast<size_t>(piece->points[i])];
+  }
+}
+
 // Moves node i one frame by its own motion and the pulls on it.
 void Move(const std::vector<QPointF>& carried, size_t i, ClothPiece* piece) {
   assert(piece != nullptr);
@@ -280,6 +346,7 @@ void StepCloth(const std::vector<QPointF>& carried, ClothPiece* piece) {
       Fix(tie, &piece->at);
     }
   }
+  UnflipNodes(carried, piece);
   UnfoldNodes(carried, piece);
   const std::vector<QPointF> unpushed = piece->at;
   PushNodes(carried, piece);

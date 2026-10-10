@@ -26,7 +26,7 @@ const QImage& ImageCache::Get(const QString& path) {
   return images_.at(path).image;
 }
 
-const WarpedImage& ImageCache::Warped(const QString& path, WarpGrid grid,
+const WarpedImage& ImageCache::Warped(const QString& path, const WarpGrid& grid,
                                       const std::vector<QPointF>& points,
                                       int detail) {
   assert(bytes_ >= 0);

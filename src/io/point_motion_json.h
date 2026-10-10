@@ -19,7 +19,7 @@ QJsonArray PointMotionsToJson(const std::vector<PointMotion>& motions);
 // An older file's whole-piece motion ("motion") becomes a motion on
 // each point it moved, keeping the push each point had.
 std::vector<PointMotion> PointMotionsFromJson(const QJsonObject& piece,
-                                              WarpGrid grid,
+                                              const WarpGrid& grid,
                                               JsonIssues* issues);
 
 }  // namespace snapper

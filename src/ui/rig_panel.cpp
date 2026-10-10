@@ -8,6 +8,7 @@
 #include "ui/form_helpers.h"
 #include "ui/live_edit.h"
 #include "ui/problem.h"
+#include "ui/toast_manager.h"
 
 namespace snapper {
 
@@ -15,6 +16,7 @@ RigPanel::RigPanel(const Managers& managers)
     : managers_(managers),
       layout_(this),
       live_(managers.history),
+      convert_(tr("Convert to shape mesh")),
       chains_title_(tr("IK chains")),
       add_chain_(tr("Add for piece")),
       flip_chain_(tr("Flip bend")),
@@ -36,6 +38,7 @@ RigPanel::RigPanel(const Managers& managers)
 }
 
 std::vector<QString> RigPanel::Picked() const {
+  assert(managers_.IsComplete());
   assert(picked_.size() <= kMaxDollPieces);
   std::vector<QString> picked(picked_.begin(), picked_.end());
   const bool has_none = picked.empty() && !piece_.isEmpty();
@@ -46,12 +49,39 @@ std::vector<QString> RigPanel::Picked() const {
 }
 
 const RigPiece* RigPanel::Focus() const {
+  assert(managers_.IsComplete());
   const Doll* doll = doll_.isEmpty()
                          ? nullptr
                          : FindDoll(managers_.history->current(), doll_);
   assert(managers_.history != nullptr);
   return doll != nullptr && !piece_.isEmpty() ? FindRig(doll->rig, piece_)
                                               : nullptr;
+}
+
+void RigPanel::SetUpWarpFields() {
+  assert(layout_.count() == 0);
+  assert(kDefaultWarpCells <= kMaxWarpCells);
+  for (QSpinBox* side : {&warp_columns_, &warp_rows_}) {
+    side->setRange(1, kMaxWarpCells);
+    side->setValue(kDefaultWarpCells);
+  }
+  // Named so tests and screen readers find them by what they are.
+  warp_on_.setObjectName("warp_on");
+  warp_on_.setText(tr("Bend"));
+  warp_on_.setToolTip(tr("Lets you push spots of the drawing, like a "
+                         "crease in a shirt: dots hug the drawing's "
+                         "outline and fill it evenly. Pick the piece on "
+                         "the stage and drag its dots."));
+  detail_.setObjectName("mesh_detail");
+  detail_.addItems({tr("Few"), tr("Normal"), tr("Many")});
+  detail_.setCurrentIndex(static_cast<int>(MeshDetail::kNormal));
+  detail_.setToolTip(tr("How many dots the mesh has. Changing it makes "
+                        "the mesh again; dots keep their settings where "
+                        "another dot is near."));
+  convert_.setObjectName("convert_mesh");
+  convert_.setToolTip(tr("Swaps this old rectangular grid for a shape "
+                         "mesh that hugs the drawing, keeping its dots' "
+                         "settings and keys where it can."));
 }
 
 void RigPanel::BuildLayout() {
@@ -62,17 +92,8 @@ void RigPanel::BuildLayout() {
   order_.setToolTip(tr("Higher draws in front."));
   SetUpNumber(&rest_, Number::kDegrees);
   rest_.setToolTip(tr("How the piece is turned when not posed."));
-  for (QSpinBox* side : {&warp_columns_, &warp_rows_}) {
-    side->setRange(1, kMaxWarpCells);
-    side->setValue(kDefaultWarpCells);
-  }
-  // Named so tests and screen readers find them by what they are.
-  warp_on_.setObjectName("warp_on");
+  SetUpWarpFields();
   keep_shape_.setObjectName("keep_shape");
-  warp_on_.setText(tr("Bend with a grid"));
-  warp_on_.setToolTip(tr("Lets you push spots of the drawing, like a "
-                         "crease in a shirt: pick the piece on the stage "
-                         "and drag its grid's dots."));
   keep_shape_.setText(tr("Keep shape when leaning"));
   keep_shape_.setToolTip(tr("Leaning or swivelling the doll still moves "
                             "and sizes this piece, but never squashes it. "
@@ -85,9 +106,11 @@ void RigPanel::BuildLayout() {
   form_.addRow(QString(), &keep_shape_);
   AddTitle(&form_, &warp_title_, tr("Warp"));
   form_.addRow(QString(), &warp_on_);
+  form_.addRow(tr("Detail"), &detail_);
   AddNumberPair(&form_, tr("Cells"), &warp_row_,
                 {tr("across"), &warp_columns_}, {tr("down"), &warp_rows_},
                 &live_);
+  form_.addRow(QString(), &convert_);
   chain_buttons_.addWidget(&add_chain_);
   chain_buttons_.addWidget(&flip_chain_);
   chain_buttons_.addWidget(&remove_chain_);
@@ -107,12 +130,12 @@ void RigPanel::BuildLayout() {
   layout_.addLayout(&chain_buttons_);
   layout_.addWidget(&save_rig_);
   layout_.addWidget(&hint_);
-  assert(form_.rowCount() == 9);
+  assert(form_.rowCount() == 11);
 }
 
 void RigPanel::Wire() {
   assert(managers_.IsComplete());
-  assert(form_.rowCount() == 9);
+  assert(form_.rowCount() == 11);
   RigManager* rig = managers_.rig;
   connect(&dolls_, &QComboBox::textActivated, this, [this](const QString& d) {
     doll_ = d;
@@ -160,21 +183,45 @@ void RigPanel::Wire() {
   connect(&drawing_, &QComboBox::activated, this, [this, rig](int index) {
     emit Problem(ProblemOf(rig->SetDefaultDrawing(doll_, piece_, index - 1)));
   });
-  const auto set_grid = [this, rig] {
-    const bool is_on = warp_on_.isChecked();
-    const WarpGrid grid = is_on ? WarpGrid{warp_columns_.value(),
-                                           warp_rows_.value()}
-                                : WarpGrid();
-    emit Problem(ProblemOf(rig->SetWarpAll(doll_, Picked(), grid)));
-  };
-  connect(&warp_on_, &QCheckBox::clicked, this, set_grid);
+  WireWarp();
   connect(&keep_shape_, &QCheckBox::clicked, this, [this, rig](bool is_on) {
     emit Problem(ProblemOf(rig->SetKeepShapeAll(doll_, Picked(), is_on)));
   });
+  WireChains();
+}
+
+void RigPanel::WireWarp() {
+  RigManager* rig = managers_.rig;
+  assert(rig != nullptr);
+  assert(managers_.toasts != nullptr);
+  connect(&warp_on_, &QCheckBox::clicked, this, [this, rig](bool is_on) {
+    if (is_on) {
+      MakeShapeMesh();
+      return;
+    }
+    emit Problem(ProblemOf(rig->SetWarpAll(doll_, Picked(), WarpGrid())));
+  });
+  connect(&detail_, &QComboBox::activated, this, &RigPanel::MakeShapeMesh);
+  connect(&convert_, &QPushButton::clicked, this, &RigPanel::MakeShapeMesh);
+  // Only an old grid's cells are set here; a new warp is a shape mesh.
+  const auto set_grid = [this, rig] {
+    emit Problem(ProblemOf(rig->SetWarpAll(
+        doll_, Picked(), WarpGrid{warp_columns_.value(), warp_rows_.value()})));
+  };
   for (QSpinBox* side : {&warp_columns_, &warp_rows_}) {
     MakeLive(side, &live_, tr("Warp grid"), this, set_grid);
   }
-  WireChains();
+}
+
+void RigPanel::MakeShapeMesh() {
+  assert(managers_.toasts != nullptr);
+  assert(detail_.currentIndex() >= 0);
+  const Result<CarryCount> made = managers_.rig->SetShapeMeshAll(
+      doll_, Picked(), static_cast<MeshDetail>(detail_.currentIndex()));
+  managers_.toasts->Finish(
+      ProblemOf(made),
+      made.has_value() ? RigManager::MeshDoneText(*made) : QString());
+  Refresh();
 }
 
 void RigPanel::WireChains() {

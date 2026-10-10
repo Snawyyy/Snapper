@@ -25,7 +25,7 @@ const QImage& WarpCache::Shrunk(const QString& path, const QImage& source,
 }
 
 const WarpedImage& WarpCache::Bent(const QString& path, const QImage& source,
-                                   WarpGrid grid,
+                                   const WarpGrid& grid,
                                    const std::vector<QPointF>& points,
                                    int detail) {
   assert(!source.isNull());

@@ -27,6 +27,13 @@ const ArtPiece* FindArt(const Doll& doll, const QString& name) {
   return FindNamed(doll.art.pieces, name);
 }
 
+QSize ArtSizeOf(const Doll& doll, const QString& name) {
+  const ArtPiece* art = FindArt(doll, name);
+  assert(art == nullptr || art->size.width() >= 0);
+  assert(!name.isEmpty());
+  return art != nullptr ? art->size : QSize();
+}
+
 const RigPiece* FindRig(const Rig& rig, const QString& name) {
   assert(rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   assert(!name.isEmpty());

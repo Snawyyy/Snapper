@@ -9,14 +9,15 @@
 
 namespace snapper {
 
-// Keeps a warp grid from folding over. points (row by row, any space)
-// were moved from from; around every cell whose drawn triangles have
-// turned over, or squashed to almost nothing, against how they were in
-// from, the points are taken part of the way back to from, again and
-// again (a fixed number of times) until no cell is folded. A grid moved
+// Keeps a warp grid from folding over. points (one per grid point, any
+// space) were moved from from; around every cell (or mesh triangle)
+// whose drawn triangles have turned over, or squashed to almost
+// nothing, against how they were in from, the points are taken part of
+// the way back to from, again and again (a fixed number of times)
+// until no cell is folded. A grid moved
 // further than it can go without tearing the drawing gives way
 // instead. Points that did not move stay put.
-void Unfold(WarpGrid grid, const std::vector<QPointF>& from,
+void Unfold(const WarpGrid& grid, const std::vector<QPointF>& from,
             std::vector<QPointF>* points);
 
 }  // namespace snapper

@@ -30,15 +30,15 @@ struct ColliderEdge final {
 // Where points given in a piece's drawing pixels stand in shot space.
 // grid_points is the piece's warped grid in shot space (empty when the
 // piece has no warp grid), to_shot the map from its drawing pixels to
-// shot space; a point is carried by the grid cell it sits in, so it
-// bends with the piece.
+// shot space; a point is carried by the grid cell (or mesh triangle)
+// it sits in, so it bends with the piece (see CarriedAt).
 std::vector<QPointF> ShotPoints(const std::vector<QPointF>& points,
-                                WarpGrid grid, QSize size,
+                                const WarpGrid& grid, QSize size,
                                 const std::vector<QPointF>& grid_points,
                                 const QTransform& to_shot);
 
 // Where the dots of collider are in shot space (see ShotPoints).
-std::vector<QPointF> ShotDots(const Collider& collider, WarpGrid grid,
+std::vector<QPointF> ShotDots(const Collider& collider, const WarpGrid& grid,
                               QSize size, const std::vector<QPointF>& points,
                               const QTransform& to_shot);
 

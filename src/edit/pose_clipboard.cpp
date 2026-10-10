@@ -114,8 +114,13 @@ Result<void> PoseManager::PastePose(ShotId shot, LayerId layer, Frame frame,
     const RigPiece* target = own != nullptr ? own : FindRig(doll->rig, name);
     const bool fits = target != nullptr;
     if (fits) {
+      const RigPiece* source = FindRig(doll->rig, name);
+      const WarpGrid& from = source != nullptr ? source->warp : target->warp;
       pasted[target->name] =
-          is_mirrored ? MirrorPose(pose, target->warp) : pose;
+          is_mirrored ? MirrorPose(pose, from, ArtSizeOf(*doll, name),
+                                   target->warp,
+                                   ArtSizeOf(*doll, target->name))
+                      : pose;
     }
   }
   return history_->Apply(is_mirrored ? Tr("Paste mirrored pose")

@@ -19,6 +19,9 @@ constexpr double kWaveLag = 0.5;
 // Cycles added before taking the phase, so a delay never goes below the
 // shot's first frame.
 constexpr double kLead = 2.0;
+// Shakes of one cycle per point seed the shiver as they did when a warp
+// had at most this many points, so old files shiver as they did.
+constexpr int kShiverStride = 81;
 
 // Cycles gone by at frame, started late by late cycles; never negative.
 double Cycles(const PointMotion& motion, Frame frame, double late) {
@@ -71,7 +74,7 @@ QPointF MotionPush(const PointMotion& motion, Frame frame, double extra) {
   if (is_shiver) {
     // Its own small random spot, kShakesPerCycle fresh ones a cycle.
     const int shake = static_cast<int>(cycles * kShakesPerCycle);
-    const int step = shake * kMaxWarpPoints + motion.point;
+    const int step = shake * kShiverStride + motion.point;
     return QPointF(Jitter(step, 0), Jitter(step, 1)) * motion.size;
   }
   const double whole = std::floor(cycles);
@@ -81,7 +84,7 @@ QPointF MotionPush(const PointMotion& motion, Frame frame, double extra) {
   return way * (motion.size * Amount(motion.kind, phase));
 }
 
-std::vector<QPointF> PointMotionPushes(WarpGrid grid,
+std::vector<QPointF> PointMotionPushes(const WarpGrid& grid,
                                        const PointMotion& motion,
                                        double reach, Frame frame) {
   assert(frame.index() >= 0);

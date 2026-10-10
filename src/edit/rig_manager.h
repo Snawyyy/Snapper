@@ -8,6 +8,7 @@
 #include <map>
 #include <vector>
 
+#include "anim/mesh_carry.h"
 #include "base/error.h"
 #include "model/doll.h"
 
@@ -62,7 +63,24 @@ class RigManager final {
   // 0 by 0 turns warping off. Warp keys made on the old grid no longer
   // fit, so they are cleared from the piece's poses.
   Result<void> SetWarpGrid(const QString& doll, const QString& piece,
-                           WarpGrid grid);
+                           const WarpGrid& grid);
+  // Gives every piece a shape mesh made from its drawings at detail:
+  // turning its warp on, a new detail, or an old grid converted. Each
+  // dot's settings carry to the nearest new dot and every warp key
+  // carries by position; one undo step. Refused when a piece's
+  // drawings can't be read or show nothing. What carried over comes
+  // back; nothing changes when the mesh comes out the same.
+  Result<CarryCount> SetShapeMeshAll(const QString& doll,
+                                     const std::vector<QString>& pieces,
+                                     MeshDetail detail);
+  // What to tell the user after SetShapeMeshAll.
+  static QString MeshDoneText(const CarryCount& count);
+  // Why piece's mesh detail can't be set (no warp, or an old grid);
+  // empty when it can.
+  QString WhyNoDetail(const QString& doll, const QString& piece) const;
+  // Why piece can't be converted to a shape mesh (only an old grid
+  // can); empty when it can.
+  QString WhyNoConvert(const QString& doll, const QString& piece) const;
   // How far pulling one grid point drags its neighbours, in cells (0
   // moves it alone), kept from 0 to kMaxWarpCells.
   Result<void> SetWarpReach(const QString& doll, const QString& piece,
@@ -152,7 +170,8 @@ class RigManager final {
                             const std::vector<QString>& pieces,
                             const QString& parent);
   Result<void> SetWarpAll(const QString& doll,
-                          const std::vector<QString>& pieces, WarpGrid grid);
+                          const std::vector<QString>& pieces,
+                          const WarpGrid& grid);
   Result<void> SetKeepShapeAll(const QString& doll,
                                const std::vector<QString>& pieces,
                                bool keeps_shape);
@@ -171,6 +190,8 @@ class RigManager final {
                            QPointF tip);
 
  private:
+  const RigPiece* RigOf(const QString& doll, const QString& piece) const;
+
   HistoryManager* history_;
 };
 

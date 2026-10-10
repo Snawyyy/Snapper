@@ -20,7 +20,7 @@ QPointF MotionPush(const PointMotion& motion, Frame frame,
 // point moves by MotionPush and the rest follow by reach, as they
 // follow a drag node; a wave reaches them later the further they are.
 // All zero when motion's point is not on grid.
-std::vector<QPointF> PointMotionPushes(WarpGrid grid,
+std::vector<QPointF> PointMotionPushes(const WarpGrid& grid,
                                        const PointMotion& motion,
                                        double reach, Frame frame);
 

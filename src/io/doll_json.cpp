@@ -10,6 +10,7 @@
 
 #include "io/collider_json.h"
 #include "io/point_motion_json.h"
+#include "io/warp_json.h"
 
 namespace snapper {
 namespace {
@@ -26,7 +27,8 @@ QJsonArray ReachToJson(const std::vector<double>& reach) {
 
 // One reach per point of grid, never negative; anything that doesn't
 // fit the grid reads as no reach at all.
-std::vector<double> ReachFromJson(const QJsonValue& value, WarpGrid grid) {
+std::vector<double> ReachFromJson(const QJsonValue& value,
+                                  const WarpGrid& grid) {
   assert(grid.columns >= 0 && grid.rows >= 0);
   const QJsonArray array = value.toArray();
   std::vector<double> reach;
@@ -67,7 +69,8 @@ QJsonArray DragToJson(const std::vector<DragNode>& nodes) {
 }
 
 // Drag nodes on points of grid, once each, settings kept 0 to 1.
-std::vector<DragNode> DragFromJson(const QJsonValue& value, WarpGrid grid) {
+std::vector<DragNode> DragFromJson(const QJsonValue& value,
+                                   const WarpGrid& grid) {
   assert(grid.columns >= 0 && grid.rows >= 0);
   std::vector<DragNode> nodes;
   const QJsonArray array = value.toArray();
@@ -163,7 +166,7 @@ QJsonObject RigToJson(const Rig& rig) {
   assert(rig.chains.size() <= static_cast<size_t>(kMaxIkChains));
   QJsonArray pieces;
   for (const RigPiece& piece : rig.pieces) {
-    pieces.append(QJsonObject{
+    QJsonObject object{
         {"name", piece.name},
         {"parent", piece.parent},
         {"pivot", PointToJson(piece.pivot)},
@@ -174,8 +177,9 @@ QJsonObject RigToJson(const Rig& rig) {
         {"reach", ReachToJson(piece.warp_reach)},
         {"drag", DragToJson(piece.drag_nodes)},
         {"motions", PointMotionsToJson(piece.point_motions)},
-        {"collider", ColliderToJson(piece.collider)},
-        {"warp", QJsonArray{piece.warp.columns, piece.warp.rows}}});
+        {"collider", ColliderToJson(piece.collider)}};
+    WarpToJson(piece.warp, &object);
+    pieces.append(object);
   }
   QJsonArray chains;
   for (const IkChain& chain : rig.chains) {
@@ -195,9 +199,7 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
       Bounded(object.value("pieces"), kMaxDollPieces, "rig pieces", issues);
   for (const QJsonValue& item : pieces) {
     const QJsonObject piece = item.toObject();
-    const QJsonArray warp = piece.value("warp").toArray();
-    const WarpGrid grid{std::clamp(warp.at(0).toInt(), 0, kMaxWarpCells),
-                        std::clamp(warp.at(1).toInt(), 0, kMaxWarpCells)};
+    const WarpGrid grid = WarpFromJson(piece, issues);
     rig.pieces.push_back({piece.value("name").toString(),
                           piece.value("parent").toString(),
                           PointFromJson(piece.value("pivot")),

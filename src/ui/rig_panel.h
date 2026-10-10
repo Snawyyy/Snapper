@@ -23,7 +23,7 @@
 
 namespace snapper {
 
-// A new warp grid starts 3 by 3: enough to crease, few points to push.
+// An old warp grid shows 3 by 3 when its fields are first shown.
 constexpr int kDefaultWarpCells = 3;
 
 // The rig's settings beside the rig canvas: which doll, its pieces as a
@@ -49,13 +49,21 @@ class RigPanel final : public QWidget {
 
  private:
   void BuildLayout();
+  void SetUpWarpFields();
   void Wire();
+  void WireWarp();
   void WireChains();
   void RefreshPieces();
   void RefreshPiece();
   // Draw order and rest turn of the focused piece; picks that differ
   // say Mixed.
   void ShowOrderAndRest(const Doll& doll, const RigPiece& focus);
+  // The warp fields of the focused piece (nullptr for none): which are
+  // live, and why the others are greyed.
+  void ShowWarp(const RigPiece* rig);
+  // Gives the picked pieces a shape mesh at the Detail shown, saying
+  // what carried over.
+  void MakeShapeMesh();
   void RefreshChains();
   void AddChain();
   // The picked pieces, at least the focused one.
@@ -82,6 +90,8 @@ class RigPanel final : public QWidget {
   QHBoxLayout warp_row_;
   QSpinBox warp_columns_;
   QSpinBox warp_rows_;
+  QComboBox detail_;
+  QPushButton convert_;
   QLabel chains_title_;
   QListWidget chains_;
   QHBoxLayout chain_buttons_;

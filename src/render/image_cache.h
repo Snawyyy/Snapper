@@ -30,7 +30,7 @@ class ImageCache final {
   // The drawing at path bent by grid over points (see WarpImage),
   // kept so the same bend is made once. An empty image if path can't
   // be read. The reference holds until the next call.
-  const WarpedImage& Warped(const QString& path, WarpGrid grid,
+  const WarpedImage& Warped(const QString& path, const WarpGrid& grid,
                             const std::vector<QPointF>& points,
                             int detail = kFullDetail);
   // Forgets path, for when a file changed on disk.

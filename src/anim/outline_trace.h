@@ -23,6 +23,11 @@ constexpr double kOutlineSpacing = 12.0;
 std::vector<QPointF> TraceOutline(const QImage& image, int alpha_threshold,
                                   double spacing, int max_dots);
 
+// A closed ring of corners with its staircases straightened: no corner
+// it drops was further than tolerance from the ring that is left.
+std::vector<QPointF> SimplifyRing(const std::vector<QPointF>& ring,
+                                  double tolerance);
+
 }  // namespace snapper
 
 #endif  // SNAPPER_ANIM_OUTLINE_TRACE_H_

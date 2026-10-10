@@ -68,12 +68,12 @@ inline double ArtCentreX(const ArtPiece& art) {
   return art.position.x() + art.size.width() / 2.0;
 }
 
-// motion as it is on the other side of a piece with warp grid: on the
-// mirrored point, left and right swapped, up and down staying.
-inline PointMotion MirroredMotion(PointMotion motion, WarpGrid grid) {
-  assert(grid.IsOn());
-  assert(motion.point >= 0 && motion.point < grid.PointCount());
-  motion.point = MirroredPoint(grid, motion.point);
+// motion as it is on the other side: on point (the mirrored one), left
+// and right swapped, up and down staying.
+inline PointMotion MirroredMotion(PointMotion motion, int point) {
+  assert(point >= 0 && point < kMaxWarpPoints);
+  assert(std::isfinite(motion.angle));
+  motion.point = point;
   motion.angle = std::remainder(180.0 - motion.angle, 360.0);
   return motion;
 }

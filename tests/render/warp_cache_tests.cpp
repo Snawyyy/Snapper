@@ -14,7 +14,7 @@
 namespace snapper {
 namespace {
 
-constexpr WarpGrid kGrid{2, 2};
+const WarpGrid kGrid{2, 2};
 
 // A 40x40 drawing on disk.
 QString WriteDrawing(const QTemporaryDir& dir) {
