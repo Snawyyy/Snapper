@@ -31,6 +31,9 @@ You change the Snapper code base (C++23, Qt 6, CMake). The project
   before moving on.
 - Logic goes in the owning manager; widgets decide nothing a test
   should check. New logic leaves a test in `tests/<module>/`.
+- New files need no CMake change: every `src/<module>/*.cpp` and
+  `tests/<module>/*_tests.cpp` is picked up, so do not open
+  `CMakeLists.txt` for that.
 
 ## Build and test
 

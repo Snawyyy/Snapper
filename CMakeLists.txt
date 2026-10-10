@@ -18,35 +18,20 @@ include(cmake/snapper.cmake)
 include(CTest)
 
 # Modules, lowest first. See ARCHITECTURE.md for what each one owns.
+# Each builds every src/<module>/*.cpp; a new file needs no line here.
 snapper_module(base
-  SOURCES frame.cpp number_text.cpp scrub_drag.cpp text.cpp
   LIBS Qt6::Core)
 snapper_module(model
-  SOURCES doll.cpp layer.cpp project.cpp reel.cpp shot.cpp transition.cpp
-          warp_mesh.cpp
   MODULES base
   LIBS Qt6::Gui)
 snapper_module(anim
-  SOURCES cloth.cpp cloth_parts.cpp collider.cpp doll_beat.cpp doll_collide.cpp doll_colliders.cpp grid_fold.cpp grid_push.cpp jelly.cpp node_feel.cpp
-          outline_trace.cpp shot_grid.cpp doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp pose_memo.cpp jitter.cpp links.cpp
-          master_timeline.cpp mirror.cpp presets.cpp reel_timeline.cpp
-          poke_layer.cpp sampler.cpp timing_chart.cpp warp.cpp warp_motion.cpp
-          delaunay.cpp mask_rings.cpp mesh_carry.cpp mesh_outline.cpp shape_mesh.cpp
-          warp_shape.cpp
   MODULES model)
 snapper_module(io
-  SOURCES collider_json.cpp doll_file.cpp doll_json.cpp json_file.cpp json_values.cpp
-          layer_json.cpp legacy_doll.cpp pose_file.cpp project_file.cpp
-          point_motion_json.cpp reconcile.cpp reel_json.cpp warp_json.cpp
   MODULES model)
 snapper_module(media
-  SOURCES audio_clip.cpp audio_player.cpp ffmpeg_handles.cpp
-          video_encoder.cpp video_reader.cpp video_streams.cpp
   MODULES base
   LIBS Qt6::Gui Qt6::Multimedia PkgConfig::FFMPEG)
 snapper_module(render
-  SOURCES effects.cpp frame_renderer.cpp image_cache.cpp layer_painter.cpp warp_cache.cpp
-          stage_geometry.cpp stage_hit.cpp warp_raster.cpp
   MODULES anim)
 # The per-pixel loops of the warp are far too slow unoptimised, and a
 # debug build is what gets used while editing: they stay -O2 there.
@@ -54,43 +39,9 @@ set_source_files_properties(
   ${PROJECT_SOURCE_DIR}/src/render/warp_raster.cpp
   PROPERTIES COMPILE_OPTIONS "$<$<CONFIG:Debug>:-O2>")
 snapper_module(edit
-  SOURCES change_diff.cpp change_watcher.cpp
-          doll_library_manager.cpp document_manager.cpp
-          edit_scope.cpp
-          export_manager.cpp
-          history_manager.cpp key_clipboard.cpp key_manager.cpp
-          playback_manager.cpp poke_manager.cpp pose_clipboard.cpp pose_manager.cpp
-          preset_manager.cpp saved_poses.cpp
-          link_manager.cpp project_edits.cpp reel_batch.cpp reel_clipboard.cpp
-          reel_cuts.cpp reel_edits.cpp reel_manager.cpp reel_markers.cpp
-          reel_transitions.cpp mesh_edits.cpp rig_mesh.cpp rig_batch.cpp rig_collider.cpp rig_dots.cpp rig_mirror_nodes.cpp rig_nodes.cpp
-          rig_manager.cpp rig_mirror.cpp
-          selection_manager.cpp selection_prune.cpp shot_batch.cpp
-          shot_manager.cpp stage_batch.cpp stage_manager.cpp
-          stage_settings.cpp timeline_rows.cpp timing_chart_manager.cpp video_file_frames.cpp
   MODULES io media render
   LIBS Qt6::Concurrent)
 snapper_module(ui
-  SOURCES bar_text.cpp bump_label.cpp cast_actions.cpp cast_panel.cpp
-          change_effects.cpp export_dialog.cpp hover_fade.cpp mode_icons.cpp
-          mode_tabs.cpp snapper_style.cpp step_button.cpp top_bar.cpp
-          export_dialog_actions.cpp file_menu.cpp main_window.cpp
-          drag_box.cpp drag_box_show.cpp dot_kinds.cpp feel_pad.cpp fold_section.cpp kind_tile.cpp kind_tiles.cpp material_art.cpp wobble_blob.cpp picked_dot.cpp point_motion_box.cpp shot_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
-          layer_box_commits.cpp link_box.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
-          rig_canvas_collider.cpp collider_box.cpp collider_keys.cpp
-          rig_canvas_input.cpp rig_canvas_handles.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp pose_tool_readout.cpp
-          reel_preview.cpp reel_timeline.cpp reel_timeline_drop.cpp
-          reel_timeline_commands.cpp reel_timeline_effects.cpp
-          reel_timeline_ghost.cpp reel_timeline_input.cpp
-          shot_bin.cpp shot_strip.cpp shot_strip_ghost.cpp slot_picker.cpp
-          dot_shape.cpp drag_feedback.cpp drag_text.cpp grab.cpp handle_hover.cpp
-          playhead_settle.cpp
-          motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
-          refusal_shaker.cpp scrub_label.cpp space_keys_action.cpp toast_manager.cpp toast_queue.cpp toast_view.cpp
-          stage_menu.cpp stage_view.cpp stage_poke.cpp stage_view_poke.cpp stage_view_paint.cpp stage_view_ghost.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
-          timeline_drag.cpp drag_playhead.cpp timeline_view.cpp timing_chart_action.cpp
-          timing_chart_dialog.cpp timing_chart_strip.cpp transition_picker.cpp
-          video_page.cpp
   MODULES edit
   LIBS Qt6::Widgets)
 
@@ -102,51 +53,13 @@ target_include_directories(snapper PRIVATE src)
 set_target_properties(snapper PROPERTIES WIN32_EXECUTABLE TRUE)
 
 if(BUILD_TESTING)
-  snapper_test(base SOURCES base_tests.cpp number_tests.cpp)
-  snapper_test(model SOURCES model_tests.cpp)
-  snapper_test(anim SOURCES sampler_tests.cpp pose_tests.cpp lean_tests.cpp
-                    cloth_tests.cpp cloth_feel_tests.cpp collider_tests.cpp
-                    collider_push_tests.cpp drag_tests.cpp link_tests.cpp pose_memo_tests.cpp
-                    reel_tests.cpp timing_chart_tests.cpp
-                    warp_motion_tests.cpp shape_mesh_tests.cpp
-                    mesh_dots_tests.cpp jelly_tests.cpp node_feel_tests.cpp
-                    poke_layer_tests.cpp)
-  snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp
-                   warp_json_tests.cpp)
-  snapper_test(media SOURCES media_tests.cpp video_reader_tests.cpp)
-  snapper_test(render SOURCES render_tests.cpp warp_cache_tests.cpp
-                      warp_raster_tests.cpp)
-  snapper_test(edit SOURCES change_diff_tests.cpp change_watcher_tests.cpp
-                            document_tests.cpp
-                            export_tests.cpp
-                            history_tests.cpp
-                            key_tests.cpp library_tests.cpp
-                            link_manager_tests.cpp posing_tests.cpp
-                            playback_tests.cpp poke_manager_tests.cpp preset_tests.cpp
-                            reel_editing_tests.cpp reel_manager_tests.cpp
-                            reel_transition_tests.cpp
-                            rig_tests.cpp rig_dots_tests.cpp mesh_edit_tests.cpp
-                            shot_tests.cpp
-                            selection_tests.cpp stage_tests.cpp
-                            timeline_tests.cpp timing_chart_edit_tests.cpp track_tests.cpp
-                            video_frames_tests.cpp)
-  snapper_test(ui SOURCES bar_text_tests.cpp cast_panel_tests.cpp
-                          change_effects_tests.cpp
-                          playhead_settle_tests.cpp
-                          export_dialog_tests.cpp
-                          drag_feedback_tests.cpp drag_text_tests.cpp
-                          dot_shape_tests.cpp grab_tests.cpp
-                          handle_hover_tests.cpp stage_poke_tests.cpp
-                          inspector_tests.cpp link_ui_tests.cpp
-                          pose_tool_tests.cpp pose_tool_grab_tests.cpp
-                          pose_tool_readout_tests.cpp refusal_reason_tests.cpp
-                          reel_timeline_tests.cpp
-                          rig_ui_tests.cpp mesh_ui_tests.cpp collider_ui_tests.cpp multi_dot_tests.cpp dot_kinds_tests.cpp drag_panel_tests.cpp pose_tool_dots_tests.cpp number_field_tests.cpp
-                          shot_strip_tests.cpp slot_picker_tests.cpp
-                          motion_tests.cpp scrub_tests.cpp shake_tests.cpp theme_tests.cpp
-                          toast_tests.cpp space_keys_tests.cpp
-                          perf_tests.cpp timeline_view_tests.cpp timeline_overlap_tests.cpp
-                          timing_chart_ui_tests.cpp video_page_tests.cpp
-                          window_tests.cpp)
+  snapper_test(base)
+  snapper_test(model)
+  snapper_test(anim)
+  snapper_test(io)
+  snapper_test(media)
+  snapper_test(render)
+  snapper_test(edit)
+  snapper_test(ui)
   snapper_checks()
 endif()

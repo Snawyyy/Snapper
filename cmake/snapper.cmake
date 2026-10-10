@@ -40,18 +40,19 @@ function(snapper_warnings target)
   endif()
 endfunction()
 
-# snapper_module(<name> SOURCES ... MODULES <lower modules> LIBS <libs>)
-# Builds src/<name> as snapper_<name> and records which modules it may
-# include, for the layer check.
+# snapper_module(<name> MODULES <lower modules> LIBS <libs>)
+# Builds every src/<name>/*.cpp as snapper_<name> and records which
+# modules it may include, for the layer check. Globbed so adding a
+# file never means editing (or reading) CMakeLists.txt.
 function(snapper_module name)
-  cmake_parse_arguments(ARG "" "" "SOURCES;MODULES;LIBS" ${ARGN})
+  cmake_parse_arguments(ARG "" "" "MODULES;LIBS" ${ARGN})
   set(target snapper_${name})
   set(module_targets)
   foreach(module IN LISTS ARG_MODULES)
     list(APPEND module_targets snapper_${module})
   endforeach()
-  list(TRANSFORM ARG_SOURCES PREPEND ${PROJECT_SOURCE_DIR}/src/${name}/)
-  add_library(${target} STATIC ${ARG_SOURCES})
+  file(GLOB sources CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/${name}/*.cpp)
+  add_library(${target} STATIC ${sources})
   target_include_directories(${target} PUBLIC ${PROJECT_SOURCE_DIR}/src)
   target_link_libraries(${target} PUBLIC ${module_targets} ${ARG_LIBS})
   snapper_warnings(${target})
@@ -59,13 +60,14 @@ function(snapper_module name)
   set_property(GLOBAL APPEND PROPERTY SNAPPER_LAYERS "${name}=${joined}")
 endfunction()
 
-# snapper_test(<module> SOURCES ...) builds each tests/<module>/<name>.cpp
+# snapper_test(<module>) builds each tests/<module>/<name>_tests.cpp
 # into its own test program, linked against the module.
 function(snapper_test module)
-  cmake_parse_arguments(ARG "" "" "SOURCES" ${ARGN})
-  foreach(source IN LISTS ARG_SOURCES)
+  file(GLOB sources CONFIGURE_DEPENDS
+    ${PROJECT_SOURCE_DIR}/tests/${module}/*_tests.cpp)
+  foreach(source IN LISTS sources)
     get_filename_component(target ${source} NAME_WE)
-    add_executable(${target} ${PROJECT_SOURCE_DIR}/tests/${module}/${source})
+    add_executable(${target} ${source})
     target_link_libraries(${target} PRIVATE snapper_${module} Qt6::Test)
     snapper_warnings(${target})
     add_test(NAME ${target} COMMAND ${target})
