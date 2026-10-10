@@ -34,7 +34,6 @@ Collider MirroredCollider(const Doll& doll, const RigPiece& from,
   const double axis = (ArtCentreX(*from_art) + ArtCentreX(*to_art)) / 2.0;
   Collider mirrored;
   mirrored.ring_size = from.collider.ring_size;
-  mirrored.depth = from.collider.depth;
   for (auto dot = from.collider.dots.rbegin();
        dot != from.collider.dots.rend(); ++dot) {
     const QPointF at = from_art->position + dot->at;

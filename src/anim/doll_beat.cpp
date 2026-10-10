@@ -1,5 +1,6 @@
 #include "anim/doll_beat.h"
 
+#include <algorithm>
 #include <cassert>
 #include <iterator>
 #include <map>
@@ -10,6 +11,10 @@ namespace {
 
 // The most keys a channel may hold, for a sanity check.
 constexpr size_t kMaxBeatKeys = 20000;
+// The longest beat: drags and physics move at least every this many
+// frames, so a pose held long still sways and settles (on 4s at most)
+// instead of freezing and then jumping at the next key.
+constexpr int kLongestBeat = 4;
 
 // The doll's keys (its own move's and every piece's), each with whether
 // the motion after it eases instead of holding.
@@ -51,9 +56,10 @@ Frame BeatOf(const Layer& layer, Frame frame) {
       has_earlier ? at->first.index() - std::prev(at)->first.index()
       : after != keys.end() ? after->first.index() - at->first.index()
                             : 1;
+  const int beat = std::min(spacing, kLongestBeat);
   const int since = frame.index() - at->first.index();
-  assert(spacing >= 1);
-  return Frame(at->first.index() + since / spacing * spacing);
+  assert(beat >= 1);
+  return Frame(at->first.index() + since / beat * beat);
 }
 
 

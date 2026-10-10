@@ -7,28 +7,37 @@
 #include <cmath>
 #include <vector>
 
+#include "anim/grid_fold.h"
+
 namespace snapper {
 namespace {
 
 // Rounds of tie fixing per frame: more is stiffer cloth, never a loop
 // without an end.
-constexpr int kTieRounds = 40;
-// Pixels per frame per frame a gravity of 1 pulls down.
-constexpr double kGravityPull = 8.0;
-// The pull back to the carried place a spring of 1 gives, per frame.
-constexpr double kSpringPull = 0.6;
-// Rounds of pushing out at the end of a frame, so the pushes of
-// neighbouring cloth settle together.
-constexpr int kSettlePasses = 6;
-// A middle this close to an outline counts as on it, not across it.
-constexpr double kAcrossSlack = 0.1;
-// How far past its drawn length a pin tie lets a node go, as a share of
-// that length at stretch 0 and at stretch 1. A pin is the body, which
-// limits a node, never freezes it: a lone node between pins must swing.
-constexpr double kPinGiveTight = 0.5;
-constexpr double kPinGiveLoose = 1.5;
-// How much of a tie's overshoot one round fixes at stretch 1.
-constexpr double kRubberStiffness = 0.02;
+constexpr int kTieRounds = 24;
+// How much longer than drawn a tie may get at stretch 1.
+constexpr double kMaxStretch = 1.0;
+// How hard a tie pulls back, per frame, on what it is stretched past
+// its drawn length at stretch 0; less as stretch goes up, none at 1.
+// So stretch is felt through its whole range, not only at the limit.
+constexpr double kFirmness = 0.2;
+// The pull back to the drawn place a bounce of 1 gives, per frame.
+constexpr double kSpringPull = 0.3;
+// The share of its motion a node keeps each frame with no air
+// resistance (a little is always lost, so it settles), and what air
+// resistance 1 takes off that.
+constexpr double kKeep = 0.98;
+constexpr double kAirDrag = 0.3;
+// The share of a grid cell a gravity of 1 pulls per frame per frame,
+// per unit of turn away from upright (2 when upside down): sized by the
+// cell, so a small drawing hangs as a big one does.
+constexpr double kGravityPull = 0.02;
+// The share of a collider's push a node keeps as speed: the rest is
+// lost in the hit, so cloth rides on a leg instead of flying off it.
+constexpr double kPushKick = 0.3;
+// The shortest a tie may get, as a share of its drawn length: cloth
+// buckles, but never folds flat onto itself.
+constexpr double kLeastLength = 0.5;
 
 // Two things the cloth ties together: a node and another node, or a
 // node and a pin (other < 0, held at pin).
@@ -37,9 +46,16 @@ struct Tie final {
   int other = -1;
   QPointF pin;
   double rest = 0.0;
+  double shortest = 0.0;
+  double longest = 0.0;
+  // How hard it pulls back once stretched past rest, per frame.
+  double firmness = 0.0;
 };
 
 double Length(QPointF v) { return std::hypot(v.x(), v.y()); }
+
+// A sum of two finite numbers far below overflow is finite.
+bool IsFinite(QPointF p) { return std::isfinite(p.x() + p.y()); }
 
 // The node of grid point, or -1.
 int NodeAt(const ClothPiece& piece, int point) {
@@ -51,13 +67,12 @@ int NodeAt(const ClothPiece& piece, int point) {
   return is_node ? static_cast<int>(found - piece.points.begin()) : -1;
 }
 
-// The farthest node may be from a pin that is rest away when drawn.
-double PinReach(const ClothPiece& piece, int node, double rest) {
+// How long a tie of drawn length rest at node may get.
+double Longest(const ClothPiece& piece, int node, double rest) {
   assert(node >= 0 && static_cast<size_t>(node) < piece.settings.size());
   assert(rest >= 0.0);
   const double stretch = piece.settings[static_cast<size_t>(node)].stretch;
-  return rest * (1.0 + kPinGiveTight +
-                 (kPinGiveLoose - kPinGiveTight) * stretch);
+  return rest * (1.0 + kMaxStretch * stretch);
 }
 
 // A tie across one grid edge from point to next, if a node is on it.
@@ -76,14 +91,16 @@ void AddTie(const ClothPiece& piece, const std::vector<QPointF>& carried,
   const double rest = Length(to - from);
   const bool is_pair = a >= 0 && b >= 0;
   const bool is_start_node = a >= 0;
-  if (is_pair) {
-    ties->push_back({static_cast<size_t>(a), b, QPointF(), rest});
-  } else if (is_start_node) {
-    ties->push_back({static_cast<size_t>(a), -1, to, PinReach(piece, a, rest)});
-  } else {
-    ties->push_back(
-        {static_cast<size_t>(b), -1, from, PinReach(piece, b, rest)});
-  }
+  const int node = is_start_node ? a : b;
+  const int other = is_pair ? b : -1;
+  const QPointF pin = is_start_node ? to : from;
+  const double longest = is_pair ? std::min(Longest(piece, a, rest),
+                                            Longest(piece, b, rest))
+                                 : Longest(piece, node, rest);
+  const double give = 1.0 - piece.settings[static_cast<size_t>(node)].stretch;
+  ties->push_back({static_cast<size_t>(node), other, is_pair ? QPointF() : pin,
+                   rest, rest * kLeastLength, longest,
+                   kFirmness * give * give});
 }
 
 // Every tie of the grid: each point to the one at its right and below.
@@ -93,41 +110,37 @@ std::vector<Tie> TiesOf(const ClothPiece& piece,
   assert(piece.points.size() == piece.at.size());
   std::vector<Tie> ties;
   const int across = piece.grid.columns + 1;
-  for (int row = 0; row <= piece.grid.rows; ++row) {
-    for (int column = 0; column <= piece.grid.columns; ++column) {
-      const int point = row * across + column;
-      const bool has_right = column < piece.grid.columns;
-      const bool has_below = row < piece.grid.rows;
-      if (has_right) {
-        AddTie(piece, carried, point, point + 1, &ties);
-      }
-      if (has_below) {
-        AddTie(piece, carried, point, point + across, &ties);
-      }
+  for (int point = 0; point < piece.grid.PointCount(); ++point) {
+    const bool has_right = point % across < piece.grid.columns;
+    const bool has_below = point / across < piece.grid.rows;
+    if (has_right) {
+      AddTie(piece, carried, point, point + 1, &ties);
+    }
+    if (has_below) {
+      AddTie(piece, carried, point, point + across, &ties);
     }
   }
   assert(ties.size() <= static_cast<size_t>(2 * kMaxWarpPoints));
   return ties;
 }
 
-// Pulls the two ends of a tie in when they are farther apart than
-// rest; a slack tie does nothing, as cloth buckles rather than pushes.
-void Fix(const Tie& tie, const ClothPiece& piece, std::vector<QPointF>* at) {
+// Pulls the two ends of a tie in when they are farther apart than it
+// may get, and apart when they are closer than it may get; between the
+// two a tie does nothing, as cloth buckles rather than pushes.
+void Fix(const Tie& tie, std::vector<QPointF>* at) {
   assert(at != nullptr);
   assert(tie.node < at->size());
-  const double stretch = piece.settings[tie.node].stretch;
-  const double stiffness =
-      kRubberStiffness + (1.0 - kRubberStiffness) * (1.0 - stretch);
   const bool is_pair = tie.other >= 0;
   const QPointF end =
       is_pair ? (*at)[static_cast<size_t>(tie.other)] : tie.pin;
   const QPointF gap = end - (*at)[tie.node];
   const double length = Length(gap);
-  const bool is_taut = length > tie.rest && length > 1e-9;
-  if (!is_taut) {
+  const double wanted = std::clamp(length, tie.shortest, tie.longest);
+  const bool is_off = std::abs(wanted - length) > 1e-9 && length > 1e-9;
+  if (!is_off) {
     return;
   }
-  const QPointF pull = gap * ((length - tie.rest) / length * stiffness);
+  const QPointF pull = gap * ((length - wanted) / length);
   if (is_pair) {
     (*at)[tie.node] += pull * 0.5;
     (*at)[static_cast<size_t>(tie.other)] -= pull * 0.5;
@@ -136,60 +149,94 @@ void Fix(const Tie& tie, const ClothPiece& piece, std::vector<QPointF>* at) {
   }
 }
 
-// Keeps a node within kMaxClothDrift of the place the body carries it.
+// Pulls the ends of a tie stretched past its drawn length part of the
+// way back, as a spring would over one frame.
+void Firm(const Tie& tie, std::vector<QPointF>* at) {
+  assert(at != nullptr);
+  assert(tie.node < at->size());
+  const bool is_pair = tie.other >= 0;
+  const QPointF end =
+      is_pair ? (*at)[static_cast<size_t>(tie.other)] : tie.pin;
+  const QPointF gap = end - (*at)[tie.node];
+  const double length = Length(gap);
+  const bool is_stretched = length > tie.rest && length > 1e-9;
+  if (!is_stretched) {
+    return;
+  }
+  const QPointF pull = gap * ((length - tie.rest) / length * tie.firmness);
+  if (is_pair) {
+    (*at)[tie.node] += pull * 0.5;
+    (*at)[static_cast<size_t>(tie.other)] -= pull * 0.5;
+  } else {
+    (*at)[tie.node] += pull;
+  }
+}
+
+// Keeps a node within kMaxClothDrift of the place the body carries it,
+// and puts it there if the numbers ever went bad.
 QPointF Tethered(QPointF at, QPointF anchor) {
-  assert(std::isfinite(at.x()) && std::isfinite(at.y()));
-  assert(std::isfinite(anchor.x()) && std::isfinite(anchor.y()));
+  assert(IsFinite(anchor));
+  assert(kMaxClothDrift > 0.0);
+  const bool is_bad = !IsFinite(at);
+  if (is_bad) {
+    return anchor;
+  }
   const QPointF off = at - anchor;
   const double length = Length(off);
   const bool is_far = length > kMaxClothDrift;
   return is_far ? anchor + off * (kMaxClothDrift / length) : at;
 }
 
-// Pushes every node that is behind an edge out to it.
-void PushNodes(const std::vector<ColliderEdge>& edges,
-               std::vector<QPointF>* at) {
-  assert(at != nullptr);
-  assert(edges.size() <= kMaxColliderEdges);
-  const bool has_edges = !edges.empty();
-  if (!has_edges) {
-    return;
-  }
-  for (QPointF& point : *at) {
-    point = PushedOut(edges, point);
+// Pushes every node a collider has come into back out, toward its own
+// place (carried, which is already out): so it lands on the side of
+// the outline it belongs on however deep a fast move took it.
+void PushNodes(const std::vector<QPointF>& carried, ClothPiece* piece) {
+  assert(piece != nullptr);
+  assert(piece->at.size() == piece->points.size());
+  for (const PushField& field : piece->fields) {
+    for (size_t i = 0; i < piece->at.size(); ++i) {
+      const size_t point = static_cast<size_t>(piece->points[i]);
+      const QPointF at = piece->at[i];
+      const bool is_in =
+          PushedFromRest(field.edges, field.ghosts[point], at) != at;
+      if (is_in) {
+        piece->at[i] = OutToward(field.edges, at, carried[point]);
+      }
+    }
   }
 }
 
-// Pushes out the cloth between two nodes that an outline has come
-// across since the last frame: its middle is tested, and both nodes
-// move by what it needs. before holds where the nodes stood then.
-void PushCloth(const ClothPiece& piece, const std::vector<Tie>& ties,
-               const std::vector<QPointF>& before,
-               std::vector<QPointF>* at) {
-  assert(at != nullptr);
-  assert(before.size() == at->size());
-  const bool has_edges = !piece.edges.empty();
-  if (!has_edges) {
-    return;
+// Keeps the cloth from turning over on itself: the grid with the nodes
+// where they are must not fold against the grid as carried.
+void UnfoldNodes(const std::vector<QPointF>& carried, ClothPiece* piece) {
+  assert(piece != nullptr);
+  assert(static_cast<int>(carried.size()) == piece->grid.PointCount());
+  std::vector<QPointF> grid = carried;
+  for (size_t i = 0; i < piece->at.size(); ++i) {
+    grid[static_cast<size_t>(piece->points[i])] = piece->at[i];
   }
-  for (const Tie& tie : ties) {
-    const bool is_pair = tie.other >= 0;
-    if (!is_pair) {
-      continue;
-    }
-    const size_t other = static_cast<size_t>(tie.other);
-    const QPointF was = (before[tie.node] + before[other]) / 2.0;
-    const bool was_across =
-        Length(PushedOutDeep(piece.edges_before, was) - was) >
-        kAcrossSlack;
-    const QPointF mid = ((*at)[tie.node] + (*at)[other]) / 2.0;
-    const QPointF moved = PushedOutDeep(piece.edges, mid) - mid;
-    const bool is_new = !was_across && Length(moved) > kAcrossSlack;
-    if (is_new) {
-      (*at)[tie.node] += moved;
-      (*at)[other] += moved;
-    }
+  Unfold(piece->grid, carried, &grid);
+  for (size_t i = 0; i < piece->at.size(); ++i) {
+    piece->at[i] = grid[static_cast<size_t>(piece->points[i])];
   }
+}
+
+// Moves node i one frame by its own motion and the pulls on it.
+void Move(const std::vector<QPointF>& carried, size_t i, ClothPiece* piece) {
+  assert(piece != nullptr);
+  assert(i < piece->at.size());
+  const ClothSettings& s = piece->settings[i];
+  const QPointF anchor = carried[static_cast<size_t>(piece->points[i])];
+  const QPointF body = piece->body_speed[i];
+  // Its place against the body before this frame's carry.
+  const QPointF off = piece->at[i] - (anchor - body);
+  // Its own motion on top of the body's: inertia keeps it, air slows it.
+  QPointF own = (piece->speed[i] - body) * s.inertia;
+  own *= std::max(0.0, kKeep - kAirDrag * s.air);
+  const QPointF turned = QPointF(0.0, 1.0) - piece->drawn_down;
+  own += turned * (s.gravity * kGravityPull * piece->cell) -
+         off * (s.spring * kSpringPull);
+  piece->at[i] = anchor + off + own;
 }
 
 }  // namespace
@@ -197,7 +244,11 @@ void PushCloth(const ClothPiece& piece, const std::vector<Tie>& ties,
 ClothSettings ClothSettingsOf(const DragNode& node) {
   assert(node.physics);
   assert(std::isfinite(node.stretch) && std::isfinite(node.spring));
-  return {node.stretch, node.inertia, node.air, node.gravity, node.spring};
+  const auto unit = [](double v) {
+    return std::isfinite(v) ? std::clamp(v, 0.0, 1.0) : 0.0;
+  };
+  return {unit(node.stretch), unit(node.inertia), unit(node.air),
+          unit(node.gravity), unit(node.spring)};
 }
 
 void RestCloth(const std::vector<QPointF>& carried, ClothPiece* piece) {
@@ -206,43 +257,39 @@ void RestCloth(const std::vector<QPointF>& carried, ClothPiece* piece) {
   for (size_t i = 0; i < piece->points.size(); ++i) {
     piece->at[i] = carried[static_cast<size_t>(piece->points[i])];
     piece->speed[i] = QPointF();
-    piece->at[i] = PushedOut(piece->edges, piece->at[i]);
   }
+  PushNodes(carried, piece);
 }
 
 void StepCloth(const std::vector<QPointF>& carried, ClothPiece* piece) {
   assert(piece != nullptr);
   assert(static_cast<int>(carried.size()) == piece->grid.PointCount());
   const size_t count = piece->points.size();
-  assert(piece->at.size() == count && piece->speed.size() == count);
+  assert(piece->at.size() == count && piece->speed.size() == count &&
+         piece->body_speed.size() == count);
   const std::vector<QPointF> before = piece->at;
   for (size_t i = 0; i < count; ++i) {
-    const ClothSettings& s = piece->settings[i];
-    const QPointF anchor = carried[static_cast<size_t>(piece->points[i])];
-    // Never below half: the default must swing, not creep.
-    const double keep = 0.5 + 0.5 * s.inertia * (1.0 - s.air);
-    const QPointF down(0.0, s.gravity * kGravityPull);
-    const QPointF back = (anchor - piece->at[i]) * (s.spring * kSpringPull);
-    piece->at[i] += piece->speed[i] * keep + down + back;
+    Move(carried, i, piece);
   }
   const std::vector<Tie> ties = TiesOf(*piece, carried);
+  for (const Tie& tie : ties) {
+    Firm(tie, &piece->at);
+  }
   for (int round = 0; round < kTieRounds; ++round) {
     for (const Tie& tie : ties) {
-      Fix(tie, *piece, &piece->at);
+      Fix(tie, &piece->at);
     }
-    PushNodes(piece->edges, &piece->at);
-    PushCloth(*piece, ties, before, &piece->at);
   }
+  UnfoldNodes(carried, piece);
+  const std::vector<QPointF> unpushed = piece->at;
+  PushNodes(carried, piece);
   for (size_t i = 0; i < count; ++i) {
     const QPointF anchor = carried[static_cast<size_t>(piece->points[i])];
     piece->at[i] = Tethered(piece->at[i], anchor);
-  }
-  for (int pass = 0; pass < kSettlePasses; ++pass) {
-    PushCloth(*piece, ties, before, &piece->at);
-    PushNodes(piece->edges, &piece->at);
-  }
-  for (size_t i = 0; i < count; ++i) {
-    piece->speed[i] = piece->at[i] - before[i];
+    const QPointF push = piece->at[i] - unpushed[i];
+    const bool was_bad = !IsFinite(before[i]) || !IsFinite(unpushed[i]);
+    piece->speed[i] = was_bad ? QPointF()
+                              : unpushed[i] - before[i] + push * kPushKick;
   }
 }
 

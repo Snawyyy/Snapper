@@ -8,12 +8,6 @@
 #include <cmath>
 
 namespace snapper {
-namespace {
-
-constexpr double kMaxDepth = 100000.0;
-
-}  // namespace
-
 QJsonObject ColliderToJson(const Collider& collider) {
   assert(collider.dots.size() <= static_cast<size_t>(kMaxColliderDots));
   QJsonObject object;
@@ -30,7 +24,6 @@ QJsonObject ColliderToJson(const Collider& collider) {
     spared.append(name);
   }
   object.insert("slots", collider.ring_size);
-  object.insert("depth", collider.depth);
   object.insert("dots", dots);
   object.insert("spared", spared);
   assert(object.contains("dots"));
@@ -39,7 +32,7 @@ QJsonObject ColliderToJson(const Collider& collider) {
 
 Collider ColliderFromJson(const QJsonValue& value) {
   assert(kMaxColliderDots > 0);
-  assert(kMaxDepth > 0.0);
+  assert(kMaxDollPieces > 0);
   Collider collider;
   const QJsonObject object = value.toObject();
   const int ring_size =
@@ -64,9 +57,8 @@ Collider ColliderFromJson(const QJsonValue& value) {
     return Collider();
   }
   collider.ring_size = ring_size;
-  const double depth = object.value("depth").toDouble(0.0);
-  collider.depth =
-      std::isfinite(depth) ? std::clamp(depth, 0.0, kMaxDepth) : 0.0;
+  // Older files also kept a "depth"; outlines now push by where things
+  // were as drawn, so it is not read.
   for (const QJsonValue& name : object.value("spared").toArray()) {
     const bool is_room =
         collider.spared.size() < static_cast<size_t>(kMaxDollPieces);

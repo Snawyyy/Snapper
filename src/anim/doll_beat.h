@@ -9,7 +9,8 @@ namespace snapper {
 // The frame whose drag frame shows: drags move on the doll's own beat,
 // so a doll on 3s wobbles on 3s. Each key is a beat, every frame of an
 // ease is, and a long hold keeps beating at the spacing of the keys
-// before it.
+// before it, but never slower than every 4 frames, so what hangs and
+// jiggles settles through a held pose.
 Frame BeatOf(const Layer& layer, Frame frame);
 
 }  // namespace snapper

@@ -1,4 +1,5 @@
-// RigManager's colliders: a piece's outline that pushes cloth.
+// RigManager's colliders: a piece's outline that pushes the warp dots
+// of the pieces in front of it.
 
 #include <QImage>
 #include <QRectF>
@@ -14,25 +15,15 @@
 namespace snapper {
 namespace {
 
-// The collider an outline of dots makes: all of them kept, pushing as
-// deep as half the outline's narrower side.
+// The collider an outline of dots makes: all of them kept.
 Collider ColliderOf(const std::vector<QPointF>& ring) {
   assert(!ring.empty());
   assert(ring.size() <= static_cast<size_t>(kMaxColliderDots));
   Collider collider;
   collider.ring_size = static_cast<int>(ring.size());
-  double left = ring.front().x();
-  double right = left;
-  double top = ring.front().y();
-  double bottom = top;
   for (size_t i = 0; i < ring.size(); ++i) {
     collider.dots.push_back({ring[i], static_cast<int>(i)});
-    left = std::min(left, ring[i].x());
-    right = std::max(right, ring[i].x());
-    top = std::min(top, ring[i].y());
-    bottom = std::max(bottom, ring[i].y());
   }
-  collider.depth = std::min(right - left, bottom - top) / 2.0;
   return collider;
 }
 
