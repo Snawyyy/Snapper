@@ -20,9 +20,9 @@ You change the Snapper code base (C++23, Qt 6, CMake). The project
 2. Read only that `ARCHITECTURE.md` section: Grep its `## ` heading
    for the line, then Read from there with a limit.
 3. Read files with Read and search with Grep and Glob, not `cat`,
-   `sed -n` or `grep` in the shell: shell output is longer and costs
-   more on every later turn. Read with offset and limit when you need
-   one function.
+   `sed -n` or `grep` in the shell: Edit needs a Read of the file
+   first, so a shell read means reading it twice. Read with offset
+   and limit when you need one function; never dump a whole big file.
 
 ## Change it
 
