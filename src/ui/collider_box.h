@@ -15,8 +15,9 @@
 namespace snapper {
 
 // The rig panel's list of what a collider pushes: every piece of the
-// doll drawn in front of it, ticked while the collider pushes its
-// cloth. Shown only while the focused piece is a collider.
+// doll drawn in front of it, ticked while the collider pushes its warp
+// dots (greyed, with the reason, for a piece with no warp grid). Shown
+// only while the focused piece is a collider.
 class ColliderBox final : public QGroupBox {
   Q_OBJECT
 

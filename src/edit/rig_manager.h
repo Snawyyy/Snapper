@@ -101,7 +101,7 @@ class RigManager final {
                              MotionField field, const QString& math);
   // Makes piece a collider: the outline of the visible pixels of
   // drawing (its default drawing, as an image) as a ring of dots that
-  // pushes the cloth of the pieces in front of it. Refused when
+  // pushes the warp dots of the pieces in front of it. Refused when
   // nothing is visible. Replaces an outline it had.
   Result<void> MakeCollider(const QString& doll, const QString& piece,
                             const QImage& drawing);
@@ -111,16 +111,16 @@ class RigManager final {
                                   const std::vector<int>& gone);
   // Makes piece a plain piece again.
   Result<void> RemoveCollider(const QString& doll, const QString& piece);
-  // Whether piece's collider pushes the cloth of other (it does until
-  // spared).
+  // Whether piece's collider pushes the warp dots of other (it does
+  // until spared).
   Result<void> SetColliderPushes(const QString& doll, const QString& piece,
                                  const QString& other, bool pushes);
   // Why MirrorNodes can't act on piece; empty when it can.
   QString WhyNoMirror(const QString& doll, const QString& piece) const;
   // Copies piece's drag and physics nodes, point motions and its
-  // collider (and which pieces it pushes) onto its left or right twin, mirrored, replacing
-  // what the twin had there: one undo step. Needs the same warp grid
-  // on both.
+  // collider (and which pieces it pushes) onto its left or right twin,
+  // mirrored, replacing what the twin had there: one undo step. Needs
+  // the same warp grid on both.
   Result<void> MirrorNodes(const QString& doll, const QString& piece);
   // Copies just these dots' drag or physics nodes and motions to the
   // mirrored dots of their pieces' twins (a dot with none clears the
