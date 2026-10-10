@@ -1,7 +1,10 @@
 # Snapper
 
-Read `ARCHITECTURE.md` before changing code: it says which module and
-manager a change belongs in.
+Start with `docs/feature-map.md`: for each feature area it names the
+`ARCHITECTURE.md` section to read, the files, the manager that owns
+the edits and the test file, and for each kind enum every file a new
+kind touches. Read only that section of `ARCHITECTURE.md`, not all of
+it.
 
 ## Build and test
 
@@ -11,9 +14,26 @@ cmake --build --preset debug
 ctest --preset debug
 ```
 
-`ctest` also runs the Snawy's Law linter and the layer check, so a
-green run means the code builds, passes its tests, follows the rules
-and respects the module order.
+The build folder lives on the fast drive (`~/.cache/snapper/<checkout
+folder>/build`); `build` in the checkout links to it.
+
+While working, build and run only the tests you touch (each
+`tests/<module>/<name>.cpp` is its own target): one target rebuilds
+in about a second, the whole build in about 20 s because every change
+relinks every test program.
+
+```sh
+cmake --build --preset debug --target <name>
+ctest --preset debug -R '^<name>$'
+```
+
+Edit with the Edit and Write tools, not shell scripts: the Snawy's
+Law hook lints each file as it is saved, so breaks show up at once.
+Before calling it done, one full build and `ctest --preset debug`.
+`ctest` also runs the linter over every file and the layer check, so
+a green run means the code builds, passes its tests, follows the rules
+and respects the module order. Until the old lint breaks are fixed
+the `lint` test fails: check only that it lists nothing in your files.
 
 ## Krita exporter
 
@@ -32,15 +52,23 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 - New logic leaves a test behind in `tests/<module>/`.
 - A small tweak to existing tested logic (a number, a label) needs no
   new test, just a rebuild.
-- Keep `ARCHITECTURE.md` true: a new manager or module goes in it in the
-  same commit.
+- Keep `ARCHITECTURE.md` and `docs/feature-map.md` true: a new manager,
+  module, feature area or kind site goes in them in the same commit.
 
 ## Where we stopped
 
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-10): warp mesh detail lowered (Few 10, Normal 25,
+Last done (2026-10-10, branch `workflow`, merged into `ui-test`):
+agent speed. Past agent logs showed builds took most of their tool
+time, so builds moved off the NTFS drive (a one-file change rebuilt in
+70 s, now 20 s; one test target in under a second), ccache is on, mold
+is used when installed, agent worktrees start from the current branch,
+and `docs/feature-map.md` sends an agent straight to the section,
+files, manager and test it needs. 22 old merged worktrees removed.
+
+Before that (2026-10-10): warp mesh detail lowered (Few 10, Normal 25,
 Many 60); reach set on many picked dots at once (wheel and a Reach
 field) and copied by Mirror; drag nodes got a kind (Drag, Cloth,
 Jelly) replacing the Physics tick; Jelly physics (one smooth blob
@@ -62,7 +90,10 @@ Next steps:
    reshape, stage zoom/pan/guides, cards and drag-in, rig by touch,
    extras (sounds go in here, on and quiet by default).
 4. Fix the 121 old lint breaks so the `lint` ctest goes green.
-5. Merge to main only when the owner says "merge".
+5. Faster links: install mold (`sudo pacman -S mold`); then think
+   about one test program per module instead of one per file, since
+   every change relinks about 100 of them.
+6. Merge to main only when the owner says "merge".
 
 Agents: run test binaries only with `QT_QPA_PLATFORM=offscreen`, never
 launch `build/snapper`; merge `ui-test` into a branch before handing it

@@ -7,6 +7,7 @@ files (a speedpaint) on the reel, and exported as MP4 or GIF. Everything is fini
 
 This file is the map. Each section is a rule the code keeps. When code
 and this file disagree, one of them is a bug.
+`docs/feature-map.md` says which section a change needs.
 
 ## Modules
 
