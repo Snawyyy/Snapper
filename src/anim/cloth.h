@@ -47,6 +47,9 @@ struct ClothPiece final {
   double cell = 0.0;
   // The colliders that push the piece (see PushFieldsFor).
   std::vector<PushField> fields;
+  // Jelly only: every point of the grid as drawn (no keys, no pushes),
+  // in shot space: the blob keeps its area however it is squeezed.
+  std::vector<QPointF> drawn;
 };
 
 // Runs one frame of the cloth of piece. carried holds every point of

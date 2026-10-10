@@ -46,6 +46,19 @@ std::vector<double> ReachFromJson(const QJsonValue& value,
   return reach;
 }
 
+// A node's kind; files from before jelly said "physics": true for cloth.
+NodeKind KindFromJson(const QJsonObject& object) {
+  assert(kNodeKindCount == 3);
+  assert(object.size() < 1000000);
+  const QString kind = object.value("kind").toString();
+  const bool is_jelly = kind == "jelly";
+  const bool is_cloth =
+      kind == "cloth" || object.value("physics").toBool(false);
+  return is_jelly ? NodeKind::kJelly
+         : is_cloth ? NodeKind::kCloth
+                    : NodeKind::kDrag;
+}
+
 QJsonArray DragToJson(const std::vector<DragNode>& nodes) {
   assert(nodes.size() <= static_cast<size_t>(kMaxWarpPoints));
   QJsonArray array;
@@ -53,9 +66,10 @@ QJsonArray DragToJson(const std::vector<DragNode>& nodes) {
     QJsonObject object{{"point", node.point},
                        {"lag", node.lag},
                        {"bounce", node.bounce}};
-    const bool is_physics = node.physics;
+    const bool is_physics = node.kind != NodeKind::kDrag;
     if (is_physics) {
-      object.insert("physics", true);
+      const bool is_jelly = node.kind == NodeKind::kJelly;
+      object.insert("kind", is_jelly ? "jelly" : "cloth");
       object.insert("stretch", node.stretch);
       object.insert("inertia", node.inertia);
       object.insert("air", node.air);
@@ -90,7 +104,7 @@ std::vector<DragNode> DragFromJson(const QJsonValue& value,
       nodes.push_back(
           {point, unit(object.value("lag"), kDefault.lag),
            unit(object.value("bounce"), kDefault.bounce),
-           object.value("physics").toBool(false),
+           KindFromJson(object),
            unit(object.value("stretch"), kDefault.stretch),
            unit(object.value("inertia"), kDefault.inertia),
            unit(object.value("air"), kDefault.air),

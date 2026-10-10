@@ -143,7 +143,7 @@ void MeshDotsTests::ClothOnAMeshStaysASheet() {
     if (is_low) {
       DragNode node;
       node.point = static_cast<int>(i);
-      node.physics = true;
+      node.kind = NodeKind::kCloth;
       doll.rig.pieces[1].drag_nodes.push_back(node);
     }
   }

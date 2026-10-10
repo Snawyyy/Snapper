@@ -1,4 +1,3 @@
-#include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QLineEdit>
 #include <QTest>
@@ -6,6 +5,7 @@
 #include "bench.h"
 #include "inspector_stage.h"
 #include "ui/drag_box.h"
+#include "ui/kind_tile.h"
 
 namespace snapper {
 namespace {
@@ -38,14 +38,17 @@ void MultiDotTests::ManyPickedDotsEditAtOnceAndShowMixed() {
               .has_value());
   DragBox box(bench.All());
   auto* bounce = box.findChild<QDoubleSpinBox*>("bounce");
-  auto* drags = box.findChild<QCheckBox*>("drags");
-  auto* physics = box.findChild<QCheckBox*>("physics");
+  const auto tile = [&box](const char* name) {
+    return box.findChild<KindTile*>(name);
+  };
   bench.selection.PickDots({{LayerId(1), "head", 0}, {LayerId(1), "head", 1},
                             {LayerId(1), "head", 4}},
                            PickMode::kReplace);
-  // Two drag nodes and a plain dot: the tick is partly on, and the
-  // two nodes' bounces differ.
-  QCOMPARE(drags->checkState(), Qt::PartiallyChecked);
+  // Two drag nodes and a plain dot: Drag and Still are both partly
+  // used, the title says Mixed, and the two nodes' bounces differ.
+  QCOMPARE(tile("kind_drag")->share(), Share::kSome);
+  QCOMPARE(tile("kind_still")->share(), Share::kSome);
+  QVERIFY(box.title().contains("Mixed"));
   QCOMPARE(bounce->findChild<QLineEdit*>()->text(), QString("Mixed"));
   Type(bounce, 0.9);
   QCOMPARE(bench.history.UndoLabel(), QString("Set bounce on 2 dots"));
@@ -61,17 +64,18 @@ void MultiDotTests::ManyPickedDotsEditAtOnceAndShowMixed() {
                .drag_nodes[0].bounce, 0.2);
   QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
                .drag_nodes[1].bounce, 0.5);
-  // A click on a partly ticked Drags sets every picked dot to drag; on
-  // Physics, every drag node among them.
-  drags->click();
+  // A click on a tile sets every picked dot to that kind.
+  tile("kind_drag")->click();
   QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
                .drag_nodes.size(), size_t{4});
   QCOMPARE(bench.history.UndoLabel(), QString("Drag 3 dots"));
-  physics->click();
-  QCOMPARE(bench.history.UndoLabel(), QString("Physics on for 3 dots"));
-  QCOMPARE(physics->checkState(), Qt::Checked);
-  physics->click();
-  QCOMPARE(physics->checkState(), Qt::Unchecked);
+  QCOMPARE(tile("kind_drag")->share(), Share::kAll);
+  QVERIFY(!box.title().contains("Mixed"));
+  tile("kind_cloth")->click();
+  QCOMPARE(bench.history.UndoLabel(), QString("Cloth 3 dots"));
+  QCOMPARE(tile("kind_cloth")->share(), Share::kAll);
+  tile("kind_still")->click();
+  QCOMPARE(tile("kind_still")->share(), Share::kAll);
   // Nothing picked: greyed with a reason.
   bench.selection.PickDot(std::nullopt);
   QVERIFY(!bounce->isEnabled());

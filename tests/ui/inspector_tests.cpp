@@ -11,6 +11,8 @@
 #include "inspector_stage.h"
 #include "edit/link_manager.h"
 #include "ui/drag_box.h"
+#include "ui/fold_section.h"
+#include "ui/kind_tile.h"
 #include "ui/inspector.h"
 #include "ui/shot_box.h"
 #include "ui/keyed_boxes.h"
@@ -41,7 +43,7 @@ class InspectorTests final : public QObject {
   void FieldsChangeEveryPickByTheSameAmount();
   void DragBoxTunesThePickedDot();
   void DragBoxSetsReachOfEveryPickedDot();
-  void PhysicsSwitchShowsTheFiveSettings();
+  void KindTilesShowTheRowsOfTheirKind();
   void PointMotionBoxAnimatesThePickedDot();
   void OnlyWhatIsPickedShows();
   void ShotBoxChangesThePickedShots();
@@ -143,20 +145,21 @@ void InspectorTests::DragBoxTunesThePickedDot() {
   Stage(&bench);
   QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
   DragBox box(bench.All());
-  auto* drags = box.findChild<QCheckBox*>("drags");
+  box.findChild<FoldSection*>("fine_tune")->SetOpen(true);
+  auto* drag = box.findChild<KindTile*>("kind_drag");
   auto* lag = box.findChild<QDoubleSpinBox*>("lag");
-  QVERIFY(!drags->isEnabled());
+  QVERIFY(!drag->isEnabled());
   bench.selection.PickDot(WarpDot{LayerId(1), "head", 4});
-  QVERIFY(drags->isEnabled());
+  QVERIFY(drag->isEnabled());
   QVERIFY(!lag->isEnabled());
-  drags->click();
+  drag->click();
   QVERIFY(lag->isEnabled());
   Type(lag, 0.8);
   const auto& nodes =
       bench.history.current().dolls.at("Bob")->rig.pieces[0].drag_nodes;
   QCOMPARE(nodes.size(), size_t{1});
   QCOMPARE(nodes[0].lag, 0.8);
-  QVERIFY(drags->isChecked());
+  QCOMPARE(drag->share(), Share::kAll);
 }
 
 void InspectorTests::DragBoxSetsReachOfEveryPickedDot() {
@@ -180,24 +183,22 @@ void InspectorTests::DragBoxSetsReachOfEveryPickedDot() {
   QCOMPARE(bench.history.UndoLabel(), QString("Set reach on 2 dots"));
 }
 
-void InspectorTests::PhysicsSwitchShowsTheFiveSettings() {
+void InspectorTests::KindTilesShowTheRowsOfTheirKind() {
   Bench bench;
   Stage(&bench);
   QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
   DragBox box(bench.All());
-  auto* physics = box.findChild<QCheckBox*>("physics");
+  box.findChild<FoldSection*>("fine_tune")->SetOpen(true);
   auto* lag = box.findChild<QDoubleSpinBox*>("lag");
   auto* gravity = box.findChild<QDoubleSpinBox*>("gravity");
-  QVERIFY(!physics->isEnabled());
-  QVERIFY(!physics->toolTip().isEmpty());
+  QVERIFY(!gravity->isEnabled());
   QVERIFY(!gravity->toolTip().isEmpty());
   bench.selection.PickDot(WarpDot{LayerId(1), "head", 4});
-  box.findChild<QCheckBox*>("drags")->click();
-  QVERIFY(physics->isEnabled());
+  box.findChild<KindTile*>("kind_drag")->click();
   QVERIFY(lag->isVisibleTo(&box));
   QVERIFY(!gravity->isVisibleTo(&box));
-  physics->click();
-  QCOMPARE(bench.history.UndoLabel(), QString("Physics on for 1 dot"));
+  box.findChild<KindTile*>("kind_cloth")->click();
+  QCOMPARE(bench.history.UndoLabel(), QString("Cloth 1 dot"));
   QVERIFY(!lag->isVisibleTo(&box));
   for (const char* name :
        {"stretch", "inertia", "air", "gravity", "spring"}) {
@@ -206,12 +207,12 @@ void InspectorTests::PhysicsSwitchShowsTheFiveSettings() {
   Type(gravity, 0.9);
   const auto& nodes =
       bench.history.current().dolls.at("Bob")->rig.pieces[0].drag_nodes;
-  QVERIFY(nodes[0].physics);
+  QCOMPARE(nodes[0].kind, NodeKind::kCloth);
   QCOMPARE(nodes[0].gravity, 0.9);
-  physics->click();
+  box.findChild<KindTile*>("kind_drag")->click();
   QVERIFY(lag->isVisibleTo(&box));
-  QVERIFY(!bench.history.current().dolls.at("Bob")->rig.pieces[0]
-               .drag_nodes[0].physics);
+  QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
+               .drag_nodes[0].kind, NodeKind::kDrag);
 }
 
 void InspectorTests::PointMotionBoxAnimatesThePickedDot() {

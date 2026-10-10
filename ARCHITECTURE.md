@@ -205,10 +205,10 @@ A piece can:
   the shot's first frame, so every render of a frame is the same, and
   shows only on the doll's own beat (its keys, each frame of an ease,
   the same spacing through a long hold), so a doll on 3s drags on 3s.
-  A drag node can be switched to Physics (a tick in the Drag node
-  panel, `RigManager::SetPhysics`): secondary motion for cloth, hair,
-  a chest or soft flesh. A lone physics dot is a heavy, jiggly point;
-  physics dots next to each other on the grid are tied like cloth and
+  A drag node has a kind (`NodeKind`, set on many dots by
+  `RigManager::SetNodeKindAll`): Drag (the spring above), Cloth or
+  Jelly. Cloth is secondary motion for cloth and hair. A lone cloth
+  dot is a heavy, jiggly point; cloth dots next to each other on the grid are tied like cloth and
   hang from the plain dots around them (pins the body carries). Its
   five settings each go from none of it (0) to a lot (1): Stretch (how
   far it may get from the dots around it: 0 keeps its drawn distance,
@@ -227,7 +227,24 @@ A piece can:
   beat and in the same `DragTrail` as plain drag nodes, so a late
   frame costs like an early one. `doll_beat.h` holds the beat; a long
   hold still beats at least every 4 frames, so what hangs settles
-  through it. With Physics off a node is the spring it always was.
+  through it. Moving each node by its own motion, pushing it out of
+  colliders, turning back what turned over and its speed for the next
+  frame are shared by cloth and jelly (`anim/cloth_parts.h`).
+  Jelly is soft flesh, a chest (`anim/jelly.h`, `StepJelly`): a
+  piece's jelly dots wobble as one blob. Each frame the carried shape
+  is grown back to the drawn area along the way it was squeezed least
+  (pinched at the sides it gets taller), then fitted with one squash
+  and turn over where the dots are; each dot is pulled toward its place
+  on the fit by Bounce, so the blob never goes jagged. Squish (the
+  Stretch number) is how much squash the fit keeps; even at 1 some
+  pull back to its own shape stays. Inertia, Air resistance, Gravity
+  and colliders work as for cloth. A piece's cloth and its jelly run
+  apart, each seeing the other's dots as pins.
+  A node's feel (`anim/node_feel.h`) is two numbers, firm and heavy,
+  that set its kind's settings (`WithFeel`, read back by `FeelOf`); a
+  preset (Pudding, Silk, Snappy...) is a named feel.
+  `RigManager::SetFeelAll` sets it on many dots, each by its own kind
+  (`edit/rig_nodes.cpp`, beside `SetNodeKindAll`).
   A piece can be a collider (right-click it in the rig: Make
   collider): the outline of its visible pixels, traced into a ring of
   dots about 12 px apart (`TraceOutline`, pure, in `anim`; at most
@@ -468,6 +485,10 @@ are destroyed in reverse.
 | `DragPlayhead` (`ui`) | The playhead's place before a key or clip drag: the drag carries the playhead, Escape puts it back, no history |
 | `PaintClip` (`ui`) | RAII clip so timeline keys, bars, grid and playhead paint only in the frame area, never over the names |
 | `RefusalShaker` (`ui`) | The shake and the reason on a greyed control clicked anyway |
+| `DragBox` (`ui`) | The warp dot panel: material tiles, reach, preset chips, feel pad with a live wobble, a folded Fine tune section, Mirror |
+| `KindTiles` / `KindTile` (`ui`) | The four material tiles (Still, Drag, Cloth, Jelly): a tiny cartoon each, looping only under the pointer, squashing on a press |
+| `FeelPad` / `WobbleBlob` (`ui`) | The soft-firm by light-heavy pad that reports Grabbed, Moved, Released, Cancelled; and the small live preview of the current feel |
+| `FoldSection` (`ui`) | A heading that slides its rows away over the Move time; open or closed is kept in the settings file |
 
 `MotionManager` lives in `ui` because it only serves widgets and holds no
 project state. Its table and curves (`motion_table.h`) are pure and
@@ -508,6 +529,12 @@ drag one undo step (Escape cancels it), and `NumberInput` applies typed
 math on Enter or leaving the field, flashing the field red and keeping
 its value on bad text. `AddNumberRow` / `AddNumberPair` in
 `form_helpers.h` give a field all of this with one call.
+
+Warp dots are drawn by how they move, the choice in `dot_shape.h`
+(pure): a still dot is plain, a drag node a yellow ring with a short tail
+toward its keyed place, cloth a diamond, jelly a blob stretched along
+its offset from the keyed place (round when Motion is Off). The stage
+paints them from `WarpOnScreen::kinds`.
 
 Handles look small and grab big, the same on the stage, the rig canvas
 and the timelines. `grab.h` (pure, no widget) holds the one set of
@@ -610,9 +637,22 @@ rig canvas the same box picks collider dots. The Drag node and Dot
 animation panels edit every picked dot at once: a number that differs
 shows Mixed, a change sets them all and is one undo step named with the
 count ("Set bounce on 6 dots"; `RigManager::SetDragField`,
-`SetDragNodes`, `SetPhysicsAll`, `SetMotionAll`, all taking `DotRef`s).
+`SetDragNodes`, `SetNodeKindAll`, `SetMotionAll`, all taking `DotRef`s).
 D switches every picked dot's drag node, and Delete clears the drag or
 physics node and the motion off every picked dot (`ClearDots`).
+The Warp dots panel (`DragBox`) shows what the picked dots are as four
+material tiles (`KindTiles`): a click makes every picked dot Still
+(`SetDragNodes`) or a node of that kind (`SetNodeKindAll`), one undo
+step. `dot_kinds.h` is the pure part, tested without a widget: `KindMix`
+counts the materials among the picked dots (which tile is outlined, thick
+for all and thin for some, and whether the title says Mixed),
+`FineRowsOf` and `FineLabel` say which exact rows apply (jelly names the
+stretch row Squish), and `DistinctFeels` lists the pucks. The feel pad
+(`FeelPad`) only reports a drag; `DragBox` opens one `LiveEdit` burst on
+Grabbed, calls `SetFeelAll` on every Moved, closes it on Released and
+cancels it on Escape, so a whole drag is one undo step. Preset chips call
+`SetFeelAll` with `FeelPresets`. The tiles and the wobble preview animate
+only through `MotionManager`: nothing moves in Off.
 
 The side panel shows only the settings of what is picked: the shot
 and its camera with nothing picked on the stage; pose, layer, motion

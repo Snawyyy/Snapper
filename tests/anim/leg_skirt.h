@@ -70,7 +70,7 @@ inline void MakeCloth(Doll* doll, int row, const DragNode& tune = {}) {
   for (int point = row * kAcross; point < kPoints; ++point) {
     DragNode node = tune;
     node.point = point;
-    node.physics = true;
+    node.kind = NodeKind::kCloth;
     doll->rig.pieces[1].drag_nodes.push_back(node);
   }
 }

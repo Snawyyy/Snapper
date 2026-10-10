@@ -184,6 +184,19 @@ inline Result<void> NeedDots() {
   return std::unexpected(Error{Tr("Pick one or more warp dots first.")});
 }
 
+// The drag node on point of rig, or nullptr.
+inline DragNode* FindNode(RigPiece* rig, int point) {
+  assert(rig != nullptr);
+  assert(point >= 0);
+  for (DragNode& node : rig->drag_nodes) {
+    const bool is_point = node.point == point;
+    if (is_point) {
+      return &node;
+    }
+  }
+  return nullptr;
+}
+
 }  // namespace snapper
 
 #endif  // SNAPPER_EDIT_RIG_EDITS_H_

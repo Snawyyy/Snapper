@@ -27,7 +27,7 @@ snapper_module(model
   MODULES base
   LIBS Qt6::Gui)
 snapper_module(anim
-  SOURCES cloth.cpp collider.cpp doll_beat.cpp doll_collide.cpp doll_colliders.cpp grid_fold.cpp grid_push.cpp
+  SOURCES cloth.cpp cloth_parts.cpp collider.cpp doll_beat.cpp doll_collide.cpp doll_colliders.cpp grid_fold.cpp grid_push.cpp jelly.cpp node_feel.cpp
           outline_trace.cpp shot_grid.cpp doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp pose_memo.cpp jitter.cpp links.cpp
           master_timeline.cpp mirror.cpp presets.cpp reel_timeline.cpp
           sampler.cpp timing_chart.cpp warp.cpp warp_motion.cpp
@@ -63,7 +63,7 @@ snapper_module(edit
           preset_manager.cpp saved_poses.cpp
           link_manager.cpp project_edits.cpp reel_batch.cpp reel_clipboard.cpp
           reel_cuts.cpp reel_edits.cpp reel_manager.cpp reel_markers.cpp
-          reel_transitions.cpp mesh_edits.cpp rig_mesh.cpp rig_batch.cpp rig_collider.cpp rig_dots.cpp rig_mirror_nodes.cpp
+          reel_transitions.cpp mesh_edits.cpp rig_mesh.cpp rig_batch.cpp rig_collider.cpp rig_dots.cpp rig_mirror_nodes.cpp rig_nodes.cpp
           rig_manager.cpp rig_mirror.cpp
           selection_manager.cpp selection_prune.cpp shot_batch.cpp
           shot_manager.cpp stage_batch.cpp stage_manager.cpp
@@ -75,7 +75,7 @@ snapper_module(ui
           change_effects.cpp export_dialog.cpp hover_fade.cpp mode_icons.cpp
           mode_tabs.cpp snapper_style.cpp step_button.cpp top_bar.cpp
           export_dialog_actions.cpp file_menu.cpp main_window.cpp
-          drag_box.cpp picked_dot.cpp point_motion_box.cpp shot_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
+          drag_box.cpp drag_box_show.cpp dot_kinds.cpp feel_pad.cpp fold_section.cpp kind_tile.cpp kind_tiles.cpp material_art.cpp wobble_blob.cpp picked_dot.cpp point_motion_box.cpp shot_box.cpp form_helpers.cpp inspector.cpp keyed_boxes.cpp layer_box.cpp
           layer_box_commits.cpp link_box.cpp motion_box.cpp playhead.cpp rig_canvas.cpp
           rig_canvas_collider.cpp collider_box.cpp collider_keys.cpp
           rig_canvas_input.cpp rig_canvas_handles.cpp rig_panel.cpp rig_panel_refresh.cpp new_project_dialog.cpp pose_tool.cpp pose_tool_handles.cpp pose_tool_readout.cpp
@@ -83,7 +83,7 @@ snapper_module(ui
           reel_timeline_commands.cpp reel_timeline_effects.cpp
           reel_timeline_ghost.cpp reel_timeline_input.cpp
           shot_bin.cpp shot_strip.cpp shot_strip_ghost.cpp slot_picker.cpp
-          drag_feedback.cpp drag_text.cpp grab.cpp handle_hover.cpp
+          dot_shape.cpp drag_feedback.cpp drag_text.cpp grab.cpp handle_hover.cpp
           playhead_settle.cpp
           motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
           refusal_shaker.cpp scrub_label.cpp space_keys_action.cpp toast_manager.cpp toast_queue.cpp toast_view.cpp
@@ -109,7 +109,7 @@ if(BUILD_TESTING)
                     collider_push_tests.cpp drag_tests.cpp link_tests.cpp pose_memo_tests.cpp
                     reel_tests.cpp timing_chart_tests.cpp
                     warp_motion_tests.cpp shape_mesh_tests.cpp
-                    mesh_dots_tests.cpp)
+                    mesh_dots_tests.cpp jelly_tests.cpp node_feel_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp
                    warp_json_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp video_reader_tests.cpp)
@@ -134,13 +134,13 @@ if(BUILD_TESTING)
                           playhead_settle_tests.cpp
                           export_dialog_tests.cpp
                           drag_feedback_tests.cpp drag_text_tests.cpp
-                          grab_tests.cpp
+                          dot_shape_tests.cpp grab_tests.cpp
                           handle_hover_tests.cpp
                           inspector_tests.cpp link_ui_tests.cpp
                           pose_tool_tests.cpp pose_tool_grab_tests.cpp
                           pose_tool_readout_tests.cpp refusal_reason_tests.cpp
                           reel_timeline_tests.cpp
-                          rig_ui_tests.cpp mesh_ui_tests.cpp collider_ui_tests.cpp multi_dot_tests.cpp pose_tool_dots_tests.cpp number_field_tests.cpp
+                          rig_ui_tests.cpp mesh_ui_tests.cpp collider_ui_tests.cpp multi_dot_tests.cpp dot_kinds_tests.cpp drag_panel_tests.cpp pose_tool_dots_tests.cpp number_field_tests.cpp
                           shot_strip_tests.cpp slot_picker_tests.cpp
                           motion_tests.cpp scrub_tests.cpp shake_tests.cpp theme_tests.cpp
                           toast_tests.cpp space_keys_tests.cpp

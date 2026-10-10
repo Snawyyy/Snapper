@@ -57,18 +57,6 @@ double* FieldOf(DragNode* node, DragField field) {
   return &node->lag;
 }
 
-DragNode* FindNode(RigPiece* rig, int point) {
-  assert(rig != nullptr);
-  assert(point >= 0);
-  for (DragNode& node : rig->drag_nodes) {
-    const bool is_point = node.point == point;
-    if (is_point) {
-      return &node;
-    }
-  }
-  return nullptr;
-}
-
 bool IsDragNode(const Project& project, const DotRef& dot) {
   assert(dot.point >= 0);
   assert(!dot.piece.isEmpty());
@@ -234,29 +222,6 @@ Result<void> RigManager::SetDragNodes(const std::vector<DotRef>& dots,
                    std::erase_if(rig->drag_nodes, [point](const DragNode& n) {
                      return n.point == point;
                    });
-                 }
-                 return {};
-               }));
-}
-
-Result<void> RigManager::SetPhysicsAll(const std::vector<DotRef>& dots,
-                                       bool on) {
-  assert(history_ != nullptr);
-  assert(dots.size() < 10000000);
-  const std::vector<DotRef> nodes = DragNodesOf(history_->current(), dots);
-  const bool has_nodes = !nodes.empty();
-  if (!has_nodes) {
-    return NeedNodes();
-  }
-  return history_->Apply(
-      on ? Tr("Physics on for %1").arg(CountText(nodes.size()))
-         : Tr("Physics off for %1").arg(CountText(nodes.size())),
-      WithDots(history_->current(), nodes,
-               [on](RigPiece* rig, int point) -> Result<void> {
-                 DragNode* node = FindNode(rig, point);
-                 const bool is_node = node != nullptr;
-                 if (is_node) {
-                   node->physics = on;
                  }
                  return {};
                }));

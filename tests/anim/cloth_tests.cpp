@@ -23,7 +23,7 @@ Doll Shirt(const DragNode& setting) {
   for (int point = kAcross; point < 12; ++point) {
     DragNode node = setting;
     node.point = point;
-    node.physics = true;
+    node.kind = NodeKind::kCloth;
     doll.rig.pieces[0].drag_nodes.push_back(node);
   }
   assert(doll.rig.pieces[0].warp.PointCount() == 12);
@@ -39,7 +39,7 @@ DragNode Settings(double stretch, double inertia, double air, double gravity,
   node.air = air;
   node.gravity = gravity;
   node.spring = spring;
-  assert(node.physics == false);
+  assert(node.kind == NodeKind::kDrag);
   assert(stretch >= 0.0 && stretch <= 1.0);
   return node;
 }
@@ -218,7 +218,7 @@ void ClothTests::BounceOvershootsAndSettles() {
 void ClothTests::PhysicsOffIsTheDragNodeAsBefore() {
   Doll plain = Shirt(Settings(0.0, 0.6, 0.5, 0.3, 0.2));
   for (DragNode& node : plain.rig.pieces[0].drag_nodes) {
-    node.physics = false;
+    node.kind = NodeKind::kDrag;
   }
   Doll tuned = plain;
   for (DragNode& node : tuned.rig.pieces[0].drag_nodes) {
@@ -233,7 +233,7 @@ void ClothTests::PhysicsOffIsTheDragNodeAsBefore() {
   }
   Doll cloth = plain;
   for (DragNode& node : cloth.rig.pieces[0].drag_nodes) {
-    node.physics = true;
+    node.kind = NodeKind::kCloth;
   }
   QVERIFY(DraggedPoses(cloth, layer, Frame(6)) !=
           DraggedPoses(plain, layer, Frame(6)));

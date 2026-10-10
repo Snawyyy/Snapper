@@ -85,7 +85,8 @@ void FillCloth(const RigPiece& from, const std::vector<QPointF>& old,
     const auto node =
         std::find_if(from.drag_nodes.begin(), from.drag_nodes.end(),
                      [nearest](const DragNode& n) {
-                       return n.point == nearest && n.physics;
+                       return n.point == nearest &&
+                              n.kind != NodeKind::kDrag;
                      });
     const bool is_cloth = nearest >= 0 && node != from.drag_nodes.end();
     if (is_cloth) {

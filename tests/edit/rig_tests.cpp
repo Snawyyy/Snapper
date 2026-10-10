@@ -51,7 +51,7 @@ class RigTests final : public QObject {
   void PivotOrderAndDrawingAreUndoable();
   void NewWarpGridClearsOldWarpKeys();
   void ChainsNeedLinkedPieces();
-  void PhysicsIsOneNamedUndoStep();
+  void NodeKindIsOneNamedUndoStep();
   void ColliderEditsAreNamedUndoSteps();
   void UnknownDollsAndPiecesSayWhy();
   void OneSideCopiesToTheOther();
@@ -137,17 +137,17 @@ void RigTests::NewWarpGridClearsOldWarpKeys() {
   QCOMPARE(before.pieces.at("lower").keys[0].value.warp.size(), size_t{9});
 }
 
-void RigTests::PhysicsIsOneNamedUndoStep() {
+void RigTests::NodeKindIsOneNamedUndoStep() {
   HistoryManager history(ArmProject());
   RigManager rig(&history);
   QVERIFY(rig.SetWarpGrid("Bob", "lower", {2, 2}).has_value());
   const std::vector<DotRef> four = {{"Bob", "lower", 4}};
-  // Only a drag node can become physics.
-  QVERIFY(!rig.SetPhysicsAll(four, true).has_value());
-  QVERIFY(rig.SetDragNodes(four, true).has_value());
-  QVERIFY(rig.SetPhysicsAll(four, true).has_value());
-  QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
-  QCOMPARE(history.UndoLabel(), QString("Physics on for 1 dot"));
+  // A plain dot becomes a node of the kind; none picked is refused.
+  QVERIFY(!rig.SetNodeKindAll({}, NodeKind::kCloth).has_value());
+  QVERIFY(rig.SetNodeKindAll(four, NodeKind::kCloth).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].kind,
+           NodeKind::kCloth);
+  QCOMPARE(history.UndoLabel(), QString("Cloth 1 dot"));
   QVERIFY(rig.SetDragField(four, DragField::kStretch, 3.0).has_value());
   QVERIFY(rig.SetDragField(four, DragField::kAir, -1.0).has_value());
   QVERIFY(rig.SetDragField(four, DragField::kGravity, 0.9).has_value());
@@ -155,16 +155,30 @@ void RigTests::PhysicsIsOneNamedUndoStep() {
   QCOMPARE(kept.stretch, 1.0);
   QCOMPARE(kept.air, 0.0);
   QCOMPARE(kept.gravity, 0.9);
-  QVERIFY(kept.physics);
+  QVERIFY(kept.kind != NodeKind::kDrag);
   QCOMPARE(history.UndoLabel(), QString("Set gravity on 1 dot"));
   history.Undo();
   QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].gravity,
            DragNode().gravity);
-  QVERIFY(rig.SetPhysicsAll(four, false).has_value());
-  QVERIFY(!FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
-  QCOMPARE(history.UndoLabel(), QString("Physics off for 1 dot"));
+  QVERIFY(rig.SetNodeKindAll(four, NodeKind::kJelly).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes.size(), size_t{1});
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].kind,
+           NodeKind::kJelly);
+  QCOMPARE(history.UndoLabel(), QString("Jelly 1 dot"));
+  // A feel sets every moving dot by its own kind; plain ones stay.
+  const std::vector<DotRef> both = {{"Bob", "lower", 4}, {"Bob", "lower", 0}};
+  QVERIFY(rig.SetFeelAll(both, {1.0, 0.0}).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Set feel on 2 dots"));
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes.size(), size_t{1});
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].spring,
+           WithFeel(DragNode{4, 0.5, 0.5, NodeKind::kJelly}, {1.0, 0.0})
+               .spring);
+  QVERIFY(!rig.SetFeelAll({}, {0.5, 0.5}).has_value());
+  QVERIFY(!rig.SetFeelAll(both, {qQNaN(), 0.5}).has_value());
   history.Undo();
-  QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
+  history.Undo();
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].kind,
+           NodeKind::kCloth);
 }
 
 void RigTests::ColliderEditsAreNamedUndoSteps() {
