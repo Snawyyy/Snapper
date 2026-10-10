@@ -146,9 +146,13 @@ std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
       WarpOf(posed->poses, *rig, art->size, piece);
   const bool has_reach =
       static_cast<int>(rig->warp_reach.size()) == rig->warp.PointCount();
-  std::vector<int> drags;
+  std::vector<std::optional<NodeKind>> kinds(shown.size());
   for (const DragNode& node : rig->drag_nodes) {
-    drags.push_back(node.point);
+    const bool is_inside =
+        node.point >= 0 && node.point < static_cast<int>(kinds.size());
+    if (is_inside) {
+      kinds[static_cast<size_t>(node.point)] = node.kind;
+    }
   }
   std::vector<int> moves;
   for (const PointMotion& motion : rig->point_motions) {
@@ -159,7 +163,7 @@ std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
       has_reach ? rig->warp_reach
                 : std::vector<double>(
                       static_cast<size_t>(rig->warp.PointCount()), 0.0),
-      drags, moves, art->size, posed->pieces.at(piece) * posed->to_screen};
+      kinds, moves, art->size, posed->pieces.at(piece) * posed->to_screen};
 }
 
 std::vector<IkHandle> IkHandles(const Project& project, const Shot& shot,
