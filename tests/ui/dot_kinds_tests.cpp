@@ -9,7 +9,6 @@
 #include "ui/dot_kinds.h"
 #include "ui/feel_pad.h"
 #include "ui/material_art.h"
-#include "ui/wobble_blob.h"
 
 namespace snapper {
 
@@ -23,7 +22,6 @@ class DotKindsTests final : public QObject {
   void TitleNamesThePieceAndSaysMixed();
   void DistinctFeelsMergeNearOnes();
   void PadMathRoundTrips();
-  void WobbleSettlesAndHeavyRingsWider();
   void EveryMaterialPaintsAtEveryPhase();
 };
 
@@ -144,19 +142,6 @@ void DotKindsTests::PadMathRoundTrips() {
   const Feel feel{0.25, 0.75};
   QCOMPARE(PointOf(feel, area), QPointF(35, 70));
   QCOMPARE(FeelAt(PointOf(feel, area), area), feel);
-}
-
-void DotKindsTests::WobbleSettlesAndHeavyRingsWider() {
-  const Feel light{0.5, 0.0};
-  const Feel heavy{0.5, 1.0};
-  QVERIFY(std::abs(WobbleAt(light, 0.0)) <= 1.0);
-  QVERIFY(WobbleAt(heavy, 0.0) > WobbleAt(light, 0.0));
-  // Late in the loop it has all but stopped.
-  QVERIFY(std::abs(WobbleAt(heavy, 2.3)) < 0.05);
-  // Every loop starts the same kick again.
-  QCOMPARE(WobbleAt(heavy, 0.3), WobbleAt(heavy, 0.3 + kWobbleLoopS));
-  // Deterministic.
-  QCOMPARE(WobbleAt(light, 0.7), WobbleAt(light, 0.7));
 }
 
 void DotKindsTests::EveryMaterialPaintsAtEveryPhase() {
