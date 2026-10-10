@@ -95,7 +95,10 @@ Next steps:
    every change relinks about 100 of them.
 6. Merge to main only when the owner says "merge".
 
-Agents: run test binaries only with `QT_QPA_PLATFORM=offscreen`, never
+Agents: hand code changes to the `snapper-dev` agent (six tools, so
+it starts at about 14k tokens against 44k for general-purpose; it has
+no web, browser or sub-agents, so research goes to another agent).
+Run test binaries only with `QT_QPA_PLATFORM=offscreen`, never
 launch `build/snapper`; merge `ui-test` into a branch before handing it
 back so conflicts are solved where the code was written.
 
