@@ -336,6 +336,10 @@ moves or the doll is gone; Escape or a click ends it at once. An edit
 doll. The stage hands the poked poses to the shared `PoseMemo` as an
 override for that layer (`SetOverride`), which `LinkSolver::Poses`
 returns first, so painting, hover and handles all see the wobble.
+`StagePoke` (ui) is the stage's side: P arms it (open hand over a
+pokeable doll, closed hand while poking, a toast saying why when the
+spot or doll cannot be poked), a press starts the poke, the mouse
+shoves it, release lets it settle. P is free of other shortcuts.
 
 ## Shots
 

@@ -15,6 +15,7 @@
 #include "ui/handle_hover.h"
 #include "ui/managers.h"
 #include "ui/pose_tool.h"
+#include "ui/stage_poke.h"
 
 namespace snapper {
 
@@ -55,6 +56,8 @@ class StageView final : public QWidget {
   void wheelEvent(QWheelEvent* event) override;
   void leaveEvent(QEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
+  void keyReleaseEvent(QKeyEvent* event) override;
+  void focusOutEvent(QFocusEvent* event) override;
   void contextMenuEvent(QContextMenuEvent* event) override;
 
  private:
@@ -83,6 +86,11 @@ class StageView final : public QWidget {
   // Shows the angle the wheel has turned the picked things by since it
   // last rested.
   void ShowWheel(QPointF cursor, int notches, bool is_fine);
+  // P down or up: holding it arms poking (see StagePoke). Returns true
+  // when the key was P and is dealt with.
+  bool PokeKey(QKeyEvent* event, bool is_down);
+  // The layer a click at point would pick; invalid for none.
+  LayerId LayerUnder(QPointF point, const StageFrame& frame) const;
   // Ctrl+A: every piece of the picked doll, or every layer.
   void PickAll();
   // The right-click menu's link actions, for the thing at point; empty
@@ -92,6 +100,7 @@ class StageView final : public QWidget {
   Managers managers_;
   FrameRenderer renderer_;
   PoseTool tool_;
+  StagePoke poke_;
   HandleHover hover_;
   DragFeedback feedback_;
   std::optional<Pick> hover_pick_;

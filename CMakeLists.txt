@@ -87,7 +87,7 @@ snapper_module(ui
           playhead_settle.cpp
           motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
           refusal_shaker.cpp scrub_label.cpp space_keys_action.cpp toast_manager.cpp toast_queue.cpp toast_view.cpp
-          stage_menu.cpp stage_view.cpp stage_view_paint.cpp stage_view_ghost.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
+          stage_menu.cpp stage_view.cpp stage_poke.cpp stage_view_poke.cpp stage_view_paint.cpp stage_view_ghost.cpp theme.cpp timeline_input.cpp timeline_paint.cpp
           timeline_drag.cpp drag_playhead.cpp timeline_view.cpp timing_chart_action.cpp
           timing_chart_dialog.cpp timing_chart_strip.cpp transition_picker.cpp
           video_page.cpp
@@ -136,7 +136,7 @@ if(BUILD_TESTING)
                           export_dialog_tests.cpp
                           drag_feedback_tests.cpp drag_text_tests.cpp
                           dot_shape_tests.cpp grab_tests.cpp
-                          handle_hover_tests.cpp
+                          handle_hover_tests.cpp stage_poke_tests.cpp
                           inspector_tests.cpp link_ui_tests.cpp
                           pose_tool_tests.cpp pose_tool_grab_tests.cpp
                           pose_tool_readout_tests.cpp refusal_reason_tests.cpp
