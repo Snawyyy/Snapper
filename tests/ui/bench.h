@@ -11,6 +11,7 @@
 #include "edit/key_manager.h"
 #include "edit/link_manager.h"
 #include "edit/playback_manager.h"
+#include "edit/poke_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/preset_manager.h"
 #include "edit/reel_manager.h"
@@ -45,11 +46,12 @@ struct Bench final {
   MotionManager motion{document.SettingsPath()};
   TimingChartManager timing{&history, &selection, &keys, &playback};
   ToastManager toasts{&history};
+  PokeManager poke{&history, &playback};
 
   Managers All() {
     return {&history, &document, &library, &rig, &shots, &stage,
             &selection, &pose, &keys, &presets, &playback, &exporter,
-            &links, &reel, &motion, &toasts, &timing};
+            &links, &reel, &motion, &toasts, &timing, &poke};
   }
 };
 

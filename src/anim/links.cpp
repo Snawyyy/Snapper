@@ -105,6 +105,12 @@ PoseMap LinkSolver::Poses(const Doll& doll, const Layer& layer,
                           Frame frame) {
   assert(frame.index() >= 0);
   assert(std::holds_alternative<DollLayer>(layer.content));
+  const PoseMap* poked =
+      memo_ != nullptr ? memo_->OverrideOf(layer.id) : nullptr;
+  const bool is_poked = poked != nullptr;
+  if (is_poked) {
+    return *poked;
+  }
   const PoseMap* kept =
       memo_ != nullptr ? memo_->Find(layer.id, frame) : nullptr;
   const bool is_kept = kept != nullptr;
