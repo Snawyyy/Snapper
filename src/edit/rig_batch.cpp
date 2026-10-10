@@ -93,7 +93,7 @@ Result<void> RigManager::SetParentAll(const QString& doll,
 
 Result<void> RigManager::SetWarpAll(const QString& doll,
                                     const std::vector<QString>& pieces,
-                                    WarpGrid grid) {
+                                    const WarpGrid& grid) {
   assert(history_ != nullptr);
   assert(grid.columns >= 0 && grid.rows >= 0);
   auto next = WithRig(history_->current(), doll, [&](Rig* rig) {

@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "anim/warp.h"
+#include "anim/warp_shape.h"
 
 namespace snapper {
 
@@ -52,12 +53,12 @@ QPointF DrawnDown(const QTransform& to_shot) {
   return is_flat ? QPointF(0.0, 1.0) : down / length;
 }
 
-double CellLength(WarpGrid grid, QSize size, const QTransform& to_shot) {
+double CellLength(const WarpGrid& grid, QSize size, const QTransform& to_shot) {
   assert(grid.IsOn());
   assert(to_shot.isAffine());
-  const double across = size.width() / static_cast<double>(grid.columns);
-  const double down = size.height() / static_cast<double>(grid.rows);
-  return (across + down) / 2.0 * std::sqrt(std::abs(to_shot.determinant()));
+  const QSizeF cell = CellSize(grid, size);
+  return (cell.width() + cell.height()) / 2.0 *
+         std::sqrt(std::abs(to_shot.determinant()));
 }
 
 }  // namespace snapper

@@ -8,13 +8,34 @@
 
 namespace snapper {
 
-std::vector<QPointF> RestPoints(QSize size, WarpGrid grid) {
+std::vector<QPointF> MeshRest(const WarpMesh& mesh, QSize size) {
+  assert(size.width() >= 0 && size.height() >= 0);
+  assert(mesh.points.size() <= static_cast<size_t>(kMaxMeshPoints));
+  const bool is_made_size = size == mesh.size || mesh.size.isEmpty();
+  if (is_made_size) {
+    return mesh.points;
+  }
+  // A smaller copy of the drawing (a quick bend) takes the mesh along.
+  const double x = size.width() / static_cast<double>(mesh.size.width());
+  const double y = size.height() / static_cast<double>(mesh.size.height());
+  std::vector<QPointF> points = mesh.points;
+  for (QPointF& point : points) {
+    point = QPointF(point.x() * x, point.y() * y);
+  }
+  return points;
+}
+
+std::vector<QPointF> RestPoints(QSize size, const WarpGrid& grid) {
   assert(size.width() >= 0 && size.height() >= 0);
   assert(grid.columns <= kMaxWarpCells && grid.rows <= kMaxWarpCells);
   std::vector<QPointF> points;
   const bool is_off = !grid.IsOn();
   if (is_off) {
     return points;
+  }
+  const bool is_mesh = grid.IsMesh();
+  if (is_mesh) {
+    return MeshRest(*grid.mesh, size);
   }
   points.reserve(static_cast<size_t>(grid.PointCount()));
   for (int row = 0; row <= grid.rows; ++row) {
@@ -26,7 +47,7 @@ std::vector<QPointF> RestPoints(QSize size, WarpGrid grid) {
   return points;
 }
 
-std::vector<QPointF> WarpedPoints(QSize size, WarpGrid grid,
+std::vector<QPointF> WarpedPoints(QSize size, const WarpGrid& grid,
                                   const std::vector<QPointF>& offsets) {
   assert(grid.columns <= kMaxWarpCells && grid.rows <= kMaxWarpCells);
   assert(offsets.size() <= static_cast<size_t>(kMaxWarpPoints));
@@ -57,15 +78,21 @@ int NearestPoint(const std::vector<QPointF>& points, QPointF spot,
   return best;
 }
 
-double CellsApart(WarpGrid grid, int point, int other) {
+double CellsApart(const WarpGrid& grid, int point, int other) {
   assert(point >= 0 && point < grid.PointCount());
   assert(other >= 0 && other < grid.PointCount());
+  const bool is_mesh = grid.IsMesh();
+  if (is_mesh) {
+    return grid.mesh->apart[static_cast<size_t>(point) *
+                                grid.mesh->points.size() +
+                            static_cast<size_t>(other)];
+  }
   const int across = grid.columns + 1;
   return std::hypot(point % across - other % across,
                     point / across - other / across);
 }
 
-double PullWeight(WarpGrid grid, int point, int other, double reach) {
+double PullWeight(const WarpGrid& grid, int point, int other, double reach) {
   assert(point >= 0 && point < grid.PointCount());
   assert(other >= 0 && other < grid.PointCount());
   const bool is_self = point == other;
@@ -81,9 +108,13 @@ double PullWeight(WarpGrid grid, int point, int other, double reach) {
              : 0.0;
 }
 
-int MirroredPoint(WarpGrid grid, int point) {
+int MirroredPoint(const WarpGrid& grid, int point) {
   assert(point >= 0 && point < grid.PointCount());
   assert(grid.IsOn());
+  const bool is_mesh = grid.IsMesh();
+  if (is_mesh) {
+    return grid.mesh->mirror[static_cast<size_t>(point)];
+  }
   const int across = grid.columns + 1;
   return point / across * across + grid.columns - point % across;
 }

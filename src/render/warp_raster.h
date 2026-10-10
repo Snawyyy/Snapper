@@ -21,9 +21,10 @@ struct WarpedImage final {
 };
 
 // Bends source so each grid cell's rest corners land on points (one per
-// grid point, row by row). Each cell is drawn as two triangles, sampled
-// back into the source, so the result has no seams or holes.
-WarpedImage WarpImage(const QImage& source, WarpGrid grid,
+// grid point, row by row). Each cell is drawn as two triangles (a shape
+// mesh as its own triangles), sampled back into the source, so the
+// result has no seams or holes; nothing is drawn outside a mesh.
+WarpedImage WarpImage(const QImage& source, const WarpGrid& grid,
                       const std::vector<QPointF>& points);
 
 }  // namespace snapper

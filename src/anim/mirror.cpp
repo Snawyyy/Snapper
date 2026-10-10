@@ -7,6 +7,7 @@
 #include <cassert>
 
 #include "anim/warp.h"
+#include "anim/warp_shape.h"
 
 namespace snapper {
 namespace {
@@ -68,6 +69,7 @@ std::optional<SideMatch> MatchSide(const QString& name) {
 }  // namespace
 
 QString MirrorName(const QString& name) {
+  assert(name.size() < 4096);
   const auto found = MatchSide(name);
   if (!found) {
     return name;
@@ -81,6 +83,7 @@ QString MirrorName(const QString& name) {
 }
 
 int SideOf(const QString& name) {
+  assert(name.size() < 4096);
   const auto found = MatchSide(name);
   if (!found) {
     return 0;
@@ -92,22 +95,46 @@ int SideOf(const QString& name) {
   return is_left ? -1 : 1;
 }
 
-PiecePose MirrorPose(const PiecePose& pose, WarpGrid grid) {
-  assert(grid.columns <= kMaxWarpCells && grid.rows <= kMaxWarpCells);
+PiecePose MirrorPose(const PiecePose& pose, const WarpGrid& from,
+                     QSize from_size, const WarpGrid& to, QSize to_size) {
+  assert(from.columns <= kMaxWarpCells && from.rows <= kMaxWarpCells);
   assert(pose.warp.size() <= static_cast<size_t>(kMaxWarpPoints));
   PiecePose mirrored = pose;
   mirrored.rotation = -pose.rotation;
   mirrored.skew = -pose.skew;
   mirrored.offset.setX(-pose.offset.x());
   const bool has_warp =
-      grid.IsOn() && static_cast<int>(pose.warp.size()) == grid.PointCount();
+      from.IsOn() && to.IsOn() &&
+      static_cast<int>(pose.warp.size()) == from.PointCount();
   if (!has_warp) {
     return mirrored;
   }
-  for (int from = 0; from < grid.PointCount(); ++from) {
-    const QPointF pushed = pose.warp[static_cast<size_t>(from)];
-    mirrored.warp[static_cast<size_t>(MirroredPoint(grid, from))] =
-        QPointF(-pushed.x(), pushed.y());
+  const bool is_same_grid = from == to && !from.IsMesh();
+  if (is_same_grid) {
+    for (int point = 0; point < from.PointCount(); ++point) {
+      const QPointF pushed = pose.warp[static_cast<size_t>(point)];
+      mirrored.warp[static_cast<size_t>(MirroredPoint(from, point))] =
+          QPointF(-pushed.x(), pushed.y());
+    }
+    return mirrored;
+  }
+  // Each of to's points takes the push found at its spot mirrored onto
+  // from's drawing.
+  const std::vector<QPointF> rest = RestPoints(to_size, to);
+  const double x = to_size.width() > 0
+                       ? from_size.width() /
+                             static_cast<double>(to_size.width())
+                       : 1.0;
+  const double y = to_size.height() > 0
+                       ? from_size.height() /
+                             static_cast<double>(to_size.height())
+                       : 1.0;
+  mirrored.warp.assign(rest.size(), QPointF());
+  for (size_t i = 0; i < rest.size(); ++i) {
+    const QPointF spot((to_size.width() - rest[i].x()) * x,
+                       rest[i].y() * y);
+    const QPointF pushed = CarriedAt(from, from_size, pose.warp, spot);
+    mirrored.warp[i] = QPointF(-pushed.x(), pushed.y());
   }
   return mirrored;
 }
@@ -118,13 +145,15 @@ PoseMap MirrorPoses(const Doll& doll, const PoseMap& poses) {
   PoseMap mirrored;
   for (const RigPiece& piece : doll.rig.pieces) {
     const QString partner = MirrorName(piece.name);
-    const bool has_partner =
-        partner != piece.name && FindRig(doll.rig, partner) != nullptr;
-    const QString& source = has_partner ? partner : piece.name;
-    const auto found = poses.find(source);
+    const RigPiece* twin =
+        partner != piece.name ? FindRig(doll.rig, partner) : nullptr;
+    const bool has_partner = twin != nullptr;
+    const RigPiece& source = has_partner ? *twin : piece;
+    const auto found = poses.find(source.name);
     const PiecePose pose = found == poses.end() ? PiecePose() : found->second;
-    // The partner's grid is assumed the mirror of this one's.
-    mirrored[piece.name] = MirrorPose(pose, piece.warp);
+    mirrored[piece.name] =
+        MirrorPose(pose, source.warp, ArtSizeOf(doll, source.name), piece.warp,
+                   ArtSizeOf(doll, piece.name));
   }
   return mirrored;
 }

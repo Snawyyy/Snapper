@@ -15,6 +15,12 @@ namespace snapper {
 // pushed point has no rubber reach of its own.
 inline constexpr double kMinPushSpread = 2.0;
 
+// The least a push spreads on grid, in its cells: kMinPushSpread
+// cells of a grid, and on a shape mesh (whose cells are much smaller)
+// as far as kMinPushSpread cells of a 3 by 3 grid over its drawing
+// reach, so a mesh bends as softly as the grid it replaces.
+double MinPushSpread(const WarpGrid& grid);
+
 // The rubber reach of each of rig's grid points, or empty when it has
 // none, as PushGrid takes it.
 std::vector<double> ReachesOf(const RigPiece& rig);
@@ -24,11 +30,11 @@ std::vector<double> ReachesOf(const RigPiece& rig);
 // drawn edge between two neighbouring points, so an outline that comes
 // up between two points lifts the edge too. Each point's push spreads
 // to its neighbours by its rubber reach (reach, one per point, or
-// empty; never less than kMinPushSpread) so the drawing bends instead
+// empty; never less than MinPushSpread) so the drawing bends instead
 // of kinking, and a final pass makes sure no point or edge is left
 // where a collider came into it. Only ever pushes out: with nothing
 // coming into a collider since rest, nothing moves. Deterministic.
-void PushGrid(WarpGrid grid, const std::vector<double>& reach,
+void PushGrid(const WarpGrid& grid, const std::vector<double>& reach,
               const std::vector<PushField>& fields,
               std::vector<QPointF>* points);
 

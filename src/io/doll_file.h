@@ -38,6 +38,11 @@ struct ReconcileReport final {
   QStringList missing;
   // IK chains dropped because a piece they used is gone.
   QStringList dropped_chains;
+  // Pieces whose shape mesh was made again for redrawn art, and how
+  // many dots' settings found a new dot (carried) or did not (lost).
+  QStringList remeshed;
+  int carried = 0;
+  int lost = 0;
 
   bool IsClean() const {
     return added.isEmpty() && missing.isEmpty() && dropped_chains.isEmpty();

@@ -5,7 +5,10 @@
 #include <QSize>
 #include <QString>
 
+#include <memory>
 #include <vector>
+
+#include "model/warp_mesh.h"
 
 namespace snapper {
 
@@ -13,7 +16,10 @@ constexpr int kMaxDollPieces = 128;
 constexpr int kMaxPieceDrawings = 64;
 constexpr int kMaxIkChains = 32;
 constexpr int kMaxWarpCells = 8;
-constexpr int kMaxWarpPoints = (kMaxWarpCells + 1) * (kMaxWarpCells + 1);
+// The most points a warp has: a shape mesh's, which is more than the
+// biggest grid's.
+constexpr int kMaxWarpPoints = kMaxMeshPoints;
+static_assert(kMaxWarpPoints >= (kMaxWarpCells + 1) * (kMaxWarpCells + 1));
 
 // One piece as Krita drew it. Doll space has its origin at the middle
 // of the Krita canvas, y down, in pixels.
@@ -38,15 +44,29 @@ struct DollArt final {
   bool operator==(const DollArt&) const = default;
 };
 
-// 0 by 0 is off. Otherwise the drawing is cut into columns by rows
-// cells whose corners can be pushed.
+// How a piece's drawing bends. With a mesh it is a shape mesh that
+// hugs the drawing (see WarpMesh) and columns and rows are 0. Without
+// one, 0 by 0 is off, and otherwise the drawing is cut into columns by
+// rows cells whose corners can be pushed (the older grid, kept so old
+// files bend as they always did).
 struct WarpGrid final {
   int columns = 0;
   int rows = 0;
+  std::shared_ptr<const WarpMesh> mesh{};
 
-  bool IsOn() const { return columns > 0 && rows > 0; }
-  int PointCount() const { return IsOn() ? (columns + 1) * (rows + 1) : 0; }
-  bool operator==(const WarpGrid&) const = default;
+  bool IsMesh() const { return mesh != nullptr; }
+  bool IsOn() const { return IsMesh() || (columns > 0 && rows > 0); }
+  int PointCount() const {
+    return IsMesh() ? static_cast<int>(mesh->points.size())
+           : IsOn() ? (columns + 1) * (rows + 1)
+                    : 0;
+  }
+  bool operator==(const WarpGrid& other) const {
+    const bool is_same_mesh =
+        mesh == other.mesh ||
+        (mesh != nullptr && other.mesh != nullptr && *mesh == *other.mesh);
+    return columns == other.columns && rows == other.rows && is_same_mesh;
+  }
 };
 
 // A warp grid point that trails behind when the doll moves and bounces
@@ -214,6 +234,8 @@ struct Doll final {
 };
 
 const ArtPiece* FindArt(const Doll& doll, const QString& name);
+// The size of the piece's drawings, or an empty size when it has none.
+QSize ArtSizeOf(const Doll& doll, const QString& name);
 const RigPiece* FindRig(const Rig& rig, const QString& name);
 RigPiece* FindRig(Rig* rig, const QString& name);
 // The motion of rig's warp point, or nullptr when it has none.

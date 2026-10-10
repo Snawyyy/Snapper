@@ -23,6 +23,7 @@ snapper_module(base
   LIBS Qt6::Core)
 snapper_module(model
   SOURCES doll.cpp layer.cpp project.cpp reel.cpp shot.cpp transition.cpp
+          warp_mesh.cpp
   MODULES base
   LIBS Qt6::Gui)
 snapper_module(anim
@@ -30,11 +31,13 @@ snapper_module(anim
           outline_trace.cpp shot_grid.cpp doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp pose_memo.cpp jitter.cpp links.cpp
           master_timeline.cpp mirror.cpp presets.cpp reel_timeline.cpp
           sampler.cpp timing_chart.cpp warp.cpp warp_motion.cpp
+          delaunay.cpp mask_rings.cpp mesh_carry.cpp mesh_outline.cpp shape_mesh.cpp
+          warp_shape.cpp
   MODULES model)
 snapper_module(io
   SOURCES collider_json.cpp doll_file.cpp doll_json.cpp json_file.cpp json_values.cpp
           layer_json.cpp legacy_doll.cpp pose_file.cpp project_file.cpp
-          point_motion_json.cpp reconcile.cpp reel_json.cpp
+          point_motion_json.cpp reconcile.cpp reel_json.cpp warp_json.cpp
   MODULES model)
 snapper_module(media
   SOURCES audio_clip.cpp audio_player.cpp ffmpeg_handles.cpp
@@ -60,7 +63,7 @@ snapper_module(edit
           preset_manager.cpp saved_poses.cpp
           link_manager.cpp project_edits.cpp reel_batch.cpp reel_clipboard.cpp
           reel_cuts.cpp reel_edits.cpp reel_manager.cpp reel_markers.cpp
-          reel_transitions.cpp rig_batch.cpp rig_collider.cpp rig_dots.cpp rig_mirror_nodes.cpp
+          reel_transitions.cpp mesh_edits.cpp rig_mesh.cpp rig_batch.cpp rig_collider.cpp rig_dots.cpp rig_mirror_nodes.cpp
           rig_manager.cpp rig_mirror.cpp
           selection_manager.cpp selection_prune.cpp shot_batch.cpp
           shot_manager.cpp stage_batch.cpp stage_manager.cpp
@@ -105,8 +108,10 @@ if(BUILD_TESTING)
                     cloth_tests.cpp cloth_feel_tests.cpp collider_tests.cpp
                     collider_push_tests.cpp drag_tests.cpp link_tests.cpp pose_memo_tests.cpp
                     reel_tests.cpp timing_chart_tests.cpp
-                    warp_motion_tests.cpp)
-  snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp)
+                    warp_motion_tests.cpp shape_mesh_tests.cpp
+                    mesh_dots_tests.cpp)
+  snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp
+                   warp_json_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp video_reader_tests.cpp)
   snapper_test(render SOURCES render_tests.cpp warp_cache_tests.cpp
                       warp_raster_tests.cpp)
@@ -119,7 +124,7 @@ if(BUILD_TESTING)
                             playback_tests.cpp preset_tests.cpp
                             reel_editing_tests.cpp reel_manager_tests.cpp
                             reel_transition_tests.cpp
-                            rig_tests.cpp rig_dots_tests.cpp
+                            rig_tests.cpp rig_dots_tests.cpp mesh_edit_tests.cpp
                             shot_tests.cpp
                             selection_tests.cpp stage_tests.cpp
                             timeline_tests.cpp timing_chart_edit_tests.cpp track_tests.cpp

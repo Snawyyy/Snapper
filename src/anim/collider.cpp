@@ -5,36 +5,14 @@
 #include <cmath>
 #include <utility>
 
+#include "anim/warp_shape.h"
+
 namespace snapper {
 namespace {
 
 double Cross(QPointF a, QPointF b) { return a.x() * b.y() - a.y() * b.x(); }
 
 double Dot(QPointF a, QPointF b) { return a.x() * b.x() + a.y() * b.y(); }
-
-// point (drawing pixels) carried by the cell of the warped grid it is
-// in; a point off the drawing goes with the nearest edge cell, carried
-// on past it.
-QPointF Carried(QPointF point, WarpGrid grid, QSize size,
-                const std::vector<QPointF>& points) {
-  assert(grid.IsOn());
-  assert(static_cast<int>(points.size()) == grid.PointCount());
-  const double u = point.x() / std::max(size.width(), 1) * grid.columns;
-  const double v = point.y() / std::max(size.height(), 1) * grid.rows;
-  const int column = std::clamp(static_cast<int>(std::floor(u)), 0,
-                                grid.columns - 1);
-  const int row =
-      std::clamp(static_cast<int>(std::floor(v)), 0, grid.rows - 1);
-  const double fu = u - column;
-  const double fv = v - row;
-  const auto at = [&](int c, int r) {
-    return points[static_cast<size_t>(r * (grid.columns + 1) + c)];
-  };
-  const QPointF top = at(column, row) * (1.0 - fu) + at(column + 1, row) * fu;
-  const QPointF bottom =
-      at(column, row + 1) * (1.0 - fu) + at(column + 1, row + 1) * fu;
-  return top * (1.0 - fv) + bottom * fv;
-}
 
 // The first and last edge of the unbroken run of edges that holds edge
 // i: neighbours on the ring follow each other in edges, end to start.
@@ -104,7 +82,7 @@ QPointF OutOfRun(const std::vector<ColliderEdge>& edges,
 }  // namespace
 
 std::vector<QPointF> ShotPoints(const std::vector<QPointF>& points,
-                                WarpGrid grid, QSize size,
+                                const WarpGrid& grid, QSize size,
                                 const std::vector<QPointF>& grid_points,
                                 const QTransform& to_shot) {
   assert(size.width() >= 0 && size.height() >= 0);
@@ -114,13 +92,13 @@ std::vector<QPointF> ShotPoints(const std::vector<QPointF>& points,
   std::vector<QPointF> shot;
   shot.reserve(points.size());
   for (const QPointF& point : points) {
-    shot.push_back(is_bent ? Carried(point, grid, size, grid_points)
+    shot.push_back(is_bent ? CarriedAt(grid, size, grid_points, point)
                            : to_shot.map(point));
   }
   return shot;
 }
 
-std::vector<QPointF> ShotDots(const Collider& collider, WarpGrid grid,
+std::vector<QPointF> ShotDots(const Collider& collider, const WarpGrid& grid,
                               QSize size, const std::vector<QPointF>& points,
                               const QTransform& to_shot) {
   assert(collider.dots.size() <= static_cast<size_t>(kMaxColliderDots));

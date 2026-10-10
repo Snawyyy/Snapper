@@ -35,7 +35,8 @@ class WarpCache final {
   // be drawn stretched back (see WarpedImage::detail). The reference
   // holds until the next call.
   const WarpedImage& Bent(const QString& path, const QImage& source,
-                          WarpGrid grid, const std::vector<QPointF>& points,
+                          const WarpGrid& grid,
+                          const std::vector<QPointF>& points,
                           int detail = kFullDetail);
   // Forgets every bend of path, for when its file changed.
   void Forget(const QString& path);

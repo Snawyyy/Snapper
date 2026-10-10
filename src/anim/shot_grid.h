@@ -42,7 +42,7 @@ QPointF DrawnDown(const QTransform& to_shot);
 
 // How long a cell of grid over a drawing of size is in shot space when
 // to_shot carries the drawing there, across and down on average.
-double CellLength(WarpGrid grid, QSize size, const QTransform& to_shot);
+double CellLength(const WarpGrid& grid, QSize size, const QTransform& to_shot);
 
 }  // namespace snapper
 

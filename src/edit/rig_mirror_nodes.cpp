@@ -8,6 +8,7 @@
 
 #include "anim/mirror.h"
 #include "anim/warp.h"
+#include "anim/warp_shape.h"
 #include "edit/history_manager.h"
 #include "edit/rig_edits.h"
 #include "edit/rig_manager.h"
@@ -58,6 +59,26 @@ const RigPiece* PartnerOf(const Doll& doll, const QString& piece) {
   return is_twin ? FindRig(doll.rig, partner) : nullptr;
 }
 
+// Which of to's dots sits at the mirrored spot of each of from's.
+std::vector<int> PairsOf(const Doll& doll, const RigPiece& from,
+                         const RigPiece& to) {
+  assert(from.name != to.name);
+  assert(from.warp.PointCount() <= kMaxWarpPoints);
+  return MirroredPoints(from.warp, ArtSizeOf(doll, from.name), to.warp,
+                        ArtSizeOf(doll, to.name));
+}
+
+// The dot of from's twin at point's mirrored spot, or -1.
+int MirroredDot(const Doll& doll, const RigPiece& from, int point) {
+  const RigPiece* twin = PartnerOf(doll, from.name);
+  assert(twin != nullptr);
+  assert(point >= -1);
+  const std::vector<int> pairs = PairsOf(doll, from, *twin);
+  const bool is_on_warp =
+      point >= 0 && static_cast<size_t>(point) < pairs.size();
+  return is_on_warp ? pairs[static_cast<size_t>(point)] : -1;
+}
+
 }  // namespace
 
 QString RigManager::WhyNoMirror(const QString& doll,
@@ -79,10 +100,17 @@ QString RigManager::WhyNoMirror(const QString& doll,
     return Tr("%1 has no other-side twin; name pieces like arm_l and "
               "arm_r.").arg(piece);
   }
+  const bool is_both_on = partner->warp.IsOn() && rig->warp.IsOn();
+  if (!is_both_on) {
+    return Tr("%1 and %2 both need to bend first.").arg(piece, partner->name);
+  }
+  // Old grids pair dot for dot; shape meshes pair by place.
+  const bool is_grids = !partner->warp.IsMesh() && !rig->warp.IsMesh();
   const bool is_same_grid = partner->warp == rig->warp;
-  return is_same_grid ? QString()
-                      : Tr("%1 and %2 need the same warp grid first.")
-                            .arg(piece, partner->name);
+  return is_grids && !is_same_grid
+             ? Tr("%1 and %2 need the same warp grid first.")
+                   .arg(piece, partner->name)
+             : QString();
 }
 
 Result<void> RigManager::MirrorNodes(const QString& doll,
@@ -101,14 +129,23 @@ Result<void> RigManager::MirrorNodes(const QString& doll,
       Tr("Mirror %1 to %2").arg(piece, partner),
       WithPiece(history_->current(), doll, partner,
                 [&](RigPiece* to) -> Result<void> {
-                  to->drag_nodes = from.drag_nodes;
-                  for (DragNode& node : to->drag_nodes) {
-                    node.point = MirroredPoint(from.warp, node.point);
+                  const std::vector<int> pairs = PairsOf(found, from, *to);
+                  to->drag_nodes.clear();
+                  for (DragNode node : from.drag_nodes) {
+                    node.point = pairs[static_cast<size_t>(node.point)];
+                    const bool is_paired = node.point >= 0;
+                    if (is_paired) {
+                      to->drag_nodes.push_back(node);
+                    }
                   }
                   to->point_motions.clear();
                   for (const PointMotion& motion : from.point_motions) {
-                    to->point_motions.push_back(
-                        MirroredMotion(motion, from.warp));
+                    const int dot = pairs[static_cast<size_t>(motion.point)];
+                    const bool is_paired = dot >= 0;
+                    if (is_paired) {
+                      to->point_motions.push_back(
+                          MirroredMotion(motion, dot));
+                    }
                   }
                   to->collider = MirroredCollider(found, from, *to);
                   return {};
@@ -136,7 +173,12 @@ Result<void> RigManager::MirrorDots(const std::vector<DotRef>& dots) {
       node = n.point == dot.point ? &n : node;
     }
     const PointMotion* moving = FindMotion(from, dot.point);
-    const int point = MirroredPoint(from.warp, dot.point);
+    const int point = MirroredDot(found, from, dot.point);
+    const bool is_paired = point >= 0;
+    if (!is_paired) {
+      return std::unexpected(Error{Tr("%1 has no dot at the mirrored spot.")
+                                       .arg(MirrorName(dot.piece))});
+    }
     next = WithPiece(
         *next, dot.doll, MirrorName(dot.piece),
         [&](RigPiece* to) -> Result<void> {
@@ -154,7 +196,7 @@ Result<void> RigManager::MirrorDots(const std::vector<DotRef>& dots) {
           });
           const bool is_moving = moving != nullptr;
           if (is_moving) {
-            to->point_motions.push_back(MirroredMotion(*moving, from.warp));
+            to->point_motions.push_back(MirroredMotion(*moving, point));
           }
           return {};
         });
