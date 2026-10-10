@@ -107,12 +107,14 @@ PoseBox::PoseBox(const Managers& managers)
     MakeLive(&field, &live_, tr("Pose"), this, [this] { Commit(); });
   }
   layout_.addRow(tr("Drawing"), &drawing_);
+  assert(layout_.rowCount() >= 8);
   connect(&drawing_, &QComboBox::activated, this, &PoseBox::SwapDrawing);
   Follow(managers_, this);
   Refresh();
 }
 
 void PoseBox::Refresh() {
+  assert(managers_.history != nullptr);
   const auto spot = SpotOf(managers_);
   const auto track =
       spot ? PickedTrack(managers_, spot->shot) : std::nullopt;
@@ -121,6 +123,7 @@ void PoseBox::Refresh() {
   if (!track) {
     return;
   }
+  assert(spot.has_value());
   const Project& project = managers_.history->current();
   const PiecePose pose = PoseAt(project, *track, spot->local);
   const auto picked = managers_.selection->picks().size();
@@ -215,11 +218,13 @@ CameraBox::CameraBox(const Managers& managers)
   for (QDoubleSpinBox& field : fields_) {
     MakeLive(&field, &live_, tr("Move camera"), this, [this] { Commit(); });
   }
+  assert(layout_.rowCount() >= 4);
   Follow(managers_, this);
   Refresh();
 }
 
 void CameraBox::Refresh() {
+  assert(managers_.history != nullptr);
   const auto spot = SpotOf(managers_);
   Explain(this, spot ? QString() : tr("Move the playhead onto a shot."));
   if (!spot) {

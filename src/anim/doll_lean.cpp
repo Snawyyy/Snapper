@@ -99,13 +99,16 @@ std::map<QString, double> Growth(const RestSpots& spots, const Turn& turn) {
   return growth;
 }
 
-// Brings pieces nearer the camera in front. A piece only passes its
-// parent, its children and its siblings, and only when clearly nearer
-// (by kRestackGap of the doll's height, measured at the middles of
-// their drawings); otherwise the order is kept, so hair stays behind
-// the body and close pieces such as hair and face stay as rigged.
-void Restack(const Doll& doll, const RestSpots& spots, const Turn& turn,
-             PoseMap* leaned) {
+struct Stacked final {
+  double nearer;
+  int order;
+  const RigPiece* rig;
+};
+
+// The pieces that have a drawing, with how near each is and where the
+// rig and pose draw it.
+std::vector<Stacked> StackPieces(const Doll& doll, const RestSpots& spots,
+                                 const Turn& turn, PoseMap* leaned) {
   assert(leaned != nullptr);
   assert(spots.doll >= 0.0);
   // Nearness is measured along the way the doll turns, so any turn
@@ -115,11 +118,6 @@ void Restack(const Doll& doll, const RestSpots& spots, const Turn& turn,
       std::hypot(turn.swivel_sin * turn.lean_cos, turn.lean_sin);
   const double toward = reach > 1e-9 ? 1.0 / reach : 0.0;
   const int facing = turn.lean_cos * turn.swivel_cos < 0.0 ? -1 : 1;
-  struct Stacked final {
-    double nearer;
-    int order;
-    const RigPiece* rig;
-  };
   std::vector<Stacked> left;
   for (const RigPiece& rig : doll.rig.pieces) {
     const auto middle = spots.middle.find(rig.name);
@@ -130,6 +128,19 @@ void Restack(const Doll& doll, const RestSpots& spots, const Turn& turn,
                       &rig});
     }
   }
+  return left;
+}
+
+// Brings pieces nearer the camera in front. A piece only passes its
+// parent, its children and its siblings, and only when clearly nearer
+// (by kRestackGap of the doll's height, measured at the middles of
+// their drawings); otherwise the order is kept, so hair stays behind
+// the body and close pieces such as hair and face stay as rigged.
+void Restack(const Doll& doll, const RestSpots& spots, const Turn& turn,
+             PoseMap* leaned) {
+  assert(leaned != nullptr);
+  assert(spots.doll >= 0.0);
+  std::vector<Stacked> left = StackPieces(doll, spots, turn, leaned);
   const double gap = kRestackGap * spots.doll;
   // Back to front: each time, of the pieces nothing left must go
   // behind, the one the rig and pose draw furthest back. A piece must

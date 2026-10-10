@@ -86,6 +86,7 @@ Result<void> ShotManager::SetBackgroundAll(const std::vector<ShotId>& shots,
   if (!is_valid) {
     return std::unexpected(Error{Tr("That isn't a colour.")});
   }
+  assert(color.isValid());
   return history_->Apply(
       Tr("Change background"),
       WithShots(history_->current(), shots,
