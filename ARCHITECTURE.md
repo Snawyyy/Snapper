@@ -205,10 +205,10 @@ A piece can:
   the shot's first frame, so every render of a frame is the same, and
   shows only on the doll's own beat (its keys, each frame of an ease,
   the same spacing through a long hold), so a doll on 3s drags on 3s.
-  A drag node can be switched to Physics (a tick in the Drag node
-  panel, `RigManager::SetPhysics`): secondary motion for cloth, hair,
-  a chest or soft flesh. A lone physics dot is a heavy, jiggly point;
-  physics dots next to each other on the grid are tied like cloth and
+  A drag node has a kind (`NodeKind`, set on many dots by
+  `RigManager::SetNodeKindAll`): Drag (the spring above), Cloth or
+  Jelly. Cloth is secondary motion for cloth and hair. A lone cloth
+  dot is a heavy, jiggly point; cloth dots next to each other on the grid are tied like cloth and
   hang from the plain dots around them (pins the body carries). Its
   five settings each go from none of it (0) to a lot (1): Stretch (how
   far it may get from the dots around it: 0 keeps its drawn distance,
@@ -227,7 +227,19 @@ A piece can:
   beat and in the same `DragTrail` as plain drag nodes, so a late
   frame costs like an early one. `doll_beat.h` holds the beat; a long
   hold still beats at least every 4 frames, so what hangs settles
-  through it. With Physics off a node is the spring it always was.
+  through it. Moving each node by its own motion, pushing it out of
+  colliders, turning back what turned over and its speed for the next
+  frame are shared by cloth and jelly (`anim/cloth_parts.h`).
+  Jelly is soft flesh, a chest (`anim/jelly.h`, `StepJelly`): a
+  piece's jelly dots wobble as one blob. Each frame the carried shape
+  is grown back to the drawn area along the way it was squeezed least
+  (pinched at the sides it gets taller), then fitted with one squash
+  and turn over where the dots are; each dot is pulled toward its place
+  on the fit by Bounce, so the blob never goes jagged. Squish (the
+  Stretch number) is how much squash the fit keeps; even at 1 some
+  pull back to its own shape stays. Inertia, Air resistance, Gravity
+  and colliders work as for cloth. A piece's cloth and its jelly run
+  apart, each seeing the other's dots as pins.
   A piece can be a collider (right-click it in the rig: Make
   collider): the outline of its visible pixels, traced into a ring of
   dots about 12 px apart (`TraceOutline`, pure, in `anim`; at most
@@ -610,7 +622,7 @@ rig canvas the same box picks collider dots. The Drag node and Dot
 animation panels edit every picked dot at once: a number that differs
 shows Mixed, a change sets them all and is one undo step named with the
 count ("Set bounce on 6 dots"; `RigManager::SetDragField`,
-`SetDragNodes`, `SetPhysicsAll`, `SetMotionAll`, all taking `DotRef`s).
+`SetDragNodes`, `SetNodeKindAll`, `SetMotionAll`, all taking `DotRef`s).
 D switches every picked dot's drag node, and Delete clears the drag or
 physics node and the motion off every picked dot (`ClearDots`).
 

@@ -18,6 +18,7 @@
 #include "anim/doll_collide.h"
 #include "anim/doll_colliders.h"
 #include "anim/grid_push.h"
+#include "anim/jelly.h"
 #include "anim/shot_grid.h"
 #include "anim/warp.h"
 #include "anim/warp_motion.h"
@@ -152,9 +153,26 @@ std::optional<PushedGrid> PushedGridOf(const Doll& doll, const Layer& layer,
   return pushed;
 }
 
-// Runs the cloth of one piece a frame: the springs at indices are its
-// physics nodes, hung from pushed; was holds where the body carried
-// each spring's point the frame before.
+// Every point of rig's grid as drawn, in shot space; none with no
+// drawing.
+std::vector<QPointF> DrawnPoints(const RigPiece& rig, const ArtPiece* art,
+                                 const QTransform& to_shot) {
+  assert(rig.warp.PointCount() <= kMaxWarpPoints);
+  assert(to_shot.isAffine());
+  const bool has_art = art != nullptr;
+  if (!has_art) {
+    return {};
+  }
+  std::vector<QPointF> drawn = RestPoints(art->size, rig.warp);
+  for (QPointF& point : drawn) {
+    point = to_shot.map(point);
+  }
+  return drawn;
+}
+
+// Runs the cloth or the jelly of one piece a frame: the springs at
+// indices are its nodes of that kind, hung from pushed; was holds where
+// the body carried each spring's point the frame before.
 void StepPiece(const Doll& doll, const PushedGrid& pushed,
                const std::vector<size_t>& indices,
                const std::vector<Carry>& was, int f,
@@ -181,9 +199,13 @@ void StepPiece(const Doll& doll, const PushedGrid& pushed,
     cloth.speed.push_back(spring.speed);
     cloth.body_speed.push_back(was[i] ? now - was[i]->first : QPointF());
   }
+  const bool is_jelly = (*springs)[indices[0]].node.kind == NodeKind::kJelly;
   const bool is_first = f == 0;
   if (is_first) {
     RestCloth(pushed.grid.points, &cloth);
+  } else if (is_jelly) {
+    cloth.drawn = DrawnPoints(*rig, art, pushed.grid.to_shot);
+    StepJelly(pushed.grid.points, &cloth);
   } else {
     StepCloth(pushed.grid.points, &cloth);
   }
@@ -205,7 +227,8 @@ void Step(const Doll& doll, const Layer& layer, int f,
       SamplePoses(std::get<DollLayer>(layer.content), Frame(f));
   const auto placed = PieceTransforms(doll, keyed);
   std::map<QString, std::optional<PushedGrid>> grids;
-  std::map<QString, std::vector<size_t>> cloths;
+  // Each piece's cloth nodes and its jelly nodes run apart.
+  std::map<std::pair<QString, NodeKind>, std::vector<size_t>> cloths;
   const std::vector<Carry> was = *carried;
   for (size_t i = 0; i < springs->size(); ++i) {
     Spring& spring = (*springs)[i];
@@ -225,13 +248,13 @@ void Step(const Doll& doll, const Layer& layer, int f,
     }
     const bool is_cloth = spring.is_physics && is_on_stage;
     if (is_cloth) {
-      cloths[spring.piece].push_back(i);
+      cloths[{spring.piece, spring.node.kind}].push_back(i);
     } else {
       MoveSpring(carry, f, &spring);
     }
   }
-  for (const auto& [piece, indices] : cloths) {
-    StepPiece(doll, *grids[piece], indices, was, f, springs);
+  for (const auto& [group, indices] : cloths) {
+    StepPiece(doll, *grids[group.first], indices, was, f, springs);
   }
 }
 
