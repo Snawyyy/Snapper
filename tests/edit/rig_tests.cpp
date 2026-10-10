@@ -93,13 +93,24 @@ void RigTests::NewWarpGridClearsOldWarpKeys() {
   RigManager rig(&history);
   QVERIFY(!rig.SetWarpGrid("Bob", "lower", {0, 3}).has_value());
   QVERIFY(!rig.SetWarpGrid("Bob", "lower", {9, 1}).has_value());
-  QVERIFY(rig.SetWarpReach("Bob", "lower", 4, 1.5).has_value());
-  QVERIFY(!rig.SetWarpReach("Bob", "lower", 9, 1.0).has_value());
-  QVERIFY(!rig.SetWarpReach("Bob", "upper", 0, 1.0).has_value());
+  QVERIFY(rig.SetWarpReach({{"Bob", "lower", 4}}, 1.5).has_value());
+  QVERIFY(!rig.SetWarpReach({{"Bob", "lower", 9}}, 1.0).has_value());
+  QVERIFY(!rig.SetWarpReach({{"Bob", "upper", 0}}, 1.0).has_value());
+  QVERIFY(!rig.SetWarpReach({}, 1.0).has_value());
   QCOMPARE(FindRig(BobRig(history), "lower")->warp_reach[4], 1.5);
-  QVERIFY(rig.SetWarpReach("Bob", "lower", 0, -3.0).has_value());
+  QVERIFY(rig.SetWarpReach({{"Bob", "lower", 0}}, -3.0).has_value());
   QCOMPARE(FindRig(BobRig(history), "lower")->warp_reach[0], 0.0);
-  QCOMPARE(history.UndoLabel(), QString("Rubber reach of lower"));
+  QCOMPARE(history.UndoLabel(), QString("Set reach on 1 dot"));
+  // Many dots at once, each from its own reach, as one step.
+  const std::vector<DotRef> both = {{"Bob", "lower", 0}, {"Bob", "lower", 4}};
+  QVERIFY(rig.SetWarpReachMath(both, "+(-0.5)").has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->warp_reach[0], 0.0);
+  QCOMPARE(FindRig(BobRig(history), "lower")->warp_reach[4], 1.0);
+  QCOMPARE(history.UndoLabel(), QString("Set reach on 2 dots"));
+  QVERIFY(rig.SetWarpReach(both, 2.0).has_value());
+  QCOMPARE(FindRig(BobRig(history), "lower")->warp_reach[0], 2.0);
+  QCOMPARE(FindRig(BobRig(history), "lower")->warp_reach[4], 2.0);
+  QVERIFY(!rig.SetWarpReachMath(both, "*x").has_value());
   const std::vector<DotRef> four = {{"Bob", "lower", 4}};
   QVERIFY(rig.SetDragNodes(four, true).has_value());
   QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes,

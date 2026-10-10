@@ -350,7 +350,7 @@ void PoseTool::Wheel(int notches, bool is_fine, const StageFrame& frame) {
   assert(frame.scale > 0.0);
   const auto dot = PickedDot(frame);
   if (dot) {
-    WheelReach(*dot, notches, is_fine, frame);
+    WheelReach(notches, is_fine, frame);
     return;
   }
   const auto tracks = managers_.selection->PickedTracks();

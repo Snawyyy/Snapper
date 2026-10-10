@@ -5,6 +5,7 @@
 #include <cmath>
 #include <variant>
 
+#include "base/number_text.h"
 #include "base/text.h"
 #include "edit/history_manager.h"
 #include "edit/rig_edits.h"
@@ -136,30 +137,48 @@ Result<void> RigManager::SetWarpGrid(const QString& doll,
   return history_->Apply(Tr("Warp grid of %1").arg(piece), std::move(next));
 }
 
-Result<void> RigManager::SetWarpReach(const QString& doll,
-                                      const QString& piece, int point,
+QString RigManager::ReachLabel(size_t dots) {
+  assert(dots > 0);
+  assert(dots < 10000000);
+  return Tr("Set reach on %1").arg(CountText(dots));
+}
+
+Result<void> RigManager::SetWarpReach(const std::vector<DotRef>& dots,
                                       double reach) {
   assert(history_ != nullptr);
-  assert(!piece.isEmpty());
+  assert(dots.size() < 10000000);
   const bool is_number = std::isfinite(reach);
   if (!is_number) {
     return std::unexpected(Error{Tr("That reach is off the map.")});
   }
-  const double cells = std::clamp(reach, 0.0, double(kMaxWarpCells));
+  return SetWarpReachMath(dots, QString::number(reach, 'f', 12));
+}
+
+Result<void> RigManager::SetWarpReachMath(const std::vector<DotRef>& dots,
+                                          const QString& math) {
+  assert(history_ != nullptr);
+  assert(dots.size() < 10000000);
+  const bool has_dots = !dots.empty();
+  if (!has_dots) {
+    return NeedDots();
+  }
   return history_->Apply(
-      Tr("Rubber reach of %1").arg(piece),
-      WithPiece(history_->current(), doll, piece,
-                [point, cells](RigPiece* rig) -> Result<void> {
-                  const int count = rig->warp.PointCount();
-                  const bool is_point = point >= 0 && point < count;
-                  if (!is_point) {
-                    return std::unexpected(Error{
-                        Tr("Give the piece a warp grid in the rig first.")});
-                  }
-                  rig->warp_reach.resize(static_cast<size_t>(count), 0.0);
-                  rig->warp_reach[static_cast<size_t>(point)] = cells;
-                  return {};
-                }));
+      ReachLabel(dots.size()),
+      WithDots(history_->current(), dots,
+               [&math](RigPiece* rig, int point) -> Result<void> {
+                 // Each dot works the math on its own reach.
+                 const auto result = EvalNumber(math, ReachOf(*rig, point));
+                 const bool is_read = result.has_value();
+                 if (!is_read) {
+                   return std::unexpected(
+                       Error{Tr("That reach is off the map.")});
+                 }
+                 rig->warp_reach.resize(
+                     static_cast<size_t>(rig->warp.PointCount()), 0.0);
+                 rig->warp_reach[static_cast<size_t>(point)] =
+                     std::clamp(*result, 0.0, double(kMaxWarpCells));
+                 return {};
+               }));
 }
 
 Result<void> RigManager::SetPointMotion(const QString& doll,

@@ -9,10 +9,12 @@
 #include <cassert>
 #include <memory>
 #include <variant>
+#include <vector>
 
 #include "anim/warp.h"
 #include "base/error.h"
 #include "base/text.h"
+#include "edit/rig_manager.h"
 #include "model/project.h"
 
 namespace snapper {
@@ -139,6 +141,48 @@ inline Project WithoutWarpKeys(Project project, const QString& doll,
   return project;
 }
 
+// "1 dot" or "6 dots", for the names of many-dot steps.
+inline QString CountText(size_t count) {
+  assert(count > 0);
+  assert(count < 10000000);
+  const bool is_one = count == 1;
+  return is_one ? Tr("1 dot") : Tr("%1 dots").arg(count);
+}
+
+// change(rig, point) on each of dots; the first refusal stops it.
+template <typename Change>
+Result<Project> WithDots(const Project& project,
+                         const std::vector<DotRef>& dots, Change change) {
+  assert(dots.size() < 10000000);
+  assert(!dots.empty());
+  Result<Project> next = project;
+  for (const DotRef& dot : dots) {
+    next = WithPiece(*next, dot.doll, dot.piece,
+                     [&](RigPiece* rig) -> Result<void> {
+                       const bool is_point =
+                           dot.point >= 0 &&
+                           dot.point < rig->warp.PointCount();
+                       if (!is_point) {
+                         return std::unexpected(Error{Tr(
+                             "Give the piece a warp grid in the rig "
+                             "first.")});
+                       }
+                       return change(rig, dot.point);
+                     });
+    const bool is_refused = !next;
+    if (is_refused) {
+      return next;
+    }
+  }
+  return next;
+}
+
+// The refusal of a many-dot edit given no dots.
+inline Result<void> NeedDots() {
+  assert(kMaxWarpPoints > 0);
+  assert(kMaxIkChains > 0);
+  return std::unexpected(Error{Tr("Pick one or more warp dots first.")});
+}
 
 }  // namespace snapper
 

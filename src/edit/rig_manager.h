@@ -81,10 +81,15 @@ class RigManager final {
   // Why piece can't be converted to a shape mesh (only an old grid
   // can); empty when it can.
   QString WhyNoConvert(const QString& doll, const QString& piece) const;
-  // How far pulling one grid point drags its neighbours, in cells (0
-  // moves it alone), kept from 0 to kMaxWarpCells.
-  Result<void> SetWarpReach(const QString& doll, const QString& piece,
-                            int point, double reach);
+  // The name of the step SetWarpReach makes ("Set reach on 6 dots").
+  static QString ReachLabel(size_t dots);
+  // How far pulling each of dots drags its neighbours, in cells (0
+  // moves it alone), kept from 0 to kMaxWarpCells: one undo step.
+  Result<void> SetWarpReach(const std::vector<DotRef>& dots, double reach);
+  // The same, but math is typed text worked out on each dot's own
+  // reach: "+0.5" adds to each, "*2" doubles each, "1" sets all.
+  Result<void> SetWarpReachMath(const std::vector<DotRef>& dots,
+                                const QString& math);
   // The edits below take many dots at once (a single one is a list of
   // one) and are one undo step each, named with how many dots they
   // touched ("Set bounce on 6 dots").
