@@ -485,6 +485,10 @@ are destroyed in reverse.
 | `DragPlayhead` (`ui`) | The playhead's place before a key or clip drag: the drag carries the playhead, Escape puts it back, no history |
 | `PaintClip` (`ui`) | RAII clip so timeline keys, bars, grid and playhead paint only in the frame area, never over the names |
 | `RefusalShaker` (`ui`) | The shake and the reason on a greyed control clicked anyway |
+| `DragBox` (`ui`) | The warp dot panel: material tiles, reach, preset chips, feel pad with a live wobble, a folded Fine tune section, Mirror |
+| `KindTiles` / `KindTile` (`ui`) | The four material tiles (Still, Drag, Cloth, Jelly): a tiny cartoon each, looping only under the pointer, squashing on a press |
+| `FeelPad` / `WobbleBlob` (`ui`) | The soft-firm by light-heavy pad that reports Grabbed, Moved, Released, Cancelled; and the small live preview of the current feel |
+| `FoldSection` (`ui`) | A heading that slides its rows away over the Move time; open or closed is kept in the settings file |
 
 `MotionManager` lives in `ui` because it only serves widgets and holds no
 project state. Its table and curves (`motion_table.h`) are pure and
@@ -636,6 +640,19 @@ count ("Set bounce on 6 dots"; `RigManager::SetDragField`,
 `SetDragNodes`, `SetNodeKindAll`, `SetMotionAll`, all taking `DotRef`s).
 D switches every picked dot's drag node, and Delete clears the drag or
 physics node and the motion off every picked dot (`ClearDots`).
+The Warp dots panel (`DragBox`) shows what the picked dots are as four
+material tiles (`KindTiles`): a click makes every picked dot Still
+(`SetDragNodes`) or a node of that kind (`SetNodeKindAll`), one undo
+step. `dot_kinds.h` is the pure part, tested without a widget: `KindMix`
+counts the materials among the picked dots (which tile is outlined, thick
+for all and thin for some, and whether the title says Mixed),
+`FineRowsOf` and `FineLabel` say which exact rows apply (jelly names the
+stretch row Squish), and `DistinctFeels` lists the pucks. The feel pad
+(`FeelPad`) only reports a drag; `DragBox` opens one `LiveEdit` burst on
+Grabbed, calls `SetFeelAll` on every Moved, closes it on Released and
+cancels it on Escape, so a whole drag is one undo step. Preset chips call
+`SetFeelAll` with `FeelPresets`. The tiles and the wobble preview animate
+only through `MotionManager`: nothing moves in Off.
 
 The side panel shows only the settings of what is picked: the shot
 and its camera with nothing picked on the stage; pose, layer, motion
