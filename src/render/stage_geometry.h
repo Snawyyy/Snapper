@@ -45,14 +45,17 @@ std::optional<PieceOutline> PieceOnScreen(const Project& project,
                                           double scale,
                                           PoseMemo* memo = nullptr);
 
-// A piece's warp grid on screen: its points row by row (as shown,
-// pushed by the pose's warp, in drawing pixels), the grid's size, each
-// point's rubber reach in cells, its drag nodes and moving points, the
-// drawing's size, and drawing pixels to screen. Nothing when the piece
-// has no grid.
+// A piece's warp grid on screen: its points row by row as the drawing
+// shows them at the frame (keys, drag and physics nodes, point motions
+// and collider pushes all in, in drawing pixels), where the keys alone
+// put them, the grid's size, each point's rubber reach in cells, its
+// drag nodes and moving points, the drawing's size, and drawing pixels
+// to screen. Nothing when the piece has no grid.
 struct WarpOnScreen final {
   WarpGrid grid;
   std::vector<QPointF> points;
+  // Where the keys put each point; dragging a dot moves this.
+  std::vector<QPointF> keyed;
   std::vector<double> reach;
   // Points that are drag nodes, and points that move by themselves.
   std::vector<int> drags;

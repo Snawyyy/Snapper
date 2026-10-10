@@ -1,5 +1,10 @@
 #include <QTest>
 
+#include <cassert>
+#include <cmath>
+
+#include "anim/links.h"
+#include "anim/warp.h"
 #include "bench.h"
 #include "pose_stage.h"
 #include "render/stage_geometry.h"
@@ -19,6 +24,7 @@ class PoseToolDotsTests final : public QObject {
  private slots:
   void ABoxPicksWarpDotsAndShiftAndCtrlEditThePick();
   void DAndDeleteActOnEveryPickedDot();
+  void TheGridShowsTheDotsWhereTheDrawingHasThem();
 };
 
 void PoseToolDotsTests::ABoxPicksWarpDotsAndShiftAndCtrlEditThePick() {
@@ -107,6 +113,54 @@ void PoseToolDotsTests::DAndDeleteActOnEveryPickedDot() {
   QCOMPARE(drags().size(), size_t{9});
   bench.selection.PickDot(std::nullopt);
   QVERIFY(!tool.ClearDots(kFrame));
+}
+
+void PoseToolDotsTests::TheGridShowsTheDotsWhereTheDrawingHasThem() {
+  Bench bench;
+  Stage(&bench);
+  Project project = bench.history.current();
+  Doll doll = *project.dolls.at("Dot");
+  // The middle dot sways by itself, so it is not where its key is.
+  doll.rig.pieces[0].warp = {2, 2};
+  doll.rig.pieces[0].point_motions = {
+      {4, WarpMotionKind::kSway, 4.0, 24, 0.0, 0.0}};
+  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
+  bench.history.Reset(project);
+  const StageFrame at{ShotId(1), Frame(6), 1.0, QPointF(10, 10)};
+  const auto shown = [&bench, &at] {
+    const Project& now = bench.history.current();
+    return PieceWarpOnScreen(now, *now.shots[0], LayerId(1), "body",
+                             at.local, at.scale);
+  };
+  const auto evaluated = [&bench, &at] {
+    const Project& now = bench.history.current();
+    LinkSolver solver(now, *now.shots[0], nullptr);
+    return WarpedPoints({20, 20}, {2, 2},
+                        solver.Poses(*now.dolls.at("Dot"),
+                                     now.shots[0]->layers[0], at.local)
+                            .at("body")
+                            .warp);
+  };
+  auto warp = shown();
+  QVERIFY(warp.has_value());
+  // The dots are drawn where the drawing has them; the keys alone (the
+  // faint rings) are at rest.
+  QCOMPARE(warp->points, evaluated());
+  QCOMPARE(warp->keyed, WarpedPoints({20, 20}, {2, 2}, {}));
+  QVERIFY(std::abs(warp->points[4].x() - warp->keyed[4].x()) > 1.0);
+  // Dragging the dot where it shows moves its key by the drag.
+  ImageCache cache;
+  PoseTool tool(bench.All(), &cache);
+  tool.Press({60, 60}, false, false, at);
+  tool.Release();
+  const QPointF spot = warp->to_screen.map(warp->points[4]) + at.corner;
+  tool.Press(spot, false, false, at);
+  tool.Move(spot + QPointF(6, 0), false);
+  tool.Release();
+  warp = shown();
+  QVERIFY(warp.has_value());
+  QCOMPARE(warp->keyed[4], QPointF(16, 10));
+  QCOMPARE(warp->points, evaluated());
 }
 
 }  // namespace snapper

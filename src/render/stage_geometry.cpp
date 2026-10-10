@@ -17,6 +17,8 @@ namespace {
 
 struct PosedDoll final {
   const Doll* doll = nullptr;
+  // The poses shown: keys, drags, physics and collider pushes.
+  PoseMap poses;
   std::map<QString, QTransform> pieces;
   QTransform to_screen;
 };
@@ -37,11 +39,27 @@ std::optional<PosedDoll> Pose(const Project& project, const Shot& shot,
     return std::nullopt;
   }
   LinkSolver links(project, shot, memo);
-  return PosedDoll{doll,
-                   PieceTransforms(*doll, links.Poses(*doll, *found, local)),
+  PoseMap poses = links.Poses(*doll, *found, local);
+  auto pieces = PieceTransforms(*doll, poses);
+  return PosedDoll{doll, std::move(poses), std::move(pieces),
                    links.LayerTransform(*found, local) *
                        FrameRenderer::ViewTransform(project, shot, local,
                                                     scale)};
+}
+
+// piece's grid points in its drawing pixels, pushed by its warp in
+// poses (at rest when the warp does not fit the grid).
+std::vector<QPointF> WarpOf(const PoseMap& poses, const RigPiece& rig,
+                            QSize size, const QString& piece) {
+  assert(rig.warp.IsOn());
+  assert(!piece.isEmpty());
+  const auto pose = poses.find(piece);
+  const bool is_fitting =
+      pose != poses.end() &&
+      static_cast<int>(pose->second.warp.size()) == rig.warp.PointCount();
+  return WarpedPoints(size, rig.warp,
+                      is_fitting ? pose->second.warp
+                                 : std::vector<QPointF>());
 }
 
 }  // namespace
@@ -122,13 +140,10 @@ std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
     return std::nullopt;
   }
   const auto& keys = std::get<DollLayer>(FindLayer(shot, layer)->content);
-  const PoseMap poses = SamplePoses(keys, local);
-  const auto pose = poses.find(piece);
-  const bool is_fitting =
-      pose != poses.end() &&
-      static_cast<int>(pose->second.warp.size()) == rig->warp.PointCount();
-  const std::vector<QPointF> offsets =
-      is_fitting ? pose->second.warp : std::vector<QPointF>();
+  const std::vector<QPointF> keyed =
+      WarpOf(SamplePoses(keys, local), *rig, art->size, piece);
+  const std::vector<QPointF> shown =
+      WarpOf(posed->poses, *rig, art->size, piece);
   const bool has_reach =
       static_cast<int>(rig->warp_reach.size()) == rig->warp.PointCount();
   std::vector<int> drags;
@@ -140,7 +155,7 @@ std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
     moves.push_back(motion.point);
   }
   return WarpOnScreen{
-      rig->warp, WarpedPoints(art->size, rig->warp, offsets),
+      rig->warp, shown, keyed,
       has_reach ? rig->warp_reach
                 : std::vector<double>(
                       static_cast<size_t>(rig->warp.PointCount()), 0.0),
