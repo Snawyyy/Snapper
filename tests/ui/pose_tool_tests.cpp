@@ -1,5 +1,7 @@
 #include <QTest>
 
+#include <cassert>
+
 #include "anim/doll_lean.h"
 #include "anim/doll_pose.h"
 #include "anim/sampler.h"
@@ -15,6 +17,30 @@ namespace {
 using posestage::Body;
 using posestage::kFrame;
 using posestage::Stage;
+
+// A head hung above the body: its joint above the middle of the doll's
+// box, the body's below.
+void AddHead(Bench* bench) {
+  assert(bench != nullptr);
+  Project project = bench->history.current();
+  Doll doll = *project.dolls.at("Dot");
+  doll.art.pieces.push_back({"head", {"body.png"}, 0, {-10, -30}, {20, 20}});
+  doll.rig.pieces.push_back({"head", "body", {10, 10}, 1, -1, {}});
+  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
+  bench->history.Reset(project);
+  assert(project.dolls.at("Dot")->rig.pieces.size() == 2);
+}
+
+// The body gets a 2x2 warp grid, nine dots.
+void GiveBodyAWarp(Bench* bench) {
+  assert(bench != nullptr);
+  Project project = bench->history.current();
+  Doll doll = *project.dolls.at("Dot");
+  doll.rig.pieces[0].warp = {2, 2};
+  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
+  bench->history.Reset(project);
+  assert(project.dolls.at("Dot")->rig.pieces[0].warp.IsOn());
+}
 
 }  // namespace
 
@@ -32,6 +58,7 @@ class PoseToolTests final : public QObject {
   void DoubleClickPicksTheWholeDoll();
   void LeanHandleTipsTheDoll();
   void WarpDotsBendThePiece();
+  void WarpDotsTakeReachAndDrag();
   void WheelSetsReachOfEveryPickedDot();
 };
 
@@ -61,6 +88,7 @@ void PoseToolTests::ShiftLocksTheAxis() {
   tool.Press({60, 60}, false, false, kFrame);
   tool.Move({70, 63}, true);
   tool.Release();
+  QVERIFY(bench.history.CanUndo());
   QCOMPARE(Body(bench).offset, QPointF(10, 0));
 }
 
@@ -185,14 +213,7 @@ void PoseToolTests::DoubleClickPicksTheWholeDoll() {
 void PoseToolTests::LeanHandleTipsTheDoll() {
   Bench bench;
   Stage(&bench);
-  // A head hung above the body: its joint above the middle of the
-  // doll's box, the body's below.
-  Project project = bench.history.current();
-  Doll doll = *project.dolls.at("Dot");
-  doll.art.pieces.push_back({"head", {"body.png"}, 0, {-10, -30}, {20, 20}});
-  doll.rig.pieces.push_back({"head", "body", {10, 10}, 1, -1, {}});
-  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
-  bench.history.Reset(project);
+  AddHead(&bench);
   ImageCache cache;
   PoseTool tool(bench.All(), &cache);
   // Not picked whole: no handle to grab, the press draws a box.
@@ -275,11 +296,7 @@ void PoseToolTests::WheelSetsReachOfEveryPickedDot() {
 void PoseToolTests::WarpDotsBendThePiece() {
   Bench bench;
   Stage(&bench);
-  Project project = bench.history.current();
-  Doll doll = *project.dolls.at("Dot");
-  doll.rig.pieces[0].warp = {2, 2};
-  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
-  bench.history.Reset(project);
+  GiveBodyAWarp(&bench);
   ImageCache cache;
   PoseTool tool(bench.All(), &cache);
   // Not picked yet: the press picks and moves, it doesn't warp.
@@ -308,6 +325,18 @@ void PoseToolTests::WarpDotsBendThePiece() {
   QCOMPARE(Body(bench).warp[4], QPointF(10, 3));
   tool.Cancel();
   QCOMPARE(Body(bench).warp[4], QPointF(5, 2));
+}
+
+void PoseToolTests::WarpDotsTakeReachAndDrag() {
+  Bench bench;
+  Stage(&bench);
+  GiveBodyAWarp(&bench);
+  ImageCache cache;
+  PoseTool tool(bench.All(), &cache);
+  // Pick the body first, as a click does.
+  tool.Press({60, 60}, false, false, kFrame);
+  tool.Release();
+  QVERIFY(bench.selection.pieces().contains("body"));
   // Clicking the corner dot picks it; the wheel then sets its reach
   // instead of turning the body.
   tool.Press({50, 50}, false, false, kFrame);

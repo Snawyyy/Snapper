@@ -5,6 +5,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <cassert>
+
 #include "edit/doll_library_manager.h"
 #include "edit/history_manager.h"
 #include "io/json_file.h"
@@ -13,16 +15,19 @@ namespace snapper {
 namespace {
 
 QJsonObject Piece(const QString& name) {
-  return QJsonObject{{"name", name},
+  assert(!name.isEmpty());
+  const QJsonObject piece{{"name", name},
                      {"drawings", QJsonArray{name + ".png"}},
                      {"position", QJsonArray{0, 0}},
                      {"size", QJsonArray{10, 20}}};
+  assert(piece.size() == 4);
+  return piece;
 }
 
 // Writes Bob.doll the way the Krita exporter does.
 void Export(const QString& library, const QJsonArray& pieces) {
   const QString folder = QDir(library).filePath("Bob.doll");
-  QDir().mkpath(folder);
+  QVERIFY(QDir().mkpath(folder));
   const auto written = WriteJsonFile(
       QDir(folder).filePath("art.json"),
       QJsonObject{{"format", "snapper-art"},
@@ -33,6 +38,7 @@ void Export(const QString& library, const QJsonArray& pieces) {
 }
 
 void UseBob(HistoryManager* history) {
+  assert(history != nullptr);
   Project next = history->current();
   Shot shot;
   shot.id = ShotId(1);
@@ -41,6 +47,7 @@ void UseBob(HistoryManager* history) {
   layer.content = DollLayer{"Bob", {}, false};
   shot.layers.push_back(layer);
   next.shots.push_back(std::make_shared<const Shot>(shot));
+  assert(!next.shots.empty());
   history->Commit("Use", next);
 }
 

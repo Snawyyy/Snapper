@@ -1,6 +1,8 @@
 #include <QLineF>
 #include <QTest>
 
+#include <cassert>
+
 #include "anim/doll_pose.h"
 #include "edit/edit_scope.h"
 #include "edit/history_manager.h"
@@ -35,14 +37,21 @@ Project Stage() {
   Project project;
   project.dolls["Bob"] = std::make_shared<const Doll>(doll);
   project.shots = {std::make_shared<const Shot>(shot)};
+  assert(project.shots.size() == 1);
+  assert(project.dolls.size() == 1);
   return project;
 }
 
 TrackRef Piece(const QString& name) {
-  return {kShot, TrackKind::kPiece, kDoll, name};
+  assert(!name.isEmpty());
+  const TrackRef track{kShot, TrackKind::kPiece, kDoll, name};
+  assert(track.piece == name);
+  return track;
 }
 
 PoseMap PosesAt(const HistoryManager& history, Frame frame) {
+  assert(!history.current().shots.empty());
+  assert(!history.current().shots[0]->layers.empty());
   return SamplePoses(
       std::get<DollLayer>(history.current().shots[0]->layers[0].content),
       frame);
@@ -50,6 +59,8 @@ PoseMap PosesAt(const HistoryManager& history, Frame frame) {
 
 const Channel<PiecePose>& Keys(const HistoryManager& history,
                                const QString& piece) {
+  assert(!piece.isEmpty());
+  assert(!history.current().shots.empty());
   return std::get<DollLayer>(
              history.current().shots[0]->layers[0].content)
       .pieces.at(piece);

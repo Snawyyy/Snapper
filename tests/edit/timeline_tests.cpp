@@ -1,5 +1,7 @@
 #include <QTest>
 
+#include <cassert>
+
 #include "edit/history_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/timeline_rows.h"
@@ -26,6 +28,8 @@ Project Stage() {
   Project project;
   project.dolls["Bob"] = std::make_shared<const Doll>(doll);
   project.shots = {std::make_shared<const Shot>(shot)};
+  assert(project.shots.size() == 1);
+  assert(shot.layers.size() == 2);
   return project;
 }
 

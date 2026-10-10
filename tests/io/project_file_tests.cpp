@@ -16,6 +16,7 @@ namespace snapper {
 namespace {
 
 Layer MakeLayer(int id, LayerContent content) {
+  assert(id > 0);
   Layer layer;
   layer.id = LayerId(id);
   layer.name = QString("layer %1").arg(id);
@@ -27,6 +28,7 @@ Layer MakeLayer(int id, LayerContent content) {
   moved.warp = {QPointF(1, 2)};
   SetKey(&layer.transform, {Frame(5), moved, Ease::kEaseOut});
   layer.content = std::move(content);
+  assert(layer.length == Frame(10));
   return layer;
 }
 
@@ -45,7 +47,6 @@ Project FullProject() {
   doll.art.pieces = {{"head", {"a.png", "b.png"}, 1, {-5, -5}, {10, 10}}};
   doll.rig.pieces = {{"head", "", {5, 5}, 2, 1, {2, 2}}};
   project.dolls["Bob"] = std::make_shared<const Doll>(doll);
-
   DollLayer posed{"Bob", {}, true};
   PiecePose tilt;
   tilt.rotation = 15.0;
@@ -57,7 +58,6 @@ Project FullProject() {
   TextLayer words;
   words.text = "Hello";
   words.fill = Qt::red;
-
   Shot shot;
   shot.id = ShotId(2);
   shot.name = "Intro";
@@ -88,6 +88,8 @@ Project FullProject() {
   PlaceClip(&project.reel.tracks[0], paint);
   PlaceClip(&project.reel.tracks[2], intro);
   project.reel.markers = {Frame(24), Frame(96)};
+  assert(project.shots.size() == 1);
+  assert(shot.layers.size() == 4);
   return project;
 }
 

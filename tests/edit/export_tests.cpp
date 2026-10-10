@@ -16,6 +16,7 @@ namespace snapper {
 namespace {
 
 Project Lasting(int length) {
+  assert(length >= 0);
   Shot shot;
   shot.id = ShotId(1);
   shot.length = Frame(length);
@@ -23,6 +24,7 @@ Project Lasting(int length) {
   Project project;
   project.canvas = {64, 48};
   project.shots = {std::make_shared<const Shot>(shot)};
+  assert(project.shots.size() == 1);
   return project;
 }
 

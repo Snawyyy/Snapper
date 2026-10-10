@@ -33,11 +33,12 @@ void DropShot(ReelTimeline* timeline, ShotId shot, QPoint where) {
   assert(shot.IsValid());
   QMimeData data;
   data.setData(kShotMime, QByteArray::number(shot.value()));
-  QDragEnterEvent enter(where, Qt::CopyAction, &data, Qt::LeftButton, {});
+  const QPointF at(where);
+  QDragEnterEvent enter(at, Qt::CopyAction, &data, Qt::LeftButton, {});
   QApplication::sendEvent(timeline, &enter);
-  QDragMoveEvent move(where, Qt::CopyAction, &data, Qt::LeftButton, {});
+  QDragMoveEvent move(at, Qt::CopyAction, &data, Qt::LeftButton, {});
   QApplication::sendEvent(timeline, &move);
-  QDropEvent drop(where, Qt::CopyAction, &data, Qt::LeftButton, {});
+  QDropEvent drop(at, Qt::CopyAction, &data, Qt::LeftButton, {});
   QApplication::sendEvent(timeline, &drop);
 }
 

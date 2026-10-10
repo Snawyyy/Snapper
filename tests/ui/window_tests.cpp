@@ -9,6 +9,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <cassert>
+
 #include "bench.h"
 #include "ui/bump_label.h"
 #include "ui/main_window.h"
@@ -23,6 +25,8 @@ namespace {
 
 // The menu bar action whose text starts with text, one menu deep.
 QAction* FindAction(QMainWindow* window, const QString& text) {
+  assert(window != nullptr);
+  assert(!text.isEmpty());
   for (QAction* top : window->menuBar()->actions()) {
     const QList<QAction*> items =
         top->menu() != nullptr ? top->menu()->actions() : QList<QAction*>();

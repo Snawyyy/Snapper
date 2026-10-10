@@ -1,5 +1,7 @@
 #include <QTest>
 
+#include <cassert>
+
 #include "anim/master_timeline.h"
 #include "anim/mirror.h"
 #include "anim/presets.h"
@@ -9,9 +11,11 @@ namespace snapper {
 namespace {
 
 std::shared_ptr<const Shot> MakeShot(int id, int length) {
+  assert(length >= 0);
   Shot shot;
   shot.id = ShotId(id);
   shot.length = Frame(length);
+  assert(id >= 0);
   return std::make_shared<const Shot>(shot);
 }
 
@@ -56,6 +60,7 @@ void SamplerTests::EmptyChannelGivesFallback() {
   const Channel<CameraPose> channel;
   CameraPose fallback;
   fallback.zoom = 2.0;
+  QVERIFY(channel.keys.empty());
   QCOMPARE(Sample(channel, Frame(3), fallback).zoom, 2.0);
 }
 

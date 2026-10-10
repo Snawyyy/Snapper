@@ -3,6 +3,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <cassert>
+
 #include "anim/doll_pose.h"
 #include "edit/history_manager.h"
 #include "edit/preset_manager.h"
@@ -30,10 +32,14 @@ Project Stage() {
   Project project;
   project.dolls["Bob"] = std::make_shared<const Doll>(doll);
   project.shots = {std::make_shared<const Shot>(shot)};
+  assert(project.shots.size() == 1);
+  assert(project.dolls.size() == 1);
   return project;
 }
 
 PoseMap At(const HistoryManager& history, int frame) {
+  assert(frame >= 0);
+  assert(!history.current().shots.empty());
   return SamplePoses(
       std::get<DollLayer>(history.current().shots[0]->layers[0].content),
       Frame(frame));

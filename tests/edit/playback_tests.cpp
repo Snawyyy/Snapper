@@ -15,11 +15,13 @@ namespace {
 
 // A project of one shot, length frames long.
 Project Lasting(int length) {
+  assert(length >= 0);
   Shot shot;
   shot.id = ShotId(1);
   shot.length = Frame(length);
   Project project;
   project.shots = {std::make_shared<const Shot>(shot)};
+  assert(project.shots.size() == 1);
   return project;
 }
 
@@ -39,6 +41,8 @@ Project OnTheReel(int length) {
 
 // A silent 16-bit mono WAV, seconds long.
 QString WriteWav(const QString& folder, double seconds) {
+  assert(!folder.isEmpty());
+  assert(seconds > 0.0);
   const QString path = QDir(folder).filePath("song.wav");
   const auto samples = static_cast<std::uint32_t>(seconds * 8000);
   QByteArray data(static_cast<qsizetype>(samples * 2), '\0');

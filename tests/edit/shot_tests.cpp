@@ -1,5 +1,7 @@
 #include <QTest>
 
+#include <cassert>
+
 #include "edit/history_manager.h"
 #include "edit/shot_manager.h"
 
@@ -7,10 +9,12 @@ namespace snapper {
 namespace {
 
 QStringList Names(const Project& project) {
+  assert(project.shots.size() < 1000);
   QStringList names;
   for (const auto& shot : project.shots) {
     names.append(shot->name);
   }
+  assert(names.size() == static_cast<qsizetype>(project.shots.size()));
   return names;
 }
 

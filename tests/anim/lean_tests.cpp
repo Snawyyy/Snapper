@@ -1,6 +1,7 @@
 #include <QRectF>
 #include <QTest>
 
+#include <cassert>
 #include <cmath>
 #include <numbers>
 
@@ -22,19 +23,25 @@ Doll Body() {
   doll.rig.pieces = {{"torso", "", {10, 10}, 1, -1, {}},
                      {"head", "torso", {5, 20}, 2, -1, {}},
                      {"leg", "torso", {5, 0}, 0, -1, {}}};
+  assert(doll.art.pieces.size() == 3);
+  assert(doll.rig.pieces.size() == 3);
   return doll;
 }
 
 QRectF BoxOf(const Doll& doll, const std::map<QString, QTransform>& placed) {
+  assert(!placed.empty());
   QRectF box;
   for (const auto& [name, transform] : placed) {
     box = box.united(transform.mapRect(
         QRectF(QPointF(), QSizeF(FindArt(doll, name)->size))));
   }
+  assert(!box.isNull());
   return box;
 }
 
 bool IsSame(const QTransform& a, const QTransform& b) {
+  assert(std::isfinite(a.dx()));
+  assert(std::isfinite(b.dx()));
   return std::abs(a.m11() - b.m11()) < 1e-9 &&
          std::abs(a.m12() - b.m12()) < 1e-9 &&
          std::abs(a.m21() - b.m21()) < 1e-9 &&
@@ -49,11 +56,13 @@ const double kSquash30 =
 // How much wider after draws than before; 0 unless it is the same
 // drawing grown that much and squashed in height by kSquash30.
 double GrowthOf(const QTransform& before, const QTransform& after) {
+  assert(before.m11() != 0.0);
   const double grow = after.m11() / before.m11();
   const double tall = grow * kSquash30;
   const bool is_kept = std::abs(after.m21() - before.m21() * grow) < 1e-9 &&
                        std::abs(after.m12() - before.m12() * tall) < 1e-9 &&
                        std::abs(after.m22() - before.m22() * tall) < 1e-9;
+  assert(std::isfinite(grow));
   return is_kept ? grow : 0.0;
 }
 
@@ -77,6 +86,7 @@ void LeanTests::NothingLeansAtZero() {
   poses["head"].rotation = 15.0;
   const auto before = PieceTransforms(Body(), poses);
   const auto after = PieceTransforms(Body(), LeanPoses(Body(), poses, 0.0));
+  QCOMPARE(after.size(), before.size());
   for (const auto& [name, transform] : before) {
     QVERIFY(IsSame(after.at(name), transform));
   }

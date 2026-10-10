@@ -1,6 +1,7 @@
 #include <QSignalSpy>
 #include <QTest>
 
+#include <cassert>
 #include <optional>
 
 #include "edit/edit_scope.h"
@@ -10,8 +11,10 @@ namespace snapper {
 namespace {
 
 Project Named(const QString& name) {
+  assert(!name.isNull());
   Project project;
   project.name = name;
+  assert(project.name == name);
   return project;
 }
 

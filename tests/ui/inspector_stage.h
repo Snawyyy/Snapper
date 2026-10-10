@@ -1,6 +1,7 @@
 #ifndef SNAPPER_TESTS_UI_INSPECTOR_STAGE_H_
 #define SNAPPER_TESTS_UI_INSPECTOR_STAGE_H_
 
+#include <cassert>
 #include <memory>
 #include <variant>
 
@@ -13,6 +14,7 @@ namespace snapper {
 inline const ShotId kShot(1);
 
 inline void Stage(Bench* bench) {
+  assert(bench != nullptr);
   Doll doll;
   doll.rig.pieces = {{"head", "", {}, 0, -1, {}}};
   Layer bob;
@@ -33,9 +35,12 @@ inline void Stage(Bench* bench) {
   bench->history.Reset(project);
   bench->selection.SelectLayer(LayerId(1));
   bench->selection.SelectPieces({"head"}, false);
+  assert(bench->history.current().shots.size() == 1);
 }
 
 inline PiecePose Head(const Bench& bench, int frame) {
+  assert(frame >= 0);
+  assert(!bench.history.current().shots.empty());
   const PoseMap poses = SamplePoses(
       std::get<DollLayer>(bench.history.current().shots[0]->layers[0].content),
       Frame(frame));

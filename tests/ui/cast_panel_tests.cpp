@@ -3,6 +3,8 @@
 #include <QPushButton>
 #include <QTest>
 
+#include <cassert>
+
 #include "bench.h"
 #include "io/json_file.h"
 #include "ui/cast_panel.h"
@@ -28,6 +30,8 @@ void ExportBob(Bench* bench) {
 }
 
 QPushButton* Button(CastPanel* panel, const QString& text) {
+  assert(panel != nullptr);
+  assert(!text.isEmpty());
   for (QPushButton* button : panel->findChildren<QPushButton*>()) {
     const bool is_match = button->text() == text;
     if (is_match) {
@@ -38,6 +42,8 @@ QPushButton* Button(CastPanel* panel, const QString& text) {
 }
 
 QListWidget* List(CastPanel* panel, int index) {
+  assert(panel != nullptr);
+  assert(index >= 0);
   return panel->findChildren<QListWidget*>().at(index);
 }
 

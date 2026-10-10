@@ -4,6 +4,7 @@
 #include <QTest>
 #include <QThread>
 
+#include <cassert>
 #include <cmath>
 #include <numbers>
 
@@ -16,6 +17,7 @@ namespace {
 
 // A sine tone, loud enough to find again after encoding.
 std::shared_ptr<const AudioClip> Tone(double seconds) {
+  assert(seconds > 0.0);
   AudioClip clip;
   const int frames = static_cast<int>(seconds * kAudioRate);
   for (int i = 0; i < frames; ++i) {
@@ -24,12 +26,15 @@ std::shared_ptr<const AudioClip> Tone(double seconds) {
     clip.samples.push_back(value);
     clip.samples.push_back(value);
   }
+  assert(!clip.samples.empty());
   return std::make_shared<const AudioClip>(clip);
 }
 
 QImage Solid(QColor color) {
+  assert(color.isValid());
   QImage image(64, 48, QImage::Format_ARGB32);
   image.fill(color);
+  assert(!image.isNull());
   return image;
 }
 
@@ -41,6 +46,7 @@ struct Probe final {
 };
 
 Probe ProbeFile(const QString& path) {
+  assert(!path.isEmpty());
   Probe probe;
   AVFormatContext* raw = nullptr;
   const QByteArray name = path.toUtf8();
@@ -51,6 +57,7 @@ Probe ProbeFile(const QString& path) {
   if (!is_open) {
     return probe;
   }
+  assert(raw != nullptr);
   probe.streams = static_cast<int>(raw->nb_streams);
   for (unsigned i = 0; i < raw->nb_streams; ++i) {
     const AVCodecParameters* codec = raw->streams[i]->codecpar;
@@ -65,6 +72,8 @@ Probe ProbeFile(const QString& path) {
 }
 
 Result<void> EncodeSecond(const EncodeSettings& settings) {
+  assert(settings.width > 0);
+  assert(!settings.path.isEmpty());
   VideoEncoder encoder;
   auto opened = encoder.Open(settings);
   if (!opened) {
