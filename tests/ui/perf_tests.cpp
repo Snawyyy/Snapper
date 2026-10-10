@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 
+#include "anim/shape_mesh.h"
 #include "anim/warp.h"
 #include "bench.h"
 #include "render/warp_raster.h"
@@ -28,7 +29,7 @@ constexpr int kScrubFrames = 30;
 constexpr int kTweenEnd = 48;
 
 // A warp grid whose every point is moved a little off its place.
-std::vector<QPointF> RestOffsets(WarpGrid grid, double sway) {
+std::vector<QPointF> RestOffsets(const WarpGrid& grid, double sway) {
   assert(grid.IsOn());
   std::vector<QPointF> offsets(static_cast<size_t>(grid.PointCount()));
   for (size_t i = 0; i < offsets.size(); ++i) {
@@ -135,8 +136,11 @@ template <typename Work>
 qint64 TimeOf(Work work) {
   QElapsedTimer clock;
   clock.start();
+  assert(clock.isValid());
   work();
-  return clock.nsecsElapsed();
+  const qint64 spent = clock.nsecsElapsed();
+  assert(spent >= 0);
+  return spent;
 }
 
 // A repaint at a frame the stage has not drawn yet, so the doll is
@@ -152,6 +156,7 @@ qint64 ColdRepaintNs(Scene* scene, int frame) {
 // cost of a thing is the quickest of its samples.
 template <typename Step>
 qint64 QuickestOf(int count, Step step) {
+  assert(count < 1000);
   assert(count > 0);
   qint64 quickest = std::numeric_limits<qint64>::max();
   for (int i = 0; i < count; ++i) {
@@ -174,6 +179,7 @@ class PerfTests final : public QObject {
   void DragMovesDoNotRebendTheDoll();
   void ARepaintOfAnUnchangedStageIsQuick();
   void ScrubbingAWarpAnimationIsFarCheaperThanFullBends();
+  void AShapeMeshBendsAboutAsFastAsAGrid();
 };
 
 void PerfTests::IdleWindowPaintsNothing() {
@@ -199,7 +205,8 @@ void PerfTests::HoverMovesDoNotRebendTheDoll() {
     }
   });
   const bool is_cheap = quickest * kCheaperBy < cold;
-  QVERIFY2(is_cheap, qPrintable(QString("%1 vs %2 ns").arg(quickest).arg(cold)));
+  QVERIFY2(is_cheap,
+           qPrintable(QString("%1 vs %2 ns").arg(quickest).arg(cold)));
   QVERIFY(scene.counter->paints() < 5 * kHoverRun);
 }
 
@@ -215,7 +222,8 @@ void PerfTests::DragMovesDoNotRebendTheDoll() {
   });
   QTest::mouseRelease(scene.stage, Qt::LeftButton, {}, middle + QPoint(9, 9));
   const bool is_cheap = quickest * kCheaperBy < cold;
-  QVERIFY2(is_cheap, qPrintable(QString("%1 vs %2 ns").arg(quickest).arg(cold)));
+  QVERIFY2(is_cheap,
+           qPrintable(QString("%1 vs %2 ns").arg(quickest).arg(cold)));
   QVERIFY(scene.bench.history.CanUndo());
 }
 
@@ -226,7 +234,8 @@ void PerfTests::ARepaintOfAnUnchangedStageIsQuick() {
   const qint64 quickest =
       QuickestOf(10, [&scene](int) { scene.stage->repaint(); });
   const bool is_cheap = quickest * kCheaperBy < cold;
-  QVERIFY2(is_cheap, qPrintable(QString("%1 vs %2 ns").arg(quickest).arg(cold)));
+  QVERIFY2(is_cheap,
+           qPrintable(QString("%1 vs %2 ns").arg(quickest).arg(cold)));
   QVERIFY(scene.counter->paints() >= 10);
 }
 
@@ -251,8 +260,28 @@ void PerfTests::ScrubbingAWarpAnimationIsFarCheaperThanFullBends() {
     scene.stage->repaint();
   });
   const bool is_cheaper = quickest * 3 < whole * 2;
-  QVERIFY2(is_cheaper, qPrintable(QString("%1 vs %2 ns").arg(quickest).arg(whole)));
+  QVERIFY2(is_cheaper,
+           qPrintable(QString("%1 vs %2 ns").arg(quickest).arg(whole)));
   QCOMPARE(scene.bench.playback.frame(), Frame(kScrubFrames));
+}
+
+void PerfTests::AShapeMeshBendsAboutAsFastAsAGrid() {
+  QImage art(kPieceSide, kPieceSide, QImage::Format_ARGB32);
+  art.fill(QColor(200, 40, 60));
+  const WarpGrid grid{4, 4};
+  const WarpGrid mesh{0, 0, BuildShapeMesh({art}, MeshDetail::kMany)};
+  QVERIFY(mesh.IsMesh());
+  const auto bend = [&art](const WarpGrid& warp) {
+    const std::vector<QPointF> points =
+        WarpedPoints(art.size(), warp, RestOffsets(warp, 6.0));
+    return QuickestOf(3, [&](int) { WarpImage(art, warp, points); });
+  };
+  const qint64 by_grid = bend(grid);
+  const qint64 by_mesh = bend(mesh);
+  // A mesh draws only where the drawing is, in more, smaller triangles.
+  const bool is_quick = by_mesh < by_grid * 2;
+  QVERIFY2(is_quick,
+           qPrintable(QString("%1 vs %2 ns").arg(by_mesh).arg(by_grid)));
 }
 
 }  // namespace snapper

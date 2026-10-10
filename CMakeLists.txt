@@ -140,7 +140,7 @@ if(BUILD_TESTING)
                           pose_tool_tests.cpp pose_tool_grab_tests.cpp
                           pose_tool_readout_tests.cpp refusal_reason_tests.cpp
                           reel_timeline_tests.cpp
-                          rig_ui_tests.cpp collider_ui_tests.cpp multi_dot_tests.cpp pose_tool_dots_tests.cpp number_field_tests.cpp
+                          rig_ui_tests.cpp mesh_ui_tests.cpp collider_ui_tests.cpp multi_dot_tests.cpp pose_tool_dots_tests.cpp number_field_tests.cpp
                           shot_strip_tests.cpp slot_picker_tests.cpp
                           motion_tests.cpp scrub_tests.cpp shake_tests.cpp theme_tests.cpp
                           toast_tests.cpp space_keys_tests.cpp
