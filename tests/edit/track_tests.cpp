@@ -1,5 +1,6 @@
 #include <QTest>
 
+#include <cassert>
 #include <type_traits>
 
 #include "edit/project_edits.h"
@@ -19,11 +20,15 @@ Project Stage() {
   shot.layers = {doll, effect};
   Project project;
   project.shots = {std::make_shared<const Shot>(shot)};
+  assert(project.shots.size() == 1);
+  assert(shot.layers.size() == 2);
   return project;
 }
 
 // Writes a key at frame 3 with whatever value type the track holds.
 Result<Project> KeyAt3(const Project& project, const TrackRef& track) {
+  assert(!project.shots.empty());
+  assert(track.kind != TrackKind::kPiece || !track.piece.isEmpty());
   return WithTrack(project, track, [](auto* channel) {
     using Value = typename std::remove_pointer_t<
         decltype(channel)>::value_type;
@@ -33,10 +38,12 @@ Result<Project> KeyAt3(const Project& project, const TrackRef& track) {
 }
 
 int KeyCount(const Project& project, const TrackRef& track) {
+  assert(!project.shots.empty());
   int count = -1;
   ReadTrack(*project.shots[0], track, [&count](const auto& channel) {
     count = static_cast<int>(channel.keys.size());
   });
+  assert(count >= -1);
   return count;
 }
 

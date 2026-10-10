@@ -1,6 +1,8 @@
 #include <QSignalSpy>
 #include <QTest>
 
+#include <cassert>
+
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
 
@@ -25,6 +27,8 @@ Project Stage() {
   project.dolls["Bob"] = std::make_shared<const Doll>(doll);
   project.shots = {std::make_shared<const Shot>(shot),
                    std::make_shared<const Shot>(other)};
+  assert(project.shots.size() == 2);
+  assert(project.dolls.size() == 1);
   return project;
 }
 

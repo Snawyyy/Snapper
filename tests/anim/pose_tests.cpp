@@ -1,6 +1,9 @@
 #include <QLineF>
 #include <QTest>
 
+#include <cassert>
+#include <cmath>
+
 #include "anim/doll_pose.h"
 #include "anim/ik.h"
 #include "anim/mirror.h"
@@ -17,6 +20,8 @@ Doll BodyAndArm() {
                      {"arm", {"a.png"}, 0, {10, 0}, {10, 2}}};
   doll.rig.pieces = {{"body", "", {5, 5}, 0, -1, {}},
                      {"arm", "body", {0, 1}, 1, -1, {}}};
+  assert(doll.art.pieces.size() == doll.rig.pieces.size());
+  assert(doll.rig.chains.empty());
   return doll;
 }
 
@@ -28,10 +33,14 @@ Doll TwoBones() {
   doll.rig.pieces = {{"up", "", {0, 1}, 0, -1, {}},
                      {"low", "up", {0, 1}, 1, -1, {}}};
   doll.rig.chains = {{"arm", "up", "low", {10, 1}, true}};
+  assert(doll.rig.pieces.size() == 2);
+  assert(doll.rig.chains.size() == 1);
   return doll;
 }
 
 QPointF TipAfter(const Doll& doll, const IkSolution& solution) {
+  assert(std::isfinite(solution.upper_rotation));
+  assert(std::isfinite(solution.lower_rotation));
   PoseMap poses;
   poses["up"].rotation = solution.upper_rotation;
   poses["low"].rotation = solution.lower_rotation;

@@ -2,6 +2,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <cassert>
+
 #include "edit/history_manager.h"
 #include "edit/stage_manager.h"
 
@@ -15,10 +17,14 @@ Project OneShot() {
   project.shots = {std::make_shared<const Shot>(shot)};
   project.next_shot_id = 2;
   project.dolls["Bob"] = std::make_shared<const Doll>();
+  assert(project.shots.size() == 1);
+  assert(project.dolls.size() == 1);
   return project;
 }
 
 const Shot& TheShot(const HistoryManager& history) {
+  assert(!history.current().shots.empty());
+  assert(history.current().shots[0] != nullptr);
   return *history.current().shots[0];
 }
 

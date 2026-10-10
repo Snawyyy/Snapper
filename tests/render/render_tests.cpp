@@ -16,6 +16,7 @@ namespace {
 // A 100x100 project with one shot holding a 20x20 red doll in the
 // middle, its drawing written into dir.
 Project RedDollProject(const QTemporaryDir& dir) {
+  assert(dir.isValid());
   QImage red(20, 20, QImage::Format_ARGB32);
   red.fill(Qt::red);
   red.save(QDir(dir.path()).filePath("body.png"));
@@ -34,10 +35,13 @@ Project RedDollProject(const QTemporaryDir& dir) {
   project.canvas = {100, 100};
   project.dolls["Dot"] = std::make_shared<const Doll>(doll);
   project.shots = {std::make_shared<const Shot>(shot)};
+  assert(project.shots.size() == 1);
   return project;
 }
 
 Shot& FirstShot(Project* project) {
+  assert(project != nullptr);
+  assert(!project->shots.empty());
   auto shot = std::make_shared<Shot>(*project->shots[0]);
   project->shots[0] = shot;
   return *shot;
@@ -199,6 +203,7 @@ void RenderTests::SwipesPushTheShotOff() {
 
 void RenderTests::PastTheEndIsBlack() {
   QTemporaryDir dir;
+  QVERIFY(dir.isValid());
   FrameRenderer renderer;
   const QImage frame =
       renderer.RenderFrame(RedDollProject(dir), Frame(500), 1.0);
