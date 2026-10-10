@@ -40,22 +40,22 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-09, later): the owner loved the prototype and kept
-all of it. Redesign steps 1 to 7 of section 12 in the design doc are
-built and merged into `ui-test` (not pushed, not on main): Motion table
-and View > Motion switch, scrub labels and math in number fields, hover
-and big grab zones, toasts with Undo and the refusal shake, drag chip
-and ghost, key pop/puff/rewind/slide, and the top bar. Owner answers
-recorded in the design doc: Teto red picks, sounds on and quiet,
-tiles animate on hover, key chip bar always over picked keys. Owner
-test fixes merged: typed math now applies, every greyed control says
-why, drag and wheel chips sit clear of the cursor, ghost is a faint
-copy of the dragged thing. Lint is down to 121 old breaks.
+Last done (2026-10-10): warp mesh detail lowered (Few 10, Normal 25,
+Many 60); reach set on many picked dots at once (wheel and a Reach
+field) and copied by Mirror; drag nodes got a kind (Drag, Cloth,
+Jelly) replacing the Physics tick; Jelly physics (one smooth blob
+that keeps its area, bulging where it is not squeezed); feels and
+presets (firm/heavy pad, Pudding, Silk, Snappy...); the dot panel
+rebuilt as material tiles, preset chips, feel pad with a live wobble
+and a Fine tune fold; stage dots drawn by kind; hold P and drag to
+poke a doll and feel its physics without keys. All on branch `jelly`,
+merged into `ui-test` (not pushed, not on main). Poke moves only the
+dots, not the body (owner to say if the body should shove too).
 
 Next steps:
 
-1. The owner tests the latest `ui-test` build; fix what they find, one
-   change at a time, a test per bug.
+1. The owner tests the latest `ui-test` build (jelly, dot panel, P
+   poke); fix what they find, one change at a time, a test per bug.
 2. Performance is bad in the app: profile a Release build first (the
    tested build is Debug), then fix the slow paths.
 3. Build redesign steps 8 to 13 in order: key chip bar, inspector
