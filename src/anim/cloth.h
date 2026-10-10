@@ -10,17 +10,22 @@
 
 namespace snapper {
 
-// The five settings of a physics node, each 0 (none of it) to 1 (a
-// lot); see DragNode for what each does.
+// How a physics node moves each frame, worked out from its DragNode
+// settings by its kind.
 struct ClothSettings final {
+  // Cloth: its stretch, 0 to 1. Jelly: the share of its squash the
+  // blob keeps (JellyMotion::squish).
   double stretch = 0.0;
-  double inertia = 0.0;
-  double air = 0.0;
-  double gravity = 0.0;
-  double spring = 0.0;
+  // The share of its own speed it keeps.
+  double keep = 0.0;
+  // Cells it is pulled down per frame per frame, per unit of turn from
+  // upright.
+  double fall = 0.0;
+  // The share of the way back to its place it is pulled.
+  double pull = 0.0;
 };
 
-// The settings a physics drag node carries.
+// The per-frame settings of a physics drag node.
 ClothSettings ClothSettingsOf(const DragNode& node);
 
 // The farthest a physics point may stray from where the body carries

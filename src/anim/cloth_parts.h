@@ -14,15 +14,12 @@
 
 namespace snapper {
 
-// The pull back to the drawn place a bounce of 1 gives, per frame.
-inline constexpr double kSpringPull = 0.3;
-
 inline double Length(QPointF v) { return std::hypot(v.x(), v.y()); }
 
 // A sum of two finite numbers far below overflow is finite.
 inline bool IsFinite(QPointF p) { return std::isfinite(p.x() + p.y()); }
 
-// Moves node i one frame by its own motion (inertia, air), gravity, and
+// Moves node i one frame by its own motion (speed kept), gravity, and
 // home_pull: the share of the way back to where the body carries it.
 void Move(const std::vector<QPointF>& carried, size_t i, double home_pull,
           ClothPiece* piece);

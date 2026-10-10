@@ -37,8 +37,9 @@ KindSpans SpansOf(NodeKind kind) {
       return {{}, {}, {0.6, 0.0}, {0.0, 0.6}, {0.3, 0.9}, {0.6, 0.15},
               {0.2, 0.8}};
     case NodeKind::kJelly:
-      return {{}, {}, {0.9, 0.2}, {0.25, 0.9}, {0.4, 0.9}, {0.5, 0.15},
-              {0.1, 0.5}};
+      // Knobs (model/node_physics.h): squish, firmness, wobble, no air,
+      // droop.
+      return {{}, {}, {0.85, 0.2}, {0.0, 1.0}, {0.1, 1.0}, {}, {0.1, 0.8}};
   }
   return {};
 }
@@ -75,7 +76,8 @@ DragNode WithFeel(DragNode node, const Feel& feel) {
   node.stretch = At(spans.stretch, feel.firm);
   node.spring = At(spans.spring, feel.firm);
   node.inertia = At(spans.inertia, feel.heavy);
-  node.air = At(spans.air, feel.heavy);
+  const bool has_air = node.kind != NodeKind::kJelly;
+  node.air = has_air ? At(spans.air, feel.heavy) : node.air;
   node.gravity = At(spans.gravity, feel.heavy);
   return node;
 }
@@ -104,9 +106,11 @@ std::vector<FeelPreset> FeelPresets(NodeKind kind) {
               {Tr("Denim"), {0.8, 0.6}},
               {Tr("Cape"), {0.4, 0.9}}};
     case NodeKind::kJelly:
-      return {{Tr("Pudding"), {0.3, 0.5}},
-              {Tr("Water balloon"), {0.1, 0.9}},
-              {Tr("Firm"), {0.85, 0.4}}};
+      // Pudding: a slow-ish wobble, about three jiggles. Water balloon:
+      // slow, sloshes on and sags. Firm: quick, a jiggle or two.
+      return {{Tr("Pudding"), {0.35, 0.45}},
+              {Tr("Water balloon"), {0.15, 0.95}},
+              {Tr("Firm"), {0.85, 0.2}}};
   }
   return {};
 }

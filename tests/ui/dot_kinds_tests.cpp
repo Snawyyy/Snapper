@@ -71,8 +71,13 @@ void DotKindsTests::RowsFollowTheKindsInUse() {
       DragField::kStretch, DragField::kSpring, DragField::kInertia,
       DragField::kAir, DragField::kGravity};
   QCOMPARE(FineRowsOf(KindMix({&cloth})), soft_rows);
-  QCOMPARE(FineRowsOf(KindMix({&jelly})), soft_rows);
-  QCOMPARE(FineRowsOf(KindMix({&drag, &jelly})).size(), size_t{7});
+  // Jelly has no air.
+  const std::vector<DragField> jelly_rows = {
+      DragField::kStretch, DragField::kSpring, DragField::kInertia,
+      DragField::kGravity};
+  QCOMPARE(FineRowsOf(KindMix({&jelly})), jelly_rows);
+  QCOMPARE(FineRowsOf(KindMix({&cloth, &jelly})), soft_rows);
+  QCOMPARE(FineRowsOf(KindMix({&drag, &jelly})).size(), size_t{6});
   QVERIFY(FineRowsOf(KindMix({nullptr})).empty());
   QVERIFY(RowAppliesTo(DragField::kLag, Material::kDrag));
   QVERIFY(!RowAppliesTo(DragField::kLag, Material::kJelly));
@@ -88,10 +93,19 @@ void DotKindsTests::SquishOnlyWhenJellyAloneUsesStretch() {
            QString("Stretch"));
   QCOMPARE(FineLabel(DragField::kStretch, KindMix({&cloth, &jelly})),
            QString("Stretch"));
+  // Jelly alone shows its four knobs.
   QCOMPARE(FineLabel(DragField::kSpring, KindMix({&jelly})),
+           QString("Firmness"));
+  QCOMPARE(FineLabel(DragField::kInertia, KindMix({&jelly})),
+           QString("Wobble"));
+  QCOMPARE(FineLabel(DragField::kGravity, KindMix({&jelly})),
+           QString("Droop"));
+  QCOMPARE(FineLabel(DragField::kSpring, KindMix({&cloth, &jelly})),
            QString("Bounce"));
   QVERIFY(FineHelp(DragField::kStretch, KindMix({&jelly}))
               .contains("squashes"));
+  QVERIFY(FineHelp(DragField::kInertia, KindMix({&jelly}))
+              .contains("jiggles"));
 }
 
 void DotKindsTests::TitleNamesThePieceAndSaysMixed() {

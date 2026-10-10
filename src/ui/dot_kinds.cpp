@@ -27,8 +27,10 @@ bool RowAppliesTo(DragField field, Material material) {
     case Material::kDrag:
       return field == DragField::kLag || field == DragField::kBounce;
     case Material::kCloth:
-    case Material::kJelly:
       return field != DragField::kLag && field != DragField::kBounce;
+    case Material::kJelly:
+      return field != DragField::kLag && field != DragField::kBounce &&
+             field != DragField::kAir;
   }
   return false;
 }
@@ -173,22 +175,50 @@ std::vector<DragField> FineRowsOf(const KindMix& mix) {
 QString FineLabel(DragField field, const KindMix& mix) {
   assert(mix.total() >= 0);
   assert(static_cast<int>(field) >= 0);
-  const bool is_squish =
-      field == DragField::kStretch && !mix.Uses(Material::kCloth);
+  const bool is_jelly = !mix.Uses(Material::kCloth);
   switch (field) {
     case DragField::kLag:
       return Tr("Lag");
     case DragField::kBounce:
-    case DragField::kSpring:
       return Tr("Bounce");
+    case DragField::kSpring:
+      return is_jelly ? Tr("Firmness") : Tr("Bounce");
     case DragField::kStretch:
-      return is_squish ? Tr("Squish") : Tr("Stretch");
+      return is_jelly ? Tr("Squish") : Tr("Stretch");
     case DragField::kInertia:
-      return Tr("Inertia");
+      return is_jelly ? Tr("Wobble") : Tr("Inertia");
     case DragField::kAir:
       return Tr("Air resistance");
     case DragField::kGravity:
-      return Tr("Gravity");
+      return is_jelly ? Tr("Droop") : Tr("Gravity");
+  }
+  return QString();
+}
+
+// The help of a jelly knob, or nothing for a field jelly does not
+// rename.
+QString JellyHelp(DragField field) {
+  assert(static_cast<int>(field) >= 0);
+  assert(static_cast<int>(field) <= static_cast<int>(DragField::kSpring));
+  switch (field) {
+    case DragField::kSpring:
+      return Tr("How fast it springs back: 0 a slow wobble (about 24 "
+                "frames a swing), 1 a quick one (about 4).");
+    case DragField::kInertia:
+      return Tr("How many jiggles before it settles: 0 none, 1 about "
+                "six.");
+    case DragField::kStretch:
+      return Tr("How far the blob squashes and stretches as it wobbles: "
+                "0 stays its drawn shape, 1 squishes freely. Its area "
+                "stays.");
+    case DragField::kGravity:
+      return Tr("How far it sags when the doll tilts or turns over, the "
+                "same at any firmness: 0 not at all, 1 most. Upright it "
+                "stays as drawn.");
+    case DragField::kLag:
+    case DragField::kBounce:
+    case DragField::kAir:
+      return QString();
   }
   return QString();
 }
@@ -196,8 +226,12 @@ QString FineLabel(DragField field, const KindMix& mix) {
 QString FineHelp(DragField field, const KindMix& mix) {
   assert(mix.total() >= 0);
   assert(static_cast<int>(field) >= 0);
-  const bool is_squish =
-      field == DragField::kStretch && !mix.Uses(Material::kCloth);
+  const QString jelly_help = JellyHelp(field);
+  const bool is_jelly =
+      !mix.Uses(Material::kCloth) && !jelly_help.isEmpty();
+  if (is_jelly) {
+    return jelly_help;
+  }
   switch (field) {
     case DragField::kLag:
       return Tr("How far it trails behind: 0 keeps up, 1 drags far.");
@@ -205,13 +239,9 @@ QString FineHelp(DragField field, const KindMix& mix) {
       return Tr("How much it wobbles before settling: 0 settles softly, "
                 "1 keeps bouncing.");
     case DragField::kStretch:
-      return is_squish
-                 ? Tr("How much the blob squashes and stretches as it "
-                      "wobbles: 0 stays its drawn shape, 1 squishes "
-                      "freely. Its area stays.")
-                 : Tr("How far it may pull away from the dots around it: "
-                      "0 keeps its drawn distance (a lone dot cannot "
-                      "move), 1 a cell further.");
+      return Tr("How far it may pull away from the dots around it: 0 "
+                "keeps its drawn distance (a lone dot cannot move), 1 a "
+                "cell further.");
     case DragField::kInertia:
       return Tr("How much it keeps moving when the doll speeds up, stops "
                 "or turns: 0 moves with the doll, 1 is heavy and swings "

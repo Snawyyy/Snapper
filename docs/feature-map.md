@@ -14,7 +14,7 @@ it in the same commit.
 | Warp mesh and grid, shape mesh | Dolls | model/warp_mesh.h, anim/shape_mesh.cpp, anim/warp.cpp, anim/grid_fold.cpp, anim/mesh_carry.cpp | RigManager (edit/rig_mesh.cpp, mesh_edits.cpp) | anim/shape_mesh_tests, anim/mesh_dots_tests, edit/mesh_edit_tests |
 | Drag nodes (lag, bounce) | Dolls | anim/doll_drag.cpp, anim/node_feel.cpp, model/doll.h | RigManager (edit/rig_nodes.cpp) | anim/drag_tests, anim/node_feel_tests, edit/rig_dots_tests |
 | Cloth physics | Dolls | anim/cloth.cpp, anim/cloth_parts.cpp | RigManager | anim/cloth_tests, anim/cloth_feel_tests |
-| Jelly physics | Dolls | anim/jelly.cpp, anim/doll_drag.cpp | RigManager | anim/jelly_tests |
+| Jelly physics, jelly knobs | Dolls | anim/jelly.cpp, model/node_physics.cpp, anim/cloth.cpp (ClothSettingsOf), anim/doll_drag.cpp, ui/dot_kinds.cpp (labels) | RigManager | anim/jelly_tests, anim/node_feel_tests, io/doll_file_tests |
 | Feels and presets for dots | Dolls | anim/node_feel.cpp, anim/mirror.cpp | PresetManager, RigManager (SetFeelAll) | anim/node_feel_tests, edit/preset_tests |
 | Point motions (wave, pulse...) | Dolls | anim/warp_motion.cpp, io/point_motion_json.cpp, ui/point_motion_box.cpp | RigManager (edit/rig_dots.cpp) | anim/warp_motion_tests, edit/rig_dots_tests |
 | Colliders | Dolls | anim/collider.cpp, anim/doll_collide.cpp, anim/doll_colliders.cpp, io/collider_json.cpp | RigManager (edit/rig_collider.cpp) | anim/collider_tests, anim/collider_push_tests, ui/collider_ui_tests |
@@ -50,6 +50,8 @@ arrays must match enum order.
 NodeKind (model/doll.h, a new dot material):
 - model/doll.h: enum, `kNodeKindCount`, DragNode fields if needed
 - anim/node_feel.cpp: two switches (default feel, labels or ranges)
+- anim/cloth.cpp ClothSettingsOf: `== kJelly` picks the jelly knobs
+  (model/node_physics.h), anything else reads the cloth numbers
 - anim/doll_drag.cpp, anim/cloth.cpp or a new solver: the physics
 - anim/mesh_carry.cpp: carries physics nodes with the mesh
 - io/doll_json.cpp: save and load (kind read by name, count assert)
@@ -71,7 +73,8 @@ added). Each treats a new kind as "physics" or "not drag". Check each:
 - anim/cloth.cpp: asserts `!= kDrag`
 - anim/node_feel.cpp: twice `== kDrag` (is_drag)
 - io/doll_json.cpp: a nested ternary reads the name (a new name falls
-  to kDrag), then compares against kDrag and kJelly
+  to kDrag), then writes knobs for `== kJelly` and the cloth numbers
+  for any other physics kind, and loads old jelly through JellyFromOld
 - ui/dot_kinds.cpp: returns kDrag as a fallback after the switch
 
 WarpMotionKind (model/doll.h, a new point motion):

@@ -20,6 +20,8 @@ Doll Chest() {
   for (int point = 3; point < 9; ++point) {
     DragNode node{point};
     node.kind = NodeKind::kJelly;
+    // A jiggle or two, so a hop has died down long before frame 80.
+    node.inertia = 0.3;
     doll.rig.pieces[0].drag_nodes.push_back(node);
   }
   assert(doll.rig.pieces[0].warp.PointCount() == 9);

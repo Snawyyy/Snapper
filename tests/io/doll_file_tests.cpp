@@ -10,6 +10,7 @@
 
 #include "io/doll_file.h"
 #include "io/json_file.h"
+#include "model/node_physics.h"
 
 namespace snapper {
 namespace {
@@ -54,6 +55,7 @@ class DollFileTests final : public QObject {
   void SpreadsAnOldPieceMotionOverItsPoints();
   void PhysicsNodesRoundTrip();
   void OldDragNodesLoadAsPlainDrags();
+  void OldJellyLoadsAsTheNearestKnobs();
   void CollidersRoundTripAndOldFilesHaveNone();
 };
 
@@ -212,7 +214,8 @@ void DollFileTests::PhysicsNodesRoundTrip() {
   Rig rig;
   rig.pieces = {{"shirt", "", {0, 0}, 0, -1, {2, 2}}};
   rig.pieces[0].drag_nodes = {
-      {4, 0.5, 0.5, NodeKind::kJelly, 0.1, 0.7, 0.4, 0.9, 0.3},
+      // Jelly has no air: it keeps the default.
+      {4, 0.5, 0.5, NodeKind::kJelly, 0.1, 0.7, DragNode().air, 0.9, 0.3},
       {5, 0.25, 0.75}};
   QVERIFY(WriteRig(dir.path(), rig).has_value());
   const auto read = ReadRig(dir.path());
@@ -243,6 +246,38 @@ void DollFileTests::OldDragNodesLoadAsPlainDrags() {
   QCOMPARE(nodes[0].lag, 0.25);
   QCOMPARE(nodes[0].bounce, 0.75);
   QCOMPARE(nodes[0].inertia, DragNode().inertia);
+}
+
+void DollFileTests::OldJellyLoadsAsTheNearestKnobs() {
+  QTemporaryDir dir;
+  // Before the knobs, jelly was saved in the cloth settings.
+  const QJsonObject jelly{{"point", 4},    {"kind", "jelly"},
+                          {"stretch", 0.5}, {"inertia", 0.9},
+                          {"air", 0.1},     {"gravity", 0.5},
+                          {"spring", 0.6}};
+  const QJsonObject rig{
+      {"format", "snapper-rig"},
+      {"version", 1},
+      {"pieces", QJsonArray{QJsonObject{{"name", "chest"},
+                                        {"warp", QJsonArray{2, 2}},
+                                        {"drag", QJsonArray{jelly}}}}}};
+  Write(QDir(dir.path()).filePath("rig.json"), rig);
+  const auto read = ReadRig(dir.path());
+  QVERIFY(read.has_value());
+  const std::vector<DragNode>& nodes = read->pieces[0].drag_nodes;
+  QCOMPARE(nodes.size(), size_t{1});
+  QCOMPARE(nodes[0].kind, NodeKind::kJelly);
+  DragNode old{4};
+  old.kind = NodeKind::kJelly;
+  old.stretch = 0.5;
+  old.inertia = 0.9;
+  old.air = 0.1;
+  old.gravity = 0.5;
+  old.spring = 0.6;
+  QCOMPARE(nodes[0], JellyFromOld(old));
+  // Saved again it keeps its knobs.
+  QVERIFY(WriteRig(dir.path(), *read).has_value());
+  QCOMPARE(*ReadRig(dir.path()), *read);
 }
 
 void DollFileTests::CollidersRoundTripAndOldFilesHaveNone() {

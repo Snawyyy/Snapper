@@ -9,6 +9,7 @@
 
 #include "anim/cloth_parts.h"
 #include "anim/warp_shape.h"
+#include "model/node_physics.h"
 
 namespace snapper {
 namespace {
@@ -160,11 +161,17 @@ void Firm(const Tie& tie, std::vector<QPointF>* at) {
 ClothSettings ClothSettingsOf(const DragNode& node) {
   assert(node.kind != NodeKind::kDrag);
   assert(std::isfinite(node.stretch) && std::isfinite(node.spring));
+  const bool is_jelly = node.kind == NodeKind::kJelly;
+  if (is_jelly) {
+    const JellyMotion jelly = JellyMotionOf(node);
+    return {jelly.squish, jelly.keep, jelly.fall, jelly.pull};
+  }
   const auto unit = [](double v) {
     return std::isfinite(v) ? std::clamp(v, 0.0, 1.0) : 0.0;
   };
-  return {unit(node.stretch), unit(node.inertia), unit(node.air),
-          unit(node.gravity), unit(node.spring)};
+  return {unit(node.stretch),
+          unit(node.inertia) * std::max(0.0, kKeep - kAirDrag * unit(node.air)),
+          unit(node.gravity) * kGravityPull, unit(node.spring) * kSpringPull};
 }
 
 void RestCloth(const std::vector<QPointF>& carried, ClothPiece* piece) {
@@ -185,7 +192,7 @@ void StepCloth(const std::vector<QPointF>& carried, ClothPiece* piece) {
          piece->body_speed.size() == count);
   const std::vector<QPointF> before = piece->at;
   for (size_t i = 0; i < count; ++i) {
-    Move(carried, i, piece->settings[i].spring * kSpringPull, piece);
+    Move(carried, i, piece->settings[i].pull, piece);
   }
   const std::vector<Tie> ties = TiesOf(*piece, carried);
   for (const Tie& tie : ties) {
