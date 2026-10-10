@@ -212,31 +212,34 @@ void DollFileTests::PhysicsNodesRoundTrip() {
   Rig rig;
   rig.pieces = {{"shirt", "", {0, 0}, 0, -1, {2, 2}}};
   rig.pieces[0].drag_nodes = {
-      {4, 0.5, 0.5, true, 0.1, 0.7, 0.4, 0.9, 0.3},
+      {4, 0.5, 0.5, NodeKind::kJelly, 0.1, 0.7, 0.4, 0.9, 0.3},
       {5, 0.25, 0.75}};
   QVERIFY(WriteRig(dir.path(), rig).has_value());
   const auto read = ReadRig(dir.path());
   QVERIFY(read.has_value());
   QCOMPARE(*read, rig);
-  QVERIFY(read->pieces[0].drag_nodes[0].physics);
-  QVERIFY(!read->pieces[0].drag_nodes[1].physics);
+  QCOMPARE(read->pieces[0].drag_nodes[0].kind, NodeKind::kJelly);
+  QCOMPARE(read->pieces[0].drag_nodes[1].kind, NodeKind::kDrag);
 }
 
 void DollFileTests::OldDragNodesLoadAsPlainDrags() {
   QTemporaryDir dir;
   const QJsonObject node{{"point", 4}, {"lag", 0.25}, {"bounce", 0.75}};
+  // Before jelly, cloth was saved as "physics": true.
+  const QJsonObject cloth{{"point", 5}, {"physics", true}};
   const QJsonObject rig{
       {"format", "snapper-rig"},
       {"version", 1},
       {"pieces", QJsonArray{QJsonObject{{"name", "hair"},
                                         {"warp", QJsonArray{2, 2}},
-                                        {"drag", QJsonArray{node}}}}}};
+                                        {"drag", QJsonArray{node, cloth}}}}}};
   Write(QDir(dir.path()).filePath("rig.json"), rig);
   const auto read = ReadRig(dir.path());
   QVERIFY(read.has_value());
   const std::vector<DragNode>& nodes = read->pieces[0].drag_nodes;
-  QCOMPARE(nodes.size(), size_t{1});
-  QVERIFY(!nodes[0].physics);
+  QCOMPARE(nodes.size(), size_t{2});
+  QCOMPARE(nodes[0].kind, NodeKind::kDrag);
+  QCOMPARE(nodes[1].kind, NodeKind::kCloth);
   QCOMPARE(nodes[0].lag, 0.25);
   QCOMPARE(nodes[0].bounce, 0.75);
   QCOMPARE(nodes[0].inertia, DragNode().inertia);

@@ -27,7 +27,7 @@ Project OneDot(int cells, int point, Move move, DragNode node = {}) {
   doll.art.pieces = {{"body", {"b.png"}, 0, {0, 0}, {1000, 1000}}};
   doll.rig.pieces = {{"body", "", {500, 0}, 0, -1, {cells, cells}}};
   node.point = point;
-  node.physics = true;
+  node.kind = NodeKind::kCloth;
   doll.rig.pieces[0].drag_nodes.push_back(node);
   Layer layer;
   layer.id = kLayer;

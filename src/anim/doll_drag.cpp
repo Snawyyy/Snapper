@@ -60,7 +60,7 @@ std::vector<Spring> SpringsOf(const Doll& doll) {
     for (const DragNode& node : rig.drag_nodes) {
       const bool is_on_grid = node.point < rig.warp.PointCount();
       if (is_on_grid) {
-        const bool is_physics = node.physics;
+        const bool is_physics = node.kind != NodeKind::kDrag;
         // More lag pulls softer; more bounce keeps more speed.
         const double soft_pull = Mix(0.5, 0.04, node.lag);
         const double give = Mix(1.0, 0.08, node.bounce);

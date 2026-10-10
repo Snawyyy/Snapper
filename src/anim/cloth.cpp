@@ -308,7 +308,7 @@ void Move(const std::vector<QPointF>& carried, size_t i, ClothPiece* piece) {
 }  // namespace
 
 ClothSettings ClothSettingsOf(const DragNode& node) {
-  assert(node.physics);
+  assert(node.kind != NodeKind::kDrag);
   assert(std::isfinite(node.stretch) && std::isfinite(node.spring));
   const auto unit = [](double v) {
     return std::isfinite(v) ? std::clamp(v, 0.0, 1.0) : 0.0;

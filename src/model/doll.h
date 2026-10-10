@@ -69,23 +69,29 @@ struct WarpGrid final {
   }
 };
 
-// A warp grid point that trails behind when the doll moves and bounces
-// back, like hair or a chest. lag is how far it trails and bounce how
-// much it wobbles before settling, both 0 to 1.
-//
-// With physics on it is a physics node instead, for secondary motion:
-// cloth, hair, a chest, soft flesh (follow-through, overlap, jiggle,
-// sag, settle). A lone physics node is a heavy, jiggly point; nodes
-// next to each other on the grid hang together like cloth from the
-// plain points around them. lag and bounce are then not used; the
-// settings below are, each 0 (none of it) to 1 (a lot).
+// How a drag node moves.
+// - kDrag: a lone spring that trails behind and bounces back.
+// - kCloth: secondary motion for cloth and hair: cloth nodes next to
+//   each other hang together like a sheet from the points around them.
+// - kJelly: soft flesh, a chest: the jelly nodes of a piece wobble as
+//   one blob that keeps its area, so a squeeze one way makes it bulge
+//   the other.
+enum class NodeKind { kDrag, kCloth, kJelly };
+inline constexpr int kNodeKindCount = 3;
+
+// A warp grid point that moves by itself when the doll moves. A drag
+// node uses lag (how far it trails) and bounce (how much it wobbles
+// before settling), both 0 to 1. Cloth and jelly use the settings
+// below instead, each 0 (none of it) to 1 (a lot).
 struct DragNode final {
   int point = 0;
   double lag = 0.5;
   double bounce = 0.5;
-  bool physics = false;
-  // How far it may get from the points around it: 0 keeps its drawn
-  // distance (cloth), 1 a whole cell further (rubbery).
+  NodeKind kind = NodeKind::kDrag;
+  // Cloth: how far it may get from the points around it: 0 keeps its
+  // drawn distance, 1 a whole cell further (rubbery). Jelly (shown as
+  // Squish): how much the blob squashes and stretches as it wobbles,
+  // 0 stays its drawn shape, 1 squishes freely; its area stays.
   double stretch = 0.3;
   // How much of its own motion it keeps when the doll speeds up, stops
   // or turns: 0 moves with the doll, 1 is heavy and swings through.

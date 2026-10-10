@@ -57,10 +57,13 @@ void RigDotsTests::ManyDotsEditInOneNamedStep() {
   // One undo takes the whole change back.
   history.Undo();
   QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[3].bounce, 0.5);
-  QVERIFY(rig.SetPhysicsAll({dots[0], dots[1]}, true).has_value());
-  QCOMPARE(history.UndoLabel(), QString("Physics on for 2 dots"));
-  QVERIFY(FindRig(BobRig(history), "lower")->drag_nodes[1].physics);
-  QVERIFY(!FindRig(BobRig(history), "lower")->drag_nodes[2].physics);
+  QVERIFY(rig.SetNodeKindAll({dots[0], dots[1]}, NodeKind::kCloth)
+              .has_value());
+  QCOMPARE(history.UndoLabel(), QString("Cloth 2 dots"));
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[1].kind,
+           NodeKind::kCloth);
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[2].kind,
+           NodeKind::kDrag);
   // Motions: a kind starts one on each dot, a number then edits them.
   QVERIFY(rig.SetMotionAll(dots, MotionField::kKind,
                            static_cast<double>(WarpMotionKind::kWave))
@@ -89,7 +92,7 @@ void RigDotsTests::MirrorNodesAndDotsOntoTheTwin() {
                      {"arm_r", "", {0, 0}, 0, -1, {2, 2}},
                      {"head", "", {0, 0}, 0, -1, {2, 2}}};
   RigPiece& left = doll.rig.pieces[0];
-  left.drag_nodes = {{0, 0.5, 0.5, true, 0.1, 0.6, 0.5, 0.3, 0.2},
+  left.drag_nodes = {{0, 0.5, 0.5, NodeKind::kCloth, 0.1, 0.6, 0.5, 0.3, 0.2},
                      {1, 0.25, 0.75}};
   left.collider = {4,
                    {{{0, 0}, 0}, {{20, 0}, 1}, {{20, 40}, 2}, {{0, 40}, 3}},
@@ -108,7 +111,7 @@ void RigDotsTests::MirrorNodesAndDotsOntoTheTwin() {
   // Dots land on their mirrored points; the old node is gone.
   QCOMPARE(right.drag_nodes.size(), size_t{2});
   QCOMPARE(right.drag_nodes[0].point, 2);
-  QVERIFY(right.drag_nodes[0].physics);
+  QVERIFY(right.drag_nodes[0].kind != NodeKind::kDrag);
   QCOMPARE(right.drag_nodes[0].stretch, 0.1);
   QCOMPARE(right.drag_nodes[1].point, 1);
   // The outline is mirrored across the middle, its ring turned round.
@@ -129,7 +132,7 @@ void RigDotsTests::MirrorNodesAndDotsOntoTheTwin() {
   const RigPiece& twin = *FindRig(BobRig(history), "arm_r");
   QCOMPARE(twin.drag_nodes.size(), size_t{2});
   QCOMPARE(twin.drag_nodes[1].point, 2);
-  QVERIFY(twin.drag_nodes[1].physics);
+  QVERIFY(twin.drag_nodes[1].kind != NodeKind::kDrag);
   QCOMPARE(ReachOf(twin, 0), 1.5);
   QCOMPARE(ReachOf(twin, 2), 0.0);
   // A twin with another grid is refused, with the reason.

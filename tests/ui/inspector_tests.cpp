@@ -197,7 +197,7 @@ void InspectorTests::PhysicsSwitchShowsTheFiveSettings() {
   QVERIFY(lag->isVisibleTo(&box));
   QVERIFY(!gravity->isVisibleTo(&box));
   physics->click();
-  QCOMPARE(bench.history.UndoLabel(), QString("Physics on for 1 dot"));
+  QCOMPARE(bench.history.UndoLabel(), QString("Cloth 1 dot"));
   QVERIFY(!lag->isVisibleTo(&box));
   for (const char* name :
        {"stretch", "inertia", "air", "gravity", "spring"}) {
@@ -206,12 +206,12 @@ void InspectorTests::PhysicsSwitchShowsTheFiveSettings() {
   Type(gravity, 0.9);
   const auto& nodes =
       bench.history.current().dolls.at("Bob")->rig.pieces[0].drag_nodes;
-  QVERIFY(nodes[0].physics);
+  QVERIFY(nodes[0].kind != NodeKind::kDrag);
   QCOMPARE(nodes[0].gravity, 0.9);
   physics->click();
   QVERIFY(lag->isVisibleTo(&box));
-  QVERIFY(!bench.history.current().dolls.at("Bob")->rig.pieces[0]
-               .drag_nodes[0].physics);
+  QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
+               .drag_nodes[0].kind, NodeKind::kDrag);
 }
 
 void InspectorTests::PointMotionBoxAnimatesThePickedDot() {

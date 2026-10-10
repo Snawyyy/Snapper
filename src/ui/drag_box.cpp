@@ -73,9 +73,11 @@ DragBox::DragBox(const Managers& managers)
     const bool is_all = !look.nodes.empty() &&
                         std::all_of(look.nodes.begin(), look.nodes.end(),
                                     [](const DragNode* n) {
-                                      return n->physics;
+                                      return n->kind != NodeKind::kDrag;
                                     });
-    emit Problem(ProblemOf(managers_.rig->SetPhysicsAll(look.dots, !is_all)));
+    emit Problem(ProblemOf(managers_.rig->SetNodeKindAll(
+        look.nodes.empty() ? std::vector<DotRef>() : look.dots,
+        is_all ? NodeKind::kDrag : NodeKind::kCloth)));
     Refresh();
   });
   mirror_.setText(tr("Mirror to other side"));
@@ -221,7 +223,7 @@ void DragBox::Refresh() {
                                    : Qt::Unchecked);
   const auto n_physics = std::count_if(
       look.nodes.begin(), look.nodes.end(),
-      [](const DragNode* n) { return n->physics; });
+      [](const DragNode* n) { return n->kind != NodeKind::kDrag; });
   const bool is_all_physics =
       has_node && static_cast<size_t>(n_physics) == look.nodes.size();
   physics_.setTristate(true);

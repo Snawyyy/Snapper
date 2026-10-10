@@ -68,7 +68,7 @@ void MultiDotTests::ManyPickedDotsEditAtOnceAndShowMixed() {
                .drag_nodes.size(), size_t{4});
   QCOMPARE(bench.history.UndoLabel(), QString("Drag 3 dots"));
   physics->click();
-  QCOMPARE(bench.history.UndoLabel(), QString("Physics on for 3 dots"));
+  QCOMPARE(bench.history.UndoLabel(), QString("Cloth 3 dots"));
   QCOMPARE(physics->checkState(), Qt::Checked);
   physics->click();
   QCOMPARE(physics->checkState(), Qt::Unchecked);

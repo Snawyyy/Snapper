@@ -239,25 +239,27 @@ Result<void> RigManager::SetDragNodes(const std::vector<DotRef>& dots,
                }));
 }
 
-Result<void> RigManager::SetPhysicsAll(const std::vector<DotRef>& dots,
-                                       bool on) {
+Result<void> RigManager::SetNodeKindAll(const std::vector<DotRef>& dots,
+                                        NodeKind kind) {
   assert(history_ != nullptr);
-  assert(dots.size() < 10000000);
-  const std::vector<DotRef> nodes = DragNodesOf(history_->current(), dots);
-  const bool has_nodes = !nodes.empty();
-  if (!has_nodes) {
-    return NeedNodes();
+  assert(static_cast<int>(kind) >= 0 &&
+         static_cast<int>(kind) < kNodeKindCount);
+  const bool has_dots = !dots.empty();
+  if (!has_dots) {
+    return NeedDots();
   }
+  const QString names[] = {Tr("Drag %1"), Tr("Cloth %1"), Tr("Jelly %1")};
   return history_->Apply(
-      on ? Tr("Physics on for %1").arg(CountText(nodes.size()))
-         : Tr("Physics off for %1").arg(CountText(nodes.size())),
-      WithDots(history_->current(), nodes,
-               [on](RigPiece* rig, int point) -> Result<void> {
+      names[static_cast<size_t>(kind)].arg(CountText(dots.size())),
+      WithDots(history_->current(), dots,
+               [kind](RigPiece* rig, int point) -> Result<void> {
                  DragNode* node = FindNode(rig, point);
-                 const bool is_node = node != nullptr;
-                 if (is_node) {
-                   node->physics = on;
+                 const bool is_new = node == nullptr;
+                 if (is_new) {
+                   rig->drag_nodes.push_back(DragNode{point});
+                   node = &rig->drag_nodes.back();
                  }
+                 node->kind = kind;
                  return {};
                }));
 }
