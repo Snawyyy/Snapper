@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "anim/mesh_carry.h"
+#include "anim/node_feel.h"
 #include "base/error.h"
 #include "model/doll.h"
 
@@ -110,6 +111,11 @@ class RigManager final {
   // Makes every dot a node of kind (drag, cloth or jelly), adding the
   // node where a dot had none; settings a node had stay.
   Result<void> SetNodeKindAll(const std::vector<DotRef>& dots, NodeKind kind);
+  // The name of the step SetFeelAll makes ("Set feel on 6 dots").
+  static QString FeelLabel(size_t dots);
+  // Sets every moving dot among dots to feel (see WithFeel), each by its
+  // own kind; plain dots are left alone.
+  Result<void> SetFeelAll(const std::vector<DotRef>& dots, const Feel& feel);
   // Takes away the drag or physics node and the motion of every dot.
   Result<void> ClearDots(const std::vector<DotRef>& dots);
   // The name of the step SetMotionAll makes.

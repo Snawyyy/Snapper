@@ -27,7 +27,7 @@ snapper_module(model
   MODULES base
   LIBS Qt6::Gui)
 snapper_module(anim
-  SOURCES cloth.cpp cloth_parts.cpp collider.cpp doll_beat.cpp doll_collide.cpp doll_colliders.cpp grid_fold.cpp grid_push.cpp jelly.cpp
+  SOURCES cloth.cpp cloth_parts.cpp collider.cpp doll_beat.cpp doll_collide.cpp doll_colliders.cpp grid_fold.cpp grid_push.cpp jelly.cpp node_feel.cpp
           outline_trace.cpp shot_grid.cpp doll_drag.cpp doll_lean.cpp doll_pose.cpp ik.cpp pose_memo.cpp jitter.cpp links.cpp
           master_timeline.cpp mirror.cpp presets.cpp reel_timeline.cpp
           sampler.cpp timing_chart.cpp warp.cpp warp_motion.cpp
@@ -63,7 +63,7 @@ snapper_module(edit
           preset_manager.cpp saved_poses.cpp
           link_manager.cpp project_edits.cpp reel_batch.cpp reel_clipboard.cpp
           reel_cuts.cpp reel_edits.cpp reel_manager.cpp reel_markers.cpp
-          reel_transitions.cpp mesh_edits.cpp rig_mesh.cpp rig_batch.cpp rig_collider.cpp rig_dots.cpp rig_mirror_nodes.cpp
+          reel_transitions.cpp mesh_edits.cpp rig_mesh.cpp rig_batch.cpp rig_collider.cpp rig_dots.cpp rig_mirror_nodes.cpp rig_nodes.cpp
           rig_manager.cpp rig_mirror.cpp
           selection_manager.cpp selection_prune.cpp shot_batch.cpp
           shot_manager.cpp stage_batch.cpp stage_manager.cpp
@@ -109,7 +109,7 @@ if(BUILD_TESTING)
                     collider_push_tests.cpp drag_tests.cpp link_tests.cpp pose_memo_tests.cpp
                     reel_tests.cpp timing_chart_tests.cpp
                     warp_motion_tests.cpp shape_mesh_tests.cpp
-                    mesh_dots_tests.cpp jelly_tests.cpp)
+                    mesh_dots_tests.cpp jelly_tests.cpp node_feel_tests.cpp)
   snapper_test(io SOURCES doll_file_tests.cpp project_file_tests.cpp
                    warp_json_tests.cpp)
   snapper_test(media SOURCES media_tests.cpp video_reader_tests.cpp)

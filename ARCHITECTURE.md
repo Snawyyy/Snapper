@@ -240,6 +240,11 @@ A piece can:
   pull back to its own shape stays. Inertia, Air resistance, Gravity
   and colliders work as for cloth. A piece's cloth and its jelly run
   apart, each seeing the other's dots as pins.
+  A node's feel (`anim/node_feel.h`) is two numbers, firm and heavy,
+  that set its kind's settings (`WithFeel`, read back by `FeelOf`); a
+  preset (Pudding, Silk, Snappy...) is a named feel.
+  `RigManager::SetFeelAll` sets it on many dots, each by its own kind
+  (`edit/rig_nodes.cpp`, beside `SetNodeKindAll`).
   A piece can be a collider (right-click it in the rig: Make
   collider): the outline of its visible pixels, traced into a ring of
   dots about 12 px apart (`TraceOutline`, pure, in `anim`; at most

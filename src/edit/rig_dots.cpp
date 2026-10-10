@@ -57,18 +57,6 @@ double* FieldOf(DragNode* node, DragField field) {
   return &node->lag;
 }
 
-DragNode* FindNode(RigPiece* rig, int point) {
-  assert(rig != nullptr);
-  assert(point >= 0);
-  for (DragNode& node : rig->drag_nodes) {
-    const bool is_point = node.point == point;
-    if (is_point) {
-      return &node;
-    }
-  }
-  return nullptr;
-}
-
 bool IsDragNode(const Project& project, const DotRef& dot) {
   assert(dot.point >= 0);
   assert(!dot.piece.isEmpty());
@@ -235,31 +223,6 @@ Result<void> RigManager::SetDragNodes(const std::vector<DotRef>& dots,
                      return n.point == point;
                    });
                  }
-                 return {};
-               }));
-}
-
-Result<void> RigManager::SetNodeKindAll(const std::vector<DotRef>& dots,
-                                        NodeKind kind) {
-  assert(history_ != nullptr);
-  assert(static_cast<int>(kind) >= 0 &&
-         static_cast<int>(kind) < kNodeKindCount);
-  const bool has_dots = !dots.empty();
-  if (!has_dots) {
-    return NeedDots();
-  }
-  const QString names[] = {Tr("Drag %1"), Tr("Cloth %1"), Tr("Jelly %1")};
-  return history_->Apply(
-      names[static_cast<size_t>(kind)].arg(CountText(dots.size())),
-      WithDots(history_->current(), dots,
-               [kind](RigPiece* rig, int point) -> Result<void> {
-                 DragNode* node = FindNode(rig, point);
-                 const bool is_new = node == nullptr;
-                 if (is_new) {
-                   rig->drag_nodes.push_back(DragNode{point});
-                   node = &rig->drag_nodes.back();
-                 }
-                 node->kind = kind;
                  return {};
                }));
 }

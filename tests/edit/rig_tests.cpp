@@ -165,6 +165,17 @@ void RigTests::NodeKindIsOneNamedUndoStep() {
   QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].kind,
            NodeKind::kJelly);
   QCOMPARE(history.UndoLabel(), QString("Jelly 1 dot"));
+  // A feel sets every moving dot by its own kind; plain ones stay.
+  const std::vector<DotRef> both = {{"Bob", "lower", 4}, {"Bob", "lower", 0}};
+  QVERIFY(rig.SetFeelAll(both, {1.0, 0.0}).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Set feel on 2 dots"));
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes.size(), size_t{1});
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].spring,
+           WithFeel(DragNode{4, 0.5, 0.5, NodeKind::kJelly}, {1.0, 0.0})
+               .spring);
+  QVERIFY(!rig.SetFeelAll({}, {0.5, 0.5}).has_value());
+  QVERIFY(!rig.SetFeelAll(both, {qQNaN(), 0.5}).has_value());
+  history.Undo();
   history.Undo();
   QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].kind,
            NodeKind::kCloth);
