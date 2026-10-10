@@ -206,10 +206,7 @@ Result<void> PoseManager::Pull(const TrackRef& track, Frame frame,
         Error{Tr("Give the piece a warp grid in the rig first.")});
   }
   const WarpGrid grid = rig->warp;
-  const bool has_reach =
-      static_cast<int>(rig->warp_reach.size()) == count;
-  const double reach =
-      has_reach ? rig->warp_reach[static_cast<size_t>(point)] : 0.0;
+  const double reach = ReachOf(*rig, point);
   return history_->Apply(
       Tr("Warp %1").arg(track.piece),
       KeyedAt(base, track, frame, PiecePose(),

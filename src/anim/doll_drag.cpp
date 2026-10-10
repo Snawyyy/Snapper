@@ -281,15 +281,6 @@ void FitWarp(int count, PiecePose* pose) {
   }
 }
 
-// The rubber reach of rig's point, 0 when it has none.
-double ReachOf(const RigPiece& rig, int point) {
-  assert(point >= 0 && point < rig.warp.PointCount());
-  assert(rig.warp_reach.size() <= static_cast<size_t>(kMaxWarpPoints));
-  const bool has_reach =
-      static_cast<int>(rig.warp_reach.size()) == rig.warp.PointCount();
-  return has_reach ? rig.warp_reach[static_cast<size_t>(point)] : 0.0;
-}
-
 // Adds each point motion at beat to the warp of its piece, spread by
 // the point's rubber reach.
 void AddMotions(const Doll& doll, Frame beat, PoseMap* poses) {

@@ -291,27 +291,14 @@ bool PoseTool::DropDot() {
   return had_dot;
 }
 
-void PoseTool::WheelReach(const WarpDot& dot, int notches, bool is_fine,
+void PoseTool::WheelReach(int notches, bool is_fine,
                           const StageFrame& frame) {
   assert(notches != 0);
-  assert(dot.point >= 0);
-  const Project& project = managers_.history->current();
-  const DollLayer* posed = PosedLayerOf(project, frame.shot, dot.layer);
-  const Doll* doll = DollOfLayer(project, frame.shot, dot.layer);
-  const RigPiece* rig =
-      doll != nullptr ? FindRig(doll->rig, dot.piece) : nullptr;
-  const bool has_rig = rig != nullptr && posed != nullptr;
-  if (!has_rig) {
-    return;
-  }
-  const bool has_reach =
-      static_cast<int>(rig->warp_reach.size()) == rig->warp.PointCount();
-  const double reach =
-      has_reach ? rig->warp_reach[static_cast<size_t>(dot.point)] : 0.0;
-  // Wheel up reaches further.
-  Note(managers_.rig->SetWarpReach(
-      posed->doll, dot.piece, dot.point,
-      reach + notches * (is_fine ? kFineReachStep : kReachStep)));
+  assert(frame.scale > 0.0);
+  // Wheel up reaches further, each dot from its own reach.
+  const double step = notches * (is_fine ? kFineReachStep : kReachStep);
+  Note(managers_.rig->SetWarpReachMath(
+      PickedRefs(frame), QString("+(%1)").arg(step, 0, 'f', 6)));
 }
 
 std::vector<DotRef> PoseTool::PickedRefs(const StageFrame& frame) const {

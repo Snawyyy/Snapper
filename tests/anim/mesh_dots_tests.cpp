@@ -25,7 +25,7 @@ double Length(QPointF v) { return std::hypot(v.x(), v.y()); }
 WarpGrid SkirtMesh() {
   QImage drawing(kSkirt, QImage::Format_ARGB32);
   drawing.fill(Qt::black);
-  const WarpGrid mesh{0, 0, BuildShapeMesh({drawing}, MeshDetail::kNormal)};
+  const WarpGrid mesh{0, 0, BuildShapeMesh({drawing}, MeshDetail::kMany)};
   assert(mesh.IsMesh());
   assert(mesh.PointCount() > 20);
   return mesh;

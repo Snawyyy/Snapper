@@ -194,8 +194,7 @@ class PoseTool final {
   void GrabIk(const Handle& handle, QPointF point,
               const StageFrame& frame);
   int64_t NowMs() const { return clock_.elapsed(); }
-  void WheelReach(const WarpDot& dot, int notches, bool is_fine,
-                  const StageFrame& frame);
+  void WheelReach(int notches, bool is_fine, const StageFrame& frame);
   void PressPick(const Pick& pick, bool is_shift, bool is_ctrl,
                  const StageFrame& frame, QPointF point);
   // True once a drag may change things: the mouse has left the dead

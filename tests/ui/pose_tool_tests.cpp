@@ -32,6 +32,7 @@ class PoseToolTests final : public QObject {
   void DoubleClickPicksTheWholeDoll();
   void LeanHandleTipsTheDoll();
   void WarpDotsBendThePiece();
+  void WheelSetsReachOfEveryPickedDot();
 };
 
 void PoseToolTests::ClickPicksAndDragMoves() {
@@ -242,6 +243,33 @@ void PoseToolTests::LeanHandleTipsTheDoll() {
            40 * kTurnPerPixel);
   QCOMPARE(lean(), 0.0);
   QCOMPARE(bench.history.UndoLabel(), QString("Swivel Dot"));
+}
+
+void PoseToolTests::WheelSetsReachOfEveryPickedDot() {
+  Bench bench;
+  Stage(&bench);
+  Project project = bench.history.current();
+  Doll doll = *project.dolls.at("Dot");
+  doll.rig.pieces[0].warp = {2, 2};
+  doll.rig.pieces[0].warp_reach = std::vector<double>(9, 0.0);
+  doll.rig.pieces[0].warp_reach[0] = 1.0;
+  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
+  bench.history.Reset(project);
+  ImageCache cache;
+  PoseTool tool(bench.All(), &cache);
+  tool.Press({60, 60}, false, false, kFrame);
+  tool.Release();
+  bench.selection.PickDots({{LayerId(1), "body", 0}, {LayerId(1), "body", 8}},
+                           PickMode::kReplace);
+  QVERIFY(tool.PickedDot(kFrame).has_value());
+  // One notch adds to each dot's own reach, as one step.
+  tool.Wheel(1, false, kFrame);
+  const RigPiece& rig = bench.history.current().dolls.at("Dot")->rig.pieces[0];
+  QCOMPARE(rig.warp_reach[0], 1.0 + kReachStep);
+  QCOMPARE(rig.warp_reach[8], kReachStep);
+  QCOMPARE(rig.warp_reach[4], 0.0);
+  QCOMPARE(bench.history.UndoLabel(), QString("Set reach on 2 dots"));
+  QCOMPARE(Body(bench).rotation, 0.0);
 }
 
 void PoseToolTests::WarpDotsBendThePiece() {

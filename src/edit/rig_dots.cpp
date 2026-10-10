@@ -14,13 +14,6 @@
 namespace snapper {
 namespace {
 
-QString CountText(size_t count) {
-  assert(count > 0);
-  assert(count < 10000000);
-  const bool is_one = count == 1;
-  return is_one ? Tr("1 dot") : Tr("%1 dots").arg(count);
-}
-
 QString FieldName(DragField field) {
   assert(static_cast<int>(field) >= 0);
   assert(static_cast<int>(field) <= static_cast<int>(DragField::kSpring));
@@ -105,45 +98,11 @@ std::vector<DotRef> DragNodesOf(const Project& project,
   return nodes;
 }
 
-// change(rig, point) on each of dots; the first refusal stops it.
-template <typename Change>
-Result<Project> WithDots(const Project& project,
-                         const std::vector<DotRef>& dots, Change change) {
-  assert(dots.size() < 10000000);
-  assert(!dots.empty());
-  Result<Project> next = project;
-  for (const DotRef& dot : dots) {
-    next = WithPiece(*next, dot.doll, dot.piece,
-                     [&](RigPiece* rig) -> Result<void> {
-                       const bool is_point =
-                           dot.point >= 0 &&
-                           dot.point < rig->warp.PointCount();
-                       if (!is_point) {
-                         return std::unexpected(Error{Tr(
-                             "Give the piece a warp grid in the rig "
-                             "first.")});
-                       }
-                       return change(rig, dot.point);
-                     });
-    const bool is_refused = !next;
-    if (is_refused) {
-      return next;
-    }
-  }
-  return next;
-}
-
 Result<void> NeedNodes() {
   assert(kMaxWarpPoints > 0);
   assert(kMaxIkChains > 0);
   return std::unexpected(
       Error{Tr("Press D on a picked dot to make it drag first.")});
-}
-
-Result<void> NeedDots() {
-  assert(kMaxWarpPoints > 0);
-  assert(kMaxIkChains > 0);
-  return std::unexpected(Error{Tr("Pick one or more warp dots first.")});
 }
 
 // The number a field of motion holds now.

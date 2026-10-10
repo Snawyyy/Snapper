@@ -40,6 +40,7 @@ class InspectorTests final : public QObject {
   void FieldsApplyAsYouTypeAsOneStep();
   void FieldsChangeEveryPickByTheSameAmount();
   void DragBoxTunesThePickedDot();
+  void DragBoxSetsReachOfEveryPickedDot();
   void PhysicsSwitchShowsTheFiveSettings();
   void PointMotionBoxAnimatesThePickedDot();
   void OnlyWhatIsPickedShows();
@@ -156,6 +157,27 @@ void InspectorTests::DragBoxTunesThePickedDot() {
   QCOMPARE(nodes.size(), size_t{1});
   QCOMPARE(nodes[0].lag, 0.8);
   QVERIFY(drags->isChecked());
+}
+
+void InspectorTests::DragBoxSetsReachOfEveryPickedDot() {
+  Bench bench;
+  Stage(&bench);
+  QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
+  QVERIFY(bench.rig.SetWarpReach({{"Bob", "head", 0}}, 1.0).has_value());
+  DragBox box(bench.All());
+  auto* reach = box.findChild<QDoubleSpinBox*>("reach");
+  QVERIFY(!reach->isEnabled());
+  QVERIFY(!reach->toolTip().isEmpty());
+  bench.selection.PickDots({{LayerId(1), "head", 0}, {LayerId(1), "head", 4}},
+                           PickMode::kReplace);
+  // Plain dots have a reach too; differing ones say Mixed.
+  QVERIFY(reach->isEnabled());
+  QCOMPARE(reach->findChild<QLineEdit*>()->text(), QString("Mixed"));
+  Type(reach, 2.5);
+  const auto& rig = bench.history.current().dolls.at("Bob")->rig.pieces[0];
+  QCOMPARE(rig.warp_reach[0], 2.5);
+  QCOMPARE(rig.warp_reach[4], 2.5);
+  QCOMPARE(bench.history.UndoLabel(), QString("Set reach on 2 dots"));
 }
 
 void InspectorTests::PhysicsSwitchShowsTheFiveSettings() {

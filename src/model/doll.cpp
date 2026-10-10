@@ -56,6 +56,15 @@ const PointMotion* FindMotion(const RigPiece& rig, int point) {
   return found == rig.point_motions.end() ? nullptr : &*found;
 }
 
+double ReachOf(const RigPiece& rig, int point) {
+  assert(rig.warp_reach.size() <= static_cast<size_t>(kMaxWarpPoints));
+  assert(point >= 0);
+  const bool has_reach =
+      static_cast<int>(rig.warp_reach.size()) == rig.warp.PointCount() &&
+      point < rig.warp.PointCount();
+  return has_reach ? rig.warp_reach[static_cast<size_t>(point)] : 0.0;
+}
+
 const IkChain* FindChain(const Rig& rig, const QString& name) {
   assert(rig.chains.size() <= static_cast<size_t>(kMaxIkChains));
   assert(!name.isEmpty());

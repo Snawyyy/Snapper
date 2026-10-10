@@ -240,6 +240,8 @@ const RigPiece* FindRig(const Rig& rig, const QString& name);
 RigPiece* FindRig(Rig* rig, const QString& name);
 // The motion of rig's warp point, or nullptr when it has none.
 const PointMotion* FindMotion(const RigPiece& rig, int point);
+// The rubber reach of rig's warp point, 0 when it has none.
+double ReachOf(const RigPiece& rig, int point);
 const IkChain* FindChain(const Rig& rig, const QString& name);
 
 // True when parent may become child's parent: it exists (or is empty,
