@@ -1,5 +1,6 @@
 // StageView's overlay: pick outlines, handles, warp grids and hover.
 
+#include <QLineF>
 #include <QPainter>
 
 #include <cassert>
@@ -49,6 +50,28 @@ void PaintMarks(const WarpOnScreen& warp, QPainter* painter) {
         warp.to_screen.map(warp.points[static_cast<size_t>(move)]) -
             QPointF(kSquare, kSquare),
         QSizeF(kSquare * 2, kSquare * 2)));
+  }
+}
+
+// Where the keys alone put each dot, as a faint ring tied to the dot by
+// a faint line, wherever drags, physics or a collider moved it away:
+// dragging a dot moves its key, so the ring shows what the drag edits.
+void PaintKeyed(const WarpOnScreen& warp, QPainter* painter) {
+  assert(painter != nullptr);
+  assert(warp.keyed.size() == warp.points.size());
+  constexpr double kApart = 2.0;
+  QColor faint = theme::kHandle;
+  faint.setAlpha(120);
+  painter->setPen(QPen(faint, 1.0, Qt::DotLine));
+  painter->setBrush(Qt::NoBrush);
+  for (size_t i = 0; i < warp.points.size(); ++i) {
+    const QPointF shown = warp.to_screen.map(warp.points[i]);
+    const QPointF keyed = warp.to_screen.map(warp.keyed[i]);
+    const bool is_moved = QLineF(shown, keyed).length() > kApart;
+    if (is_moved) {
+      painter->drawLine(keyed, shown);
+      painter->drawEllipse(keyed, kWarpDot - 1.0, kWarpDot - 1.0);
+    }
   }
 }
 
@@ -168,6 +191,7 @@ void StageView::PaintWarp(const StageFrame& frame, const Pick& pick,
     return warp->to_screen.map(
         warp->points[static_cast<size_t>(row * across + column)]);
   };
+  PaintKeyed(*warp, painter);
   // A faint grid, so the dots read as one sheet.
   painter->setPen(QPen(kWarpLine, 1.0));
   painter->setBrush(Qt::NoBrush);

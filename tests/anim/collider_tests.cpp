@@ -8,10 +8,7 @@
 #include <variant>
 
 #include "anim/collider.h"
-#include "anim/doll_drag.h"
-#include "anim/doll_pose.h"
 #include "anim/outline_trace.h"
-#include "anim/sampler.h"
 
 namespace snapper {
 namespace {
@@ -39,50 +36,6 @@ bool IsOnBorder(QPointF p, QRectF r) {
   return is_in_x && is_in_y && (is_on_side || is_on_end);
 }
 
-// A leg (thigh) in the shot at x 5 to 25 and a skirt (2 by 3 grid, 40
-// wide, 10 pixels between rows) in front of it. The thigh's outline is
-// its rectangle; the skirt's middle column dips into it.
-Doll LegAndSkirt() {
-  Doll doll;
-  doll.art.pieces = {{"thigh", {"t.png"}, 0, {5, 0}, {20, 60}},
-                     {"skirt", {"s.png"}, 0, {0, 0}, {40, 30}}};
-  doll.rig.pieces = {{"thigh", "", {0, 0}, 0, -1, {}},
-                     {"skirt", "", {0, 0}, 1, -1, {2, 3}}};
-  doll.rig.pieces[0].collider = {
-      8,
-      {{{0, 0}, 0}, {{10, 0}, 1}, {{20, 0}, 2}, {{20, 30}, 3},
-       {{20, 60}, 4}, {{10, 60}, 5}, {{0, 60}, 6}, {{0, 30}, 7}},
-      10.0,
-      {}};
-  for (int point = 3; point < 12; ++point) {
-    DragNode node;
-    node.point = point;
-    node.physics = true;
-    node.gravity = 0.0;
-    node.spring = 0.6;
-    doll.rig.pieces[1].drag_nodes.push_back(node);
-  }
-  assert(doll.rig.pieces[1].warp.PointCount() == 12);
-  assert(doll.rig.pieces[0].collider.IsOn());
-  return doll;
-}
-
-Layer Still() {
-  Layer layer;
-  layer.content = DollLayer{"Doll", {}, false};
-  assert(layer.transform.keys.empty());
-  assert(std::holds_alternative<DollLayer>(layer.content));
-  return layer;
-}
-
-// The skirt's middle column, one row down, in the shot (x 20).
-QPointF MiddleNode(const Doll& doll, const Layer& layer, int frame) {
-  assert(frame >= 0);
-  assert(doll.rig.pieces.size() == 2);
-  const PoseMap poses = DraggedPoses(doll, layer, Frame(frame));
-  return QPointF(20, 10) + poses.at("skirt").warp.at(4);
-}
-
 }  // namespace
 
 class ColliderTests final : public QObject {
@@ -91,15 +44,11 @@ class ColliderTests final : public QObject {
  private slots:
   void TracesARectangleIntoAClosedRing();
   void TracesARoundShapeAndIgnoresFaintPixels();
-  void PushesOutOfAnEdgeOneSided();
-  void ASkirtPointDrivenIntoAThighEndsOutside();
-  void AMovingAwayPointIsNotHeld();
-  void ASparedPieceIsNotPushed();
-  void DeletedDotsLeaveAGapThatDoesNotPush();
-  void NoColliderMeansTheSamePoses();
-  void AResumedTrailGivesTheSamePoses();
-  void ARaisedThighNeverEndsInsideTheSkirt();
-  void TheSkirtEdgeBetweenNodesStaysOutToo();
+  void PushesOnlyWhatCameInSinceRest();
+  void PushesStraightOutOfTheRunItCameIn();
+  void ComesOutTowardAPlace();
+  void DeletedDotsLeaveAGap();
+  void PointsOffTheDrawingRideItsEdgeCells();
 };
 
 void ColliderTests::TracesARectangleIntoAClosedRing() {
@@ -145,206 +94,94 @@ void ColliderTests::TracesARoundShapeAndIgnoresFaintPixels() {
   QCOMPARE(few.size(), size_t{20});
 }
 
-void ColliderTests::PushesOutOfAnEdgeOneSided() {
-  // A floor edge from (0, 0) to (10, 0) with the outside up (y negative).
-  const ColliderEdge floor{{0, 0}, {10, 0}, {0, -1}, 5.0};
-  QCOMPARE(PushedOut({floor}, QPointF(4, 2)), QPointF(4, 0));
-  // Outside, or off the side of the edge, or too deep: left alone.
-  QCOMPARE(PushedOut({floor}, QPointF(4, -2)), QPointF(4, -2));
-  QCOMPARE(PushedOut({floor}, QPointF(14, 2)), QPointF(14, 2));
-  QCOMPARE(PushedOut({floor}, QPointF(4, 9)), QPointF(4, 9));
-  QVERIFY(PushedOut({}, QPointF(1, 1)) == QPointF(1, 1));
+void ColliderTests::PushesOnlyWhatCameInSinceRest() {
+  // A floor from (0, 0) to (10, 0); the shape is below (y > 0).
+  const std::vector<ColliderEdge> floor = {{{0, 0}, {10, 0}, {0, -1}}};
+  const QPointF out(0.0, -kColliderClearance);
+  // Outside at rest, inside now: back out where it is, just past.
+  QCOMPARE(PushedFromRest(floor, {4, -2}, {4, 3}), QPointF(4, 0) + out);
+  QCOMPARE(PushedFromRest(floor, {2, -2}, {6, 3}), QPointF(6, 0) + out);
+  // Inside as drawn stays: a skirt drawn over a thigh is left alone.
+  QCOMPARE(PushedFromRest(floor, {4, 2}, {6, 3}), QPointF(6, 3));
+  // Still outside, or gone back out: never held or pulled.
+  QCOMPARE(PushedFromRest(floor, {4, -2}, {4, -1}), QPointF(4, -1));
+  QCOMPARE(PushedFromRest(floor, {4, 3}, {4, -3}), QPointF(4, -3));
+  // Past the end of the edge nothing is crossed, and no edges push
+  // nothing.
+  QCOMPARE(PushedFromRest(floor, {14, -2}, {14, 3}), QPointF(14, 3));
+  QCOMPARE(PushedFromRest({}, {0, -2}, {1, 1}), QPointF(1, 1));
 }
 
-void ColliderTests::ASkirtPointDrivenIntoAThighEndsOutside() {
-  assert(kMaxColliderEdges > 0);
-  const Doll doll = LegAndSkirt();
-  const Layer layer = Still();
-  for (int frame : {0, 1, 2, 5, 20, 60}) {
-    const QPointF at = MiddleNode(doll, layer, frame);
-    // On the thigh's edge counts as out; inside it by half a pixel
-    // does not.
-    const bool is_inside_thigh = at.x() > 5.5 && at.x() < 24.5 &&
-                                 at.y() > 0.5 && at.y() < 59.5;
-    const bool is_outside_thigh = !is_inside_thigh;
-    QVERIFY2(is_outside_thigh,
-             qPrintable(QString::number(frame) + " " +
-                        QString::number(at.x())));
+void ColliderTests::PushesStraightOutOfTheRunItCameIn() {
+  // A box 0..10 by 0..10 run clockwise (shape on the right, y down).
+  const std::vector<QPointF> corners = {{0, 0}, {10, 0}, {10, 10}, {0, 10}};
+  Collider box;
+  box.ring_size = 4;
+  for (int i = 0; i < 4; ++i) {
+    box.dots.push_back({corners[static_cast<size_t>(i)], i});
   }
+  const auto edges = ColliderEdges(box, corners, QTransform());
+  QCOMPARE(edges.size(), size_t{4});
+  // Came in from above and to the left, slanting far: out straight
+  // across at the nearest spot of the sides facing where it came from
+  // (the top here), not back along the way it came, and never through
+  // the near right side to the far side of the box.
+  const double clear = kColliderClearance;
+  QCOMPARE(PushedFromRest(edges, {-20, -1}, {9, 2}), QPointF(9, -clear));
+  // From the right, the right side is the way out.
+  QCOMPARE(PushedFromRest(edges, {20, 2}, {9, 2}), QPointF(10 + clear, 2));
+  // A mirrored drawing turns the outside around with it.
+  const auto mirrored =
+      ColliderEdges(box, corners, QTransform::fromScale(-1, 1));
+  QCOMPARE(mirrored.front().out, QPointF(0, 1));
 }
 
-void ColliderTests::AMovingAwayPointIsNotHeld() {
-  assert(kOutlineAlpha > 0);
-  const Doll doll = LegAndSkirt();
-  Layer layer = Still();
-  auto& thigh = std::get<DollLayer>(layer.content).pieces["thigh"];
-  PiecePose away;
-  away.offset = QPointF(-200, 0);
-  SetKey(&thigh, {Frame(0), PiecePose(), Ease::kStep});
-  SetKey(&thigh, {Frame(8), away, Ease::kStep});
-  // Pushed out while the leg is there, back on its drawn place after.
-  QVERIFY(MiddleNode(doll, layer, 4).x() >= 25.0 - 1e-6);
-  QVERIFY(std::abs(MiddleNode(doll, layer, 200).x() - 20.0) < 0.05);
+void ColliderTests::ComesOutTowardAPlace() {
+  const std::vector<ColliderEdge> floor = {{{0, 0}, {10, 0}, {0, -1}}};
+  const QPointF out = OutToward(floor, {5, 4}, {5, -6});
+  QCOMPARE(out, QPointF(5, -kColliderClearance));
+  // No way out crossed: it stays.
+  QCOMPARE(OutToward(floor, {5, 4}, {5, 8}), QPointF(5, 4));
 }
 
-void ColliderTests::ASparedPieceIsNotPushed() {
-  Doll doll = LegAndSkirt();
-  doll.rig.pieces[0].collider.spared = {"skirt"};
-  QVERIFY(std::abs(MiddleNode(doll, Still(), 20).x() - 20.0) < 1e-6);
-  // A piece drawn behind the collider is never pushed either.
-  Doll behind = LegAndSkirt();
-  behind.rig.pieces[1].order = -1;
-  QVERIFY(std::abs(MiddleNode(behind, Still(), 20).x() - 20.0) < 1e-6);
-}
-
-void ColliderTests::DeletedDotsLeaveAGapThatDoesNotPush() {
+void ColliderTests::DeletedDotsLeaveAGap() {
   assert(kMaxColliderDots > 0);
-  Doll doll = LegAndSkirt();
-  Collider& collider = doll.rig.pieces[0].collider;
-  // Deleting the right side's dots (slots 2, 3 and 4) leaves only the
-  // left side: the node sits 15 from it, deeper than the push reaches.
-  collider.dots.erase(collider.dots.begin() + 2, collider.dots.begin() + 5);
-  QCOMPARE(collider.dots.size(), size_t{5});
-  QVERIFY(std::abs(MiddleNode(doll, Still(), 20).x() - 20.0) < 1e-6);
-  // The edge across the gap is not made.
+  Collider collider;
+  collider.ring_size = 8;
+  for (int slot : {0, 1, 5, 6, 7}) {
+    collider.dots.push_back({QPointF(slot, 0), slot});
+  }
   const std::vector<QPointF> dots = {{5, 0}, {15, 0}, {15, 60}, {5, 60},
                                      {5, 30}};
   const auto edges = ColliderEdges(collider, dots, QTransform());
+  // 0-1, 5-6, 6-7 and 7-0 round the ring; 1 to 5 is a gap.
   QCOMPARE(edges.size(), size_t{4});
   const bool is_bridged = std::any_of(
       edges.begin(), edges.end(), [&dots](const ColliderEdge& e) {
         return e.a == dots[1] && e.b == dots[2];
       });
   QVERIFY(!is_bridged);
+  // A walk in through the gap pushes nothing.
+  QCOMPARE(PushedFromRest(edges, {20, 30}, {10, 30}), QPointF(10, 30));
 }
 
-void ColliderTests::NoColliderMeansTheSamePoses() {
-  const Doll with = LegAndSkirt();
-  Doll without = with;
-  without.rig.pieces[0].collider = Collider();
-  Doll plain_drag = with;
-  for (DragNode& node : plain_drag.rig.pieces[1].drag_nodes) {
-    node.physics = false;
-  }
-  Doll plain_without = plain_drag;
-  plain_without.rig.pieces[0].collider = Collider();
-  Layer layer = Still();
-  PiecePose moved;
-  moved.offset = QPointF(12, 6);
-  SetKey(&layer.transform, {Frame(0), PiecePose(), Ease::kStep});
-  SetKey(&layer.transform, {Frame(2), moved, Ease::kStep});
-  for (int frame : {0, 2, 6, 30}) {
-    // Plain drag nodes never feel a collider.
-    QCOMPARE(DraggedPoses(plain_drag, layer, Frame(frame)),
-             DraggedPoses(plain_without, layer, Frame(frame)));
-  }
-  QVERIFY(DraggedPoses(with, Still(), Frame(20)) !=
-          DraggedPoses(without, Still(), Frame(20)));
-}
-
-void ColliderTests::AResumedTrailGivesTheSamePoses() {
-  const Doll doll = LegAndSkirt();
-  Layer layer = Still();
-  auto& thigh = std::get<DollLayer>(layer.content).pieces["thigh"];
-  PiecePose over;
-  over.offset = QPointF(-8, 0);
-  SetKey(&thigh, {Frame(0), PiecePose(), Ease::kStep});
-  SetKey(&thigh, {Frame(6), over, Ease::kLinear});
-  SetKey(&thigh, {Frame(14), PiecePose(), Ease::kLinear});
-  DragTrail trail;
-  for (int frame : {0, 3, 7, 30, 30, 5, 80, 12}) {
-    QCOMPARE(DraggedPoses(doll, layer, Frame(frame), {}, &trail),
-             DraggedPoses(doll, layer, Frame(frame)));
-  }
-  QVERIFY(trail.frames().size() > 50);
-}
-
-// A skirt (40 wide, hem at y 30, a 2 by 3 grid) above a thigh that
-// starts level under the hem and turns up about its left end, in front
-// of which the skirt is drawn.
-Doll RaisingThigh() {
-  assert(kMaxColliderDots > 8);
-  assert(kMaxColliderEdges > 8);
-  Doll doll = LegAndSkirt();
-  doll.art.pieces[0] = {"thigh", {"t.png"}, 0, {10, 34}, {60, 16}};
-  doll.rig.pieces[0].pivot = QPointF(0, 8);
-  doll.rig.pieces[0].collider = {
-      8,
-      {{{0, 0}, 0}, {{30, 0}, 1}, {{60, 0}, 2}, {{60, 8}, 3},
-       {{60, 16}, 4}, {{30, 16}, 5}, {{0, 16}, 6}, {{0, 8}, 7}},
-      8.0,
-      {}};
-  return doll;
-}
-
-// Jumps the thigh up in equal beats, to 60 degrees in all.
-Layer RaisedInBeats(double sign, int beats = 3, double total = 60.0) {
-  assert(beats > 0 && total > 0.0);
-  Layer layer = Still();
-  auto& thigh = std::get<DollLayer>(layer.content).pieces["thigh"];
-  for (int beat = 0; beat <= beats; ++beat) {
-    PiecePose pose;
-    pose.rotation = sign * total / beats * beat;
-    SetKey(&thigh, {Frame(beat * 3), pose, Ease::kStep});
-  }
-  assert(thigh.keys.size() == static_cast<size_t>(beats) + 1);
-  return layer;
-}
-
-// Whether shot point p is inside the thigh's rectangle by more than 0.5.
-bool IsInsideThigh(const Doll& doll, const PoseMap& poses, QPointF p) {
-  assert(poses.contains("thigh"));
-  assert(doll.art.pieces.size() == 2);
-  bool is_invertible = false;
-  const QTransform back =
-      PieceTransforms(doll, poses).at("thigh").inverted(&is_invertible);
-  assert(is_invertible);
-  const QPointF at = back.map(p);
-  return at.x() > 0.5 && at.x() < 59.5 && at.y() > 0.5 && at.y() < 15.5;
-}
-
-void ColliderTests::ARaisedThighNeverEndsInsideTheSkirt() {
-  assert(kOutlineSpacing > 0.0);
-  Doll doll = RaisingThigh();
-  auto& dots = doll.rig.pieces[0].collider.dots;
-  dots.erase(std::remove_if(dots.begin(), dots.end(), [](const ColliderDot& d) {
-    return d.slot == 3 || d.slot == 7;
-  }), dots.end());
-  for (const int beats : {1, 3, 6}) {
-   for (const double total : {60.0, 90.0, 120.0, 150.0}) {
-    const Layer layer = RaisedInBeats(-1.0, beats, total);
-    for (int frame = 0; frame <= 30; ++frame) {
-      const PoseMap poses = DraggedPoses(doll, layer, Frame(frame));
-      for (int point = 3; point < 12; ++point) {
-        const QPointF at = QPointF(point % 3 * 20.0, point / 3 * 10.0) +
-                           poses.at("skirt").warp.at(
-                               static_cast<size_t>(point));
-        QVERIFY2(!IsInsideThigh(doll, poses, at),
-                 qPrintable(QString("beats %1 total %4 frame %2 point %3")
-                                .arg(beats).arg(frame).arg(point).arg(total)));
-      }
-    }
-   }
-  }
-}
-
-void ColliderTests::TheSkirtEdgeBetweenNodesStaysOutToo() {
-  assert(kOutlineSpacing > 0.0);
-  const Doll doll = RaisingThigh();
-  const Layer layer = RaisedInBeats(-1.0);
-  for (int frame = 0; frame <= 30; ++frame) {
-    const PoseMap poses = DraggedPoses(doll, layer, Frame(frame));
-    const auto at = [&](int point) {
-      return QPointF(point % 3 * 20.0, point / 3 * 10.0) +
-             poses.at("skirt").warp.at(static_cast<size_t>(point));
-    };
-    // The hem, from the left corner to the right one.
-    for (const int point : {9, 10}) {
-      const QPointF mid = (at(point) + at(point + 1)) / 2.0;
-      QVERIFY2(!IsInsideThigh(doll, poses, mid),
-               qPrintable(QString("frame %1 hem %2").arg(frame).arg(point)));
-    }
-  }
+void ColliderTests::PointsOffTheDrawingRideItsEdgeCells() {
+  // A 2 by 2 grid over a 20 by 20 drawing, its right column pushed 10
+  // right: a point 10 past the right edge goes with it.
+  const WarpGrid grid{2, 2};
+  std::vector<QPointF> points = {{0, 0},  {10, 0},  {30, 0},
+                                 {0, 10}, {10, 10}, {30, 10},
+                                 {0, 20}, {10, 20}, {30, 20}};
+  const auto shot =
+      ShotPoints({{30, 10}, {5, 5}}, grid, {20, 20}, points, QTransform());
+  QCOMPARE(shot.size(), size_t{2});
+  QCOMPARE(shot[0], QPointF(50, 10));
+  QCOMPARE(shot[1], QPointF(5, 5));
+  // Unbent, the drawing's own map carries them.
+  QCOMPARE(ShotPoints({{1, 2}}, WarpGrid(), {20, 20}, {},
+                      QTransform::fromTranslate(5, 5))
+               .front(),
+           QPointF(6, 7));
 }
 
 }  // namespace snapper

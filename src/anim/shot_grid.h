@@ -2,6 +2,7 @@
 #define SNAPPER_ANIM_SHOT_GRID_H_
 
 #include <QPointF>
+#include <QSize>
 #include <QString>
 #include <QTransform>
 
@@ -34,6 +35,14 @@ std::optional<ShotGrid> ShotGridOf(
     const Doll& doll, const Layer& layer, const PoseMap& poses,
     const std::map<QString, QTransform>& placed, const QString& piece,
     Frame frame, QPointF shift);
+
+// Which way a drawing's down points in shot space when to_shot carries
+// it there, a unit step (straight down when to_shot squashes it flat).
+QPointF DrawnDown(const QTransform& to_shot);
+
+// How long a cell of grid over a drawing of size is in shot space when
+// to_shot carries the drawing there, across and down on average.
+double CellLength(WarpGrid grid, QSize size, const QTransform& to_shot);
 
 }  // namespace snapper
 

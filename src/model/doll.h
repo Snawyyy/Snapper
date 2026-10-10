@@ -53,26 +53,31 @@ struct WarpGrid final {
 // back, like hair or a chest. lag is how far it trails and bounce how
 // much it wobbles before settling, both 0 to 1.
 //
-// With physics on it is a physics node instead: a point of cloth or
-// soft flesh. Points of the grid next to each other that are physics
-// nodes hang together like cloth; the other points of the grid carry
-// them. lag and bounce are then not used; the settings below are, each
-// 0 to 1.
+// With physics on it is a physics node instead, for secondary motion:
+// cloth, hair, a chest, soft flesh (follow-through, overlap, jiggle,
+// sag, settle). A lone physics node is a heavy, jiggly point; nodes
+// next to each other on the grid hang together like cloth from the
+// plain points around them. lag and bounce are then not used; the
+// settings below are, each 0 (none of it) to 1 (a lot).
 struct DragNode final {
   int point = 0;
   double lag = 0.5;
   double bounce = 0.5;
   bool physics = false;
-  // 0 keeps the cloth its length between linked points, 1 is rubbery.
-  double stretch = 0.2;
-  // How much it keeps moving when the doll stops or turns.
-  double inertia = 0.6;
-  // How fast its motion dies down.
-  double air = 0.5;
-  // A steady pull down in shot space, so cloth hangs and sags.
-  double gravity = 0.3;
-  // A spring back to its drawn shape: 0 none (cloth), 1 very springy.
-  double spring = 0.2;
+  // How far it may get from the points around it: 0 keeps its drawn
+  // distance (cloth), 1 a whole cell further (rubbery).
+  double stretch = 0.3;
+  // How much of its own motion it keeps when the doll speeds up, stops
+  // or turns: 0 moves with the doll, 1 is heavy and swings through.
+  double inertia = 0.7;
+  // How fast its motion dies down: 0 rings on longest, 1 settles soon.
+  double air = 0.3;
+  // How hard it hangs down when the doll tilts or turns over (as drawn
+  // it already hangs): 0 not at all, 1 strongly.
+  double gravity = 0.5;
+  // A spring back to its drawn shape: 0 none (cloth just hangs), 1 a
+  // firm jiggle.
+  double spring = 0.4;
 
   bool operator==(const DragNode&) const = default;
 };
@@ -124,17 +129,17 @@ struct ColliderDot final {
   bool operator==(const ColliderDot&) const = default;
 };
 
-// A piece's outline that pushes the cloth of pieces drawn in front of
-// it, so a leg never passes through a skirt. The ring was traced from
-// the drawing's visible pixels, ring_size slots in all; dots the user
-// deleted leave gaps, and an edge joins two dots only when they are
-// next to each other on the ring. Empty dots mean no collider.
+// A piece's outline that pushes the warp grid points of pieces drawn in
+// front of it, so a leg never passes through a skirt: a point (or the
+// drawn edge between two) that the outline comes into, against where it
+// was as drawn, is pushed back out. What overlaps as drawn stays. The
+// ring was traced from the drawing's visible pixels, ring_size slots in
+// all; dots the user deleted leave gaps, and an edge joins two dots
+// only when they are next to each other on the ring. Empty dots mean
+// no collider.
 struct Collider final {
   int ring_size = 0;
   std::vector<ColliderDot> dots;
-  // How far inside the outline a point is still pushed out, in drawing
-  // pixels; deeper points are taken to be on the far side.
-  double depth = 0.0;
   // Pieces in front that it does not push.
   std::vector<QString> spared;
 

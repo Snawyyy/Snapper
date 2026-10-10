@@ -1,5 +1,7 @@
 #include <QTest>
 
+#include <cassert>
+
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
 
@@ -7,6 +9,8 @@ namespace snapper {
 namespace {
 
 Project ArmProject() {
+  assert(kMaxDollPieces > 3);
+  assert(kMaxWarpPoints >= 9);
   Doll doll;
   doll.name = "Bob";
   doll.art.pieces = {{"body", {"b.png"}, 0, {}, {10, 10}},
@@ -32,6 +36,8 @@ Project ArmProject() {
 }
 
 const Rig& BobRig(const HistoryManager& history) {
+  assert(FindDoll(history.current(), "Bob") != nullptr);
+  assert(!history.current().dolls.empty());
   return FindDoll(history.current(), "Bob")->rig;
 }
 
@@ -141,7 +147,8 @@ void RigTests::PhysicsIsOneNamedUndoStep() {
   QVERIFY(kept.physics);
   QCOMPARE(history.UndoLabel(), QString("Set gravity on 1 dot"));
   history.Undo();
-  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].gravity, 0.3);
+  QCOMPARE(FindRig(BobRig(history), "lower")->drag_nodes[0].gravity,
+           DragNode().gravity);
   QVERIFY(rig.SetPhysicsAll(four, false).has_value());
   QVERIFY(!FindRig(BobRig(history), "lower")->drag_nodes[0].physics);
   QCOMPARE(history.UndoLabel(), QString("Physics off for 1 dot"));
@@ -167,7 +174,7 @@ void RigTests::ColliderEditsAreNamedUndoSteps() {
   const Collider made = FindRig(BobRig(history), "lower")->collider;
   QVERIFY(made.IsOn());
   QCOMPARE(made.ring_size, static_cast<int>(made.dots.size()));
-  QCOMPARE(made.depth, 10.0);
+  QVERIFY(made.spared.empty());
   QVERIFY(!rig.DeleteColliderDots("Bob", "lower", {999}).has_value());
   QVERIFY(rig.DeleteColliderDots("Bob", "lower", {0, 1}).has_value());
   QCOMPARE(FindRig(BobRig(history), "lower")->collider.dots.size(),

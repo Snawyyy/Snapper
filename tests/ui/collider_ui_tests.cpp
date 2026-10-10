@@ -125,6 +125,21 @@ void ColliderUiTests::TheColliderBoxListsPiecesInFront() {
   QCOMPARE(ticks.size(), 1);
   QCOMPARE(ticks[0]->text(), QString("arm"));
   QVERIFY(ticks[0]->isChecked());
+  // The arm has no warp grid yet: nothing of it can be pushed, and the
+  // tick says so.
+  QVERIFY(!ticks[0]->isEnabled());
+  QVERIFY(ticks[0]->toolTip().contains("no warp grid"));
+  QVERIFY(bench.rig.SetWarpGrid("Bob", "arm", {2, 2}).has_value());
+  panel.Refresh();
+  ticks.clear();
+  for (QCheckBox* tick : box->findChildren<QCheckBox*>()) {
+    const bool is_shown = tick->isVisibleTo(box);
+    if (is_shown) {
+      ticks.push_back(tick);
+    }
+  }
+  QCOMPARE(ticks.size(), 1);
+  QVERIFY(ticks[0]->isEnabled());
   ticks[0]->click();
   QCOMPARE(FindRig(BobRig(bench), "body")->collider.spared,
            (std::vector<QString>{"arm"}));

@@ -1,6 +1,7 @@
 #ifndef SNAPPER_ANIM_DOLL_COLLIDERS_H_
 #define SNAPPER_ANIM_DOLL_COLLIDERS_H_
 
+#include <QRectF>
 #include <QString>
 #include <QTransform>
 
@@ -16,20 +17,29 @@
 
 namespace snapper {
 
-// The edges that push the cloth of piece at frame, in shot space: the
-// colliders of the doll's other pieces drawn behind piece (a lower
-// draw order), except those that spare it, each carried by its piece's
-// pose, warp, the layer's move and what links carry it.
-std::vector<ColliderEdge> CollidersFor(
+// One collider as it pushes one piece at a frame, in shot space: its
+// edges, the box around them, and for every grid point of the pushed
+// piece its ghost, where that point would be had it kept the place
+// against the collider it has as drawn (both pieces at rest). See
+// PushedFromRest.
+struct PushField final {
+  std::vector<ColliderEdge> edges;
+  QRectF box;
+  std::vector<QPointF> ghosts;
+};
+
+// Whether collider pushes piece: collider is the doll's piece drawn
+// behind piece (a lower draw order), has an outline, and does not spare
+// it. Only a piece with a warp grid can be pushed.
+bool IsPushing(const RigPiece& collider, const RigPiece& piece);
+
+// The colliders that push piece at frame, each carried by its piece's
+// pose, warp, the layer's move and what links carry it. Empty when
+// nothing pushes piece.
+std::vector<PushField> PushFieldsFor(
     const Doll& doll, const Layer& layer, const PoseMap& poses,
     const std::map<QString, QTransform>& placed, const LinkShifts& shifts,
     const QString& piece, Frame frame);
-
-// The same at frame under the layer's own keys, for a frame other than
-// the one being worked out.
-std::vector<ColliderEdge> CollidersAt(const Doll& doll, const Layer& layer,
-                                      const LinkShifts& shifts,
-                                      const QString& piece, Frame frame);
 
 }  // namespace snapper
 

@@ -79,7 +79,9 @@ class ClothTests final : public QObject {
   void StretchZeroKeepsTheLength();
   void MovingFastDownPullsTheShirtUp();
   void MoreAirSettlesFaster();
-  void GravitySagsAStillDolls();
+  void AStillDollNeverSags();
+  void ClothHangsFromItsPinsUpsideDown();
+  void WildKeysNeverBlowUp();
   void BounceOvershootsAndSettles();
   void PhysicsOffIsTheDragNodeAsBefore();
   void AResumedTrailGivesTheSamePoses();
@@ -135,15 +137,67 @@ void ClothTests::MoreAirSettlesFaster() {
   QVERIFY(left[1] < 1.0);
 }
 
-void ClothTests::GravitySagsAStillDolls() {
+void ClothTests::AStillDollNeverSags() {
   Layer still;
   still.content = DollLayer{"Shirt", {}, false};
   const Doll doll = Shirt(Settings(0.8, 0.6, 0.5, 1.0, 0.0));
-  QCOMPARE(Offset(doll, still, 0, 11), QPointF());
-  const QPointF sagged = Offset(doll, still, 10, 11);
-  QVERIFY2(sagged.y() > 0.5, qPrintable(QString::number(sagged.y())));
-  const Doll firm = Shirt(Settings(0.0, 0.6, 0.5, 1.0, 0.0));
-  QVERIFY(Offset(firm, still, 10, 11).y() < sagged.y());
+  QVERIFY(doll.rig.pieces[0].drag_nodes.front().gravity == 1.0);
+  // The drawing already hangs as drawn: gravity leaves it be.
+  for (int frame : {0, 10, 100}) {
+    for (int point = kAcross; point < 12; ++point) {
+      QCOMPARE(Offset(doll, still, frame, point), QPointF());
+    }
+  }
+}
+
+void ClothTests::ClothHangsFromItsPinsUpsideDown() {
+  // Turned over: the shirt falls the other way from its top row (now at
+  // the bottom), hanging down in the shot from it, no longer than drawn.
+  Layer over;
+  over.content = DollLayer{"Shirt", {}, false};
+  PiecePose flipped;
+  flipped.rotation = 180.0;
+  SetKey(&over.transform, {Frame(0), flipped, Ease::kStep});
+  const Doll doll = Shirt(Settings(0.0, 0.6, 0.5, 1.0, 0.0));
+  const PoseMap poses = DraggedPoses(doll, over, Frame(120));
+  const auto& warp = poses.at("shirt").warp;
+  // In the drawing, the hem (now on top) has fallen a good way toward
+  // the top row: a drawing turned over hangs from its pins.
+  const QPointF hem = Rest(10) + warp[10];
+  QVERIFY2(hem.y() < Rest(10).y() - kGap, qPrintable(QString::number(hem.y())));
+  // The pins (the top row) stay put, and no tie is longer than drawn.
+  QCOMPARE(warp[1], QPointF());
+  const QPointF tie = hem - (Rest(7) + warp[7]);
+  QVERIFY(std::hypot(tie.x(), tie.y()) < kGap * 1.02);
+  // With no gravity it stays as drawn even turned over.
+  const Doll weightless = Shirt(Settings(0.0, 0.6, 0.5, 0.0, 0.0));
+  QCOMPARE(DraggedPoses(weightless, over, Frame(120)).at("shirt").warp[10],
+           QPointF());
+}
+
+void ClothTests::WildKeysNeverBlowUp() {
+  Doll doll = Shirt(Settings(1.0, 1.0, 0.0, 1.0, 1.0));
+  Layer layer;
+  layer.content = DollLayer{"Shirt", {}, false};
+  PiecePose far;
+  far.offset = QPointF(1e5, -1e5);
+  far.rotation = 7200.0;
+  far.scale_x = 30.0;
+  SetKey(&layer.transform, {Frame(0), PiecePose(), Ease::kStep});
+  SetKey(&layer.transform, {Frame(1), far, Ease::kStep});
+  SetKey(&layer.transform, {Frame(2), PiecePose(), Ease::kLinear});
+  SetKey(&layer.transform, {Frame(3), far, Ease::kStep});
+  for (int frame = 0; frame <= 40; ++frame) {
+    const PoseMap poses = DraggedPoses(doll, layer, Frame(frame));
+    for (const QPointF& off : poses.at("shirt").warp) {
+      const bool is_sane = std::isfinite(off.x()) && std::isfinite(off.y()) &&
+                           std::hypot(off.x(), off.y()) < 1e4;
+      QVERIFY2(is_sane, qPrintable(QString("frame %1").arg(frame)));
+    }
+  }
+  // Settled again afterwards.
+  const auto& late = DraggedPoses(doll, layer, Frame(400)).at("shirt").warp;
+  QVERIFY(std::hypot(late[11].x(), late[11].y()) < 1.0);
 }
 
 void ClothTests::BounceOvershootsAndSettles() {

@@ -93,7 +93,6 @@ void RigDotsTests::MirrorNodesAndDotsOntoTheTwin() {
                      {1, 0.25, 0.75}};
   left.collider = {4,
                    {{{0, 0}, 0}, {{20, 0}, 1}, {{20, 40}, 2}, {{0, 40}, 3}},
-                   5.0,
                    {"skirt"}};
   doll.rig.pieces[1].drag_nodes = {{8, 0.9, 0.9}};
   Project project;

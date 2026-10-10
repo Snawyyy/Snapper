@@ -120,9 +120,10 @@ void DragBox::SetUpPhysicsRows() {
   assert(managers_.IsComplete());
   physics_.setText(tr("Physics"));
   physics_.setObjectName("physics");
-  physics_.setToolTip(tr("Turns the dot into cloth or soft flesh: dots "
-                         "next to each other hang together, and the "
-                         "other dots of the grid hold them up."));
+  physics_.setToolTip(tr("Secondary motion: cloth, hair, a chest, soft "
+                         "flesh. A lone physics dot jiggles and settles; "
+                         "physics dots next to each other hang together "
+                         "like cloth from the plain dots around them."));
   layout_.addRow(QString(), &physics_);
   const struct Row final {
     const char* name;
@@ -131,18 +132,23 @@ void DragBox::SetUpPhysicsRows() {
     const char* tip;
   } rows[] = {
       {"stretch", &stretch_, QT_TR_NOOP("Stretch"),
-       QT_TR_NOOP("0 keeps the cloth its length between linked dots, 1 "
-                  "is rubbery.")},
+       QT_TR_NOOP("How far it may pull away from the dots around it: 0 "
+                  "keeps its drawn distance (a lone dot cannot move), 1 "
+                  "cell further.")},
       {"inertia", &inertia_, QT_TR_NOOP("Inertia"),
-       QT_TR_NOOP("How much it keeps moving when the doll stops or "
-                  "turns.")},
+       QT_TR_NOOP("How much it keeps moving when the doll speeds up, "
+                  "stops or turns: 0 moves with the doll, 1 is heavy and "
+                  "swings through.")},
       {"air", &air_, QT_TR_NOOP("Air resistance"),
-       QT_TR_NOOP("How fast its motion dies down.")},
+       QT_TR_NOOP("How fast its swinging dies down: 0 rings on longest, "
+                  "1 settles soon.")},
       {"gravity", &gravity_, QT_TR_NOOP("Gravity"),
-       QT_TR_NOOP("A steady pull down, so cloth hangs and sags.")},
+       QT_TR_NOOP("How hard it hangs down when the doll tilts or turns "
+                  "over: 0 not at all, 1 strongly. Upright it stays as "
+                  "drawn.")},
       {"spring", &spring_, QT_TR_NOOP("Bounce"),
-       QT_TR_NOOP("A spring back to the drawn shape: 0 none (cloth), 1 "
-                  "very springy.")}};
+       QT_TR_NOOP("How firmly it springs back to its drawn shape: 0 not "
+                  "at all (cloth just hangs), 1 a firm jiggle.")}};
   for (const Row& row : rows) {
     SetUpNumber(row.field, Number::kFraction);
     row.field->setObjectName(row.name);

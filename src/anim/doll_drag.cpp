@@ -15,7 +15,9 @@
 
 #include "anim/cloth.h"
 #include "anim/doll_beat.h"
+#include "anim/doll_collide.h"
 #include "anim/doll_colliders.h"
+#include "anim/grid_push.h"
 #include "anim/shot_grid.h"
 #include "anim/warp.h"
 #include "anim/warp_motion.h"
@@ -118,12 +120,44 @@ void MoveSpring(const Carry& carry, int f, Spring* spring) {
   spring->at += spring->speed;
 }
 
+// A piece's grid at a frame as the springs see it: its points carried
+// there, pushed out of the colliders that push it, which it keeps for
+// its cloth.
+struct PushedGrid final {
+  ShotGrid grid;
+  std::vector<PushField> fields;
+};
+
+// The pushed grid of piece at f, or nothing off the stage.
+std::optional<PushedGrid> PushedGridOf(const Doll& doll, const Layer& layer,
+                                       const PoseMap& keyed,
+                                       const std::map<QString, QTransform>&
+                                           placed,
+                                       const LinkShifts& shifts,
+                                       const QString& piece, int f) {
+  assert(f >= 0);
+  assert(!piece.isEmpty());
+  // A link only slides the piece, so the points move and the map back
+  // to the drawing keeps its turn.
+  const auto grid = ShotGridOf(doll, layer, keyed, placed, piece, Frame(f),
+                               ShiftOf(shifts, piece, f));
+  const RigPiece* rig = FindRig(doll.rig, piece);
+  const bool is_placed = grid.has_value() && rig != nullptr;
+  if (!is_placed) {
+    return std::nullopt;
+  }
+  PushedGrid pushed{*grid, PushFieldsFor(doll, layer, keyed, placed, shifts,
+                                         piece, Frame(f))};
+  PushGrid(rig->warp, ReachesOf(*rig), pushed.fields, &pushed.grid.points);
+  return pushed;
+}
+
 // Runs the cloth of one piece a frame: the springs at indices are its
-// physics nodes, carried over grid.
-void StepPiece(const Doll& doll, const ShotGrid& grid,
-               const std::vector<ColliderEdge>& edges,
-               const std::vector<ColliderEdge>& edges_before,
-               const std::vector<size_t>& indices, int f,
+// physics nodes, hung from pushed; was holds where the body carried
+// each spring's point the frame before.
+void StepPiece(const Doll& doll, const PushedGrid& pushed,
+               const std::vector<size_t>& indices,
+               const std::vector<Carry>& was, int f,
                std::vector<Spring>* springs) {
   assert(springs != nullptr);
   assert(!indices.empty() && indices.size() <= springs->size());
@@ -131,20 +165,27 @@ void StepPiece(const Doll& doll, const ShotGrid& grid,
   assert(rig != nullptr);
   ClothPiece cloth;
   cloth.grid = rig->warp;
-  cloth.edges = edges;
-  cloth.edges_before = edges_before;
+  cloth.fields = pushed.fields;
+  cloth.drawn_down = DrawnDown(pushed.grid.to_shot);
+  const ArtPiece* art = FindArt(doll, rig->name);
+  cloth.cell = art != nullptr ? CellLength(rig->warp, art->size,
+                                           pushed.grid.to_shot)
+                              : 0.0;
   for (const size_t i : indices) {
     const Spring& spring = (*springs)[i];
+    const QPointF now =
+        pushed.grid.points[static_cast<size_t>(spring.node.point)];
     cloth.points.push_back(spring.node.point);
     cloth.settings.push_back(ClothSettingsOf(spring.node));
     cloth.at.push_back(spring.at);
     cloth.speed.push_back(spring.speed);
+    cloth.body_speed.push_back(was[i] ? now - was[i]->first : QPointF());
   }
   const bool is_first = f == 0;
   if (is_first) {
-    RestCloth(grid.points, &cloth);
+    RestCloth(pushed.grid.points, &cloth);
   } else {
-    StepCloth(grid.points, &cloth);
+    StepCloth(pushed.grid.points, &cloth);
   }
   for (size_t k = 0; k < indices.size(); ++k) {
     (*springs)[indices[k]].at = cloth.at[k];
@@ -153,34 +194,34 @@ void StepPiece(const Doll& doll, const ShotGrid& grid,
 }
 
 // Runs one frame of the springs: where each node's point is carried at
-// f, the drag springs pulled toward it and each piece's cloth stepped.
+// f (pushed out of colliders), the drag springs pulled toward it and
+// each piece's cloth stepped.
 void Step(const Doll& doll, const Layer& layer, int f,
           const LinkShifts& shifts, std::vector<Spring>* springs,
           std::vector<Carry>* carried) {
   assert(springs != nullptr && carried != nullptr);
   assert(f >= 0);
-  const auto& posed = std::get<DollLayer>(layer.content);
-  const PoseMap keyed = SamplePoses(posed, Frame(f));
+  const PoseMap keyed =
+      SamplePoses(std::get<DollLayer>(layer.content), Frame(f));
   const auto placed = PieceTransforms(doll, keyed);
-  std::map<QString, std::optional<ShotGrid>> grids;
+  std::map<QString, std::optional<PushedGrid>> grids;
   std::map<QString, std::vector<size_t>> cloths;
+  const std::vector<Carry> was = *carried;
   for (size_t i = 0; i < springs->size(); ++i) {
     Spring& spring = (*springs)[i];
     const bool is_new_piece = grids.find(spring.piece) == grids.end();
     if (is_new_piece) {
-      // A link only slides the piece, so the points move and the map
-      // back to the drawing keeps its turn.
       grids[spring.piece] =
-          ShotGridOf(doll, layer, keyed, placed, spring.piece, Frame(f),
-                     ShiftOf(shifts, spring.piece, f));
+          PushedGridOf(doll, layer, keyed, placed, shifts, spring.piece, f);
     }
-    const std::optional<ShotGrid>& grid = grids[spring.piece];
+    const std::optional<PushedGrid>& pushed = grids[spring.piece];
     Carry& carry = (*carried)[i];
     carry = std::nullopt;
-    const bool is_on_stage = grid.has_value();
+    const bool is_on_stage = pushed.has_value();
     if (is_on_stage) {
-      carry = std::pair(grid->points[static_cast<size_t>(spring.node.point)],
-                        grid->to_shot);
+      carry = std::pair(
+          pushed->grid.points[static_cast<size_t>(spring.node.point)],
+          pushed->grid.to_shot);
     }
     const bool is_cloth = spring.is_physics && is_on_stage;
     if (is_cloth) {
@@ -190,12 +231,7 @@ void Step(const Doll& doll, const Layer& layer, int f,
     }
   }
   for (const auto& [piece, indices] : cloths) {
-    StepPiece(doll, *grids[piece],
-              CollidersFor(doll, layer, keyed, placed, shifts, piece,
-                           Frame(f)),
-              f > 0 ? CollidersAt(doll, layer, shifts, piece, Frame(f - 1))
-                    : std::vector<ColliderEdge>(),
-              indices, f, springs);
+    StepPiece(doll, *grids[piece], indices, was, f, springs);
   }
 }
 
@@ -319,6 +355,10 @@ PoseMap DraggedPoses(const Doll& doll, const Layer& layer, Frame frame,
   assert(std::holds_alternative<DollLayer>(layer.content));
   PoseMap poses = SamplePoses(std::get<DollLayer>(layer.content), frame);
   const Frame beat = BeatOf(layer, frame);
+  AddMotions(doll, beat, &poses);
+  // Colliders push the drawn pose first; the springs ran from the same
+  // pushed points, so their trails swing on top of the push.
+  CollidePoses(doll, layer, frame, shifts, &poses);
   std::vector<Spring> springs = SpringsOf(doll);
   const bool has_springs = !springs.empty();
   if (has_springs) {
@@ -328,7 +368,6 @@ PoseMap DraggedPoses(const Doll& doll, const Layer& layer, Frame frame,
       AddTrail(doll, springs[i], carried[i], &poses);
     }
   }
-  AddMotions(doll, beat, &poses);
   return poses;
 }
 

@@ -5,6 +5,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <cassert>
 #include <cmath>
 
 #include "io/doll_file.h"
@@ -14,10 +15,13 @@ namespace snapper {
 namespace {
 
 void Write(const QString& path, const QJsonObject& object) {
+  QVERIFY(!path.isEmpty());
   QVERIFY(WriteJsonFile(path, object).has_value());
 }
 
 QJsonObject TwoPieceArt() {
+  assert(kMaxDollPieces >= 2);
+  assert(kMaxPieceDrawings >= 2);
   return QJsonObject{
       {"format", "snapper-art"},
       {"version", 2},
@@ -209,7 +213,7 @@ void DollFileTests::PhysicsNodesRoundTrip() {
   rig.pieces = {{"shirt", "", {0, 0}, 0, -1, {2, 2}}};
   rig.pieces[0].drag_nodes = {
       {4, 0.5, 0.5, true, 0.1, 0.7, 0.4, 0.9, 0.3},
-      {5, 0.25, 0.75, false, 0.2, 0.6, 0.5, 0.3, 0.2}};
+      {5, 0.25, 0.75}};
   QVERIFY(WriteRig(dir.path(), rig).has_value());
   const auto read = ReadRig(dir.path());
   QVERIFY(read.has_value());
@@ -247,7 +251,6 @@ void DollFileTests::CollidersRoundTripAndOldFilesHaveNone() {
                             {{{1.5, 2.0}, 0},
                              {{3.0, 2.5}, 1},
                              {{9.0, 8.0}, 4}},
-                            12.5,
                             {"belt"}};
   QVERIFY(WriteRig(dir.path(), rig).has_value());
   const auto read = ReadRig(dir.path());
@@ -255,7 +258,8 @@ void DollFileTests::CollidersRoundTripAndOldFilesHaveNone() {
   QCOMPARE(*read, rig);
   QVERIFY(read->pieces[0].collider.IsOn());
   QVERIFY(!read->pieces[1].collider.IsOn());
-  // A file from before colliders, and a broken collider, give none.
+  // A file from before colliders, and a broken collider, give none; a
+  // collider saved with the old push depth still loads, depth unread.
   const QJsonObject old{
       {"format", "snapper-rig"},
       {"version", 1},
@@ -263,12 +267,21 @@ void DollFileTests::CollidersRoundTripAndOldFilesHaveNone() {
        QJsonArray{
            QJsonObject{{"name", "a"}},
            QJsonObject{{"name", "b"},
-                       {"collider", QJsonObject{{"dots", QJsonArray{7}}}}}}}};
+                       {"collider", QJsonObject{{"dots", QJsonArray{7}}}}},
+           QJsonObject{
+               {"name", "c"},
+               {"collider",
+                QJsonObject{{"slots", 4},
+                            {"depth", 94.5},
+                            {"dots", QJsonArray{QJsonArray{1, 2, 0},
+                                                QJsonArray{5, 2, 1}}}}}}}}};
   Write(QDir(dir.path()).filePath("rig.json"), old);
   const auto loaded = ReadRig(dir.path());
   QVERIFY(loaded.has_value());
   QVERIFY(!loaded->pieces[0].collider.IsOn());
   QVERIFY(!loaded->pieces[1].collider.IsOn());
+  QCOMPARE(loaded->pieces[2].collider.dots.size(), size_t{2});
+  QCOMPARE(loaded->pieces[2].collider.ring_size, 4);
 }
 
 }  // namespace snapper

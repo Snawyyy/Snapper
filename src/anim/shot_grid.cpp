@@ -1,6 +1,7 @@
 #include "anim/shot_grid.h"
 
 #include <cassert>
+#include <cmath>
 
 #include "anim/warp.h"
 
@@ -40,6 +41,23 @@ std::optional<ShotGrid> ShotGridOf(
   }
   grid.to_shot *= QTransform::fromTranslate(shift.x(), shift.y());
   return grid;
+}
+
+QPointF DrawnDown(const QTransform& to_shot) {
+  assert(to_shot.isAffine());
+  assert(std::isfinite(to_shot.m22()));
+  const QPointF down = to_shot.map(QPointF(0.0, 1.0)) - to_shot.map(QPointF());
+  const double length = std::hypot(down.x(), down.y());
+  const bool is_flat = !(length > 1e-9);
+  return is_flat ? QPointF(0.0, 1.0) : down / length;
+}
+
+double CellLength(WarpGrid grid, QSize size, const QTransform& to_shot) {
+  assert(grid.IsOn());
+  assert(to_shot.isAffine());
+  const double across = size.width() / static_cast<double>(grid.columns);
+  const double down = size.height() / static_cast<double>(grid.rows);
+  return (across + down) / 2.0 * std::sqrt(std::abs(to_shot.determinant()));
 }
 
 }  // namespace snapper

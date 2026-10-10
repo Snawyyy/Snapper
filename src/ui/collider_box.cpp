@@ -5,6 +5,7 @@
 
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
+#include "ui/form_helpers.h"
 #include "ui/problem.h"
 
 namespace snapper {
@@ -52,17 +53,25 @@ void ColliderBox::Show(const QString& doll, const QString& piece) {
   note_.setText(in_front.empty()
                     ? tr("No piece is drawn in front of %1, so it pushes "
                          "nothing.").arg(piece)
-                    : tr("Pushes the cloth (physics dots) of these pieces "
-                         "drawn in front of %1. Untick one to let it "
-                         "through.").arg(piece));
+                    : tr("Pushes the warp dots of these pieces drawn in "
+                         "front of %1 out of its outline, so they never "
+                         "pass through it; what overlaps as drawn stays. "
+                         "Untick one to let it through.").arg(piece));
   for (const QString& name : in_front) {
     auto tick = std::make_unique<QCheckBox>(name);
     const bool is_spared =
         std::find(rig->collider.spared.begin(), rig->collider.spared.end(),
                   name) != rig->collider.spared.end();
     tick->setChecked(!is_spared);
-    tick->setToolTip(tr("Whether %1's physics dots are pushed out of %2.")
-                         .arg(name, piece));
+    const RigPiece* other = FindRig(found->rig, name);
+    const bool has_grid = other != nullptr && other->warp.IsOn();
+    Explain(tick.get(),
+            has_grid ? QString()
+                     : tr("%1 has no warp grid, so nothing of it can be "
+                          "pushed. Give it a grid in the rig first.")
+                           .arg(name),
+            tr("Whether %1's warp dots are pushed out of %2.")
+                .arg(name, piece));
     connect(tick.get(), &QCheckBox::clicked, this, [this, name](bool on) {
       emit Problem(ProblemOf(managers_.rig->SetColliderPushes(
           doll_, piece_, name, on)));
