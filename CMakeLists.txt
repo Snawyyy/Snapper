@@ -83,7 +83,7 @@ snapper_module(ui
           reel_timeline_commands.cpp reel_timeline_effects.cpp
           reel_timeline_ghost.cpp reel_timeline_input.cpp
           shot_bin.cpp shot_strip.cpp shot_strip_ghost.cpp slot_picker.cpp
-          drag_feedback.cpp drag_text.cpp grab.cpp handle_hover.cpp
+          dot_shape.cpp drag_feedback.cpp drag_text.cpp grab.cpp handle_hover.cpp
           playhead_settle.cpp
           motion.cpp motion_menu.cpp motion_table.cpp number_input.cpp
           refusal_shaker.cpp scrub_label.cpp space_keys_action.cpp toast_manager.cpp toast_queue.cpp toast_view.cpp
@@ -134,7 +134,7 @@ if(BUILD_TESTING)
                           playhead_settle_tests.cpp
                           export_dialog_tests.cpp
                           drag_feedback_tests.cpp drag_text_tests.cpp
-                          grab_tests.cpp
+                          dot_shape_tests.cpp grab_tests.cpp
                           handle_hover_tests.cpp
                           inspector_tests.cpp link_ui_tests.cpp
                           pose_tool_tests.cpp pose_tool_grab_tests.cpp

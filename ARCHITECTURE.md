@@ -530,6 +530,12 @@ math on Enter or leaving the field, flashing the field red and keeping
 its value on bad text. `AddNumberRow` / `AddNumberPair` in
 `form_helpers.h` give a field all of this with one call.
 
+Warp dots are drawn by how they move, the choice in `dot_shape.h`
+(pure): a still dot is plain, a drag node a yellow ring with a short tail
+toward its keyed place, cloth a diamond, jelly a blob stretched along
+its offset from the keyed place (round when Motion is Off). The stage
+paints them from `WarpOnScreen::kinds`.
+
 Handles look small and grab big, the same on the stage, the rig canvas
 and the timelines. `grab.h` (pure, no widget) holds the one set of
 numbers (drawn 8 px, grabbed within 12 px, 4 px dead zone before a drag,

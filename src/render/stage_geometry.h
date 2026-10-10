@@ -57,8 +57,9 @@ struct WarpOnScreen final {
   // Where the keys put each point; dragging a dot moves this.
   std::vector<QPointF> keyed;
   std::vector<double> reach;
-  // Points that are drag nodes, and points that move by themselves.
-  std::vector<int> drags;
+  // Each point's drag node kind; nothing for a dot that stays still.
+  std::vector<std::optional<NodeKind>> kinds;
+  // Points that move by themselves.
   std::vector<int> moves;
   QSize size;
   QTransform to_screen;
