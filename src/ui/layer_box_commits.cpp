@@ -30,6 +30,8 @@ bool LayerBox::eventFilter(QObject* watched, QEvent* event) {
 }
 
 void LayerBox::Refresh() {
+  assert(managers_.history != nullptr);
+  assert(managers_.selection != nullptr);
   const Layer* layer = Picked();
   const bool has_layer = layer != nullptr;
   Explain(this, has_layer ? QString() : tr("Pick a layer first."));
@@ -93,6 +95,7 @@ void LayerBox::ShowTiming(const Layer& layer) {
 
 void LayerBox::CommitName() {
   assert(managers_.stage != nullptr);
+  assert(managers_.selection != nullptr);
   const Layer* layer = Picked();
   const bool is_changed = layer != nullptr && layer->name != name_.text();
   if (is_changed) {
@@ -103,6 +106,7 @@ void LayerBox::CommitName() {
 
 void LayerBox::CommitTiming() {
   assert(managers_.stage != nullptr);
+  assert(managers_.selection != nullptr);
   const Layer* layer = Picked();
   const bool has_layer = layer != nullptr;
   if (!has_layer) {
@@ -121,6 +125,7 @@ void LayerBox::CommitTiming() {
 
 void LayerBox::CommitText() {
   assert(managers_.stage != nullptr);
+  assert(managers_.selection != nullptr);
   const Layer* layer = Picked();
   const auto* old = layer != nullptr ? std::get_if<TextLayer>(&layer->content)
                                      : nullptr;
@@ -157,6 +162,7 @@ void LayerBox::CommitText() {
 
 void LayerBox::CommitEffect() {
   assert(managers_.stage != nullptr);
+  assert(managers_.selection != nullptr);
   const Layer* layer = Picked();
   const bool has_layer = layer != nullptr;
   if (!has_layer) {
@@ -169,6 +175,8 @@ void LayerBox::CommitEffect() {
 }
 
 void LayerBox::CommitStrength() {
+  assert(managers_.history != nullptr);
+  assert(managers_.selection != nullptr);
   assert(managers_.pose != nullptr);
   const Layer* layer = Picked();
   const auto* effect =

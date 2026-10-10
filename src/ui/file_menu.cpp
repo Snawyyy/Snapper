@@ -17,8 +17,11 @@ namespace snapper {
 namespace {
 
 QString ProjectFilter() {
-  return QObject::tr("Snapper projects (*.%1)")
-      .arg(QLatin1String(kProjectSuffix));
+  const QString filter = QObject::tr("Snapper projects (*.%1)")
+                             .arg(QLatin1String(kProjectSuffix));
+  assert(!filter.isEmpty());
+  assert(filter.contains(QLatin1String(kProjectSuffix)));
+  return filter;
 }
 
 }  // namespace

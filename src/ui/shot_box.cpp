@@ -76,12 +76,14 @@ const Shot* ShotBox::Focused() const {
 }
 
 std::vector<ShotId> ShotBox::Picked() const {
+  assert(managers_.selection != nullptr);
   const auto& shots = managers_.selection->shots();
   assert(shots.size() <= static_cast<size_t>(kMaxShots));
   return std::vector<ShotId>(shots.begin(), shots.end());
 }
 
 void ShotBox::PickBackground() {
+  assert(managers_.shots != nullptr);
   const Shot* shot = Focused();
   const bool has_shot = shot != nullptr;
   if (!has_shot) {

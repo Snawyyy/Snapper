@@ -1,5 +1,8 @@
 #include <QTest>
 
+#include <cassert>
+#include <cmath>
+
 #include "edit/history_manager.h"
 #include "edit/key_manager.h"
 
@@ -11,8 +14,10 @@ const TrackRef kArm{kShot, TrackKind::kPiece, LayerId(1), "arm"};
 const TrackRef kCamera{kShot, TrackKind::kCamera, {}, {}};
 
 PiecePose Turned(double degrees) {
+  assert(std::isfinite(degrees));
   PiecePose pose;
   pose.rotation = degrees;
+  assert(pose.rotation == degrees);
   return pose;
 }
 
@@ -35,10 +40,14 @@ Project Stage() {
   SetKey(&shot.camera, {Frame(4), CameraPose(), Ease::kStep});
   Project project;
   project.shots = {std::make_shared<const Shot>(shot)};
+  assert(project.shots.size() == 1);
+  assert(shot.layers.size() == 2);
   return project;
 }
 
 std::vector<int> ArmFrames(const HistoryManager& history, int layer = 0) {
+  assert(layer >= 0);
+  assert(!history.current().shots.empty());
   std::vector<int> frames;
   const auto& pieces =
       std::get<DollLayer>(

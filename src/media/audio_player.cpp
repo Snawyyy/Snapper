@@ -139,6 +139,7 @@ bool AudioPlayer::HasOutput() const {
   assert(start_ >= 0.0);
   const bool is_usable = !device.isNull() &&
                          device.isFormatSupported(ClipFormat());
+  assert(!is_usable || !device.isNull());
   return is_usable;
 }
 

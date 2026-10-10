@@ -1,5 +1,7 @@
 #include <QTest>
 
+#include <cassert>
+
 #include "model/doll.h"
 #include "model/key.h"
 #include "model/layer.h"
@@ -21,6 +23,8 @@ Doll Arm() {
   doll.rig.pieces = {{"body", "", {}, 0, -1, {}},
                      {"arm", "body", {}, 1, -1, {}},
                      {"hand", "arm", {}, 2, -1, {}}};
+  assert(doll.art.pieces.size() == doll.rig.pieces.size());
+  assert(doll.rig.chains.empty());
   return doll;
 }
 

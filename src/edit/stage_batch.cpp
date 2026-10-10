@@ -16,6 +16,7 @@ namespace {
 Error NonePicked() {
   const QString text = Tr("Pick one or more layers first.");
   assert(!text.isEmpty());
+  assert(text.endsWith(QLatin1Char('.')));
   return Error{text};
 }
 
@@ -192,6 +193,7 @@ Result<void> StageManager::StyleText(ShotId shot,
   if (!is_valid) {
     return std::unexpected(Error{Tr("That isn't a colour.")});
   }
+  assert(fill.isValid() && outline.isValid());
   return history_->Apply(
       Tr("Edit text"),
       WithLayers(history_->current(), shot, ids, [&](Layer* layer) {
@@ -213,6 +215,7 @@ Result<void> StageManager::SetEffectAll(ShotId shot,
   if (!is_valid) {
     return std::unexpected(Error{Tr("That isn't a colour.")});
   }
+  assert(color.isValid());
   return history_->Apply(
       Tr("Change effect"),
       WithLayers(history_->current(), shot, ids, [&](Layer* layer) {

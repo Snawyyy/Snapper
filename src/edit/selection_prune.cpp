@@ -49,6 +49,7 @@ void SelectionManager::Prune() {
     return ClipOf(project.reel, id) == nullptr;
   });
   FixFocus();
+  assert(!shot_.IsValid() || shots_.contains(shot_));
   const bool is_changed =
       shot_ != shot_before || focus_ != focus_before ||
       picks_.size() + keys_.size() + shots_.size() + clips_.size() !=

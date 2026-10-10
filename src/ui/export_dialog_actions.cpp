@@ -19,7 +19,10 @@ enum Range { kWhole = 0, kLoop = 1, kCustom = 2 };
 QString Suffix(VideoFormat format) {
   assert(format == VideoFormat::kMp4 || format == VideoFormat::kGif);
   const bool is_gif = format == VideoFormat::kGif;
-  return is_gif ? QStringLiteral("gif") : QStringLiteral("mp4");
+  const QString suffix = is_gif ? QStringLiteral("gif")
+                                : QStringLiteral("mp4");
+  assert(suffix.size() == 3);
+  return suffix;
 }
 
 }  // namespace
@@ -35,6 +38,7 @@ QString ExportDialog::WhyNotReady() const {
   const bool is_loop_missing = !no_loop.isEmpty();
   const bool is_range_empty =
       range_.currentIndex() == kCustom && !(request.start < request.end);
+  assert(range_.currentIndex() >= kWhole && range_.currentIndex() <= kCustom);
   const bool is_blocked = !busy.isEmpty();
   if (is_blocked) {
     return busy;
@@ -52,6 +56,7 @@ void ExportDialog::Browse() {
   const VideoFormat format = Request().format;
   assert(format == VideoFormat::kMp4 || format == VideoFormat::kGif);
   const QString suffix = Suffix(format);
+  assert(managers_.history != nullptr);
   const QString start = path_.text().isEmpty()
                             ? managers_.history->current().name + "." + suffix
                             : path_.text();
@@ -67,6 +72,7 @@ void ExportDialog::Browse() {
 
 void ExportDialog::Start() {
   assert(managers_.exporter != nullptr);
+  assert(managers_.history != nullptr);
   const QString why_not = WhyNotReady();
   const bool can_start = why_not.isEmpty();
   if (!can_start) {
@@ -111,6 +117,7 @@ void ExportDialog::Refresh() {
 void ExportDialog::PickFormat(int index) {
   assert(index >= 0 && index <= 1);
   const auto format = static_cast<VideoFormat>(index);
+  assert(size_.count() >= 2);
   // GIFs are usually shared small; MP4 goes out full size.
   size_.setCurrentIndex(format == VideoFormat::kGif ? 1 : 0);
   const QString path = path_.text();

@@ -6,6 +6,9 @@
 #include <QPushButton>
 #include <QTest>
 
+#include <cassert>
+#include <cmath>
+
 #include "anim/doll_pose.h"
 #include "bench.h"
 #include "inspector_stage.h"
@@ -25,6 +28,8 @@ namespace snapper {
 namespace {
 
 void Type(QDoubleSpinBox* box, double value) {
+  assert(box != nullptr);
+  assert(std::isfinite(value));
   box->setValue(value);
   emit box->editingFinished();
 }
@@ -68,6 +73,7 @@ void InspectorTests::CameraNumbersKeyTheCamera() {
   Stage(&bench);
   CameraBox box(bench.All());
   Type(box.findChild<QDoubleSpinBox*>("zoom"), 2.5);
+  QCOMPARE(bench.history.current().shots[0]->camera.keys.size(), size_t{1});
   QCOMPARE(bench.history.current().shots[0]->camera.keys[0].value.zoom, 2.5);
 }
 

@@ -203,6 +203,7 @@ void PlaybackManager::FollowProject() {
   if (is_past_end) {
     Seek(LastFrame());
   }
+  assert(frame_ <= LastFrame());
 }
 
 void PlaybackManager::SongLoaded() {

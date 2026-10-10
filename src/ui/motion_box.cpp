@@ -39,12 +39,14 @@ MotionBox::MotionBox(const Managers& managers)
   layout_.addRow(tr("Timing"), &hold_);
   AddNumberRow(&layout_, tr("Length"), &length_, nullptr);
   layout_.addRow(&apply_);
+  assert(preset_.count() == kMotionPresetCount);
   connect(&apply_, &QPushButton::clicked, this, &MotionBox::Apply);
   Follow(managers_, this);
   Refresh();
 }
 
 void MotionBox::Refresh() {
+  assert(managers_.selection != nullptr);
   const auto spot = SpotOf(managers_);
   const bool has_pick =
       spot.has_value() && PickedTrack(managers_, spot->shot).has_value();
@@ -82,6 +84,7 @@ PosesBox::PosesBox(const Managers& managers)
   layout_.addWidget(&name_);
   layout_.addLayout(&buttons_);
   list_.setMaximumHeight(110);
+  assert(buttons_.count() == 3);
   connect(&save_, &QPushButton::clicked, this, &PosesBox::Save);
   connect(&use_, &QPushButton::clicked, this, &PosesBox::Use);
   connect(&forget_, &QPushButton::clicked, this, &PosesBox::Forget);
@@ -103,6 +106,7 @@ QString PosesBox::Picked() const {
 
 void PosesBox::Refresh() {
   assert(managers_.presets != nullptr);
+  assert(managers_.selection != nullptr);
   const QStringList saved = managers_.presets->SavedPoses();
   const bool is_listed = list_.count() == saved.size();
   if (!is_listed) {

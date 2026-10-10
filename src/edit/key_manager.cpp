@@ -42,6 +42,44 @@ Result<Project> ForEachTrack(Project project, const std::set<KeyRef>& keys,
   return project;
 }
 
+// Rewrites one channel for Space: unpicked keys first, later ones
+// sliding with the last picked key; picked keys then land on top,
+// winning any clash.
+template <typename Channel>
+Result<void> Respace(Channel* channel, const std::set<Frame>& frames,
+                     const std::map<Frame, Frame>& to, Frame last,
+                     int tail) {
+  assert(channel != nullptr);
+  assert(!to.empty());
+  auto old = channel->keys;
+  channel->keys.clear();
+  bool is_set = true;
+  bool is_inside = true;
+  for (auto key : old) {
+    const bool is_picked = frames.contains(key.frame);
+    if (!is_picked) {
+      const int frame = key.frame > last ? key.frame.index() + tail
+                                         : key.frame.index();
+      is_inside = is_inside && frame <= kMaxFrame;
+      key.frame = Frame(std::min(frame, kMaxFrame));
+      is_set = SetKey(channel, key) && is_set;
+    }
+  }
+  for (auto key : old) {
+    const bool is_picked = frames.contains(key.frame);
+    if (is_picked) {
+      key.frame = to.at(key.frame);
+      is_set = SetKey(channel, key) && is_set;
+    }
+  }
+  const QString trouble = !is_inside ? Tr("That runs past the longest shot.")
+                          : !is_set  ? Tr("That track is full of keys.")
+                                     : QString();
+  return trouble.isEmpty()
+             ? Result<void>()
+             : Result<void>(std::unexpected(Error{trouble}));
+}
+
 }  // namespace
 
 KeyManager::KeyManager(HistoryManager* history) : history_(history) {
@@ -136,36 +174,7 @@ Result<std::set<KeyRef>> KeyManager::Space(const std::set<KeyRef>& keys,
   auto next = ForEachTrack(
       history_->current(), keys,
       [&](auto* channel, const std::set<Frame>& frames) {
-        auto old = channel->keys;
-        channel->keys.clear();
-        bool is_set = true;
-        bool is_inside = true;
-        // Unpicked keys first, later ones sliding with the last picked
-        // key; picked keys then land on top, winning any clash.
-        for (auto key : old) {
-          const bool is_picked = frames.contains(key.frame);
-          if (!is_picked) {
-            const int frame = key.frame > last ? key.frame.index() + tail
-                                               : key.frame.index();
-            is_inside = is_inside && frame <= kMaxFrame;
-            key.frame = Frame(std::min(frame, kMaxFrame));
-            is_set = SetKey(channel, key) && is_set;
-          }
-        }
-        for (auto key : old) {
-          const bool is_picked = frames.contains(key.frame);
-          if (is_picked) {
-            key.frame = to.at(key.frame);
-            is_set = SetKey(channel, key) && is_set;
-          }
-        }
-        const QString trouble =
-            !is_inside ? Tr("That runs past the longest shot.")
-            : !is_set  ? Tr("That track is full of keys.")
-                       : QString();
-        return trouble.isEmpty()
-                   ? Result<void>()
-                   : Result<void>(std::unexpected(Error{trouble}));
+        return Respace(channel, frames, to, last, tail);
       });
   auto applied =
       history_->Apply(Tr("Space keys on %1s").arg(step), std::move(next));

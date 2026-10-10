@@ -148,6 +148,7 @@ Layer LayerFromJson(const QJsonObject& object, JsonIssues* issues) {
   if (!is_valid) {
     issues->Note(QStringLiteral("a layer has no id"));
   }
+  assert(layer.name == object.value("name").toString());
   return layer;
 }
 
@@ -246,6 +247,7 @@ Shot ShotFromJson(const QJsonObject& object, JsonIssues* issues) {
     shot.layers.push_back(LayerFromJson(layer.toObject(), issues));
   }
   ReadLinks(object.value("links").toArray(), &shot, issues);
+  assert(static_cast<int>(shot.layers.size()) <= kMaxLayersPerShot);
   return shot;
 }
 

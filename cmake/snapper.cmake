@@ -70,7 +70,9 @@ function(snapper_test module)
     add_executable(${target} ${source})
     target_link_libraries(${target} PRIVATE snapper_${module} Qt6::Test)
     snapper_warnings(${target})
-    add_test(NAME ${target} COMMAND ${target})
+    # -silent: only failures and the totals, so a run costs an agent a
+    # few lines instead of one per test function.
+    add_test(NAME ${target} COMMAND ${target} -silent)
     set_tests_properties(${target} PROPERTIES
       ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
   endforeach()
