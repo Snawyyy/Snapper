@@ -87,7 +87,7 @@ void DrawFitted(const QImage& picture, QImage* frame) {
                               (frame->height() - fitted.height()) / 2.0),
                       fitted);
   QPainter painter(frame);
-  painter.setRenderHint(QPainter::SmoothPixmapTransform);
+  painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
   painter.drawImage(target, picture);
 }
 

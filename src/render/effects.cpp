@@ -39,7 +39,7 @@ void ZoomPunch(double amount, QImage* frame) {
   const QImage before = frame->copy();
   const double zoom = 1.0 + 0.5 * amount;
   QPainter painter(frame);
-  painter.setRenderHint(QPainter::SmoothPixmapTransform);
+  painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
   painter.translate(frame->width() / 2.0, frame->height() / 2.0);
   painter.scale(zoom, zoom);
   painter.translate(-frame->width() / 2.0, -frame->height() / 2.0);

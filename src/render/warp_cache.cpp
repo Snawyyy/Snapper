@@ -20,7 +20,7 @@ const QImage& WarpCache::Shrunk(const QString& path, const QImage& source,
                    std::max(1, source.height() * detail / kFullDetail));
   return shrunk_
       .emplace(key, source.scaled(size, Qt::IgnoreAspectRatio,
-                                  Qt::SmoothTransformation))
+                                  Qt::FastTransformation))
       .first->second;
 }
 

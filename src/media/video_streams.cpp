@@ -137,7 +137,7 @@ Result<void> VideoEncoder::FillVideoFrame(const QImage& image) {
   const QImage sized =
       image.size() == size
           ? image
-          : image.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+          : image.scaled(size, Qt::IgnoreAspectRatio, Qt::FastTransformation);
   const bool is_writable = av_frame_make_writable(video_frame_.get()) >= 0;
   if (!is_writable) {
     return std::unexpected(Error{Tr("Export ran out of memory.")});

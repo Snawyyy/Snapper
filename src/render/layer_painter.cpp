@@ -168,7 +168,7 @@ void PaintLayer(const Project& project, const Layer& layer, Frame frame,
   const PiecePose pose = Sample(layer.transform, frame, PiecePose());
   painter->save();
   painter->setRenderHint(QPainter::Antialiasing);
-  painter->setRenderHint(QPainter::SmoothPixmapTransform);
+  painter->setRenderHint(QPainter::SmoothPixmapTransform, false);
   painter->setOpacity(std::clamp(pose.opacity, 0.0, 1.0));
   const QTransform world = (links != nullptr
                                 ? links->LayerTransform(layer, frame)

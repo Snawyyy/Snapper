@@ -73,7 +73,7 @@ void WarpRasterTests::BendingKeepsEveryPixelTheSame() {
   QCOMPARE(warped.image.size(), QSize(81, 73));
   QCOMPARE(warped.origin, QPointF(-6.0, -4.0));
   // Pinned so a later change of the bend shows up as a changed picture.
-  QCOMPARE(Fingerprint(warped.image), quint64{17119216666373926065ULL});
+  QCOMPARE(Fingerprint(warped.image), quint64{17445179587732862646ULL});
 }
 
 void WarpRasterTests::RestGridLeavesThePictureAlone() {
