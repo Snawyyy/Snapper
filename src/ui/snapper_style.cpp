@@ -1,5 +1,8 @@
 #include "ui/snapper_style.h"
 
+#include <QAbstractItemView>
+#include <QComboBox>
+#include <QFrame>
 #include <QPainter>
 #include <QStyleOption>
 #include <QWidget>
@@ -165,6 +168,56 @@ void SnapperStyle::drawControl(ControlElement element,
     return;
   }
   QProxyStyle::drawControl(element, option, painter, widget);
+}
+
+void SnapperStyle::drawComplexControl(ComplexControl control,
+                                      const QStyleOptionComplex* option,
+                                      QPainter* painter,
+                                      const QWidget* widget) const {
+  assert(option != nullptr);
+  assert(painter != nullptr);
+  const auto* combo = qstyleoption_cast<const QStyleOptionComboBox*>(option);
+  const bool is_combo = control == CC_ComboBox && combo != nullptr;
+  if (!is_combo) {
+    QProxyStyle::drawComplexControl(control, option, painter, widget);
+    return;
+  }
+  const bool is_enabled = combo->state.testFlag(State_Enabled);
+  // The box sinks into the panel; its arrow is a small raised button.
+  DrawBevel(painter, combo->rect.adjusted(0, 0, -1, -1),
+            is_enabled ? theme::kField : theme::kFace, true);
+  const QRect arrow = subControlRect(CC_ComboBox, combo, SC_ComboBoxArrow,
+                                     widget)
+                          .adjusted(1, 1, -2, -2);
+  const bool is_down = combo->state.testFlag(State_On);
+  const ButtonLook look =
+      LookOfButton(is_enabled, is_down, false, HoverOf(option, widget));
+  DrawBevel(painter, arrow, look.fill, look.is_sunk);
+  QStyleOption mark = *option;
+  mark.rect = arrow;
+  drawPrimitive(PE_IndicatorArrowDown, &mark, painter, widget);
+  QStyleOptionComboBox text = *combo;
+  text.palette.setColor(QPalette::ButtonText, theme::kText);
+  text.palette.setColor(QPalette::Text, theme::kText);
+  drawControl(CE_ComboBoxLabel, &text, painter, widget);
+}
+
+void SnapperStyle::polish(QWidget* widget) {
+  assert(widget != nullptr);
+  assert(baseStyle() != nullptr);
+  QProxyStyle::polish(widget);
+  auto* combo = qobject_cast<QComboBox*>(widget);
+  const bool is_combo = combo != nullptr;
+  if (!is_combo) {
+    return;
+  }
+  combo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+  // The list it opens is sunken too, on the field colour.
+  QAbstractItemView* list = combo->view();
+  list->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+  QPalette field = list->palette();
+  field.setColor(QPalette::Base, theme::kField);
+  list->setPalette(field);
 }
 
 QSize SnapperStyle::sizeFromContents(ContentsType type,
