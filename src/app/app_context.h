@@ -7,6 +7,7 @@
 #include "edit/doll_library_manager.h"
 #include "edit/document_manager.h"
 #include "edit/export_manager.h"
+#include "edit/group_manager.h"
 #include "edit/history_manager.h"
 #include "edit/key_manager.h"
 #include "edit/link_manager.h"
@@ -58,6 +59,7 @@ class AppContext final {
   TimingChartManager timing_;
   ToastManager toasts_;
   PokeManager poke_;
+  GroupManager groups_;
   MainWindow window_;
 };
 

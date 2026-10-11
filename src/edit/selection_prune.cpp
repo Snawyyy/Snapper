@@ -141,6 +141,32 @@ void SelectionManager::PickDots(const std::set<WarpDot>& dots,
   }
 }
 
+void SelectionManager::PickGroup(const std::set<WarpDot>& dots,
+                                 PickMode mode) {
+  assert(history_ != nullptr);
+  assert(dots.size() < 100000);
+  const bool has_dots = !dots.empty();
+  if (!has_dots) {
+    return;
+  }
+  const bool is_all_in = std::all_of(
+      dots.begin(), dots.end(), [this](const WarpDot& dot) {
+        return dots_.contains(dot) && IsRealDot(dot);
+      });
+  const bool is_taking_out =
+      mode == PickMode::kRemove || (mode == PickMode::kToggle && is_all_in);
+  const PickMode how =
+      mode == PickMode::kReplace ? PickMode::kReplace : PickMode::kAdd;
+  if (!is_taking_out) {
+    std::set<Pick> pieces;
+    for (const WarpDot& dot : dots) {
+      pieces.insert({dot.layer, dot.piece});
+    }
+    PickThings(pieces, how, dots.begin()->layer);
+  }
+  PickDots(dots, is_taking_out ? PickMode::kRemove : how);
+}
+
 bool SelectionManager::IsKey(const KeyRef& key) const {
   assert(history_ != nullptr);
   assert(key.frame.index() >= 0);

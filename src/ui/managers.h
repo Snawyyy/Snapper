@@ -6,6 +6,7 @@ namespace snapper {
 class DocumentManager;
 class DollLibraryManager;
 class ExportManager;
+class GroupManager;
 class HistoryManager;
 class KeyManager;
 class LinkManager;
@@ -43,11 +44,12 @@ struct Managers final {
   ToastManager* toasts = nullptr;
   TimingChartManager* timing = nullptr;
   PokeManager* poke = nullptr;
+  GroupManager* groups = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&
            selection && pose && keys && presets && playback && exporter &&
-           links && reel && motion && toasts && timing && poke;
+           links && reel && motion && toasts && timing && poke && groups;
   }
 };
 

@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 
+#include "model/dot_group.h"
 #include "model/warp_mesh.h"
 
 namespace snapper {
@@ -172,7 +173,7 @@ struct ColliderDot final {
 struct Collider final {
   int ring_size = 0;
   std::vector<ColliderDot> dots;
-  // Pieces in front that it does not push.
+  // Pieces it does not push.
   std::vector<QString> spared;
 
   bool IsOn() const { return !dots.empty(); }
@@ -206,7 +207,7 @@ struct RigPiece final {
   std::vector<DragNode> drag_nodes{};
   // Grid points that move by themselves, each at most once.
   std::vector<PointMotion> point_motions{};
-  // The outline that pushes cloth in front of this piece, if any.
+  // The outline that pushes the other pieces of the doll, if any.
   Collider collider{};
 
   bool operator==(const RigPiece&) const = default;
@@ -229,6 +230,8 @@ struct IkChain final {
 struct Rig final {
   std::vector<RigPiece> pieces;
   std::vector<IkChain> chains;
+  // Dot groups every shot shows for this doll (their dots have no layer).
+  std::vector<DotGroup> dot_groups;
 
   bool operator==(const Rig&) const = default;
 };

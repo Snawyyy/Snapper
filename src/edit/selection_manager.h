@@ -104,6 +104,10 @@ class SelectionManager final : public QObject {
   // focus becomes the focused layer when it stays picked.
   void PickThings(const std::set<Pick>& picks, PickMode mode,
                   LayerId focus);
+  // Tab: steps the single pick to the next piece of its doll (direction
+  // 1) or the previous (-1), wrapping; a whole layer steps to the next
+  // layer. Does nothing with nothing picked.
+  void StepPick(int direction);
   void SelectKeys(const std::set<KeyRef>& keys, bool add);
   void PickKeys(const std::set<KeyRef>& keys, PickMode mode);
   void ClearKeys();
@@ -114,6 +118,10 @@ class SelectionManager final : public QObject {
   // Picks many warp dots at once, combined as mode says; the first of
   // dots takes the focus.
   void PickDots(const std::set<WarpDot>& dots, PickMode mode);
+  // Picks a group's dots and, so they can act, their pieces: replace,
+  // add (Shift), or flip (Ctrl: a group wholly picked is taken out, else
+  // added). Taking out leaves the pieces picked.
+  void PickGroup(const std::set<WarpDot>& dots, PickMode mode);
   void Clear();
 
  signals:

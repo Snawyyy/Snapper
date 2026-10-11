@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "io/collider_json.h"
+#include "io/dot_group_json.h"
 #include "io/point_motion_json.h"
 #include "io/warp_json.h"
 #include "model/node_physics.h"
@@ -236,7 +237,9 @@ QJsonObject RigToJson(const Rig& rig) {
                               {"tip", PointToJson(chain.tip)},
                               {"clockwise", chain.bends_clockwise}});
   }
-  return QJsonObject{{"pieces", pieces}, {"chains", chains}};
+  return QJsonObject{{"pieces", pieces},
+                     {"chains", chains},
+                     {"dot_groups", DotGroupsToJson(rig.dot_groups)}};
 }
 
 Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
@@ -269,6 +272,7 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
                           PointFromJson(chain.value("tip")),
                           chain.value("clockwise").toBool(true)});
   }
+  rig.dot_groups = DotGroupsFromJson(object.value("dot_groups"), issues);
   assert(rig.chains.size() <= static_cast<size_t>(kMaxIkChains));
   return rig;
 }

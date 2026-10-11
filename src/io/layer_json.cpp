@@ -7,6 +7,8 @@
 #include <cassert>
 #include <variant>
 
+#include "io/dot_group_json.h"
+
 namespace snapper {
 namespace {
 
@@ -223,7 +225,8 @@ QJsonObject ShotToJson(const Shot& shot) {
       {"background", ColorToJson(shot.background)},
       {"camera", ChannelToJson(shot.camera)},
       {"layers", layers},
-      {"links", LinksToJson(shot.links)}};
+      {"links", LinksToJson(shot.links)},
+      {"dot_groups", DotGroupsToJson(shot.dot_groups)}};
 }
 
 Shot ShotFromJson(const QJsonObject& object, JsonIssues* issues) {
@@ -247,6 +250,7 @@ Shot ShotFromJson(const QJsonObject& object, JsonIssues* issues) {
     shot.layers.push_back(LayerFromJson(layer.toObject(), issues));
   }
   ReadLinks(object.value("links").toArray(), &shot, issues);
+  shot.dot_groups = DotGroupsFromJson(object.value("dot_groups"), issues);
   assert(static_cast<int>(shot.layers.size()) <= kMaxLayersPerShot);
   return shot;
 }

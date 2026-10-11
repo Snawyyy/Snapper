@@ -8,6 +8,7 @@
 
 #include "base/frame.h"
 #include "base/id.h"
+#include "model/dot_group.h"
 #include "model/key.h"
 #include "model/layer.h"
 #include "model/pose.h"
@@ -56,6 +57,8 @@ struct Shot final {
   Channel<CameraPose> camera;
   // At most one per follower.
   std::vector<Link> links;
+  // Named sets of this shot's warp dots, picked with one click.
+  std::vector<DotGroup> dot_groups;
 
   bool operator==(const Shot&) const = default;
 };

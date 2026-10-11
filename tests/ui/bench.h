@@ -7,6 +7,7 @@
 #include "edit/doll_library_manager.h"
 #include "edit/document_manager.h"
 #include "edit/export_manager.h"
+#include "edit/group_manager.h"
 #include "edit/history_manager.h"
 #include "edit/key_manager.h"
 #include "edit/link_manager.h"
@@ -47,11 +48,12 @@ struct Bench final {
   TimingChartManager timing{&history, &selection, &keys, &playback};
   ToastManager toasts{&history};
   PokeManager poke{&history, &playback};
+  GroupManager groups{&history};
 
   Managers All() {
     return {&history, &document, &library, &rig, &shots, &stage,
             &selection, &pose, &keys, &presets, &playback, &exporter,
-            &links, &reel, &motion, &toasts, &timing, &poke};
+            &links, &reel, &motion, &toasts, &timing, &poke, &groups};
   }
 };
 

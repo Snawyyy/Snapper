@@ -189,15 +189,16 @@ void PokeManagerTests::AnEditRunsThePokeAgain() {
   }
   const double before = Wobble(poke);
   QSignalSpy changed(&poke, &PokeManager::Changed);
-  // A softer jelly: the same poke, run again on the edited doll.
+  // A firmer jelly: the same poke, run again on the edited doll. (A
+  // softer one would swing as far as a jelly may and show no change.)
   Project next = history.current();
   Doll doll = *next.dolls["Chest"];
   for (DragNode& node : doll.rig.pieces[0].drag_nodes) {
-    node.stretch = 1.0;
-    node.air = 1.0;
+    node.spring = 1.0;
+    node.inertia = 0.0;
   }
   next.dolls["Chest"] = std::make_shared<const Doll>(doll);
-  history.Commit("Soften", next);
+  history.Commit("Firm up", next);
   QVERIFY(poke.IsActive());
   QCOMPARE(poke.ticks(), 5);
   QVERIFY(changed.count() >= 1);
