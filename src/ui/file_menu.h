@@ -29,11 +29,15 @@ class FileMenu final : public QObject {
   bool ConfirmDiscard();
   // On start: offers to recover work left by a crash.
   void OfferRecovery();
+  // Opens a project file, asking about unsaved work first.
+  void OpenPath(const QString& path);
 
  private:
   void New();
   void Open();
-  void OpenPath(const QString& path);
+  // Closes the window (asking about unsaved work) and starts the app
+  // again on the same file, so a fresh build shows at once.
+  void Restart();
   bool Save();
   bool SaveAs();
   void ChooseSong();
@@ -54,6 +58,7 @@ class FileMenu final : public QObject {
   QAction save_as_action_;
   QAction song_action_;
   QAction remove_song_action_;
+  QAction restart_action_;
   QAction quit_action_;
 };
 

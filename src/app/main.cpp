@@ -19,6 +19,9 @@ int main(int argc, char* argv[]) {
       QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
   snapper::AppContext context(data);
   context.window()->show();
-  context.window()->Start();
+  // A restart passes the file it was on.
+  const QStringList arguments = QApplication::arguments();
+  const bool has_file = arguments.size() > 1;
+  context.window()->Start(has_file ? arguments.at(1) : QString());
   return QApplication::exec();
 }

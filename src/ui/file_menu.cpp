@@ -4,6 +4,8 @@
 #include <QFileInfo>
 #include <QKeySequence>
 #include <QMessageBox>
+#include <QProcess>
+#include <QCoreApplication>
 
 #include <cassert>
 
@@ -39,6 +41,7 @@ FileMenu::FileMenu(DocumentManager* document, HistoryManager* history,
       save_as_action_(tr("Save &as...")),
       song_action_(tr("Choose so&ng...")),
       remove_song_action_(tr("Remove song")),
+      restart_action_(tr("&Restart")),
       quit_action_(tr("&Quit")) {
   assert(document_ != nullptr && history_ != nullptr);
   assert(window_ != nullptr);
@@ -46,6 +49,9 @@ FileMenu::FileMenu(DocumentManager* document, HistoryManager* history,
   open_action_.setShortcut(QKeySequence::Open);
   save_action_.setShortcut(QKeySequence::Save);
   save_as_action_.setShortcut(QKeySequence::SaveAs);
+  restart_action_.setShortcut(
+      QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R));
+  restart_action_.setToolTip(tr("Close and open Snapper again on this file"));
   quit_action_.setShortcut(QKeySequence::Quit);
   menu_.setToolTipsVisible(true);
   recent_menu_.setToolTipsVisible(true);
@@ -56,7 +62,7 @@ FileMenu::FileMenu(DocumentManager* document, HistoryManager* history,
   menu_.addSeparator();
   menu_.addActions({&song_action_, &remove_song_action_});
   menu_.addSeparator();
-  menu_.addAction(&quit_action_);
+  menu_.addActions({&restart_action_, &quit_action_});
   connect(&new_action_, &QAction::triggered, this, &FileMenu::New);
   connect(&open_action_, &QAction::triggered, this, &FileMenu::Open);
   connect(&save_action_, &QAction::triggered, this, [this] { Save(); });
@@ -65,6 +71,7 @@ FileMenu::FileMenu(DocumentManager* document, HistoryManager* history,
   connect(&song_action_, &QAction::triggered, this, &FileMenu::ChooseSong);
   connect(&remove_song_action_, &QAction::triggered, this,
           &FileMenu::RemoveSong);
+  connect(&restart_action_, &QAction::triggered, this, &FileMenu::Restart);
   connect(&quit_action_, &QAction::triggered, window_, &QWidget::close);
   connect(document_, &DocumentManager::RecentFilesChanged, this,
           &FileMenu::RefreshRecent);
@@ -134,6 +141,24 @@ void FileMenu::Open() {
   const bool is_chosen = !path.isEmpty();
   if (is_chosen) {
     Report(document_->Open(path));
+  }
+}
+
+void FileMenu::Restart() {
+  assert(document_ != nullptr);
+  assert(window_ != nullptr);
+  const QString path = document_->path();
+  const bool was_closed = window_->close();
+  if (!was_closed) {
+    return;
+  }
+  const QStringList arguments =
+      path.isEmpty() ? QStringList() : QStringList{path};
+  const bool is_started = QProcess::startDetached(
+      QCoreApplication::applicationFilePath(), arguments);
+  if (!is_started) {
+    QMessageBox::warning(window_, tr("Restart"),
+                         tr("Snapper closed but could not start again."));
   }
 }
 
