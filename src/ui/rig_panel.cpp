@@ -100,7 +100,7 @@ void RigPanel::BuildLayout() {
                             "Good for heads."));
   AddTitle(&form_, &joint_title_, tr("Joint"));
   form_.addRow(tr("Hangs from"), &parent_);
-  AddNumberRow(&form_, tr("Rest turn"), &rest_, &live_);
+  AddAngleRow(&form_, tr("Rest turn"), &rest_, &live_);
   AddNumberRow(&form_, tr("Draw order"), &order_, &live_);
   form_.addRow(tr("Drawing"), &drawing_);
   form_.addRow(QString(), &keep_shape_);
@@ -258,7 +258,13 @@ void RigPanel::WireChains() {
     }
   });
   connect(&save_rig_, &QPushButton::clicked, this, [this] {
-    emit Problem(ProblemOf(managers_.library->SaveRig(doll_)));
+    const QString problem = ProblemOf(managers_.library->SaveRig(doll_));
+    emit Problem(problem);
+    const bool is_saved = problem.isEmpty();
+    if (is_saved) {
+      managers_.toasts->Cheer(tr("Saved the rig of %1 to the library.")
+                                  .arg(doll_));
+    }
   });
   connect(&chains_, &QListWidget::currentRowChanged, this,
           &RigPanel::RefreshChains);

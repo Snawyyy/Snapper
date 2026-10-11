@@ -19,22 +19,23 @@ QString KeyOf(const QString& key) {
 
 FoldSection::FoldSection(const QString& title, MotionManager* motion,
                          const QString& settings_path, const QString& key,
-                         QWidget* parent)
+                         QWidget* parent, bool is_open_at_first)
     : QWidget(parent), motion_(motion), settings_path_(settings_path),
-      key_(key), title_(title), layout_(this), form_(&body_) {
+      key_(key), title_(title), layout_(this), form_(&body_),
+      is_open_(is_open_at_first) {
   assert(motion != nullptr);
   assert(!key.isEmpty());
   layout_.setContentsMargins(0, 0, 0, 0);
   header_.setObjectName("fold_header");
   header_.setAutoRaise(true);
   header_.setToolButtonStyle(Qt::ToolButtonTextOnly);
-  header_.setToolTip(tr("Show or hide the exact settings."));
+  header_.setToolTip(tr("Show or hide this section."));
   layout_.addWidget(&header_, 0, Qt::AlignLeft);
   layout_.addWidget(&body_);
   const bool is_saved = !settings_path_.isEmpty();
   if (is_saved) {
     const QSettings settings(settings_path_, QSettings::IniFormat);
-    is_open_ = settings.value(KeyOf(key_), false).toBool();
+    is_open_ = settings.value(KeyOf(key_), is_open_).toBool();
   }
   body_.setVisible(is_open_);
   header_.setText((is_open_ ? "v " : "> ") + title_);

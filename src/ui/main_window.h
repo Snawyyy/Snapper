@@ -12,6 +12,7 @@
 #include <QWidget>
 
 #include "ui/cast_panel.h"
+#include "ui/command_palette.h"
 #include "ui/export_dialog.h"
 #include "ui/file_menu.h"
 #include "ui/inspector.h"
@@ -20,13 +21,16 @@
 #include "ui/refusal_shaker.h"
 #include "ui/rig_canvas.h"
 #include "ui/rig_panel.h"
+#include "ui/shortcut_sheet.h"
 #include "ui/shot_strip.h"
+#include "ui/success_burst.h"
 #include "ui/space_keys_action.h"
 #include "ui/stage_view.h"
 #include "ui/top_bar.h"
 #include "ui/timeline_view.h"
 #include "ui/timing_chart_dialog.h"
 #include "ui/toast_view.h"
+#include "ui/ui_sound.h"
 #include "ui/video_page.h"
 
 namespace snapper {
@@ -56,6 +60,8 @@ class MainWindow final : public QMainWindow {
 
  private:
   void BuildMenus();
+  // The View menu's Sounds switch and the Help menu.
+  void BuildViewAndHelp();
   // Puts the Pose, Rig and Video pages in the stack.
   void BuildPages();
   // Puts the top bar in its fixed host and ties the tabs to the pages.
@@ -73,6 +79,10 @@ class MainWindow final : public QMainWindow {
   QMenu edit_menu_;
   QMenu view_menu_;
   MotionMenu motion_menu_;
+  // Quiet sounds for undo, redo and big wins; the View menu turns them
+  // off.
+  UiSound sound_;
+  QAction sounds_action_;
   QAction undo_action_;
   QAction redo_action_;
   // The bar sits fixed across the top, above the docks, so hiding the
@@ -98,6 +108,8 @@ class MainWindow final : public QMainWindow {
   Inspector inspector_;
   // Floats over the pages, so it comes after the panels it floats over.
   ToastView toast_view_;
+  // A burst of red pixels over everything, when something big goes well.
+  SuccessBurst burst_;
   // A greyed control clicked anyway shakes and says why.
   RefusalShaker shaker_;
   ExportDialog export_dialog_;
@@ -110,6 +122,11 @@ class MainWindow final : public QMainWindow {
   QAction play_action_;
   QAction next_action_;
   QAction back_action_;
+  QMenu help_menu_;
+  QAction find_action_;
+  QAction sheet_action_;
+  CommandPalette palette_;
+  ShortcutSheet sheet_;
   // Whether the posing panels were open before the Video tab hid them.
   bool was_cast_open_ = true;
   bool was_inspector_open_ = true;

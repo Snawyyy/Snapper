@@ -7,6 +7,7 @@
 #include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPixmap>
 
 #include <algorithm>
 #include <cassert>
@@ -19,26 +20,12 @@
 #include "edit/shot_manager.h"
 #include "ui/drag_text.h"
 #include "ui/grab.h"
+#include "ui/shot_strip_layout.h"
 #include "ui/theme.h"
 #include "ui/toast_manager.h"
 #include "ui/toast_queue.h"
 
 namespace snapper {
-namespace {
-
-constexpr double kPixelsPerFrame = 2.0;
-constexpr double kMinBlock = 56.0;
-constexpr double kAddWidth = 28.0;
-constexpr int kStripHeight = 40;
-
-double WidthOf(const Shot& shot) {
-  assert(shot.length.index() >= 1);
-  const double width = shot.length.index() * kPixelsPerFrame;
-  assert(width > 0.0);
-  return std::max(width, kMinBlock);
-}
-
-}  // namespace
 
 ShotStrip::ShotStrip(const Managers& managers)
     : managers_(managers),
@@ -54,74 +41,6 @@ ShotStrip::ShotStrip(const Managers& managers)
   connect(managers_.history, &HistoryManager::Changed, this, update_me);
   connect(managers_.selection, &SelectionManager::Changed, this, update_me);
   assert(hasMouseTracking());
-}
-
-std::vector<ShotStrip::Block> ShotStrip::Blocks() const {
-  assert(managers_.history != nullptr);
-  std::vector<Block> blocks;
-  double x = 2.0;
-  for (const auto& shot : managers_.history->current().shots) {
-    const double width = WidthOf(*shot);
-    blocks.push_back({shot->id, QRectF(x, 2.0, width, kStripHeight - 4.0)});
-    x += width + 2.0;
-  }
-  assert(blocks.size() <= static_cast<size_t>(kMaxShots));
-  return blocks;
-}
-
-QRectF ShotStrip::AddBlock() const {
-  assert(managers_.history != nullptr);
-  const auto blocks = Blocks();
-  const double x = blocks.empty() ? 2.0 : blocks.back().rect.right() + 2.0;
-  assert(x >= 0.0);
-  return QRectF(x, 2.0, kAddWidth, kStripHeight - 4.0);
-}
-
-void ShotStrip::PaintBlock(QPainter* painter, const Block& block) const {
-  assert(painter != nullptr);
-  assert(block.rect.isValid());
-  const Project& project = managers_.history->current();
-  const Shot& shot = *FindShot(project, block.shot);
-  const bool is_focus = block.shot == managers_.selection->shot();
-  const bool is_picked = managers_.selection->shots().contains(block.shot);
-  painter->fillRect(block.rect, is_picked ? theme::kFaceLight : theme::kFace);
-  painter->fillRect(
-      QRectF(block.rect.topLeft(), QSizeF(6, block.rect.height())),
-      shot.background);
-  painter->setPen(QPen(is_picked ? theme::kPick : theme::kShadow,
-                       is_focus ? 2.0 : 1.0));
-  painter->drawRect(block.rect);
-  const double edge = HoverAmount(hover_.ScaleOf(
-      GrabKind::kEdge, QString::number(block.shot.value())));
-  const bool shows_edge = edge > 0.0;
-  if (shows_edge) {
-    painter->fillRect(
-        QRectF(block.rect.right() - 3 - 3 * edge, block.rect.top(),
-               3 + 3 * edge, block.rect.height()),
-        theme::kHandle.lighter(100 + int(40 * edge)));
-  }
-  painter->setPen(theme::kText);
-  painter->drawText(block.rect.adjusted(10, 2, -4, -2),
-                    Qt::AlignLeft | Qt::AlignTop, shot.name);
-  painter->setPen(theme::kTextOff);
-  painter->drawText(block.rect.adjusted(10, 2, -4, -2),
-                    Qt::AlignLeft | Qt::AlignBottom,
-                    tr("%1 f").arg(shot.length.index()));
-}
-
-void ShotStrip::paintEvent(QPaintEvent* event) {
-  assert(managers_.history != nullptr);
-  assert(event != nullptr);
-  QPainter painter(this);
-  painter.fillRect(rect(), theme::kFaceDark);
-  for (const Block& block : Blocks()) {
-    PaintBlock(&painter, block);
-  }
-  const QRectF add = AddBlock();
-  painter.fillRect(add, theme::kFace);
-  painter.setPen(theme::kText);
-  painter.drawText(add, Qt::AlignCenter, QStringLiteral("+"));
-  feedback_.Paint(&painter, QRectF(rect()));
 }
 
 void ShotStrip::mousePressEvent(QMouseEvent* event) {
@@ -176,6 +95,7 @@ void ShotStrip::mouseMoveEvent(QMouseEvent* event) {
   assert(managers_.history != nullptr);
   assert(event != nullptr);
   const QPointF at = event->position();
+  UpdateChipHover(at);
   bool is_on_edge = false;
   ShotId edge_shot;
   for (const Block& block : Blocks()) {
@@ -245,9 +165,28 @@ bool ShotStrip::CancelDrag() {
   return true;
 }
 
+void ShotStrip::UpdateChipHover(QPointF at) {
+  assert(std::isfinite(at.x()) && std::isfinite(at.y()));
+  assert(managers_.history != nullptr);
+  ShotId now;
+  for (const Block& block : Blocks()) {
+    const bool is_here = block.rect.contains(at);
+    if (is_here) {
+      now = block.shot;
+    }
+  }
+  const bool is_new = now != hovered_;
+  hovered_ = now;
+  if (is_new) {
+    update();
+  }
+}
+
 void ShotStrip::leaveEvent(QEvent* event) {
   assert(event != nullptr);
   assert(hover_.kind() >= GrabKind::kNone);
+  hovered_ = ShotId();
+  update();
   hover_.Set(GrabKind::kNone, QString());
   QWidget::leaveEvent(event);
 }

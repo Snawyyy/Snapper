@@ -11,6 +11,7 @@
 
 #include "base/number_text.h"
 #include "ui/number_input.h"
+#include "ui/angle_dial.h"
 #include "ui/scrub_label.h"
 
 namespace snapper {
@@ -71,6 +72,22 @@ void AddNumberRow(QFormLayout* form, const QString& label,
   // The form takes the label as its child, like a plain row's label.
   auto scrub = std::make_unique<ScrubLabel>(label, box, live);
   form->addRow(scrub.release(), box);
+}
+
+void AddAngleRow(QFormLayout* form, const QString& label,
+                 QDoubleSpinBox* box, LiveEdit* live) {
+  assert(form != nullptr && box != nullptr);
+  assert(!label.isEmpty());
+  NumberInput::Install(box);
+  auto scrub = std::make_unique<ScrubLabel>(label, box, live);
+  auto row = std::make_unique<QWidget>();
+  auto* layout = std::make_unique<QHBoxLayout>(row.get()).release();
+  layout->setContentsMargins(0, 0, 0, 0);
+  layout->setSpacing(4);
+  layout->addWidget(box, 1);
+  layout->addWidget(std::make_unique<AngleDial>(box, live, row.get())
+                        .release());
+  form->addRow(scrub.release(), row.release());
 }
 
 void AddNumberPair(QFormLayout* form, const QString& label, QHBoxLayout* row,

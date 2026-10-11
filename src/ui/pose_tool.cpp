@@ -121,6 +121,9 @@ void PoseTool::PressPick(const Pick& pick, bool is_shift, bool is_ctrl,
       managers_.history, is_ctrl ? QObject::tr("Scale %1").arg(what)
                                  : QObject::tr("Move %1").arg(what));
   drag_ = std::move(drag);
+  if (!is_ctrl) {
+    ArmGuides(frame);
+  }
   assert(IsDragging());
 }
 
@@ -174,10 +177,12 @@ void PoseTool::Move(QPointF point, bool is_shift) {
     case Kind::kIk:
       MoveIk(point);
       break;
-    case Kind::kMove:
+    case Kind::kMove: {
+      total = Snapped(total);
       MoveAll(total);
-      Say(OffsetText(total), false, point);
+      Say(OffsetText(total), !guides_.empty(), point);
       break;
+    }
     case Kind::kScale:
       // Right or up grows, left or down shrinks.
       ScaleAll(std::pow(2.0, (total.x() - total.y()) / kScalePixels));
@@ -243,7 +248,7 @@ void PoseTool::MoveAll(QPointF total) {
       PoseDelta delta;
       delta.offset = Back(*frame, drag_->start + total, at.corner) -
                      Back(*frame, drag_->start + drag_->done, at.corner);
-      Note(managers_.pose->Shift({track}, at.local, delta));
+      Note(managers_.pose->Shift({track}, EditFrames(at), delta));
     }
   }
   drag_->done = total;
@@ -256,13 +261,14 @@ void PoseTool::ScaleAll(double factor) {
   delta.scale_x = factor - drag_->scaled;
   delta.scale_y = delta.scale_x;
   Note(managers_.pose->Shift(managers_.selection->PickedTracks(),
-                             drag_->frame.local, delta));
+                             EditFrames(drag_->frame), delta));
   drag_->scaled = factor;
 }
 
 void PoseTool::Release() {
   assert(cache_ != nullptr);
   assert(managers_.history != nullptr);
+  guides_.clear();
   const bool is_box = drag_ != nullptr && drag_->kind == Kind::kBox;
   if (is_box) {
     const QRectF box = Box();
@@ -320,6 +326,7 @@ void PoseTool::Release() {
 void PoseTool::Cancel() {
   assert(cache_ != nullptr);
   assert(managers_.history != nullptr);
+  guides_.clear();
   // A pick box has no edit to take back.
   const bool has_scope = drag_ != nullptr && drag_->scope != nullptr;
   if (has_scope) {
@@ -363,7 +370,7 @@ void PoseTool::Wheel(int notches, bool is_fine, const StageFrame& frame) {
   PoseDelta delta;
   // Wheel up turns counterclockwise, like a knob.
   delta.rotation = WheelDegrees(notches, is_fine);
-  Note(managers_.pose->Shift(tracks, frame.local, delta));
+  Note(managers_.pose->Shift(tracks, EditFrames(frame), delta));
 }
 
 double PoseTool::WheelDegrees(int notches, bool is_fine) {

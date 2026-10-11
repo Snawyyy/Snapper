@@ -64,9 +64,9 @@ void ExportDialog::Wire() {
   ExportManager* exporter = managers_.exporter;
   assert(exporter != nullptr);
   assert(managers_.history != nullptr);
-  connect(&format_, &QComboBox::currentIndexChanged, this,
+  connect(&format_, &ChoiceRow::currentIndexChanged, this,
           &ExportDialog::PickFormat);
-  connect(&range_, &QComboBox::currentIndexChanged, this,
+  connect(&range_, &ChoiceRow::currentIndexChanged, this,
           &ExportDialog::Refresh);
   connect(&from_, &QSpinBox::valueChanged, this, &ExportDialog::Refresh);
   connect(&to_, &QSpinBox::valueChanged, this, &ExportDialog::Refresh);

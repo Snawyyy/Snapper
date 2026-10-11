@@ -20,7 +20,8 @@
 namespace snapper {
 
 TimelineView::TimelineView(const Managers& managers)
-    : managers_(managers), step_mode_(this),
+    : managers_(managers), step_mode_(managers.playback, this),
+      chips_(managers, this),
       frame_width_(kDefaultFrameWidth),
       hover_(managers.motion, this),
       feedback_(managers.motion, this),
@@ -31,16 +32,7 @@ TimelineView::TimelineView(const Managers& managers)
       drag_playhead_(managers.playback) {
   assert(managers_.IsComplete());
   step_mode_.setObjectName("step_mode");
-  step_mode_.setCheckable(true);
-  step_mode_.setFocusPolicy(Qt::NoFocus);
   step_mode_.setGeometry(1, 1, kNameWidth - 2, kRulerHeight - 2);
-  connect(&step_mode_, &QToolButton::clicked, this, [this](bool is_on) {
-    managers_.playback->SetStepMode(is_on ? StepMode::kAnimation
-                                          : StepMode::kScrub);
-  });
-  connect(managers_.playback, &PlaybackManager::StepModeChanged, this,
-          &TimelineView::ShowStepMode);
-  ShowStepMode();
   setFocusPolicy(Qt::StrongFocus);
   setMouseTracking(true);
   connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
@@ -54,7 +46,11 @@ TimelineView::TimelineView(const Managers& managers)
                            managers_.playback->IsPlaying());
           });
   setMinimumHeight(kRulerHeight + kWaveHeight + 3 * kRowHeight);
-  const auto update_me = [this] { update(); };
+  connect(&chips_, &KeyChipBar::Problem, this, &TimelineView::Problem);
+  const auto update_me = [this] {
+    ShowChips();
+    update();
+  };
   connect(managers_.history, &HistoryManager::Changed, this, update_me);
   connect(managers_.selection, &SelectionManager::Changed, this, update_me);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
@@ -74,22 +70,6 @@ void TimelineView::ShowStep(const Project& before, bool is_travel) {
     changes.moved.clear();
   }
   effects_.ShowKeys(changes, is_travel);
-}
-
-void TimelineView::ShowStepMode() {
-  assert(managers_.playback != nullptr);
-  const bool is_animation =
-      managers_.playback->step_mode() == StepMode::kAnimation;
-  step_mode_.setChecked(is_animation);
-  step_mode_.setText(is_animation ? tr("Animation mode") : tr("Scrub mode"));
-  step_mode_.setToolTip(
-      is_animation
-          ? tr("The arrow keys jump to the next frame where something "
-               "changes, skipping held frames. Click for one frame at a "
-               "time.")
-          : tr("The arrow keys move one frame at a time. Click to jump "
-               "between frames where something changes."));
-  assert(step_mode_.isCheckable());
 }
 
 std::optional<Frame> TimelineView::FrameAt(double x) const {

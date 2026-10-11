@@ -2,7 +2,9 @@
 #define SNAPPER_UI_CAST_PANEL_H_
 
 #include <QHBoxLayout>
+#include <QHash>
 #include <QLabel>
+#include <QPixmap>
 #include <QListWidget>
 #include <QMenu>
 #include <QPushButton>
@@ -12,6 +14,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "ui/doll_cards.h"
 #include "ui/managers.h"
 #include "ui/problem.h"
 
@@ -35,6 +38,8 @@ class CastPanel final : public QWidget {
   void BuildLayout();
   void Wire();
   void RefreshLibrary();
+  // The small picture of a library doll, kept once drawn.
+  QPixmap PictureOf(const QString& name);
   void RefreshLayers();
   void RefreshButtons();
   void Import();
@@ -52,9 +57,12 @@ class CastPanel final : public QWidget {
   Managers managers_;
   // Library dolls re-exported since they were last taken.
   QSet<QString> stale_;
+  // The pictures of library dolls, drawn once until the library or a
+  // doll's art changes.
+  QHash<QString, QPixmap> pictures_;
   QVBoxLayout layout_;
   QLabel library_title_;
-  QListWidget library_;
+  DollCards library_;
   QHBoxLayout library_buttons_;
   QPushButton import_;
   QPushButton reload_;

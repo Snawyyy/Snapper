@@ -64,6 +64,9 @@ class ReelTimeline final : public QWidget {
   // The clip whose end at is on, where the next clip on its track
   // starts: the cut a transition lives on. Invalid elsewhere.
   ClipId JointAt(QPointF at) const;
+  // The clip whose cut has its badge under at; invalid for none. A
+  // click on a badge opens that transition.
+  ClipId BadgeAt(QPointF at) const;
   // The track drawn at y, or -1 off the tracks.
   int TrackAt(double y) const;
   // The reel frame at x, never before 0.

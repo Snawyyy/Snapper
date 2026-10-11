@@ -50,6 +50,11 @@ void SetScrubUnit(QAbstractSpinBox* box, double unit);
 void AddNumberRow(QFormLayout* form, const QString& label,
                   QAbstractSpinBox* box, LiveEdit* live);
 
+// The same for an angle: a small dial sits beside the field, showing
+// the angle and turning it (see AngleDial).
+void AddAngleRow(QFormLayout* form, const QString& label,
+                 QDoubleSpinBox* box, LiveEdit* live);
+
 // One half of a pair: a short scrubbing name and its field.
 struct NumberPart final {
   QString text;

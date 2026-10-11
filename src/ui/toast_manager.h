@@ -29,6 +29,12 @@ class ToastManager final : public QObject {
   // A big action just landed as the newest history step: a toast with
   // an Undo button that undoes exactly that step.
   void Done(const QString& text);
+  // Something not undoable happened and went well (a file saved): a
+  // plain toast with no Undo.
+  void Say(const QString& text);
+  // The same for a big win (an export done, a rig saved): the toast, and
+  // the window bursts (see SuccessBurst).
+  void Cheer(const QString& text);
   // Passes on the outcome of an edit: a problem is shown as one, no
   // problem shows done_text with Undo.
   void Finish(const QString& problem, const QString& done_text);
@@ -48,6 +54,8 @@ class ToastManager final : public QObject {
  signals:
   // A toast came, went, lost its Undo or ran down.
   void Changed();
+  // Something big went well.
+  void Cheered();
 
  private:
   void OnTick();

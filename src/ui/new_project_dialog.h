@@ -1,20 +1,26 @@
 #ifndef SNAPPER_UI_NEW_PROJECT_DIALOG_H_
 #define SNAPPER_UI_NEW_PROJECT_DIALOG_H_
 
-#include <QComboBox>
+#include <QButtonGroup>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFormLayout>
+#include <QHBoxLayout>
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QString>
+#include <QToolButton>
+#include <QWidget>
+
+#include <array>
 
 #include "model/project.h"
 
 namespace snapper {
 
-// Asks for a new project's name and frame size. OK stays greyed out,
-// saying why, until both are usable.
+// Asks for a new project's name and frame size, picked on four tiles
+// (YouTube, Shorts, square, custom), each drawn as a frame of its shape.
+// OK stays greyed out, saying why, until both are usable.
 class NewProjectDialog final : public QDialog {
   Q_OBJECT
 
@@ -31,11 +37,16 @@ class NewProjectDialog final : public QDialog {
 
  private:
   void PickPreset(int index);
+  // Presses the tile for index without picking it again.
+  void ShowPreset(int index);
   void Refresh();
 
   QFormLayout layout_;
   QLineEdit name_;
-  QComboBox preset_;
+  QWidget tiles_;
+  QHBoxLayout tiles_layout_;
+  QButtonGroup group_;
+  std::array<QToolButton*, 4> tile_{};
   QSpinBox width_;
   QSpinBox height_;
   QDialogButtonBox buttons_;

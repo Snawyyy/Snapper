@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <memory>
 #include <utility>
 
 #include "edit/history_manager.h"
@@ -68,7 +69,6 @@ void ShotBin::Refresh() {
   const Project& project = managers_.history->current();
   const int row = currentRow();
   clear();
-  std::map<std::shared_ptr<const Shot>, QIcon> kept;
   for (const auto& shot : project.shots) {
     // The list owns its items: add one, then dress it.
     addItem(tr("%1\n%2 s").arg(shot->name).arg(
@@ -76,10 +76,7 @@ void ShotBin::Refresh() {
     QListWidgetItem* item = this->item(count() - 1);
     item->setIcon(Thumbnail(shot));
     item->setData(kShotRole, shot->id.value());
-    kept[shot] = thumbnails_[shot];
   }
-  // Pictures of shots that were edited or removed go.
-  thumbnails_ = std::move(kept);
   setCurrentRow(std::min(row, count() - 1));
   assert(count() == static_cast<int>(project.shots.size()));
 }
@@ -108,18 +105,8 @@ QMimeData* ShotBin::mimeData(const QList<QListWidgetItem*>& items) const {
 QIcon ShotBin::Thumbnail(const std::shared_ptr<const Shot>& shot) {
   assert(shot != nullptr);
   assert(managers_.history != nullptr);
-  const auto found = thumbnails_.find(shot);
-  const bool is_drawn = found != thumbnails_.end() && !found->second.isNull();
-  if (is_drawn) {
-    return found->second;
-  }
-  const Project& project = managers_.history->current();
-  const double scale = static_cast<double>(kThumbWidth) /
-                       std::max(project.canvas.width, project.canvas.height);
-  const QIcon icon(QPixmap::fromImage(
-      renderer_.RenderShot(project, *shot, Frame(0), scale)));
-  thumbnails_[shot] = icon;
-  return icon;
+  return QIcon(thumbs_.Of(managers_.history->current(), shot, kThumbWidth,
+                          managers_.history->IsScopeOpen()));
 }
 
 }  // namespace snapper

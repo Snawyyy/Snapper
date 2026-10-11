@@ -128,6 +128,91 @@ Result<std::set<KeyRef>> KeyManager::Shift(const std::set<KeyRef>& keys,
   return moved;
 }
 
+std::optional<Ease> KeyManager::EaseOf(const std::set<KeyRef>& keys) const {
+  assert(history_ != nullptr);
+  assert(keys.size() < 10000000);
+  std::optional<Ease> shared;
+  for (const KeyRef& key : keys) {
+    const Shot* shot = FindShot(history_->current(), key.track.shot);
+    std::optional<Ease> own;
+    const bool has_shot = shot != nullptr;
+    if (has_shot) {
+      ReadTrack(*shot, key.track, [&](const auto& channel) {
+        const int at = KeyIndexAt(channel, key.frame);
+        const bool is_key = at >= 0;
+        if (is_key) {
+          own = channel.keys[static_cast<size_t>(at)].ease;
+        }
+      });
+    }
+    const bool is_gone = !own.has_value();
+    if (is_gone) {
+      continue;
+    }
+    const bool is_mixed = shared.has_value() && *shared != *own;
+    if (is_mixed) {
+      return std::nullopt;
+    }
+    shared = own;
+  }
+  return shared;
+}
+
+QString KeyManager::WhyNoHold(const std::set<KeyRef>& keys, int delta) const {
+  assert(history_ != nullptr);
+  assert(keys.size() < 10000000);
+  const bool is_picked = !keys.empty();
+  if (!is_picked) {
+    return Tr("Pick a key first.");
+  }
+  const bool is_valid = delta != 0 && std::abs(delta) <= kMaxFrame;
+  if (!is_valid) {
+    return Tr("Add or take out at least one frame.");
+  }
+  const std::map<TrackRef, std::set<Frame>> tracks = ByTrack(keys);
+  int last = 0;
+  for (const auto& [track, frames] : tracks) {
+    last = std::max(last, frames.rbegin()->index());
+  }
+  const bool is_longer = delta > 0;
+  if (is_longer) {
+    return QString();
+  }
+  // Taking frames out must not take a key with them.
+  for (const auto& [track, frames] : tracks) {
+    const Shot* shot = FindShot(history_->current(), track.shot);
+    bool is_blocked = false;
+    for (int step = 1; shot != nullptr && step <= -delta; ++step) {
+      ReadTrack(*shot, track, [&](const auto& channel) {
+        is_blocked = is_blocked ||
+                     KeyIndexAt(channel, Frame(last + step)) >= 0;
+      });
+    }
+    if (is_blocked) {
+      return Tr("There is no hold to shorten: the next key is right "
+                "after.");
+    }
+  }
+  return QString();
+}
+
+Result<void> KeyManager::Hold(const std::set<KeyRef>& keys, int delta) {
+  assert(history_ != nullptr);
+  assert(keys.size() < 10000000);
+  const QString why_not = WhyNoHold(keys, delta);
+  const bool can_hold = why_not.isEmpty();
+  if (!can_hold) {
+    return std::unexpected(Error{why_not});
+  }
+  std::vector<TrackRef> tracks;
+  int last = 0;
+  for (const auto& [track, frames] : ByTrack(keys)) {
+    tracks.push_back(track);
+    last = std::max(last, frames.rbegin()->index());
+  }
+  return Retime(tracks, Frame(last + 1), delta);
+}
+
 QString KeyManager::WhyNoSpace(const std::set<KeyRef>& keys) const {
   assert(history_ != nullptr);
   assert(keys.size() < 10000000);

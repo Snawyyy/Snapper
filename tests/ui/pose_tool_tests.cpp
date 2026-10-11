@@ -160,6 +160,7 @@ void PoseToolTests::ManyPicksMoveAndTurnTogether() {
   bench.history.Reset(project);
   ImageCache cache;
   PoseTool tool(bench.All(), &cache);
+  tool.SetGuides(false);
   // Box from above-left of the body to inside the eye catches both.
   tool.Press({12, 12}, false, false, kFrame);
   tool.Move({85, 65}, false);

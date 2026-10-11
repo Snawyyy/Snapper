@@ -1,6 +1,10 @@
 #ifndef SNAPPER_UI_STAGE_VIEW_H_
 #define SNAPPER_UI_STAGE_VIEW_H_
 
+#include <QDragEnterEvent>
+#include <QDragLeaveEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
 #include <QImage>
 #include <QString>
 #include <QMenu>
@@ -9,6 +13,7 @@
 #include <optional>
 
 #include "render/frame_renderer.h"
+#include "render/stage_camera.h"
 #include "render/stage_geometry.h"
 #include "render/stage_hit.h"
 #include "ui/drag_feedback.h"
@@ -42,6 +47,12 @@ class StageView final : public QWidget {
   std::optional<StageFrame> CurrentFrame() const;
   // The chip, ghost and pop of the drag, for tests to look at.
   const DragFeedback& feedback() const { return feedback_; }
+  // How the view looks at the frame (zoom and pan).
+  const StageCamera& camera() const { return camera_; }
+  // Ctrl+wheel zooms toward the cursor; the middle button drags the view
+  // along; Shift+1 fits the frame, Shift+2 frames the pick, Shift+0 is
+  // actual size.
+  void SetCamera(const StageCamera& camera);
 
  signals:
   // Something the user tried didn't work; empty clears it.
@@ -59,9 +70,24 @@ class StageView final : public QWidget {
   void keyReleaseEvent(QKeyEvent* event) override;
   void focusOutEvent(QFocusEvent* event) override;
   void contextMenuEvent(QContextMenuEvent* event) override;
+  // The arrow keys nudge the pick while the stage has focus, ahead of
+  // the window's frame-step shortcuts; Tab steps the pick.
+  bool event(QEvent* event) override;
+  // A doll card dragged here is put on the stage; the frame glows while
+  // it hovers.
+  void dragEnterEvent(QDragEnterEvent* event) override;
+  void dragMoveEvent(QDragMoveEvent* event) override;
+  void dragLeaveEvent(QDragLeaveEvent* event) override;
+  void dropEvent(QDropEvent* event) override;
+  bool focusNextPrevChild(bool next) override;
 
  private:
   void PaintHandles(const StageFrame& frame, QPainter* painter);
+  // A red rope from each picked follower to what it follows, and back
+  // from a picked leader to its followers.
+  void PaintRopes(const StageFrame& frame, QPainter* painter);
+  // The lines a move drag has caught on, across the whole view.
+  void PaintGuides(QPainter* painter);
   // The thin outline of the thing under the cursor.
   void PaintHover(const StageFrame& frame, QPainter* painter);
   // A doll's lean and swivel bars.
@@ -78,6 +104,20 @@ class StageView final : public QWidget {
   void PaintPickedDots(const StageFrame& frame, const Pick& pick,
                        const WarpOnScreen& warp, QPainter* painter);
   void ReportTool();
+  // An arrow key: nudges the pick 1 pixel (10 with Shift); true when it
+  // was one and something is picked.
+  bool NudgeKey(QKeyEvent* event);
+  // Escape: backs out of the drag, then the picked dot, then the pick.
+  void BackOut();
+  // Zooms by notches wheel notches toward cursor.
+  void ZoomBy(double notches, QPointF cursor);
+  // Shift+1, +2 or +0: fit, frame the pick, actual size. True when key
+  // was one of them.
+  bool CameraKey(QKeyEvent* event);
+  // Says the zoom beside the cursor.
+  void ShowZoom(QPointF cursor);
+  // The box round the picked layers, in widget pixels; empty with none.
+  QRectF PickBox(const StageFrame& frame);
   // As a drag is grabbed: leaves a faint copy of the picked pieces or
   // layers, drawn by the frame renderer, where they sit now.
   void GrabGhost(const StageFrame& frame);
@@ -98,6 +138,12 @@ class StageView final : public QWidget {
   void AddLinkActions(QMenu* menu, QPointF point, const StageFrame& frame);
 
   Managers managers_;
+  StageCamera camera_;
+  // A doll card is over the stage.
+  bool is_drop_target_ = false;
+  // The middle button is dragging the view; where the mouse was.
+  bool is_panning_ = false;
+  QPointF pan_from_;
   FrameRenderer renderer_;
   PoseTool tool_;
   StagePoke poke_;

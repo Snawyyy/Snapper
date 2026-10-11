@@ -119,6 +119,23 @@ class RigCanvas final : public QWidget {
   void ClearHover();
   // Ends hang mode, telling the window.
   void StopHanging();
+  // Hangs the picked pieces from the piece under at (a root when there
+  // is none); ends hang mode.
+  void FinishHang(QPointF at);
+  // As a pivot is grabbed: notes where the cursor and the pivot are, and
+  // opens the one undo step of the drag.
+  void GrabPivot(const QString& joint, QPointF point);
+  // The cursor moved with pivots grabbed: moves each by its step (a lone
+  // pivot catches on its drawing).
+  void MovePivots(const Doll& doll, QPointF cursor);
+  // Alt on a joint: pulls a rope from it; letting go over a piece hangs
+  // the joint's piece from it.
+  void StartRope(const QString& joint, QPointF at);
+  // wanted (a pivot in piece's drawing pixels) caught on the middle and
+  // edges of the drawing within a few screen pixels; says whether it
+  // caught.
+  QPointF SnappedPivot(const Doll& doll, const QString& piece,
+                       QPointF wanted, bool* is_snapped) const;
   void ApplyPick(const std::set<QString>& pieces, PickMode mode,
                  const QString& focus);
   void FinishBox();
@@ -150,6 +167,12 @@ class RigCanvas final : public QWidget {
   // Set after a joint is double-clicked: the next click picks its
   // parent. The line follows the cursor meanwhile.
   bool is_hanging_ = false;
+  // The hang was started by a rope drag: it ends on letting go.
+  bool is_rope_ = false;
+  // A single pivot drag: where the cursor and the pivot were when it was
+  // grabbed, in the piece's drawing pixels.
+  QPointF grab_cursor_;
+  QPointF grab_pivot_;
   QPointF cursor_;
   QString chain_;
   std::unique_ptr<EditScope> scope_;

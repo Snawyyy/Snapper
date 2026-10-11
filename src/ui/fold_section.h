@@ -21,9 +21,10 @@ class FoldSection final : public QWidget {
 
  public:
   // settings_path may be empty: the fold is then not remembered.
+  // is_open_at_first is how it starts until the user has folded it.
   FoldSection(const QString& title, MotionManager* motion,
               const QString& settings_path, const QString& key,
-              QWidget* parent);
+              QWidget* parent, bool is_open_at_first = false);
 
   // The rows of the folded part.
   QFormLayout* form() { return &form_; }

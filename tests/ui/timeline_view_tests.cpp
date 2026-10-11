@@ -157,12 +157,13 @@ void TimelineViewTests::StepModeToggles() {
   Bench bench;
   Stage(&bench);
   TimelineView view(bench.All());
-  auto* toggle = view.findChild<QToolButton*>("step_mode");
-  QVERIFY(toggle != nullptr);
-  QCOMPARE(toggle->text(), QString("Scrub mode"));
-  toggle->click();
+  auto* scrub = view.findChild<QToolButton*>("step_scrub");
+  auto* animation = view.findChild<QToolButton*>("step_animation");
+  QVERIFY(scrub != nullptr && animation != nullptr);
+  QVERIFY(scrub->isChecked());
+  animation->click();
   QCOMPARE(bench.playback.step_mode(), StepMode::kAnimation);
-  QCOMPARE(toggle->text(), QString("Animation mode"));
+  QVERIFY(animation->isChecked() && !scrub->isChecked());
   bench.playback.Step(1);
   QCOMPARE(bench.playback.frame(), Frame(2));
 }

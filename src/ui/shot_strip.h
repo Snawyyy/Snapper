@@ -16,6 +16,7 @@
 #include "ui/handle_hover.h"
 #include "ui/managers.h"
 #include "ui/problem.h"
+#include "ui/shot_thumbs.h"
 
 namespace snapper {
 
@@ -59,6 +60,9 @@ class ShotStrip final : public QWidget {
   enum class Drag { kNone, kMove, kLength };
 
   // One shot's block: colour, outline, edge handle, name and length.
+  // The first frame at the left of a chip long enough; where the words
+  // may start.
+  double PaintPicture(QPainter* painter, const QRectF& card, ShotId id) const;
   void PaintBlock(QPainter* painter, const Block& block) const;
   // As a shot or its edge is grabbed: leaves a faint copy of the shot
   // blocks that drag, drawn by PaintBlock, where they sit now.
@@ -71,11 +75,17 @@ class ShotStrip final : public QWidget {
   bool CancelDrag();
   void Menu(ShotId shot, QPoint where);
   std::vector<ShotId> PickedShots() const;
+  // Notes the chip under at, for the paint.
+  void UpdateChipHover(QPointF at);
   void Report(const QString& problem) { emit Problem(problem); }
   // Removes shots; the toast offers Undo for exactly that step.
   void DeletePicked(const std::vector<ShotId>& picked);
 
   Managers managers_;
+  // The first-frame pictures that fill the chips.
+  mutable ShotThumbs thumbs_;
+  // The chip under the cursor, lifted and brightened; none when off them.
+  ShotId hovered_;
   // The right edge under the cursor widens and brightens.
   HandleHover hover_;
   DragFeedback feedback_;

@@ -349,6 +349,7 @@ void TimelineView::wheelEvent(QWheelEvent* event) {
     scroll_ = std::max(0.0, scroll_ - notches * kScrollFrames);
   }
   event->accept();
+  ShowChips();
   update();
 }
 

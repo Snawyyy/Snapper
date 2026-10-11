@@ -10,7 +10,7 @@
 #include <memory>
 
 #include "model/shot.h"
-#include "render/frame_renderer.h"
+#include "ui/shot_thumbs.h"
 #include "ui/managers.h"
 
 namespace snapper {
@@ -40,10 +40,7 @@ class ShotBin final : public QListWidget {
   QIcon Thumbnail(const std::shared_ptr<const Shot>& shot);
 
   Managers managers_;
-  FrameRenderer renderer_;
-  // Pictures by the shot value they were drawn from; an edited shot is
-  // a new value, so it gets a new picture.
-  std::map<std::shared_ptr<const Shot>, QIcon> thumbnails_;
+  ShotThumbs thumbs_;
   // Edits made while the list was hidden, so it lists afresh on show.
   bool is_stale_ = false;
 };

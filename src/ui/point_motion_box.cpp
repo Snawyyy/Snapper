@@ -4,7 +4,9 @@
 
 #include <algorithm>
 #include <cassert>
+#include <array>
 #include <cmath>
+#include <memory>
 #include <vector>
 
 #include "edit/rig_manager.h"
@@ -16,27 +18,6 @@
 
 namespace snapper {
 namespace {
-
-QString KindLabel(WarpMotionKind kind) {
-  assert(static_cast<int>(kind) >= 0 &&
-         static_cast<int>(kind) < kWarpMotionKindCount);
-  switch (kind) {
-    case WarpMotionKind::kNone:
-      return PointMotionBox::tr("None");
-    case WarpMotionKind::kWave:
-      return PointMotionBox::tr("Wave");
-    case WarpMotionKind::kPulse:
-      return PointMotionBox::tr("Pulse");
-    case WarpMotionKind::kBreathe:
-      return PointMotionBox::tr("Breathe");
-    case WarpMotionKind::kSway:
-      return PointMotionBox::tr("Sway");
-    case WarpMotionKind::kShiver:
-      return PointMotionBox::tr("Shiver");
-  }
-  assert(false);
-  return QString();
-}
 
 // The picked dots, and the motions the ones that move have.
 struct Look final {
@@ -61,16 +42,38 @@ Look LookAt(const Managers& managers) {
   return look;
 }
 
+// Outlines the tiles the picked dots use (a dot with no motion is
+// None): thick when every dot moves that way, thin when some do.
+void ShowTiles(const std::array<MotionTile*, kWarpMotionKindCount>& tiles,
+               const Look& look, const QString& no_dot) {
+  assert(tiles[0] != nullptr);
+  assert(look.motions.size() <= look.dots.size());
+  std::array<size_t, kWarpMotionKindCount> counts{};
+  counts[static_cast<size_t>(WarpMotionKind::kNone)] =
+      look.dots.size() - look.motions.size();
+  for (const PointMotion* m : look.motions) {
+    ++counts[static_cast<size_t>(m->kind)];
+  }
+  for (MotionTile* tile : tiles) {
+    const size_t used = counts[static_cast<size_t>(tile->kind())];
+    const bool is_all = used > 0 && used == look.dots.size();
+    tile->SetShare(is_all ? Share::kAll
+                          : used > 0 ? Share::kSome : Share::kNone);
+    Explain(tile, no_dot,
+            PointMotionBox::tr(
+                "Moves the dots by themselves, on top of their keys: hair "
+                "that waves, a heart that beats. Their rubber reach takes "
+                "the dots around along."));
+  }
+}
+
 }  // namespace
 
 PointMotionBox::PointMotionBox(const Managers& managers)
     : QGroupBox(tr("Dot animation")), managers_(managers), layout_(this),
-      live_(managers.history) {
+      live_(managers.history), kinds_layout_(&kinds_) {
   assert(managers_.IsComplete());
   Build();
-  connect(&kind_, &QComboBox::activated, this, [this](int index) {
-    SetKind(static_cast<WarpMotionKind>(index));
-  });
   const auto label = [this](MotionField field) {
     return RigManager::MotionLabel(
         field, std::max<size_t>(LookAt(managers_).moving.size(), 1));
@@ -87,19 +90,29 @@ PointMotionBox::PointMotionBox(const Managers& managers)
   MakeLiveNamed(&cycle_, &live_, this,
                 [label] { return label(MotionField::kCycle); },
                 [this] { Commit(MotionField::kCycle, &cycle_); });
-  kind_.setPlaceholderText(tr("Mixed"));
   Follow(managers_, this);
   Refresh();
   assert(layout_.rowCount() == 5);
 }
 
 void PointMotionBox::Build() {
-  assert(kind_.count() == 0);
+  assert(tiles_[0] == nullptr);
   assert(layout_.rowCount() == 0);
-  for (int kind = 0; kind < kWarpMotionKindCount; ++kind) {
-    kind_.addItem(KindLabel(static_cast<WarpMotionKind>(kind)));
+  constexpr int kPerRow = 3;
+  kinds_layout_.setContentsMargins(0, 0, 0, 0);
+  for (int i = 0; i < kWarpMotionKindCount; ++i) {
+    const auto kind = static_cast<WarpMotionKind>(i);
+    // A Qt child of the tile row, which owns it.
+    MotionTile* tile =
+        std::make_unique<MotionTile>(kind, managers_.motion, &kinds_)
+            .release();
+    tile->setObjectName(QStringLiteral("motion_kind_%1").arg(i));
+    kinds_layout_.addWidget(tile, i / kPerRow, i % kPerRow);
+    tiles_[static_cast<size_t>(i)] = tile;
+    connect(tile, &QAbstractButton::clicked, this,
+            [this, kind] { SetKind(kind); });
   }
-  kind_.setObjectName("point_motion");
+  kinds_.setObjectName("point_motion");
   size_.setObjectName("motion_size");
   cycle_.setObjectName("motion_cycle");
   angle_.setObjectName("motion_angle");
@@ -113,10 +126,10 @@ void PointMotionBox::Build() {
   angle_.setRange(-180.0, 180.0);
   angle_.setWrapping(true);
   SetUpNumber(&delay_, Number::kFraction);
-  layout_.addRow(tr("Moves"), &kind_);
+  layout_.addRow(tr("Moves"), &kinds_);
   AddNumberRow(&layout_, tr("Size"), &size_, &live_);
   AddNumberRow(&layout_, tr("Cycle"), &cycle_, &live_);
-  AddNumberRow(&layout_, tr("Direction"), &angle_, &live_);
+  AddAngleRow(&layout_, tr("Direction"), &angle_, &live_);
   AddNumberRow(&layout_, tr("Delay"), &delay_, &live_);
 }
 
@@ -153,7 +166,7 @@ void PointMotionBox::Commit(MotionField field,
 }
 
 void PointMotionBox::Refresh() {
-  assert(kind_.count() == kWarpMotionKindCount);
+  assert(tiles_[0] != nullptr);
   assert(managers_.selection != nullptr);
   const Look look = LookAt(managers_);
   const bool has_pick = !look.dots.empty();
@@ -170,10 +183,6 @@ void PointMotionBox::Refresh() {
                   [](const PointMotion* m) {
                     return m->kind == WarpMotionKind::kShiver;
                   });
-  Explain(&kind_, no_dot,
-          tr("Moves the dots by themselves, on top of their keys: hair "
-             "that waves, a heart that beats. Their rubber reach takes "
-             "the dots around along."));
   Explain(&size_, why_not, tr("How far the dot moves at most."));
   Explain(&cycle_, why_not, tr("Frames one cycle takes; 24 is a second."));
   Explain(&angle_,
@@ -182,16 +191,7 @@ void PointMotionBox::Refresh() {
   Explain(&delay_, why_not,
           tr("How late in its cycle the dot starts, 0 to 1. Give dots "
              "in a row rising delays for a ripple."));
-  const QSignalBlocker quiet(kind_);
-  const bool is_one_kind =
-      has_motion && look.motions.size() == look.dots.size() &&
-      std::all_of(look.motions.begin(), look.motions.end(),
-                  [&look](const PointMotion* m) {
-                    return m->kind == look.motions.front()->kind;
-                  });
-  kind_.setCurrentIndex(is_one_kind
-                            ? static_cast<int>(look.motions.front()->kind)
-                            : has_motion ? -1 : 0);
+  ShowTiles(tiles_, look, no_dot);
   if (!has_motion) {
     return;
   }

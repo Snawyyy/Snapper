@@ -30,6 +30,8 @@ class DollLibraryManager final : public QObject {
   const QStringList& conversion_problems() const { return problems_; }
   // Names of the dolls in the library, sorted.
   QStringList Available() const;
+  // The folder on disk of the library doll called name.
+  QString FolderOf(const QString& name) const;
 
   // Why Import can't act on name, for the greyed-out button; empty when
   // it can.
@@ -61,7 +63,6 @@ class DollLibraryManager final : public QObject {
   void ArtChanged(const QString& name);
 
  private:
-  QString FolderOf(const QString& name) const;
   QDateTime ArtStamp(const QString& name) const;
   void Rescan();
 

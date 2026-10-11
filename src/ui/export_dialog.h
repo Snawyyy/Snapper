@@ -1,7 +1,7 @@
 #ifndef SNAPPER_UI_EXPORT_DIALOG_H_
 #define SNAPPER_UI_EXPORT_DIALOG_H_
 
-#include <QComboBox>
+
 #include <QDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -12,6 +12,7 @@
 #include <QSpinBox>
 
 #include "edit/export_manager.h"
+#include "ui/choice_row.h"
 #include "ui/managers.h"
 
 namespace snapper {
@@ -41,11 +42,11 @@ class ExportDialog final : public QDialog {
 
   Managers managers_;
   QFormLayout layout_;
-  QComboBox format_;
-  QComboBox range_;
+  ChoiceRow format_;
+  ChoiceRow range_;
   QSpinBox from_;
   QSpinBox to_;
-  QComboBox size_;
+  ChoiceRow size_;
   QHBoxLayout file_row_;
   QLineEdit path_;
   QPushButton browse_;

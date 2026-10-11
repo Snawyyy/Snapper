@@ -38,6 +38,21 @@ void ToastManager::Problem(const QString& why) {
   emit Changed();
 }
 
+void ToastManager::Say(const QString& text) {
+  assert(!text.isEmpty());
+  assert(history_ != nullptr);
+  queue_.Push(text);
+  RunClockWhileShowing();
+  emit Changed();
+}
+
+void ToastManager::Cheer(const QString& text) {
+  assert(!text.isEmpty());
+  assert(history_ != nullptr);
+  Say(text);
+  emit Cheered();
+}
+
 void ToastManager::Done(const QString& text) {
   assert(!text.isEmpty());
   assert(history_ != nullptr);

@@ -2,22 +2,27 @@
 #define SNAPPER_UI_POINT_MOTION_BOX_H_
 
 #include <QAbstractSpinBox>
-#include <QComboBox>
+#include <QGridLayout>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QSpinBox>
 #include <QString>
+#include <QWidget>
+
+#include <array>
 
 #include "model/doll.h"
 #include "edit/rig_manager.h"
 #include "ui/live_edit.h"
 #include "ui/managers.h"
+#include "ui/motion_tile.h"
 
 namespace snapper {
 
 // The warp dots picked on the stage: whether they move by themselves
-// (a wave, a pulse...) and, when they do, their size, cycle, direction
+// (a wave, a pulse...), chosen on tiles with a tiny preview of each, and,
+// when they do, their size, cycle, direction
 // and delay. Every picked dot is edited at once, a number that differs
 // shows Mixed. Greyed out with the reason when no dot is picked.
 class PointMotionBox final : public QGroupBox {
@@ -41,7 +46,9 @@ class PointMotionBox final : public QGroupBox {
   Managers managers_;
   QFormLayout layout_;
   LiveEdit live_;
-  QComboBox kind_;
+  QWidget kinds_;
+  QGridLayout kinds_layout_;
+  std::array<MotionTile*, kWarpMotionKindCount> tiles_{};
   QDoubleSpinBox size_;
   QSpinBox cycle_;
   QDoubleSpinBox angle_;

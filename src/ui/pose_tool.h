@@ -13,6 +13,7 @@
 #include <set>
 #include <vector>
 
+#include "anim/guides.h"
 #include "base/frame.h"
 #include "edit/edit_scope.h"
 #include "edit/rig_manager.h"
@@ -71,6 +72,9 @@ class PoseTool final {
   void Release();
   void Cancel();
   void Wheel(int notches, bool is_fine, const StageFrame& frame);
+  // An arrow key: moves everything picked by delta frame pixels as one
+  // undo step. Nothing while a drag runs or with nothing picked.
+  void Nudge(QPointF delta, const StageFrame& frame);
   // The degrees a wheel turn of notches turns the picked things by.
   static double WheelDegrees(int notches, bool is_fine);
   // Double-click: picks the whole doll (or layer) under point as one
@@ -127,6 +131,11 @@ class PoseTool final {
   }
   // The pick box being drawn, in widget pixels; empty when none.
   QRectF Box() const;
+  // The lines a move drag has caught on, in widget pixels; none when it
+  // has caught nothing (or no move runs).
+  const std::vector<GuideLine>& guides() const { return guides_; }
+  // Whether a move drag catches on guides (it does at first).
+  void SetGuides(bool is_on) { is_catching_ = is_on; }
   // The last thing that went wrong, for the status bar; empty if none.
   const QString& problem() const { return problem_; }
 
@@ -162,6 +171,13 @@ class PoseTool final {
     Readout readout;
     PickMode box_mode = PickMode::kReplace;
     QPointF corner;
+    // Move drags: the picked things' box when pressed, and the boxes
+    // they may line up with, in widget pixels.
+    QRectF moving;
+    std::vector<QRectF> targets;
+    // Lines it already lined up with at the press: it does not stick
+    // to those.
+    std::vector<GuideLine> skip;
     std::unique_ptr<EditScope> scope;
   };
 
@@ -208,12 +224,24 @@ class PoseTool final {
   void Say(const QString& text, bool is_snapped, QPointF point);
   void MoveIk(QPointF point);
   void MoveAll(QPointF total);
+  // The frames an edit lands on: those of the keys picked on the
+  // timeline in at's shot (so a move reaches them all, each moved by the
+  // same amount from where it was), or just the playhead's with none
+  // picked.
+  std::vector<Frame> EditFrames(const StageFrame& at) const;
+  // As a move drag starts: notes the box of what is picked and the boxes
+  // it may line up with (the other things, the frame).
+  void ArmGuides(const StageFrame& frame);
+  // total moved to catch on a guide, noting the lines caught.
+  QPointF Snapped(QPointF total);
   void ScaleAll(double factor);
   void Note(const Result<void>& result);
 
   Managers managers_;
   ImageCache* cache_;
   std::unique_ptr<Drag> drag_;
+  std::vector<GuideLine> guides_;
+  bool is_catching_ = true;
   QString problem_;
   QElapsedTimer clock_;
   HandleGrace grace_;

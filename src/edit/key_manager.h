@@ -2,6 +2,7 @@
 #define SNAPPER_EDIT_KEY_MANAGER_H_
 
 #include <map>
+#include <optional>
 #include <set>
 #include <variant>
 #include <vector>
@@ -39,6 +40,15 @@ class KeyManager final {
   QString WhyNoSpace(const std::set<KeyRef>& keys) const;
   Result<void> Remove(const std::set<KeyRef>& keys);
   Result<void> SetEase(const std::set<KeyRef>& keys, Ease ease);
+  // The ease every picked key has, or nothing when they differ or none
+  // is picked.
+  std::optional<Ease> EaseOf(const std::set<KeyRef>& keys) const;
+  // Holds the picked keys' last pose delta frames longer (above 0) or
+  // shorter (below 0): frames go in or out right after the last picked
+  // key on the picked keys' channels, and later keys slide.
+  Result<void> Hold(const std::set<KeyRef>& keys, int delta);
+  // Why Hold can't act; empty when it can.
+  QString WhyNoHold(const std::set<KeyRef>& keys, int delta) const;
   // Adds (delta > 0) or takes out (delta < 0) frames at frame on every
   // channel in tracks: later keys slide, keys inside a taken-out span
   // go. This is how a hold is made longer or shorter.

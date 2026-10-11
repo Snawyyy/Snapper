@@ -21,7 +21,7 @@
 #include "ui/keyed_boxes.h"
 #include "ui/layer_box.h"
 #include "ui/link_box.h"
-#include "ui/motion_box.h"
+#include "ui/motion_tile.h"
 #include "ui/point_motion_box.h"
 
 namespace snapper {
@@ -42,7 +42,6 @@ class InspectorTests final : public QObject {
  private slots:
   void TypedPoseNumbersKeyAtThePlayhead();
   void CameraNumbersKeyTheCamera();
-  void MotionLoopsGoOnThePick();
   void LayerBoxFollowsTheKind();
   void FieldsApplyAsYouTypeAsOneStep();
   void FieldsChangeEveryPickByTheSameAmount();
@@ -75,18 +74,6 @@ void InspectorTests::CameraNumbersKeyTheCamera() {
   Type(box.findChild<QDoubleSpinBox*>("zoom"), 2.5);
   QCOMPARE(bench.history.current().shots[0]->camera.keys.size(), size_t{1});
   QCOMPARE(bench.history.current().shots[0]->camera.keys[0].value.zoom, 2.5);
-}
-
-void InspectorTests::MotionLoopsGoOnThePick() {
-  Bench bench;
-  Stage(&bench);
-  MotionBox box(bench.All());
-  QPushButton* apply = box.findChild<QPushButton*>();
-  QVERIFY(apply->isEnabled());
-  apply->click();
-  QCOMPARE(Head(bench, 2).offset, QPointF(0, 10));
-  bench.selection.Clear();
-  QVERIFY(!apply->isEnabled());
 }
 
 void InspectorTests::LayerBoxFollowsTheKind() {
@@ -226,7 +213,11 @@ void InspectorTests::PointMotionBoxAnimatesThePickedDot() {
   Stage(&bench);
   QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
   PointMotionBox box(bench.All());
-  auto* kind = box.findChild<QComboBox*>("point_motion");
+  const auto tile = [&box](WarpMotionKind kind) {
+    return box.findChild<MotionTile*>(
+        QStringLiteral("motion_kind_%1").arg(static_cast<int>(kind)));
+  };
+  auto* kind = tile(WarpMotionKind::kWave);
   auto* size = box.findChild<QDoubleSpinBox*>("motion_size");
   auto* angle = box.findChild<QDoubleSpinBox*>("motion_angle");
   QVERIFY(!kind->isEnabled());
@@ -235,8 +226,8 @@ void InspectorTests::PointMotionBoxAnimatesThePickedDot() {
   QVERIFY(kind->isEnabled());
   QVERIFY(!size->isEnabled());
   QVERIFY(!size->toolTip().isEmpty());
-  kind->setCurrentIndex(static_cast<int>(WarpMotionKind::kWave));
-  emit kind->activated(kind->currentIndex());
+  kind->click();
+  QCOMPARE(kind->share(), Share::kAll);
   QCOMPARE(bench.history.UndoLabel(), QString("Set how it moves on 1 dot"));
   QVERIFY(size->isEnabled());
   Type(size, 20.0);
@@ -248,14 +239,12 @@ void InspectorTests::PointMotionBoxAnimatesThePickedDot() {
   QCOMPARE(motions[0].size, 20.0);
   // A shiver shakes every way, so it has no direction.
   QVERIFY(angle->isEnabled());
-  kind->setCurrentIndex(static_cast<int>(WarpMotionKind::kShiver));
-  emit kind->activated(kind->currentIndex());
+  tile(WarpMotionKind::kShiver)->click();
   QVERIFY(!angle->isEnabled());
   QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
                .point_motions[0].size,
            20.0);
-  kind->setCurrentIndex(0);
-  emit kind->activated(0);
+  tile(WarpMotionKind::kNone)->click();
   QCOMPARE(bench.history.UndoLabel(),
            QString("Set how it moves on 1 dot"));
   QVERIFY(!size->isEnabled());

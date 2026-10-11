@@ -2,7 +2,6 @@
 #define SNAPPER_UI_TIMELINE_VIEW_H_
 
 #include <QString>
-#include <QToolButton>
 #include <QWidget>
 
 #include <memory>
@@ -19,9 +18,11 @@
 #include "ui/drag_feedback.h"
 #include "ui/drag_playhead.h"
 #include "ui/handle_hover.h"
+#include "ui/key_chip_bar.h"
 #include "ui/managers.h"
 #include "ui/playhead_settle.h"
 #include "ui/problem.h"
+#include "ui/step_mode_switch.h"
 
 namespace snapper {
 
@@ -56,6 +57,7 @@ class TimelineView final : public QWidget {
 
  protected:
   void paintEvent(QPaintEvent* event) override;
+  void resizeEvent(QResizeEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;
@@ -112,6 +114,9 @@ class TimelineView final : public QWidget {
   // was running.
   bool CancelKeyDrag();
   void Report(const QString& problem) { emit Problem(problem); }
+  // Shows the chip bar over the picked keys, or hides it with none in
+  // view.
+  void ShowChips();
   // Removes the picked keys; the toast offers Undo for that step.
   void DeletePicked();
   void KeyMenu(const TimelineRow& row, Frame frame, QPoint where);
@@ -120,12 +125,12 @@ class TimelineView final : public QWidget {
   // A step landed: pops, puffs or rewinds the keys it changed on the
   // picked shot.
   void ShowStep(const Project& before, bool is_travel);
-  // Shows and flips the playback's step mode.
-  void ShowStepMode();
 
   Managers managers_;
   // Scrub or animation stepping, in the ruler's corner.
-  QToolButton step_mode_;
+  StepModeSwitch step_mode_;
+  // Floats above the picked keys.
+  KeyChipBar chips_;
   double frame_width_;
   double scroll_ = 0.0;
   bool is_scrubbing_ = false;

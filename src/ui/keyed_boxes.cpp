@@ -98,7 +98,7 @@ PoseBox::PoseBox(const Managers& managers)
   AddNumberPair(&layout_, tr("Scale"), &scale_row_,
                 {tr("x"), &fields_[kScaleX]}, {tr("y"), &fields_[kScaleY]},
                 &live_);
-  AddNumberRow(&layout_, tr("Turn"), &fields_[kTurn], &live_);
+  AddAngleRow(&layout_, tr("Turn"), &fields_[kTurn], &live_);
   AddNumberRow(&layout_, tr("Skew"), &fields_[kSkew], &live_);
   AddNumberRow(&layout_, tr("Opacity"), &fields_[kOpacity], &live_);
   AddNumberRow(&layout_, tr("Lean"), &fields_[kLean], &live_);
@@ -213,7 +213,7 @@ CameraBox::CameraBox(const Managers& managers)
   AddNumberPair(&layout_, tr("Look at"), &look_row_,
                 {tr("x"), &fields_[kX]}, {tr("y"), &fields_[kY]}, &live_);
   AddNumberRow(&layout_, tr("Zoom"), &fields_[kZoom], &live_);
-  AddNumberRow(&layout_, tr("Turn"), &fields_[kTurn], &live_);
+  AddAngleRow(&layout_, tr("Turn"), &fields_[kTurn], &live_);
   AddNumberRow(&layout_, tr("Shake"), &fields_[kShake], &live_);
   for (QDoubleSpinBox& field : fields_) {
     MakeLive(&field, &live_, tr("Move camera"), this, [this] { Commit(); });

@@ -98,10 +98,14 @@ void CastPanel::Wire() {
           &CastPanel::PickLayer);
   connect(&layers_, &QListWidget::itemChanged, this, &CastPanel::ToggleShown);
   connect(managers_.library, &DollLibraryManager::LibraryChanged, this,
-          &CastPanel::RefreshLibrary);
+          [this] {
+            pictures_.clear();
+            RefreshLibrary();
+          });
   connect(managers_.library, &DollLibraryManager::ArtChanged, this,
           [this](const QString& name) {
             stale_.insert(name);
+            pictures_.remove(name);
             RefreshLibrary();
           });
   connect(managers_.history, &HistoryManager::Changed, this, [this] {

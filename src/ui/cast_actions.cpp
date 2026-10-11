@@ -1,5 +1,6 @@
 // CastPanel's lists and buttons.
 
+#include <QDir>
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QSignalBlocker>
@@ -13,6 +14,7 @@
 #include "edit/selection_manager.h"
 #include "edit/stage_manager.h"
 #include "ui/cast_panel.h"
+#include "ui/doll_drop.h"
 #include "ui/form_helpers.h"
 
 namespace snapper {
@@ -75,7 +77,37 @@ QString Outcome(
   return said.join(". ");
 }
 
+// True when a layer of shot shows doll.
+bool IsInShot(const Project& project, ShotId id, const QString& doll) {
+  assert(id.value() >= 0);
+  assert(!doll.isEmpty());
+  const Shot* shot = FindShot(project, id);
+  const bool has_shot = shot != nullptr;
+  if (!has_shot) {
+    return false;
+  }
+  return std::any_of(shot->layers.begin(), shot->layers.end(),
+                     [&doll](const Layer& layer) {
+                       const auto* posed = std::get_if<DollLayer>(
+                           &layer.content);
+                       return posed != nullptr && posed->doll == doll;
+                     });
+}
+
 }  // namespace
+
+QPixmap CastPanel::PictureOf(const QString& name) {
+  assert(managers_.library != nullptr);
+  assert(!name.isEmpty());
+  const auto found = pictures_.constFind(name);
+  const bool is_drawn = found != pictures_.constEnd();
+  if (is_drawn) {
+    return *found;
+  }
+  const QPixmap picture = DollPicture(managers_.library->FolderOf(name), 72);
+  pictures_.insert(name, picture);
+  return picture;
+}
 
 void CastPanel::RefreshLibrary() {
   assert(managers_.IsComplete());
@@ -91,12 +123,19 @@ void CastPanel::RefreshLibrary() {
   for (const QString& name : managers_.library->Available()) {
     const bool is_in = FindDoll(project, name) != nullptr;
     const bool is_stale = is_in && stale_.contains(name);
-    const QString note = !is_in      ? QString()
-                         : is_stale ? tr("  (art updated)")
-                                    : tr("  (in project)");
-    library_.addItem(name + note);
+    const bool is_in_shot =
+        IsInShot(project, managers_.selection->shot(), name);
+    const QString badge = is_stale     ? tr("NEW ART")
+                          : is_in_shot ? tr("IN SHOT")
+                          : is_in      ? tr("in project")
+                                       : QString();
+    library_.addItem(badge.isEmpty() ? name : name + "\n" + badge);
     QListWidgetItem* item = library_.item(library_.count() - 1);
     item->setData(kKeyRole, name);
+    item->setIcon(PictureOf(name));
+    item->setToolTip(is_stale ? tr("The art was re-exported from Krita: "
+                                   "Reload takes it.")
+                              : tr("Drag onto the stage to put it there."));
     item->setSelected(picked.contains(name));
   }
   const QStringList& problems = managers_.library->conversion_problems();
@@ -148,7 +187,8 @@ void CastPanel::RefreshButtons() {
                         ? managers_.library->WhyNoImport(picked_one)
                         : managers_.library->WhyNoImport(out.front()));
   Explain(&reload_, is_in ? QString() : tr("Import the doll first."));
-  Explain(&place_, !is_in      ? tr("Import the doll first.")
+  const bool has_doll = is_in || !out.isEmpty();
+  Explain(&place_, !has_doll    ? tr("Pick a doll first.")
                    : has_shot ? QString()
                               : tr("Add a shot first."));
   Explain(&add_, has_shot ? QString() : tr("Add a shot first."));
@@ -200,20 +240,10 @@ void CastPanel::Reload() {
 
 void CastPanel::Place() {
   assert(managers_.IsComplete());
-  const QStringList dolls = PickedDolls(true);
   assert(managers_.stage != nullptr);
-  const auto layers =
-      managers_.stage->AddDolls(managers_.selection->shot(), dolls);
-  if (layers) {
-    std::set<Pick> picks;
-    for (const LayerId layer : *layers) {
-      picks.insert({layer, QString()});
-    }
-    managers_.selection->PickThings(
-        picks, PickMode::kReplace,
-        layers->empty() ? LayerId() : layers->front());
-  }
-  Report(ProblemOf(layers));
+  QStringList dolls = PickedDolls(true);
+  dolls += PickedDolls(false);
+  Report(PutDollsOnStage(managers_, dolls));
 }
 
 void CastPanel::AddPicture() {

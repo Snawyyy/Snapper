@@ -200,6 +200,12 @@ void ReelTimeline::mousePressEvent(QMouseEvent* event) {
     SeekTo(at.x());
     return;
   }
+  const ClipId badge = BadgeAt(at);
+  const bool is_badge = badge.IsValid();
+  if (is_badge) {
+    EditTransition(badge);
+    return;
+  }
   const ClipId clip = ClipAt(at);
   const bool is_on_clip = clip.IsValid();
   if (!is_on_clip) {

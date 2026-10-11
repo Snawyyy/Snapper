@@ -1,5 +1,8 @@
 #include "ui/main_window.h"
 
+#include <QDir>
+#include <QFileInfo>
+
 #include <QCloseEvent>
 #include <QKeySequence>
 #include <QMenuBar>
@@ -9,6 +12,7 @@
 
 #include "edit/document_manager.h"
 #include "anim/master_timeline.h"
+#include "edit/export_manager.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
@@ -36,6 +40,11 @@ MainWindow::MainWindow(const Managers& managers)
       edit_menu_(tr("&Edit")),
       view_menu_(tr("&View")),
       motion_menu_(managers.motion),
+      sound_(QFileInfo(managers.document->SettingsPath())
+                 .dir()
+                 .filePath(QStringLiteral("sounds")),
+             managers.document->SettingsPath(), this),
+      sounds_action_(tr("&Sounds")),
       undo_action_(tr("&Undo")),
       redo_action_(tr("&Redo")),
       top_bar_host_(tr("Top bar")),
@@ -54,6 +63,7 @@ MainWindow::MainWindow(const Managers& managers)
       inspector_dock_(tr("Inspector")),
       inspector_(managers),
       toast_view_(managers.toasts, managers.motion, this, &pages_),
+      burst_(managers.toasts, managers.motion, this),
       shaker_(managers.motion),
       export_dialog_(managers, this),
       timing_dialog_(managers, this),
@@ -63,7 +73,12 @@ MainWindow::MainWindow(const Managers& managers)
       play_menu_(tr("&Play")),
       play_action_(tr("&Play / pause")),
       next_action_(tr("&Next frame")),
-      back_action_(tr("Pre&vious frame")) {
+      back_action_(tr("Pre&vious frame")),
+      help_menu_(tr("&Help")),
+      find_action_(tr("&Find a command...")),
+      sheet_action_(tr("&Keys and gestures...")),
+      palette_(menuBar(), this),
+      sheet_(menuBar(), this) {
   assert(managers_.IsComplete());
   BuildMenus();
   BuildPages();
@@ -78,6 +93,10 @@ MainWindow::MainWindow(const Managers& managers)
   const auto show_problem = [toasts](const QString& why) {
     toasts->Problem(why);
   };
+  connect(managers_.exporter, &ExportManager::Finished, this,
+          [toasts](const QString& path) {
+            toasts->Cheer(QObject::tr("Saved %1").arg(path));
+          });
   connect(&stage_, &StageView::Problem, this, show_problem);
   connect(&timeline_, &TimelineView::Problem, this, show_problem);
   connect(&strip_, &ShotStrip::Problem, this, show_problem);
@@ -225,6 +244,7 @@ void MainWindow::BuildMenus() {
   edit_menu_.setToolTipsVisible(true);
   view_menu_.setToolTipsVisible(true);
   play_menu_.setToolTipsVisible(true);
+  help_menu_.setToolTipsVisible(true);
   play_action_.setShortcut(Qt::Key_Space);
   next_action_.setShortcuts({Qt::Key_Right, Qt::Key_Period});
   back_action_.setShortcuts({Qt::Key_Left, Qt::Key_Comma});
@@ -243,6 +263,7 @@ void MainWindow::BuildMenus() {
   view_menu_.addMenu(motion_menu_.menu());
   menuBar()->addMenu(&view_menu_);
   menuBar()->addMenu(&play_menu_);
+  BuildViewAndHelp();
   PlaybackManager* playback = managers_.playback;
   connect(&play_action_, &QAction::triggered, playback,
           &PlaybackManager::Toggle);
@@ -254,6 +275,33 @@ void MainWindow::BuildMenus() {
           &HistoryManager::Undo);
   connect(&redo_action_, &QAction::triggered, managers_.history,
           &HistoryManager::Redo);
+  for (const QAction* step : {&undo_action_, &redo_action_}) {
+    connect(step, &QAction::triggered, &sound_,
+            [this] { sound_.Play(UiSound::Blip::kTick); });
+  }
+}
+
+void MainWindow::BuildViewAndHelp() {
+  assert(menuBar() != nullptr);
+  assert(managers_.toasts != nullptr);
+  sounds_action_.setCheckable(true);
+  sounds_action_.setChecked(sound_.is_on());
+  sounds_action_.setToolTip(tr("Quiet ticks and chimes for undo, redo and "
+                               "big wins."));
+  view_menu_.addAction(&sounds_action_);
+  connect(&sounds_action_, &QAction::toggled, &sound_, &UiSound::SetOn);
+  connect(managers_.toasts, &ToastManager::Cheered, &sound_,
+          [this] { sound_.Play(UiSound::Blip::kChime); });
+  find_action_.setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Slash));
+  sheet_action_.setShortcuts({QKeySequence(Qt::Key_F1),
+                              QKeySequence(Qt::CTRL | Qt::SHIFT |
+                                           Qt::Key_Question)});
+  help_menu_.addActions({&find_action_, &sheet_action_});
+  menuBar()->addMenu(&help_menu_);
+  connect(&find_action_, &QAction::triggered, &palette_,
+          &CommandPalette::Open);
+  connect(&sheet_action_, &QAction::triggered, &sheet_,
+          &ShortcutSheet::Open);
 }
 
 void MainWindow::Refresh() {

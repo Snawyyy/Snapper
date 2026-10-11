@@ -68,7 +68,9 @@ void CastPanelTests::ImportThenPutOnStage() {
   QVERIFY(!import->toolTip().isEmpty());
   List(&panel, 0)->setCurrentRow(0);
   QVERIFY(import->isEnabled());
-  QVERIFY(!place->isEnabled());
+  // A picked doll can be put on the stage even before it is imported:
+  // putting it there imports it.
+  QVERIFY(place->isEnabled());
   import->click();
   QVERIFY(FindDoll(bench.history.current(), "Bob") != nullptr);
   QVERIFY(List(&panel, 0)->item(0)->text().contains("in project"));
