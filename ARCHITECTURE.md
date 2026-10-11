@@ -710,8 +710,8 @@ dots out). `GroupBox` (shown while a doll is picked) is a chip per group,
 pressed when all of it is picked (only the groups with a dot on a picked
 piece show, so a limb shows its own), a Group button greyed with the reason,
 and a right-click menu; `group_chips.h` is its pure part. Copying a side
-to the other (`WithTwinGroups`, `edit/group_mirror.h`) also makes a twin
-group of the mirrored dots for each group that holds dots of a copied
+to the other, and Mirror to other side on picked dots or a piece
+(`WithTwinGroups`, `edit/group_mirror.h`), also make a twin group of the mirrored dots for each group that holds dots of a copied
 piece, so the other side has its own group. Both are saved
 (`io/dot_group_json.h`).
 The Warp dots panel (`DragBox`) shows what the picked dots are as four
@@ -783,11 +783,11 @@ Krita had them, kept by the panel until the library changes), its name
 and a badge (NEW ART, IN SHOT, in project). A card dragged onto the
 stage puts the doll there (`PutDollsOnStage`, which takes it into the
 project first when it is not in it, and which Put on stage uses too);
-the stage frame glows while a card hovers. Shot chips in the strip are plain rounded chips: the name and the
-length in seconds, the shot's colour as a bar along the bottom, a red
-outline when picked, a lift and a lighter face under the pointer, and
-for a long one the first frame at its left (`ShotThumbs`, shared with
-the shot bin, never redrawn while an edit is running). Each cut on the reel wears
+the stage frame glows while a card hovers. Shot chips in the strip are plain square chips: the first frame at
+the left, then the name with the length in seconds under it, the shot's
+colour as a bar along the bottom, a red outline when picked, a lift and
+a lighter face under the pointer (`ShotThumbs`, shared with the shot
+bin, never redrawn while an edit is running). Each cut on the reel wears
 a badge with a letter for its transition (| cut, < > ^ v swipes, *
 flash, ~ fade); one click on it opens the transition.
 
