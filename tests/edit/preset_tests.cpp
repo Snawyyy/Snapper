@@ -51,34 +51,9 @@ class PresetTests final : public QObject {
   Q_OBJECT
 
  private slots:
-  void MotionRidesOnThePoseAndStops();
-  void MotionGoesOnPosableTracksOnly();
   void SavedPosesComeBack();
   void DamagedPoseFilesAreNeverOverwritten();
 };
-
-void PresetTests::MotionRidesOnThePoseAndStops() {
-  QTemporaryDir dir;
-  HistoryManager history(Stage());
-  PresetManager presets(&history, QDir(dir.path()).filePath("poses.json"));
-  const PresetSettings nod{MotionPreset::kNod, 5.0, 2, 8};
-  QVERIFY(presets.ApplyMotion({kHead}, Frame(4), nod).has_value());
-  QCOMPARE(At(history, 4).at("head").rotation, 10.0);
-  QCOMPARE(At(history, 6).at("head").rotation, 15.0);
-  QCOMPARE(At(history, 12).at("head").rotation, 10.0);
-  QCOMPARE(history.UndoLabel(), QString("Add Nod"));
-}
-
-void PresetTests::MotionGoesOnPosableTracksOnly() {
-  QTemporaryDir dir;
-  HistoryManager history(Stage());
-  PresetManager presets(&history, QDir(dir.path()).filePath("poses.json"));
-  const PresetSettings bob;
-  const TrackRef camera{kShot, TrackKind::kCamera, {}, {}};
-  QVERIFY(!presets.ApplyMotion({camera}, Frame(0), bob).has_value());
-  QVERIFY(!presets.ApplyMotion({}, Frame(0), bob).has_value());
-  QVERIFY(!history.CanUndo());
-}
 
 void PresetTests::SavedPosesComeBack() {
   QTemporaryDir dir;

@@ -4,7 +4,6 @@
 
 #include "anim/master_timeline.h"
 #include "anim/mirror.h"
-#include "anim/presets.h"
 #include "anim/sampler.h"
 
 namespace snapper {
@@ -30,8 +29,6 @@ class SamplerTests final : public QObject {
   void EmptyChannelGivesFallback();
   void DrawingsSwapWithoutBlending();
   void ShotsFollowEachOther();
-  void PresetsLoopOnTheirHold();
-  void ShakeIsTheSameEveryTime();
   void MirrorNamesSwapSides();
 };
 
@@ -87,36 +84,6 @@ void SamplerTests::ShotsFollowEachOther() {
   QCOMPARE(moment.local, Frame(2));
   QCOMPARE(Locate(project, Frame(30)).shot, -1);
   QCOMPARE(TotalLength(Project()), Frame(0));
-}
-
-void SamplerTests::PresetsLoopOnTheirHold() {
-  PresetSettings settings{MotionPreset::kBob, 6.0, 3, 12};
-  const auto keys = PresetKeys(settings);
-  QCOMPARE(keys.size(), size_t{4});
-  QCOMPARE(keys[1].frame, Frame(3));
-  QCOMPARE(keys[1].value.offset, QPointF(0, 6));
-  QCOMPARE(keys[1].ease, Ease::kStep);
-  settings.preset = MotionPreset::kSway;
-  QCOMPARE(PresetKeys(settings)[0].ease, Ease::kEaseInOut);
-  settings.length = 0;
-  QVERIFY(PresetKeys(settings).empty());
-  QVERIFY(!PresetName(MotionPreset::kNod).isEmpty());
-}
-
-void SamplerTests::ShakeIsTheSameEveryTime() {
-  const PresetSettings settings{MotionPreset::kShake, 5.0, 1, 8};
-  const auto first = PresetKeys(settings);
-  QCOMPARE(PresetKeys(settings), first);
-  QVERIFY(first[0].value.offset != first[1].value.offset);
-  for (const auto& key : first) {
-    QVERIFY(std::abs(key.value.offset.x()) <= 5.0);
-  }
-  PiecePose base;
-  base.scale_x = 2.0;
-  PiecePose change;
-  change.scale_x = 0.5;
-  change.rotation = 10.0;
-  QCOMPARE(AddPose(base, change).scale_x, 1.0);
 }
 
 void SamplerTests::MirrorNamesSwapSides() {

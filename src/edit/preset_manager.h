@@ -7,7 +7,6 @@
 
 #include <vector>
 
-#include "anim/presets.h"
 #include "base/error.h"
 #include "base/frame.h"
 #include "edit/track_ref.h"
@@ -17,19 +16,13 @@ namespace snapper {
 
 class HistoryManager;
 
-// Ready-made motion: loops laid onto pieces or layers, and poses saved
-// by name to reuse in any project. Saved poses live in their own file,
-// outside the project, so saving one is not an undoable edit.
+// Poses saved by name to reuse in any project. They live in their own
+// file, outside the project, so saving one is not an undoable edit.
 class PresetManager final : public QObject {
   Q_OBJECT
 
  public:
   PresetManager(HistoryManager* history, QString poses_path);
-
-  // Lays the loop onto each layer or piece track from start, on top of
-  // what is there, and keys the old pose back where the loop ends.
-  Result<void> ApplyMotion(const std::vector<TrackRef>& tracks, Frame start,
-                           const PresetSettings& settings);
 
   // Names of the saved poses, sorted.
   QStringList SavedPoses() const;
