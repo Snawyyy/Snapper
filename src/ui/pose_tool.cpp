@@ -355,6 +355,8 @@ void PoseTool::PickWhole(QPointF point, const StageFrame& frame) {
 void PoseTool::Wheel(int notches, bool is_fine, const StageFrame& frame) {
   assert(notches != 0);
   assert(frame.scale > 0.0);
+  // Ticks in a row are one undo step.
+  const HistoryManager::BurstGuard burst(managers_.history);
   const auto dot = PickedDot(frame);
   if (dot) {
     WheelReach(notches, is_fine, frame);

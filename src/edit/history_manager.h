@@ -2,17 +2,23 @@
 #define SNAPPER_EDIT_HISTORY_MANAGER_H_
 
 #include <QObject>
+#include <QElapsedTimer>
 #include <QString>
 
 #include <deque>
+#include <optional>
 
 #include "base/error.h"
+#include "edit/step_scope.h"
 #include "model/project.h"
 
 namespace snapper {
 
 // Past this, the oldest steps are dropped.
 constexpr int kMaxUndoSteps = 500;
+// A burst of edits (wheel ticks) is one undo step while each comes
+// within this many milliseconds of the one before.
+constexpr int kBurstMs = 800;
 
 // Owns the current project and its undo history. Every edit in Snapper
 // ends in Commit here, so undo, redo, dirty state and repaint work the
@@ -39,6 +45,33 @@ class HistoryManager final : public QObject {
   Result<void> Apply(const QString& label, Result<Project> next);
   void Undo();
   void Redo();
+  // Undo and redo for one shot: the latest change made to that shot (or,
+  // when the newest change is not inside one shot, that change). Other
+  // shots stay as they are, so undoing in a shot never takes back work
+  // done in another. A step that changed several shots can only be
+  // undone when it is the newest. Each says what it would do, and why it
+  // can't.
+  void UndoIn(ShotId shot);
+  void RedoIn(ShotId shot);
+  bool CanUndoIn(ShotId shot) const;
+  bool CanRedoIn(ShotId shot) const;
+  QString UndoLabelIn(ShotId shot) const;
+  QString RedoLabelIn(ShotId shot) const;
+  QString WhyNoUndoIn(ShotId shot) const;
+  QString WhyNoRedoIn(ShotId shot) const;
+  // While a BurstGuard lives, a commit with the same label as the last
+  // burst commit, made within kBurstMs of it with nothing between,
+  // folds into that undo step instead of making a new one. A wheel
+  // turned 4 ticks is one step to undo, not 4.
+  class BurstGuard final {
+   public:
+    explicit BurstGuard(HistoryManager* history);
+    ~BurstGuard();
+    Q_DISABLE_COPY(BurstGuard)
+
+   private:
+    HistoryManager* history_;
+  };
   // Starts over with start, as opening a file does: no undo across it.
   // A start that was never saved (recovered work) begins dirty.
   void Reset(Project start, bool is_saved = true);
@@ -75,6 +108,8 @@ class HistoryManager final : public QObject {
     QString label;
     Project project;
     int revision = 0;
+    // What the step changed, to tell which shot it belongs to.
+    StepScope scope;
   };
 
   // EditScope's half: a drag shows live without making steps, then
@@ -84,7 +119,21 @@ class HistoryManager final : public QObject {
   void CloseScope(const QString& label, bool keep);
 
   void Record(const QString& label, Project before, int before_revision);
+  // True when a commit named label, made from the state revision, folds
+  // into the last undo step.
+  bool CanFoldBurst(const QString& label, int revision) const;
+  // Remembers a burst commit so the next may fold into it.
+  void NoteBurst(const QString& label);
   void Travel(std::deque<Step>* from, std::deque<Step>* to);
+  // The step an undo or redo in shot acts on (an index into steps), or
+  // nothing; see UndoIn.
+  std::optional<size_t> StepFor(const std::deque<Step>& steps,
+                                ShotId shot) const;
+  // Takes the step at index out of from and applies it to the current
+  // project for its own shots only, leaving the other shots as they are,
+  // and puts it on to.
+  void TravelApart(std::deque<Step>* from, std::deque<Step>* to,
+                   size_t index, bool is_undo);
 
   Project current_;
   std::deque<Step> undo_;
@@ -93,6 +142,13 @@ class HistoryManager final : public QObject {
   int revision_ = 0;
   int next_revision_ = 1;
   int saved_revision_ = 0;
+
+  bool is_bursting_ = false;
+  QString burst_label_;
+  // The state the last burst commit made; anything else in between
+  // (another edit, undo) breaks the burst.
+  int burst_revision_ = -1;
+  QElapsedTimer burst_clock_;
 
   bool is_scope_open_ = false;
   Project scope_start_;
