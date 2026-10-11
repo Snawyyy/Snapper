@@ -229,7 +229,26 @@ void StepJelly(const std::vector<QPointF>& carried, ClothPiece* piece) {
     Move(carried, i, 0.0, piece);
     piece->at[i] += (goal - now[point]) * piece->settings[i].pull;
   }
+  const std::vector<QPointF> moved = piece->at;
   FinishStep(carried, before, piece);
+  // Untangling folds and pushing out of colliders moves a node but must
+  // not speed it up: counted as speed, each fix flung a soft, wobbly
+  // blob into the next fold until it tore apart. So a fix is a dead
+  // stop: the node keeps its own speed less the share into the fix.
+  for (size_t i = 0; i < count; ++i) {
+    const QPointF body = piece->body_speed[i];
+    QPointF own = moved[i] - before[i] - body;
+    const QPointF fix = piece->at[i] - moved[i];
+    const double length = Length(fix);
+    const bool is_fixed = length > 1e-9 && IsFinite(own);
+    const QPointF way = is_fixed ? fix / length : QPointF();
+    const double into = -(own.x() * way.x() + own.y() * way.y());
+    const bool is_into = is_fixed && into > 0.0;
+    if (is_into) {
+      own += way * into;
+    }
+    piece->speed[i] = is_fixed ? body + own : piece->speed[i];
+  }
 }
 
 }  // namespace snapper

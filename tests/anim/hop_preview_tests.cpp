@@ -99,7 +99,7 @@ class HopPreviewTests : public QObject {
   void MoreWobbleRingsLonger();
   void MoreSquishDeformsMoreAtLanding();
   void DroopSagsInTheAir();
-  void EveryHopIsTheSame();
+  void ChainedHopsStayBounded();
   void NoSettingTearsTheBlob();
   void ClothAndDragReactToTheLanding();
   void NewSettingsCarryOn();
@@ -176,24 +176,19 @@ void HopPreviewTests::DroopSagsInTheAir() {
   QVERIFY2(sag > kSeen, qPrintable(QString::number(sag)));
 }
 
-void HopPreviewTests::EveryHopIsTheSame() {
-  // Even the softest, wobbliest blob does not swing higher each loop.
+void HopPreviewTests::ChainedHopsStayBounded() {
+  // Hops chain: the softest, wobbliest blob, hopped a long time, swings
+  // wide but stays within one and a half blobs (it used to tear apart).
   const DragNode node = Jelly(0.0, 1.0, 1.0);
   HopPreview hop(&node);
-  // The first loop starts at rest, not landing.
-  for (int f = 0; f < kHopFrames; ++f) {
+  constexpr double kMostBend = 60.0;
+  double most = 0.0;
+  for (int f = 0; f < 40 * kHopFrames; ++f) {
     hop.Step();
-  }
-  std::vector<std::vector<QPointF>> first;
-  for (int f = 0; f < kHopFrames; ++f) {
-    hop.Step();
-    first.push_back(hop.dots());
+    most = std::max(most, hop.Bend());
   }
   QVERIFY(Most(AfterLanding(&node).bends) > kSeen);
-  for (int f = 0; f < kHopFrames; ++f) {
-    hop.Step();
-    QCOMPARE(hop.dots(), first[static_cast<size_t>(f)]);
-  }
+  QVERIFY2(most < kMostBend, qPrintable(QString::number(most)));
 }
 
 void HopPreviewTests::NoSettingTearsTheBlob() {

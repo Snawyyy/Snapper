@@ -182,17 +182,6 @@ void HopPreview::Step() {
   if (is_still) {
     return;
   }
-  const int lift_off = kHopFrames - kHopAirFrames;
-  const bool is_lift_off = frame_ + 1 == lift_off;
-  if (is_lift_off) {
-    // Every hop starts from rest, so it shows one hop's reaction: a hop
-    // every loop would drive a soft wobbly blob ever higher, as a doll
-    // hopping in time with its wobble would. The body stands where it
-    // stood at frame 0, so the cut comes as the hop starts.
-    Rest();
-    frame_ = lift_off;
-    return;
-  }
   frame_ = (frame_ + 1) % kHopFrames;
   const std::vector<QPointF> was = carried_;
   carried_ = CarriedAt(grid_, frame_);
