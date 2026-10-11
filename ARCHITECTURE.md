@@ -59,6 +59,9 @@ There is exactly one way the project changes:
    hands it to `HistoryManager::Apply` with a label such as "Rotate".
 3. `HistoryManager` stores the old value for undo and emits `Changed`.
 4. Widgets repaint from `HistoryManager::current()`.
+   A `HistoryManager::BurstGuard` held around an edit (the stage wheel)
+   folds it into the last step when it has the same label and comes
+   within `kBurstMs`, so a turn of many ticks is one undo.
 
 Nothing else writes to the project. That gives undo, redo, dirty state
 and repaint for every feature without each feature writing them again.
@@ -88,6 +91,20 @@ snapshot. Drawings are never in the project, only their file names, so
 pixels are never copied.
 
 History keeps at most `kMaxUndoSteps` steps and drops the oldest.
+
+Each step also remembers what it changed (`StepScope`, `edit/step_scope.h`,
+pure): which shots, which layers' own warp dot settings (counted with
+the shot the layer is in), or something shared (shots added or moved,
+the cast, the reel, the song, the canvas, the name). `UndoIn(shot)` and
+`RedoIn(shot)` act on the latest step of that shot only, taking it out
+of the middle of the history when other shots were edited since
+(`WithScopeFrom` copies just that shot back; the snapshots of the steps
+newer than it, and the states waiting to be redone, take the shot as it
+now is, so a later plain undo never brings it back). A step that
+changed several shots, or the shared things, comes off only when it is
+the newest. The window uses these in the Pose and Rig tabs (the shot
+being worked in) and plain `Undo` in the Video tab; the Undo and Redo
+buttons and menu entries name and grey out per shot.
 
 ## Time
 
@@ -301,7 +318,11 @@ A piece can:
   (`PushGrid`, `anim/grid_push.h`). Plain dots are pushed per frame
   from where the keys put them, with no history (`CollidePoses`, in
   `DraggedPoses` before the trails), back to front so a pushed piece
-  pushes from where it was pushed to. Drag and physics nodes hang from
+  pushes from where it was pushed to. Two pieces whose colliders push
+  each other (`PushField::is_shared`) share the move: the one handled
+  first takes half (`kSharedShare`, `PushGridShared`) and the later one
+  pushes the rest, so both squash alike instead of one giving way for
+  both. Drag and physics nodes hang from
   the pushed dots and swing on top of the push; physics nodes a
   collider comes into are also pushed inside their simulation, back
   toward where they belong (`OutToward`), keeping a little of the hit
@@ -346,6 +367,23 @@ A piece can:
 - belong to a two-bone IK chain. IK is a posing tool: dragging a hand
   solves the chain and writes ordinary rotation keys. Playback only
   ever plays keys, so what was posed is what plays.
+
+Warp dot settings (rubber reach, drag and physics nodes, point motions)
+belong to a layer of a shot, not to the doll, so changing the jelly of
+a doll in one shot leaves the same doll in another shot alone. A rig
+piece holds the doll's default in its own fields (what a new layer
+starts with) and, in `layer_dots`, the settings of each layer that has
+changed them for itself (`PieceDots`, by `LayerId`). `DotsOf`,
+`PieceFor` and `DollFor` (`model/doll.h`) give a layer's view; the
+poses, springs, stage geometry, link solver, poke check and the panels
+read that view. A `DotRef` with a layer edits that layer's copy
+(`WithDots`); one without edits the default (the Rig tab). A change to a
+piece's grid clears every layer's copy of it, a mesh carry moves them
+along with the default, and copying a layer or a shot copies them
+(`WithCopiedLayerDots`). Set as default (`RigManager::SetDotsDefault`)
+makes a layer's settings the doll's default after giving every other
+layer of the doll the look it has now, so only layers added later start
+from it.
 
 ## Poking
 
@@ -538,7 +576,9 @@ are destroyed in reverse.
 | `DragPlayhead` (`ui`) | The playhead's place before a key or clip drag: the drag carries the playhead, Escape puts it back, no history |
 | `PaintClip` (`ui`) | RAII clip so timeline keys, bars, grid and playhead paint only in the frame area, never over the names |
 | `RefusalShaker` (`ui`) | The shake and the reason on a greyed control clicked anyway |
-| `DragBox` (`ui`) | The warp dot panel: material tiles, reach, preset chips, feel pad with a live wobble, a folded Fine tune section, Mirror |
+| `DragBox` (`ui`) | The warp dot panel: material tiles, a golden-ratio row of feel pad (62 %) and live wobble (38 %) on raised plates over sunken frames, preset chips, a reach fader, a folded Fine tune section of faders, the dot groups (`GroupBox`, shown while the pick has dots, drag nodes, motions or groups), Mirror and Set as default |
+| `SettingsManager` | Ctrl+Shift+C / V: copy everything about the picked part except its pose at the playhead (warp dots, flip, text look, effect kind and colour) and paste it as one step; the same piece of the same doll also gets its groups and drawing; `SettingsActions` (`ui`) are its menu entries |
+| `StepScope` (`edit`) | What an undo step changed, for per-shot undo (see Project data and undo) |
 | `KindTiles` / `KindTile` (`ui`) | The four material tiles (Still, Drag, Cloth, Jelly): a tiny cartoon each, looping only under the pointer, squashing on a press |
 | `FeelPad` / `WobbleBlob` (`ui`) | The soft-firm by light-heavy pad that reports Grabbed, Moved, Released, Cancelled; and the small live preview of the first picked dot, painting a `HopPreview` |
 | `HopPreview` (`anim`) | The preview blob that hops on a floor on a 1.2 s loop, its edge dots run by the stage's own jelly, cloth or drag spring step; each hop from rest |
@@ -636,7 +676,15 @@ these over the real project, so data and picking never wait for them;
 in Off there are none, and the final state shows at once. The pose
 timeline (`TimelineView`) animates keys per row; the reel
 (`ReelTimeline`) animates whole clips, growing only 5 % as a clip is
-long. Each timeline's playhead lands on a frame with a small overshoot
+long. On the stage, `StageFlash` (`ui`, one per `StageView`, with its own
+`ChangeWatcher`) shows undo and redo: `ChangedLayers`
+(`edit/change_diff.h`) names the layers of the shown shot that differ,
+and the stage flashes white the drawn pixels of each piece of a doll
+that stands differently (the whole picture for other layers; the
+frame renderer draws just those), with a faint red copy fading where
+it stood, in the Move time. A fresh edit
+flashes nothing; in Off there is none.
+Each timeline's playhead lands on a frame with a small overshoot
 (`PlayheadSettle`: an offset to draw by, none while playing or for a
 jump past `kMaxSettleFrames`, none in Off).
 
@@ -649,9 +697,11 @@ stylesheet. What a button looks like in each state is `LookOfButton`
 number (0 to 1); without it the style uses the plain mouse-over state.
 
 The top bar (`TopBar`) holds the mode tabs (`ModeTabs`: a red bar
-slides under the active tab through `MotionManager`), the transport
-and the Undo and Redo buttons. It forwards clicks to `PlaybackManager`
-and `HistoryManager` and decides nothing: the words, tooltips and
+slides under the active tab through `MotionManager`) and the Undo and
+Redo buttons. The play controls are a `TransportBar`, one above the
+pose timeline and one at the left of the video page's button bar (none
+on the Rig tab). Both forward clicks to `PlaybackManager` and
+`HistoryManager` and decide nothing: the words, tooltips and
 enabled states are `MakeStepFace`, `FrameCounterText`, `TimecodeText`
 and `PlayText` in `bar_text.h` (pure, tested). The window computes the
 Undo and Redo faces once from `HistoryManager` and shows them on the
@@ -797,6 +847,45 @@ pure). Angle fields (Turn, Rest turn, Direction) have a small dial beside
 them (`AngleDial`, `AddAngleRow`; the angle math is `DialAngle` in
 `base/dial_angle.h`): drag to turn, Shift snaps to 15 degrees, Escape
 puts it back; the field takes the value, so a drag is one undo step.
+The wheel turns a dial 5 degrees a notch (Shift 1) and a double click
+resets it to 0; a press alone changes nothing, so a double click never
+jumps the needle.
+
+The Collider box's list of ticked pieces sits in a scroll area capped at
+about seven rows, so a doll with many pieces never pushes the rig panel
+off the screen.
+
+Group chips are `ChipButton`s: they ask for room for the whole name but
+can shrink and cut it with "...", so a long group name never pushes the
+inspector past its edge.
+
+The Pose box is a small hardware panel (`pose_controls.h`) laid out by
+use: the top row holds the two controls used most at one height, the
+Move `TrackPad` (96 px tall, as wide as its cell; the grid slides under a
+yellow puck, one unit per pixel) and the big Turn dial (72 px, ticked every
+15 degrees), each in a sunken frame with its readout bar right under it at
+the same width (x and y share the pad's bar), so numbers and control read
+as one; then `Fader`s for Scale x and y, Skew and Opacity (lit red groove,
+raised cap, a tick at the neutral value; wheel steps, double click
+resets) on one label column and one readout width; then Lean and Swivel
+as small 36 px dials, as they are rarely used. Rows are 8 px apart. Each control works the
+box's own number field, shown beside it as a small readout you can type
+in or scrub by its name, so the edit path is unchanged and a drag is one
+undo step. `BoundDrag` holds what the pad and fader share (start values,
+Set, Finish, Cancel on Escape).
+
+Which boxes show is decided by `ShowFor` (`ui/inspector_show.h`, pure):
+the pose for any pick; the layer's settings only for a whole layer or
+doll, not a limb; saved poses only for a whole doll; groups on a doll
+whose picked pieces have a warp grid with drag nodes or motions, or
+while dots are picked or a group exists; the drag node and dot
+animation while a dot is picked; the link only when linked. In the pose
+box, Lean and Swivel show for a whole doll only and the Drawing picker
+for a piece with more than one drawing.
+
+Dropdowns are drawn by `SnapperStyle` as sunken full-width boxes with a
+raised arrow button, and open a sunken list. A dial or slider under the
+cursor leaves the wheel to the inspector while it scrolls (`scroll_guard.h`).
 
 Most boxes below the title fold away under their heading (`Inspector::
 AddFolded`, `FoldSection`; open at first, the fold kept in the settings

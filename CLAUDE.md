@@ -58,7 +58,22 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-11, branch `ui-test`, not committed): redesign
+Last done (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
+inspector as a hardware panel (pose box: dials, pad, faders; golden ratio,
+raised plates over sunken frames; other boxes with faders; dropdowns
+sunken; dials and sliders take the wheel, reset on a double tap and wait
+for the panel to stop scrolling); boxes show only what the pick needs;
+undo flash on the stage; transport above the timelines; Ctrl+Shift+R
+restarts; wheel ticks and live edits fold into one undo step; warp dot
+settings per layer of a shot with a doll default and a Set as default
+button; groups inside the warp dots panel; Ctrl+Shift+C and V copy and
+paste a part's settings; undo and redo per shot; two colliders squash
+alike; `anim` and `render` are -O2 in Debug. Owner tests each by eye.
+Open: the Rig tab still edits the doll default only; orphan `layer_dots`
+of deleted layers are never pruned; copy and paste skips layer name and
+timing; the physics still re-runs from frame 0 on each drag move.
+
+Earlier: Pose box redesigned as a hardware panel (dials for turn/lean/swivel, a pad for move, faders for scale/skew/opacity, fields kept as readouts); other inspector boxes are still plain forms, next to convert; undo flash on the stage (changed layers flash white, old place fades); play buttons moved from the top bar to above the pose timeline and into the video bar (`TransportBar`, none on Rig); owner said no more tests from now on; redesign
 steps 8 to 13, first pass (see next steps, item 3); motion presets and the Motion box removed; mirror flips the
 mesh and makes twin groups.
 
@@ -112,8 +127,10 @@ Next steps:
    the key chip bar, corner switch, dials, inspector title); fix what
    they find, one change at a time. The owner said: no tests for visual
    things, they test those by eye; no test rule in this file now.
-2. Performance is bad in the app: profile a Release build first (the
-   tested build is Debug), then fix the slow paths.
+2. Performance: a Release drag of a doll with jelly limbs takes about
+   15 ms a move; the lag was the Debug build (90 ms), so `anim` and
+   `render` are now -O2 in Debug too (23 ms). Next: profile a real
+   project, and the physics still re-runs from frame 0 on every drag move.
 3. Redesign (docs/redesign/index.html section 12; keep the UI fun,
    simple and game like): steps 8 to 13 are built in a first pass (key
    chip bar, corner switch, inspector title, dials, folds, motion tiles,
@@ -123,8 +140,8 @@ Next steps:
    buttons). Not built yet, in the doc: drag rows for draw order,
    IK bones and click the elbow to flip, the inline gap picker, the
    transition popover with tiles, layer rows with eye and kind icon and
-   rename in place, the "+" tiles, hit-stop, input buffering, undo
-   flash. Owner tests each by eye and says what feels wrong.
+   rename in place, the "+" tiles, hit-stop, input buffering. (Undo
+   flash is built on the stage; pieces do not slide back yet.) Owner tests each by eye and says what feels wrong.
 4. Faster links: mold is in; next, think about one test program per module instead of one per file, since
    every change relinks about 100 of them.
 5. Merge to main only when the owner says "merge".
@@ -145,5 +162,7 @@ back so conflicts are solved where the code was written.
 - New things appear where they cause no jump.
 - Selected things get a Teto red outline; draggable handles are yellow.
 - Handles look small and grab big.
+- Dials turn with the mouse wheel and sliders step with it; a double
+  click resets either one (a press alone changes nothing).
 - Right click changes a node's mode; double click on empty space adds
   one; Delete removes the picked ones; Shift adds to the pick.
