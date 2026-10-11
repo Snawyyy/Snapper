@@ -11,6 +11,7 @@
 #include "io/collider_json.h"
 #include "io/point_motion_json.h"
 #include "io/warp_json.h"
+#include "model/node_physics.h"
 
 namespace snapper {
 namespace {
@@ -59,6 +60,31 @@ NodeKind KindFromJson(const QJsonObject& object) {
                     : NodeKind::kDrag;
 }
 
+// A setting kept 0 to 1, fallback when missing or not a number.
+double UnitFromJson(const QJsonValue& number, double fallback) {
+  assert(std::isfinite(fallback));
+  assert(fallback >= 0.0 && fallback <= 1.0);
+  const double read = number.toDouble(fallback);
+  return std::isfinite(read) ? std::clamp(read, 0.0, 1.0) : fallback;
+}
+
+// A jelly node's knobs. Files from before the knobs kept jelly in the
+// cloth settings (read already into read); those turn into the
+// nearest knobs.
+DragNode JellyFromJson(const QJsonObject& object, DragNode read) {
+  assert(read.kind == NodeKind::kJelly);
+  assert(object.size() < 1000000);
+  const bool has_knobs = object.contains("wobble");
+  if (!has_knobs) {
+    return JellyFromOld(read);
+  }
+  read.spring = UnitFromJson(object.value("firmness"), read.spring);
+  read.inertia = UnitFromJson(object.value("wobble"), read.inertia);
+  read.stretch = UnitFromJson(object.value("squish"), read.stretch);
+  read.gravity = UnitFromJson(object.value("droop"), read.gravity);
+  return read;
+}
+
 QJsonArray DragToJson(const std::vector<DragNode>& nodes) {
   assert(nodes.size() <= static_cast<size_t>(kMaxWarpPoints));
   QJsonArray array;
@@ -66,10 +92,17 @@ QJsonArray DragToJson(const std::vector<DragNode>& nodes) {
     QJsonObject object{{"point", node.point},
                        {"lag", node.lag},
                        {"bounce", node.bounce}};
-    const bool is_physics = node.kind != NodeKind::kDrag;
-    if (is_physics) {
-      const bool is_jelly = node.kind == NodeKind::kJelly;
-      object.insert("kind", is_jelly ? "jelly" : "cloth");
+    const bool is_jelly = node.kind == NodeKind::kJelly;
+    const bool is_cloth = node.kind != NodeKind::kDrag && !is_jelly;
+    if (is_jelly) {
+      object.insert("kind", "jelly");
+      object.insert("firmness", node.spring);
+      object.insert("wobble", node.inertia);
+      object.insert("squish", node.stretch);
+      object.insert("droop", node.gravity);
+    }
+    if (is_cloth) {
+      object.insert("kind", "cloth");
       object.insert("stretch", node.stretch);
       object.insert("inertia", node.inertia);
       object.insert("air", node.air);
@@ -88,10 +121,6 @@ std::vector<DragNode> DragFromJson(const QJsonValue& value,
   assert(grid.columns >= 0 && grid.rows >= 0);
   std::vector<DragNode> nodes;
   const QJsonArray array = value.toArray();
-  const auto unit = [](const QJsonValue& number, double fallback) {
-    const double read = number.toDouble(fallback);
-    return std::isfinite(read) ? std::clamp(read, 0.0, 1.0) : fallback;
-  };
   for (const QJsonValue& item : array) {
     const QJsonObject object = item.toObject();
     const int point = object.value("point").toInt(-1);
@@ -102,14 +131,18 @@ std::vector<DragNode> DragFromJson(const QJsonValue& value,
     if (is_new) {
       const DragNode kDefault;
       nodes.push_back(
-          {point, unit(object.value("lag"), kDefault.lag),
-           unit(object.value("bounce"), kDefault.bounce),
+          {point, UnitFromJson(object.value("lag"), kDefault.lag),
+           UnitFromJson(object.value("bounce"), kDefault.bounce),
            KindFromJson(object),
-           unit(object.value("stretch"), kDefault.stretch),
-           unit(object.value("inertia"), kDefault.inertia),
-           unit(object.value("air"), kDefault.air),
-           unit(object.value("gravity"), kDefault.gravity),
-           unit(object.value("spring"), kDefault.spring)});
+           UnitFromJson(object.value("stretch"), kDefault.stretch),
+           UnitFromJson(object.value("inertia"), kDefault.inertia),
+           UnitFromJson(object.value("air"), kDefault.air),
+           UnitFromJson(object.value("gravity"), kDefault.gravity),
+           UnitFromJson(object.value("spring"), kDefault.spring)});
+      const bool is_jelly = nodes.back().kind == NodeKind::kJelly;
+      if (is_jelly) {
+        nodes.back() = JellyFromJson(object, nodes.back());
+      }
     }
   }
   assert(nodes.size() <= static_cast<size_t>(kMaxWarpPoints));

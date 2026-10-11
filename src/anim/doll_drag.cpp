@@ -17,6 +17,7 @@
 #include "anim/doll_beat.h"
 #include "anim/doll_collide.h"
 #include "anim/doll_colliders.h"
+#include "anim/drag_spring.h"
 #include "anim/grid_push.h"
 #include "anim/jelly.h"
 #include "anim/shot_grid.h"
@@ -31,22 +32,12 @@ namespace {
 struct Spring final {
   QString piece;
   DragNode node;
-  double pull = 0.0;
-  double damping = 0.0;
+  DragSpring spring;
   // A physics node moves with its piece's cloth, not as a lone spring.
   bool is_physics = false;
   QPointF at;
   QPointF speed;
 };
-
-// Lag below this eases into no trail at all.
-constexpr double kSnapLag = 0.1;
-
-double Mix(double from, double to, double amount) {
-  assert(std::isfinite(amount));
-  assert(std::isfinite(from) && std::isfinite(to));
-  return from + (to - from) * amount;
-}
 
 using Carry = DragTrail::Carry;
 
@@ -62,17 +53,8 @@ std::vector<Spring> SpringsOf(const Doll& doll) {
       const bool is_on_grid = node.point < rig.warp.PointCount();
       if (is_on_grid) {
         const bool is_physics = node.kind != NodeKind::kDrag;
-        // More lag pulls softer; more bounce keeps more speed.
-        const double soft_pull = Mix(0.5, 0.04, node.lag);
-        const double give = Mix(1.0, 0.08, node.bounce);
-        const double soft_damping = 2.0 * give * std::sqrt(soft_pull);
-        // Below kSnapLag the spring blends into one with pull and
-        // damping 1, which lands on its point every frame, so lag 0
-        // trails nothing and the slider has no jump near 0.
-        const double snap =
-            std::clamp(1.0 - node.lag / kSnapLag, 0.0, 1.0);
-        springs.push_back({rig.name, node, Mix(soft_pull, 1.0, snap),
-                           Mix(soft_damping, 1.0, snap), is_physics, {}, {}});
+        springs.push_back(
+            {rig.name, node, DragSpringOf(node), is_physics, {}, {}});
       }
     }
   }
@@ -116,9 +98,7 @@ void MoveSpring(const Carry& carry, int f, Spring* spring) {
     spring->at = carry.has_value() ? carry->first : spring->at;
     return;
   }
-  spring->speed += (carry->first - spring->at) * spring->pull -
-                   spring->speed * spring->damping;
-  spring->at += spring->speed;
+  StepDragSpring(spring->spring, carry->first, &spring->at, &spring->speed);
 }
 
 // A piece's grid at a frame as the springs see it: its points carried

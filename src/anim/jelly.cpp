@@ -9,6 +9,7 @@
 
 #include "anim/cloth_parts.h"
 #include "anim/warp_shape.h"
+#include "model/node_physics.h"
 
 namespace snapper {
 namespace {
@@ -16,9 +17,6 @@ namespace {
 // How far the area may be off before the fit stops making up all of
 // it: a blob squeezed to nothing does not swell without end.
 constexpr double kMostAreaChange = 4.0;
-// The most of its squash a blob keeps at squish 1: the rest pulls it
-// back to its own shape, so even the softest jelly comes back.
-constexpr double kMostSquish = 0.85;
 
 // A 2 by 2 matrix: [a b; c d].
 struct Mat final {
@@ -201,24 +199,24 @@ void StepJelly(const std::vector<QPointF>& carried, ClothPiece* piece) {
   assert(piece->at.size() == count && piece->speed.size() == count &&
          piece->settings.size() == count && piece->body_speed.size() == count);
   const std::vector<QPointF> before = piece->at;
+  // Each node carried by the body with none of its own motion yet. The
+  // goal is found from there and pulls its speed, not its place, so a
+  // firm blob rings fast and still settles.
+  std::vector<QPointF> now = carried;
   double squish = 0.0;
   for (size_t i = 0; i < count; ++i) {
-    // The fit, not the carried place, is home: no pull straight back.
-    Move(carried, i, 0.0, piece);
+    now[static_cast<size_t>(piece->points[i])] =
+        piece->at[i] + piece->body_speed[i];
     squish += piece->settings[i].stretch / static_cast<double>(count);
   }
   const bool has_drawn = piece->drawn.size() == carried.size();
   const std::vector<QPointF> home =
       has_drawn ? Refilled(carried, *piece) : carried;
-  std::vector<QPointF> now = carried;
-  for (size_t i = 0; i < count; ++i) {
-    now[static_cast<size_t>(piece->points[i])] = piece->at[i];
-  }
   // How the blob squashes and turns now, kept to the home area: squish
   // of the way between only turning and squashing freely.
   const Mat squash = FitOf(home, now);
   const Mat turn = TurnOf(squash);
-  const double keep = std::clamp(squish, 0.0, 1.0) * kMostSquish;
+  const double keep = std::clamp(squish, 0.0, kMostSquish);
   const Mat fit = WithArea(Plus(Times(WithArea(squash, turn, 1.0), keep),
                                 Times(turn, 1.0 - keep)),
                            turn, 1.0);
@@ -227,10 +225,30 @@ void StepJelly(const std::vector<QPointF>& carried, ClothPiece* piece) {
   for (size_t i = 0; i < count; ++i) {
     const size_t point = static_cast<size_t>(piece->points[i]);
     const QPointF goal = now_mid + Apply(fit, home[point] - home_mid);
-    piece->at[i] +=
-        (goal - piece->at[i]) * (piece->settings[i].spring * kSpringPull);
+    // The fit, not the carried place, is home: no pull straight back.
+    Move(carried, i, 0.0, piece);
+    piece->at[i] += (goal - now[point]) * piece->settings[i].pull;
   }
+  const std::vector<QPointF> moved = piece->at;
   FinishStep(carried, before, piece);
+  // Untangling folds and pushing out of colliders moves a node but must
+  // not speed it up: counted as speed, each fix flung a soft, wobbly
+  // blob into the next fold until it tore apart. So a fix is a dead
+  // stop: the node keeps its own speed less the share into the fix.
+  for (size_t i = 0; i < count; ++i) {
+    const QPointF body = piece->body_speed[i];
+    QPointF own = moved[i] - before[i] - body;
+    const QPointF fix = piece->at[i] - moved[i];
+    const double length = Length(fix);
+    const bool is_fixed = length > 1e-9 && IsFinite(own);
+    const QPointF way = is_fixed ? fix / length : QPointF();
+    const double into = -(own.x() * way.x() + own.y() * way.y());
+    const bool is_into = is_fixed && into > 0.0;
+    if (is_into) {
+      own += way * into;
+    }
+    piece->speed[i] = is_fixed ? body + own : piece->speed[i];
+  }
 }
 
 }  // namespace snapper

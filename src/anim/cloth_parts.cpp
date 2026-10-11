@@ -2,7 +2,6 @@
 
 #include <QPointF>
 
-#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <vector>
@@ -13,15 +12,6 @@
 namespace snapper {
 namespace {
 
-// The share of its motion a node keeps each frame with no air
-// resistance (a little is always lost, so it settles), and what air
-// resistance 1 takes off that.
-constexpr double kKeep = 0.98;
-constexpr double kAirDrag = 0.3;
-// The share of a grid cell a gravity of 1 pulls per frame per frame,
-// per unit of turn away from upright (2 when upside down): sized by the
-// cell, so a small drawing hangs as a big one does.
-constexpr double kGravityPull = 0.02;
 // The share of a collider's push a node keeps as speed: the rest is
 // lost in the hit, so cloth rides on a leg instead of flying off it.
 constexpr double kPushKick = 0.3;
@@ -152,12 +142,11 @@ void Move(const std::vector<QPointF>& carried, size_t i, double home_pull,
   const QPointF body = piece->body_speed[i];
   // Its place against the body before this frame's carry.
   const QPointF off = piece->at[i] - (anchor - body);
-  // Its own motion on top of the body's: inertia keeps it, air slows it.
-  QPointF own = (piece->speed[i] - body) * s.inertia;
-  own *= std::max(0.0, kKeep - kAirDrag * s.air);
+  // Its own motion on top of the body's, and gravity sized by the cell,
+  // so a small drawing hangs as a big one does.
+  QPointF own = (piece->speed[i] - body) * s.keep;
   const QPointF turned = QPointF(0.0, 1.0) - piece->drawn_down;
-  own += turned * (s.gravity * kGravityPull * piece->cell) -
-         off * home_pull;
+  own += turned * (s.fall * piece->cell) - off * home_pull;
   piece->at[i] = anchor + off + own;
 }
 

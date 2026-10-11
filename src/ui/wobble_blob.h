@@ -5,8 +5,8 @@
 #include <QTimer>
 #include <QWidget>
 
-#include "anim/node_feel.h"
-#include "ui/dot_kinds.h"
+#include "anim/hop_preview.h"
+#include "model/doll.h"
 
 class QPaintEvent;
 class QShowEvent;
@@ -16,23 +16,19 @@ namespace snapper {
 
 class MotionManager;
 
-// How far the preview has swung, -1 to 1, seconds after it was
-// kicked, for a feel. Firm rings quicker; heavy swings wider and
-// rings longer. The kick repeats every kWobbleLoopS, so it never rests.
-inline constexpr double kWobbleLoopS = 2.4;
-double WobbleAt(const Feel& feel, double seconds);
-
-// A small live preview of the current feel: a jelly blob squashing, a
-// dot on a spring (Drag) or a hanging sheet (Cloth) that wobbles the
-// way the picked dots will. It runs only while shown and enabled and
-// never in Off, where it shows the resting shape.
+// A small live preview of the picked dot's settings: a blob that hops
+// on a floor and lands, its edge moved by the same solver the stage
+// runs (HopPreview), so a firmer, wobblier or squishier dot looks it.
+// Still rests. It runs only while shown and enabled and never in Off,
+// where it shows the blob resting.
 class WobbleBlob final : public QWidget {
   Q_OBJECT
 
  public:
   WobbleBlob(MotionManager* motion, QWidget* parent);
 
-  void SetLook(Material material, const Feel& feel);
+  // The settings shown; nullptr is Still.
+  void SetNode(const DragNode* node);
   bool is_animating() const { return timer_.isActive(); }
   QSize sizeHint() const override;
 
@@ -45,13 +41,10 @@ class WobbleBlob final : public QWidget {
  private:
   // Starts or stops the clock to match shown, enabled and Motion.
   void Sync();
-  void Step();
 
   MotionManager* motion_;
   QTimer timer_;
-  Material material_ = Material::kJelly;
-  Feel feel_;
-  double seconds_ = 0.0;
+  HopPreview hop_{nullptr};
 };
 
 }  // namespace snapper

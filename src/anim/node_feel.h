@@ -21,8 +21,9 @@ struct Feel final {
 };
 
 // node with its settings set from feel, by its kind: Drag sets lag and
-// bounce; Cloth and Jelly set stretch (squish), bounce, inertia, air
-// resistance and gravity. Its point and kind stay.
+// bounce; Cloth sets stretch, bounce, inertia, air resistance and
+// gravity; Jelly sets Firmness and Squish (firm) and Wobble and Droop
+// (heavy). Its point and kind stay.
 DragNode WithFeel(DragNode node, const Feel& feel);
 
 // The spot on the pad node's settings are nearest: exact for a node set

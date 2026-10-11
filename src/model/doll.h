@@ -82,27 +82,33 @@ inline constexpr int kNodeKindCount = 3;
 // A warp grid point that moves by itself when the doll moves. A drag
 // node uses lag (how far it trails) and bounce (how much it wobbles
 // before settling), both 0 to 1. Cloth and jelly use the settings
-// below instead, each 0 (none of it) to 1 (a lot).
+// below instead, each 0 (none of it) to 1 (a lot). Jelly reads four of
+// them as knobs spread evenly by feel (model/node_physics.h): spring is
+// Firmness, inertia is Wobble, stretch is Squish, gravity is Droop; it
+// has no air.
 struct DragNode final {
   int point = 0;
   double lag = 0.5;
   double bounce = 0.5;
   NodeKind kind = NodeKind::kDrag;
   // Cloth: how far it may get from the points around it: 0 keeps its
-  // drawn distance, 1 a whole cell further (rubbery). Jelly (shown as
-  // Squish): how much the blob squashes and stretches as it wobbles,
-  // 0 stays its drawn shape, 1 squishes freely; its area stays.
+  // drawn distance, 1 a whole cell further (rubbery). Jelly (Squish):
+  // how far the blob squashes and stretches as it wobbles, 0 stays its
+  // drawn shape, 1 squishes freely; its area stays.
   double stretch = 0.3;
   // How much of its own motion it keeps when the doll speeds up, stops
   // or turns: 0 moves with the doll, 1 is heavy and swings through.
+  // Jelly (Wobble): how many jiggles before it settles, 0 none to 1 six.
   double inertia = 0.7;
   // How fast its motion dies down: 0 rings on longest, 1 settles soon.
   double air = 0.3;
   // How hard it hangs down when the doll tilts or turns over (as drawn
-  // it already hangs): 0 not at all, 1 strongly.
+  // it already hangs): 0 not at all, 1 strongly. Jelly (Droop): how far
+  // it sags, the same at any firmness.
   double gravity = 0.5;
   // A spring back to its drawn shape: 0 none (cloth just hangs), 1 a
-  // firm jiggle.
+  // firm jiggle. Jelly (Firmness): how fast it springs back, a wobble
+  // of about 24 frames at 0 to about 4 at 1.
   double spring = 0.4;
 
   bool operator==(const DragNode&) const = default;

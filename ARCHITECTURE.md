@@ -235,12 +235,23 @@ A piece can:
   piece's jelly dots wobble as one blob. Each frame the carried shape
   is grown back to the drawn area along the way it was squeezed least
   (pinched at the sides it gets taller), then fitted with one squash
-  and turn over where the dots are; each dot is pulled toward its place
-  on the fit by Bounce, so the blob never goes jagged. Squish (the
-  Stretch number) is how much squash the fit keeps; even at 1 some
-  pull back to its own shape stays. Inertia, Air resistance, Gravity
-  and colliders work as for cloth. A piece's cloth and its jelly run
-  apart, each seeing the other's dots as pins.
+  and turn over where the dots are; each dot's speed is pulled toward
+  its place on the fit, so the blob never goes jagged. Colliders work
+  as for cloth. Jelly has four knobs, each 0 to 1 and spread evenly by
+  feel, kept in DragNode's spring, inertia, stretch and gravity (no
+  air): Firmness (the wobble period, about 24 frames at 0 to 4 at 1,
+  the same ratio each step), Wobble (visible jiggles before it settles,
+  0 to 6 in even steps), Squish (how far it squashes, the area kept;
+  even steps in how far it shows, and even at 1 some pull back to its
+  own shape stays) and Droop (how far it sags when the doll tilts, the
+  same at any firmness). `model/node_physics.h` turns them into the
+  per-frame speed kept, pull, squash kept and fall (`JellyMotionOf`, a
+  damped spring with that period and damping), and turns a jelly node
+  saved before the knobs, in the cloth numbers, into the knobs that
+  move nearest to it (`JellyFromOld`, used by `io/doll_json.cpp`; new
+  files save firmness, wobble, squish and droop). `ClothSettingsOf`
+  gives both kinds their per-frame numbers. A piece's cloth and its
+  jelly run apart, each seeing the other's dots as pins.
   A node's feel (`anim/node_feel.h`) is two numbers, firm and heavy,
   that set its kind's settings (`WithFeel`, read back by `FeelOf`); a
   preset (Pudding, Silk, Snappy...) is a named feel.
@@ -512,7 +523,8 @@ are destroyed in reverse.
 | `RefusalShaker` (`ui`) | The shake and the reason on a greyed control clicked anyway |
 | `DragBox` (`ui`) | The warp dot panel: material tiles, reach, preset chips, feel pad with a live wobble, a folded Fine tune section, Mirror |
 | `KindTiles` / `KindTile` (`ui`) | The four material tiles (Still, Drag, Cloth, Jelly): a tiny cartoon each, looping only under the pointer, squashing on a press |
-| `FeelPad` / `WobbleBlob` (`ui`) | The soft-firm by light-heavy pad that reports Grabbed, Moved, Released, Cancelled; and the small live preview of the current feel |
+| `FeelPad` / `WobbleBlob` (`ui`) | The soft-firm by light-heavy pad that reports Grabbed, Moved, Released, Cancelled; and the small live preview of the first picked dot, painting a `HopPreview` |
+| `HopPreview` (`anim`) | The preview blob that hops on a floor on a 1.2 s loop, its edge dots run by the stage's own jelly, cloth or drag spring step; each hop from rest |
 | `FoldSection` (`ui`) | A heading that slides its rows away over the Move time; open or closed is kept in the settings file |
 
 `MotionManager` lives in `ui` because it only serves widgets and holds no
@@ -671,13 +683,22 @@ material tiles (`KindTiles`): a click makes every picked dot Still
 step. `dot_kinds.h` is the pure part, tested without a widget: `KindMix`
 counts the materials among the picked dots (which tile is outlined, thick
 for all and thin for some, and whether the title says Mixed),
-`FineRowsOf` and `FineLabel` say which exact rows apply (jelly names the
-stretch row Squish), and `DistinctFeels` lists the pucks. The feel pad
+`FineRowsOf` and `FineLabel` say which exact rows apply (jelly alone
+shows Squish, Firmness, Wobble and Droop, and no Air resistance), and `DistinctFeels` lists the pucks. The feel pad
 (`FeelPad`) only reports a drag; `DragBox` opens one `LiveEdit` burst on
 Grabbed, calls `SetFeelAll` on every Moved, closes it on Released and
 cancels it on Escape, so a whole drag is one undo step. Preset chips call
 `SetFeelAll` with `FeelPresets`. The tiles and the wobble preview animate
 only through `MotionManager`: nothing moves in Off.
+The wobble preview (`WobbleBlob`) only paints `anim/hop_preview.h`: a
+small round mesh (a pinned core, a ring of edge dots) whose body hops
+on a fixed path (`HopAt`: lift off, a slight lean so Droop shows, land)
+while the edge dots run the stage's own step for the first picked
+dot's settings: `StepJelly`, `StepCloth` with the floor as a collider,
+or the drag spring (`anim/drag_spring.h`, shared with `DraggedPoses`).
+Each hop starts from rest: hopping in time with a soft, wobbly blob
+would otherwise swing it higher every loop. A new feel of the same
+kind carries on mid-hop, so dragging the pad does not restart it.
 
 The side panel shows only the settings of what is picked: the shot
 and its camera with nothing picked on the stage; pose, layer, motion

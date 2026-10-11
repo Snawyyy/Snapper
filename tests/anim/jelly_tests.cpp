@@ -9,18 +9,19 @@
 #include "anim/doll_drag.h"
 #include "anim/jelly.h"
 #include "anim/sampler.h"
+#include "model/node_physics.h"
 
 namespace snapper {
 namespace {
 
 // A 20 by 20 blob on a 2 by 2 grid, every point a jelly node, sitting
-// where its points are: squish and bounce as given, no gravity.
+// where its points are: knobs as given, no droop.
 struct Blob final {
   ClothPiece piece;
   std::vector<QPointF> carried;
 };
 
-Blob MakeBlob(double squish, double bounce) {
+Blob MakeBlob(double firmness, double wobble, double squish) {
   Blob blob;
   blob.piece.grid = {2, 2};
   for (int row = 0; row <= 2; ++row) {
@@ -28,11 +29,13 @@ Blob MakeBlob(double squish, double bounce) {
       blob.carried.push_back(QPointF(column * 10.0, row * 10.0));
     }
   }
-  ClothSettings settings;
-  settings.stretch = squish;
-  settings.inertia = 0.6;
-  settings.air = 0.3;
-  settings.spring = bounce;
+  DragNode node;
+  node.kind = NodeKind::kJelly;
+  node.spring = firmness;
+  node.inertia = wobble;
+  node.stretch = squish;
+  node.gravity = 0.0;
+  const ClothSettings settings = ClothSettingsOf(node);
   for (int point = 0; point < 9; ++point) {
     blob.piece.points.push_back(point);
     blob.piece.settings.push_back(settings);
@@ -78,6 +81,72 @@ double Kink(const std::vector<QPointF>& points) {
   assert(std::isfinite(points[4].x()));
   const QPointF halfway = (points[3] + points[5]) / 2.0;
   return std::hypot(points[4].x() - halfway.x(), points[4].y() - halfway.y());
+}
+
+// A blob with the knobs given, let go after a flick that squashes it
+// (sides apart, top and bottom together, so its area and middle stay):
+// how far its top right corner is from rest, each frame.
+std::vector<double> Swing(double firmness, double wobble, double squish) {
+  constexpr int kFrames = 400;
+  Blob blob = MakeBlob(firmness, wobble, squish);
+  for (size_t point = 0; point < 9; ++point) {
+    const double column = static_cast<double>(point % 3) - 1.0;
+    const double row = static_cast<double>(point / 3) - 1.0;
+    blob.piece.speed[point] = QPointF(column * 2.0, -row * 2.0);
+  }
+  std::vector<double> swing;
+  for (int frame = 0; frame < kFrames; ++frame) {
+    StepJelly(blob.carried, &blob.piece);
+    swing.push_back(blob.piece.at[2].x() - blob.carried[2].x());
+  }
+  assert(swing.size() == size_t{kFrames});
+  assert(std::isfinite(swing.back()));
+  return swing;
+}
+
+// The frames from one swing right to the next, on average.
+double PeriodOf(const std::vector<double>& swing) {
+  assert(swing.size() > 2);
+  std::vector<size_t> rises;
+  for (size_t i = 1; i < swing.size(); ++i) {
+    const bool is_rise = swing[i - 1] < 0.0 && swing[i] >= 0.0;
+    if (is_rise) {
+      rises.push_back(i);
+    }
+  }
+  assert(rises.size() < swing.size());
+  const bool has_two = rises.size() >= 2;
+  return has_two ? static_cast<double>(rises.back() - rises.front()) /
+                       static_cast<double>(rises.size() - 1)
+                 : 0.0;
+}
+
+// The frame after which the swing stays under a tenth of its largest.
+int SettleOf(const std::vector<double>& swing) {
+  assert(!swing.empty());
+  const double most = std::abs(*std::max_element(
+      swing.begin(), swing.end(),
+      [](double a, double b) { return std::abs(a) < std::abs(b); }));
+  assert(std::isfinite(most));
+  int settle = 0;
+  for (size_t i = 0; i < swing.size(); ++i) {
+    const bool is_big = std::abs(swing[i]) > most * 0.1;
+    if (is_big) {
+      settle = static_cast<int>(i) + 1;
+    }
+  }
+  return settle;
+}
+
+// The farthest the corner swings.
+double Reach(const std::vector<double>& swing) {
+  assert(!swing.empty());
+  assert(std::isfinite(swing.front()));
+  double most = 0.0;
+  for (const double x : swing) {
+    most = std::max(most, std::abs(x));
+  }
+  return most;
 }
 
 // A 20 by 20 chest on a 2 by 2 grid: the top row hangs it from the
@@ -134,10 +203,13 @@ class JellyTests : public QObject {
   void APokedDotIsSmoothedIntoTheBlob();
   void AtRestItStaysAsDrawn();
   void AChestJigglesAfterAHopAndSettles();
+  void FirmnessShortensThePeriodStepByStep();
+  void WobbleLengthensTheSettleStepByStep();
+  void SquishGrowsTheSwingEvenly();
 };
 
 void JellyTests::ShapeAreaAddsTheTriangles() {
-  const Blob blob = MakeBlob(0.5, 0.5);
+  const Blob blob = MakeBlob(0.5, 0.5, 0.5);
   QCOMPARE(ShapeArea(blob.piece.grid, blob.carried), 400.0);
   std::vector<QPointF> wide = blob.carried;
   for (QPointF& point : wide) {
@@ -147,7 +219,7 @@ void JellyTests::ShapeAreaAddsTheTriangles() {
 }
 
 void JellyTests::SqueezedFromTheSidesItGetsTaller() {
-  Blob blob = MakeBlob(1.0, 0.8);
+  Blob blob = MakeBlob(0.5, 0.3, 1.0);
   // A key (or a collider) pinches the blob to half its width.
   for (QPointF& point : blob.carried) {
     point.setX(point.x() * 0.5);
@@ -159,7 +231,7 @@ void JellyTests::SqueezedFromTheSidesItGetsTaller() {
 }
 
 void JellyTests::APokedDotIsSmoothedIntoTheBlob() {
-  Blob blob = MakeBlob(0.5, 0.8);
+  Blob blob = MakeBlob(0.5, 0.3, 0.5);
   // One dot flicked on its own would leave a dent in a cloth.
   blob.piece.speed[4] = QPointF(0.0, 4.0);
   Run(&blob, 1);
@@ -170,7 +242,7 @@ void JellyTests::APokedDotIsSmoothedIntoTheBlob() {
 }
 
 void JellyTests::AtRestItStaysAsDrawn() {
-  Blob blob = MakeBlob(0.5, 0.5);
+  Blob blob = MakeBlob(0.5, 0.5, 0.5);
   QCOMPARE(blob.piece.at.size(), size_t{9});
   Run(&blob, 50);
   for (size_t i = 0; i < 9; ++i) {
@@ -190,6 +262,47 @@ void JellyTests::AChestJigglesAfterAHopAndSettles() {
     QCOMPARE(DraggedPoses(doll, layer, Frame(frame), {}, &trail),
              DraggedPoses(doll, layer, Frame(frame)));
   }
+}
+
+void JellyTests::FirmnessShortensThePeriodStepByStep() {
+  double last = 1e9;
+  for (const double firmness : {0.0, 0.25, 0.5, 0.75, 1.0}) {
+    const double period = PeriodOf(Swing(firmness, 1.0, 0.0));
+    QVERIFY2(period < last * 0.8, qPrintable(QString::number(period)));
+    // About the period the knob promises.
+    QVERIFY2(std::abs(period - JellyPeriod(firmness)) <
+                 JellyPeriod(firmness) * 0.15,
+             qPrintable(QString::number(period)));
+    last = period;
+  }
+  const double slow = PeriodOf(Swing(0.0, 1.0, 0.0));
+  QVERIFY(slow > 4.0 * PeriodOf(Swing(1.0, 1.0, 0.0)));
+}
+
+void JellyTests::WobbleLengthensTheSettleStepByStep() {
+  std::vector<int> settles;
+  for (const double wobble : {0.0, 0.2, 0.4, 0.6, 0.8, 1.0}) {
+    settles.push_back(SettleOf(Swing(0.5, wobble, 0.0)));
+  }
+  // Each step of wobble adds about the same few swings.
+  for (size_t i = 1; i < settles.size(); ++i) {
+    const int step = settles[i] - settles[i - 1];
+    QVERIFY2(step > 5 && step < 25,
+             qPrintable(QString::number(settles[i - 1]) + " to " +
+                        QString::number(settles[i])));
+  }
+  QVERIFY(settles.back() > 5 * settles.front());
+}
+
+void JellyTests::SquishGrowsTheSwingEvenly() {
+  const double none = Reach(Swing(0.5, 0.5, 0.0));
+  const double half = Reach(Swing(0.5, 0.5, 0.5));
+  const double all = Reach(Swing(0.5, 0.5, 1.0));
+  const double low = half - none;
+  const double high = all - half;
+  QVERIFY2(low > 0.0 && high > 0.0 && low > high * 0.6 && high > low * 0.6,
+           qPrintable(QString("%1 %2 %3").arg(none).arg(half).arg(all)));
+  QVERIFY(all > 1.8 * none);
 }
 
 }  // namespace snapper

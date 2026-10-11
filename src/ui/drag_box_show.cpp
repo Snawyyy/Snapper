@@ -68,9 +68,8 @@ void DragBox::ShowPad(const Look& look, const QString& no_pick) {
              "light. Escape while dragging puts it back."));
   Explain(&blob_, why, tr("A live preview of how the picked dots wobble."));
   pad_.SetFeels(DistinctFeels(look.nodes));
-  if (has_node) {
-    blob_.SetLook(MaterialOf(look.nodes.front()), FeelOf(*look.nodes.front()));
-  }
+  // Mixed picks show the first picked dot.
+  blob_.SetNode(has_node ? look.nodes.front() : nullptr);
 }
 
 void DragBox::ShowFine(const Look& look, const KindMix& mix,
