@@ -236,4 +236,27 @@ void PushGrid(const WarpGrid& grid, const std::vector<double>& reach,
   }
 }
 
+void PushGridShared(const WarpGrid& grid, const std::vector<double>& reach,
+                    const std::vector<PushField>& fields,
+                    const std::vector<bool>& is_half,
+                    std::vector<QPointF>* points) {
+  assert(points != nullptr);
+  assert(is_half.size() == fields.size());
+  std::vector<PushField> whole;
+  std::vector<PushField> half;
+  for (size_t i = 0; i < fields.size(); ++i) {
+    (is_half[i] ? half : whole).push_back(fields[i]);
+  }
+  PushGrid(grid, reach, whole, points);
+  const bool has_half = !half.empty();
+  if (!has_half) {
+    return;
+  }
+  const std::vector<QPointF> before = *points;
+  PushGrid(grid, reach, half, points);
+  for (size_t i = 0; i < before.size(); ++i) {
+    (*points)[i] = before[i] + ((*points)[i] - before[i]) * kSharedShare;
+  }
+}
+
 }  // namespace snapper

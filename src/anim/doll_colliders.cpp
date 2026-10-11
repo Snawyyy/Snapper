@@ -95,6 +95,8 @@ std::vector<PushField> PushFieldsFor(
       continue;
     }
     PushField field;
+    field.pusher = rig.name;
+    field.is_shared = IsPushing(*pushed, rig);
     field.edges = ColliderEdges(
         rig.collider,
         ShotDots(rig.collider, rig.warp, art->size, grid->points,

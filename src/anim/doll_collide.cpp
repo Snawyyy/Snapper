@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <set>
 #include <vector>
 
 #include "anim/doll_colliders.h"
@@ -62,7 +63,12 @@ void CollidePoses(const Doll& doll, const Layer& layer, Frame frame,
   }
   // Warps never move a piece's frame, so one placing serves every piece.
   const auto placed = PieceTransforms(doll, *poses);
+  // Pieces already pushed. A piece meeting one that is still to come
+  // takes half the push (the later one is pushed by what is left), so
+  // two squashy pieces end up squashed alike.
+  std::set<QString> done;
   for (const RigPiece* rig : BackToFront(doll)) {
+    done.insert(rig->name);
     const std::vector<PushField> fields = PushFieldsFor(
         doll, layer, *poses, placed, shifts, rig->name, frame);
     const bool is_pushed = !fields.empty();
@@ -79,7 +85,11 @@ void CollidePoses(const Doll& doll, const Layer& layer, Frame frame,
       continue;
     }
     std::vector<QPointF> points = grid->points;
-    PushGrid(rig->warp, ReachesOf(*rig), fields, &points);
+    std::vector<bool> is_half;
+    for (const PushField& field : fields) {
+      is_half.push_back(field.is_shared && done.count(field.pusher) == 0);
+    }
+    PushGridShared(rig->warp, ReachesOf(*rig), fields, is_half, &points);
     const bool is_moved = points != grid->points;
     if (is_moved) {
       AddPush(grid->to_shot, grid->points, points, &(*poses)[rig->name]);
