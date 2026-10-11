@@ -7,6 +7,7 @@
 #include "anim/warp.h"
 #include "base/text.h"
 #include "anim/warp_shape.h"
+#include "edit/group_mirror.h"
 #include "edit/history_manager.h"
 #include "edit/mesh_edits.h"
 #include "edit/rig_edits.h"
@@ -15,16 +16,54 @@
 namespace snapper {
 namespace {
 
-// to's warp made like from's (its own shape mesh at from's detail, or
-// the same grid) with from's dot settings on the mirrored dots.
+// from's mesh flipped left to right onto a drawing of to_size: dot k of
+// one is the mirror of dot k of the other, and the triangles keep their
+// turn. Nothing when the flipped dots do not make a mesh.
+WarpGrid MirroredMesh(const WarpGrid& from, QSize from_size, QSize to_size) {
+  assert(from.IsMesh());
+  assert(to_size.width() >= 0 && to_size.height() >= 0);
+  const WarpMesh& mesh = *from.mesh;
+  const double across = from_size.width() > 0
+                            ? to_size.width() /
+                                  static_cast<double>(from_size.width())
+                            : 1.0;
+  const double down = from_size.height() > 0
+                          ? to_size.height() /
+                                static_cast<double>(from_size.height())
+                          : 1.0;
+  std::vector<QPointF> points;
+  for (const QPointF& point : mesh.points) {
+    points.emplace_back((from_size.width() - point.x()) * across,
+                        point.y() * down);
+  }
+  std::vector<MeshTriangle> triangles;
+  for (const MeshTriangle& t : mesh.triangles) {
+    triangles.push_back({t[0], t[2], t[1]});
+  }
+  WarpGrid flipped;
+  flipped.mesh = MakeWarpMesh(to_size, mesh.detail, std::move(points),
+                              std::move(triangles));
+  return flipped;
+}
+
+// to's warp made like from's (a mesh flipped from from's, or the same
+// grid) with from's dot settings on the mirrored dots. A mesh that will
+// not flip is made for to's own drawing.
 void MirrorDotsOnto(const Doll& doll, const RigPiece& from, RigPiece* to) {
   assert(to != nullptr);
   assert(from.name != to->name);
   const bool is_mesh = from.warp.IsMesh();
-  const Result<WarpGrid> own =
-      is_mesh ? ShapeMeshOf(doll, to->name, from.warp.mesh->detail)
-              : Result<WarpGrid>(from.warp);
-  to->warp = own.has_value() ? *own : from.warp;
+  WarpGrid own = is_mesh ? MirroredMesh(from.warp,
+                                        ArtSizeOf(doll, from.name),
+                                        ArtSizeOf(doll, to->name))
+                         : from.warp;
+  const bool is_flipped = own.mesh != nullptr || !is_mesh;
+  if (!is_flipped) {
+    const Result<WarpGrid> shaped =
+        ShapeMeshOf(doll, to->name, from.warp.mesh->detail);
+    own = shaped.has_value() ? *shaped : from.warp;
+  }
+  to->warp = own;
   const std::vector<int> pairs =
       MirroredPoints(from.warp, ArtSizeOf(doll, from.name), to->warp,
                      ArtSizeOf(doll, to->name));
@@ -152,6 +191,7 @@ Result<void> RigManager::CopyToOtherSide(const QString& doll,
   const int side = SideOf(piece);
   assert(side != 0);
   Doll next = found;
+  std::vector<QString> copied;
   for (const RigPiece& from : found.rig.pieces) {
     const bool is_copied =
         whole_side ? SideOf(from.name) == side : from.name == piece;
@@ -160,6 +200,7 @@ Result<void> RigManager::CopyToOtherSide(const QString& doll,
     const bool has_twin = to != nullptr && to->name != from.name;
     if (has_twin) {
       MirrorPiece(found, from, to);
+      copied.push_back(from.name);
     }
   }
   for (const IkChain& chain : found.rig.chains) {
@@ -168,17 +209,18 @@ Result<void> RigManager::CopyToOtherSide(const QString& doll,
       MirrorChain(found, chain, &next.rig);
     }
   }
-  for (const RigPiece& copied : next.rig.pieces) {
-    const bool is_tree = copied.parent.isEmpty() ||
-                         CanParent(next.rig, copied.name, copied.parent);
+  for (const RigPiece& piece_copy : next.rig.pieces) {
+    const bool is_tree =
+        piece_copy.parent.isEmpty() ||
+        CanParent(next.rig, piece_copy.name, piece_copy.parent);
     if (!is_tree) {
       return std::unexpected(Error{
           Tr("Copying would make %1 hang from itself; check the parents "
-             "on this side first.").arg(copied.name)});
+             "on this side first.").arg(piece_copy.name)});
     }
   }
-  Project project = history_->current();
-  project.dolls[doll] = std::make_shared<const Doll>(std::move(next));
+  Project project = WithTwinGroups(history_->current(), doll, found,
+                                   std::move(next), copied);
   return history_->Apply(whole_side ? Tr("Copy side to the other")
                                     : Tr("Copy %1 to the other side")
                                           .arg(piece),
