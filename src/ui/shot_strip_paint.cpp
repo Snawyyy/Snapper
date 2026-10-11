@@ -34,16 +34,12 @@ QRectF ShotStrip::AddBlock() const {
   return QRectF(x, 2.0, kAddWidth, kStripHeight - 4.0);
 }
 
-// The first frame at the left of a chip long enough to show it; where
-// the words may start.
+// The first frame at the left of a chip; where the words may start.
 double ShotStrip::PaintPicture(QPainter* painter, const QRectF& card,
                                ShotId id) const {
   assert(painter != nullptr);
   assert(card.isValid());
-  const bool has_picture = card.width() >= kPictureFrom;
-  if (!has_picture) {
-    return card.left() + 8.0;
-  }
+  assert(card.width() >= kPictureWidth);
   const Project& project = managers_.history->current();
   const auto& shared = *std::find_if(
       project.shots.begin(), project.shots.end(),
@@ -53,7 +49,12 @@ double ShotStrip::PaintPicture(QPainter* painter, const QRectF& card,
   const QRectF slot(card.left() + 4.0, card.top() + 4.0, kPictureWidth,
                     card.height() - 12.0);
   painter->fillRect(slot, theme::kField);
-  painter->drawPixmap(slot, frame, QRectF(frame.rect()));
+  // The frame keeps its shape inside the slot.
+  const QSizeF fit =
+      QSizeF(frame.size()).scaled(slot.size(), Qt::KeepAspectRatio);
+  painter->drawPixmap(
+      QRectF(slot.center() - QPointF(fit.width(), fit.height()) / 2.0, fit),
+      frame, QRectF(frame.rect()));
   return slot.right() + 6.0;
 }
 
@@ -70,18 +71,16 @@ void ShotStrip::PaintBlock(QPainter* painter, const Block& block) const {
   painter->setRenderHint(QPainter::Antialiasing);
   painter->setPen(Qt::NoPen);
   painter->setBrush(is_picked || is_hover ? theme::kFaceLight : theme::kFace);
-  painter->drawRoundedRect(card, 5.0, 5.0);
+  painter->drawRect(card);
   // The shot's colour as a bar along the bottom.
   painter->setBrush(shot.background);
-  painter->drawRoundedRect(
-      QRectF(card.left() + 5.0, card.bottom() - 5.0, card.width() - 10.0,
-             3.0),
-      1.5, 1.5);
+  painter->drawRect(QRectF(card.left() + 4.0, card.bottom() - 5.0,
+                           card.width() - 8.0, 3.0));
   const double text_left = PaintPicture(painter, card, block.shot);
   painter->setPen(QPen(is_picked ? theme::kPick : theme::kShadow,
                        is_focus ? 2.0 : 1.0));
   painter->setBrush(Qt::NoBrush);
-  painter->drawRoundedRect(card, 5.0, 5.0);
+  painter->drawRect(card);
   const double edge = HoverAmount(hover_.ScaleOf(
       GrabKind::kEdge, QString::number(block.shot.value())));
   const bool shows_edge = edge > 0.0;
