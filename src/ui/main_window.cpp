@@ -53,6 +53,8 @@ MainWindow::MainWindow(const Managers& managers)
       strip_(managers),
       pose_split_(Qt::Vertical),
       stage_(managers),
+      timeline_layout_(&timeline_host_),
+      pose_transport_(managers),
       timeline_(managers),
       rig_split_(Qt::Horizontal),
       rig_canvas_(managers),
@@ -68,6 +70,7 @@ MainWindow::MainWindow(const Managers& managers)
       export_dialog_(managers, this),
       timing_dialog_(managers, this),
       timing_action_(tr("Define &timing chart...")),
+      settings_actions_(managers),
       space_keys_(this, managers),
       export_action_(tr("&Export...")),
       play_menu_(tr("&Play")),
@@ -132,9 +135,14 @@ MainWindow::MainWindow(const Managers& managers)
   assert(windowTitle().contains(QStringLiteral("Snapper")));
 }
 
-void MainWindow::Start() {
+void MainWindow::Start(const QString& path) {
   assert(isVisible());
   assert(managers_.IsComplete());
+  const bool has_path = !path.isEmpty();
+  if (has_path) {
+    file_menu_.OpenPath(path);
+    return;
+  }
   file_menu_.OfferRecovery();
 }
 
@@ -159,6 +167,9 @@ void MainWindow::ShowMode(int index) {
     cast_dock_.setVisible(was_cast_open_);
     inspector_dock_.setVisible(was_inspector_open_);
   }
+  // Undo and redo act on a shot in the other tabs, on the newest change
+  // here.
+  Refresh();
 }
 
 void MainWindow::FollowPlayhead() {
@@ -193,7 +204,11 @@ void MainWindow::BuildPages() {
   assert(pages_.count() == 0);
   assert(managers_.IsComplete());
   pose_split_.addWidget(&stage_);
-  pose_split_.addWidget(&timeline_);
+  timeline_layout_.setContentsMargins(0, 0, 0, 0);
+  timeline_layout_.setSpacing(0);
+  timeline_layout_.addWidget(&pose_transport_, 0, Qt::AlignLeft);
+  timeline_layout_.addWidget(&timeline_, 1);
+  pose_split_.addWidget(&timeline_host_);
   pose_split_.setStretchFactor(0, 3);
   pose_split_.setStretchFactor(1, 1);
   pose_layout_.setContentsMargins(0, 0, 0, 0);
@@ -240,6 +255,7 @@ void MainWindow::BuildMenus() {
   edit_menu_.addAction(&timing_action_);
   connect(&timing_action_, &QAction::triggered, this,
           [this] { RequestTimingChart(managers_); });
+  edit_menu_.addActions(settings_actions_.actions());
   // Disabled actions still show why on hover.
   edit_menu_.setToolTipsVisible(true);
   view_menu_.setToolTipsVisible(true);
@@ -271,10 +287,12 @@ void MainWindow::BuildMenus() {
           [playback] { playback->Step(1); });
   connect(&back_action_, &QAction::triggered, playback,
           [playback] { playback->Step(-1); });
-  connect(&undo_action_, &QAction::triggered, managers_.history,
-          &HistoryManager::Undo);
-  connect(&redo_action_, &QAction::triggered, managers_.history,
-          &HistoryManager::Redo);
+  connect(&undo_action_, &QAction::triggered, this, &MainWindow::UndoStep);
+  connect(&redo_action_, &QAction::triggered, this, &MainWindow::RedoStep);
+  connect(&top_bar_, &TopBar::UndoRequested, this, &MainWindow::UndoStep);
+  connect(&top_bar_, &TopBar::RedoRequested, this, &MainWindow::RedoStep);
+  connect(managers_.selection, &SelectionManager::Changed, this,
+          &MainWindow::Refresh);
   for (const QAction* step : {&undo_action_, &redo_action_}) {
     connect(step, &QAction::triggered, &sound_,
             [this] { sound_.Play(UiSound::Blip::kTick); });
@@ -314,14 +332,53 @@ void MainWindow::Refresh() {
                      .arg(project.name, where));
   setWindowModified(managers_.history->IsDirty());
   const HistoryManager& history = *managers_.history;
-  ShowStep(&undo_action_, MakeStepFace(tr("&Undo"), history.UndoLabel(),
-                                       history.WhyNoUndo()));
-  ShowStep(&redo_action_, MakeStepFace(tr("&Redo"), history.RedoLabel(),
-                                       history.WhyNoRedo()));
-  top_bar_.ShowUndo(MakeStepFace(tr("Undo"), history.UndoLabel(),
-                                 history.WhyNoUndo()));
-  top_bar_.ShowRedo(MakeStepFace(tr("Redo"), history.RedoLabel(),
-                                 history.WhyNoRedo()));
+  // Undo and redo name and act on the shot being worked in.
+  const ShotId shot = UndoShot();
+  const bool is_scoped = shot.IsValid();
+  const QString undo_label =
+      is_scoped ? history.UndoLabelIn(shot) : history.UndoLabel();
+  const QString undo_why =
+      is_scoped ? history.WhyNoUndoIn(shot) : history.WhyNoUndo();
+  const QString redo_label =
+      is_scoped ? history.RedoLabelIn(shot) : history.RedoLabel();
+  const QString redo_why =
+      is_scoped ? history.WhyNoRedoIn(shot) : history.WhyNoRedo();
+  ShowStep(&undo_action_, MakeStepFace(tr("&Undo"), undo_label, undo_why));
+  ShowStep(&redo_action_, MakeStepFace(tr("&Redo"), redo_label, redo_why));
+  top_bar_.ShowUndo(MakeStepFace(tr("Undo"), undo_label, undo_why));
+  top_bar_.ShowRedo(MakeStepFace(tr("Redo"), redo_label, redo_why));
+}
+
+ShotId MainWindow::UndoShot() const {
+  assert(managers_.selection != nullptr);
+  assert(pages_.count() > 0);
+  const bool is_video =
+      pages_.currentIndex() == static_cast<int>(Mode::kVideo);
+  return is_video ? ShotId() : managers_.selection->shot();
+}
+
+void MainWindow::UndoStep() {
+  assert(managers_.history != nullptr);
+  assert(managers_.selection != nullptr);
+  const ShotId shot = UndoShot();
+  const bool is_scoped = shot.IsValid();
+  if (is_scoped) {
+    managers_.history->UndoIn(shot);
+  } else {
+    managers_.history->Undo();
+  }
+}
+
+void MainWindow::RedoStep() {
+  assert(managers_.history != nullptr);
+  assert(managers_.selection != nullptr);
+  const ShotId shot = UndoShot();
+  const bool is_scoped = shot.IsValid();
+  if (is_scoped) {
+    managers_.history->RedoIn(shot);
+  } else {
+    managers_.history->Redo();
+  }
 }
 
 }  // namespace snapper

@@ -22,12 +22,14 @@
 #include "ui/rig_canvas.h"
 #include "ui/rig_panel.h"
 #include "ui/shortcut_sheet.h"
+#include "ui/settings_actions.h"
 #include "ui/shot_strip.h"
 #include "ui/success_burst.h"
 #include "ui/space_keys_action.h"
 #include "ui/stage_view.h"
 #include "ui/top_bar.h"
 #include "ui/timeline_view.h"
+#include "ui/transport_bar.h"
 #include "ui/timing_chart_dialog.h"
 #include "ui/toast_view.h"
 #include "ui/ui_sound.h"
@@ -47,7 +49,8 @@ class MainWindow final : public QMainWindow {
   explicit MainWindow(const Managers& managers);
 
   // Called once the window shows: offers to recover crashed work.
-  void Start();
+  // Opens path when it is not empty, else offers to recover a crash.
+  void Start(const QString& path = QString());
   Mode mode() const {
     return static_cast<Mode>(top_bar_.current_tab());
   }
@@ -68,6 +71,11 @@ class MainWindow final : public QMainWindow {
   void BuildModes();
   // Pulls title, undo and redo state from the history.
   void Refresh();
+  // Undo or redo in the shot being worked in; the newest change when no
+  // shot is (the Video tab).
+  void UndoStep();
+  void RedoStep();
+  ShotId UndoShot() const;
   // Keeps the picked shot on the one under the playhead.
   void FollowPlayhead();
   // Shows the page for the picked tab and puts the playhead on its
@@ -97,6 +105,10 @@ class MainWindow final : public QMainWindow {
   ShotStrip strip_;
   QSplitter pose_split_;
   StageView stage_;
+  // The timeline with the play controls above it.
+  QWidget timeline_host_;
+  QVBoxLayout timeline_layout_;
+  TransportBar pose_transport_;
   TimelineView timeline_;
   QSplitter rig_split_;
   RigCanvas rig_canvas_;
@@ -115,6 +127,8 @@ class MainWindow final : public QMainWindow {
   ExportDialog export_dialog_;
   TimingChartDialog timing_dialog_;
   QAction timing_action_;
+  // Ctrl+Shift+C and V: copy and paste a part's settings, not its pose.
+  SettingsActions settings_actions_;
   // The 1 to 4 keys that space the picked keys.
   SpaceKeysShortcuts space_keys_;
   QAction export_action_;

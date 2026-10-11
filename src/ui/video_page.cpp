@@ -13,6 +13,11 @@
 #include "ui/form_helpers.h"
 
 namespace snapper {
+namespace {
+
+constexpr int kBarGap = 14;
+
+}  // namespace
 
 VideoPage::VideoPage(const Managers& managers)
     : managers_(managers),
@@ -27,6 +32,7 @@ VideoPage::VideoPage(const Managers& managers)
       split_button_(tr("Split at playhead")),
       mark_(tr("Mark cut")),
       add_track_(tr("Add track")),
+      transport_(managers),
       timeline_(managers) {
   assert(managers_.IsComplete());
   layout_.setContentsMargins(0, 0, 0, 0);
@@ -35,6 +41,8 @@ VideoPage::VideoPage(const Managers& managers)
   top_.setStretchFactor(0, 1);
   top_.setStretchFactor(1, 4);
   bar_layout_.setContentsMargins(4, 2, 4, 2);
+  bar_layout_.addWidget(&transport_);
+  bar_layout_.addSpacing(kBarGap);
   bar_layout_.addWidget(&import_);
   bar_layout_.addWidget(&split_button_);
   bar_layout_.addWidget(&mark_);
