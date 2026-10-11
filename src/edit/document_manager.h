@@ -36,6 +36,9 @@ class DocumentManager final : public QObject {
   const QString& path() const { return path_; }
   bool HasPath() const { return !path_.isEmpty(); }
   QStringList RecentFiles() const;
+  // Where Save as should start: the file the project is in, else the
+  // folder last opened or saved to, with the project's name.
+  QString SuggestedSavePath() const;
 
   // Whole-document settings, each one undoable step.
   Result<void> Rename(const QString& name);
@@ -49,7 +52,9 @@ class DocumentManager final : public QObject {
   // True when an autosave is left over from a session that didn't end
   // cleanly.
   bool HasAutosave() const;
-  // Opens the leftover autosave as an unsaved project.
+  // Opens the leftover autosave as an unsaved project, which goes back
+  // to the file it was being worked on in (Save writes there), or to no
+  // file when it had never been saved.
   Result<void> Recover();
   // Removes the autosave; for a clean exit or a declined recovery.
   void DiscardAutosave();

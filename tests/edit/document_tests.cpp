@@ -18,6 +18,7 @@ class DocumentTests final : public QObject {
   void SaveAndOpenRoundTrip();
   void SettingsAreUndoable();
   void AutosaveRecoversUnsavedWork();
+  void RecoveryGoesBackToItsFile();
   void RecentFilesStayShortAndReal();
 };
 
@@ -99,6 +100,29 @@ void DocumentTests::AutosaveRecoversUnsavedWork() {
   QVERIFY(!document.HasPath());
   QVERIFY(document.SaveAs(QDir(dir.path()).filePath("kept")).has_value());
   QVERIFY(!document.HasAutosave());
+}
+
+void DocumentTests::RecoveryGoesBackToItsFile() {
+  QTemporaryDir dir;
+  const QString file = QDir(dir.path()).filePath("song.snapper");
+  {
+    HistoryManager history{Project()};
+    DocumentManager document(&history, dir.path());
+    QVERIFY(document.SaveAs(file).has_value());
+    QVERIFY(document.Rename("Newer").has_value());
+    QVERIFY(document.Autosave().has_value());
+  }
+  HistoryManager history{Project()};
+  DocumentManager document(&history, dir.path());
+  QVERIFY(document.Recover().has_value());
+  // Save writes to the file it was of, with no asking where.
+  QCOMPARE(document.path(), QFileInfo(file).absoluteFilePath());
+  QVERIFY(document.Save().has_value());
+  QVERIFY(!history.IsDirty());
+  // Save as starts in the folder last saved to.
+  HistoryManager fresh{Project()};
+  DocumentManager other(&fresh, dir.path());
+  QVERIFY(other.SuggestedSavePath().startsWith(dir.path()));
 }
 
 void DocumentTests::RecentFilesStayShortAndReal() {

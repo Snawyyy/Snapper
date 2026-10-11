@@ -12,6 +12,14 @@
 #include "io/project_file.h"
 
 namespace snapper {
+namespace {
+
+// Settings keys: the file an autosave was of, and the folder last opened
+// or saved to.
+constexpr char kAutosaveOrigin[] = "autosave/origin";
+constexpr char kLastFolder[] = "last_folder";
+
+}  // namespace
 
 DocumentManager::DocumentManager(HistoryManager* history,
                                  QString data_folder)
@@ -96,6 +104,20 @@ Result<void> DocumentManager::SaveAs(const QString& path) {
   return {};
 }
 
+QString DocumentManager::SuggestedSavePath() const {
+  assert(!data_folder_.isEmpty());
+  assert(history_ != nullptr);
+  const bool has_file = HasPath();
+  if (has_file) {
+    return path_;
+  }
+  const QSettings settings(SettingsPath(), QSettings::IniFormat);
+  const QString folder = settings.value(kLastFolder).toString();
+  const bool has_folder = !folder.isEmpty() && QDir(folder).exists();
+  const QString name = history_->current().name;
+  return has_folder ? QDir(folder).filePath(name) : name;
+}
+
 QStringList DocumentManager::RecentFiles() const {
   assert(!data_folder_.isEmpty());
   const QSettings settings(SettingsPath(), QSettings::IniFormat);
@@ -152,7 +174,13 @@ Result<void> DocumentManager::Autosave() {
   if (!is_needed) {
     return {};
   }
-  return WriteProject(AutosavePath(), history_->current());
+  const auto written = WriteProject(AutosavePath(), history_->current());
+  if (written) {
+    // Which file it was, so a recovery goes back to it.
+    QSettings settings(SettingsPath(), QSettings::IniFormat);
+    settings.setValue(kAutosaveOrigin, path_);
+  }
+  return written;
 }
 
 QString DocumentManager::AutosavePath() const {
@@ -177,9 +205,11 @@ Result<void> DocumentManager::Recover() {
   if (!project) {
     return std::unexpected(project.error());
   }
-  // Recovered work is unsaved until the user saves it somewhere.
+  // Recovered work is unsaved until the user saves it, which writes to
+  // the file it came from when it had one.
   history_->Reset(std::move(*project), false);
-  path_.clear();
+  const QSettings settings(SettingsPath(), QSettings::IniFormat);
+  path_ = settings.value(kAutosaveOrigin).toString();
   emit PathChanged();
   return {};
 }
@@ -188,6 +218,8 @@ void DocumentManager::DiscardAutosave() {
   assert(!data_folder_.isEmpty());
   const QString autosave = AutosavePath();
   QFile::remove(autosave);
+  QSettings settings(SettingsPath(), QSettings::IniFormat);
+  settings.remove(kAutosaveOrigin);
   assert(!QFile::exists(autosave));
 }
 
@@ -203,6 +235,7 @@ void DocumentManager::Remember(const QString& path) {
     recent.remove(kMaxRecentFiles, extra);
   }
   settings.setValue("recent", recent);
+  settings.setValue(kLastFolder, QFileInfo(path).absolutePath());
   assert(recent.size() <= kMaxRecentFiles);
   emit RecentFilesChanged();
 }

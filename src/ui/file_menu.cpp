@@ -129,8 +129,8 @@ void FileMenu::Open() {
     return;
   }
   const QString path = QFileDialog::getOpenFileName(
-      window_, tr("Open project"), QFileInfo(document_->path()).path(),
-      ProjectFilter());
+      window_, tr("Open project"),
+      QFileInfo(document_->SuggestedSavePath()).path(), ProjectFilter());
   const bool is_chosen = !path.isEmpty();
   if (is_chosen) {
     Report(document_->Open(path));
@@ -161,11 +161,9 @@ bool FileMenu::Save() {
 bool FileMenu::SaveAs() {
   assert(document_ != nullptr);
   assert(window_ != nullptr);
-  const QString suggested = document_->HasPath()
-                                ? document_->path()
-                                : history_->current().name;
   const QString path = QFileDialog::getSaveFileName(
-      window_, tr("Save project"), suggested, ProjectFilter());
+      window_, tr("Save project"), document_->SuggestedSavePath(),
+      ProjectFilter());
   const bool is_chosen = !path.isEmpty();
   if (!is_chosen) {
     return false;
