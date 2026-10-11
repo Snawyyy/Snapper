@@ -17,6 +17,7 @@
 #include "edit/reel_manager.h"
 #include "edit/rig_manager.h"
 #include "edit/selection_manager.h"
+#include "edit/settings_manager.h"
 #include "edit/shot_manager.h"
 #include "edit/stage_manager.h"
 #include "edit/poke_manager.h"
@@ -60,6 +61,7 @@ class AppContext final {
   ToastManager toasts_;
   PokeManager poke_;
   GroupManager groups_;
+  SettingsManager settings_;
   MainWindow window_;
 };
 
