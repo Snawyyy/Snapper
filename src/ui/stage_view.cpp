@@ -32,7 +32,9 @@ StageView::StageView(const Managers& managers)
       tool_(managers, renderer_.cache()),
       poke_(managers),
       hover_(managers.motion, this),
-      feedback_(managers.motion, this) {
+      feedback_(managers.motion, this),
+      watcher_(managers.history, this),
+      flash_(managers.motion, this) {
   assert(managers_.IsComplete());
   setFocusPolicy(Qt::StrongFocus);
   setAcceptDrops(true);
@@ -46,6 +48,8 @@ StageView::StageView(const Managers& managers)
   connect(managers_.poke, &PokeManager::Changed, this, update_me);
   connect(&hover_, &HandleHover::Changed, this, update_me);
   connect(&feedback_, &DragFeedback::Changed, this, update_me);
+  connect(&watcher_, &ChangeWatcher::Stepped, this, &StageView::ShowStep);
+  connect(&flash_, &StageFlash::Changed, this, update_me);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
           update_me);
   assert(focusPolicy() == Qt::StrongFocus);
@@ -111,6 +115,7 @@ void StageView::paintEvent(QPaintEvent* event) {
     painter.drawRect(QRectF(frame->corner,
                             QSizeF(image.width(), image.height())));
   }
+  flash_.Paint(&painter);
   feedback_.Paint(&painter, QRectF(rect()));
 }
 

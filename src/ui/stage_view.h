@@ -12,6 +12,7 @@
 
 #include <optional>
 
+#include "edit/change_watcher.h"
 #include "render/frame_renderer.h"
 #include "render/stage_camera.h"
 #include "render/stage_geometry.h"
@@ -20,6 +21,7 @@
 #include "ui/handle_hover.h"
 #include "ui/managers.h"
 #include "ui/pose_tool.h"
+#include "ui/stage_flash.h"
 #include "ui/stage_poke.h"
 
 namespace snapper {
@@ -35,7 +37,8 @@ namespace snapper {
 // dashed outline shows the thing a click would pick, the handle under
 // the cursor grows and the cursor says what dragging it does. While a
 // drag runs, a chip beside the cursor says its value, a faint ghost
-// marks where it began, a snap flashes, and letting go pops.
+// marks where it began, a snap flashes, and letting go pops. Undo and
+// redo flash the layers they changed.
 class StageView final : public QWidget {
   Q_OBJECT
 
@@ -121,6 +124,10 @@ class StageView final : public QWidget {
   // As a drag is grabbed: leaves a faint copy of the picked pieces or
   // layers, drawn by the frame renderer, where they sit now.
   void GrabGhost(const StageFrame& frame);
+  // After a step lands: undo or redo flashes the layers it changed.
+  void ShowStep(const Project& before, bool is_travel);
+  // Works out and starts the flash for the step from before.
+  void BuildFlash(const Project& before);
   // Shows what the drag in progress says: chip, ghost and snap flash.
   void ShowDrag();
   // Shows the angle the wheel has turned the picked things by since it
@@ -145,10 +152,14 @@ class StageView final : public QWidget {
   bool is_panning_ = false;
   QPointF pan_from_;
   FrameRenderer renderer_;
+  // Draws the state before an undo or redo, for the flash.
+  FrameRenderer was_renderer_;
   PoseTool tool_;
   StagePoke poke_;
   HandleHover hover_;
   DragFeedback feedback_;
+  ChangeWatcher watcher_;
+  StageFlash flash_;
   std::optional<Pick> hover_pick_;
   // Wheel movement not yet a whole notch.
   int wheel_left_ = 0;

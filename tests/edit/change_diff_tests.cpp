@@ -94,6 +94,7 @@ class ChangeDiffTests final : public QObject {
   void ClipsAreFoundById();
   void AClipMovedToAnotherTrackIsMoved();
   void AClipTrimmedAtItsEndIsNotMoved();
+  void OnlyLayersThatDifferAreChanged();
 };
 
 void ChangeDiffTests::NothingChangedReportsNothing() {
@@ -221,6 +222,19 @@ void ChangeDiffTests::AClipTrimmedAtItsEndIsNotMoved() {
   const Project after = ReelOf({{ClipOn(1, 0, 6)}, {}});
   QVERIFY(DiffClips(before, after).IsEmpty());
   QVERIFY(DiffKeys(before, after, kShot).IsEmpty());
+}
+
+void ChangeDiffTests::OnlyLayersThatDifferAreChanged() {
+  const Project before =
+      StageOf({DollWith(kBob, {{4, 10}}), DollWith(kAmy, {{4, 10}})});
+  const Project after =
+      StageOf({DollWith(kBob, {{4, 30}}), DollWith(kAmy, {{4, 10}})});
+  QCOMPARE(ChangedLayers(before, after, kShot),
+           std::vector<LayerId>({kBob}));
+  QVERIFY(ChangedLayers(before, before, kShot).empty());
+  const Project fewer = Bob({{4, 10}});
+  QVERIFY(ChangedLayers(before, fewer, kShot).empty());
+  QVERIFY(ChangedLayers(before, after, ShotId(9)).empty());
 }
 
 }  // namespace snapper
