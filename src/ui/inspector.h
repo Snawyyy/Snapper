@@ -12,7 +12,6 @@
 
 #include "ui/drag_box.h"
 #include "ui/fold_section.h"
-#include "ui/group_box.h"
 #include "ui/shot_box.h"
 #include "ui/keyed_boxes.h"
 #include "ui/layer_box.h"
@@ -62,7 +61,6 @@ class Inspector final : public QScrollArea {
   QLabel hint_;
   ShotBox shot_;
   PoseBox pose_;
-  GroupBox groups_;
   DragBox drag_;
   PointMotionBox point_motion_;
   CameraBox camera_;

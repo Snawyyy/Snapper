@@ -17,11 +17,15 @@ namespace snapper {
 
 class HistoryManager;
 
-// A warp dot of a doll's piece, by the doll's name.
+// A warp dot of a doll's piece, by the doll's name. With a layer, edits
+// to its drag node, motion or reach change that layer's own copy (one
+// shot's doll), leaving every other layer alone; with none they change
+// the doll's default, which new layers start with.
 struct DotRef final {
   QString doll;
   QString piece;
   int point = -1;
+  LayerId layer = LayerId();
 
   bool operator==(const DotRef&) const = default;
 };
@@ -116,6 +120,13 @@ class RigManager final {
   // Sets every moving dot among dots to feel (see WithFeel), each by its
   // own kind; plain dots are left alone.
   Result<void> SetFeelAll(const std::vector<DotRef>& dots, const Feel& feel);
+  // Whether layer has changed any warp dot settings of doll for itself.
+  bool HasOwnDots(const QString& doll, LayerId layer) const;
+  // Makes the warp dot settings layer shows (reach, drag nodes, motions)
+  // the doll's default, which every new layer starts with. Every other
+  // layer of the doll keeps the look it has now. Refused when layer has
+  // no settings of its own.
+  Result<void> SetDotsDefault(const QString& doll, LayerId layer);
   // Takes away the drag or physics node and the motion of every dot.
   Result<void> ClearDots(const std::vector<DotRef>& dots);
   // The name of the step SetMotionAll makes.

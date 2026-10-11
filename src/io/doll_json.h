@@ -12,7 +12,9 @@ namespace snapper {
 // project files, which carry a copy of each doll they use.
 QJsonObject ArtToJson(const DollArt& art);
 DollArt ArtFromJson(const QJsonObject& object, JsonIssues* issues);
-QJsonObject RigToJson(const Rig& rig);
+// with_layers keeps each layer's own warp dot settings (a project's rig);
+// a doll's own file leaves them out, as layers are the project's.
+QJsonObject RigToJson(const Rig& rig, bool with_layers = true);
 Rig RigFromJson(const QJsonObject& object, JsonIssues* issues);
 
 }  // namespace snapper

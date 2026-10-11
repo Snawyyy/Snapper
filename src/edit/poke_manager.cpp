@@ -45,7 +45,7 @@ QString PokeManager::WhyNot(ShotId shot, LayerId layer) const {
   }
   bool has_springs = false;
   for (const RigPiece& piece : doll->rig.pieces) {
-    has_springs = has_springs || !piece.drag_nodes.empty();
+    has_springs = has_springs || !DragNodesOf(piece, layer).empty();
   }
   assert(doll->rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   return has_springs ? QString()

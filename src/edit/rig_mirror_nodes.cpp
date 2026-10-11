@@ -226,7 +226,8 @@ Result<void> RigManager::MirrorDots(const std::vector<DotRef>& dots) {
       return std::unexpected(Error{why_not});
     }
     const Doll& found = *FindDoll(*next, dot.doll);
-    const RigPiece& from = *FindRig(found.rig, dot.piece);
+    // The dot as the layer it is picked on has it.
+    const RigPiece from = PieceFor(*FindRig(found.rig, dot.piece), dot.layer);
     const DragNode* node = nullptr;
     for (const DragNode& n : from.drag_nodes) {
       node = n.point == dot.point ? &n : node;
@@ -242,7 +243,16 @@ Result<void> RigManager::MirrorDots(const std::vector<DotRef>& dots) {
     next = WithPiece(
         *next, dot.doll, MirrorName(dot.piece),
         [&](RigPiece* to) -> Result<void> {
-          PutTwinDot(node, moving, reach, point, to);
+          const bool is_layer = dot.layer.IsValid();
+          if (!is_layer) {
+            PutTwinDot(node, moving, reach, point, to);
+            return {};
+          }
+          // The twin's dots change on the same layer only.
+          RigPiece shown = PieceFor(*to, dot.layer);
+          PutTwinDot(node, moving, reach, point, &shown);
+          to->layer_dots[dot.layer] = {shown.warp_reach, shown.drag_nodes,
+                                       shown.point_motions};
           return {};
         });
     const bool is_refused = !next;

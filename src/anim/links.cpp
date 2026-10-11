@@ -70,7 +70,8 @@ LinkShifts LinkSolver::Shifts(const Doll& doll, const Layer& layer,
         links.push_back(link);
       }
     }
-    const bool is_linked = !rig.drag_nodes.empty() && !links.empty();
+    const bool is_linked =
+        !DragNodesOf(rig, layer.id).empty() && !links.empty();
     if (!is_linked) {
       continue;
     }

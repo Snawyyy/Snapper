@@ -3,6 +3,7 @@
 
 #include <QString>
 
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -12,13 +13,15 @@
 namespace snapper {
 
 // The warp dot picked on the stage, as the dot panels edit it: the doll
-// it belongs to, its piece and point, and the piece's rig as it is now
-// (good until the next change).
+// it belongs to, the layer it is picked on, its piece and point, and the
+// piece's rig as that layer shows it (its own drag nodes, motions and
+// reach, else the doll's), good until the next change.
 struct PickedDot final {
   QString doll;
+  LayerId layer;
   QString piece;
   int point = -1;
-  const RigPiece* rig = nullptr;
+  std::shared_ptr<const RigPiece> rig;
 };
 
 // The picked dot, or nothing when no dot of a doll piece is picked.

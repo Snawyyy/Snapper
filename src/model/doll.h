@@ -5,13 +5,18 @@
 #include <QSize>
 #include <QString>
 
+#include <map>
 #include <memory>
 #include <vector>
 
+#include "base/id.h"
 #include "model/dot_group.h"
 #include "model/warp_mesh.h"
 
 namespace snapper {
+
+struct LayerTag;
+using LayerId = Id<LayerTag>;
 
 constexpr int kMaxDollPieces = 128;
 constexpr int kMaxPieceDrawings = 64;
@@ -180,6 +185,18 @@ struct Collider final {
   bool operator==(const Collider&) const = default;
 };
 
+// The settings of a piece's warp dots that belong to one place the doll
+// is used (one layer of a shot) instead of to the doll: rubber reach,
+// drag nodes and point motions. Each is what RigPiece holds by the same
+// name.
+struct PieceDots final {
+  std::vector<double> warp_reach{};
+  std::vector<DragNode> drag_nodes{};
+  std::vector<PointMotion> point_motions{};
+
+  bool operator==(const PieceDots&) const = default;
+};
+
 // How Snapper moves a piece: rig.json.
 struct RigPiece final {
   QString name;
@@ -209,6 +226,11 @@ struct RigPiece final {
   std::vector<PointMotion> point_motions{};
   // The outline that pushes the other pieces of the doll, if any.
   Collider collider{};
+  // The warp dot settings of the layers that changed them for
+  // themselves, by layer: editing a shot's doll never touches another
+  // shot's. The fields above are what every other layer shows, and what
+  // a new one starts with (the doll's default).
+  std::map<LayerId, PieceDots> layer_dots{};
 
   bool operator==(const RigPiece&) const = default;
 };
@@ -258,6 +280,28 @@ const PointMotion* FindMotion(const RigPiece& rig, int point);
 // The rubber reach of rig's warp point, 0 when it has none.
 double ReachOf(const RigPiece& rig, int point);
 const IkChain* FindChain(const Rig& rig, const QString& name);
+
+// The warp dot settings piece shows on layer: the layer's own when it
+// has changed them, else the piece's (the doll's default).
+PieceDots DotsOf(const RigPiece& piece, LayerId layer);
+// The drag nodes piece has on layer (no copy).
+const std::vector<DragNode>& DragNodesOf(const RigPiece& piece, LayerId layer);
+// Makes piece's fields hold the dots layer shows, so code that reads
+// the fields sees that layer's settings.
+void ShowDots(const PieceDots& dots, RigPiece* piece);
+// piece with the dots layer shows put in its fields.
+RigPiece PieceFor(const RigPiece& piece, LayerId layer);
+// doll with every piece as PieceFor gives it. Copies nothing when no
+// piece has layer's own settings.
+class DollFor final {
+ public:
+  DollFor(const Doll& doll, LayerId layer);
+  const Doll& get() const { return own_ ? *own_ : *shared_; }
+
+ private:
+  const Doll* shared_;
+  std::unique_ptr<Doll> own_;
+};
 
 // True when parent may become child's parent: it exists (or is empty,
 // meaning root) and the rig stays a tree.

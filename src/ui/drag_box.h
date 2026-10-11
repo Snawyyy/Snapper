@@ -7,9 +7,11 @@
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <QString>
+#include <QVBoxLayout>
 #include <QWidget>
 
 #include <array>
+#include <memory>
 #include <vector>
 
 #include "anim/node_feel.h"
@@ -18,6 +20,7 @@
 #include "ui/dot_kinds.h"
 #include "ui/feel_pad.h"
 #include "ui/fold_section.h"
+#include "ui/group_box.h"
 #include "ui/live_edit.h"
 #include "ui/kind_tiles.h"
 #include "ui/managers.h"
@@ -38,7 +41,9 @@ inline constexpr size_t kMaxPresetChips = 4;
 // material tiles (Still, Drag, Cloth, Jelly) that set what the picked
 // dots are made of, the rubber reach, preset chips and a feel pad with
 // a live wobble beside it for how they move, a folded section with the
-// exact numbers, and a Mirror button. Every picked dot is edited at
+// exact numbers, the dot groups, and Mirror and Set as default buttons.
+// Set as default makes the settings the doll's, which new copies of it
+// start with (each shot keeps its own). Every picked dot is edited at
 // once: a number that differs shows Mixed, and each change is one undo
 // step. Greyed out with the reason when nothing can act.
 class DragBox final : public QGroupBox {
@@ -47,6 +52,9 @@ class DragBox final : public QGroupBox {
  public:
   explicit DragBox(const Managers& managers);
   void Refresh();
+  // Shows the dot controls while a dot is picked and the groups while
+  // the pick has any use for them; the whole box hides with neither.
+  void ShowParts(bool has_dots, bool has_groups);
 
  signals:
   void Problem(const QString& why);
@@ -59,6 +67,8 @@ class DragBox final : public QGroupBox {
     std::vector<double> reaches;
     std::vector<const DragNode*> per_dot;
     std::vector<const DragNode*> nodes;
+    // Keeps the rigs the nodes above point into.
+    std::vector<std::shared_ptr<const RigPiece>> keep;
   };
   Look LookAtPick() const;
   // The picked dots whose node uses the row's number.
@@ -83,6 +93,11 @@ class DragBox final : public QGroupBox {
   QDoubleSpinBox* BoxOf(DragField field);
 
   Managers managers_;
+  // The layouts come before what they hold, so the held widgets leave
+  // them before they go.
+  QVBoxLayout outer_;
+  // Everything about the picked dots themselves.
+  QWidget dots_part_;
   QFormLayout layout_;
   LiveEdit live_;
   KindTiles tiles_;
@@ -91,12 +106,14 @@ class DragBox final : public QGroupBox {
   QHBoxLayout presets_layout_;
   std::array<QPushButton*, kMaxPresetChips> chips_{};
   std::vector<FeelPreset> shown_presets_;
-  QWidget pad_row_;
-  QHBoxLayout pad_layout_;
   FeelPad pad_;
   WobbleBlob blob_;
   FoldSection fine_;
   QPushButton mirror_;
+  QPushButton default_;
+  // The dot groups, in the same panel as the dots they name.
+  GroupBox groups_;
+  QWidget* groups_cell_ = nullptr;
   QDoubleSpinBox lag_;
   QDoubleSpinBox bounce_;
   QDoubleSpinBox stretch_;

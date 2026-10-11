@@ -22,6 +22,30 @@ const Doll* DollOfLayer(const Project& project, ShotId shot,
   return posed != nullptr ? FindDoll(project, posed->doll) : nullptr;
 }
 
+Project WithCopiedLayerDots(Project project,
+                            const std::map<LayerId, LayerId>& copies) {
+  assert(copies.size() < 1000000);
+  assert(project.dolls.size() <= static_cast<size_t>(kMaxProjectDolls));
+  for (auto& [name, shared] : project.dolls) {
+    Doll doll = *shared;
+    bool is_changed = false;
+    for (RigPiece& piece : doll.rig.pieces) {
+      for (const auto& [from, to] : copies) {
+        const auto own = piece.layer_dots.find(from);
+        const bool has_own = own != piece.layer_dots.end();
+        if (has_own) {
+          piece.layer_dots[to] = own->second;
+          is_changed = true;
+        }
+      }
+    }
+    if (is_changed) {
+      shared = std::make_shared<const Doll>(std::move(doll));
+    }
+  }
+  return project;
+}
+
 LayerId TakeLayerId(Project* project) {
   assert(project != nullptr);
   assert(project->next_layer_id >= 1);

@@ -149,7 +149,10 @@ inline QString CountText(size_t count) {
   return is_one ? Tr("1 dot") : Tr("%1 dots").arg(count);
 }
 
-// change(rig, point) on each of dots; the first refusal stops it.
+// change(rig, point) on each of dots; the first refusal stops it. A dot
+// with a layer is changed in that layer's own copy of the piece's dots
+// (change sees them in the fields of a piece and what it leaves there is
+// kept for the layer); one with none changes the doll's default.
 template <typename Change>
 Result<Project> WithDots(const Project& project,
                          const std::vector<DotRef>& dots, Change change) {
@@ -167,7 +170,18 @@ Result<Project> WithDots(const Project& project,
                              "Give the piece a warp grid in the rig "
                              "first.")});
                        }
-                       return change(rig, dot.point);
+                       const bool is_layer = dot.layer.IsValid();
+                       if (!is_layer) {
+                         return change(rig, dot.point);
+                       }
+                       RigPiece shown = PieceFor(*rig, dot.layer);
+                       const Result<void> done = change(&shown, dot.point);
+                       if (done) {
+                         rig->layer_dots[dot.layer] = {
+                             shown.warp_reach, shown.drag_nodes,
+                             shown.point_motions};
+                       }
+                       return done;
                      });
     const bool is_refused = !next;
     if (is_refused) {

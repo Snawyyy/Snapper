@@ -53,20 +53,20 @@ void MultiDotTests::ManyPickedDotsEditAtOnceAndShowMixed() {
   Type(bounce, 0.9);
   QCOMPARE(bench.history.UndoLabel(), QString("Set bounce on 2 dots"));
   const auto& nodes =
-      bench.history.current().dolls.at("Bob")->rig.pieces[0].drag_nodes;
+      Shown(bench, "Bob").drag_nodes;
   QCOMPARE(nodes[0].bounce, 0.9);
   QCOMPARE(nodes[1].bounce, 0.9);
   QCOMPARE(nodes[2].bounce, 0.5);
   QVERIFY(bounce->findChild<QLineEdit*>()->text() != "Mixed");
   // One undo takes the change back for both.
   bench.history.Undo();
-  QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
+  QCOMPARE(Shown(bench, "Bob")
                .drag_nodes[0].bounce, 0.2);
-  QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
+  QCOMPARE(Shown(bench, "Bob")
                .drag_nodes[1].bounce, 0.5);
   // A click on a tile sets every picked dot to that kind.
   tile("kind_drag")->click();
-  QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
+  QCOMPARE(Shown(bench, "Bob")
                .drag_nodes.size(), size_t{4});
   QCOMPARE(bench.history.UndoLabel(), QString("Drag 3 dots"));
   QCOMPARE(tile("kind_drag")->share(), Share::kAll);
@@ -104,7 +104,7 @@ void MultiDotTests::TypedMathWorksOnEachPickedDotsOwnNumber() {
   };
   const auto bounces = [&bench] {
     const auto& nodes =
-        bench.history.current().dolls.at("Bob")->rig.pieces[0].drag_nodes;
+        Shown(bench, "Bob").drag_nodes;
     return std::pair(nodes[0].bounce, nodes[1].bounce);
   };
   // "*2" doubles each; they keep their difference in ratio.

@@ -128,6 +128,7 @@ Result<void> RigManager::SetWarpGrid(const QString& doll,
                           rig->warp_reach.clear();
                           rig->drag_nodes.clear();
                           rig->point_motions.clear();
+                          rig->layer_dots.clear();
                           return {};
                         });
   const bool is_changed = next.has_value();

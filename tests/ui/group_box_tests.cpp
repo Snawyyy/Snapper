@@ -127,6 +127,10 @@ void GroupBoxTests::TheInspectorShowsGroupsForADoll() {
   inspector.show();
   const auto* box = inspector.findChild<GroupBox*>();
   QVERIFY(box != nullptr);
+  // A plain piece has no dots to group yet.
+  QVERIFY(!box->isVisibleTo(&inspector));
+  QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
+  bench.selection.PickDot(WarpDot{LayerId(1), "head", 0});
   QVERIFY(box->isVisibleTo(&inspector));
   // A text layer is no doll: no groups.
   bench.selection.SelectLayer(LayerId(2));

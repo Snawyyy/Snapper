@@ -310,7 +310,7 @@ std::vector<DotRef> PoseTool::PickedRefs(const StageFrame& frame) const {
         PosedLayerOf(managers_.history->current(), frame.shot, dot.layer);
     const bool has_doll = posed != nullptr;
     if (has_doll) {
-      refs.push_back({posed->doll, dot.piece, dot.point});
+      refs.push_back({posed->doll, dot.piece, dot.point, dot.layer});
     }
   }
   return refs;
@@ -331,8 +331,12 @@ void PoseTool::ToggleDrag(const StageFrame& frame) {
         const Doll* doll = FindDoll(project, ref.doll);
         const RigPiece* rig =
             doll != nullptr ? FindRig(doll->rig, ref.piece) : nullptr;
-        return rig != nullptr &&
-               std::any_of(rig->drag_nodes.begin(), rig->drag_nodes.end(),
+        const bool is_missing = rig == nullptr;
+        if (is_missing) {
+          return false;
+        }
+        const std::vector<DragNode>& nodes = DragNodesOf(*rig, ref.layer);
+        return std::any_of(nodes.begin(), nodes.end(),
                            [&ref](const DragNode& n) {
                              return n.point == ref.point;
                            });

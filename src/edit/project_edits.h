@@ -75,6 +75,12 @@ const DollLayer* PosedLayerOf(const Project& project, ShotId shot,
 // is gone or the layer is not a doll.
 const Doll* DollOfLayer(const Project& project, ShotId shot, LayerId layer);
 
+// project where each layer in copies (old id to new id) has the warp dot
+// settings of the layer it was copied from, so a copied layer or shot
+// looks and moves as the original does.
+Project WithCopiedLayerDots(Project project,
+                            const std::map<LayerId, LayerId>& copies);
+
 // Hands out the next layer id; ids are never reused.
 LayerId TakeLayerId(Project* project);
 ShotId TakeShotId(Project* project);

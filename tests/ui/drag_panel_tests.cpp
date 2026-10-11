@@ -58,8 +58,8 @@ struct Panel final {
     bench.selection.PickDots(dots, PickMode::kReplace);
   }
 
-  const std::vector<DragNode>& Nodes() const {
-    return bench.history.current().dolls.at("Bob")->rig.pieces[0].drag_nodes;
+  std::vector<DragNode> Nodes() const {
+    return Shown(bench, "Bob").drag_nodes;
   }
   template <typename T>
   T* Find(const char* name) {
@@ -202,8 +202,8 @@ void DragPanelTests::ClickingThePadJumpsThePuck() {
   QVERIFY(std::abs(landed.heavy - 0.25) < 0.03);
   QCOMPARE(panel.bench.history.UndoLabel(), RigManager::FeelLabel(2));
   // Different feels show a hollow puck each.
-  QVERIFY(panel.bench.rig.SetFeelAll({{"Bob", "head", 0}}, {0.1, 0.1})
-              .has_value());
+  const DotRef head_dot{"Bob", "head", 0, LayerId(1)};
+  QVERIFY(panel.bench.rig.SetFeelAll({head_dot}, {0.1, 0.1}).has_value());
   QCOMPARE(pad->puck_count(), size_t{2});
 }
 
@@ -213,9 +213,9 @@ void DragPanelTests::JellyShowsSquishAndClothShowsStretch() {
   auto* fine = panel.Find<FoldSection>("fine_tune");
   fine->SetOpen(true);
   const auto label = [&panel] {
-    auto* form = panel.Find<FoldSection>("fine_tune")->form();
+    // The name is the first label of the fader row the field sits in.
     auto* stretch = panel.Find<QDoubleSpinBox>("stretch");
-    return qobject_cast<QLabel*>(form->labelForField(stretch))->text();
+    return stretch->parentWidget()->findChild<QLabel*>()->text();
   };
   panel.Find<KindTile>("kind_jelly")->click();
   QVERIFY(panel.Find<QDoubleSpinBox>("stretch")->isVisibleTo(&panel.box));

@@ -149,7 +149,7 @@ void InspectorTests::DragBoxTunesThePickedDot() {
   QVERIFY(lag->isEnabled());
   Type(lag, 0.8);
   const auto& nodes =
-      bench.history.current().dolls.at("Bob")->rig.pieces[0].drag_nodes;
+      Shown(bench, "Bob").drag_nodes;
   QCOMPARE(nodes.size(), size_t{1});
   QCOMPARE(nodes[0].lag, 0.8);
   QCOMPARE(drag->share(), Share::kAll);
@@ -170,7 +170,7 @@ void InspectorTests::DragBoxSetsReachOfEveryPickedDot() {
   QVERIFY(reach->isEnabled());
   QCOMPARE(reach->findChild<QLineEdit*>()->text(), QString("Mixed"));
   Type(reach, 2.5);
-  const auto& rig = bench.history.current().dolls.at("Bob")->rig.pieces[0];
+  const auto& rig = Shown(bench, "Bob");
   QCOMPARE(rig.warp_reach[0], 2.5);
   QCOMPARE(rig.warp_reach[4], 2.5);
   QCOMPARE(bench.history.UndoLabel(), QString("Set reach on 2 dots"));
@@ -199,12 +199,12 @@ void InspectorTests::KindTilesShowTheRowsOfTheirKind() {
   }
   Type(gravity, 0.9);
   const auto& nodes =
-      bench.history.current().dolls.at("Bob")->rig.pieces[0].drag_nodes;
+      Shown(bench, "Bob").drag_nodes;
   QCOMPARE(nodes[0].kind, NodeKind::kCloth);
   QCOMPARE(nodes[0].gravity, 0.9);
   box.findChild<KindTile*>("kind_drag")->click();
   QVERIFY(lag->isVisibleTo(&box));
-  QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
+  QCOMPARE(Shown(bench, "Bob")
                .drag_nodes[0].kind, NodeKind::kDrag);
 }
 
@@ -233,7 +233,7 @@ void InspectorTests::PointMotionBoxAnimatesThePickedDot() {
   Type(size, 20.0);
   QCOMPARE(bench.history.UndoLabel(), QString("Set size on 1 dot"));
   const auto& motions =
-      bench.history.current().dolls.at("Bob")->rig.pieces[0].point_motions;
+      Shown(bench, "Bob").point_motions;
   QCOMPARE(motions.size(), size_t{1});
   QCOMPARE(motions[0].point, 4);
   QCOMPARE(motions[0].size, 20.0);
@@ -241,7 +241,7 @@ void InspectorTests::PointMotionBoxAnimatesThePickedDot() {
   QVERIFY(angle->isEnabled());
   tile(WarpMotionKind::kShiver)->click();
   QVERIFY(!angle->isEnabled());
-  QCOMPARE(bench.history.current().dolls.at("Bob")->rig.pieces[0]
+  QCOMPARE(Shown(bench, "Bob")
                .point_motions[0].size,
            20.0);
   tile(WarpMotionKind::kNone)->click();
@@ -258,9 +258,10 @@ void InspectorTests::OnlyWhatIsPickedShows() {
   const auto shown = [&inspector]<typename Box>() {
     return inspector.findChild<Box*>()->isVisibleTo(&inspector);
   };
-  // A piece of a doll: its pose, layer, motion and saved poses.
+  // A piece of a doll: its pose only; the layer's settings and the saved
+  // poses belong to the whole doll.
   QVERIFY(shown.operator()<PoseBox>());
-  QVERIFY(shown.operator()<PosesBox>());
+  QVERIFY(!shown.operator()<PosesBox>());
   QVERIFY(!shown.operator()<ShotBox>());
   QVERIFY(!shown.operator()<CameraBox>());
   QVERIFY(!shown.operator()<DragBox>());
