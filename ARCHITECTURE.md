@@ -114,10 +114,17 @@ History keeps at most `kMaxUndoSteps` steps and drops the oldest.
   every 1st, 2nd or 3rd frame
   from A, B always keyed; in-between keys off that grid are removed).
   Frames outside A..B never change in any mode.
-- The timeline's corner flips stepping between scrub mode (the arrow
-  keys move one frame) and animation mode (they jump to the next frame
-  where the picture changes: a key, a shot's start, or each frame of
-  an ease; `PoseChanges`).
+- The timeline's corner is a two-icon switch (`StepModeSwitch`) between
+  scrub mode, a film frame (the arrow keys move one frame), and
+  animation mode, a diamond (they jump to the next frame where the
+  picture changes: a key, a shot's start, or each frame of an ease;
+  `PoseChanges`).
+- A chip bar (`KeyChipBar`) floats over the picked keys on the
+  timeline: Step, Ease, Line (pressed when all picked keys share it,
+  `KeyManager::EaseOf`), On 2s, On 3s, and -1 f and +1 f (`KeyManager::Hold`:
+  frames go in or out right after the last picked key and later keys
+  slide). Each makes the same call as the right-click menu and is
+  greyed with its reason; `KeyChipBar::SpotFor` is the pure placement.
 - The playhead runs on one of two timelines: the shots one after
   another (Pose and Rig tabs) or the reel (Video tab). Each keeps its
   own place, and posing always works at the shots' playhead
@@ -232,20 +239,30 @@ A piece can:
   colliders, turning back what turned over and its speed for the next
   frame are shared by cloth and jelly (`anim/cloth_parts.h`).
   Jelly is soft flesh, a chest (`anim/jelly.h`, `StepJelly`): a
-  piece's jelly dots wobble as one blob. Each frame the carried shape
-  is grown back to the drawn area along the way it was squeezed least
-  (pinched at the sides it gets taller), then fitted with one squash
-  and turn over where the dots are; each dot's speed is pulled toward
-  its place on the fit, so the blob never goes jagged. Colliders work
+  piece's jelly dots wobble as one smooth blob. Dots joined by sides of
+  the mesh are one clump; a clump's swing (how far its dots are from
+  where the body carries them) is not kept per dot but as one shift plus
+  one squash, stretch and turn (`anim/jelly_fit.h`, `Swing`), found by
+  a weighted least-squares fit over its dots each frame, so no two
+  neighbours can ever disagree. The shift and the squash each spring back
+  with the cloth move (kept speed, pull); the squash springs back harder
+  at low squish, may bend less (the swing is bent smoothly toward a limit
+  that keeps every side above 0.4 of its length, so triangles never turn
+  over) and keeps most of its area. Each dot then takes a share of the
+  swing, 0 next to a pin (a grid point with no dot) and growing smoothly
+  over three sides, so what is still stays still; a side may not squeeze
+  below half its drawn length (a net for a hard collider), and a swing
+  bends toward one blob radius and never passes it. Nothing mirrors or
+  snaps a turned-over triangle back. Colliders work
   as for cloth. Jelly has four knobs, each 0 to 1 and spread evenly by
   feel, kept in DragNode's spring, inertia, stretch and gravity (no
   air): Firmness (the wobble period, about 24 frames at 0 to 4 at 1,
   the same ratio each step), Wobble (visible jiggles before it settles,
-  0 to 6 in even steps), Squish (how far it squashes, the area kept;
+  0 to 6 in even steps), Squish (how freely the blob squashes and stretches, how far it may bend;
   even steps in how far it shows, and even at 1 some pull back to its
   own shape stays) and Droop (how far it sags when the doll tilts, the
   same at any firmness). `model/node_physics.h` turns them into the
-  per-frame speed kept, pull, squash kept and fall (`JellyMotionOf`, a
+  per-frame speed kept, pull, squish and fall (`JellyMotionOf`, a
   damped spring with that period and damping), and turns a jelly node
   saved before the knobs, in the cloth numbers, into the knobs that
   move nearest to it (`JellyFromOld`, used by `io/doll_json.cpp`; new
@@ -264,8 +281,8 @@ A piece can:
   the pose, the warp grid (`ShotPoints`) and links. Dots can be
   deleted in the rig; an edge joins only dots that were neighbours on
   the ring, so a gap pushes nothing. A collider pushes every warp dot
-  of the same doll's pieces drawn in front of it (a higher order),
-  plain, drag or physics alike, except the pieces it spares (ticks in
+  of the doll's other pieces, in front or behind (two hands with colliders
+  push each other apart), plain, drag or physics alike, except the pieces it spares (ticks in
   the rig panel's `ColliderBox`, greyed with the reason for a piece
   with no grid; `RigManager::SetColliderPushes`). What is pushed is
   measured against how the two pieces were drawn: each dot has a
@@ -511,7 +528,7 @@ are destroyed in reverse.
 | `PoseManager`          | Pose edits, IK drags, copy, paste, mirror      |
 | `KeyManager`           | Keys on the timeline: move, space, ease, retime, bake a timing chart |
 | `TimingChartManager`   | The timing chart session: picked thing and frames to chart, ticks, live preview in one `EditScope`, Apply or Cancel |
-| `PresetManager`        | Motion presets and saved poses                 |
+| `PresetManager`        | Saved poses                                    |
 | `PlaybackManager`      | Playhead on either timeline, play, loop, song  |
 | `ExportManager`        | MP4 and GIF export of the final video, threaded |
 | `MotionManager` (`ui`) | How long and how softly the UI moves: the Motion table, Full / Calm / Off, saved in settings |
@@ -677,6 +694,26 @@ count ("Set bounce on 6 dots"; `RigManager::SetDragField`,
 `SetDragNodes`, `SetNodeKindAll`, `SetMotionAll`, all taking `DotRef`s).
 D switches every picked dot's drag node, and Delete clears the drag or
 physics node and the motion off every picked dot (`ClearDots`).
+Dot groups (`model/dot_group.h`, `GroupManager`) are named sets of warp
+dots, so a set that must stay still and a set that must be jelly are
+each picked with one click. A shot keeps its own groups
+(`Shot::dot_groups`, dots with a layer); a default is kept on the doll
+(`Rig::dot_groups`, dots with no layer) and every shot with that doll
+shows it, a shot's group of the same name hiding it. `ShownGroupsOf`
+(`edit/group_edits.h`) is the one view of both, with dots no longer on
+the stage left out; `WithGroupWritten` is the one write path, so create,
+rename, add or remove dots, make default or shot-only and delete are each
+one undo step and a renamed group keeps its place. `GroupManager` holds
+the rules and the words for refusals; `SelectionManager::PickGroup` picks
+a group's dots and their pieces (Ctrl on a wholly picked group takes the
+dots out). `GroupBox` (shown while a doll is picked) is a chip per group,
+pressed when all of it is picked (only the groups with a dot on a picked
+piece show, so a limb shows its own), a Group button greyed with the reason,
+and a right-click menu; `group_chips.h` is its pure part. Copying a side
+to the other (`WithTwinGroups`, `edit/group_mirror.h`) also makes a twin
+group of the mirrored dots for each group that holds dots of a copied
+piece, so the other side has its own group. Both are saved
+(`io/dot_group_json.h`).
 The Warp dots panel (`DragBox`) shows what the picked dots are as four
 material tiles (`KindTiles`): a click makes every picked dot Still
 (`SetDragNodes`) or a node of that kind (`SetNodeKindAll`), one undo
@@ -699,6 +736,76 @@ or the drag spring (`anim/drag_spring.h`, shared with `DraggedPoses`).
 Each hop starts from rest: hopping in time with a soft, wobbly blob
 would otherwise swing it higher every loop. A new feel of the same
 kind carries on mid-hop, so dragging the pad does not restart it.
+
+The stage view looks at the frame through a camera (`StageCamera`,
+`render/stage_camera.h`, pure): Ctrl+wheel zooms toward the cursor, the
+middle button drags the view, Shift+1 fits the frame, Shift+2 frames the
+pick and Shift+0 is actual size; the zoom shows beside the cursor. The
+tools take their frame (scale and corner) from the camera, so picking
+and dragging work at any zoom. The arrow keys nudge what is picked 1
+pixel (10 with Shift) as one undo step (`PoseTool::Nudge`) while the
+stage has focus. With keys picked on the timeline, a move, a scale, a
+turn by the wheel or a nudge lands on every picked frame of the shot, each
+getting the same amount added to what it has (`PoseTool::EditFrames`,
+`PoseManager::Shift` over many frames, still one undo step); with none
+picked it lands on the playhead's frame as before. Tab and Shift+Tab step the pick through the pieces of
+its doll or the layers (`SelectionManager::StepPick`). A move drag
+catches on guides (`SnapToGuides`, `anim/guides.h`, pure): its box's
+edges and middle against the other things' and the frame's within 6
+pixels, a red line across the view and the chip flashing; lines it
+already lined up with at the press are left alone. A red dashed rope
+joins a picked follower and its leader, and an empty shot says to drag a
+doll in.
+
+On the rig canvas, Alt on a joint and a drag pulls a rope from it; letting
+go over a piece hangs the joint's piece from it (over empty space makes
+it a root), the same as double-clicking a joint and then clicking the
+parent. A lone pivot dragged catches on the middle and edges of its
+drawing within 6 pixels (`SnapToGuides`), and saving the rig to the
+library says so in a toast.
+
+Find a command (Ctrl+/, Help menu, `CommandPalette`) is a box that
+drops over the window and searches every menu action by name
+(`MatchCommands`, pure: letters in order, word starts and side-by-side
+letters score higher) with its key beside it; Enter runs the one picked,
+a greyed one says why. The Keys and gestures sheet (F1, `ShortcutSheet`)
+lists every menu key and the gestures no menu has. Something big going
+well (an export done, a rig saved: `ToastManager::Cheer`) bursts red
+pixels over the window (`SuccessBurst`: 24 in Full, 10 in Calm, none in
+Off) and plays a chime; undo and redo tick (`UiSound`: quiet, on by
+default, View > Sounds, silent with no audio output). The New project
+size is four tiles drawn in the shape of each frame, and the export
+dialog's format, range and size are rows of buttons (`ChoiceRow`).
+
+The Cast panel's doll library is a row of cards (`DollCards`): a
+picture of the doll (`DollPicture`, its default drawings stacked as
+Krita had them, kept by the panel until the library changes), its name
+and a badge (NEW ART, IN SHOT, in project). A card dragged onto the
+stage puts the doll there (`PutDollsOnStage`, which takes it into the
+project first when it is not in it, and which Put on stage uses too);
+the stage frame glows while a card hovers. Shot chips in the strip are plain rounded chips: the name and the
+length in seconds, the shot's colour as a bar along the bottom, a red
+outline when picked, a lift and a lighter face under the pointer, and
+for a long one the first frame at its left (`ShotThumbs`, shared with
+the shot bin, never redrawn while an edit is running). Each cut on the reel wears
+a badge with a letter for its transition (| cut, < > ^ v swipes, *
+flash, ~ fade); one click on it opens the transition.
+
+The inspector opens with a title line, a Teto red dot and what is
+picked ("Head, frame 24", "3 picked", "Head, 2 dots"; `InspectorTitle`,
+pure). Angle fields (Turn, Rest turn, Direction) have a small dial beside
+them (`AngleDial`, `AddAngleRow`; the angle math is `DialAngle` in
+`base/dial_angle.h`): drag to turn, Shift snaps to 15 degrees, Escape
+puts it back; the field takes the value, so a drag is one undo step.
+
+Most boxes below the title fold away under their heading (`Inspector::
+AddFolded`, `FoldSection`; open at first, the fold kept in the settings
+file); the Layer box and the ones whose title says how many are picked
+do not. The tiles of a material and of a dot motion share `LoopTile` (a
+tiny cartoon that loops only under the pointer; `KindTile`, `MotionTile`,
+art in `material_art.h` and `motion_art.h`); the Dot animation box picks
+how dots move on six tiles (None, Wave, Pulse, Breathe, Sway, Shiver),
+outlined when the picked dots use them.
 
 The side panel shows only the settings of what is picked: the shot
 and its camera with nothing picked on the stage; pose, layer, motion

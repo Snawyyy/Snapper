@@ -48,7 +48,6 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 - Change the project only through a manager and `HistoryManager`.
 - Reuse the shared pieces: one key type, one sampler, one renderer, one
   edit path. If something looks like a copy of existing code, it is.
-- New logic leaves a test behind in `tests/<module>/`.
 - A small tweak to existing tested logic (a number, a label) needs no
   new test, just a rebuild.
 - Keep `ARCHITECTURE.md` and `docs/feature-map.md` true: a new manager,
@@ -59,7 +58,35 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-10, branch `workflow`, merged into `ui-test`):
+Last done (2026-10-11, branch `ui-test`, not committed): redesign
+steps 8 to 13, first pass (see next steps, item 3); motion presets and the Motion box removed; mirror flips the
+mesh and makes twin groups.
+
+Also: jelly rebuilt
+as one smooth blob per clump of dots (shift plus squash, stretch and turn
+springs, dots follow it, weaker near pins; from the softbody research).
+Before it, a per-dot version: The fit, area refill and fold fixes are gone; jelly is the
+cloth move plus a spring to the neighbours' average swing, firmer hold
+near pins, a minimum side length and a soft one-radius limit. Not seen
+in the real app yet: owner tests the feel and says what is off (period,
+squish and droop were retuned to a probe, not by eye). Cloth is not
+changed yet; same idea next if the jelly feels right.
+
+Also today: dot groups.
+Pick dots, press Group in the Groups box (shown while a doll is picked),
+name it; a chip then picks the whole set (Shift adds, Ctrl flips) and
+the Warp dots tiles set Still or Jelly on all of it. Groups belong to the
+shot; right click a chip to rename, add or remove the picked dots, make
+it a default (kept on the doll, shown in every shot with it) or delete.
+Owner to try it and say how it should feel (chip look, naming, order).
+
+Earlier the same day: jelly dots
+may no longer stray past one blob radius from where the body carries
+them (Pudding and Water balloon scattered to 3 blobs when shaken hard).
+Not seen in the real app yet: owner to retest; if it still tears, the
+cause is in the fold fixes (cloth_parts.cpp), not the cap.
+
+Before that (2026-10-10, branch `workflow`, merged into `ui-test`):
 agent speed. Past agent logs showed builds took most of their tool
 time, so builds moved off the NTFS drive (a one-file change rebuilt in
 70 s, now 20 s; one test target in under a second), ccache is on, mold
@@ -81,13 +108,23 @@ dots, not the body (owner to say if the body should shove too).
 
 Next steps:
 
-1. The owner tests the latest `ui-test` build (jelly, dot panel, P
-   poke); fix what they find, one change at a time, a test per bug.
+1. The owner tests the latest `ui-test` build (the new jelly, groups,
+   the key chip bar, corner switch, dials, inspector title); fix what
+   they find, one change at a time. The owner said: no tests for visual
+   things, they test those by eye; no test rule in this file now.
 2. Performance is bad in the app: profile a Release build first (the
    tested build is Debug), then fix the slow paths.
-3. Build redesign steps 8 to 13 in order: key chip bar, inspector
-   reshape, stage zoom/pan/guides, cards and drag-in, rig by touch,
-   extras (sounds go in here, on and quiet by default).
+3. Redesign (docs/redesign/index.html section 12; keep the UI fun,
+   simple and game like): steps 8 to 13 are built in a first pass (key
+   chip bar, corner switch, inspector title, dials, folds, motion tiles,
+   stage zoom/pan/fit, guides, nudge, Tab, doll cards and drag to stage,
+   shot chip pictures, transition badges, rig rope and pivot snap, find
+   a command, keys sheet, burst, sounds, new project tiles, export
+   buttons). Not built yet, in the doc: drag rows for draw order,
+   IK bones and click the elbow to flip, the inline gap picker, the
+   transition popover with tiles, layer rows with eye and kind icon and
+   rename in place, the "+" tiles, hit-stop, input buffering, undo
+   flash. Owner tests each by eye and says what feels wrong.
 4. Faster links: mold is in; next, think about one test program per module instead of one per file, since
    every change relinks about 100 of them.
 5. Merge to main only when the owner says "merge".

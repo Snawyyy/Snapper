@@ -14,16 +14,17 @@ it in the same commit.
 | Warp mesh and grid, shape mesh | Dolls | model/warp_mesh.h, anim/shape_mesh.cpp, anim/warp.cpp, anim/grid_fold.cpp, anim/mesh_carry.cpp | RigManager (edit/rig_mesh.cpp, mesh_edits.cpp) | anim/shape_mesh_tests, anim/mesh_dots_tests, edit/mesh_edit_tests |
 | Drag nodes (lag, bounce) | Dolls | anim/doll_drag.cpp, anim/drag_spring.cpp, anim/node_feel.cpp, model/doll.h | RigManager (edit/rig_nodes.cpp) | anim/drag_tests, anim/node_feel_tests, edit/rig_dots_tests |
 | Cloth physics | Dolls | anim/cloth.cpp, anim/cloth_parts.cpp | RigManager | anim/cloth_tests, anim/cloth_feel_tests |
-| Jelly physics, jelly knobs | Dolls | anim/jelly.cpp, model/node_physics.cpp, anim/cloth.cpp (ClothSettingsOf), anim/doll_drag.cpp, ui/dot_kinds.cpp (labels) | RigManager | anim/jelly_tests, anim/node_feel_tests, io/doll_file_tests |
+| Jelly physics, jelly knobs | Dolls | anim/jelly.cpp, anim/jelly_fit.cpp, model/node_physics.cpp, anim/cloth.cpp (ClothSettingsOf), anim/doll_drag.cpp, ui/dot_kinds.cpp (labels) | RigManager | anim/jelly_tests, anim/node_feel_tests, io/doll_file_tests |
 | Feels and presets for dots | Dolls | anim/node_feel.cpp, anim/mirror.cpp | PresetManager, RigManager (SetFeelAll) | anim/node_feel_tests, edit/preset_tests |
-| Point motions (wave, pulse...) | Dolls | anim/warp_motion.cpp, io/point_motion_json.cpp, ui/point_motion_box.cpp | RigManager (edit/rig_dots.cpp) | anim/warp_motion_tests, edit/rig_dots_tests |
+| Point motions (wave, pulse...) | Dolls | anim/warp_motion.cpp, io/point_motion_json.cpp, ui/point_motion_box.cpp, ui/motion_tile.cpp, ui/motion_art.cpp | RigManager (edit/rig_dots.cpp) | anim/warp_motion_tests, edit/rig_dots_tests |
 | Colliders | Dolls | anim/collider.cpp, anim/doll_collide.cpp, anim/doll_colliders.cpp, io/collider_json.cpp | RigManager (edit/rig_collider.cpp) | anim/collider_tests, anim/collider_push_tests, ui/collider_ui_tests |
 | Poke (hold P, drag) | Poking | anim/poke_layer.cpp, edit/poke_manager.cpp, ui/stage_poke.cpp | PokeManager (never in history) | anim/poke_layer_tests, edit/poke_manager_tests, ui/stage_poke_tests |
 | Joints, rig, IK, lean, swivel | Dolls | anim/ik.cpp, anim/doll_pose.cpp, anim/doll_lean.cpp, ui/rig_canvas.cpp | RigManager, PoseManager (IK drags) | anim/pose_tests, anim/lean_tests, edit/rig_tests |
+| Rig canvas rope, pivot snap | Dolls | ui/rig_canvas_hang.cpp, ui/rig_canvas_snap.cpp, ui/rig_canvas_input.cpp | RigManager | ui/rig_ui_tests |
 | Mirror dot setup | Dolls | anim/mirror.cpp, edit/rig_mirror.cpp | RigManager | edit/rig_dots_tests |
 | Poses, copy, paste, saved poses | Dolls | model/pose.h, edit/pose_clipboard.cpp, edit/saved_poses.cpp, io/pose_file.cpp | PoseManager, PresetManager | edit/posing_tests, anim/pose_memo_tests, edit/preset_tests |
 | Keys, easing, sampling | Time | model/key.h, anim/sampler.cpp, edit/key_manager.cpp | KeyManager | anim/sampler_tests, edit/key_tests |
-| Timeline rows and view | Time | edit/timeline_rows.cpp, ui/timeline_view.cpp, ui/timeline_paint.cpp | KeyManager, SelectionManager | edit/timeline_tests, ui/timeline_view_tests |
+| Timeline rows and view | Time | edit/timeline_rows.cpp, ui/timeline_view.cpp, ui/timeline_paint.cpp, ui/timeline_chips.cpp, ui/key_chip_bar.cpp, ui/step_mode_switch.cpp | KeyManager, SelectionManager | edit/timeline_tests, ui/timeline_view_tests |
 | Timing chart, spacing | Time | anim/timing_chart.cpp, edit/timing_chart_manager.cpp | TimingChartManager | anim/timing_chart_tests, edit/timing_chart_edit_tests |
 | Shots, master track | Shots | model/shot.h, anim/master_timeline.cpp, ui/shot_strip.cpp | ShotManager (edit/shot_manager.cpp) | edit/shot_tests, ui/shot_strip_tests |
 | Stage contents, layers, effects | Shots | model/layer.h, edit/stage_manager.cpp, render/effects.cpp | StageManager | edit/stage_tests, render/render_tests |
@@ -34,7 +35,10 @@ it in the same commit.
 | Save, load, JSON, legacy files | Project data and undo | io/project_file.cpp, io/doll_json.cpp, io/json_values.cpp, io/reconcile.cpp | DocumentManager | io/project_file_tests, io/doll_file_tests, io/warp_json_tests |
 | Picking and multi-select | Picking many | edit/selection_manager.cpp, render/stage_hit.cpp, ui/picked_dot.cpp | SelectionManager | edit/selection_tests, ui/multi_dot_tests |
 | Undo, redo, history, drag steps | The one edit path | edit/history_manager.cpp, edit/edit_scope.cpp, edit/project_edits.cpp | HistoryManager | edit/history_tests |
-| Stage view, handles, grab | Managers | ui/stage_view.cpp, render/stage_geometry.cpp, ui/grab.cpp, ui/pose_tool.cpp | PoseManager, RigManager | ui/pose_tool_tests, ui/grab_tests |
+| Stage view, handles, grab | Managers | ui/stage_view.cpp, ui/stage_view_camera.cpp, render/stage_camera.cpp, anim/guides.cpp, ui/pose_tool_guides.cpp, ui/pose_tool_nudge.cpp, edit/selection_step.cpp, render/stage_geometry.cpp, ui/grab.cpp, ui/pose_tool.cpp | PoseManager, RigManager | ui/pose_tool_tests, ui/grab_tests |
+| Dot groups (pick a set at once, default per doll) | Picking many | model/dot_group.h, edit/group_edits.cpp, edit/group_manager.cpp, edit/group_mirror.cpp, edit/selection_prune.cpp (PickGroup), ui/group_box.cpp, ui/group_chips.cpp, io/dot_group_json.cpp | GroupManager | edit/group_manager_tests, io/dot_group_json_tests, ui/group_box_tests, ui/group_chips_tests |
+| Cast cards, drag a doll to the stage | Picking many | ui/doll_cards.cpp, ui/doll_drop.cpp, ui/cast_actions.cpp, ui/stage_view_drop.cpp, ui/shot_thumbs.cpp, ui/shot_strip_paint.cpp, ui/reel_timeline_badges.cpp | StageManager, DollLibraryManager | ui/cast_panel_tests |
+| Find a command, shortcuts, burst, sounds | Managers | ui/command_palette.cpp, ui/command_search.cpp, ui/shortcut_sheet.cpp, ui/success_burst.cpp, ui/ui_sound.cpp, ui/blip_wave.cpp, ui/choice_row.cpp, ui/new_project_dialog.cpp | the managers the actions call | ui/window_tests, ui/refusal_reason_tests |
 | Panels and inspector | Picking many | ui/inspector.cpp, ui/layer_box.cpp, ui/drag_box.cpp, ui/rig_panel.cpp | the manager the panel calls | ui/inspector_tests, ui/drag_panel_tests, ui/dot_kinds_tests |
 | Feel preview (hopping blob) | Picking many | anim/hop_preview.cpp, ui/wobble_blob.cpp, ui/drag_box_show.cpp | HopPreview (no edits) | anim/hop_preview_tests, ui/drag_panel_tests |
 | Playback, song, export | Time | edit/playback_manager.cpp, edit/export_manager.cpp, media/video_encoder.cpp | PlaybackManager, ExportManager | edit/playback_tests, edit/export_tests, media/media_tests |
@@ -120,9 +124,6 @@ and ui/kind_tiles.cpp. ui/drag_box.cpp and ui/drag_box_show.cpp
 compare to `kStill` only.
 
 Other enums with switch sites:
-- MotionPreset (anim/presets.h): anim/presets.cpp has two switches;
-  ui/motion_box.cpp lists from `kMotionPresetCount`; tests
-  anim/sampler_tests, edit/preset_tests.
 - Ease (model/key.h): anim/sampler.cpp, io/json_values.cpp
   (`kEaseNames`), ui/timeline_input.cpp, anim/timing_chart.cpp.
 - TrackKind (edit/track_ref.h): switches in edit/timeline_rows.cpp,
