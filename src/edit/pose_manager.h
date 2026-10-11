@@ -60,6 +60,11 @@ class PoseManager final {
   // 0 or more and opacity 0 to 1.
   Result<void> Shift(const std::vector<TrackRef>& tracks, Frame frame,
                      const PoseDelta& delta);
+  // The same at every one of frames: each gets the delta added to what
+  // it has, so every frame moves by the same amount from where it was.
+  Result<void> Shift(const std::vector<TrackRef>& tracks,
+                     const std::vector<Frame>& frames,
+                     const PoseDelta& delta);
   Result<void> SetCamera(ShotId shot, Frame frame, CameraPose camera);
   // Effect amount tracks, 0 to 1.
   Result<void> SetAmount(const TrackRef& track, Frame frame, double amount);
