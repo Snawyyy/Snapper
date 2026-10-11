@@ -112,9 +112,10 @@ void ColliderPushTests::AnUntickedPieceIsNotPushed() {
   behind.rig.pieces[1].order = -1;
   for (int frame : {3, 6, 18}) {
     QCOMPARE(Furthest(DraggedPoses(spared, layer, Frame(frame))), 0.0);
-    // A piece drawn behind the collider is never pushed either.
-    QCOMPARE(Furthest(DraggedPoses(behind, layer, Frame(frame))), 0.0);
   }
+  // A piece drawn behind the collider is pushed all the same: colliders
+  // work both ways, so two hands push each other apart.
+  QVERIFY(Furthest(DraggedPoses(behind, layer, Frame(6))) > 5.0);
 }
 
 void ColliderPushTests::APushBendsTheNeighboursLess() {

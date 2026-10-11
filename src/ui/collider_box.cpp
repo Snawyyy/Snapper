@@ -10,6 +10,24 @@
 
 namespace snapper {
 
+namespace {
+
+// What the list says about a collider piece.
+QString NoteFor(const QString& piece, bool has_others) {
+  assert(!piece.isEmpty());
+  assert(piece.size() < 100000);
+  return has_others
+             ? ColliderBox::tr(
+                   "Pushes the warp dots of these pieces out of its "
+                   "outline, front or back, so they never pass through it "
+                   "(two hands with colliders push each other apart); what "
+                   "overlaps as drawn stays. Untick one to let it through.")
+             : ColliderBox::tr("%1 is the doll's only piece, so it pushes "
+                               "nothing.").arg(piece);
+}
+
+}  // namespace
+
 ColliderBox::ColliderBox(const Managers& managers)
     : QGroupBox(tr("Collider")), managers_(managers), layout_(this) {
   assert(managers_.IsComplete());
@@ -45,18 +63,12 @@ void ColliderBox::Show(const QString& doll, const QString& piece) {
   }
   std::vector<QString> in_front;
   for (const RigPiece& other : found->rig.pieces) {
-    const bool is_front = other.order > rig->order;
-    if (is_front) {
+    const bool is_other = other.name != piece;
+    if (is_other) {
       in_front.push_back(other.name);
     }
   }
-  note_.setText(in_front.empty()
-                    ? tr("No piece is drawn in front of %1, so it pushes "
-                         "nothing.").arg(piece)
-                    : tr("Pushes the warp dots of these pieces drawn in "
-                         "front of %1 out of its outline, so they never "
-                         "pass through it; what overlaps as drawn stays. "
-                         "Untick one to let it through.").arg(piece));
+  note_.setText(NoteFor(piece, !in_front.empty()));
   for (const QString& name : in_front) {
     auto tick = std::make_unique<QCheckBox>(name);
     const bool is_spared =

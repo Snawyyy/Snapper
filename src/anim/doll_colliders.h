@@ -28,9 +28,10 @@ struct PushField final {
   std::vector<QPointF> ghosts;
 };
 
-// Whether collider pushes piece: collider is the doll's piece drawn
-// behind piece (a lower draw order), has an outline, and does not spare
-// it. Only a piece with a warp grid can be pushed.
+// Whether collider pushes piece: it is another piece of the doll, has an
+// outline, and does not spare it, whichever is drawn in front, so two
+// hands with colliders push each other apart. Only a piece with a warp
+// grid can be pushed.
 bool IsPushing(const RigPiece& collider, const RigPiece& piece);
 
 // The colliders that push piece at frame, each carried by its piece's

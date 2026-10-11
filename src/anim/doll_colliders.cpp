@@ -56,8 +56,9 @@ bool IsPushing(const RigPiece& collider, const RigPiece& piece) {
   const auto& spared = collider.collider.spared;
   const bool is_spared =
       std::find(spared.begin(), spared.end(), piece.name) != spared.end();
-  return collider.collider.IsOn() && piece.warp.IsOn() &&
-         collider.order < piece.order && !is_spared;
+  const bool is_other = collider.name != piece.name;
+  return collider.collider.IsOn() && piece.warp.IsOn() && is_other &&
+         !is_spared;
 }
 
 std::vector<PushField> PushFieldsFor(
