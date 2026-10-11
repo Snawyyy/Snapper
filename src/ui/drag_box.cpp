@@ -43,6 +43,7 @@ void DragBox::SetUpReachRow() {
   assert(layout_.rowCount() == 1);
   assert(managers_.IsComplete());
   SetUpNumber(&reach_, Number::kCells);
+  reach_.setButtonSymbols(QAbstractSpinBox::NoButtons);
   reach_.setObjectName("reach");
   reach_.setToolTip(tr("How far pulling the dot drags the dots around it, "
                        "like rubber: 0 moves it alone. The mouse wheel "
@@ -106,6 +107,8 @@ void DragBox::SetUpFineRows() {
   for (const DragField field : kFineFields) {
     QDoubleSpinBox* box = BoxOf(field);
     SetUpNumber(box, Number::kFraction);
+    // Dragged by its name or typed into, as in the design: no arrows.
+    box->setButtonSymbols(QAbstractSpinBox::NoButtons);
     AddNumberRow(fine_.form(), FineLabel(field, none), box, &live_);
     MakeLiveNamed(
         box, &live_, this,
