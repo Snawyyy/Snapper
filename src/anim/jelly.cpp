@@ -5,192 +5,295 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <numeric>
 #include <vector>
 
 #include "anim/cloth_parts.h"
+#include "anim/jelly_fit.h"
 #include "anim/warp_shape.h"
 #include "model/node_physics.h"
 
 namespace snapper {
 namespace {
 
-// How far the area may be off before the fit stops making up all of
-// it: a blob squeezed to nothing does not swell without end.
-constexpr double kMostAreaChange = 4.0;
+// How many sides from a pin a dot swings less than a free one: the swing
+// grows smoothly away from what is still instead of shearing at its edge.
+constexpr int kRampSides = 3;
+// How much a blob's squash and stretch springs back more than its shift
+// at no squish, as a share of the way left to a full pull.
+constexpr double kStiffSquash = 0.6;
+// How much of its area a blob keeps while it squashes, and how far it
+// may squash or stretch at no squish and at most squish.
+constexpr double kKeepArea = 0.6;
+constexpr double kBendStiff = 0.2;
+constexpr double kBendSoft = 0.6;
+// The least a side may be squeezed to, as a share of its drawn length,
+// and the rounds of pushing apart per frame (a net under the smooth
+// fit, for a blob a collider squeezes hard).
+constexpr double kLeastSide = 0.5;
+constexpr int kApartRounds = 4;
 
-// A 2 by 2 matrix: [a b; c d].
-struct Mat final {
-  double a = 1.0;
-  double b = 0.0;
-  double c = 0.0;
-  double d = 1.0;
+// How much of its squish a node has, 0 to 1.
+double SquishShare(const ClothSettings& settings) {
+  assert(kMostSquish > 0.0);
+  assert(kMostSquish < 1.0);
+  return std::clamp(settings.stretch / kMostSquish, 0.0, 1.0);
+}
+
+// A group of jelly dots joined by sides of the mesh: it swings as one
+// blob, spots measured from its middle in its own size.
+struct Clump final {
+  std::vector<size_t> nodes;
+  std::vector<QPointF> spots;
 };
 
-double Det(const Mat& m) {
-  assert(std::isfinite(m.a + m.b));
-  assert(std::isfinite(m.c + m.d));
-  return m.a * m.d - m.b * m.c;
-}
-
-Mat Times(const Mat& m, double k) {
-  assert(std::isfinite(k));
-  assert(std::isfinite(m.a + m.b + m.c + m.d));
-  return {m.a * k, m.b * k, m.c * k, m.d * k};
-}
-
-Mat Plus(const Mat& m, const Mat& n) {
-  assert(std::isfinite(m.a + m.b + m.c + m.d));
-  assert(std::isfinite(n.a + n.b + n.c + n.d));
-  return {m.a + n.a, m.b + n.b, m.c + n.c, m.d + n.d};
-}
-
-Mat Product(const Mat& m, const Mat& n) {
-  assert(std::isfinite(m.a + m.b + m.c + m.d));
-  assert(std::isfinite(n.a + n.b + n.c + n.d));
-  return {m.a * n.a + m.b * n.c, m.a * n.b + m.b * n.d,
-          m.c * n.a + m.d * n.c, m.c * n.b + m.d * n.d};
-}
-
-QPointF Apply(const Mat& m, QPointF v) {
-  assert(std::isfinite(m.a + m.b + m.c + m.d));
-  assert(std::isfinite(v.x() + v.y()));
-  return {m.a * v.x() + m.b * v.y(), m.c * v.x() + m.d * v.y()};
-}
-
-// m scaled so its area change is area, or turn scaled so when m has
-// none (flat or turned over).
-Mat WithArea(const Mat& m, const Mat& turn, double area) {
-  assert(area > 0.0);
-  assert(std::isfinite(area));
-  const double det = Det(m);
-  const bool is_open = det > 1e-9 && std::isfinite(det);
-  return is_open ? Times(m, std::sqrt(area / det))
-                 : Times(turn, std::sqrt(area));
-}
-
-QPointF Middle(const std::vector<QPointF>& points) {
-  assert(!points.empty());
-  assert(points.size() <= static_cast<size_t>(kMaxWarpPoints));
-  QPointF sum;
-  for (const QPointF& p : points) {
-    sum += p;
+// The node of each grid point, or -1 for a pin.
+std::vector<int> NodeOfPoints(const ClothPiece& piece) {
+  assert(piece.points.size() == piece.at.size());
+  assert(piece.grid.PointCount() <= kMaxWarpPoints);
+  std::vector<int> node_of(static_cast<size_t>(piece.grid.PointCount()), -1);
+  for (size_t i = 0; i < piece.points.size(); ++i) {
+    node_of[static_cast<size_t>(piece.points[i])] = static_cast<int>(i);
   }
-  return sum / static_cast<double>(points.size());
+  return node_of;
 }
 
-// The squash and turn that best carries from onto to, both about
-// their middles.
-Mat FitOf(const std::vector<QPointF>& from, const std::vector<QPointF>& to) {
-  assert(from.size() == to.size() && !from.empty());
-  assert(from.size() <= static_cast<size_t>(kMaxWarpPoints));
-  const QPointF from_mid = Middle(from);
-  const QPointF to_mid = Middle(to);
-  Mat pq{0.0, 0.0, 0.0, 0.0};
-  Mat qq{0.0, 0.0, 0.0, 0.0};
-  for (size_t k = 0; k < from.size(); ++k) {
-    const QPointF q = from[k] - from_mid;
-    const QPointF p = to[k] - to_mid;
-    pq = Plus(pq, {p.x() * q.x(), p.x() * q.y(), p.y() * q.x(),
-                   p.y() * q.y()});
-    qq = Plus(qq, {q.x() * q.x(), q.x() * q.y(), q.y() * q.x(),
-                   q.y() * q.y()});
+size_t RootOf(std::vector<size_t>* parent, size_t i) {
+  assert(parent != nullptr && i < parent->size());
+  assert(parent->size() <= static_cast<size_t>(kMaxWarpPoints));
+  while ((*parent)[i] != i) {
+    (*parent)[i] = (*parent)[(*parent)[i]];
+    i = (*parent)[i];
   }
-  const double qq_det = Det(qq);
-  const bool is_spread = std::abs(qq_det) > 1e-9;
-  return is_spread
-             ? Product(pq, Times(Mat{qq.d, -qq.b, -qq.c, qq.a}, 1.0 / qq_det))
-             : Mat{};
+  return i;
 }
 
-// The nearest pure turn to m.
-Mat TurnOf(const Mat& m) {
-  assert(std::isfinite(m.a + m.b + m.c + m.d));
-  assert(kMostAreaChange > 1.0);
-  const double angle = std::atan2(m.c - m.b, m.a + m.d);
-  return {std::cos(angle), -std::sin(angle), std::sin(angle),
-          std::cos(angle)};
+// The clumps of piece: dots joined by a side of the mesh, each with its
+// dots' spots about the middle of where the body carries them.
+std::vector<Clump> ClumpsOf(const std::vector<int>& node_of,
+                            const std::vector<QPointF>& carried,
+                            const ClothPiece& piece) {
+  assert(node_of.size() == carried.size());
+  assert(piece.points.size() <= static_cast<size_t>(kMaxWarpPoints));
+  std::vector<size_t> parent(piece.points.size());
+  std::iota(parent.begin(), parent.end(), size_t{0});
+  for (const MeshEdge& edge : WarpEdges(piece.grid)) {
+    const int a = node_of[static_cast<size_t>(edge.first)];
+    const int b = node_of[static_cast<size_t>(edge.second)];
+    const bool is_pair = a >= 0 && b >= 0;
+    if (is_pair) {
+      parent[RootOf(&parent, static_cast<size_t>(a))] =
+          RootOf(&parent, static_cast<size_t>(b));
+    }
+  }
+  std::vector<Clump> clumps;
+  std::vector<int> clump_of(parent.size(), -1);
+  for (size_t i = 0; i < parent.size(); ++i) {
+    const size_t root = RootOf(&parent, i);
+    const bool is_new = clump_of[root] < 0;
+    if (is_new) {
+      clump_of[root] = static_cast<int>(clumps.size());
+      clumps.emplace_back();
+    }
+    clumps[static_cast<size_t>(clump_of[root])].nodes.push_back(i);
+  }
+  for (Clump& clump : clumps) {
+    QPointF sum;
+    for (const size_t i : clump.nodes) {
+      sum += carried[static_cast<size_t>(piece.points[i])];
+    }
+    const QPointF mid = sum / static_cast<double>(clump.nodes.size());
+    double radius = std::max(piece.cell, 1e-6);
+    for (const size_t i : clump.nodes) {
+      radius = std::max(
+          radius, Length(carried[static_cast<size_t>(piece.points[i])] - mid));
+    }
+    for (const size_t i : clump.nodes) {
+      clump.spots.push_back(
+          (carried[static_cast<size_t>(piece.points[i])] - mid) / radius);
+    }
+  }
+  return clumps;
 }
 
-// The way the carried shape was squeezed least, as a unit step in shot
-// space, and how lopsided the squeeze was: 0 when it shrank evenly, 1
-// when it was all one way.
-struct Squeeze final {
-  QPointF free_way;
-  double lopsided = 0.0;
+// How much of the swing each dot takes, 0 to 1, by how many sides it is
+// from the nearest pin (a grid point with no dot): a dot next to a pin
+// follows the body, and the share grows smoothly over kRampSides. A dot
+// that no pin is near takes all of it.
+std::vector<double> WeightsOf(const ClothPiece& piece) {
+  assert(piece.points.size() == piece.at.size());
+  assert(kRampSides > 0);
+  constexpr int kFar = 1000;
+  std::vector<int> sides(static_cast<size_t>(piece.grid.PointCount()), 0);
+  for (const int point : piece.points) {
+    sides[static_cast<size_t>(point)] = kFar;
+  }
+  const std::vector<MeshEdge> edges = WarpEdges(piece.grid);
+  for (int round = 0; round < kRampSides; ++round) {
+    for (const MeshEdge& edge : edges) {
+      int& a = sides[static_cast<size_t>(edge.first)];
+      int& b = sides[static_cast<size_t>(edge.second)];
+      const int near_a = std::min(a, b + 1);
+      const int near_b = std::min(b, a + 1);
+      a = near_a;
+      b = near_b;
+    }
+  }
+  std::vector<double> weights;
+  for (const int point : piece.points) {
+    const double x = std::min(
+        1.0, static_cast<double>(sides[static_cast<size_t>(point)]) /
+                 kRampSides);
+    weights.push_back(x * x * (3.0 - 2.0 * x));
+  }
+  return weights;
+}
+
+// How far each dot of clump is from where it was a frame ago, by its
+// own motion: the node's offset and its kept speed (with the droop).
+struct Motion final {
+  std::vector<QPointF> offsets;
+  std::vector<QPointF> owns;
 };
 
-Squeeze SqueezeOf(const Mat& drawn_to_carried) {
-  const Mat& m = drawn_to_carried;
-  assert(std::isfinite(m.a + m.b + m.c + m.d));
-  assert(kMostAreaChange > 1.0);
-  // The stretch of m (its turn left out): m transposed times m.
-  const double p = m.a * m.a + m.c * m.c;
-  const double q = m.a * m.b + m.c * m.d;
-  const double r = m.b * m.b + m.d * m.d;
-  const double spread = std::hypot((p - r) / 2.0, q);
-  const double most = (p + r) / 2.0 + spread;
-  const double least = std::max(0.0, (p + r) / 2.0 - spread);
-  const QPointF one(q, most - p);
-  const QPointF other(most - r, q);
-  const QPointF way = Length(one) > Length(other) ? one : other;
-  const QPointF carried_way = Apply(m, Length(way) > 1e-12 ? way
-                                                          : QPointF(1, 0));
-  const double length = Length(carried_way);
-  const double total = std::sqrt(most) + std::sqrt(least);
-  return {length > 1e-12 ? carried_way / length : QPointF(1.0, 0.0),
-          total > 1e-12
-              ? (std::sqrt(most) - std::sqrt(least)) / total
-              : 0.0};
-}
-
-// The carried shape (about its middle) grown back to the drawn area:
-// along the way it was squeezed least, so pinched at the sides it gets
-// taller, and evenly when it shrank evenly.
-std::vector<QPointF> Refilled(const std::vector<QPointF>& carried,
-                              const ClothPiece& piece) {
+Motion MotionOf(const std::vector<QPointF>& carried, const ClothPiece& piece) {
   assert(static_cast<int>(carried.size()) == piece.grid.PointCount());
-  assert(piece.drawn.size() == carried.size());
-  const double area = ShapeArea(piece.grid, carried);
-  const double drawn = ShapeArea(piece.grid, piece.drawn);
-  const bool is_known = area > 1e-6 && drawn > 1e-6;
-  const double grow =
-      is_known ? std::clamp(drawn / area, 1.0 / kMostAreaChange,
-                            kMostAreaChange)
-               : 1.0;
-  const Squeeze squeeze = SqueezeOf(FitOf(piece.drawn, carried));
-  const QPointF w = squeeze.free_way;
-  const Mat one_way{1.0 + (grow - 1.0) * w.x() * w.x(),
-                    (grow - 1.0) * w.x() * w.y(),
-                    (grow - 1.0) * w.x() * w.y(),
-                    1.0 + (grow - 1.0) * w.y() * w.y()};
-  const double lean = std::clamp(squeeze.lopsided * 4.0, 0.0, 1.0);
-  const Mat bulge = WithArea(Plus(Times(one_way, lean),
-                                  Times(Mat{}, (1.0 - lean) *
-                                                   std::sqrt(grow))),
-                             Mat{}, grow);
-  const QPointF mid = Middle(carried);
-  std::vector<QPointF> refilled;
-  for (const QPointF& point : carried) {
-    refilled.push_back(mid + Apply(bulge, point - mid));
+  assert(piece.at.size() == piece.speed.size());
+  Motion motion;
+  const QPointF turned = QPointF(0.0, 1.0) - piece.drawn_down;
+  for (size_t i = 0; i < piece.at.size(); ++i) {
+    const ClothSettings& s = piece.settings[i];
+    const QPointF anchor = carried[static_cast<size_t>(piece.points[i])];
+    const QPointF body = piece.body_speed[i];
+    motion.offsets.push_back(piece.at[i] - (anchor - body));
+    motion.owns.push_back((piece.speed[i] - body) * s.keep +
+                          turned * (s.fall * piece.cell));
   }
-  return refilled;
+  return motion;
+}
+
+// One clump's next swing: what it is now and what it keeps of its own
+// speed, with the shift and the squash each pulled back a little.
+Swing NextSwing(const Clump& clump, const std::vector<double>& weights,
+                const Motion& motion, const ClothPiece& piece) {
+  assert(!clump.nodes.empty());
+  assert(clump.nodes.size() == clump.spots.size());
+  std::vector<double> w;
+  std::vector<QPointF> offsets;
+  std::vector<QPointF> owns;
+  double pull = 0.0;
+  double share = 0.0;
+  for (const size_t i : clump.nodes) {
+    w.push_back(weights[i]);
+    offsets.push_back(motion.offsets[i]);
+    owns.push_back(motion.owns[i]);
+    pull += piece.settings[i].pull;
+    share += SquishShare(piece.settings[i]);
+  }
+  const double n = static_cast<double>(clump.nodes.size());
+  pull /= n;
+  share /= n;
+  const Pull back{pull, pull + (1.0 - pull) * kStiffSquash * (1.0 - share)};
+  const Swing now = FitSwing(clump.spots, w, offsets);
+  const Swing own = FitSwing(clump.spots, w, owns);
+  const double most = kBendStiff + (kBendSoft - kBendStiff) * share;
+  return Bounded(Plus(PulledBack(now, back), own), kKeepArea, most);
+}
+
+// Pushes apart every pair of dots (a node and a node, or a node and a
+// pin) squeezed closer than kLeastSide of their drawn distance.
+void KeepApart(const std::vector<int>& node_of,
+               const std::vector<QPointF>& carried, ClothPiece* piece) {
+  assert(piece != nullptr);
+  assert(node_of.size() == carried.size());
+  const std::vector<MeshEdge> edges = WarpEdges(piece->grid);
+  for (int round = 0; round < kApartRounds; ++round) {
+    for (const MeshEdge& edge : edges) {
+      const size_t first = static_cast<size_t>(edge.first);
+      const size_t second = static_cast<size_t>(edge.second);
+      const int a = node_of[first];
+      const int b = node_of[second];
+      const bool is_a_node = a >= 0;
+      const bool is_b_node = b >= 0;
+      const bool has_node = is_a_node || is_b_node;
+      if (!has_node) {
+        continue;
+      }
+      const QPointF from =
+          is_a_node ? piece->at[static_cast<size_t>(a)] : carried[first];
+      const QPointF to =
+          is_b_node ? piece->at[static_cast<size_t>(b)] : carried[second];
+      const double least =
+          kLeastSide * Length(carried[second] - carried[first]);
+      const double length = Length(to - from);
+      const bool is_squeezed = length < least && length > 1e-9;
+      if (!is_squeezed) {
+        continue;
+      }
+      const QPointF push = (to - from) * ((least - length) / length);
+      const double share = is_a_node && is_b_node ? 0.5 : 1.0;
+      if (is_a_node) {
+        piece->at[static_cast<size_t>(a)] -= push * share;
+      }
+      if (is_b_node) {
+        piece->at[static_cast<size_t>(b)] += push * share;
+      }
+    }
+  }
+}
+
+// The farthest a jelly node may stray from where the body carries it:
+// one blob radius.
+double ReachOf(const std::vector<QPointF>& carried, double cell) {
+  assert(!carried.empty());
+  assert(cell >= 0.0);
+  QPointF sum;
+  for (const QPointF& point : carried) {
+    sum += point;
+  }
+  const QPointF mid = sum / static_cast<double>(carried.size());
+  double radius = 0.0;
+  for (const QPointF& point : carried) {
+    radius = std::max(radius, Length(point - mid));
+  }
+  return std::max(radius, 2.0 * cell);
+}
+
+// How far an offset of length may stay: the same up to half the reach,
+// then bending smoothly toward the reach.
+double SoftLimited(double length, double reach) {
+  assert(reach > 0.0);
+  assert(length >= 0.0);
+  const double knee = reach / 2.0;
+  const bool is_past = length > knee;
+  return is_past ? knee + knee * std::tanh((length - knee) / knee) : length;
+}
+
+// Bends every swing that is long toward the reach, and stops a node
+// going further out: it keeps the body's speed and the part of its own
+// along the edge.
+void HoldInReach(const std::vector<QPointF>& carried, ClothPiece* piece) {
+  assert(piece != nullptr);
+  assert(static_cast<int>(carried.size()) == piece->grid.PointCount());
+  const double reach = ReachOf(carried, piece->cell);
+  for (size_t i = 0; i < piece->at.size(); ++i) {
+    const QPointF anchor = carried[static_cast<size_t>(piece->points[i])];
+    const QPointF off = piece->at[i] - anchor;
+    const double length = Length(off);
+    const bool is_out = length > reach / 2.0;
+    if (!is_out) {
+      continue;
+    }
+    const QPointF way = off / length;
+    QPointF own = piece->speed[i] - piece->body_speed[i];
+    const double outward = own.x() * way.x() + own.y() * way.y();
+    own -= way * std::max(0.0, outward);
+    piece->at[i] = anchor + way * SoftLimited(length, reach);
+    piece->speed[i] = piece->body_speed[i] + own;
+  }
 }
 
 }  // namespace
-
-double ShapeArea(const WarpGrid& grid, const std::vector<QPointF>& points) {
-  assert(static_cast<int>(points.size()) == grid.PointCount());
-  assert(points.size() <= static_cast<size_t>(kMaxWarpPoints));
-  double twice = 0.0;
-  for (const MeshTriangle& t : WarpTriangles(grid)) {
-    const QPointF a = points[static_cast<size_t>(t[0])];
-    const QPointF b = points[static_cast<size_t>(t[1])];
-    const QPointF c = points[static_cast<size_t>(t[2])];
-    twice += (b.x() - a.x()) * (c.y() - a.y()) -
-             (b.y() - a.y()) * (c.x() - a.x());
-  }
-  return std::abs(twice) / 2.0;
-}
 
 void StepJelly(const std::vector<QPointF>& carried, ClothPiece* piece) {
   assert(piece != nullptr);
@@ -199,56 +302,20 @@ void StepJelly(const std::vector<QPointF>& carried, ClothPiece* piece) {
   assert(piece->at.size() == count && piece->speed.size() == count &&
          piece->settings.size() == count && piece->body_speed.size() == count);
   const std::vector<QPointF> before = piece->at;
-  // Each node carried by the body with none of its own motion yet. The
-  // goal is found from there and pulls its speed, not its place, so a
-  // firm blob rings fast and still settles.
-  std::vector<QPointF> now = carried;
-  double squish = 0.0;
-  for (size_t i = 0; i < count; ++i) {
-    now[static_cast<size_t>(piece->points[i])] =
-        piece->at[i] + piece->body_speed[i];
-    squish += piece->settings[i].stretch / static_cast<double>(count);
-  }
-  const bool has_drawn = piece->drawn.size() == carried.size();
-  const std::vector<QPointF> home =
-      has_drawn ? Refilled(carried, *piece) : carried;
-  // How the blob squashes and turns now, kept to the home area: squish
-  // of the way between only turning and squashing freely.
-  const Mat squash = FitOf(home, now);
-  const Mat turn = TurnOf(squash);
-  const double keep = std::clamp(squish, 0.0, kMostSquish);
-  const Mat fit = WithArea(Plus(Times(WithArea(squash, turn, 1.0), keep),
-                                Times(turn, 1.0 - keep)),
-                           turn, 1.0);
-  const QPointF home_mid = Middle(home);
-  const QPointF now_mid = Middle(now);
-  for (size_t i = 0; i < count; ++i) {
-    const size_t point = static_cast<size_t>(piece->points[i]);
-    const QPointF goal = now_mid + Apply(fit, home[point] - home_mid);
-    // The fit, not the carried place, is home: no pull straight back.
-    Move(carried, i, 0.0, piece);
-    piece->at[i] += (goal - now[point]) * piece->settings[i].pull;
-  }
-  const std::vector<QPointF> moved = piece->at;
-  FinishStep(carried, before, piece);
-  // Untangling folds and pushing out of colliders moves a node but must
-  // not speed it up: counted as speed, each fix flung a soft, wobbly
-  // blob into the next fold until it tore apart. So a fix is a dead
-  // stop: the node keeps its own speed less the share into the fix.
-  for (size_t i = 0; i < count; ++i) {
-    const QPointF body = piece->body_speed[i];
-    QPointF own = moved[i] - before[i] - body;
-    const QPointF fix = piece->at[i] - moved[i];
-    const double length = Length(fix);
-    const bool is_fixed = length > 1e-9 && IsFinite(own);
-    const QPointF way = is_fixed ? fix / length : QPointF();
-    const double into = -(own.x() * way.x() + own.y() * way.y());
-    const bool is_into = is_fixed && into > 0.0;
-    if (is_into) {
-      own += way * into;
+  const std::vector<int> node_of = NodeOfPoints(*piece);
+  const std::vector<double> weights = WeightsOf(*piece);
+  const Motion motion = MotionOf(carried, *piece);
+  for (const Clump& clump : ClumpsOf(node_of, carried, *piece)) {
+    const Swing next = NextSwing(clump, weights, motion, *piece);
+    for (size_t k = 0; k < clump.nodes.size(); ++k) {
+      const size_t i = clump.nodes[k];
+      const QPointF anchor = carried[static_cast<size_t>(piece->points[i])];
+      piece->at[i] = anchor + SwingAt(next, clump.spots[k]) * weights[i];
     }
-    piece->speed[i] = is_fixed ? body + own : piece->speed[i];
   }
+  KeepApart(node_of, carried, piece);
+  FinishStep(carried, before, false, piece);
+  HoldInReach(carried, piece);
 }
 
 }  // namespace snapper

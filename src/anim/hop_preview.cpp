@@ -204,7 +204,6 @@ void HopPreview::StepPiece(const std::vector<QPointF>& was) {
   }
   const bool is_jelly = node_->kind == NodeKind::kJelly;
   if (is_jelly) {
-    piece_.drawn = carried_;
     StepJelly(carried_, &piece_);
   } else {
     StepCloth(carried_, &piece_);

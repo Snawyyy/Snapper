@@ -152,11 +152,14 @@ void Move(const std::vector<QPointF>& carried, size_t i, double home_pull,
 
 
 void FinishStep(const std::vector<QPointF>& carried,
-                const std::vector<QPointF>& before, ClothPiece* piece) {
+                const std::vector<QPointF>& before, bool is_untangling,
+                ClothPiece* piece) {
   assert(piece != nullptr);
   assert(before.size() == piece->at.size());
-  UnflipNodes(carried, piece);
-  UnfoldNodes(carried, piece);
+  if (is_untangling) {
+    UnflipNodes(carried, piece);
+    UnfoldNodes(carried, piece);
+  }
   const std::vector<QPointF> unpushed = piece->at;
   PushNodes(carried, piece);
   for (size_t i = 0; i < piece->at.size(); ++i) {

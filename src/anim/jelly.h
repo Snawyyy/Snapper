@@ -10,19 +10,14 @@
 
 namespace snapper {
 
-// The area points make on grid's triangles (cells or mesh triangles),
-// in square pixels of the space points are in.
-double ShapeArea(const WarpGrid& grid, const std::vector<QPointF>& points);
-
 // Runs one frame of the jelly of piece: its nodes wobble as one soft
-// blob. Each frame the shape the body carries (every point of the grid,
-// the nodes where they are) is fitted with one smooth stretch, squash
-// and turn of itself, scaled so its area is the drawn area; each node's
-// speed is pulled toward its place on that fit. So the blob never goes
-// jagged, and squeezed one way (by a collider or a key) it bulges the
-// other. The settings are its JellyMotion: the share of the squash the
-// fit keeps, the pull, the speed kept and the fall. Colliders work as
-// for cloth.
+// blob. Each node rides the body and keeps its own speed (so it lags,
+// overshoots and settles), is pulled back toward where the body carries
+// it, and then takes a share of the way to the average swing of the
+// nodes beside it, so neighbours move together and the blob squashes
+// and stretches smoothly with no spikes. The settings are its
+// JellyMotion: the squish (how little neighbours are held together),
+// the pull, the speed kept and the fall. Colliders work as for cloth.
 // Deterministic: the same input gives the same output.
 void StepJelly(const std::vector<QPointF>& carried, ClothPiece* piece);
 

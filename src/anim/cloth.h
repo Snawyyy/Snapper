@@ -13,8 +13,8 @@ namespace snapper {
 // How a physics node moves each frame, worked out from its DragNode
 // settings by its kind.
 struct ClothSettings final {
-  // Cloth: its stretch, 0 to 1. Jelly: the share of its squash the
-  // blob keeps (JellyMotion::squish).
+  // Cloth: its stretch, 0 to 1. Jelly: how freely a node swings apart
+  // from its neighbours (JellyMotion::squish).
   double stretch = 0.0;
   // The share of its own speed it keeps.
   double keep = 0.0;
@@ -52,9 +52,6 @@ struct ClothPiece final {
   double cell = 0.0;
   // The colliders that push the piece (see PushFieldsFor).
   std::vector<PushField> fields;
-  // Jelly only: every point of the grid as drawn (no keys, no pushes),
-  // in shot space: the blob keeps its area however it is squeezed.
-  std::vector<QPointF> drawn;
 };
 
 // Runs one frame of the cloth of piece. carried holds every point of

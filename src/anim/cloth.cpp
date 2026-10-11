@@ -203,7 +203,7 @@ void StepCloth(const std::vector<QPointF>& carried, ClothPiece* piece) {
       Fix(tie, &piece->at);
     }
   }
-  FinishStep(carried, before, piece);
+  FinishStep(carried, before, true, piece);
 }
 
 }  // namespace snapper

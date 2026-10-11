@@ -28,11 +28,12 @@ void Move(const std::vector<QPointF>& carried, size_t i, double home_pull,
 // place (carried, which is already out).
 void PushNodes(const std::vector<QPointF>& carried, ClothPiece* piece);
 
-// The end of a frame: turns back what turned over, pushes the nodes out
-// of colliders, keeps them near the body, and sets each node's speed
-// from where it was before the frame.
+// The end of a frame: turns back what turned over (when is_untangling),
+// pushes the nodes out of colliders, keeps them near the body, and sets
+// each node's speed from where it was before the frame.
 void FinishStep(const std::vector<QPointF>& carried,
-                const std::vector<QPointF>& before, ClothPiece* piece);
+                const std::vector<QPointF>& before, bool is_untangling,
+                ClothPiece* piece);
 
 }  // namespace snapper
 

@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "anim/jelly.h"
+#include "anim/node_feel.h"
 
 namespace snapper {
 namespace {
@@ -18,6 +19,9 @@ constexpr int kAir = 13;
 constexpr double kHeight = 10.0;
 constexpr double kLean = 0.5;
 constexpr int kPushes = 30;
+constexpr int kShakeEvery = 8;
+// How far from home a point may get: the blob radius, 20 root 2.
+constexpr double kReach = 29.0;
 // A 40 by 40 blob on a 4 by 4 grid: the inner 3 by 3 points are pins
 // the body carries (as a doll's undragged dots are), the 16 round the
 // edge are jelly.
@@ -39,19 +43,13 @@ struct Blob final {
   std::vector<QPointF> carried;
 };
 
-Blob MakeBlob(double firmness, double wobble, double squish) {
+Blob MakeBlob(const DragNode& node) {
   Blob blob;
   blob.piece.grid = {kSide, kSide};
   for (int point = 0; point < kPoints; ++point) {
     blob.rest.push_back(QPointF(point % (kSide + 1) * kCell,
                                 point / (kSide + 1) * kCell));
   }
-  DragNode node;
-  node.kind = NodeKind::kJelly;
-  node.spring = firmness;
-  node.inertia = wobble;
-  node.stretch = squish;
-  node.gravity = 0.0;
   for (int point = 0; point < kPoints; ++point) {
     const bool is_edge = IsEdge(point);
     if (is_edge) {
@@ -64,7 +62,6 @@ Blob MakeBlob(double firmness, double wobble, double squish) {
   blob.piece.speed.assign(count, QPointF());
   blob.piece.body_speed.assign(count, QPointF());
   blob.piece.cell = kCell;
-  blob.piece.drawn = blob.rest;
   blob.carried = blob.rest;
   assert(blob.piece.grid.PointCount() == kPoints);
   assert(count == 16);
@@ -93,14 +90,32 @@ std::vector<QPointF> Hopped(const std::vector<QPointF>& rest, int frame) {
   return hopped;
 }
 
+// The body shaken side to side: swing pixels either way, one swing
+// every kShakeEvery frames.
+std::vector<QPointF> Shaken(const std::vector<QPointF>& rest, int frame,
+                            double swing) {
+  assert(rest.size() == static_cast<size_t>(kPoints));
+  assert(frame >= 0);
+  const double x =
+      swing * std::sin(2.0 * std::numbers::pi * frame / kShakeEvery);
+  std::vector<QPointF> shaken;
+  for (const QPointF& point : rest) {
+    shaken.push_back(point + QPointF(x, 0.0));
+  }
+  return shaken;
+}
+
 // The farthest any jelly point strays from where the body carries it
-// over kPushes hops; infinity once a point goes bad.
-double MostStrayOverHops(double firmness, double wobble, double squish) {
-  Blob blob = MakeBlob(firmness, wobble, squish);
+// over kPushes hops (or, with swing above 0, as many shakes); infinity
+// once a point goes bad.
+double MostStrayOverHops(const DragNode& node, double swing = 0.0) {
+  Blob blob = MakeBlob(node);
   ClothPiece& piece = blob.piece;
   double most = 0.0;
   for (int frame = 0; frame < kPushes * kEvery; ++frame) {
-    const std::vector<QPointF> now = Hopped(blob.rest, frame);
+    const bool is_shake = swing > 0.0;
+    const std::vector<QPointF> now =
+        is_shake ? Shaken(blob.rest, frame, swing) : Hopped(blob.rest, frame);
     for (size_t i = 0; i < piece.points.size(); ++i) {
       const size_t point = static_cast<size_t>(piece.points[i]);
       piece.body_speed[i] = now[point] - blob.carried[point];
@@ -127,17 +142,31 @@ class JellyHopTests : public QObject {
 
  private slots:
   void HopsOverAndOverStayBounded();
+  void FeelPresetsStayInReach();
 };
+
+DragNode KnobsOf(double firmness, double wobble, double squish) {
+  assert(firmness >= 0.0 && firmness <= 1.0);
+  assert(wobble >= 0.0 && wobble <= 1.0);
+  DragNode node;
+  node.kind = NodeKind::kJelly;
+  node.spring = firmness;
+  node.inertia = wobble;
+  node.stretch = squish;
+  node.gravity = 0.0;
+  return node;
+}
 
 void JellyHopTests::HopsOverAndOverStayBounded() {
   // A hop 10 pixels high on a 40 pixel blob: the softest, wobbliest jelly
   // swings wide, but no setting may fling a point more than one and a
   // half blobs from its home. Unbounded, it tore apart (400 and more).
   constexpr double kBound = 60.0;
-  QVERIFY(MostStrayOverHops(0.5, 0.5, 1.0) > 0.0);
+  QVERIFY(MostStrayOverHops(KnobsOf(0.5, 0.5, 1.0)) > 0.0);
   for (const double firmness : {0.0, 1.0}) {
     for (const double wobble : {0.0, 1.0}) {
-      const double most = MostStrayOverHops(firmness, wobble, 1.0);
+      const double most =
+          MostStrayOverHops(KnobsOf(firmness, wobble, 1.0));
       QVERIFY2(most < kBound,
                qPrintable(QString("firmness %1 wobble %2: %3")
                               .arg(firmness)
@@ -145,7 +174,28 @@ void JellyHopTests::HopsOverAndOverStayBounded() {
                               .arg(most)));
     }
   }
-  QVERIFY(MostStrayOverHops(0.5, 0.5, 1.0) < kBound);
+  QVERIFY(MostStrayOverHops(KnobsOf(0.5, 0.5, 1.0)) < kBound);
+}
+
+void JellyHopTests::FeelPresetsStayInReach() {
+  // Pudding and Water balloon shaken hard, as a doll has them (droop
+  // and all): a point swung 30 pixels at a quick beat reached three
+  // blobs from home. None may leave its blob radius.
+  DragNode jelly;
+  jelly.kind = NodeKind::kJelly;
+  const std::vector<FeelPreset> presets = FeelPresets(NodeKind::kJelly);
+  QVERIFY(presets.size() >= 2);
+  for (const FeelPreset& preset : presets) {
+    for (const double swing : {10.0, 30.0}) {
+      const double most =
+          MostStrayOverHops(WithFeel(jelly, preset.feel), swing);
+      QVERIFY2(most > 0.0 && most < kReach,
+               qPrintable(QString("%1 swing %2: %3")
+                              .arg(preset.name)
+                              .arg(swing)
+                              .arg(most)));
+    }
+  }
 }
 
 }  // namespace snapper

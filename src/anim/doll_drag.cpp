@@ -133,23 +133,6 @@ std::optional<PushedGrid> PushedGridOf(const Doll& doll, const Layer& layer,
   return pushed;
 }
 
-// Every point of rig's grid as drawn, in shot space; none with no
-// drawing.
-std::vector<QPointF> DrawnPoints(const RigPiece& rig, const ArtPiece* art,
-                                 const QTransform& to_shot) {
-  assert(rig.warp.PointCount() <= kMaxWarpPoints);
-  assert(to_shot.isAffine());
-  const bool has_art = art != nullptr;
-  if (!has_art) {
-    return {};
-  }
-  std::vector<QPointF> drawn = RestPoints(art->size, rig.warp);
-  for (QPointF& point : drawn) {
-    point = to_shot.map(point);
-  }
-  return drawn;
-}
-
 // Runs the cloth or the jelly of one piece a frame: the springs at
 // indices are its nodes of that kind, hung from pushed; was holds where
 // the body carried each spring's point the frame before.
@@ -184,7 +167,6 @@ void StepPiece(const Doll& doll, const PushedGrid& pushed,
   if (is_first) {
     RestCloth(pushed.grid.points, &cloth);
   } else if (is_jelly) {
-    cloth.drawn = DrawnPoints(*rig, art, pushed.grid.to_shot);
     StepJelly(pushed.grid.points, &cloth);
   } else {
     StepCloth(pushed.grid.points, &cloth);
