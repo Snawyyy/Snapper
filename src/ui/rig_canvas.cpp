@@ -7,6 +7,7 @@
 
 #include "anim/doll_pose.h"
 #include "edit/history_manager.h"
+#include "edit/palette_manager.h"
 #include "render/layer_painter.h"
 #include "ui/theme.h"
 
@@ -39,6 +40,10 @@ RigCanvas::RigCanvas(const Managers& managers)
           [this] { update(); });
   connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
   connect(&feedback_, &DragFeedback::Changed, this, [this] { update(); });
+  if (managers_.palette != nullptr) {
+    connect(managers_.palette, &PaletteManager::Picked, this,
+            [this](const QColor& color) { ColorJointCircle(color); });
+  }
   assert(drag_ == Drag::kNone);
 }
 

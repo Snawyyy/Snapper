@@ -222,6 +222,18 @@ struct OwnDrawing final {
   bool operator==(const OwnDrawing&) const = default;
 };
 
+// A disc drawn at a piece's joint, just under the piece, as wide as the
+// drawn limb is there (measured, never stored), so a bent joint shows
+// a round elbow instead of a gap.
+struct JointCircle final {
+  bool is_on = false;
+  // Invalid until set; turning the circle on sets it to the drawing's
+  // most common color at the joint.
+  QColor color{};
+
+  bool operator==(const JointCircle&) const = default;
+};
+
 // How Snapper moves a piece: rig.json.
 struct RigPiece final {
   QString name;
@@ -258,6 +270,7 @@ struct RigPiece final {
   std::map<LayerId, PieceDots> layer_dots{};
   // Drawings made in Snapper, oldest first.
   std::vector<OwnDrawing> own_drawings{};
+  JointCircle joint_circle{};
 
   bool operator==(const RigPiece&) const = default;
 };

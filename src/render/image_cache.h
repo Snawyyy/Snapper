@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "anim/joint_snap.h"
 #include "anim/pose_memo.h"
 #include "model/doll.h"
 #include "render/warp_cache.h"
@@ -38,6 +39,8 @@ class ImageCache final {
   std::int64_t bytes() const { return bytes_; }
   // The poses solved so far for the shot being drawn (see PoseMemo).
   PoseMemo* poses() { return &poses_; }
+  // The drawings measured for joint circles (see LimbMemo).
+  LimbMemo* limbs() { return &limbs_; }
 
  private:
   struct Entry final {
@@ -53,6 +56,7 @@ class ImageCache final {
   std::int64_t bytes_ = 0;
   WarpCache warps_;
   PoseMemo poses_;
+  LimbMemo limbs_;
 };
 
 }  // namespace snapper

@@ -106,4 +106,35 @@ void RigCanvas::SnapJoints(const std::vector<QString>& pieces) {
   update();
 }
 
+void RigCanvas::ToggleJointCircle(const QString& piece) {
+  assert(managers_.rig != nullptr);
+  assert(piece.size() < 100000);
+  const Doll* doll =
+      doll_.isEmpty() ? nullptr : FindDoll(managers_.history->current(), doll_);
+  const bool can_act = doll != nullptr && !piece.isEmpty();
+  if (!can_act) {
+    return;
+  }
+  const QImage drawing = cache_.Get(DrawingPath(*doll, piece, -1));
+  emit Problem(ProblemOf(
+      managers_.rig->ToggleJointCircle(doll_, piece, drawing)));
+}
+
+void RigCanvas::ColorJointCircle(const QColor& color) {
+  assert(managers_.rig != nullptr);
+  assert(managers_.history != nullptr);
+  const Doll* doll =
+      doll_.isEmpty() ? nullptr : FindDoll(managers_.history->current(), doll_);
+  const RigPiece* rig = doll != nullptr && !piece_.isEmpty()
+                            ? FindRig(doll->rig, piece_)
+                            : nullptr;
+  // The palette serves draw mode too: only a shown canvas with a circle
+  // to color takes the pick.
+  const bool takes = isVisible() && rig != nullptr && rig->joint_circle.is_on;
+  if (takes) {
+    emit Problem(ProblemOf(
+        managers_.rig->SetJointCircleColor(doll_, piece_, color)));
+  }
+}
+
 }  // namespace snapper

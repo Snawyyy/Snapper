@@ -74,6 +74,9 @@ void RigCanvas::contextMenuEvent(QContextMenuEvent* event) {
   menu.addSeparator();
   QAction* snap = menu.addAction(tr("Snap to shape"));
   QAction* snap_all = menu.addAction(tr("Snap all joints"));
+  QAction* circle = menu.addAction(tr("Joint circle\tJ"));
+  circle->setCheckable(true);
+  circle->setChecked(rig != nullptr && rig->joint_circle.is_on);
   menu.addSeparator();
   QAction* mirror = menu.addAction(tr("Mirror rig to other side"));
   Explain(mirror, managers_.rig->WhyNoMirror(doll_, *hit));
@@ -97,6 +100,8 @@ void RigCanvas::contextMenuEvent(QContextMenuEvent* event) {
     SnapJoints({*hit});
   } else if (chosen == snap_all) {
     SnapJoints(all);
+  } else if (chosen == circle) {
+    ToggleJointCircle(*hit);
   }
 }
 

@@ -896,6 +896,12 @@ snaps. `RigCanvas` keeps measured drawings in a `LimbMemo`, draws the
 caught line, middle and end circle, names it in the chip, and lets Ctrl
 drag freely. Right click > Snap to shape or Snap all joints goes through
 `RigManager::SnapJointsToShape` (edit/rig_snap.cpp), one undo step.
+A joint circle (`RigPiece::joint_circle`, rig.json `joint_circle`) is
+turned on with J (`ToggleJointCircle`, taking `JointColorAt` the first
+time) and recolored by a palette pick (`SetJointCircleColor`). The
+shared renderer draws it just before its piece, its radius measured
+from the shown drawing each time (`JointRadius` over the
+`ImageCache::limbs()` memo), never stored.
 
 Find a command (Ctrl+/, Help menu, `CommandPalette`) is a box that
 drops over the window and searches every menu action by name

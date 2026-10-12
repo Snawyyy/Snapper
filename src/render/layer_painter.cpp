@@ -12,6 +12,7 @@
 
 #include "anim/doll_lean.h"
 #include "anim/doll_pose.h"
+#include "anim/joint_snap.h"
 #include "anim/sampler.h"
 #include "render/warp_raster.h"
 
@@ -44,6 +45,10 @@ struct Painter final {
   const std::set<QString>* only_pieces = nullptr;
 
   void operator()(const DollLayer& layer) const;
+  // The piece's joint circle, if on, just under the piece: as wide as
+  // image (the drawing it shows) is across the joint.
+  void PaintJointCircle(const Doll& doll, const PlacedPiece& piece,
+                        const QImage& image) const;
   void operator()(const ImageLayer& layer) const;
   void operator()(const TextLayer& layer) const;
   void operator()(const EffectLayer& layer) const;
@@ -70,6 +75,7 @@ void Painter::operator()(const DollLayer& layer) const {
       continue;
     }
     painter->setOpacity(layer_opacity * piece.opacity);
+    PaintJointCircle(*doll, piece, image);
     const bool is_warped = !piece.warp_points.empty();
     if (is_warped) {
       const QTransform on_screen = piece.transform * world;
@@ -89,6 +95,30 @@ void Painter::operator()(const DollLayer& layer) const {
     }
   }
   painter->setOpacity(layer_opacity);
+}
+
+void Painter::PaintJointCircle(const Doll& doll, const PlacedPiece& piece,
+                               const QImage& image) const {
+  assert(cache != nullptr && painter != nullptr);
+  assert(!image.isNull());
+  const RigPiece* rig = FindRig(doll.rig, piece.name);
+  const bool is_on = rig != nullptr && rig->joint_circle.is_on;
+  if (!is_on) {
+    return;
+  }
+  // Measured, never stored: a swapped drawing gets its own width.
+  const double radius = JointRadius(*cache->limbs()->Of(image), rig->pivot);
+  if (radius <= 0.0) {
+    return;
+  }
+  const QColor color = rig->joint_circle.color.isValid()
+                           ? rig->joint_circle.color
+                           : QColor(Qt::black);
+  painter->setTransform(piece.transform * world);
+  painter->setPen(Qt::NoPen);
+  painter->setBrush(color);
+  painter->drawEllipse(rig->pivot, radius, radius);
+  painter->setBrush(Qt::NoBrush);
 }
 
 void Painter::operator()(const ImageLayer& layer) const {

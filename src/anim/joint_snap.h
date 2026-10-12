@@ -1,6 +1,7 @@
 #ifndef SNAPPER_ANIM_JOINT_SNAP_H_
 #define SNAPPER_ANIM_JOINT_SNAP_H_
 
+#include <QColor>
 #include <QImage>
 #include <QPointF>
 #include <QSize>
@@ -95,6 +96,14 @@ std::optional<ShapeSnap> NearestShapeSnap(const LimbMask& own,
                                           const LimbMask* parent,
                                           const QTransform& parent_to_own,
                                           QPointF at);
+
+// The radius of a joint circle at pivot: half the limb's width straight
+// across it there; 0 when pivot is on no shape.
+double JointRadius(const LimbMask& mask, QPointF pivot);
+
+// The most common solid color of drawing within a few pixels of at, for
+// a new joint circle; black when none is there.
+QColor JointColorAt(const QImage& drawing, QPointF at);
 
 // Measured drawings kept by the image's cache key, so a drag measures
 // each drawing once. What Of gives stays good after later calls.

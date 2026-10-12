@@ -148,6 +148,11 @@ class RigCanvas final : public QWidget {
   // Right click > Snap to shape or Snap all joints: moves the joints
   // onto their drawn limbs (RigManager::SnapJointsToShape).
   void SnapJoints(const std::vector<QString>& pieces);
+  // J or the right click entry: the focused joint's circle on or off.
+  void ToggleJointCircle(const QString& piece);
+  // A palette pick while the canvas shows and the focused joint has its
+  // circle on colors that circle.
+  void ColorJointCircle(const QColor& color);
   void ApplyPick(const std::set<QString>& pieces, PickMode mode,
                  const QString& focus);
   void FinishBox();

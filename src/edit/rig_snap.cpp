@@ -1,5 +1,5 @@
-// RigManager's joint snap: joints moved onto the middle of their drawn
-// limb.
+// RigManager's joint snap and joint circles: joints moved onto the
+// middle of their drawn limb, and the disc that fills a bent joint.
 
 #include <QImage>
 #include <QTransform>
@@ -12,6 +12,7 @@
 #include "anim/doll_pose.h"
 #include "anim/joint_snap.h"
 #include "edit/history_manager.h"
+#include "edit/palette_manager.h"
 #include "edit/rig_edits.h"
 #include "edit/rig_manager.h"
 
@@ -98,6 +99,54 @@ Result<std::vector<QString>> RigManager::SnapJointsToShape(
     return std::unexpected(done.error());
   }
   return moved;
+}
+
+Result<void> RigManager::ToggleJointCircle(const QString& doll,
+                                           const QString& piece,
+                                           const QImage& drawing) {
+  assert(history_ != nullptr);
+  assert(!piece.isEmpty());
+  const RigPiece* now = RigOf(doll, piece);
+  if (now == nullptr) {
+    return std::unexpected(NoPiece(doll, piece));
+  }
+  JointCircle circle = now->joint_circle;
+  circle.is_on = !circle.is_on;
+  const bool needs_color = circle.is_on && !circle.color.isValid();
+  if (needs_color) {
+    circle.color = JointColorAt(drawing, now->pivot);
+  }
+  return history_->Apply(
+      Tr("Joint circle %1").arg(piece),
+      WithRig(history_->current(), doll, [&](Rig* rig) {
+        FindRig(rig, piece)->joint_circle = circle;
+        return Result<void>();
+      }));
+}
+
+Result<void> RigManager::SetJointCircleColor(const QString& doll,
+                                             const QString& piece,
+                                             const QColor& color) {
+  assert(history_ != nullptr);
+  assert(!piece.isEmpty());
+  const RigPiece* now = RigOf(doll, piece);
+  if (now == nullptr) {
+    return std::unexpected(NoPiece(doll, piece));
+  }
+  const bool is_usable = now->joint_circle.is_on && color.isValid();
+  if (!is_usable) {
+    return std::unexpected(Error{
+        Tr("Turn on the joint circle of %1 first (J).").arg(piece)});
+  }
+  auto next = WithRig(history_->current(), doll, [&](Rig* rig) {
+    FindRig(rig, piece)->joint_circle.color = color;
+    return Result<void>();
+  });
+  if (next) {
+    next = PaletteManager::WithRecent(std::move(*next), color);
+  }
+  return history_->Apply(Tr("Joint circle color %1").arg(piece),
+                         std::move(next));
 }
 
 }  // namespace snapper

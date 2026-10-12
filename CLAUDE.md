@@ -76,7 +76,8 @@ as one undo step (`DrawManager`). Then Joint snap, first pass
 the rig canvas catches on the width middle, an end circle's center or
 the overlap with its parent (`anim/joint_snap.cpp`), Ctrl drags freely,
 and right click Snap to shape or Snap all joints moves joints in one
-undo step; joint circles are not built yet. No tests yet, the owner adds
+undo step; J turns a joint circle on (limb-wide disc under the child,
+drawing's color, recolored by a palette pick, saved in rig.json). No tests yet, the owner adds
 them later. Next in docs/features: Skins.
 
 Before that (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the

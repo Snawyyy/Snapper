@@ -293,6 +293,15 @@ QJsonObject RigToJson(const Rig& rig, bool with_layers) {
     if (!piece.own_drawings.empty()) {
       object.insert("own_drawings", OwnDrawingsToJson(piece.own_drawings));
     }
+    const bool has_circle =
+        piece.joint_circle.is_on || piece.joint_circle.color.isValid();
+    if (has_circle) {
+      QJsonObject circle{{"on", piece.joint_circle.is_on}};
+      if (piece.joint_circle.color.isValid()) {
+        circle.insert("color", ColorToJson(piece.joint_circle.color));
+      }
+      object.insert("joint_circle", circle);
+    }
     pieces.append(object);
   }
   QJsonArray chains;
@@ -341,6 +350,12 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
                                             issues)});
     rig.pieces.back().own_drawings =
         OwnDrawingsFromJson(piece.value("own_drawings"), issues);
+    const QJsonObject circle = piece.value("joint_circle").toObject();
+    rig.pieces.back().joint_circle = JointCircle{
+        circle.value("on").toBool(),
+        circle.contains("color")
+            ? ColorFromJson(circle.value("color"), QColor(Qt::black), issues)
+            : QColor()};
   }
   const QJsonArray chains =
       Bounded(object.value("chains"), kMaxIkChains, "IK chains", issues);

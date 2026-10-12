@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <optional>
 #include <vector>
 
@@ -31,6 +32,8 @@ constexpr double kMinCross = 0.1;
 constexpr int kEndRounds = 4;
 // Kept measurements before the memo starts over.
 constexpr size_t kMaxMemo = 64;
+// How far, in drawing pixels, a joint circle looks for its color.
+constexpr int kJointColorReach = 4;
 
 // Running sums of a shape's pixel centers, for its middle and spread.
 struct Sums final {
@@ -484,6 +487,42 @@ std::optional<ShapeSnap> NearestShapeSnap(const LimbMask& own,
     }
   }
   return best ? best : WidthMiddleAt(own, at);
+}
+
+double JointRadius(const LimbMask& mask, QPointF pivot) {
+  assert(std::isfinite(pivot.x()) && std::isfinite(pivot.y()));
+  assert(mask.size.width() >= 0);
+  const auto width = WidthMiddleAt(mask, pivot);
+  return width ? Distance(width->edge_a, width->edge_b) / 2.0 : 0.0;
+}
+
+QColor JointColorAt(const QImage& drawing, QPointF at) {
+  assert(std::isfinite(at.x()) && std::isfinite(at.y()));
+  assert(kJointColorReach > 0);
+  const QImage image = drawing.isNull()
+                           ? QImage()
+                           : drawing.convertToFormat(QImage::Format_ARGB32);
+  std::map<QRgb, int> counts;
+  const int cx = static_cast<int>(std::floor(at.x()));
+  const int cy = static_cast<int>(std::floor(at.y()));
+  for (int y = cy - kJointColorReach; y <= cy + kJointColorReach; ++y) {
+    for (int x = cx - kJointColorReach; x <= cx + kJointColorReach; ++x) {
+      const bool is_in = image.valid(x, y);
+      const QRgb pixel = is_in ? image.pixel(x, y) : 0;
+      if (is_in && qAlpha(pixel) == 255) {
+        ++counts[pixel];
+      }
+    }
+  }
+  QRgb best = qRgb(0, 0, 0);
+  int most = 0;
+  for (const auto& [pixel, count] : counts) {
+    if (count > most) {
+      best = pixel;
+      most = count;
+    }
+  }
+  return QColor::fromRgba(best);
 }
 
 std::shared_ptr<const LimbMask> LimbMemo::Of(const QImage& drawing) {

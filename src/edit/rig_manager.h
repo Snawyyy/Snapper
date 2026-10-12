@@ -1,6 +1,7 @@
 #ifndef SNAPPER_EDIT_RIG_MANAGER_H_
 #define SNAPPER_EDIT_RIG_MANAGER_H_
 
+#include <QColor>
 #include <QImage>
 #include <QPointF>
 #include <QString>
@@ -210,6 +211,15 @@ class RigManager final {
   Result<std::vector<QString>> SnapJointsToShape(
       const QString& doll, const std::vector<QString>& pieces,
       const std::map<QString, QImage>& drawings);
+  // Turns piece's joint circle on or off, one undo step. Turned on for
+  // the first time it takes drawing's (the piece's drawing at rest) most
+  // common color at the joint (JointColorAt).
+  Result<void> ToggleJointCircle(const QString& doll, const QString& piece,
+                                 const QImage& drawing);
+  // Gives piece's joint circle color (a palette pick, kept in the
+  // recent colors); one undo step. Refused while the circle is off.
+  Result<void> SetJointCircleColor(const QString& doll, const QString& piece,
+                                   const QColor& color);
 
   // upper must be lower's parent; the name must be new.
   Result<void> AddChain(const QString& doll, const IkChain& chain);

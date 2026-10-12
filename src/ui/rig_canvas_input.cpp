@@ -371,6 +371,13 @@ void RigCanvas::keyPressEvent(QKeyEvent* event) {
     ApplyPick(all, PickMode::kReplace, piece_);
     return;
   }
+  const bool is_circle = event->key() == Qt::Key_J &&
+                         event->modifiers() == Qt::NoModifier &&
+                         scope_ == nullptr && !piece_.isEmpty();
+  if (is_circle) {
+    ToggleJointCircle(piece_);
+    return;
+  }
   const bool is_cancel = event->key() == Qt::Key_Escape && scope_ != nullptr;
   if (is_cancel) {
     scope_->Cancel();
