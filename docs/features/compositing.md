@@ -84,6 +84,7 @@ A Comp tab beside Pose, Rig and Video, where a shot's finished frame gets the an
 - Follows: on a doll or picked pieces, the gradient is placed in the doll's own space, so it moves and turns with the doll; on the whole shot it stays in screen space.
 - Blend: Normal, Multiply (shade), Screen and Add (light), Overlay, with a strength fader.
 - Steps: a Steps fader turns the smooth ramp into 2 to 8 flat bands, the hard-edged cel gradient anime uses; 0 keeps it smooth. A Dither option for a pixel-art look.
+- Scene gradient: a tile of its own in the Add row that drops a gradient over the whole shot in one click (target Everything below, screen space, Overlay blend), for a sunset tint, a dark vignette or a top-down light. It can also sit at the bottom of the stack as the shot's background, replacing the flat background color with a sky, and keyed handles let that sky change during the shot.
 - Shared light: picking "Shot light" aims a linear or radial gradient from the same direction as the rim lights.
 
 ### Targets
