@@ -14,6 +14,7 @@ In the order we plan to build them.
 - [ ] [Skins](skins.md): a named set of drawings across many pieces that swaps a doll's whole look with one tile.
 - [ ] [Doll to Krita](doll-to-krita.md): turn a doll folder back into a Krita file and round-trip it without losing the rig.
 - [ ] [Objects](objects.md): PNG and GIF props a doll can hold, pass and drop, slotting into its draw order.
+- [ ] [Editing outside the frame](off-frame-editing.md): limbs past the shot's frame are drawn dimmed and can be picked and edited, like a pasteboard.
 - [ ] [Compositing](compositing.md): a Comp tab with anime finishing effects that target a doll, pieces or palette colors.
 
 ## Adding a new feature
@@ -59,6 +60,7 @@ Every proposed key is free in Snapper today (checked against the keys bound in t
 | Ctrl+Z, Ctrl+Y | Draw mode | Undo and redo one stroke | Draw on a piece |
 | Enter | Draw mode | Done, save the drawing | Draw on a piece |
 | Escape | Draw mode | Cancel, asks first if anything was drawn | Draw on a piece |
+| O | Stage | Show or hide the outside of the frame | Editing outside the frame |
 | A | Comp tab | Add an effect | Compositing |
 | V (hold) | Comp tab | All effects off while held | Compositing |
 | K (hold) | Comp tab | Show what the picked effect touches | Compositing |
