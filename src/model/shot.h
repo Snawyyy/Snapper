@@ -44,6 +44,22 @@ struct Link final {
   bool operator==(const Link&) const = default;
 };
 
+constexpr int kMaxHoldsPerShot = 256;
+
+// From frame at on, the object layer is held by holder (a doll piece):
+// it follows the piece fully, place, turn and scale, on top of its own
+// keys. An empty holder (no layer) drops it there: it stays where it was
+// at that frame. Changing holder never jumps; the object goes on from
+// where it is. The holds of one object, by frame, are its hold track.
+struct Hold final {
+  LayerId object;
+  LinkEnd holder;
+  Frame at;
+
+  bool IsDrop() const { return !holder.layer.IsValid(); }
+  bool operator==(const Hold&) const = default;
+};
+
 // One shot: its own stage, camera and length, placed on the master
 // track by order.
 struct Shot final {
@@ -59,6 +75,8 @@ struct Shot final {
   std::vector<Link> links;
   // Named sets of this shot's warp dots, picked with one click.
   std::vector<DotGroup> dot_groups;
+  // Objects held by doll pieces, at most one per object and frame.
+  std::vector<Hold> holds{};
 
   bool operator==(const Shot&) const = default;
 };
@@ -68,8 +86,16 @@ Layer* FindLayer(Shot* shot, LayerId id);
 
 // The link follower has, or nullptr.
 const Link* FindLink(const Shot& shot, const LinkEnd& follower);
-// Drops links whose follower or leader layer is gone.
+// Drops links whose follower or leader layer is gone, and holds whose
+// object is gone; a hold whose holder layer is gone becomes a drop at
+// its frame, so the object stays where it was.
 void DropDeadLinks(Shot* shot);
+
+// The holds of object in shot, earliest first.
+std::vector<const Hold*> HoldsOf(const Shot& shot, LayerId object);
+// The hold of object in force at frame (the last at or before it), or
+// nullptr when it has none yet.
+const Hold* HoldAt(const Shot& shot, LayerId object, Frame frame);
 
 }  // namespace snapper
 

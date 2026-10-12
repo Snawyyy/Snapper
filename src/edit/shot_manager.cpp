@@ -65,6 +65,16 @@ Result<ShotId> ShotManager::Duplicate(ShotId shot) {
         follower != renamed.end() ? follower->second : LayerId();
     link.leader.layer = leader != renamed.end() ? leader->second : LayerId();
   }
+  // Holds too: a holder the copy lacks becomes a drop.
+  for (Hold& hold : copy.holds) {
+    const auto object = renamed.find(hold.object);
+    hold.object = object != renamed.end() ? object->second : LayerId();
+    const auto holder = hold.IsDrop() ? renamed.end()
+                                      : renamed.find(hold.holder.layer);
+    hold.holder = holder != renamed.end()
+                      ? LinkEnd{holder->second, hold.holder.piece}
+                      : LinkEnd{};
+  }
   DropDeadLinks(&copy);
   next.shots.insert(next.shots.begin() + index + 1,
                     std::make_shared<const Shot>(copy));

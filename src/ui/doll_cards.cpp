@@ -1,7 +1,10 @@
 #include "ui/doll_cards.h"
 
 #include <QDir>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include <QPaintEvent>
+#include <QUrl>
 #include <QPainter>
 
 #include <algorithm>
@@ -109,8 +112,75 @@ void DollCards::paintEvent(QPaintEvent* event) {
     painter.setPen(palette().color(QPalette::Disabled, QPalette::Text));
     painter.drawText(viewport()->rect().adjusted(8, 8, -8, -8),
                      Qt::AlignCenter | Qt::TextWordWrap,
-                     tr("Export a doll from Krita, then Import."));
+                     empty_text_.isEmpty()
+                         ? tr("Export a doll from Krita, then Import.")
+                         : empty_text_);
   }
+}
+
+QStringList FilesOfDrop(const QMimeData* data) {
+  assert(data != nullptr);
+  QStringList paths;
+  for (const QUrl& url : data->urls()) {
+    const bool is_local = url.isLocalFile();
+    if (is_local) {
+      paths.append(url.toLocalFile());
+    }
+  }
+  assert(paths.size() <= data->urls().size());
+  return paths;
+}
+
+void DollCards::AcceptFiles() {
+  assert(dragEnabled());
+  is_file_target_ = true;
+  setAcceptDrops(true);
+  viewport()->setAcceptDrops(true);
+  setDragDropMode(QAbstractItemView::DragDrop);
+}
+
+void DollCards::dragEnterEvent(QDragEnterEvent* event) {
+  assert(event != nullptr);
+  const bool is_files =
+      is_file_target_ && !FilesOfDrop(event->mimeData()).isEmpty();
+  if (is_files) {
+    event->acceptProposedAction();
+    return;
+  }
+  QListWidget::dragEnterEvent(event);
+}
+
+void DollCards::dragMoveEvent(QDragMoveEvent* event) {
+  assert(event != nullptr);
+  const bool is_files =
+      is_file_target_ && !FilesOfDrop(event->mimeData()).isEmpty();
+  if (is_files) {
+    event->acceptProposedAction();
+    return;
+  }
+  if (!is_file_target_) {
+    QListWidget::dragMoveEvent(event);
+    return;
+  }
+  // Cards dragged within the Objects row go nowhere.
+  event->ignore();
+}
+
+void DollCards::dropEvent(QDropEvent* event) {
+  assert(event != nullptr);
+  const QStringList files =
+      is_file_target_ ? FilesOfDrop(event->mimeData()) : QStringList();
+  const bool is_files = !files.isEmpty();
+  if (is_files) {
+    event->acceptProposedAction();
+    emit FilesDropped(files);
+    return;
+  }
+  if (!is_file_target_) {
+    QListWidget::dropEvent(event);
+    return;
+  }
+  event->ignore();
 }
 
 QMimeData* DollCards::mimeData(const QList<QListWidgetItem*>& items) const {

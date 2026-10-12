@@ -20,6 +20,32 @@ constexpr int kMaxPieceTracks = 256;
 struct LayerTag;
 using LayerId = Id<LayerTag>;
 
+// How an animated object (a GIF) plays its frames on the shot clock.
+// - kLoop: over and over.
+// - kOnce: once, then stays on the last frame.
+// - kPingPong: forward, then back, over and over.
+// - kHold: does not play; shows the keyed drawing, for picking a frame
+//   by hand.
+enum class PlayMode { kLoop, kOnce, kPingPong, kHold };
+inline constexpr int kPlayModeCount = 4;
+// The most shot frames one drawing of an object may show for.
+inline constexpr int kMaxFramesPerDrawing = 24;
+
+// An object layer's play settings (see ObjectClip in model/doll.h).
+struct ObjectPlay final {
+  PlayMode mode = PlayMode::kLoop;
+  // Shot frames each drawing shows for (2 is on twos); 0 keeps the
+  // picture's own timing.
+  int frames_per_drawing = 0;
+  // The shot frame playing starts on; before it the first frame shows.
+  Frame start;
+  // How many frames in it starts, so two copies of one flame do not
+  // flicker in step.
+  int offset = 0;
+
+  bool operator==(const ObjectPlay&) const = default;
+};
+
 // A posed doll. Each piece has its own channel of pose keys, by name.
 struct DollLayer final {
   QString doll;
@@ -31,6 +57,9 @@ struct DollLayer final {
   std::map<QString, Channel<double>> dials{};
   // The skins it wears (track kind kSkin); without keys it wears none.
   Channel<SkinSet> skins{};
+  // How an animated object plays; a doll that is not an object ignores
+  // it.
+  ObjectPlay play{};
 
   bool operator==(const DollLayer&) const = default;
 };

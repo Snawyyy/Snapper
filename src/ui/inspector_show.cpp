@@ -56,8 +56,9 @@ InspectorShow ShowFor(const Project& project, ShotId shot,
   const bool is_whole = std::any_of(
       picks.begin(), picks.end(),
       [](const Pick& pick) { return pick.piece.isEmpty(); });
-  const bool is_doll =
-      DollOfLayer(project, shot, picks.begin()->layer) != nullptr;
+  const Doll* doll = DollOfLayer(project, shot, picks.begin()->layer);
+  const bool is_doll = doll != nullptr;
+  show.object = is_doll && is_whole && doll->rig.object.is_object;
   show.layer = is_whole;
   show.saved_poses = is_doll && is_whole;
   show.dials = is_doll;

@@ -7,6 +7,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -18,6 +19,7 @@
 #include "ui/layer_box.h"
 #include "ui/link_box.h"
 #include "ui/managers.h"
+#include "ui/object_box.h"
 #include "ui/point_motion_box.h"
 #include "ui/poses_box.h"
 #include "ui/skin_box.h"
@@ -71,6 +73,8 @@ class Inspector final : public QScrollArea {
   LayerBox layer_;
   LinkBox link_;
   PosesBox poses_;
+  // Null without the object manager (some test benches).
+  std::unique_ptr<ObjectBox> object_;
 };
 
 }  // namespace snapper

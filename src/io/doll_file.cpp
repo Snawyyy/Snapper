@@ -112,6 +112,15 @@ Result<void> WriteRig(const QString& folder, const Rig& rig) {
   return WriteJsonFile(QDir(folder).filePath(kRigFileName), object);
 }
 
+Result<void> WriteArt(const QString& folder, const DollArt& art) {
+  assert(!folder.isEmpty());
+  assert(art.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+  QJsonObject object = ArtToJson(art);
+  object.insert("format", "snapper-art");
+  object.insert("version", kArtVersion);
+  return WriteJsonFile(QDir(folder).filePath(kArtFileName), object);
+}
+
 Result<bool> ConvertLegacyDoll(const QString& folder) {
   assert(!folder.isEmpty());
   const QDir dir(folder);

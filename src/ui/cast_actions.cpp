@@ -1,7 +1,9 @@
 // CastPanel's lists and buttons.
 
+#include <QDesktopServices>
 #include <QDir>
 #include <QFileDialog>
+#include <QUrl>
 #include <QInputDialog>
 #include <QSignalBlocker>
 
@@ -11,6 +13,7 @@
 
 #include "edit/doll_library_manager.h"
 #include "edit/history_manager.h"
+#include "edit/object_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/stage_manager.h"
 #include "ui/cast_panel.h"
@@ -121,31 +124,11 @@ QPixmap CastPanel::PictureOf(const QString& name) {
 void CastPanel::RefreshLibrary() {
   assert(managers_.IsComplete());
   assert(managers_.library != nullptr);
-  // Keep every picked doll picked across the rebuild.
-  QSet<QString> picked;
-  for (const QListWidgetItem* item : library_.selectedItems()) {
-    picked.insert(item->data(kKeyRole).toString());
-  }
-  const QSignalBlocker quiet(library_);
-  library_.clear();
-  const Project& project = managers_.history->current();
-  for (const QString& name : managers_.library->Available()) {
-    const bool is_in = FindDoll(project, name) != nullptr;
-    const bool is_stale = is_in && stale_.contains(name);
-    const bool is_in_shot =
-        IsInShot(project, managers_.selection->shot(), name);
-    const QString badge = is_stale     ? tr("NEW ART")
-                          : is_in_shot ? tr("IN SHOT")
-                          : is_in      ? tr("in project")
-                                       : QString();
-    library_.addItem(badge.isEmpty() ? name : name + "\n" + badge);
-    QListWidgetItem* item = library_.item(library_.count() - 1);
-    item->setData(kKeyRole, name);
-    item->setIcon(PictureOf(name));
-    item->setToolTip(is_stale ? tr("The art was re-exported from Krita: "
-                                   "Reload takes it.")
-                              : tr("Drag onto the stage to put it there."));
-    item->setSelected(picked.contains(name));
+  const bool has_objects = managers_.objects != nullptr;
+  FillCards(&library_, has_objects ? managers_.objects->Dolls()
+                                   : managers_.library->Available());
+  if (has_objects) {
+    FillCards(&objects_, managers_.objects->Objects());
   }
   const QStringList& problems = managers_.library->conversion_problems();
   const bool has_problems = !problems.isEmpty();
@@ -155,6 +138,37 @@ void CastPanel::RefreshLibrary() {
                              : tr("Doll library"));
   library_title_.setToolTip(problems.join("\n"));
   RefreshButtons();
+}
+
+void CastPanel::FillCards(DollCards* cards, const QStringList& names) {
+  assert(cards != nullptr);
+  assert(names.size() < 100000);
+  // Keep every picked doll picked across the rebuild.
+  QSet<QString> picked;
+  for (const QListWidgetItem* item : cards->selectedItems()) {
+    picked.insert(item->data(kKeyRole).toString());
+  }
+  const QSignalBlocker quiet(cards);
+  cards->clear();
+  const Project& project = managers_.history->current();
+  for (const QString& name : names) {
+    const bool is_in = FindDoll(project, name) != nullptr;
+    const bool is_stale = is_in && stale_.contains(name);
+    const bool is_in_shot =
+        IsInShot(project, managers_.selection->shot(), name);
+    const QString badge = is_stale     ? tr("NEW ART")
+                          : is_in_shot ? tr("IN SHOT")
+                          : is_in      ? tr("in project")
+                                       : QString();
+    cards->addItem(badge.isEmpty() ? name : name + "\n" + badge);
+    QListWidgetItem* item = cards->item(cards->count() - 1);
+    item->setData(kKeyRole, name);
+    item->setIcon(PictureOf(name));
+    item->setToolTip(is_stale ? tr("The art was re-exported from Krita: "
+                                   "Reload takes it.")
+                              : tr("Drag onto the stage to put it there."));
+    item->setSelected(picked.contains(name));
+  }
 }
 
 void CastPanel::RefreshLayers() {
@@ -258,6 +272,66 @@ void CastPanel::ShowLibraryMenu(const QPoint& at) {
   menu.addAction(tr("Open in Krita"), this,
                  [this, name] { emit OpenInKritaRequested(name); });
   menu.exec(library_.viewport()->mapToGlobal(at));
+}
+
+void CastPanel::AddObjects(const QStringList& paths) {
+  assert(managers_.objects != nullptr);
+  assert(paths.size() < 100000);
+  QStringList notes;
+  const auto added = managers_.objects->AddToLibrary(paths, &notes);
+  const bool is_failed = !added.has_value();
+  if (is_failed) {
+    Report(added.error().message);
+    return;
+  }
+  pictures_.clear();
+  RefreshLibrary();
+  Report(notes.join(QStringLiteral(" ")));
+}
+
+void CastPanel::ChooseObjects() {
+  assert(managers_.objects != nullptr);
+  const QStringList paths = QFileDialog::getOpenFileNames(
+      this, tr("Add objects"), QString(),
+      tr("Pictures (*.png *.apng *.gif *.webp *.jpg *.jpeg *.bmp)"));
+  const bool is_chosen = !paths.isEmpty();
+  if (is_chosen) {
+    AddObjects(paths);
+  }
+}
+
+void CastPanel::ShowObjectMenu(const QPoint& at) {
+  assert(managers_.library != nullptr);
+  const QListWidgetItem* item = objects_.itemAt(at);
+  if (item == nullptr) {
+    return;
+  }
+  const QString name = item->data(kKeyRole).toString();
+  assert(!name.isEmpty());
+  QMenu menu;
+  menu.setToolTipsVisible(true);
+  menu.addAction(tr("Put on stage"), this, [this, name] {
+    Report(PutDollsOnStage(managers_, {name}));
+  });
+  menu.addAction(tr("Show in folder"), this, [this, name] {
+    QDesktopServices::openUrl(
+        QUrl::fromLocalFile(managers_.library->FolderOf(name)));
+  });
+  QAction* remove = menu.addAction(tr("Take out of the project"), this,
+                                   [this, name] {
+                                     Report(ProblemOf(
+                                         managers_.library->Remove(name)));
+                                   });
+  const bool is_in = FindDoll(managers_.history->current(), name) != nullptr;
+  const int uses = is_in ? managers_.library->UseCount(name) : 0;
+  remove->setEnabled(is_in && uses == 0);
+  remove->setToolTip(!is_in      ? tr("%1 isn't in the project.").arg(name)
+                     : uses > 0 ? tr("%1 is on %2 layer(s); delete those "
+                                     "first.")
+                                      .arg(name)
+                                      .arg(uses)
+                                : QString());
+  menu.exec(objects_.viewport()->mapToGlobal(at));
 }
 
 void CastPanel::Place() {

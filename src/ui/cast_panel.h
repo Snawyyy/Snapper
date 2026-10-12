@@ -40,8 +40,16 @@ class CastPanel final : public QWidget {
   void BuildLayout();
   void Wire();
   void RefreshLibrary();
+  // Rebuilds cards with a card per name, keeping the picked ones picked.
+  void FillCards(DollCards* cards, const QStringList& names);
   // The right click menu of the library card under at.
   void ShowLibraryMenu(const QPoint& at);
+  // The Objects row: pictures dropped or chosen become library objects;
+  // a card's right click menu shows its folder or takes it out of the
+  // project.
+  void AddObjects(const QStringList& paths);
+  void ChooseObjects();
+  void ShowObjectMenu(const QPoint& at);
   // The small picture of a library doll, kept once drawn.
   QPixmap PictureOf(const QString& name);
   void RefreshLayers();
@@ -71,6 +79,10 @@ class CastPanel final : public QWidget {
   QPushButton import_;
   QPushButton reload_;
   QPushButton place_;
+  QLabel objects_title_;
+  DollCards objects_;
+  QHBoxLayout object_buttons_;
+  QPushButton add_objects_;
   QLabel layers_title_;
   QListWidget layers_;
   QHBoxLayout layer_buttons_;

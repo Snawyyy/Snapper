@@ -238,12 +238,17 @@ void PoseTool::MoveAll(QPointF total) {
   // on screen by the same amount.
   for (const TrackRef& track : managers_.selection->PickedTracks()) {
     const bool is_piece = track.kind == TrackKind::kPiece;
+    const Layer* layer =
+        track.layer.IsValid() ? FindLayer(*shot, track.layer) : nullptr;
     const auto frame =
         is_piece ? PieceParentToScreen(project, *shot, track.layer,
                                        track.piece, at.local, at.scale,
                                        cache_->poses())
-                 : std::optional<QTransform>(FrameRenderer::ViewTransform(
-                       project, *shot, at.local, at.scale));
+        : layer != nullptr
+            ? std::optional<QTransform>(LayerParentToScreen(
+                  project, *shot, *layer, at.local, at.scale, cache_->poses()))
+            : std::optional<QTransform>(FrameRenderer::ViewTransform(
+                  project, *shot, at.local, at.scale));
     if (frame) {
       PoseDelta delta;
       delta.offset = Back(*frame, drag_->start + total, at.corner) -

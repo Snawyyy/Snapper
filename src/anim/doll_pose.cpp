@@ -6,6 +6,7 @@
 #include <numbers>
 #include <variant>
 
+#include "anim/object_play.h"
 #include "anim/sampler.h"
 #include "anim/skin.h"
 #include "anim/smart_dial.h"
@@ -70,6 +71,7 @@ PoseMap SamplePoses(const Doll& doll, const DollLayer& layer, Frame frame) {
   if (has_skins) {
     ApplySkins(doll, SkinsAt(doll, layer, frame), hand, &poses);
   }
+  ApplyObjectPlay(doll, layer, frame, &poses);
   return poses;
 }
 

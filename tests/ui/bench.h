@@ -13,6 +13,7 @@
 #include "edit/history_manager.h"
 #include "edit/key_manager.h"
 #include "edit/link_manager.h"
+#include "edit/object_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/poke_manager.h"
 #include "edit/pose_manager.h"
@@ -57,6 +58,7 @@ struct Bench final {
   DialManager dials{&history};
   DrawManager draw{&history, &playback, nullptr};
   SkinManager skins{&history};
+  ObjectManager objects{&history, &library, &stage, &links};
 
   Managers All() {
     Managers all{&history, &document, &library, &rig, &shots, &stage,
@@ -66,6 +68,7 @@ struct Bench final {
     all.dials = &dials;
     all.draw = &draw;
     all.skins = &skins;
+    all.objects = &objects;
     return all;
   }
 };

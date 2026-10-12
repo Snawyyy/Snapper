@@ -80,6 +80,21 @@ std::optional<QTransform> LayerToScreen(const Project& project,
          FrameRenderer::ViewTransform(project, shot, local, scale);
 }
 
+QTransform LayerParentToScreen(const Project& project, const Shot& shot,
+                               const Layer& layer, Frame local, double scale,
+                               PoseMemo* memo) {
+  assert(scale > 0.0);
+  assert(local.index() >= 0);
+  const QTransform view =
+      FrameRenderer::ViewTransform(project, shot, local, scale);
+  const bool is_never_held = shot.holds.empty();
+  if (is_never_held) {
+    return view;
+  }
+  LinkSolver links(project, shot, memo);
+  return links.HeldMove(layer, local) * view;
+}
+
 std::optional<QTransform> PieceParentToScreen(const Project& project,
                                               const Shot& shot, LayerId layer,
                                               const QString& piece,

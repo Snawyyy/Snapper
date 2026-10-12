@@ -13,6 +13,7 @@ class HistoryManager;
 class KeyManager;
 class LinkManager;
 class MotionManager;
+class ObjectManager;
 class PaletteManager;
 class PlaybackManager;
 class PokeManager;
@@ -59,6 +60,8 @@ struct Managers final {
   DrawManager* draw = nullptr;
   // Not in IsComplete either: the skin boxes check it.
   SkinManager* skins = nullptr;
+  // Not in IsComplete either: the object row, box and menu check it.
+  ObjectManager* objects = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&

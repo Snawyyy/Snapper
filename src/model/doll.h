@@ -301,6 +301,22 @@ struct IkChain final {
   bool operator==(const IkChain&) const = default;
 };
 
+// Frames an object (a prop made from one picture) may have: one piece
+// holds at most this many drawings.
+constexpr int kMaxObjectFrames = kMaxPieceDrawings;
+
+// What makes a doll an object: a prop made from one picture, PNG, GIF
+// or WebP, as a doll with one piece whose drawings are the picture's
+// frames, so warp, jelly, skins and the rest work on it unchanged.
+struct ObjectClip final {
+  bool is_object = false;
+  // Each frame's own time in milliseconds, as the picture had it, one
+  // per frame; fewer than two means a still picture.
+  std::vector<int> frame_ms{};
+
+  bool operator==(const ObjectClip&) const = default;
+};
+
 struct Rig final {
   std::vector<RigPiece> pieces;
   std::vector<IkChain> chains;
@@ -322,6 +338,8 @@ struct Rig final {
   DrawingLook look = DrawingLook::kCrisp;
   // Smooth edges are blended into what is behind; hard edges cut out.
   bool hard_edges = false;
+  // Set on an object; a doll from Krita has is_object false.
+  ObjectClip object{};
 
   bool operator==(const Rig&) const = default;
 };

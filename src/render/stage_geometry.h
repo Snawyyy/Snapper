@@ -24,6 +24,12 @@ std::optional<QTransform> LayerToScreen(const Project& project,
                                         const Shot& shot, LayerId layer,
                                         Frame local, double scale,
                                         PoseMemo* memo = nullptr);
+// The space a layer's own move is keyed in, to screen: the shot's, as
+// moved by the hold on the layer, so a held object drags under the
+// cursor whichever way its holder turned it.
+QTransform LayerParentToScreen(const Project& project, const Shot& shot,
+                               const Layer& layer, Frame local, double scale,
+                               PoseMemo* memo = nullptr);
 
 // The space a piece's offset moves in (its parent's, or the layer's for
 // a root piece) to screen. Mouse moves are mapped back through it so a

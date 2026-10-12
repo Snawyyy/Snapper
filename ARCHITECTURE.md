@@ -460,6 +460,24 @@ rig canvas), with `DrawBar` (title, name, Done, Cancel) and
 `DrawTools`; N, Shift+N, the stage's right click and the Drawing
 picker's "+" entries start it (`ui/draw_actions.cpp`).
 
+Objects (`ObjectManager`, `edit/object_manager.cpp`) are props made
+from a PNG, GIF or WebP: a doll with one piece whose drawings are the
+picture's frames, marked by `Rig::object` (`ObjectClip`: the flag and
+each frame's own milliseconds, rig.json, kept by `Reconcile`), so warp,
+jelly, skins and drawing on a piece work on it unchanged.
+`io/object_file.cpp` reads the frames (more than 64 keep every Nth)
+and writes the doll folder into the doll library: "frame N.png",
+art.json (`WriteArt`, the one art.json Snapper writes) and rig.json;
+it is copied into a project like any doll. The Cast panel's Objects
+row lists them (`ObjectManager::Objects`; the doll row shows the rest)
+and takes dropped files; files dropped on the stage become objects
+placed where they fell, one undo step. A layer's `DollLayer::play`
+(`ObjectPlay`: Loop, Once, Ping-pong or Hold, frames per drawing or
+the picture's timing, start, offset) is played on the shot clock by
+`ApplyObjectPlay` (`anim/object_play.cpp`) at the end of
+`SamplePoses`, so scrubbing and export agree; Hold keeps the keyed
+drawing. `ObjectBox` (inspector) sets it. Holding is in Links below.
+
 ## Poking
 
 Holding P over a doll on the stage and dragging or flicking pokes it
@@ -525,6 +543,20 @@ follow a duplicated shot's own layers. Drag nodes feel links: the
 solver hands `DraggedPoses` how far links carry each drag-node piece
 frame by frame (`LinkShifts`), so a linked doll's warp points trail on
 its own beat as if it had moved by itself.
+
+An object can be held by a doll piece (`Hold` in `Shot::holds`, made by
+`ObjectManager` from the stage's right click, `ui/hold_actions.cpp`).
+Unlike a link it copies the piece's full move, place, turn and scale:
+`LinkSolver::HeldMove` walks the object's hold changes up to the frame
+and, for the one in force, gives the move as it was when the hold began
+times the inverse of the holder's transform then times the holder's
+transform now, so nothing jumps at a change; a drop (no holder) keeps
+the move it had. It sits between the layer's own keys and its link, so
+its keys still tilt it in the hand. Every place that asks the solver
+for a layer's transform sees it; the pose tool drags a held layer in
+its held space (`LayerParentToScreen`). A hold whose holder layer goes
+becomes a drop (`DropDeadLinks`); holds loop-check in the manager and
+the solver treats a loop as not held.
 
 Every animated value is a channel of keys, and every channel uses the
 same key type and the same sampling code, whether it moves an arm, the
@@ -669,6 +701,7 @@ are destroyed in reverse.
 | `DialManager`          | Smart dials: make, stops, rest, swap, turn (keyed per doll layer) |
 | `SkinManager`          | Skins: make, rename, order, set drawings, Krita names; wear and step them (keyed per doll layer) |
 | `DrawManager`          | Draw mode: the drawing being made, its tools and stroke undo; Done saves it into the doll as one step |
+| `ObjectManager`        | Objects: make them from pictures into the library, put them on the stage, how a GIF plays, hold, drop and hand-off |
 | `KeyManager`           | Keys on the timeline: move, space, ease, retime, bake a timing chart |
 | `TimingChartManager`   | The timing chart session: picked thing and frames to chart, ticks, live preview in one `EditScope`, Apply or Cancel |
 | `PresetManager`        | Saved poses                                    |

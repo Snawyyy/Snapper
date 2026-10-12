@@ -13,6 +13,7 @@
 #include "edit/history_manager.h"
 #include "edit/key_manager.h"
 #include "edit/link_manager.h"
+#include "edit/object_manager.h"
 #include "edit/palette_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/pose_manager.h"
@@ -70,6 +71,7 @@ class AppContext final {
   DialManager dials_;
   DrawManager draw_;
   SkinManager skins_;
+  ObjectManager objects_;
   MainWindow window_;
 };
 

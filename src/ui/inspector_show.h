@@ -31,6 +31,9 @@ struct InspectorShow final {
   // The picked dot's drag node and animation.
   bool drag = false;
   bool dot_animation = false;
+  // An object (a prop from a picture) picked whole: how it plays and
+  // what holds it.
+  bool object = false;
 };
 
 // has_dot is true while a warp dot is picked, is_linked while the pick

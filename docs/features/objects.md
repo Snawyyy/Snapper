@@ -1,8 +1,14 @@
 # Objects
 
-Status: planned.
+Status: built, first pass (2026-10-12); owner tests by eye.
 
 Needs: nothing; it reuses the doll code, so every doll feature built before it comes for free.
+
+First pass: a picture (PNG, GIF, WebP, JPEG, BMP; animated PNG plays only where Qt reads it) becomes an object, a doll folder in the doll library with one piece whose drawings are its frames ("frame 1.png"...), marked as an object in rig.json with each frame's own time. The Cast panel has an Objects row of cards: drop files or a folder on it, or use Add pictures...; drag a card onto the stage, double click it, or right click it (Put on stage, Show in folder, Take out of the project, greyed while layers use it). Files dropped on the stage become objects placed where they fell, at their own pixel size, as one undo step ("Undo Add cup"). The inspector's Object fold sets Play (Loop, Once, Ping-pong, Hold), Speed (the GIF's own timing or 1 to 24 frames per drawing), Start and Offset, played on the shot clock by the shared sampler. To hold: pick the object, right click a doll's piece on the stage, Hold with it; from that frame the object follows the piece's place, turn and scale without jumping, its own keys still on top. Drop here (right click or the Object fold) lets go and it stays put; holding with another piece later is a hand-off; Remove hold change takes a change away. The fold lists the hold changes by frame. A holder layer deleted turns its hold into a drop.
+
+Not built yet: rename in place and Replace picture on a card; slotting a held object between the holder doll's pieces (it draws by its own layer order, so restack the layer for in front or behind); the hold changes as chips on a timeline row (listed in the fold instead); a grip point set by joint snap (the object turns about its middle); the Hide with holder switch; the note on a row when its holder is removed; the scale-down offer for huge pictures and the ask before thinning a long GIF (it keeps every Nth frame and says so); Comp targets (Compositing is not built). Objects never scale to the canvas, as dolls do not today.
+
+Defaults taken for the open points: objects live in the doll library beside the dolls (an `object` block in rig.json tells them apart); play settings belong to each layer, not to the object, so two copies can differ; a drop on a frame where nothing held it is refused; holding is for object layers only, by a doll piece.
 
 Props such as a cup or a mic, from any PNG or GIF. Snapper already has a picture layer (`ImageLayer` in `model/layer.h`), but it is one still image with a path and nothing else: it cannot be held, animate, bend or sit between a doll's fingers. An object fixes that by being a doll with one piece, so it gets warp, jelly, smooth warp, joint snap and skins for free.
 

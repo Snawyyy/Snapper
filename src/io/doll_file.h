@@ -20,6 +20,9 @@ Result<DollArt> ReadArt(const QString& folder);
 // Snapper's side. A folder without rig.json has an empty rig.
 Result<Rig> ReadRig(const QString& folder);
 Result<void> WriteRig(const QString& folder, const Rig& rig);
+// Writes art.json, as the Krita exporter would; only Snapper's own
+// objects (io/object_file.h) do, since a doll's art is Krita's.
+Result<void> WriteArt(const QString& folder, const DollArt& art);
 
 // What the first Snapper's doll.json is renamed to once converted: kept,
 // never deleted, so nothing of the old rig is lost.

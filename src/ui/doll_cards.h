@@ -29,12 +29,31 @@ class DollCards final : public QListWidget {
  public:
   explicit DollCards(QWidget* parent = nullptr);
 
+  // What an empty row says to do.
+  void SetEmptyText(const QString& text) { empty_text_ = text; }
+  // Lets files be dropped on the row (the Objects row): FilesDropped
+  // hands their paths on.
+  void AcceptFiles();
+
+ signals:
+  void FilesDropped(const QStringList& paths);
+
  protected:
   QStringList mimeTypes() const override;
   QMimeData* mimeData(const QList<QListWidgetItem*>& items) const override;
   // An empty library says what to do.
   void paintEvent(QPaintEvent* event) override;
+  void dragEnterEvent(QDragEnterEvent* event) override;
+  void dragMoveEvent(QDragMoveEvent* event) override;
+  void dropEvent(QDropEvent* event) override;
+
+ private:
+  QString empty_text_;
+  bool is_file_target_ = false;
 };
+
+// The local files and folders a drop carries, or none.
+QStringList FilesOfDrop(const QMimeData* data);
 
 }  // namespace snapper
 

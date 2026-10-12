@@ -36,8 +36,14 @@ class LinkSolver final {
   LinkSolver(const Project& project, const Shot& shot,
              PoseMemo* memo = nullptr);
 
-  // Layer space to shot space at frame, moved by the link on the layer.
+  // Layer space to shot space at frame, moved by the hold and the link
+  // on the layer.
   QTransform LayerTransform(const Layer& layer, Frame frame);
+  // What holding does to an object layer at frame, in shot space: after
+  // its own keys, before any link. Identity for a layer never held.
+  // Holding by a piece makes it copy the piece's place, turn and scale
+  // since the hold began (see Hold); a drop keeps the move it had then.
+  QTransform HeldMove(const Layer& layer, Frame frame);
   // The poses a doll layer shows at frame (ShownPoses), with the links
   // on its pieces added to their offsets.
   PoseMap Poses(const Doll& doll, const Layer& layer, Frame frame);
@@ -50,6 +56,13 @@ class LinkSolver final {
   std::optional<QPointF> PointOf(const LinkEnd& end, Frame frame);
   // How far the links on end and on whatever carries it move it.
   QPointF Carried(const LinkEnd& end, Frame frame);
+  // Layer space to shot space with the hold but without the link.
+  QTransform Placed(const Layer& layer, Frame frame);
+  // A holder's drawing pixels (a layer's own space for a whole layer)
+  // to shot space at frame, holds and links included; nothing when it
+  // is gone.
+  std::optional<QTransform> HolderTransform(const LinkEnd& holder,
+                                            Frame frame);
   const PoseMap& BasePoses(const Doll& doll, const Layer& layer,
                            Frame frame);
   // How far links carry each of layer's drag-node pieces, frame 0 to
@@ -71,6 +84,9 @@ class LinkSolver final {
   // counts as no push.
   std::map<std::pair<const Link*, int>, QPointF>* pushes_;
   std::set<std::pair<const Link*, int>> solving_;
+  // Held moves being worked out, by layer id and frame: meeting one
+  // again means objects hold each other, and it counts as not held.
+  std::set<std::pair<int, int>> holding_;
 };
 
 // Whatever moves end along: end itself, its layer, and the pieces it

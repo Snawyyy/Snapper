@@ -7,6 +7,7 @@
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/stage_manager.h"
+#include "ui/doll_drop.h"
 #include "ui/toast_manager.h"
 #include "ui/toast_queue.h"
 
@@ -18,6 +19,8 @@ CastPanel::CastPanel(const Managers& managers)
       import_(tr("Import")),
       reload_(tr("Reload")),
       place_(tr("Put on stage")),
+      objects_title_(tr("Objects")),
+      add_objects_(tr("Add pictures...")),
       layers_title_(tr("Layers (top first)")),
       add_menu_(tr("Add")),
       copy_(tr("Copy")),
@@ -56,6 +59,24 @@ void CastPanel::BuildLayout() {
   layout_.addWidget(&layers_title_);
   layout_.addWidget(&layers_, 2);
   layout_.addLayout(&layer_buttons_);
+  // The Objects row sits between the dolls and the layers; it goes in
+  // last so the layer list stays the second list among the children.
+  object_buttons_.addWidget(&add_objects_);
+  object_buttons_.addStretch(1);
+  layout_.insertWidget(3, &objects_title_);
+  layout_.insertWidget(4, &objects_, 1);
+  layout_.insertLayout(5, &object_buttons_);
+  objects_.SetEmptyText(
+      tr("Drop PNG or GIF pictures here, or on the stage."));
+  objects_.AcceptFiles();
+  objects_.setToolTip(tr("Props made from pictures. Drag one onto the "
+                         "stage; drop picture files here to add them."));
+  add_objects_.setToolTip(tr("Make objects from PNG, GIF or WebP files."));
+  // Without the object manager (some test benches) the row stays hidden.
+  const bool has_objects = managers_.objects != nullptr;
+  objects_title_.setVisible(has_objects);
+  objects_.setVisible(has_objects);
+  add_objects_.setVisible(has_objects);
   // Shift picks a run, Ctrl adds or drops one, as in any list.
   layers_.setSelectionMode(QAbstractItemView::ExtendedSelection);
   library_.setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -97,6 +118,17 @@ void CastPanel::Wire() {
   library_.setContextMenuPolicy(Qt::CustomContextMenu);
   connect(&library_, &QWidget::customContextMenuRequested, this,
           &CastPanel::ShowLibraryMenu);
+  connect(&objects_, &DollCards::FilesDropped, this, &CastPanel::AddObjects);
+  connect(&add_objects_, &QPushButton::clicked, this,
+          &CastPanel::ChooseObjects);
+  objects_.setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(&objects_, &QWidget::customContextMenuRequested, this,
+          &CastPanel::ShowObjectMenu);
+  connect(&objects_, &QListWidget::itemDoubleClicked, this,
+          [this](const QListWidgetItem* item) {
+            Report(PutDollsOnStage(managers_,
+                                   {item->data(Qt::UserRole).toString()}));
+          });
   connect(&layers_, &QListWidget::itemSelectionChanged, this,
           &CastPanel::PickLayer);
   connect(&layers_, &QListWidget::itemChanged, this, &CastPanel::ToggleShown);

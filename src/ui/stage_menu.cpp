@@ -1,4 +1,4 @@
-// StageView's right-click menu: linking movement.
+// StageView's right-click menu: linking movement, holding objects.
 
 #include <QContextMenuEvent>
 
@@ -10,6 +10,7 @@
 #include "edit/selection_manager.h"
 #include "render/stage_hit.h"
 #include "ui/draw_actions.h"
+#include "ui/hold_actions.h"
 #include "ui/problem.h"
 #include "ui/stage_view.h"
 #include "ui/timing_chart_action.h"
@@ -98,6 +99,9 @@ void StageView::AddLinkActions(QMenu* menu, QPointF point,
                   managers_.links->LinkTo(shot, picked, leader, from)));
             });
   }
+  AddHoldActions(menu, managers_, frame.shot, frame.local,
+                 hit ? std::optional<LinkEnd>(LinkEnd{hit->layer, hit->piece})
+                     : std::nullopt);
   const QString no_unlink = links->WhyNoUnlink(frame.shot, picked);
   const bool can_unlink = no_unlink.isEmpty();
   if (can_unlink) {

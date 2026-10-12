@@ -43,6 +43,12 @@ Inspector::Inspector(const Managers& managers)
   layout_.addWidget(&hint_);
   layout_.addWidget(&shot_);
   layout_.addWidget(&pose_);
+  const bool has_objects = managers_.objects != nullptr;
+  if (has_objects) {
+    object_ = std::make_unique<ObjectBox>(managers_);
+    AddFolded(object_.get(), "object");
+    connect(object_.get(), &ObjectBox::Problem, this, &Inspector::Problem);
+  }
   AddFolded(&skins_, "skins");
   AddFolded(&dials_, "smart_dials");
   layout_.addWidget(&drag_);
@@ -144,6 +150,9 @@ void Inspector::Refresh() {
   pose_.setVisible(show.pose);
   Show(&dials_, show.dials);
   Show(&skins_, show.skins);
+  if (object_ != nullptr) {
+    Show(object_.get(), show.object);
+  }
   Show(&link_, show.link);
   Show(&layer_, show.layer);
   Show(&poses_, show.saved_poses);

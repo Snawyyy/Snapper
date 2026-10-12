@@ -8,6 +8,7 @@
 #include <variant>
 
 #include "io/dot_group_json.h"
+#include "model/doll.h"
 #include "model/smart_dial.h"
 
 namespace snapper {
@@ -20,6 +21,9 @@ constexpr std::array<const char*, kEffectKindCount> kEffectNames = {
 constexpr std::array<const char*, 4> kLayerTypes = {"doll", "image", "text",
                                                     "effect"};
 static_assert(std::variant_size_v<LayerContent> == kLayerTypes.size());
+// PlayMode by its value.
+constexpr std::array<const char*, kPlayModeCount> kPlayModes = {
+    "loop", "once", "ping_pong", "hold"};
 
 // Each kind writes its own fields; ContentToJson picks by visiting.
 void AddFields(const DollLayer& doll, QJsonObject* object) {
@@ -43,6 +47,16 @@ void AddFields(const DollLayer& doll, QJsonObject* object) {
   const bool has_skins = !doll.skins.keys.empty();
   if (has_skins) {
     object->insert("skins", ChannelToJson(doll.skins));
+  }
+  const bool has_play = doll.play != ObjectPlay();
+  if (has_play) {
+    object->insert(
+        "play",
+        QJsonObject{
+            {"mode", EnumToJson(static_cast<int>(doll.play.mode), kPlayModes)},
+            {"frames_per_drawing", doll.play.frames_per_drawing},
+            {"start", doll.play.start.index()},
+            {"offset", doll.play.offset}});
   }
 }
 
@@ -107,6 +121,18 @@ DollLayer DollFromJson(const QJsonObject& object, JsonIssues* issues) {
     doll.dials[it.key()] = ChannelFromJson(it.value(), 0.5, issues);
   }
   doll.skins = ChannelFromJson(object.value("skins"), SkinSet(), issues);
+  const bool has_play = object.value("play").isObject();
+  if (has_play) {
+    const QJsonObject play = object.value("play").toObject();
+    doll.play.mode = static_cast<PlayMode>(
+        EnumFromJson(play.value("mode"), kPlayModes, issues));
+    doll.play.frames_per_drawing =
+        std::clamp(play.value("frames_per_drawing").toInt(), 0,
+                   kMaxFramesPerDrawing);
+    doll.play.start = Frame(play.value("start").toInt());
+    doll.play.offset =
+        std::clamp(play.value("offset").toInt(), 0, kMaxObjectFrames * 2);
+  }
   assert(doll.pieces.size() <= static_cast<size_t>(kMaxPieceTracks));
   return doll;
 }
@@ -232,6 +258,48 @@ void ReadLinks(const QJsonArray& links, Shot* shot, JsonIssues* issues) {
   DropDeadLinks(shot);
 }
 
+QJsonArray HoldsToJson(const std::vector<Hold>& holds) {
+  assert(holds.size() <= static_cast<size_t>(kMaxHoldsPerShot));
+  QJsonArray array;
+  for (const Hold& hold : holds) {
+    QJsonObject object{{"object", hold.object.value()},
+                       {"at", hold.at.index()}};
+    if (!hold.IsDrop()) {
+      object.insert("holder", EndToJson(hold.holder));
+    }
+    array.append(object);
+  }
+  assert(array.size() == static_cast<qsizetype>(holds.size()));
+  return array;
+}
+
+// Holds whose object is missing are dropped quietly; a missing holder
+// reads as a drop (DropDeadLinks).
+void ReadHolds(const QJsonValue& value, Shot* shot, JsonIssues* issues) {
+  assert(shot != nullptr);
+  assert(issues != nullptr);
+  const QJsonArray holds =
+      Bounded(value, kMaxHoldsPerShot, "holds", issues);
+  for (const QJsonValue& item : holds) {
+    const QJsonObject object = item.toObject();
+    Hold hold;
+    hold.object = LayerId(std::max(object.value("object").toInt(), 0));
+    hold.at = Frame(object.value("at").toInt());
+    const bool has_holder = object.contains("holder");
+    if (has_holder) {
+      hold.holder = EndFromJson(object.value("holder"));
+    }
+    const bool is_repeat = std::ranges::any_of(
+        shot->holds, [&hold](const Hold& other) {
+          return other.object == hold.object && other.at == hold.at;
+        });
+    if (!is_repeat) {
+      shot->holds.push_back(hold);
+    }
+  }
+  DropDeadLinks(shot);
+}
+
 }  // namespace
 
 QJsonObject ShotToJson(const Shot& shot) {
@@ -241,15 +309,19 @@ QJsonObject ShotToJson(const Shot& shot) {
   for (const Layer& layer : shot.layers) {
     layers.append(LayerToJson(layer));
   }
-  return QJsonObject{
-      {"id", shot.id.value()},
-      {"name", shot.name},
-      {"length", shot.length.index()},
-      {"background", ColorToJson(shot.background)},
-      {"camera", ChannelToJson(shot.camera)},
-      {"layers", layers},
-      {"links", LinksToJson(shot.links)},
-      {"dot_groups", DotGroupsToJson(shot.dot_groups)}};
+  QJsonObject object{{"id", shot.id.value()},
+                     {"name", shot.name},
+                     {"length", shot.length.index()},
+                     {"background", ColorToJson(shot.background)},
+                     {"camera", ChannelToJson(shot.camera)},
+                     {"layers", layers},
+                     {"links", LinksToJson(shot.links)},
+                     {"dot_groups", DotGroupsToJson(shot.dot_groups)}};
+  const bool has_holds = !shot.holds.empty();
+  if (has_holds) {
+    object.insert("holds", HoldsToJson(shot.holds));
+  }
+  return object;
 }
 
 Shot ShotFromJson(const QJsonObject& object, JsonIssues* issues) {
@@ -274,6 +346,7 @@ Shot ShotFromJson(const QJsonObject& object, JsonIssues* issues) {
   }
   ReadLinks(object.value("links").toArray(), &shot, issues);
   shot.dot_groups = DotGroupsFromJson(object.value("dot_groups"), issues);
+  ReadHolds(object.value("holds"), &shot, issues);
   assert(static_cast<int>(shot.layers.size()) <= kMaxLayersPerShot);
   return shot;
 }

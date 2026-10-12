@@ -354,6 +354,13 @@ QJsonObject RigToJson(const Rig& rig, bool with_layers) {
   if (rig.hard_edges) {
     out.insert("hard_edges", true);
   }
+  if (rig.object.is_object) {
+    QJsonArray times;
+    for (const int ms : rig.object.frame_ms) {
+      times.append(ms);
+    }
+    out.insert("object", QJsonObject{{"frame_ms", times}});
+  }
   return out;
 }
 
@@ -406,6 +413,16 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
   rig.skins = SkinsFromJson(object.value("skins"), issues);
   rig.look = LookFromName(object.value("look").toString());
   rig.hard_edges = object.value("hard_edges").toBool();
+  const bool is_object = object.value("object").isObject();
+  if (is_object) {
+    rig.object.is_object = true;
+    const QJsonArray times = Bounded(
+        object.value("object").toObject().value("frame_ms"), kMaxObjectFrames,
+        "object frames", issues);
+    for (const QJsonValue& ms : times) {
+      rig.object.frame_ms.push_back(std::max(ms.toInt(), 0));
+    }
+  }
   assert(rig.chains.size() <= static_cast<size_t>(kMaxIkChains));
   return rig;
 }
