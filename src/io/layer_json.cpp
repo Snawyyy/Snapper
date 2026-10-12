@@ -8,6 +8,7 @@
 #include <variant>
 
 #include "io/dot_group_json.h"
+#include "model/smart_dial.h"
 
 namespace snapper {
 namespace {
@@ -31,6 +32,14 @@ void AddFields(const DollLayer& doll, QJsonObject* object) {
   object->insert("doll", doll.doll);
   object->insert("flipped", doll.is_flipped);
   object->insert("pieces", pieces);
+  const bool has_dials = !doll.dials.empty();
+  if (has_dials) {
+    QJsonObject dials;
+    for (const auto& [name, channel] : doll.dials) {
+      dials.insert(name, ChannelToJson(channel));
+    }
+    object->insert("dials", dials);
+  }
 }
 
 void AddFields(const ImageLayer& image, QJsonObject* object) {
@@ -83,6 +92,15 @@ DollLayer DollFromJson(const QJsonObject& object, JsonIssues* issues) {
   }
   for (auto it = pieces.begin(); it != pieces.end(); ++it) {
     doll.pieces[it.key()] = ChannelFromJson(it.value(), PiecePose(), issues);
+  }
+  const QJsonObject dials = object.value("dials").toObject();
+  const bool is_dials_ok = dials.size() <= kMaxSmartDials;
+  if (!is_dials_ok) {
+    issues->Note(QStringLiteral("a doll layer has too many dials"));
+    return doll;
+  }
+  for (auto it = dials.begin(); it != dials.end(); ++it) {
+    doll.dials[it.key()] = ChannelFromJson(it.value(), 0.5, issues);
   }
   assert(doll.pieces.size() <= static_cast<size_t>(kMaxPieceTracks));
   return doll;

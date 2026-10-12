@@ -21,6 +21,8 @@ struct InspectorShow final {
   bool layer = false;
   // Saved poses belong to the whole doll, not a limb.
   bool saved_poses = false;
+  // Smart dials: for a doll, whole or by piece.
+  bool dials = false;
   // Dot groups: on a doll that has dots worth grouping (drag nodes or
   // motions on a picked piece, picked dots, or groups already there).
   bool groups = false;

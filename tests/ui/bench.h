@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QTemporaryDir>
 
+#include "edit/dial_manager.h"
 #include "edit/doll_library_manager.h"
 #include "edit/document_manager.h"
 #include "edit/export_manager.h"
@@ -51,12 +52,15 @@ struct Bench final {
   PokeManager poke{&history, &playback};
   GroupManager groups{&history};
   SettingsManager settings{&history};
+  DialManager dials{&history};
 
   Managers All() {
-    return {&history, &document, &library, &rig, &shots, &stage,
-            &selection, &pose, &keys, &presets, &playback, &exporter,
-            &links, &reel, &motion, &toasts, &timing, &poke, &groups,
-            &settings};
+    Managers all{&history, &document, &library, &rig, &shots, &stage,
+                 &selection, &pose, &keys, &presets, &playback, &exporter,
+                 &links, &reel, &motion, &toasts, &timing, &poke, &groups,
+                 &settings};
+    all.dials = &dials;
+    return all;
   }
 };
 

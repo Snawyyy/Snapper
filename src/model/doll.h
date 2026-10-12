@@ -12,6 +12,7 @@
 
 #include "base/id.h"
 #include "model/dot_group.h"
+#include "model/smart_dial.h"
 #include "model/warp_mesh.h"
 
 namespace snapper {
@@ -271,6 +272,9 @@ struct Rig final {
   QString krita_file;
   // Colors added to the palette by hand for this doll, oldest first.
   std::vector<QColor> added_colors;
+  // Smart dials, in the order they are listed; for the drawing, a dial
+  // later in the list wins.
+  std::vector<SmartDial> dials;
 
   bool operator==(const Rig&) const = default;
 };

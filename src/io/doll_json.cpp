@@ -12,6 +12,7 @@
 #include "io/collider_json.h"
 #include "io/dot_group_json.h"
 #include "io/point_motion_json.h"
+#include "io/smart_dial_json.h"
 #include "io/warp_json.h"
 #include "model/node_physics.h"
 
@@ -307,6 +308,9 @@ QJsonObject RigToJson(const Rig& rig, bool with_layers) {
   if (!rig.added_colors.empty()) {
     out.insert("added_colors", ColorsToJson(rig.added_colors));
   }
+  if (!rig.dials.empty()) {
+    out.insert("dials", DialsToJson(rig.dials));
+  }
   return out;
 }
 
@@ -346,6 +350,7 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
   rig.krita_file = object.value("krita_file").toString();
   rig.added_colors =
       ColorsFromJson(object.value("added_colors"), kMaxAddedColors, issues);
+  rig.dials = DialsFromJson(object.value("dials"), issues);
   assert(rig.chains.size() <= static_cast<size_t>(kMaxIkChains));
   return rig;
 }

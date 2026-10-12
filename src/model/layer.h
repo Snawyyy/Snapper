@@ -26,6 +26,9 @@ struct DollLayer final {
   std::map<QString, Channel<PiecePose>> pieces;
   // Drawn mirrored left to right.
   bool is_flipped = false;
+  // Each smart dial's value (0 to 1) by dial name; a dial without keys
+  // sits at its rest stop.
+  std::map<QString, Channel<double>> dials{};
 
   bool operator==(const DollLayer&) const = default;
 };

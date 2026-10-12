@@ -4,6 +4,7 @@
 #include <QString>
 #include <QtClassHelperMacros>
 
+#include "edit/dial_manager.h"
 #include "edit/doll_library_manager.h"
 #include "edit/document_manager.h"
 #include "edit/export_manager.h"
@@ -64,6 +65,7 @@ class AppContext final {
   GroupManager groups_;
   SettingsManager settings_;
   PaletteManager palette_;
+  DialManager dials_;
   MainWindow window_;
 };
 

@@ -24,6 +24,7 @@ Inspector::Inspector(const Managers& managers)
       managers_(managers),
       shot_(managers),
       pose_(managers),
+      dials_(managers),
       drag_(managers),
       point_motion_(managers),
       camera_(managers),
@@ -41,6 +42,7 @@ Inspector::Inspector(const Managers& managers)
   layout_.addWidget(&hint_);
   layout_.addWidget(&shot_);
   layout_.addWidget(&pose_);
+  AddFolded(&dials_, "smart_dials");
   layout_.addWidget(&drag_);
   AddFolded(&point_motion_, "dot_animation");
   layout_.addWidget(&layer_);
@@ -49,6 +51,7 @@ Inspector::Inspector(const Managers& managers)
   AddFolded(&poses_, "saved_poses");
   layout_.addStretch(1);
   connect(&pose_, &PoseBox::Problem, this, &Inspector::Problem);
+  connect(&dials_, &DialBox::Problem, this, &Inspector::Problem);
   connect(&shot_, &ShotBox::Problem, this, &Inspector::Problem);
   connect(&drag_, &DragBox::Problem, this, &Inspector::Problem);
   connect(&point_motion_, &PointMotionBox::Problem, this,
@@ -136,6 +139,7 @@ void Inspector::Refresh() {
   shot_.setVisible(show.shot);
   Show(&camera_, show.camera);
   pose_.setVisible(show.pose);
+  Show(&dials_, show.dials);
   Show(&link_, show.link);
   Show(&layer_, show.layer);
   Show(&poses_, show.saved_poses);

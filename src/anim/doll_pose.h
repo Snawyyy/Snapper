@@ -38,8 +38,12 @@ struct PlacedPiece final {
 
 using PoseMap = std::map<QString, PiecePose>;
 
-// Every piece's pose at frame; pieces without keys rest.
+// Every piece's pose at frame as keyed by hand; pieces without keys
+// rest.
 PoseMap SamplePoses(const DollLayer& layer, Frame frame);
+// The same with doll's smart dials put under the hand poses: what the
+// doll shows.
+PoseMap SamplePoses(const Doll& doll, const DollLayer& layer, Frame frame);
 
 // Drawing-to-doll-space matrix of every piece, parents first. Pieces
 // whose parent is missing hang from nothing.

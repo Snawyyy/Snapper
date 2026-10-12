@@ -14,8 +14,9 @@
 namespace snapper {
 
 // Which channel of keys: a layer's own move, one doll piece, the
-// shot's camera, or an effect's strength.
-enum class TrackKind { kLayer, kPiece, kCamera, kEffectAmount };
+// shot's camera, an effect's strength, or one smart dial of a doll
+// layer (its value, 0 to 1).
+enum class TrackKind { kLayer, kPiece, kCamera, kEffectAmount, kDial };
 
 // The address of one channel, so pose, key and preset tools and the
 // selection all point at keys the same way.
@@ -24,7 +25,7 @@ struct TrackRef final {
   TrackKind kind = TrackKind::kLayer;
   // Unused for the camera.
   LayerId layer;
-  // Only for kPiece.
+  // Only for kPiece; the dial's name for kDial.
   QString piece;
 
   auto operator<=>(const TrackRef&) const = default;
@@ -41,8 +42,8 @@ struct KeyRef final {
 };
 
 // Calls visit(Channel<T>*) with the channel track names in shot, which
-// is a channel of PiecePose, CameraPose or double. A piece without keys
-// yet gets an empty channel to write into. Fails when the layer is gone
+// is a channel of PiecePose, CameraPose or double. A piece or dial
+// without keys yet gets an empty channel to write into. Fails when the layer is gone
 // or is the wrong kind for the track.
 template <typename Visit>
 Result<void> VisitTrack(Shot* shot, const TrackRef& track, Visit visit) {
@@ -70,6 +71,11 @@ Result<void> VisitTrack(Shot* shot, const TrackRef& track, Visit visit) {
                         !track.piece.isEmpty();
   if (is_piece) {
     return visit(&doll->pieces[track.piece]);
+  }
+  const bool is_dial = track.kind == TrackKind::kDial && doll != nullptr &&
+                       !track.piece.isEmpty();
+  if (is_dial) {
+    return visit(&doll->dials[track.piece]);
   }
   auto* effect = std::get_if<EffectLayer>(&layer->content);
   const bool is_effect =
@@ -111,6 +117,17 @@ bool ReadTrack(const Shot& shot, const TrackRef& track, Read read) {
       read(found->second);
     } else {
       read(Channel<PiecePose>());
+    }
+    return true;
+  }
+  const bool is_dial = track.kind == TrackKind::kDial && doll != nullptr;
+  if (is_dial) {
+    const auto found = doll->dials.find(track.piece);
+    const bool has_keys = found != doll->dials.end();
+    if (has_keys) {
+      read(found->second);
+    } else {
+      read(Channel<double>());
     }
     return true;
   }

@@ -10,7 +10,8 @@
 namespace snapper {
 namespace {
 
-// A layer's channels: its own move, plus each piece or its strength.
+// A layer's channels: its own move, plus each piece and dial or its
+// strength.
 std::vector<TrackRef> LayerTracks(const Shot& shot, const Layer& layer) {
   assert(layer.id.IsValid());
   assert(shot.id.IsValid());
@@ -21,6 +22,9 @@ std::vector<TrackRef> LayerTracks(const Shot& shot, const Layer& layer) {
   if (is_doll) {
     for (const auto& [piece, channel] : doll->pieces) {
       tracks.push_back({shot.id, TrackKind::kPiece, layer.id, piece});
+    }
+    for (const auto& [dial, channel] : doll->dials) {
+      tracks.push_back({shot.id, TrackKind::kDial, layer.id, dial});
     }
   }
   const bool is_effect = std::holds_alternative<EffectLayer>(layer.content);

@@ -193,7 +193,7 @@ void Step(const Doll& doll, const Layer& layer, int f,
   assert(springs != nullptr && carried != nullptr);
   assert(f >= 0);
   const PoseMap keyed =
-      SamplePoses(std::get<DollLayer>(layer.content), Frame(f));
+      SamplePoses(doll, std::get<DollLayer>(layer.content), Frame(f));
   const auto placed = PieceTransforms(doll, keyed);
   std::map<QString, std::optional<PushedGrid>> grids;
   // Each piece's cloth nodes and its jelly nodes run apart.
@@ -339,7 +339,8 @@ PoseMap DraggedPoses(const Doll& shared, const Layer& layer, Frame frame,
   // The layer's own drag nodes, motions and reach, where it has them.
   const DollFor own(shared, layer.id);
   const Doll& doll = own.get();
-  PoseMap poses = SamplePoses(std::get<DollLayer>(layer.content), frame);
+  PoseMap poses =
+      SamplePoses(doll, std::get<DollLayer>(layer.content), frame);
   const Frame beat = BeatOf(layer, frame);
   AddMotions(doll, beat, &poses);
   // Colliders push the drawn pose first; the springs ran from the same

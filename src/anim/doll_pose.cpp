@@ -7,6 +7,7 @@
 #include <variant>
 
 #include "anim/sampler.h"
+#include "anim/smart_dial.h"
 #include "anim/warp.h"
 
 namespace snapper {
@@ -54,6 +55,14 @@ PoseMap SamplePoses(const DollLayer& layer, Frame frame) {
   for (const auto& [name, channel] : layer.pieces) {
     poses[name] = Sample(channel, frame, PiecePose());
   }
+  return poses;
+}
+
+PoseMap SamplePoses(const Doll& doll, const DollLayer& layer, Frame frame) {
+  assert(frame.index() >= 0);
+  assert(layer.pieces.size() <= static_cast<size_t>(kMaxPieceTracks));
+  PoseMap poses = SamplePoses(layer, frame);
+  ApplyDials(doll, layer, frame, &poses);
   return poses;
 }
 

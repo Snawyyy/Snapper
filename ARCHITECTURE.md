@@ -407,6 +407,23 @@ makes a layer's settings the doll's default after giving every other
 layer of the doll the look it has now, so only layers added later start
 from it.
 
+Smart dials (`model/smart_dial.h`, `DialManager`, `anim/smart_dial.cpp`)
+are named controls in the doll's rig (saved in rig.json) that move a
+set of pieces between up to 8 stops on a 0 to 1 track. Each stop holds
+a pose per driven piece and a drawing by its Krita layer name; between
+stops `DialPoses` blends the poses and swaps the drawing halfway or at
+the stop. The value is keyed per doll layer (`DollLayer::dials`, track
+kind `kDial`), on the doll's own timeline row, and keying any part of a
+doll keys every dial too. `SamplePoses(doll, layer, frame)` puts the
+dials under the hand pose (turn, move, skew and order add; scale and
+opacity multiply; a hand-picked drawing wins), so physics, IK and links
+read the result. Set stop takes the hand pose of the driven pieces at
+the playhead into the stop under the knob and resets those hand keys,
+so the doll looks the same after. `DialBox` (`ui/dial_box.cpp`, the
+Smart dials fold of the inspector) makes dials from template tiles and
+turns them (`DialTrack`: snap to stops, Ctrl free, Shift fine, double
+click to rest).
+
 ## Poking
 
 Holding P over a doll on the stage and dragging or flicking pokes it
@@ -597,6 +614,7 @@ are destroyed in reverse.
 | `LinkManager`          | Which things copy another's movement, how much |
 | `SelectionManager`     | What is picked: shots, layers, pieces, keys, clips |
 | `PoseManager`          | Pose edits, IK drags, copy, paste, mirror      |
+| `DialManager`          | Smart dials: make, stops, rest, swap, turn (keyed per doll layer) |
 | `KeyManager`           | Keys on the timeline: move, space, ease, retime, bake a timing chart |
 | `TimingChartManager`   | The timing chart session: picked thing and frames to chart, ticks, live preview in one `EditScope`, Apply or Cancel |
 | `PresetManager`        | Saved poses                                    |

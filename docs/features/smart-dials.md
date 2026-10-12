@@ -1,6 +1,17 @@
 # Smart Dials
 
-Status: planned. Inspired by Moho's Smart Bones and switch layers.
+Status: built, first pass (2026-10-12); owner tests by eye.
+
+First pass: dials are made and turned in a Smart dials fold of the Pose
+panel (not yet a Rig tab box); Set stop saves the hand pose of the
+driven pieces at the playhead and resets those hand keys; dial keys
+live on the doll's own timeline row (no row per dial yet). Moves,
+opacity, order and drawings only, no warp dots (owner's choice); snap to
+stops, Ctrl turns freely. Not built yet: the Rig tab box and live try,
+stage badges and the hover outline, a row per dial, Bake to keys,
+saved poses and copy and paste carrying dial values, Mirror twins,
+drag to reorder (Move up and down in the menu instead), renaming in
+place (a small name dialog for now). Inspired by Moho's Smart Bones and switch layers.
 
 Needs: the Krita exporter keeping layer names (first part of [Doll to Krita](doll-to-krita.md)). Works better with [Draw on a piece](draw-on-a-piece.md) for new stop drawings.
 
@@ -58,8 +69,8 @@ A Smart Dial is a named control on a doll that moves several pieces at once betw
 
 ## Open questions
 
-- [ ] Should a dial also drive warp dots, or only moves and drawing swaps in the first version?
-- [ ] Is snapping to stops the right default, or should free turning be the default with Ctrl to snap?
+- [x] Should a dial also drive warp dots, or only moves and drawing swaps in the first version? Only moves and drawings.
+- [x] Is snapping to stops the right default, or should free turning be the default with Ctrl to snap? Snap, Ctrl frees.
 
 ## Not in the first version
 

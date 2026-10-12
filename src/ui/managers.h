@@ -3,6 +3,7 @@
 
 namespace snapper {
 
+class DialManager;
 class DocumentManager;
 class DollLibraryManager;
 class ExportManager;
@@ -50,6 +51,8 @@ struct Managers final {
   SettingsManager* settings = nullptr;
   // Not in IsComplete: widgets that show the palette assert it themselves.
   PaletteManager* palette = nullptr;
+  // Not in IsComplete either: the smart dial box asserts it.
+  DialManager* dials = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&

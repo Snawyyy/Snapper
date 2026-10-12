@@ -30,8 +30,9 @@ bool KeyInPlace(Channel<T>* channel, Frame frame, const T& rest) {
 }
 
 // A doll's pose is keyed as a whole, as a drawing is in traditional
-// animation: every piece and the layer's own move get a key at frame,
-// so one key on the doll's timeline row is the full pose.
+// animation: every piece, every smart dial and the layer's own move get
+// a key at frame, so one key on the doll's timeline row is the full
+// pose.
 inline Result<Project> KeyWholeDoll(Project project, ShotId shot,
                                     LayerId layer, Frame frame) {
   assert(frame.index() >= 0);
@@ -44,9 +45,13 @@ inline Result<Project> KeyWholeDoll(Project project, ShotId shot,
   const Rig rig = doll->rig;
   return WithLayer(std::move(project), shot, layer, [&](Layer* edited) {
     auto& pieces = std::get<DollLayer>(edited->content).pieces;
+    auto& dials = std::get<DollLayer>(edited->content).dials;
     bool is_set = KeyInPlace(&edited->transform, frame, PiecePose());
     for (const RigPiece& piece : rig.pieces) {
       is_set = KeyInPlace(&pieces[piece.name], frame, PiecePose()) && is_set;
+    }
+    for (const SmartDial& dial : rig.dials) {
+      is_set = KeyInPlace(&dials[dial.name], frame, RestValue(dial)) && is_set;
     }
     return is_set ? Result<void>()
                   : Result<void>(std::unexpected(
@@ -89,7 +94,8 @@ Result<Project> KeyedAt(const Project& project, const TrackRef& track,
   });
   const bool is_doll_part = keyed.has_value() &&
                             (track.kind == TrackKind::kPiece ||
-                             track.kind == TrackKind::kLayer);
+                             track.kind == TrackKind::kLayer ||
+                             track.kind == TrackKind::kDial);
   if (!is_doll_part) {
     return keyed;
   }

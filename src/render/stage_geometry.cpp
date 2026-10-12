@@ -141,7 +141,7 @@ std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
   }
   const auto& keys = std::get<DollLayer>(FindLayer(shot, layer)->content);
   const std::vector<QPointF> keyed =
-      WarpOf(SamplePoses(keys, local), *rig, art->size, piece);
+      WarpOf(SamplePoses(*posed->doll, keys, local), *rig, art->size, piece);
   const std::vector<QPointF> shown =
       WarpOf(posed->poses, *rig, art->size, piece);
   // The dots as this layer has them (its own, or the doll's default).

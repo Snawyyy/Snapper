@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "ui/dial_box.h"
 #include "ui/drag_box.h"
 #include "ui/fold_section.h"
 #include "ui/shot_box.h"
@@ -61,6 +62,7 @@ class Inspector final : public QScrollArea {
   QLabel hint_;
   ShotBox shot_;
   PoseBox pose_;
+  DialBox dials_;
   DragBox drag_;
   PointMotionBox point_motion_;
   CameraBox camera_;

@@ -63,8 +63,11 @@ Last done (2026-10-12, branch `ccr-33af7348-m78soh`, cut from
 off-frame-editing.md): the stage draws the shot past the frame at 40 %
 with a darker surround and a frame line, O hides it (remembered per
 project file), Shift+3 fits all, a red arrow points to picks out of
-view, Shift+2 now frames the pick in the right place. No tests yet, the
-owner adds them later. Next in docs/features: Smart Dials.
+view, Shift+2 now frames the pick in the right place. Then Smart Dials,
+first pass (docs/features/smart-dials.md says what is left): a Smart
+dials fold in the Pose panel, template tiles, Set stop, dial keys on
+the doll row, `DialManager`. No tests yet, the owner adds them later.
+Next in docs/features: Draw on a piece.
 
 Before that (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
 inspector as a hardware panel (pose box: dials, pad, faders; golden ratio,
