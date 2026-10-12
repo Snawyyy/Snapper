@@ -28,9 +28,11 @@ struct ExportRequest final {
   double scale = 1.0;
 };
 
-// Renders the final video to MP4 (with the song) or GIF on a worker
-// thread, from a snapshot of the project, so editing can go on while it
-// runs. The final video is the reel once it has a clip, and until then
+// Renders the final video to any VideoFormat (the song goes along
+// where HasSound) on a worker thread, from a snapshot of the project, so
+// editing can go on while it runs. Formats that keep alpha keep
+// see-through shots see-through; the others lay them over their
+// remembered color. The final video is the reel once it has a clip, and until then
 // the shots one after another. Progress is reported as it goes;
 // cancelling leaves no file.
 class ExportManager final : public QObject {
@@ -46,6 +48,9 @@ class ExportManager final : public QObject {
   // Why Export can't start now, for the greyed-out button; empty when
   // it can.
   QString WhyNoExport(VideoFormat format) const;
+  // What format does with see-through shots, for a note under the
+  // format row; empty when no shot is see-through.
+  QString FormatNote(VideoFormat format) const;
   // True when the reel is what gets exported.
   bool IsReelExport() const;
   // How many frames the whole export would be.

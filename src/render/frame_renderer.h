@@ -1,6 +1,7 @@
 #ifndef SNAPPER_RENDER_FRAME_RENDERER_H_
 #define SNAPPER_RENDER_FRAME_RENDERER_H_
 
+#include <QColor>
 #include <QImage>
 #include <QTransform>
 
@@ -28,10 +29,13 @@ class FrameRenderer final {
   // first, a shot clip drawn as its shot alone and a video fitted to the
   // canvas. Where nothing plays the frame is black. Over a transition
   // the clip and the next one are mixed. videos supplies the video
-  // pictures; with nullptr, videos are left out.
+  // pictures; with nullptr, videos are left out. under is what lies
+  // below every track: black, or clear for an export that keeps alpha.
+  // A see-through shot clip shows the tracks below it.
   QImage RenderReel(const Project& project, Frame frame, double scale,
-                    VideoFrames* videos);
-  // One shot on its own, at a frame of its own.
+                    VideoFrames* videos, QColor under = Qt::black);
+  // One shot on its own, at a frame of its own. A see-through shot
+  // (Shot::is_transparent) leaves its empty area clear.
   QImage RenderShot(const Project& project, const Shot& shot, Frame local,
                     double scale);
 

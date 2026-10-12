@@ -1,5 +1,6 @@
 // ExportDialog's checks and buttons.
 
+#include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QSignalBlocker>
@@ -16,13 +17,12 @@ namespace {
 
 enum Range { kWhole = 0, kLoop = 1, kCustom = 2 };
 
-QString Suffix(VideoFormat format) {
-  assert(format == VideoFormat::kMp4 || format == VideoFormat::kGif);
-  const bool is_gif = format == VideoFormat::kGif;
-  const QString suffix = is_gif ? QStringLiteral("gif")
-                                : QStringLiteral("mp4");
-  assert(suffix.size() == 3);
-  return suffix;
+// path with the ending format wants: none for a PNG folder.
+QString WithSuffix(const QString& path, VideoFormat format) {
+  const QFileInfo info(path);
+  const QString suffix = FormatSuffix(format);
+  const QString base = info.dir().filePath(info.completeBaseName());
+  return suffix.isEmpty() ? base : base + "." + suffix;
 }
 
 }  // namespace
@@ -54,9 +54,22 @@ QString ExportDialog::WhyNotReady() const {
 
 void ExportDialog::Browse() {
   const VideoFormat format = Request().format;
-  assert(format == VideoFormat::kMp4 || format == VideoFormat::kGif);
-  const QString suffix = Suffix(format);
+  const QString suffix = FormatSuffix(format);
   assert(managers_.history != nullptr);
+  const bool is_folder = suffix.isEmpty();
+  if (is_folder) {
+    // PNG frames: a new folder named after the project, inside the one
+    // picked.
+    const QString where = QFileDialog::getExistingDirectory(
+        this, tr("Put the frames folder in"),
+        QFileInfo(path_.text()).dir().path());
+    const bool is_picked = !where.isEmpty();
+    if (is_picked) {
+      path_.setText(QDir(where).filePath(managers_.history->current().name +
+                                         tr(" frames")));
+    }
+    return;
+  }
   const QString start = path_.text().isEmpty()
                             ? managers_.history->current().name + "." + suffix
                             : path_.text();
@@ -102,6 +115,9 @@ void ExportDialog::Refresh() {
     to_.setMaximum(last);
   }
   Explain(&export_, is_running ? tr("Already exporting.") : WhyNotReady());
+  const QString note = managers_.exporter->FormatNote(Request().format);
+  note_.setText(note);
+  layout_.setRowVisible(&note_, !note.isEmpty());
   cancel_.setText(is_running ? tr("Cancel export") : tr("Close"));
   for (QWidget* field : {static_cast<QWidget*>(&format_),
                          static_cast<QWidget*>(&range_),
@@ -115,17 +131,15 @@ void ExportDialog::Refresh() {
 }
 
 void ExportDialog::PickFormat(int index) {
-  assert(index >= 0 && index <= 1);
+  assert(index >= 0 && index < kVideoFormatCount);
   const auto format = static_cast<VideoFormat>(index);
   assert(size_.count() >= 2);
-  // GIFs are usually shared small; MP4 goes out full size.
+  // GIFs are usually shared small; the rest go out full size.
   size_.setCurrentIndex(format == VideoFormat::kGif ? 1 : 0);
   const QString path = path_.text();
   const bool has_path = !path.isEmpty();
   if (has_path) {
-    const QFileInfo info(path);
-    path_.setText(info.dir().filePath(info.completeBaseName() + "." +
-                                      Suffix(format)));
+    path_.setText(WithSuffix(path, format));
   }
   Refresh();
 }

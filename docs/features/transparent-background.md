@@ -1,6 +1,12 @@
 # Transparent shot background
 
-Status: planned.
+Status: built, first pass (2026-10-12); owner tests by eye.
+
+The first pass: the Shot box has a Transparent tile beside the color swatch (all picked shots, one undo step "Transparent background", the color is kept); the new project dialog has a Transparent start whose new shots begin see-through (`new_shots_transparent` in the project file); the stage shows a muted checkerboard behind a see-through shot and Shift+V held shows it over the palette's current color; strip pictures show the checker with a small badge and reel clips a checker swatch; a see-through clip shows the tracks below it on the reel. Export gains PNG frames (a folder of `frame_00000.png` plus `sound.wav`), WebM (VP9 with alpha, Opus sound) and MOV (ProRes 4444, PCM sound); the format row marks the alpha ones, a note explains MP4 and GIF for see-through shots, and a missing encoder greys Export out with a message naming it. Effects other than zoom punch act only where something is drawn.
+
+Not built yet: the Transparent swatch in the floating palette; effect targets that include the background; glows reaching into the clear area (there is no glow effect yet).
+
+Defaults taken for open points: Shift+V previews over the palette's current color (black until one is picked); the PNG folder is new or empty (a folder with PNG files in it is refused, not overwritten); WebM sound is Opus (Vorbis if this FFmpeg has no libopus), MOV sound is 16-bit PCM; GIF makes only fully clear pixels see-through; a reel export in an alpha format is clear where no track plays, in MP4 black as before.
 
 Needs: nothing. It brings the new export formats (PNG sequence, WebM, MOV) that [Sound on the reel](reel-audio.md) and [Text and subtitles](reel-text-and-subtitles.md) also use.
 

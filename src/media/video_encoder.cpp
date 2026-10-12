@@ -7,6 +7,7 @@
 
 #include "base/frame.h"
 #include "base/text.h"
+#include "media/wav_file.h"
 
 namespace snapper {
 namespace {
@@ -29,7 +30,10 @@ VideoEncoder::~VideoEncoder() {
   assert(frame_count_ >= 0);
   const bool is_half_written = is_open_ && !is_finished_;
   output_.reset();
-  if (is_half_written) {
+  const bool is_pngs = settings_.format == VideoFormat::kPngSequence;
+  if (is_half_written && is_pngs) {
+    RemovePngs();
+  } else if (is_half_written) {
     QFile::remove(settings_.path);
   }
   assert(output_ == nullptr);
@@ -39,7 +43,19 @@ Result<void> VideoEncoder::Open(const EncodeSettings& settings) {
   assert(!is_open_);
   assert(!settings.path.isEmpty());
   settings_ = settings;
-  const char* muxer = settings.format == VideoFormat::kGif ? "gif" : "mp4";
+  const QString why_not = WhyNoEncoder(settings.format);
+  const bool has_encoder = why_not.isEmpty();
+  if (!has_encoder) {
+    return std::unexpected(Error{why_not});
+  }
+  const bool is_pngs = settings.format == VideoFormat::kPngSequence;
+  if (is_pngs) {
+    return OpenPngs();
+  }
+  const char* muxer = settings.format == VideoFormat::kGif    ? "gif"
+                      : settings.format == VideoFormat::kWebm ? "webm"
+                      : settings.format == VideoFormat::kMov  ? "mov"
+                                                              : "mp4";
   AVFormatContext* raw = nullptr;
   const QByteArray path = settings.path.toUtf8();
   const int made =
@@ -55,7 +71,7 @@ Result<void> VideoEncoder::Open(const EncodeSettings& settings) {
     return video;
   }
   const bool wants_audio =
-      settings.format == VideoFormat::kMp4 && settings.audio != nullptr;
+      HasSound(settings.format) && settings.audio != nullptr;
   if (wants_audio) {
     auto audio = OpenAudio();
     if (!audio) {
@@ -76,10 +92,15 @@ Result<void> VideoEncoder::Open(const EncodeSettings& settings) {
   return {};
 }
 
-Result<void> VideoEncoder::AddFrame(const QImage& frame) {
+Result<void> VideoEncoder::AddFrame(const QImage& frame, QColor under) {
   assert(is_open_ && !is_finished_);
   assert(!frame.isNull());
-  auto filled = FillVideoFrame(frame);
+  const QImage ready = ReadyFor(settings_.format, frame, under);
+  const bool is_pngs = settings_.format == VideoFormat::kPngSequence;
+  if (is_pngs) {
+    return AddPng(ready);
+  }
+  auto filled = FillVideoFrame(ready);
   if (!filled) {
     return filled;
   }
@@ -95,6 +116,10 @@ Result<void> VideoEncoder::AddFrame(const QImage& frame) {
 Result<void> VideoEncoder::Finish() {
   assert(is_open_);
   assert(!is_finished_);
+  const bool is_pngs = settings_.format == VideoFormat::kPngSequence;
+  if (is_pngs) {
+    return FinishPngs();
+  }
   const std::int64_t clip_end =
       audio_ != nullptr ? settings_.audio->FrameCount() : 0;
   auto audio = EncodeAudioUntil(clip_end);
@@ -129,7 +154,8 @@ Result<void> VideoEncoder::EncodeAudioUntil(std::int64_t sample) {
     return {};
   }
   const AudioClip& clip = *settings_.audio;
-  const int size = audio_->frame_size;
+  const int size = audio_frame_->nb_samples;
+  assert(size > 0);
   const std::int64_t end = std::min<std::int64_t>(sample, clip.FrameCount());
   for (std::int64_t step = 0; step < kMaxFrames && audio_cursor_ < end;
        ++step) {
@@ -137,15 +163,7 @@ Result<void> VideoEncoder::EncodeAudioUntil(std::int64_t sample) {
     if (!is_writable) {
       return std::unexpected(Error{Tr("Export ran out of memory.")});
     }
-    auto* left = reinterpret_cast<float*>(audio_frame_->data[0]);
-    auto* right = reinterpret_cast<float*>(audio_frame_->data[1]);
-    for (int i = 0; i < size; ++i) {
-      const std::int64_t at = audio_cursor_ + i;
-      const bool is_inside = at < clip.FrameCount();
-      const auto index = static_cast<size_t>(at * kAudioChannels);
-      left[i] = is_inside ? clip.samples[index] : 0.0f;
-      right[i] = is_inside ? clip.samples[index + 1] : 0.0f;
-    }
+    FillAudioFrame(size);
     audio_frame_->pts = audio_cursor_;
     audio_cursor_ += size;
     auto sent = Send(audio_.get(), audio_stream_, audio_frame_.get());
@@ -154,6 +172,37 @@ Result<void> VideoEncoder::EncodeAudioUntil(std::int64_t sample) {
     }
   }
   return {};
+}
+
+void VideoEncoder::FillAudioFrame(int size) {
+  assert(size > 0);
+  assert(audio_ != nullptr && settings_.audio != nullptr);
+  const AudioClip& clip = *settings_.audio;
+  const auto format = static_cast<AVSampleFormat>(audio_frame_->format);
+  for (int i = 0; i < size; ++i) {
+    const std::int64_t at = audio_cursor_ + i;
+    const bool is_inside = at < clip.FrameCount();
+    const auto index = static_cast<size_t>(at * kAudioChannels);
+    const float left = is_inside ? clip.samples[index] : 0.0f;
+    const float right = is_inside ? clip.samples[index + 1] : 0.0f;
+    switch (format) {
+      case AV_SAMPLE_FMT_FLTP:
+        reinterpret_cast<float*>(audio_frame_->data[0])[i] = left;
+        reinterpret_cast<float*>(audio_frame_->data[1])[i] = right;
+        break;
+      case AV_SAMPLE_FMT_FLT:
+        reinterpret_cast<float*>(audio_frame_->data[0])[2 * i] = left;
+        reinterpret_cast<float*>(audio_frame_->data[0])[2 * i + 1] = right;
+        break;
+      default: {
+        assert(format == AV_SAMPLE_FMT_S16);
+        auto* both = reinterpret_cast<std::int16_t*>(audio_frame_->data[0]);
+        both[2 * i] = ShortSample(left);
+        both[2 * i + 1] = ShortSample(right);
+        break;
+      }
+    }
+  }
 }
 
 Result<void> VideoEncoder::Send(AVCodecContext* codec, AVStream* stream,

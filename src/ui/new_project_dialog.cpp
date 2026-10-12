@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cassert>
 
+#include "ui/checkerboard.h"
 #include "ui/form_helpers.h"
 #include "ui/theme.h"
 
@@ -79,6 +80,26 @@ NewProjectDialog::NewProjectDialog(QWidget* parent)
     tiles_layout_.addWidget(tile);
     tile_[i] = tile;
   }
+  // Not one of the sizes: it goes with any of them.
+  QPixmap checker(kFrameLong + 4, kFrameLong + 4);
+  checker.fill(Qt::transparent);
+  {
+    QPainter painter(&checker);
+    PaintCheckerboard(&painter, QRectF(checker.rect()).adjusted(4, 8, -4, -8),
+                      kFrameLong / 6.0);
+  }
+  transparent_.setIcon(QIcon(checker));
+  transparent_.setIconSize(QSize(kFrameLong + 4, kFrameLong + 4));
+  transparent_.setText(tr("Transparent\nno background"));
+  transparent_.setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+  transparent_.setCheckable(true);
+  transparent_.setObjectName(QStringLiteral("start_transparent"));
+  transparent_.setToolTip(
+      tr("Every shot starts see-through, for putting the video over "
+         "something else in another program. Each shot can still change "
+         "it."));
+  tiles_layout_.addSpacing(8);
+  tiles_layout_.addWidget(&transparent_);
   for (QSpinBox* side : {&width_, &height_}) {
     side->setRange(kMinCanvasSide, kMaxCanvasSide);
     side->setSingleStep(2);

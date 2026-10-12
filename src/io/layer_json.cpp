@@ -321,6 +321,9 @@ QJsonObject ShotToJson(const Shot& shot) {
   if (has_holds) {
     object.insert("holds", HoldsToJson(shot.holds));
   }
+  if (shot.is_transparent) {
+    object.insert("transparent", true);
+  }
   return object;
 }
 
@@ -332,6 +335,7 @@ Shot ShotFromJson(const QJsonObject& object, JsonIssues* issues) {
   shot.length = Frame(object.value("length").toInt(shot.length.index()));
   shot.background =
       ColorFromJson(object.value("background"), shot.background, issues);
+  shot.is_transparent = object.value("transparent").toBool(false);
   shot.camera = ChannelFromJson(object.value("camera"), CameraPose(), issues);
   // A "transition" left from before transitions moved to the reel is
   // read by MoveShotTransitions.

@@ -39,7 +39,8 @@ DocumentManager::DocumentManager(HistoryManager* history,
   autosave_timer_.start();
 }
 
-Result<void> DocumentManager::New(const QString& name, CanvasSize canvas) {
+Result<void> DocumentManager::New(const QString& name, CanvasSize canvas,
+                                  bool is_transparent) {
   assert(history_ != nullptr);
   assert(!history_->IsScopeOpen());
   const bool is_valid = !name.trimmed().isEmpty() && IsValidCanvas(canvas);
@@ -52,6 +53,7 @@ Result<void> DocumentManager::New(const QString& name, CanvasSize canvas) {
   Project project;
   project.name = name.trimmed();
   project.canvas = canvas;
+  project.new_shots_transparent = is_transparent;
   history_->Reset(std::move(project));
   path_.clear();
   LoadOutsideShown();

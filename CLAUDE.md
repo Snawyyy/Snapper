@@ -97,9 +97,15 @@ reel, first pass (docs/features/reel-shot-resize.md says what is left):
 dragging a full shot clip's edge changes the shot's own length (Alt
 trims, Shift ripples, Ctrl no snap, Edges button for Hold or Stretch),
 other full clips follow, and a double click in a gap offers Fit shot to
-gap (`ReelManager::ResizeShots`, `edit/shot_timing.h`). No tests yet,
-the owner adds them later. Next in docs/features: Transparent shot
-background.
+gap (`ReelManager::ResizeShots`, `edit/shot_timing.h`). Then
+Transparent shot background, first pass (docs/features/
+transparent-background.md says what is left): a Transparent tile in the
+Shot box and a Transparent start, a checkerboard on the stage (Shift+V
+previews over a color), see-through clips over lower reel tracks, and
+new export formats PNG frames, WebM and MOV with alpha
+(`media/video_formats.h`, `ShotManager::SetTransparentAll`). No tests
+yet, the owner adds them later. Next in docs/features: Sound on the
+reel.
 
 Before that (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
 inspector as a hardware panel (pose box: dials, pad, faders; golden ratio,

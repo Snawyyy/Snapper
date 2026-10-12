@@ -19,7 +19,8 @@
 namespace snapper {
 
 // Asks for a new project's name and frame size, picked on four tiles
-// (YouTube, Shorts, square, custom), each drawn as a frame of its shape.
+// (YouTube, Shorts, square, custom), each drawn as a frame of its shape,
+// and a fifth, Transparent, for projects composited elsewhere.
 // OK stays greyed out, saying why, until both are usable.
 class NewProjectDialog final : public QDialog {
   Q_OBJECT
@@ -29,6 +30,8 @@ class NewProjectDialog final : public QDialog {
 
   QString name() const { return name_.text().trimmed(); }
   CanvasSize canvas() const;
+  // The Transparent tile: the project's shots start see-through.
+  bool is_transparent() const { return transparent_.isChecked(); }
   // Why OK can't be pressed; empty when it can.
   QString WhyNotReady() const;
 
@@ -47,6 +50,7 @@ class NewProjectDialog final : public QDialog {
   QHBoxLayout tiles_layout_;
   QButtonGroup group_;
   std::array<QToolButton*, 4> tile_{};
+  QToolButton transparent_;
   QSpinBox width_;
   QSpinBox height_;
   QDialogButtonBox buttons_;

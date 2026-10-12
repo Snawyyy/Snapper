@@ -17,8 +17,8 @@
 
 namespace snapper {
 
-// Export to MP4 (with the song) or GIF: pick format, range, size and
-// file, then watch it render. Editing can go on while it runs; Cancel
+// Export to MP4, GIF, PNG frames, WebM or MOV: pick format, range, size
+// and file (a folder for PNG frames), then watch it render. Editing can go on while it runs; Cancel
 // stops it and leaves no file.
 class ExportDialog final : public QDialog {
   Q_OBJECT
@@ -43,6 +43,8 @@ class ExportDialog final : public QDialog {
   Managers managers_;
   QFormLayout layout_;
   ChoiceRow format_;
+  // What the format does with see-through shots (ExportManager).
+  QLabel note_;
   ChoiceRow range_;
   QSpinBox from_;
   QSpinBox to_;

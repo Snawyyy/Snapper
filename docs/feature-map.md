@@ -42,7 +42,7 @@ it in the same commit.
 | Find a command, shortcuts, burst, sounds | Managers | ui/command_palette.cpp, ui/command_search.cpp, ui/shortcut_sheet.cpp, ui/success_burst.cpp, ui/ui_sound.cpp, ui/blip_wave.cpp, ui/choice_row.cpp, ui/new_project_dialog.cpp | the managers the actions call | ui/window_tests, ui/refusal_reason_tests |
 | Panels and inspector | Picking many | ui/inspector.cpp, ui/inspector_show.cpp, edit/settings_manager.cpp, ui/settings_actions.cpp, edit/rig_default.cpp, ui/scroll_guard.cpp, ui/pose_controls.cpp, ui/fader.cpp, ui/track_pad.cpp, ui/bound_drag.cpp, ui/layer_box.cpp, ui/drag_box.cpp, ui/rig_panel.cpp | the manager the panel calls | ui/inspector_tests, ui/drag_panel_tests, ui/dot_kinds_tests |
 | Feel preview (hopping blob) | Picking many | anim/hop_preview.cpp, ui/wobble_blob.cpp, ui/drag_box_show.cpp | HopPreview (no edits) | anim/hop_preview_tests, ui/drag_panel_tests |
-| Playback, song, export | Time | edit/playback_manager.cpp, edit/export_manager.cpp, ui/transport_bar.cpp, ui/top_bar.cpp, media/video_encoder.cpp | PlaybackManager, ExportManager | edit/playback_tests, edit/export_tests, media/media_tests |
+| Playback, song, export | Time | edit/playback_manager.cpp, edit/export_manager.cpp, ui/transport_bar.cpp, ui/top_bar.cpp, ui/export_dialog.cpp, media/video_encoder.cpp, media/video_streams.cpp, media/video_formats.cpp, media/png_frames.cpp | PlaybackManager, ExportManager | edit/playback_tests, edit/export_tests, media/media_tests |
 | Krita exporter | Dolls | tools/krita/snapper_doll_export/ | none (writes doll folders) | io/doll_file_tests |
 | Floating palette (colors, recent, added, stage flash, I to pick) | Dolls | edit/palette_manager.cpp, render/drawing_colors.cpp, ui/palette_panel.cpp, ui/stage_view_palette.cpp | PaletteManager | edit/palette_tests |
 | Doll to Krita (.ora, Open in Krita) | Dolls | io/ora_file.cpp, io/zip_writer.cpp, io/reconcile.cpp (RemovedDrawings), ui/krita_menu.cpp, tools/krita/snapper_doll_export/importer.py | DollLibraryManager | io/doll_file_tests |
@@ -53,6 +53,7 @@ it in the same commit.
 | Joint snap and joint circles (width middle, end center, overlap center, Snap to shape, J) | Dolls | anim/joint_snap.cpp, edit/rig_snap.cpp, model/doll.h (JointCircle), io/doll_json.cpp, render/layer_painter.cpp (PaintJointCircle), ui/rig_canvas_snap.cpp, ui/rig_canvas_input.cpp (MovePivots, J), ui/rig_canvas_collider.cpp (menu) | RigManager (SnapJointsToShape, ToggleJointCircle, SetJointCircleColor) | none yet |
 | Smooth warp (looks Crisp, Smooth, Smooth flat; Hard edges; Keep crisp; hold backslash) | Rendering | model/doll.h (DrawingLook), render/upscale.cpp, render/warp_raster.cpp (WarpLook), render/warp_cache.cpp (Upscaled), render/image_cache.cpp, render/layer_painter.cpp (LookOf), io/doll_json.cpp, io/doll_file.cpp (ReadRig), io/reconcile.cpp, edit/rig_batch.cpp, ui/look_box.cpp, ui/rig_panel.cpp, ui/stage_view_look.cpp | RigManager (SetLook, SetHardEdges, SetStaysCrispAll) | none yet |
 | Objects (props from PNG and GIF, Objects row, drop on stage, play mode, hold and drop) | Dolls (objects), Links (holding) | model/doll.h (ObjectClip), model/layer.h (ObjectPlay), model/shot.h (Hold), io/object_file.cpp, io/doll_json.cpp, io/layer_json.cpp, io/reconcile.cpp, anim/object_play.cpp, anim/links.cpp (HeldMove), render/stage_geometry.cpp (LayerParentToScreen), edit/object_manager.cpp, ui/cast_panel.cpp, ui/cast_actions.cpp, ui/doll_cards.cpp, ui/stage_view_drop.cpp, ui/hold_actions.cpp, ui/object_box.cpp | ObjectManager | none yet |
+| Transparent shot background (Transparent tile, checkerboard, Shift+V, Transparent start, alpha export: PNG frames, WebM, MOV) | Rendering | model/shot.h (is_transparent), model/project.h (new_shots_transparent), io/layer_json.cpp, io/project_file.cpp, render/frame_renderer.cpp (KeepDrawnOnly, RenderReel under), media/video_formats.cpp, media/video_encoder.cpp, media/video_streams.cpp, media/png_frames.cpp, media/wav_file.cpp, edit/shot_batch.cpp, edit/export_manager.cpp, edit/document_manager.cpp, ui/shot_box.cpp, ui/checkerboard.cpp, ui/stage_view_look.cpp (PaintBehind, SolidKey), ui/shot_strip_paint.cpp, ui/reel_timeline.cpp, ui/export_dialog.cpp, ui/export_dialog_actions.cpp, ui/new_project_dialog.cpp | ShotManager (SetTransparentAll), ExportManager | none yet |
 
 ## Adding a new kind
 
@@ -127,6 +128,16 @@ EffectKind (model/layer.h):
 - ui/cast_panel.cpp and ui/layer_box.cpp list from the Count
 - render/layer_painter.cpp and render/stage_hit.cpp assert only
 - tests: render/render_tests, edit/stage_tests, io/project_file_tests
+
+VideoFormat (media/video_formats.h, an export format):
+- media/video_formats.h: enum, `kVideoFormatCount`
+- media/video_formats.cpp: `KeepsAlpha`, `HasSound`, `FormatSuffix`,
+  `FormatName`, `WhyNoEncoder` (switches)
+- media/video_encoder.cpp: the muxer name in `Open`
+- media/video_streams.cpp: `PickVideoCodec`, `PixelsFor`,
+  `PickAudioCodec`, `SetQuality`
+- ui/export_dialog.cpp: one `format_` item per format, in enum order
+- tests: edit/export_tests, media/media_tests
 
 Material (ui/dot_kinds.h, the four tiles): follows NodeKind; see its
 list. It has its own `kMaterialCount` and switches in ui/dot_kinds.cpp

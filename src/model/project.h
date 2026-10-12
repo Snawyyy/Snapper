@@ -50,6 +50,9 @@ struct Project final {
   // The last colors picked anywhere in the project, newest first, at
   // most kMaxRecentColors.
   std::vector<QColor> recent_colors;
+  // New shots start see-through (the Transparent start, for projects
+  // composited elsewhere).
+  bool new_shots_transparent = false;
 
   bool operator==(const Project&) const = default;
 };

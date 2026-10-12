@@ -41,7 +41,8 @@ bool StageView::PokeKey(QKeyEvent* event, bool is_down) {
 
 void StageView::keyReleaseEvent(QKeyEvent* event) {
   assert(event != nullptr);
-  const bool is_handled = PokeKey(event, false) || CrispKey(event, false);
+  const bool is_handled = PokeKey(event, false) ||
+                          CrispKey(event, false) || SolidKey(event, false);
   if (is_handled) {
     event->accept();
     return;
@@ -53,6 +54,7 @@ void StageView::keyReleaseEvent(QKeyEvent* event) {
 void StageView::focusOutEvent(QFocusEvent* event) {
   assert(event != nullptr);
   ShowCrisp(false);
+  is_solid_preview_ = false;
   const bool was_armed = poke_.IsArmed();
   if (was_armed) {
     poke_.Disarm();

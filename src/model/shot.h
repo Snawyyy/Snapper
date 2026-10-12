@@ -77,6 +77,10 @@ struct Shot final {
   std::vector<DotGroup> dot_groups;
   // Objects held by doll pieces, at most one per object and frame.
   std::vector<Hold> holds{};
+  // See-through: nothing is drawn where no layer draws. background
+  // stays remembered, for turning this off and for formats with no
+  // alpha (MP4), which put the shot over it.
+  bool is_transparent = false;
 
   bool operator==(const Shot&) const = default;
 };

@@ -3,7 +3,7 @@
 Snapper is a puppet animator for music videos in the style of Execution
 Clap. Dolls are drawn in Krita, rigged and posed in Snapper, cut into
 shots, dressed with camera moves, text and effects, laid out with video
-files (a speedpaint) on the reel, and exported as MP4 or GIF. Everything is finished inside Snapper.
+files (a speedpaint) on the reel, and exported as MP4 or GIF, or with alpha as PNG frames, WebM or MOV. Everything is finished inside Snapper.
 
 This file is the map. Each section is a rule the code keeps. When code
 and this file disagree, one of them is a bug.
@@ -689,6 +689,30 @@ opens a file; the `edit` side's `VideoFileFrames` reads them with
 `VideoReader`, keeping each file open so playing forward decodes each
 picture once. Like the renderer, each thread has its own.
 
+A shot may be see-through (`Shot::is_transparent`; `background` stays
+remembered). `RenderShot` then starts from a clear frame, and effects
+other than zoom punch are cut back to what was drawn before them
+(`KeepDrawnOnly`), so a fill or flash never covers the empty area. In
+the reel a see-through clip shows the tracks below; `RenderReel` takes
+what lies under every track (black, or clear for an alpha export).
+`ShotManager::SetTransparentAll` is the one edit (one undo step for all
+picked shots); `Project::new_shots_transparent` (the Transparent start
+in the new project dialog) makes new shots start see-through. The
+stage paints a checkerboard behind such a shot (`ui/checkerboard.h`,
+also the strip and reel badges); Shift+V held shows it over the
+palette's current color instead.
+
+Export formats live in `media/video_formats.h` (`VideoFormat`,
+`KeepsAlpha`, `HasSound`, `WhyNoEncoder`, `ReadyFor`). `VideoEncoder`
+writes MP4, GIF, WebM (VP9 `yuva420p`, Opus or Vorbis), MOV (ProRes
+4444 `yuva444p10le`, PCM sound) and PNG frames (`media/png_frames.cpp`:
+a folder of `frame_00000.png`, the song as `sound.wav` via
+`media/wav_file.h`). Each frame goes through `ReadyFor`: MP4 lays a
+see-through shot over its remembered color (the export worker passes
+it per frame), GIF blends soft edges over it and keeps one clear
+palette slot, the others keep alpha. `ExportManager::WhyNoExport`
+refuses a format whose encoder this FFmpeg lacks, saying which.
+
 The CPU is enough for flat-colour dolls at 1080p. If preview at full
 size ever drops below 24 fps, the upgrade is to move `FrameRenderer`
 onto the GPU behind the same interface; nothing else would change.
@@ -720,7 +744,7 @@ are destroyed in reverse.
 | `TimingChartManager`   | The timing chart session: picked thing and frames to chart, ticks, live preview in one `EditScope`, Apply or Cancel |
 | `PresetManager`        | Saved poses                                    |
 | `PlaybackManager`      | Playhead on either timeline, play, loop, song  |
-| `ExportManager`        | MP4 and GIF export of the final video, threaded |
+| `ExportManager`        | MP4, GIF, PNG frames, WebM, MOV export, threaded |
 | `MotionManager` (`ui`) | How long and how softly the UI moves: the Motion table, Full / Calm / Off, saved in settings |
 | `ToastManager` (`ui`)  | Toasts: the queue, their time, stacking, dismissal and the Undo they offer |
 | `TimingChartDialog` (`ui`) | The floating timing chart window (Shift+T, or Define timing chart... in the stage and timeline menus); its strip only draws the ticks and forwards drags to `TimingChartManager` |

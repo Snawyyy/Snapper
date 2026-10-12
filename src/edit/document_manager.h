@@ -26,7 +26,10 @@ class DocumentManager final : public QObject {
   // data_folder holds the autosave and the recent files list.
   DocumentManager(HistoryManager* history, QString data_folder);
 
-  Result<void> New(const QString& name, CanvasSize canvas);
+  // is_transparent: the Transparent start, whose shots start
+  // see-through.
+  Result<void> New(const QString& name, CanvasSize canvas,
+                   bool is_transparent = false);
   Result<void> Open(const QString& path);
   // Saves where the project was opened or last saved. Fails, saying so,
   // when it has never been saved: the caller asks where (SaveAs).

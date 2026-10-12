@@ -18,7 +18,8 @@
 
 namespace snapper {
 
-// The picked shots' settings: name, length and background. Shows the
+// The picked shots' settings: name, length and background (a color, or
+// Transparent, which keeps the color for later). Shows the
 // focused shot; changes go to every picked shot (lengths by the same
 // difference). Transitions live on the reel's cuts (Video tab).
 class ShotBox final : public QGroupBox {
@@ -42,7 +43,11 @@ class ShotBox final : public QGroupBox {
   QLineEdit name_;
   QSpinBox length_;
   QDoubleSpinBox length_seconds_;
+  // The color swatch and the Transparent tile beside it.
+  QWidget background_row_;
+  QHBoxLayout background_layout_;
   QPushButton background_;
+  QPushButton transparent_;
 };
 
 }  // namespace snapper

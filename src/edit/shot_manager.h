@@ -38,6 +38,10 @@ class ShotManager final {
   Result<void> ShiftLength(const std::vector<ShotId>& shots, int delta);
   Result<void> SetBackgroundAll(const std::vector<ShotId>& shots,
                                 QColor color);
+  // Turns the see-through background on or off for every shot in
+  // shots; each keeps its color for when it is turned off again.
+  Result<void> SetTransparentAll(const std::vector<ShotId>& shots,
+                                 bool is_transparent);
 
  private:
   HistoryManager* history_;

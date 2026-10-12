@@ -30,6 +30,16 @@ QImage Blank(const Project& project, double scale, QColor color) {
   return image;
 }
 
+// Cuts frame back to where before had something drawn, keeping soft
+// edges soft (both premultiplied).
+void KeepDrawnOnly(const QImage& before, QImage* frame) {
+  assert(frame != nullptr);
+  assert(before.size() == frame->size());
+  QPainter painter(frame);
+  painter.setCompositionMode(QPainter::CompositionMode_DestinationIn);
+  painter.drawImage(0, 0, before);
+}
+
 // Mixes the next clip in over a transition; mix runs 0 to 1.
 QImage Combine(TransitionKind kind, double mix, const QImage& from,
                const QImage& to) {
@@ -123,7 +133,9 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
                                  Frame local, double scale) {
   assert(scale > 0.0);
   assert(shot.layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
-  QImage frame = Blank(project, scale, shot.background);
+  QImage frame = Blank(project, scale,
+                       shot.is_transparent ? QColor(Qt::transparent)
+                                           : shot.background);
   const QTransform view = ViewTransform(project, shot, local, scale);
   LinkSolver links(project, shot, cache_.poses());
   for (const Layer& layer : shot.layers) {
@@ -136,9 +148,17 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
     if (is_effect) {
       const double opacity =
           Sample(layer.transform, local, PiecePose()).opacity;
+      // On a see-through shot an effect acts only where something is
+      // drawn; a zoom punch moves what is drawn, so it is left alone.
+      const bool is_masked = shot.is_transparent &&
+                             effect->kind != EffectKind::kZoomPunch;
+      const QImage before = is_masked ? frame.copy() : QImage();
       ApplyEffect(effect->kind,
                   Sample(effect->amount, local, 1.0) * opacity,
                   effect->color, scale, local.index(), &frame);
+      if (is_masked) {
+        KeepDrawnOnly(before, &frame);
+      }
       continue;
     }
     QPainter painter(&frame);
@@ -234,10 +254,11 @@ void FrameRenderer::DrawClip(const Project& project, const Clip& clip,
 }
 
 QImage FrameRenderer::RenderReel(const Project& project, Frame frame,
-                                 double scale, VideoFrames* videos) {
+                                 double scale, VideoFrames* videos,
+                                 QColor under) {
   assert(scale > 0.0);
   assert(frame.index() >= 0);
-  QImage out = Blank(project, scale, Qt::black);
+  QImage out = Blank(project, scale, under);
   for (const ReelPiece& piece : ReelAt(project, frame)) {
     const bool is_mixing = piece.next != nullptr;
     if (!is_mixing) {

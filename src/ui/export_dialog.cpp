@@ -31,8 +31,16 @@ ExportDialog::ExportDialog(const Managers& managers, QWidget* parent)
 
 void ExportDialog::BuildLayout() {
   assert(layout_.rowCount() == 0);
+  // In VideoFormat order; the ones that keep transparency say so.
   format_.addItem(tr("MP4 video with the song"));
-  format_.addItem(tr("GIF, no sound"));
+  format_.addItem(tr("GIF, no sound (alpha)"));
+  format_.addItem(tr("PNG frames (alpha)"));
+  format_.addItem(tr("WebM (alpha)"));
+  format_.addItem(tr("MOV ProRes (alpha)"));
+  assert(format_.count() == kVideoFormatCount);
+  format_.setToolTip(
+      tr("Alpha formats keep a see-through background. PNG frames go in a "
+         "folder, with the song beside them as sound.wav."));
   range_.addItem(tr("Whole master track"));
   range_.addItem(tr("Loop range"));
   range_.addItem(tr("Frames..."));
@@ -48,6 +56,8 @@ void ExportDialog::BuildLayout() {
   buttons_.addWidget(&export_);
   buttons_.addWidget(&cancel_);
   layout_.addRow(tr("Format"), &format_);
+  layout_.addRow(&note_);
+  note_.setWordWrap(true);
   layout_.addRow(tr("Range"), &range_);
   AddNumberRow(&layout_, tr("From frame"), &from_, nullptr);
   AddNumberRow(&layout_, tr("Up to frame"), &to_, nullptr);
@@ -57,7 +67,7 @@ void ExportDialog::BuildLayout() {
   layout_.addRow(&status_);
   layout_.addRow(&buttons_);
   status_.setWordWrap(true);
-  assert(layout_.rowCount() == 9);
+  assert(layout_.rowCount() == 10);
 }
 
 void ExportDialog::Wire() {

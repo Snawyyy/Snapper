@@ -77,6 +77,8 @@ Result<Project> ReadProject(const QString& path) {
   project.next_shot_id = read->value("next_shot_id").toInt(1);
   project.next_layer_id = read->value("next_layer_id").toInt(1);
   project.next_clip_id = read->value("next_clip_id").toInt(1);
+  project.new_shots_transparent =
+      read->value("new_shots_transparent").toBool(false);
   ReadDolls(read->value("dolls").toArray(), &project, &issues);
   ReadShots(read->value("shots").toArray(), &project, &issues);
   project.reel = ReelFromJson(read->value("reel"), &issues);
@@ -108,7 +110,7 @@ Result<void> WriteProject(const QString& path, const Project& project) {
   for (const auto& shot : project.shots) {
     shots.append(ShotToJson(*shot));
   }
-  const QJsonObject object{
+  QJsonObject object{
       {"format", "snapper-project"},
       {"version", kProjectVersion},
       {"name", project.name},
@@ -123,6 +125,9 @@ Result<void> WriteProject(const QString& path, const Project& project) {
       {"reel", ReelToJson(project.reel)},
       {"cut_markers", MarkersToJson(project.reel.markers)},
       {"recent_colors", ColorsToJson(project.recent_colors)}};
+  if (project.new_shots_transparent) {
+    object.insert("new_shots_transparent", true);
+  }
   return WriteJsonFile(path, object);
 }
 

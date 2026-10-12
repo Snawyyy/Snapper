@@ -15,6 +15,7 @@
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/shot_timing.h"
+#include "ui/checkerboard.h"
 #include "ui/form_helpers.h"
 #include "ui/theme.h"
 
@@ -227,8 +228,13 @@ void ReelTimeline::PaintClip(QPainter* painter, const Clip& clip) const {
   }
   const bool has_swatch = shot != nullptr;
   if (has_swatch) {
-    painter->fillRect(QRectF(box.topLeft(), QSizeF(5, box.height())),
-                      shot->background);
+    // A see-through shot shows the checker instead of its color.
+    const QRectF swatch(box.topLeft(), QSizeF(5, box.height()));
+    if (shot->is_transparent) {
+      PaintCheckerboard(painter, swatch, 2.5);
+    } else {
+      painter->fillRect(swatch, shot->background);
+    }
   }
   const QString name = video != nullptr ? QFileInfo(video->path).fileName()
                        : is_missing     ? tr("Shot removed")

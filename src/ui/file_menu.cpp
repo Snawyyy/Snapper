@@ -124,7 +124,8 @@ void FileMenu::New() {
   NewProjectDialog dialog(window_);
   const bool is_chosen = ConfirmDiscard() && dialog.exec() == QDialog::Accepted;
   if (is_chosen) {
-    Report(document_->New(dialog.name(), dialog.canvas()));
+    Report(document_->New(dialog.name(), dialog.canvas(),
+                          dialog.is_transparent()));
   }
 }
 

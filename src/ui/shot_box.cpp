@@ -17,7 +17,8 @@ namespace snapper {
 
 ShotBox::ShotBox(const Managers& managers)
     : QGroupBox(tr("Shot")), managers_(managers), layout_(this),
-      live_(managers.history) {
+      live_(managers.history), background_layout_(&background_row_),
+      transparent_(tr("Transparent")) {
   assert(managers_.IsComplete());
   name_.setObjectName("shot_name");
   length_.setObjectName("shot_length");
@@ -36,7 +37,20 @@ ShotBox::ShotBox(const Managers& managers)
   layout_.addRow(tr("Name"), &name_);
   AddNumberRow(&layout_, tr("Length"), &length_, &live_);
   AddNumberRow(&layout_, tr("Seconds"), &length_seconds_, &live_);
-  layout_.addRow(tr("Background"), &background_);
+  transparent_.setObjectName("shot_transparent");
+  transparent_.setCheckable(true);
+  transparent_.setToolTip(
+      tr("See-through: nothing behind the dolls, for putting the shot over "
+         "video or into another program. The color is kept for when you "
+         "turn this off."));
+  background_layout_.setContentsMargins(0, 0, 0, 0);
+  background_layout_.addWidget(&background_, 1);
+  background_layout_.addWidget(&transparent_);
+  layout_.addRow(tr("Background"), &background_row_);
+  connect(&transparent_, &QPushButton::clicked, this, [this](bool is_on) {
+    emit Problem(
+        ProblemOf(managers_.shots->SetTransparentAll(Picked(), is_on)));
+  });
   connect(&name_, &QLineEdit::editingFinished, this, [this] {
     const Shot* shot = Focused();
     const bool is_renamed = shot != nullptr && name_.text() != shot->name;
@@ -132,6 +146,8 @@ void ShotBox::Refresh() {
   ShowNumber(&length_, shot->length.index(), frames);
   ShowNumber(&length_seconds_, SecondsAtFrame(shot->length), seconds);
   ShowColour(&background_, shot->background);
+  const QSignalBlocker quiet_clear(transparent_);
+  transparent_.setChecked(shot->is_transparent);
 }
 
 }  // namespace snapper

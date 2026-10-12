@@ -27,6 +27,7 @@ Result<ShotId> ShotManager::Add(int index) {
   Shot shot;
   shot.id = TakeShotId(&next);
   shot.name = Tr("Shot %1").arg(shot.id.value());
+  shot.is_transparent = next.new_shots_transparent;
   const int at = index < 0 || index > count ? count : index;
   next.shots.insert(next.shots.begin() + at,
                     std::make_shared<const Shot>(shot));

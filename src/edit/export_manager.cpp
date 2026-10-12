@@ -36,6 +36,17 @@ int EvenSide(int side, double scale) {
   return std::max(scaled, 2);
 }
 
+// The remembered background color of the shot at master frame, which a
+// format without alpha puts a see-through shot over.
+QColor ShotColorAt(const Project& project, Frame master) {
+  assert(master.index() >= 0);
+  const ShotMoment moment = Locate(project, master);
+  const bool is_past_end = moment.shot < 0;
+  return is_past_end
+             ? QColor(Qt::black)
+             : project.shots[static_cast<size_t>(moment.shot)]->background;
+}
+
 // Runs on the worker thread: nothing here touches the managers.
 Result<void> RunExport(ExportJob job) {
   assert(job.cancel != nullptr && job.done != nullptr);
@@ -48,6 +59,11 @@ Result<void> RunExport(ExportJob job) {
   FrameRenderer renderer;
   // This thread's own open video files.
   VideoFileFrames videos;
+  // Below every reel track: clear when the format keeps alpha, so
+  // see-through shot clips stay see-through where nothing is under.
+  const QColor reel_under = KeepsAlpha(job.request.format)
+                                ? QColor(Qt::transparent)
+                                : QColor(Qt::black);
   for (int f = job.request.start.index(); f < job.request.end.index(); ++f) {
     const bool is_cancelled = job.cancel->load();
     if (is_cancelled) {
@@ -55,10 +71,11 @@ Result<void> RunExport(ExportJob job) {
     }
     const Frame frame(f);
     auto added = encoder.AddFrame(
-        job.is_reel ? renderer.RenderReel(job.project, frame,
-                                          job.request.scale, &videos)
-                    : renderer.RenderFrame(job.project, frame,
-                                           job.request.scale));
+        job.is_reel
+            ? renderer.RenderReel(job.project, frame, job.request.scale,
+                                  &videos, reel_under)
+            : renderer.RenderFrame(job.project, frame, job.request.scale),
+        job.is_reel ? QColor(Qt::black) : ShotColorAt(job.project, frame));
     if (!added) {
       return added;
     }
@@ -93,11 +110,14 @@ QString ExportManager::WhyNoExport(VideoFormat format) const {
   const Project& project = history_->current();
   const bool is_busy = worker_.isRunning();
   const bool is_empty = ExportLength().index() == 0;
-  const bool wants_song =
-      format == VideoFormat::kMp4 && !project.song.isEmpty();
+  const bool wants_song = HasSound(format) && !project.song.isEmpty();
   const bool is_song_missing = wants_song && playback_->song() == nullptr;
+  const QString no_encoder = WhyNoEncoder(format);
   if (is_busy) {
     return Tr("An export is already running.");
+  }
+  if (!no_encoder.isEmpty()) {
+    return no_encoder;
   }
   if (is_empty) {
     return Tr("Add a shot or a clip first.");
@@ -134,7 +154,7 @@ Result<void> ExportManager::Start(const ExportRequest& request) {
                           EvenSide(project.canvas.height, range.scale),
                           nullptr};
   const bool has_song =
-      range.format == VideoFormat::kMp4 && playback_->song() != nullptr;
+      HasSound(range.format) && playback_->song() != nullptr;
   if (has_song) {
     const double length = SecondsAtFrame(range.end) -
                           SecondsAtFrame(range.start);
@@ -151,6 +171,29 @@ Result<void> ExportManager::Start(const ExportRequest& request) {
   progress_timer_.start();
   emit Progress(0, total_);
   return {};
+}
+
+QString ExportManager::FormatNote(VideoFormat format) const {
+  assert(history_ != nullptr);
+  const Project& project = history_->current();
+  const bool has_clear_shot =
+      std::ranges::any_of(project.shots, [](const auto& shot) {
+        return shot->is_transparent;
+      });
+  if (!has_clear_shot) {
+    return QString();
+  }
+  if (!KeepsAlpha(format)) {
+    return Tr("MP4 has no transparency: see-through shots get their "
+              "background color.");
+  }
+  if (format == VideoFormat::kGif) {
+    return Tr("GIF keeps one see-through color: soft edges are blended "
+              "over the shot's background color.");
+  }
+  return IsReelExport() ? Tr("Keeps transparency where no track is under "
+                             "a see-through shot.")
+                        : Tr("Keeps transparency.");
 }
 
 bool ExportManager::IsReelExport() const {

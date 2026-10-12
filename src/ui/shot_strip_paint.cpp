@@ -8,11 +8,19 @@
 
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/checkerboard.h"
 #include "ui/shot_strip.h"
 #include "ui/shot_strip_layout.h"
 #include "ui/theme.h"
 
 namespace snapper {
+namespace {
+
+// A see-through shot's picture: the checker squares' side.
+constexpr double kThumbChecker = 4.0;
+
+}  // namespace
+
 std::vector<ShotStrip::Block> ShotStrip::Blocks() const {
   assert(managers_.history != nullptr);
   std::vector<Block> blocks;
@@ -52,9 +60,16 @@ double ShotStrip::PaintPicture(QPainter* painter, const QRectF& card,
   // The frame keeps its shape inside the slot.
   const QSizeF fit =
       QSizeF(frame.size()).scaled(slot.size(), Qt::KeepAspectRatio);
-  painter->drawPixmap(
-      QRectF(slot.center() - QPointF(fit.width(), fit.height()) / 2.0, fit),
-      frame, QRectF(frame.rect()));
+  const QRectF picture(
+      slot.center() - QPointF(fit.width(), fit.height()) / 2.0, fit);
+  const bool is_clear = shared->is_transparent;
+  if (is_clear) {
+    PaintCheckerboard(painter, picture, kThumbChecker);
+  }
+  painter->drawPixmap(picture, frame, QRectF(frame.rect()));
+  if (is_clear) {
+    PaintClearBadge(painter, picture);
+  }
   return slot.right() + 6.0;
 }
 

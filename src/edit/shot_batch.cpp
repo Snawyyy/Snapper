@@ -93,4 +93,16 @@ Result<void> ShotManager::SetBackgroundAll(const std::vector<ShotId>& shots,
                 [color](Shot* shot) { shot->background = color; }));
 }
 
+Result<void> ShotManager::SetTransparentAll(const std::vector<ShotId>& shots,
+                                            bool is_transparent) {
+  assert(history_ != nullptr);
+  assert(shots.size() <= static_cast<size_t>(kMaxShots));
+  return history_->Apply(
+      is_transparent ? Tr("Transparent background")
+                     : Tr("Solid background"),
+      WithShots(history_->current(), shots, [is_transparent](Shot* shot) {
+        shot->is_transparent = is_transparent;
+      }));
+}
+
 }  // namespace snapper
