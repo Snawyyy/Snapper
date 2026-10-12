@@ -129,7 +129,10 @@ void RigPanel::BuildLayout() {
   chain_buttons_.addWidget(&flip_chain_);
   chain_buttons_.addWidget(&remove_chain_);
   layout_.addWidget(&dolls_);
-  layout_.addWidget(&pieces_, 2);
+  // Fixed heights: the panel scrolls, so no list grows or shrinks as
+  // the fields under it come and go.
+  pieces_.setFixedHeight(200);
+  layout_.addWidget(&pieces_);
   layout_.addWidget(&look_);
   layout_.addWidget(&skins_);
   layout_.addLayout(&form_);
@@ -142,10 +145,12 @@ void RigPanel::BuildLayout() {
                               "mirrored."));
   layout_.addLayout(&mirror_buttons_);
   layout_.addWidget(&chains_title_);
-  layout_.addWidget(&chains_, 1);
+  chains_.setFixedHeight(90);
+  layout_.addWidget(&chains_);
   layout_.addLayout(&chain_buttons_);
   layout_.addWidget(&save_rig_);
   layout_.addWidget(&hint_);
+  layout_.addStretch(1);
   assert(form_.rowCount() == 12);
 }
 

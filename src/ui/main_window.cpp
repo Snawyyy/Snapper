@@ -6,6 +6,7 @@
 #include <QCloseEvent>
 #include <QKeySequence>
 #include <QMenuBar>
+#include <QScrollBar>
 #include <QStatusBar>
 
 #include <cassert>
@@ -155,22 +156,31 @@ void MainWindow::Start(const QString& path) {
 void MainWindow::ShowMode(int index) {
   assert(index >= 0 && index <= static_cast<int>(Mode::kVideo));
   assert(managers_.playback != nullptr);
-  const bool was_video =
-      pages_.currentIndex() == static_cast<int>(Mode::kVideo);
+  const int was = pages_.currentIndex();
   const bool is_video = index == static_cast<int>(Mode::kVideo);
   pages_.setCurrentIndex(index);
   managers_.playback->SetTimeline(is_video ? Timeline::kReel
                                            : Timeline::kShots);
-  const bool is_entering = is_video && !was_video;
-  if (is_entering) {
+  // The cast shows outside the Video tab, the inspector only on Pose;
+  // each comes back as it was left there.
+  const auto has_cast = [](int mode) {
+    return mode != static_cast<int>(Mode::kVideo);
+  };
+  const auto has_inspector = [](int mode) {
+    return mode == static_cast<int>(Mode::kPose);
+  };
+  if (has_cast(was) && !has_cast(index)) {
     was_cast_open_ = cast_dock_.isVisible();
-    was_inspector_open_ = inspector_dock_.isVisible();
     cast_dock_.hide();
+  }
+  if (!has_cast(was) && has_cast(index)) {
+    cast_dock_.setVisible(was_cast_open_);
+  }
+  if (has_inspector(was) && !has_inspector(index)) {
+    was_inspector_open_ = inspector_dock_.isVisible();
     inspector_dock_.hide();
   }
-  const bool is_leaving = was_video && !is_video;
-  if (is_leaving) {
-    cast_dock_.setVisible(was_cast_open_);
+  if (!has_inspector(was) && has_inspector(index)) {
     inspector_dock_.setVisible(was_inspector_open_);
   }
   // Undo and redo act on a shot in the other tabs, on the newest change
@@ -223,7 +233,17 @@ void MainWindow::BuildPages() {
   pose_layout_.addWidget(&pose_split_, 1);
   pages_.addWidget(&pose_page_);
   rig_split_.addWidget(&rig_canvas_);
-  rig_split_.addWidget(&rig_panel_);
+  rig_scroll_.setWidgetResizable(true);
+  rig_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  rig_scroll_.setFrameShape(QFrame::NoFrame);
+  rig_scroll_.setWidget(&rig_panel_);
+  // As wide as the panel ever needs, so the split never shifts.
+  rig_scroll_.setMinimumWidth(rig_panel_.minimumSizeHint().width() +
+                              rig_scroll_.verticalScrollBar()
+                                  ->sizeHint()
+                                  .width());
+  rig_split_.addWidget(&rig_scroll_);
+  rig_split_.setCollapsible(1, false);
   rig_split_.setStretchFactor(0, 3);
   rig_split_.setStretchFactor(1, 1);
   pages_.addWidget(&rig_split_);

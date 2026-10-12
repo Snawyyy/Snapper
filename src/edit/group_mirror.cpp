@@ -35,12 +35,25 @@ Pairs PairsOf(const Doll& before, const Doll& after,
   return pairs;
 }
 
-// What the twin of a group called name is called.
-QString TwinName(const QString& name) {
+// The side the copied pieces under group's dots are on: -1 left, 1
+// right, 0 when none of them has a side.
+int SideOfDots(const DotGroup& group, const Pairs& pairs) {
+  assert(group.dots.size() <= static_cast<size_t>(kMaxGroupDots));
+  for (const GroupDot& dot : group.dots) {
+    const int side = pairs.contains(dot.piece) ? SideOf(dot.piece) : 0;
+    if (side != 0) {
+      return side;
+    }
+  }
+  return 0;
+}
+
+// name marked with side the way pieces are: "hair" on the left is
+// "hair_L".
+QString Sided(const QString& name, int side) {
+  assert(side == -1 || side == 1);
   assert(!name.isEmpty());
-  assert(name.size() < 100000);
-  const QString other = MirrorName(name);
-  return other != name ? other : Tr("%1 mirrored").arg(name);
+  return name + (side < 0 ? QStringLiteral("_L") : QStringLiteral("_R"));
 }
 
 // group's dots that sit on a copied piece (of this doll's layers, when
@@ -71,7 +84,9 @@ std::vector<GroupDot> TwinDots(const DotGroup& group, const Pairs& pairs,
 }
 
 // groups with a twin of every group that has dots on a copied piece,
-// remaking a twin that exists.
+// remaking a twin that exists. A group without a side in its name takes
+// the side of its pieces first ("hair" becomes "hair_L"), so its twin is
+// "hair_R" and copying again only remakes that one twin.
 void AddTwins(const Pairs& pairs, const std::set<LayerId>& layers,
               std::vector<DotGroup>* groups) {
   assert(groups != nullptr);
@@ -79,16 +94,29 @@ void AddTwins(const Pairs& pairs, const std::set<LayerId>& layers,
   const std::vector<DotGroup> originals = *groups;
   for (const DotGroup& group : originals) {
     std::vector<GroupDot> dots = TwinDots(group, pairs, layers);
-    const QString name = TwinName(group.name);
+    if (dots.empty()) {
+      continue;
+    }
+    QString own = group.name;
+    const int side = SideOfDots(group, pairs);
+    const bool needs_side = SideOf(own) == 0 && side != 0 &&
+                            FindGroup(*groups, Sided(own, side)) == nullptr;
+    if (needs_side) {
+      own = Sided(own, side);
+      FindGroup(groups, group.name)->name = own;
+    }
+    const QString name = MirrorName(own);
+    // A group with no side on a piece with none has no twin to make.
+    if (name == own) {
+      continue;
+    }
     DotGroup* existing = FindGroup(groups, name);
     const bool is_room =
         existing != nullptr ||
         groups->size() < static_cast<size_t>(kMaxDotGroups);
-    const bool is_made = !dots.empty() && is_room && name != group.name;
-    const bool is_remade = is_made && existing != nullptr;
-    if (is_remade) {
+    if (existing != nullptr) {
       existing->dots = std::move(dots);
-    } else if (is_made) {
+    } else if (is_room) {
       groups->push_back({name, std::move(dots)});
     }
   }

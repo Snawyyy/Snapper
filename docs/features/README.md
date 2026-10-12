@@ -72,7 +72,7 @@ Every proposed key is free in Snapper today (checked against the keys bound in t
 | D | Draw mode | Original as onion under yours, on and off | Draw on a piece |
 | B | Draw mode | Brush | Draw on a piece |
 | E | Draw mode | Eraser on and off (back to the brush) | Draw on a piece |
-| G | Draw mode | Fill bucket | Draw on a piece |
+| F | Draw mode | Fill bucket | Draw on a piece |
 | W | Draw mode | Magic wand | Draw on a piece |
 | I | Draw mode | Color picker | Draw on a piece |
 | Alt (hold) | Draw mode | Color picker while held | Draw on a piece |

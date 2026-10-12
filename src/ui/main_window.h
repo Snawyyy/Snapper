@@ -5,6 +5,7 @@
 #include <QDockWidget>
 #include <QMainWindow>
 #include <QMenu>
+#include <QScrollArea>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QToolBar>
@@ -118,6 +119,10 @@ class MainWindow final : public QMainWindow {
   TimelineView timeline_;
   QSplitter rig_split_;
   RigCanvas rig_canvas_;
+  // Scrolls the rig settings, so a piece with more of them never
+  // squeezes or clips the rest. Before the panel, so the panel is gone
+  // before the scroll area that holds it.
+  QScrollArea rig_scroll_;
   RigPanel rig_panel_;
   VideoPage video_page_;
   QDockWidget cast_dock_;

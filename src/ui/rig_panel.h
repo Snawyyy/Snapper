@@ -64,6 +64,10 @@ class RigPanel final : public QWidget {
   // Draw order and rest turn of the focused piece; picks that differ
   // say Mixed.
   void ShowOrderAndRest(const Doll& doll, const RigPiece& focus);
+  // Shows only the settings that fit: doll-wide ones with a doll, piece
+  // ones with a piece (rig, or nullptr for none), and of the warp only
+  // the fields its kind uses.
+  void ShowOnlyRelevant(bool has_doll, const RigPiece* rig);
   // The warp fields of the focused piece (nullptr for none): which are
   // live, and why the others are greyed.
   void ShowWarp(const RigPiece* rig);

@@ -156,6 +156,7 @@ void RigPanel::RefreshPiece() {
   Explain(&copy_side_, no_twin);
   Explain(&mirror_nodes_, managers_.rig->WhyNoMirror(doll_, piece_));
   const bool has_piece = rig != nullptr && art != nullptr;
+  ShowOnlyRelevant(doll != nullptr, has_piece ? rig : nullptr);
   if (!has_piece) {
     return;
   }
@@ -201,6 +202,39 @@ void RigPanel::RefreshPiece() {
   Explain(&add_chain_, rig->parent.isEmpty()
                            ? tr("A chain needs the piece to hang from one.")
                            : QString());
+}
+
+void RigPanel::ShowOnlyRelevant(bool has_doll, const RigPiece* rig) {
+  assert(form_.rowCount() == 12);
+  const bool has_piece = rig != nullptr;
+  const bool has_warp = has_piece && rig->warp.IsOn();
+  const bool is_grid = has_warp && !rig->warp.IsMesh();
+  // Rows of form_: the joint (0 to 6), then the warp (7 to 11).
+  for (int row = 0; row <= 8; ++row) {
+    form_.setRowVisible(row, has_piece);
+  }
+  // Detail makes and remakes a shape mesh; cells and Convert are for an
+  // old grid only.
+  form_.setRowVisible(9, has_piece && !is_grid);
+  form_.setRowVisible(10, is_grid);
+  form_.setRowVisible(11, is_grid);
+  collider_box_.setVisible(has_piece);
+  for (QWidget* button : {static_cast<QWidget*>(&copy_piece_),
+                          static_cast<QWidget*>(&copy_side_),
+                          static_cast<QWidget*>(&mirror_nodes_)}) {
+    button->setVisible(has_piece);
+  }
+  for (QWidget* part : {static_cast<QWidget*>(&look_),
+                        static_cast<QWidget*>(&skins_),
+                        static_cast<QWidget*>(&pieces_),
+                        static_cast<QWidget*>(&chains_title_),
+                        static_cast<QWidget*>(&chains_),
+                        static_cast<QWidget*>(&add_chain_),
+                        static_cast<QWidget*>(&flip_chain_),
+                        static_cast<QWidget*>(&remove_chain_),
+                        static_cast<QWidget*>(&save_rig_)}) {
+    part->setVisible(has_doll);
+  }
 }
 
 void RigPanel::ShowWarp(const RigPiece* rig) {

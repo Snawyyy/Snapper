@@ -2,6 +2,7 @@
 
 #include <QKeyEvent>
 #include <QMouseEvent>
+#include <QNativeGestureEvent>
 #include <QWheelEvent>
 
 #include <cassert>
@@ -138,6 +139,16 @@ bool StageView::event(QEvent* event) {
   assert(event != nullptr);
   assert(managers_.selection != nullptr);
   assert(managers_.history != nullptr);
+  const bool is_gesture = event->type() == QEvent::NativeGesture;
+  if (is_gesture) {
+    const auto* gesture = static_cast<QNativeGestureEvent*>(event);
+    const bool is_pinch = gesture->gestureType() == Qt::ZoomNativeGesture;
+    if (is_pinch) {
+      ZoomBy(std::log(1.0 + gesture->value()) / std::log(kZoomPerNotch),
+             gesture->position());
+      return true;
+    }
+  }
   const bool is_override = event->type() == QEvent::ShortcutOverride;
   if (is_override) {
     const int key = static_cast<QKeyEvent*>(event)->key();

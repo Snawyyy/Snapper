@@ -95,6 +95,7 @@ void StageView::paintEvent(QPaintEvent* event) {
       managers_.history->current(),
       managers_.playback->FrameOn(Timeline::kShots), frame->scale);
   PaintOutside(*frame, image.size(), &painter);
+  PaintBehind(*frame, image.size(), &painter);
   painter.drawImage(frame->corner, image);
   PaintFrameEdge(*frame, image.size(), &painter);
   shown_ = image;
@@ -273,7 +274,10 @@ void StageView::mouseDoubleClickEvent(QMouseEvent* event) {
 
 void StageView::wheelEvent(QWheelEvent* event) {
   assert(event != nullptr);
-  const bool is_zoom = event->modifiers().testFlag(Qt::ControlModifier);
+  // Ctrl+wheel always zooms; with nothing picked to turn, so does the
+  // plain wheel.
+  const bool is_zoom = event->modifiers().testFlag(Qt::ControlModifier) ||
+                       managers_.selection->picks().empty();
   if (is_zoom) {
     ZoomBy(event->angleDelta().y() / 120.0, event->position());
     event->accept();
@@ -330,7 +334,8 @@ void StageView::keyPressEvent(QKeyEvent* event) {
     event->accept();
     return;
   }
-  const bool was_poke_key = PokeKey(event, true) || CrispKey(event, true);
+  const bool was_poke_key = PokeKey(event, true) || CrispKey(event, true) ||
+                            SolidKey(event, true);
   if (was_poke_key) {
     event->accept();
     return;

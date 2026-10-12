@@ -12,7 +12,7 @@ at rest, a frame at the drawing size that turns red while a stroke
 runs past it, and pixel lines past 800 %; the wheel zooms, the middle
 button pans, Shift+1 fits. Tools: hard pixel brush (B, [ and ], right
 button erases, Shift+click draws a line), eraser (E, again for the brush), exact-color fill
-(G), color picker (I, or Alt held); hold R for the original, D for
+(F), color picker (I, or Alt held); hold R for the original, D for
 the onion at 30 %. Ctrl+Z and Ctrl+Y undo strokes inside draw mode. The
 floating palette opens on the piece's colors and gives the brush color.
 A name field in the title bar (default "mouth 2"); Done (Enter) saves
@@ -63,7 +63,7 @@ Draw a new drawing for a piece without leaving Snapper: a new mouth shape, a fis
 
 - Brush (B): hard pixel brush, no soft edges, so it matches the pixel brush in Krita. [ and ] change size, size shown as a pixel outline at the cursor. Shift click draws a straight line from the last point.
 - Eraser (E): the same brush, clearing to transparent. Right mouse button with the brush erases too, so switching is rare.
-- Fill bucket (G): fills the touching area of the same color. Exact color by default since dolls use flat colors; a tolerance fader for the rare soft area. Option Fill all of this color, and a Close gaps option that treats gaps of 1 to 3 pixels in an outline as closed.
+- Fill bucket (F): fills the touching area of the same color. Exact color by default since dolls use flat colors; a tolerance fader for the rare soft area. Option Fill all of this color, and a Close gaps option that treats gaps of 1 to 3 pixels in an outline as closed.
 - Magic wand (W): picks the touching area of one color. Shift adds, Ctrl flips, the same as picking anywhere in Snapper. While a selection exists, brush, eraser and fill only touch inside it, and Delete clears it. Arrows nudge the picked pixels by one, Shift+arrows by ten; H flips them.
 - Color picker (I): click to take a color. Holding Alt with any tool picks temporarily, then returns to the tool.
 - Transparent pixels (proposed: X, a toggle): fully clear pixels show as a bold color fill, and half-clear pixels (stray alpha from soft brushes) show in a warning color, as in OpenToonz, so holes and dirt in a fill are found at a glance.
@@ -105,7 +105,7 @@ Draw mode opens the [floating palette](palette.md) on the piece's own colors: ev
 | D | Draw mode | Original as onion under yours, on and off |
 | B | Draw mode | Brush |
 | E | Draw mode | Eraser on and off (back to the brush) |
-| G | Draw mode | Fill bucket |
+| F | Draw mode | Fill bucket |
 | W | Draw mode | Magic wand |
 | I | Draw mode | Color picker |
 | Alt (hold) | Draw mode | Color picker while held |

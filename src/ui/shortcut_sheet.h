@@ -21,14 +21,17 @@ struct Gesture final {
 
 // The gestures of the stage, timeline and rig canvas that are not menu
 // entries: wheel, drags, nudge, guides.
-inline constexpr std::array<Gesture, 23> kGestures = {{
+inline constexpr std::array<Gesture, 24> kGestures = {{
     {"Click", "Pick what is under the cursor; Shift adds, Ctrl flips"},
     {"Drag on empty space", "Box pick; Shift adds, Ctrl takes out"},
     {"Drag a pick", "Move it; Shift locks to one axis, Ctrl scales"},
     {"Double-click", "Pick the whole doll or layer"},
     {"Mouse wheel", "Turn the pick 5 degrees (Shift: 1 degree)"},
-    {"Ctrl + wheel", "Zoom the stage toward the cursor"},
-    {"Middle button drag", "Slide the stage view"},
+    {"Ctrl + wheel, or wheel with nothing picked, or pinch",
+     "Zoom the stage toward the cursor"},
+    {"Middle button drag", "Slide the stage or rig view"},
+    {"Wheel or pinch on the rig view, Shift+1",
+     "Zoom the rig view toward the cursor; fit the doll again"},
     {"Shift+1 / Shift+3 / Shift+2 / Shift+0",
      "Fit the frame / fit all / frame the pick / actual size"},
     {"O", "Show or hide what lies outside the frame"},
@@ -45,7 +48,7 @@ inline constexpr std::array<Gesture, 23> kGestures = {{
     {"Drag a doll card", "Put the doll on the stage"},
     {"N / Shift+N", "Draw a new drawing for the picked piece / draw over "
                     "the one it shows"},
-    {"Draw mode: B, E, G, I or hold Alt, [ ], hold R, D",
+    {"Draw mode: B, E, F, I or hold Alt, [ ], hold R, D",
      "Brush, eraser on and off, fill, pick a color; brush size; the "
      "original; onion on and off"},
     {"Shift+[ / Shift+]", "Doll picked: previous / next skin"},

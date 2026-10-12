@@ -20,7 +20,7 @@ constexpr std::array<ToolFace, kDrawToolCount> kToolFaces = {{
     {"Brush", "B", "A hard pixel brush. Right button erases; Shift+click "
                    "draws a line from the last point; [ and ] size it."},
     {"Eraser", "E", "The same brush, clearing to transparent; E again goes back to the brush."},
-    {"Fill", "G", "Fills the touching area of the same color."},
+    {"Fill", "F", "Fills the touching area of the same color."},
     {"Pick", "I", "Click to take a color (hold Alt with any tool)."},
 }};
 

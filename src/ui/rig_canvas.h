@@ -80,6 +80,10 @@ class RigCanvas final : public QWidget {
   void mouseReleaseEvent(QMouseEvent* event) override;
   void mouseDoubleClickEvent(QMouseEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
+  // The wheel zooms toward the cursor (so does a touchpad pinch), the
+  // middle button slides the view, Shift+1 fits the doll again.
+  void wheelEvent(QWheelEvent* event) override;
+  bool event(QEvent* event) override;
   void leaveEvent(QEvent* event) override;
   void contextMenuEvent(QContextMenuEvent* event) override;
 
@@ -196,6 +200,19 @@ class RigCanvas final : public QWidget {
   QPointF grab_cursor_;
   QPointF grab_pivot_;
   QPointF cursor_;
+  // Zooms by factor toward cursor (widget pixels).
+  void ZoomAt(QPointF cursor, double factor);
+  // The middle button: true when event started, moved or ended a slide
+  // of the view and is dealt with.
+  bool PanPress(QMouseEvent* event);
+  bool PanMove(QMouseEvent* event);
+  bool PanRelease(QMouseEvent* event);
+  // How the view is zoomed (1 fits the doll) and slid (widget pixels)
+  // on top of fitting the doll.
+  double zoom_ = 1.0;
+  QPointF pan_;
+  bool is_panning_ = false;
+  QPointF pan_from_;
   // The drawings measured for joint snap.
   LimbMemo limbs_;
   // What the lone pivot drag caught on its piece's shape, if anything.

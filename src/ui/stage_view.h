@@ -55,7 +55,8 @@ class StageView final : public QWidget {
   const DragFeedback& feedback() const { return feedback_; }
   // How the view looks at the frame (zoom and pan).
   const StageCamera& camera() const { return camera_; }
-  // Ctrl+wheel zooms toward the cursor; the middle button drags the view
+  // Ctrl+wheel (or the plain wheel with nothing picked, or a pinch)
+  // zooms toward the cursor; the middle button drags the view
   // along; Shift+1 fits the frame, Shift+3 fits all the shot holds,
   // Shift+2 frames the pick, Shift+0 is
   // actual size.
@@ -159,6 +160,12 @@ class StageView final : public QWidget {
   // dolls' looks; letting go goes back. Changes no setting.
   bool CrispKey(QKeyEvent* event, bool is_down);
   void ShowCrisp(bool is_on);
+  // Behind a see-through shot: the checkerboard, or while Shift+V is
+  // held the palette's current color, to check edges on it. Changes no
+  // setting.
+  void PaintBehind(const StageFrame& frame, QSize shown,
+                   QPainter* painter) const;
+  bool SolidKey(QKeyEvent* event, bool is_down);
   // The pixels of the palette's hovered color, lit up over image (drawn
   // at corner), so a swatch shows where its color is used.
   void PaintColorFlash(const QImage& image, QPointF corner,
@@ -186,6 +193,8 @@ class StageView final : public QWidget {
   // The middle button is dragging the view; where the mouse was.
   bool is_panning_ = false;
   QPointF pan_from_;
+  // Shift+V is held: a see-through shot shows over a solid color.
+  bool is_solid_preview_ = false;
   FrameRenderer renderer_;
   // Draws the state before an undo or redo, for the flash.
   FrameRenderer was_renderer_;

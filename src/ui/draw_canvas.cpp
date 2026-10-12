@@ -208,7 +208,7 @@ bool DrawCanvas::ToolKey(QKeyEvent* event) {
                                                       : DrawTool::kEraser);
       return true;
     case Qt::Key_D: draw->SetOnion(!draw->is_onion()); return true;
-    case Qt::Key_G: draw->SetTool(DrawTool::kFill); return true;
+    case Qt::Key_F: draw->SetTool(DrawTool::kFill); return true;
     case Qt::Key_I: draw->SetTool(DrawTool::kPicker); return true;
     case Qt::Key_BracketLeft:
       draw->SetBrushSize(draw->brush_size() - 1);

@@ -109,6 +109,9 @@ bool RigCanvas::PressHandle(QPointF point,
 void RigCanvas::mousePressEvent(QMouseEvent* event) {
   assert(event != nullptr);
   assert(managers_.history != nullptr);
+  if (PanPress(event)) {
+    return;
+  }
   const Doll* doll =
       doll_.isEmpty() ? nullptr : FindDoll(managers_.history->current(), doll_);
   const bool is_usable = doll != nullptr && event->button() == Qt::LeftButton;
@@ -207,6 +210,9 @@ void RigCanvas::FinishBox() {
 void RigCanvas::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
   assert(managers_.history != nullptr);
+  if (PanMove(event)) {
+    return;
+  }
   cursor_ = event->position();
   if (is_hanging_) {
     update();
@@ -308,6 +314,9 @@ void RigCanvas::ShowDrag(QPointF cursor) {
 
 void RigCanvas::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  if (PanRelease(event)) {
+    return;
+  }
   const bool was_rope = is_rope_ && is_hanging_;
   is_rope_ = false;
   if (was_rope) {

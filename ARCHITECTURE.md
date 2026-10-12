@@ -914,7 +914,10 @@ piece show, so a limb shows its own), a Group button greyed with the reason,
 and a right-click menu; `group_chips.h` is its pure part. Copying a side
 to the other, and Mirror to other side on picked dots or a piece
 (`WithTwinGroups`, `edit/group_mirror.h`), also make a twin group of the mirrored dots for each group that holds dots of a copied
-piece, so the other side has its own group. Both are saved
+piece, so the other side has its own group: a group without a side in
+its name takes its pieces' side ("hair" becomes "hair_L", the twin
+"hair_R"), and copying again remakes that twin, never a new one. Both
+are saved
 (`io/dot_group_json.h`).
 The Warp dots panel (`DragBox`) shows what the picked dots are as four
 material tiles (`KindTiles`): a click makes every picked dot Still

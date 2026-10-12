@@ -96,10 +96,12 @@ QTransform RigCanvas::World() const {
   const double scale = kFill * std::min(width() / bounds.width(),
                                         height() / bounds.height());
   assert(scale > 0.0 || width() == 0 || height() == 0);
+  // Fitted round the widget's middle, then zoomed there and slid.
   return QTransform::fromTranslate(-bounds.center().x(),
                                    -bounds.center().y()) *
-         QTransform::fromScale(scale, scale) *
-         QTransform::fromTranslate(width() / 2.0, height() / 2.0);
+         QTransform::fromScale(scale * zoom_, scale * zoom_) *
+         QTransform::fromTranslate(width() / 2.0 + pan_.x(),
+                                   height() / 2.0 + pan_.y());
 }
 
 void RigCanvas::paintEvent(QPaintEvent* event) {
