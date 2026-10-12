@@ -56,13 +56,24 @@ A Comp tab beside Pose, Rig and Video, where a shot's finished frame gets the an
 | 1 | Line smoother | OLM Smoother | Smooths pixel-brush stair steps on the final frame without blurring, the anime smooth filter | Strength; lines only (pick line colors) or all edges |
 | 2 | Color swap | OLM Color Key, ColorSwitch | Swaps picked palette colors for others, keyed, for night scenes, hit flashes, line recolor | Color pairs from the palette; edge thin and feather |
 | 3 | Transmitted light | Distance Gradation, Flare, InnerFlare | Glow spreading out from (or into) a shape's edge, for lamps, magic, backlight | Size, falloff curve, color, inside or outside, strength |
-| 4 | Cel gradient | TargetGrad, Distance Gradation | A gradient laid over chosen fill colors only: blush on skin, sky fades | Two colors, direction or from-edge, picked fills |
-| 5 | Anime motion blur | OLM Directional Blur | Smears a target along its motion with cartoon streak noise | Direction (auto from motion or set), length, streak noise |
-| 6 | Sparkle | OLM KiraKira, Star | Star streaks and glow from the brightest parts | Threshold, streak count, length, rotation |
-| 7 | Speed and burst lines | SpeedLines, BurstLines, RadialLines, TouchLines | Drawn lines across the frame or around a point, new each frame or held | Center, density, thickness, color, change every N frames |
-| 8 | Line thin and fill | Thin, OLM Toon Dilate | Thins lines, then fills the holes with the nearest colors only | Thin amount; fill on or off |
-| 9 | Shadow line | EdgeLine-Hi | Draws a line where two chosen colors meet (shade edge on skin) | Color pair, line color, side, width |
-| 10 | Finish | Grain, Scanline, Posterization8bit | Film grain, scanlines, 8-bit posterize over everything | Amount, size, held or moving |
+| 4 | Rim light | RimFill, Distance Gradation | A thin band of light on the edges of a target that face a light direction, the anime backlit rim | Light direction (dial, keyed), width, color, falloff, strength |
+| 5 | Cel gradient | TargetGrad, Distance Gradation | A gradient laid over chosen fill colors only: blush on skin, sky fades | Two colors, direction or from-edge, picked fills |
+| 6 | Anime motion blur | OLM Directional Blur | Smears a target along its motion with cartoon streak noise | Direction (auto from motion or set), length, streak noise |
+| 7 | Sparkle | OLM KiraKira, Star | Star streaks and glow from the brightest parts | Threshold, streak count, length, rotation |
+| 8 | Speed and burst lines | SpeedLines, BurstLines, RadialLines, TouchLines | Drawn lines across the frame or around a point, new each frame or held | Center, density, thickness, color, change every N frames |
+| 9 | Line thin and fill | Thin, OLM Toon Dilate | Thins lines, then fills the holes with the nearest colors only | Thin amount; fill on or off |
+| 10 | Shadow line | EdgeLine-Hi | Draws a line where two chosen colors meet (shade edge on skin) | Color pair, line color, side, width |
+| 11 | Finish | Grain, Scanline, Posterization8bit | Film grain, scanlines, 8-bit posterize over everything | Amount, size, held or moving |
+
+### Rim light
+
+- Lights only the edges of the target that face the light: for each edge pixel, the direction to the outside is compared with the light direction, and a band of the chosen width is lit there, fading inward. The edge distance comes from the same distance pass as transmitted light.
+- Light direction: a dial on the effect, keyed like any control, so a light can swing across a shot. A shot Light (one direction shared by every rim light and cel gradient that picks "Shot light") keeps several dolls lit from the same side, set once.
+- Follows the doll: the band is computed on the doll's posed shape each frame, so turning, bending and jelly keep the rim on the lit side.
+- Inside only: the band never draws past the target's outline, and Picked colors can limit it further (skin and hair, not the outline color).
+- Blend: Add (glow), Screen (soft) or Replace with the light color (flat anime rim), with a strength fader.
+- On the stage while the effect is picked, a yellow arrow handle sets the direction by dragging, the same feel as other handles.
+- F's Plugins' RimFill source is MIT and readable, so its method is checked there before building.
 
 ### Targets
 

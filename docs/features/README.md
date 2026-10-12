@@ -17,7 +17,7 @@ In the order we plan to build them.
 - [ ] [Editing outside the frame](off-frame-editing.md): limbs past the shot's frame are drawn dimmed and can be picked and edited, like a pasteboard.
 - [ ] [Text and subtitles on the reel](reel-text-and-subtitles.md): text clips on Video tab tracks and a subtitle track timed by tapping to the song.
 - [ ] [Resizing shots on the reel](reel-shot-resize.md): drag a shot clip's edge on the Video tab timeline to change the shot's own length.
-- [ ] [Compositing](compositing.md): a Comp tab with anime finishing effects that target a doll, pieces or palette colors.
+- [ ] [Compositing](compositing.md): a Comp tab with anime finishing effects, rim light included, that target a doll, pieces or palette colors.
 
 ## Adding a new feature
 
