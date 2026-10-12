@@ -9,6 +9,7 @@
 #include <map>
 
 #include "anim/doll_pose.h"
+#include "anim/skin.h"
 #include "edit/edit_scope.h"
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
@@ -30,9 +31,13 @@ void RigCanvas::MakeCollider(const QString& piece) {
   if (!has_doll) {
     return;
   }
-  const QImage& drawing = cache_.Get(DrawingPath(*doll, piece, -1));
+  // The drawing the piece shows here gets the collider.
+  const QString name = RigDrawing(*doll, piece);
+  const ArtPiece* art = FindArt(*doll, piece);
+  const int index = art != nullptr ? FindDrawing(*art, name) : -1;
+  const QImage& drawing = cache_.Get(DrawingPath(*doll, piece, index));
   emit Problem(
-      ProblemOf(managers_.rig->MakeCollider(doll_, piece, drawing)));
+      ProblemOf(managers_.rig->MakeCollider(doll_, piece, drawing, name)));
   // Its dots show only while it is picked.
   ApplyPick({piece}, PickMode::kReplace, piece);
 }
@@ -40,9 +45,28 @@ void RigCanvas::MakeCollider(const QString& piece) {
 void RigCanvas::RemoveCollider(const QString& piece) {
   assert(managers_.history != nullptr);
   assert(!piece.isEmpty());
-  emit Problem(ProblemOf(managers_.rig->RemoveCollider(doll_, piece)));
+  const Doll* doll =
+      doll_.isEmpty() ? nullptr : FindDoll(managers_.history->current(), doll_);
+  const QString name = doll != nullptr ? RigDrawing(*doll, piece) : QString();
+  emit Problem(
+      ProblemOf(managers_.rig->RemoveCollider(doll_, piece, name)));
   PruneDots();
   update();
+}
+
+QString RigCanvas::RigDrawing(const Doll& doll, const QString& piece) const {
+  assert(!piece.isEmpty());
+  assert(skin_.size() < 100000);
+  return RestDrawingName(doll, skin_, piece);
+}
+
+const Collider& RigCanvas::RigCollider(const Doll& doll,
+                                       const RigPiece& rig) const {
+  assert(!rig.name.isEmpty());
+  assert(rig.drawing_colliders.size() < 100000);
+  const bool has_own = !rig.drawing_colliders.empty();
+  return has_own ? DrawingCollider(rig, RigDrawing(doll, rig.name))
+                 : rig.collider;
 }
 
 void RigCanvas::MirrorToOtherSide(const QString& piece) {
@@ -66,7 +90,7 @@ void RigCanvas::contextMenuEvent(QContextMenuEvent* event) {
     return;
   }
   const RigPiece* rig = FindRig(doll->rig, *hit);
-  const bool is_collider = rig != nullptr && rig->collider.IsOn();
+  const bool is_collider = rig != nullptr && RigCollider(*doll, *rig).IsOn();
   QMenu menu(this);
   QAction* make = menu.addAction(is_collider ? tr("Remake collider")
                                              : tr("Make collider"));
@@ -138,23 +162,33 @@ void RigCanvas::DeletePickedDots() {
   if (!has_dots) {
     return;
   }
+  const Doll* doll =
+      doll_.isEmpty() ? nullptr : FindDoll(managers_.history->current(), doll_);
+  if (doll == nullptr) {
+    return;
+  }
+  // Each piece's names first: the edits below replace the doll.
+  std::map<QString, QString> drawings;
+  for (const auto& [piece, gone] : by_piece) {
+    drawings[piece] = RigDrawing(*doll, piece);
+  }
   {
     EditScope scope(managers_.history, tr("Delete collider dots"));
     for (const auto& [piece, gone] : by_piece) {
-      emit Problem(
-          ProblemOf(managers_.rig->DeleteColliderDots(doll_, piece, gone)));
+      emit Problem(ProblemOf(managers_.rig->DeleteColliderDots(
+          doll_, piece, gone, drawings.at(piece))));
     }
   }
   picked_dots_.clear();
   update();
 }
 
-void RigCanvas::PaintCollider(QPainter* painter,
+void RigCanvas::PaintCollider(QPainter* painter, const Doll& doll,
                               const std::map<QString, QTransform>& pieces,
                               const RigPiece& rig) const {
   assert(painter != nullptr);
   assert(pieces.contains(rig.name));
-  const Collider& collider = rig.collider;
+  const Collider& collider = RigCollider(doll, rig);
   const bool is_on = collider.IsOn();
   if (!is_on) {
     return;

@@ -111,9 +111,15 @@ class RigCanvas final : public QWidget {
   void GrabGhost();
   bool PressHandle(QPointF point, Qt::KeyboardModifiers modifiers);
   // One piece's collider outline, in the rig colour for colliders.
-  void PaintCollider(QPainter* painter,
+  void PaintCollider(QPainter* painter, const Doll& doll,
                      const std::map<QString, QTransform>& pieces,
                      const RigPiece& rig) const;
+  // The name of the drawing piece shows here (the rig's default, or the
+  // skin's while one is being changed): the one whose collider the
+  // canvas makes, shows and edits.
+  QString RigDrawing(const Doll& doll, const QString& piece) const;
+  // The collider of the drawing rig shows here.
+  const Collider& RigCollider(const Doll& doll, const RigPiece& rig) const;
   // Picks or flips a collider dot by its key.
   void PickDot(const QString& key, PickMode mode);
   // Forgets picked dots of pieces that are no longer picked.

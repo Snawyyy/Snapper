@@ -57,7 +57,7 @@ void CollidePoses(const Doll& doll, const Layer& layer, Frame frame,
   assert(frame.index() >= 0);
   const bool has_collider =
       std::any_of(doll.rig.pieces.begin(), doll.rig.pieces.end(),
-                  [](const RigPiece& rig) { return rig.collider.IsOn(); });
+                  [](const RigPiece& rig) { return HasCollider(rig); });
   if (!has_collider) {
     return;
   }

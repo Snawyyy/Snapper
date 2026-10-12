@@ -26,8 +26,10 @@ class ColliderBox final : public QGroupBox {
  public:
   explicit ColliderBox(const Managers& managers);
 
-  // Shows the collider of piece, or hides the box when it has none.
-  void Show(const QString& doll, const QString& piece);
+  // Shows the collider of the drawing piece shows in the Rig tab (the
+  // rig's default, or skin's while skin is being changed; empty: none),
+  // or hides the box when it has none.
+  void Show(const QString& doll, const QString& piece, const QString& skin);
 
  signals:
   void Problem(const QString& why);
@@ -36,6 +38,8 @@ class ColliderBox final : public QGroupBox {
   Managers managers_;
   QString doll_;
   QString piece_;
+  // The name of the drawing whose collider shows.
+  QString drawing_;
   QVBoxLayout layout_;
   QLabel note_;
   QScrollArea scroll_;

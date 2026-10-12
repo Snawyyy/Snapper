@@ -46,7 +46,7 @@ std::vector<RigCanvas::Handle> RigCanvas::HandlesOf() const {
     if (!is_shown) {
       continue;
     }
-    for (const ColliderDot& dot : rig.collider.dots) {
+    for (const ColliderDot& dot : RigCollider(*doll, rig).dots) {
       handles.push_back({GrabKind::kColliderDot, DotKey(rig.name, dot.slot),
                          (at->second * world).map(dot.at)});
     }

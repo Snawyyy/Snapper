@@ -140,26 +140,38 @@ class RigManager final {
   // each dot's own number.
   Result<void> SetMotionMath(const std::vector<DotRef>& dots,
                              MotionField field, const QString& math);
-  // Makes piece a collider: the outline of the visible pixels of
-  // drawing (its default drawing, as an image) as a ring of dots that
-  // pushes the warp dots of the pieces in front of it. Refused when
-  // nothing is visible. Replaces an outline it had.
+  // Colliders belong to one drawing of a piece, named by drawing_name
+  // (see DrawingName); a drawing without its own uses the piece's
+  // (RigPiece::collider), and an empty drawing_name edits that one.
+  // Each edit is one undo step.
+  //
+  // Makes piece's drawing a collider: the outline of the visible pixels
+  // of drawing (that drawing, as an image) as a ring of dots that
+  // pushes the warp dots of the other pieces. Refused when nothing is
+  // visible. Replaces an outline it had.
   Result<void> MakeCollider(const QString& doll, const QString& piece,
-                            const QImage& drawing);
-  // Takes the dots on these ring slots (gone) out of piece's collider;
-  // the gaps push nothing. Refused when none of them is there.
+                            const QImage& drawing,
+                            const QString& drawing_name = QString());
+  // Takes the dots on these ring slots (gone) out of the collider of
+  // piece's drawing; the gaps push nothing. Refused when none of them is
+  // there.
   Result<void> DeleteColliderDots(const QString& doll, const QString& piece,
-                                  const std::vector<int>& gone);
-  // Makes piece a plain piece again.
-  Result<void> RemoveCollider(const QString& doll, const QString& piece);
-  // Whether piece's collider pushes the warp dots of other (it does
-  // until spared).
+                                  const std::vector<int>& gone,
+                                  const QString& drawing_name = QString());
+  // Leaves piece's drawing without a collider.
+  Result<void> RemoveCollider(const QString& doll, const QString& piece,
+                              const QString& drawing_name = QString());
+  // Whether the collider of piece's drawing pushes the warp dots of
+  // other (it does until spared).
   Result<void> SetColliderPushes(const QString& doll, const QString& piece,
-                                 const QString& other, bool pushes);
+                                 const QString& other, bool pushes,
+                                 const QString& drawing_name = QString());
   // Why MirrorNodes can't act on piece; empty when it can.
   QString WhyNoMirror(const QString& doll, const QString& piece) const;
   // Copies piece's drag and physics nodes, point motions and its
-  // collider (and which pieces it pushes) onto its left or right twin,
+  // colliders, per drawing too (and which pieces they push; a drawing's
+  // goes to the twin's drawing of the same name with the side word
+  // swapped, or of the same name), onto its left or right twin,
   // mirrored, replacing what the twin had there: one undo step. Needs
   // the same warp grid on both.
   Result<void> MirrorNodes(const QString& doll, const QString& piece);

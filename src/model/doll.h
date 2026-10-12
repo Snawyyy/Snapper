@@ -271,7 +271,9 @@ struct RigPiece final {
   std::vector<DragNode> drag_nodes{};
   // Grid points that move by themselves, each at most once.
   std::vector<PointMotion> point_motions{};
-  // The outline that pushes the other pieces of the doll, if any.
+  // The outline that pushes the other pieces of the doll, if any, for
+  // every drawing without its own in drawing_colliders (rigs from before
+  // colliders were per drawing keep theirs here).
   Collider collider{};
   // The warp dot settings of the layers that changed them for
   // themselves, by layer: editing a shot's doll never touches another
@@ -283,6 +285,10 @@ struct RigPiece final {
   JointCircle joint_circle{};
   // Draws Crisp whatever the doll's look (a pixel-art screen on a chest).
   bool stays_crisp = false;
+  // Each drawing's own collider, by drawing name (see DrawingName), so a
+  // re-export in a new order keeps it. An empty one means that drawing
+  // has none, whatever collider says.
+  std::map<QString, Collider> drawing_colliders{};
 
   bool operator==(const RigPiece&) const = default;
 };
@@ -396,6 +402,16 @@ bool CanParent(const Rig& rig, const QString& child, const QString& parent);
 // The drawing a piece shows for a pose's drawing choice, as a full
 // path; empty if the piece has no such drawing.
 QString DrawingPath(const Doll& doll, const QString& piece, int drawing);
+// The index of that drawing, or -1 if the piece has no such drawing.
+int ShownDrawingIndex(const Doll& doll, const QString& piece, int drawing);
+// The name of that drawing (see DrawingName), or empty if there is none.
+QString ShownDrawingName(const Doll& doll, const QString& piece, int drawing);
+
+// The collider of piece's drawing called drawing: the drawing's own when
+// it has one, else the piece's. An empty drawing gives the piece's.
+const Collider& DrawingCollider(const RigPiece& piece, const QString& drawing);
+// True when any drawing of piece has a collider.
+bool HasCollider(const RigPiece& piece);
 
 // The own drawing (made in Snapper) that is drawing index of piece, or
 // nullptr for a Krita drawing.

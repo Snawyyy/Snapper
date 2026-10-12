@@ -125,6 +125,20 @@ Channel<SkinSet> WornFromStart(const SkinSet& worn) {
   return channel;
 }
 
+QString RestDrawingName(const Doll& doll, const QString& skin,
+                        const QString& piece) {
+  assert(!piece.isEmpty());
+  assert(skin.size() < 100000);
+  std::map<QString, PiecePose> poses;
+  const bool is_skinned = !skin.isEmpty();
+  if (is_skinned) {
+    ApplySkins(doll, SkinSet{{skin}}, {}, &poses);
+  }
+  const auto posed = poses.find(piece);
+  const int drawing = posed != poses.end() ? posed->second.drawing : -1;
+  return ShownDrawingName(doll, piece, drawing);
+}
+
 std::vector<QString> SkinPrefixes(const Doll& doll) {
   assert(doll.art.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   std::vector<QString> prefixes;

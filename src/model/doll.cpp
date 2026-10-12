@@ -124,14 +124,14 @@ bool CanParent(const Rig& rig, const QString& child, const QString& parent) {
   return false;
 }
 
-QString DrawingPath(const Doll& doll, const QString& piece, int drawing) {
+int ShownDrawingIndex(const Doll& doll, const QString& piece, int drawing) {
   assert(!piece.isEmpty());
   assert(drawing >= -1);
   const ArtPiece* art = FindArt(doll, piece);
   const RigPiece* rig = FindRig(doll.rig, piece);
   const bool is_known = art != nullptr && !art->drawings.empty();
   if (!is_known) {
-    return QString();
+    return -1;
   }
   int index = drawing;
   const bool is_default = index < 0;
@@ -141,10 +141,42 @@ QString DrawingPath(const Doll& doll, const QString& piece, int drawing) {
   }
   const bool is_in_range =
       index >= 0 && index < static_cast<int>(art->drawings.size());
-  if (!is_in_range) {
+  return is_in_range ? index : -1;
+}
+
+QString DrawingPath(const Doll& doll, const QString& piece, int drawing) {
+  assert(!piece.isEmpty());
+  assert(drawing >= -1);
+  const int index = ShownDrawingIndex(doll, piece, drawing);
+  if (index < 0) {
     return QString();
   }
+  const ArtPiece* art = FindArt(doll, piece);
   return QDir(doll.folder).filePath(art->drawings[static_cast<size_t>(index)]);
+}
+
+QString ShownDrawingName(const Doll& doll, const QString& piece, int drawing) {
+  assert(!piece.isEmpty());
+  assert(drawing >= -1);
+  const int index = ShownDrawingIndex(doll, piece, drawing);
+  return index < 0 ? QString() : DrawingName(*FindArt(doll, piece), index);
+}
+
+const Collider& DrawingCollider(const RigPiece& piece, const QString& drawing) {
+  assert(piece.drawing_colliders.size() < 100000);
+  assert(drawing.size() < 100000);
+  const auto own = drawing.isEmpty() ? piece.drawing_colliders.end()
+                                     : piece.drawing_colliders.find(drawing);
+  return own != piece.drawing_colliders.end() ? own->second : piece.collider;
+}
+
+bool HasCollider(const RigPiece& piece) {
+  assert(piece.collider.dots.size() <= static_cast<size_t>(kMaxColliderDots));
+  assert(piece.drawing_colliders.size() < 100000);
+  return piece.collider.IsOn() ||
+         std::any_of(piece.drawing_colliders.begin(),
+                     piece.drawing_colliders.end(),
+                     [](const auto& own) { return own.second.IsOn(); });
 }
 
 const OwnDrawing* OwnDrawingAt(const Doll& doll, const QString& piece,

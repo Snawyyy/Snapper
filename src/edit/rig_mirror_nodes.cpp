@@ -18,36 +18,79 @@
 namespace snapper {
 namespace {
 
-// from's collider on to's drawing, mirrored across the line halfway
-// between the two drawings. The ring runs the other way round the
-// mirrored shape, so its slots count down and the dots keep their
+// source, a collider of from, on to's drawing, mirrored across the line
+// halfway between the two drawings. The ring runs the other way round
+// the mirrored shape, so its slots count down and the dots keep their
 // neighbours.
 Collider MirroredCollider(const Doll& doll, const RigPiece& from,
-                          const RigPiece& to) {
+                          const RigPiece& to, const Collider& source) {
   assert(from.name != to.name);
-  assert(from.collider.ring_size <= kMaxColliderDots);
+  assert(source.ring_size <= kMaxColliderDots);
   const ArtPiece* from_art = FindArt(doll, from.name);
   const ArtPiece* to_art = FindArt(doll, to.name);
   const bool has_art = from_art != nullptr && to_art != nullptr;
-  const bool is_collider = from.collider.IsOn();
+  const bool is_collider = source.IsOn();
   const bool is_usable = has_art && is_collider;
   if (!is_usable) {
     return Collider();
   }
   const double axis = (ArtCentreX(*from_art) + ArtCentreX(*to_art)) / 2.0;
   Collider mirrored;
-  mirrored.ring_size = from.collider.ring_size;
-  for (auto dot = from.collider.dots.rbegin();
-       dot != from.collider.dots.rend(); ++dot) {
+  mirrored.ring_size = source.ring_size;
+  for (auto dot = source.dots.rbegin(); dot != source.dots.rend(); ++dot) {
     const QPointF at = from_art->position + dot->at;
     mirrored.dots.push_back(
         {QPointF(2.0 * axis - at.x(), at.y()) - to_art->position,
-         from.collider.ring_size - 1 - dot->slot});
+         source.ring_size - 1 - dot->slot});
   }
-  for (const QString& name : from.collider.spared) {
+  for (const QString& name : source.spared) {
     const QString twin = MirrorName(name);
     const bool has_twin = FindRig(doll.rig, twin) != nullptr;
     mirrored.spared.push_back(has_twin ? twin : name);
+  }
+  return mirrored;
+}
+
+// The drawing of to that is the twin of from's drawing called drawing:
+// the one with the side word swapped, else the one of the same name,
+// else the one in the same place. Empty when to has none of them.
+QString TwinDrawing(const Doll& doll, const RigPiece& from,
+                    const RigPiece& to, const QString& drawing) {
+  assert(from.name != to.name);
+  assert(!drawing.isEmpty());
+  const ArtPiece* from_art = FindArt(doll, from.name);
+  const ArtPiece* to_art = FindArt(doll, to.name);
+  const bool has_art = from_art != nullptr && to_art != nullptr;
+  if (!has_art) {
+    return QString();
+  }
+  const QString swapped = MirrorName(drawing);
+  for (const QString& name : {swapped, drawing}) {
+    const bool is_there = FindDrawing(*to_art, name) >= 0;
+    if (is_there) {
+      return name;
+    }
+  }
+  const int index = FindDrawing(*from_art, drawing);
+  const bool is_placed =
+      index >= 0 && index < static_cast<int>(to_art->drawings.size());
+  return is_placed ? DrawingName(*to_art, index) : QString();
+}
+
+// from's colliders per drawing, each mirrored onto to's twin drawing;
+// ones whose drawing has no twin are left out.
+std::map<QString, Collider> MirroredDrawingColliders(const Doll& doll,
+                                                     const RigPiece& from,
+                                                     const RigPiece& to) {
+  assert(from.name != to.name);
+  assert(from.drawing_colliders.size() < 100000);
+  std::map<QString, Collider> mirrored;
+  for (const auto& [drawing, collider] : from.drawing_colliders) {
+    const QString twin = TwinDrawing(doll, from, to, drawing);
+    const bool has_twin = !twin.isEmpty();
+    if (has_twin) {
+      mirrored[twin] = MirroredCollider(doll, from, to, collider);
+    }
   }
   return mirrored;
 }
@@ -198,7 +241,10 @@ Result<void> RigManager::MirrorNodes(const QString& doll,
                           MirroredMotion(motion, dot));
                     }
                   }
-                  to->collider = MirroredCollider(found, from, *to);
+                  to->collider =
+                      MirroredCollider(found, from, *to, from.collider);
+                  to->drawing_colliders =
+                      MirroredDrawingColliders(found, from, *to);
                   return {};
                 });
   const bool is_refused = !built;

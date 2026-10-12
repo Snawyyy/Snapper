@@ -69,4 +69,29 @@ Collider ColliderFromJson(const QJsonValue& value) {
   return collider;
 }
 
+QJsonObject DrawingCollidersToJson(const std::map<QString, Collider>& own) {
+  assert(own.size() < 100000);
+  QJsonObject object;
+  for (const auto& [drawing, collider] : own) {
+    object.insert(drawing, ColliderToJson(collider));
+  }
+  assert(object.size() == static_cast<qsizetype>(own.size()));
+  return object;
+}
+
+std::map<QString, Collider> DrawingCollidersFromJson(const QJsonValue& value) {
+  assert(kMaxPieceDrawings > 0);
+  assert(kMaxColliderDots > 0);
+  std::map<QString, Collider> own;
+  const QJsonObject object = value.toObject();
+  for (auto it = object.begin(); it != object.end(); ++it) {
+    const bool is_room = own.size() < static_cast<size_t>(kMaxPieceDrawings);
+    const bool is_named = !it.key().isEmpty();
+    if (is_room && is_named) {
+      own.emplace(it.key(), ColliderFromJson(it.value()));
+    }
+  }
+  return own;
+}
+
 }  // namespace snapper

@@ -4,6 +4,7 @@
 #include <cassert>
 #include <memory>
 
+#include "anim/skin.h"
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
 #include "ui/form_helpers.h"
@@ -52,7 +53,8 @@ ColliderBox::ColliderBox(const Managers& managers)
   assert(layout_.count() == 2);
 }
 
-void ColliderBox::Show(const QString& doll, const QString& piece) {
+void ColliderBox::Show(const QString& doll, const QString& piece,
+                       const QString& skin) {
   assert(managers_.history != nullptr);
   assert(doll.size() < 100000 && piece.size() < 100000);
   doll_ = doll;
@@ -63,7 +65,10 @@ void ColliderBox::Show(const QString& doll, const QString& piece) {
   const RigPiece* rig = found != nullptr && !piece.isEmpty()
                             ? FindRig(found->rig, piece)
                             : nullptr;
-  const bool is_collider = rig != nullptr && rig->collider.IsOn();
+  drawing_ = rig != nullptr ? RestDrawingName(*found, skin, piece) : QString();
+  const Collider* collider =
+      rig != nullptr ? &DrawingCollider(*rig, drawing_) : nullptr;
+  const bool is_collider = collider != nullptr && collider->IsOn();
   setVisible(is_collider);
   // A tick may be the one whose click led here: let it finish first.
   for (std::unique_ptr<QCheckBox>& old : ticks_) {
@@ -86,8 +91,8 @@ void ColliderBox::Show(const QString& doll, const QString& piece) {
   for (const QString& name : in_front) {
     auto tick = std::make_unique<QCheckBox>(name);
     const bool is_spared =
-        std::find(rig->collider.spared.begin(), rig->collider.spared.end(),
-                  name) != rig->collider.spared.end();
+        std::find(collider->spared.begin(), collider->spared.end(), name) !=
+        collider->spared.end();
     tick->setChecked(!is_spared);
     const RigPiece* other = FindRig(found->rig, name);
     const bool has_grid = other != nullptr && other->warp.IsOn();
@@ -100,7 +105,7 @@ void ColliderBox::Show(const QString& doll, const QString& piece) {
                 .arg(name, piece));
     connect(tick.get(), &QCheckBox::clicked, this, [this, name](bool on) {
       emit Problem(ProblemOf(managers_.rig->SetColliderPushes(
-          doll_, piece_, name, on)));
+          doll_, piece_, name, on, drawing_)));
     });
     ticks_layout_->addWidget(tick.get());
     ticks_.push_back(std::move(tick));

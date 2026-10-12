@@ -36,6 +36,12 @@ void ApplySkins(const Doll& doll, const SkinSet& worn,
 // doll at rest in a skin.
 Channel<SkinSet> WornFromStart(const SkinSet& worn);
 
+// The name (see DrawingName) of the drawing piece shows at rest wearing
+// skin (empty: none), as the Rig tab shows it: the rig's default drawing,
+// or the skin's. Empty when it has no such drawing.
+QString RestDrawingName(const Doll& doll, const QString& skin,
+                        const QString& piece);
+
 // The prefixes ("pajamas" of "pajamas/arm") of every drawing of doll
 // named "skin/drawing", in the order they are first met.
 std::vector<QString> SkinPrefixes(const Doll& doll);

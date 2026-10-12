@@ -156,7 +156,7 @@ void RigCanvas::PaintOverlay(QPainter* painter) const {
     }
     const bool shows_collider = is_placed && picked_.contains(rig.name);
     if (shows_collider) {
-      PaintCollider(painter, pieces, rig);
+      PaintCollider(painter, doll, pieces, rig);
     }
   }
   PaintShapeSnap(painter, pieces);

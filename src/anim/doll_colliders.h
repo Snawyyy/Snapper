@@ -34,15 +34,22 @@ struct PushField final {
   std::vector<QPointF> ghosts;
 };
 
-// Whether collider pushes piece: it is another piece of the doll, has an
-// outline, and does not spare it, whichever is drawn in front, so two
-// hands with colliders push each other apart. Only a piece with a warp
-// grid can be pushed.
-bool IsPushing(const RigPiece& collider, const RigPiece& piece);
+// The collider of the drawing rig shows in poses (see DrawingCollider).
+const Collider& ShownCollider(const Doll& doll, const PoseMap& poses,
+                              const RigPiece& rig);
 
-// The colliders that push piece at frame, each carried by its piece's
-// pose, warp, the layer's move and what links carry it. Empty when
-// nothing pushes piece.
+// Whether collider, with outline (the collider of the drawing it
+// shows), pushes piece: it is another piece of the doll, has an outline,
+// and does not spare it, whichever is drawn in front, so two hands with
+// colliders push each other apart. Only a piece with a warp grid can be
+// pushed.
+bool IsPushing(const RigPiece& collider, const Collider& outline,
+               const RigPiece& piece);
+
+// The colliders that push piece at frame, each the collider of the
+// drawing its piece shows in poses and carried by its piece's pose,
+// warp, the layer's move and what links carry it. Empty when nothing
+// pushes piece.
 std::vector<PushField> PushFieldsFor(
     const Doll& doll, const Layer& layer, const PoseMap& poses,
     const std::map<QString, QTransform>& placed, const LinkShifts& shifts,
