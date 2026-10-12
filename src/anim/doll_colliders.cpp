@@ -26,7 +26,7 @@ std::vector<QPointF> RestInCollider(const Doll& doll, const RigPiece& piece,
                                     const RigPiece& collider,
                                     const std::map<QString, QTransform>& bind) {
   assert(piece.warp.IsOn());
-  assert(collider.collider.IsOn());
+  assert(!bind.empty());
   const ArtPiece* art = FindArt(doll, piece.name);
   const auto piece_bind = bind.find(piece.name);
   const auto collider_bind = bind.find(collider.name);
@@ -49,16 +49,28 @@ std::vector<QPointF> RestInCollider(const Doll& doll, const RigPiece& piece,
 
 }  // namespace
 
-bool IsPushing(const RigPiece& collider, const RigPiece& piece) {
-  assert(collider.collider.dots.size() <=
-         static_cast<size_t>(kMaxColliderDots));
+const Collider& ShownCollider(const Doll& doll, const PoseMap& poses,
+                              const RigPiece& rig) {
+  assert(!rig.name.isEmpty());
+  assert(poses.size() <= static_cast<size_t>(kMaxDollPieces) * 4);
+  const bool has_own = !rig.drawing_colliders.empty();
+  if (!has_own) {
+    return rig.collider;
+  }
+  const auto posed = poses.find(rig.name);
+  const int drawing = posed != poses.end() ? posed->second.drawing : -1;
+  return DrawingCollider(rig, ShownDrawingName(doll, rig.name, drawing));
+}
+
+bool IsPushing(const RigPiece& collider, const Collider& outline,
+               const RigPiece& piece) {
+  assert(outline.dots.size() <= static_cast<size_t>(kMaxColliderDots));
   assert(piece.warp.PointCount() <= kMaxWarpPoints);
-  const auto& spared = collider.collider.spared;
+  const auto& spared = outline.spared;
   const bool is_spared =
       std::find(spared.begin(), spared.end(), piece.name) != spared.end();
   const bool is_other = collider.name != piece.name;
-  return collider.collider.IsOn() && piece.warp.IsOn() && is_other &&
-         !is_spared;
+  return outline.IsOn() && piece.warp.IsOn() && is_other && !is_spared;
 }
 
 std::vector<PushField> PushFieldsFor(
@@ -74,8 +86,10 @@ std::vector<PushField> PushFieldsFor(
     return fields;
   }
   std::map<QString, QTransform> bind;
+  const Collider& pushed_outline = ShownCollider(doll, poses, *pushed);
   for (const RigPiece& rig : doll.rig.pieces) {
-    const bool is_pushing = IsPushing(rig, *pushed);
+    const Collider& outline = ShownCollider(doll, poses, rig);
+    const bool is_pushing = IsPushing(rig, outline, *pushed);
     if (!is_pushing) {
       continue;
     }
@@ -96,10 +110,10 @@ std::vector<PushField> PushFieldsFor(
     }
     PushField field;
     field.pusher = rig.name;
-    field.is_shared = IsPushing(*pushed, rig);
+    field.is_shared = IsPushing(*pushed, pushed_outline, rig);
     field.edges = ColliderEdges(
-        rig.collider,
-        ShotDots(rig.collider, rig.warp, art->size, grid->points,
+        outline,
+        ShotDots(outline, rig.warp, art->size, grid->points,
                  grid->to_shot),
         grid->to_shot);
     const bool has_edges = !field.edges.empty();

@@ -19,6 +19,9 @@ RigPiece FitPiece(const ArtPiece& art, const RigPiece* old, int stack,
             QPointF(art.size.width() / 2.0, art.size.height() / 2.0), stack,
             -1, WarpGrid()};
   }
+  // Everything carries over, the colliders per drawing too: they are
+  // keyed by drawing name, so a re-export in a new order keeps them, and
+  // one whose drawing went missing waits unused in case it comes back.
   RigPiece piece = *old;
   // Drawings made in Snapper come after Krita's.
   const int drawings = static_cast<int>(art.drawings.size() +

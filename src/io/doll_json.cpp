@@ -323,6 +323,10 @@ QJsonObject RigToJson(const Rig& rig, bool with_layers) {
     if (piece.stays_crisp) {
       object.insert("crisp", true);
     }
+    if (!piece.drawing_colliders.empty()) {
+      object.insert("drawing_colliders",
+                    DrawingCollidersToJson(piece.drawing_colliders));
+    }
     pieces.append(object);
   }
   QJsonArray chains;
@@ -394,6 +398,8 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
             ? ColorFromJson(circle.value("color"), QColor(Qt::black), issues)
             : QColor()};
     rig.pieces.back().stays_crisp = piece.value("crisp").toBool();
+    rig.pieces.back().drawing_colliders =
+        DrawingCollidersFromJson(piece.value("drawing_colliders"));
   }
   const QJsonArray chains =
       Bounded(object.value("chains"), kMaxIkChains, "IK chains", issues);

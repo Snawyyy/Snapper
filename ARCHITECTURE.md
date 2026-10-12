@@ -317,7 +317,19 @@ A piece can:
   collider): the outline of its visible pixels, traced into a ring of
   dots about 12 px apart (`TraceOutline`, pure, in `anim`; at most
   `kMaxColliderDots`), kept in the piece's drawing pixels so it follows
-  the pose, the warp grid (`ShotPoints`) and links. Dots can be
+  the pose, the warp grid (`ShotPoints`) and links. A collider belongs
+  to one drawing of the piece: `RigPiece::drawing_colliders` keys them
+  by drawing name (`DrawingName`, so a re-export in a new order keeps
+  them, and `Reconcile` carries them over), and a drawing without its
+  own uses the piece's `collider` (old rigs load unchanged; an empty
+  one in the map means that drawing has none; `DrawingCollider`). The
+  rig canvas and `ColliderBox` make, show and edit the collider of the
+  drawing the piece shows in the Rig tab (the rig's default, or the
+  skin's while one is being changed: `RestDrawingName`), through
+  `RigManager`'s collider edits with that drawing's name, one undo step
+  each; the physics uses the collider of the drawing each piece shows
+  at that frame (`ShownCollider`). rig.json keeps them under
+  `drawing_colliders`. Dots can be
   deleted in the rig; an edge joins only dots that were neighbours on
   the ring, so a gap pushes nothing. A collider pushes every warp dot
   of the doll's other pieces, in front or behind (two hands with colliders
@@ -376,7 +388,9 @@ A piece can:
 - mirror their dot setup to the other side: right-click a piece in the
   rig (or the rig panel's button) > Mirror rig to other side copies its
   drag and physics nodes, its point motions (directions flipped) and its
-  collider, with which pieces it pushes,
+  colliders, per drawing too (each onto the twin's drawing named with
+  the side word swapped, else the same name, else in the same place),
+  with which pieces they push,
   onto its left or right twin, mirrored, replacing the twin's
   (`RigManager::MirrorNodes`, twins found by `MirrorName`, the same
   pairing Copy to other side uses). The Drag node panel's Mirror to
