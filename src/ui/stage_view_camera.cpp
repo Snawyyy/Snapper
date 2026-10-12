@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <vector>
 
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
@@ -54,17 +55,48 @@ void StageView::ShowZoom(QPointF cursor) {
 QRectF StageView::PickBox(const StageFrame& frame) {
   assert(frame.scale > 0.0);
   assert(managers_.selection != nullptr);
+  return BoxOf(frame, managers_.selection->PickedLayers());
+}
+
+QRectF StageView::AllBox(const StageFrame& frame) {
+  assert(frame.scale > 0.0);
+  assert(managers_.history != nullptr);
+  const Shot* shot = FindShot(managers_.history->current(), frame.shot);
+  const CanvasSize& canvas = managers_.history->current().canvas;
+  const QRectF inside(frame.corner, QSizeF(canvas.width * frame.scale,
+                                           canvas.height * frame.scale));
+  if (shot == nullptr) {
+    return inside;
+  }
+  std::vector<LayerId> layers;
+  for (const Layer& layer : shot->layers) {
+    if (IsLayerLive(layer, frame.local, shot->length)) {
+      layers.push_back(layer.id);
+    }
+  }
+  const QRectF things = BoxOf(frame, layers);
+  return things.isNull() ? inside : inside.united(things);
+}
+
+QRectF StageView::BoxOf(const StageFrame& frame,
+                        const std::vector<LayerId>& layers) {
+  assert(frame.scale > 0.0);
+  assert(managers_.history != nullptr);
   const Project& project = managers_.history->current();
   const Shot* shot = FindShot(project, frame.shot);
   QRectF box;
   const bool has_shot = shot != nullptr;
-  for (const LayerId layer : managers_.selection->PickedLayers()) {
+  for (const LayerId layer : layers) {
     const QRectF shape =
         has_shot ? LayerShape(project, *shot, layer, frame.local, frame.scale,
                               renderer_.cache())
                        .boundingRect()
+                       .translated(frame.corner)
                  : QRectF();
-    box = box.isNull() ? shape : box.united(shape);
+    const bool is_shown = !shape.isNull();
+    if (is_shown) {
+      box = box.isNull() ? shape : box.united(shape);
+    }
   }
   return box;
 }
@@ -78,10 +110,11 @@ bool StageView::CameraKey(QKeyEvent* event) {
   // Shift turns the digits into their symbols on most keyboards.
   const bool is_fit = key == Qt::Key_1 || key == Qt::Key_Exclam;
   const bool is_pick = key == Qt::Key_2 || key == Qt::Key_At;
+  const bool is_all = key == Qt::Key_3 || key == Qt::Key_NumberSign;
   const bool is_actual = key == Qt::Key_0 || key == Qt::Key_ParenRight;
   const auto frame = CurrentFrame();
   const bool is_camera = is_shift && frame.has_value() &&
-                         (is_fit || is_pick || is_actual);
+                         (is_fit || is_pick || is_actual || is_all);
   if (!is_camera) {
     return false;
   }
@@ -89,6 +122,8 @@ bool StageView::CameraKey(QKeyEvent* event) {
   const QSize canvas_size(canvas.width, canvas.height);
   if (is_fit) {
     camera_ = StageCamera();
+  } else if (is_all) {
+    camera_ = Framing(camera_, AllBox(*frame), canvas_size, size());
   } else if (is_actual) {
     camera_ = ActualSize(camera_, canvas_size, size());
   } else {

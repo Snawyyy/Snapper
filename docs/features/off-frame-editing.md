@@ -1,6 +1,6 @@
 # Editing outside the frame
 
-Status: planned. Reported by the owner: limbs outside the shot's frame cannot be picked or edited.
+Status: built, first pass (2026-10-12); owner tests by eye. Reported by the owner: limbs outside the shot's frame cannot be picked or edited.
 
 Needs: nothing.
 
@@ -41,6 +41,7 @@ A doll walking in from off screen, an arm swinging past the edge or a prop waiti
 | Key | Where | Does |
 | --- | --- | --- |
 | O | Stage | Show or hide the outside of the frame |
+| Shift+3 | Stage | Fit all: the frame and everything in the shot |
 
 ## Open questions
 

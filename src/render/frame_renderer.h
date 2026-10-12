@@ -42,6 +42,13 @@ class FrameRenderer final {
                       double scale,
                       const std::map<LayerId, std::set<QString>>& only);
 
+  // Every layer of a shot but effects on a clear picture covering area
+  // (output pixels, the canvas corner at 0,0), which may reach past the
+  // canvas on any side: the stage's pasteboard. The camera is used
+  // without its shake, so the outside holds still while posing.
+  QImage RenderArea(const Project& project, const Shot& shot, Frame local,
+                    double scale, const QRect& area);
+
   // Shot space (origin at the canvas middle) to output pixels, with the
   // shot's camera at local. Tools use it to hit-test what was drawn.
   static QTransform ViewTransform(const Project& project, const Shot& shot,

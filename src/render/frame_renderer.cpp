@@ -91,16 +91,15 @@ void DrawFitted(const QImage& picture, QImage* frame) {
   painter.drawImage(target, picture);
 }
 
-}  // namespace
-
-QTransform FrameRenderer::ViewTransform(const Project& project,
-                                        const Shot& shot, Frame local,
-                                        double scale) {
+// ViewTransform, with or without the camera's shake.
+QTransform ViewOf(const Project& project, const Shot& shot, Frame local,
+                  double scale, bool is_shaken) {
   assert(scale > 0.0);
   assert(local.index() >= 0);
   const CameraPose camera = Sample(shot.camera, local, CameraPose());
+  const double shaking = is_shaken ? camera.shake : 0.0;
   const QPointF shake = QPointF(Jitter(local.index(), 0),
-                                Jitter(local.index(), 1)) * camera.shake;
+                                Jitter(local.index(), 1)) * shaking;
   const QPointF look = camera.center + shake;
   QTransform view = QTransform::fromTranslate(-look.x(), -look.y());
   view *= QTransform().rotate(-camera.rotation);
@@ -108,6 +107,16 @@ QTransform FrameRenderer::ViewTransform(const Project& project,
   view *= QTransform::fromTranslate(project.canvas.width / 2.0,
                                     project.canvas.height / 2.0);
   return view * QTransform::fromScale(scale, scale);
+}
+
+}  // namespace
+
+QTransform FrameRenderer::ViewTransform(const Project& project,
+                                        const Shot& shot, Frame local,
+                                        double scale) {
+  assert(scale > 0.0);
+  assert(local.index() >= 0);
+  return ViewOf(project, shot, local, scale, true);
 }
 
 QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
@@ -159,6 +168,28 @@ QImage FrameRenderer::RenderLayers(
     }
   }
   return frame;
+}
+
+QImage FrameRenderer::RenderArea(const Project& project, const Shot& shot,
+                                 Frame local, double scale,
+                                 const QRect& area) {
+  assert(scale > 0.0);
+  assert(area.width() > 0 && area.height() > 0);
+  QImage out(area.size(), QImage::Format_ARGB32_Premultiplied);
+  out.fill(Qt::transparent);
+  const QTransform view = ViewOf(project, shot, local, scale, false) *
+                          QTransform::fromTranslate(-area.left(),
+                                                    -area.top());
+  LinkSolver links(project, shot, cache_.poses());
+  QPainter painter(&out);
+  for (const Layer& layer : shot.layers) {
+    const bool is_drawn = IsLayerLive(layer, local, shot.length) &&
+                          !std::holds_alternative<EffectLayer>(layer.content);
+    if (is_drawn) {
+      PaintLayer(project, layer, local, view, &links, &cache_, &painter);
+    }
+  }
+  return out;
 }
 
 QImage FrameRenderer::RenderFrame(const Project& project, Frame master,

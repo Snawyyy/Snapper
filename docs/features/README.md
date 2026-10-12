@@ -10,7 +10,7 @@ In build order. Each file has a Needs line naming what must come first; Doll to 
 
 - [x] [Doll to Krita](doll-to-krita.md): turn a doll folder back into a Krita file and round-trip it without losing the rig.
 - [x] [Floating palette](palette.md): one color panel offering the doll's own colors first, shared by drawing, joint circles, skins, compositing and text.
-- [ ] [Editing outside the frame](off-frame-editing.md): limbs past the shot's frame are drawn dimmed and can be picked and edited, like a pasteboard.
+- [x] [Editing outside the frame](off-frame-editing.md): limbs past the shot's frame are drawn dimmed and can be picked and edited, like a pasteboard.
 
 ### Doll tools
 
@@ -85,6 +85,7 @@ Every proposed key is free in Snapper today (checked against the keys bound in t
 | Enter | Draw mode | Done, save the drawing | Draw on a piece |
 | Escape | Draw mode | Cancel, asks first if anything was drawn | Draw on a piece |
 | O | Stage | Show or hide the outside of the frame | Editing outside the frame |
+| Shift+3 | Stage | Fit all: the frame and everything in the shot | Editing outside the frame |
 | Ctrl+T | Video tab | Add a text clip at the playhead | Text and subtitles |
 | L | Video tab, playing | Start the next subtitle line at the playhead | Text and subtitles |
 | Ctrl+Enter | Editing text | Finish the edit | Text and subtitles |

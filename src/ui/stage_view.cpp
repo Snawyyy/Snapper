@@ -9,6 +9,7 @@
 #include <cassert>
 #include <variant>
 
+#include "edit/document_manager.h"
 #include "edit/history_manager.h"
 #include "edit/palette_manager.h"
 #include "edit/playback_manager.h"
@@ -47,6 +48,8 @@ StageView::StageView(const Managers& managers)
   connect(managers_.selection, &SelectionManager::Changed, this,
           [this] { tool_.Observe(); });
   connect(managers_.poke, &PokeManager::Changed, this, update_me);
+  connect(managers_.document, &DocumentManager::OutsideShownChanged, this,
+          update_me);
   if (managers_.palette != nullptr) {
     connect(managers_.palette, &PaletteManager::HoverChanged, this,
             update_me);
@@ -90,7 +93,9 @@ void StageView::paintEvent(QPaintEvent* event) {
   const QImage image = renderer_.RenderFrame(
       managers_.history->current(),
       managers_.playback->FrameOn(Timeline::kShots), frame->scale);
+  PaintOutside(*frame, image.size(), &painter);
   painter.drawImage(frame->corner, image);
+  PaintFrameEdge(*frame, image.size(), &painter);
   shown_ = image;
   shown_corner_ = frame->corner;
   PaintColorFlash(image, frame->corner, &painter);
@@ -106,6 +111,7 @@ void StageView::paintEvent(QPaintEvent* event) {
   PaintRopes(*frame, &painter);
   PaintHover(*frame, &painter);
   PaintHandles(*frame, &painter);
+  PaintOffArrows(*frame, &painter);
   const QRectF box = tool_.Box();
   const bool has_box = !box.isEmpty();
   if (has_box) {
@@ -315,6 +321,11 @@ void StageView::keyPressEvent(QKeyEvent* event) {
   }
   const bool was_camera_key = CameraKey(event);
   if (was_camera_key) {
+    event->accept();
+    return;
+  }
+  const bool was_outside_key = OutsideKey(event);
+  if (was_outside_key) {
     event->accept();
     return;
   }

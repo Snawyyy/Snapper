@@ -555,6 +555,17 @@ instead of running the springs from frame 0. It holds one shot by identity and e
 an edit makes new shot or doll pointers. Preview may render at a
 smaller scale; effects scale their sizes with it so they look the same.
 
+The stage is a pasteboard: `RenderArea` draws every layer of a shot but
+effects over any area, reaching past the canvas, with the camera but
+not its shake. `StageView` (`ui/stage_view_outside.cpp`) draws it at
+40 % behind the frame picture, darkens the stage outside the frame a
+little and draws a thin frame line; O hides it, remembered per project
+file by `DocumentManager` (in the app settings, not the project, not
+undoable). Hit tests were never bound to the frame, so picking,
+handles and drags work outside it unchanged. Shift+3 fits all the shot
+holds; a red arrow at the view edge points to a picked layer out of
+view. Export still renders only the frame.
+
 `RenderReel` draws a reel frame: shot clips through `RenderShot`, video
 clips fitted to the canvas, keeping their shape. Over a transition both
 clips are drawn over the tracks below and mixed by `Combine`. Pictures
@@ -576,7 +587,7 @@ are destroyed in reverse.
 | Manager                | Concern                                        |
 |------------------------|------------------------------------------------|
 | `HistoryManager`       | Current project, undo, redo, dirty state       |
-| `DocumentManager`      | New, open, save, autosave, recent files        |
+| `DocumentManager`      | New, open, save, autosave, recent files, the per-file outside switch |
 | `DollLibraryManager`   | Doll folders, loading, reload on re-export     |
 | `RigManager`           | Rig edits: joints, IK, shape meshes and warp grids, their dots, drag and physics nodes, colliders |
 | `PokeManager`          | Live poke of a doll on the stage: never in history (see Poking) |

@@ -18,6 +18,8 @@ namespace {
 // or saved to.
 constexpr char kAutosaveOrigin[] = "autosave/origin";
 constexpr char kLastFolder[] = "last_folder";
+// The project files whose stage hides the outside of the frame.
+constexpr char kOutsideHidden[] = "outside_hidden";
 
 }  // namespace
 
@@ -52,6 +54,7 @@ Result<void> DocumentManager::New(const QString& name, CanvasSize canvas) {
   project.canvas = canvas;
   history_->Reset(std::move(project));
   path_.clear();
+  LoadOutsideShown();
   emit PathChanged();
   return {};
 }
@@ -66,6 +69,7 @@ Result<void> DocumentManager::Open(const QString& path) {
   history_->Reset(std::move(*project));
   path_ = QFileInfo(path).absoluteFilePath();
   Remember(path_);
+  LoadOutsideShown();
   emit PathChanged();
   return {};
 }
@@ -98,6 +102,7 @@ Result<void> DocumentManager::SaveAs(const QString& path) {
   const bool is_moved = target != path_;
   path_ = target;
   Remember(path_);
+  StoreOutsideShown();
   if (is_moved) {
     emit PathChanged();
   }
@@ -210,6 +215,7 @@ Result<void> DocumentManager::Recover() {
   history_->Reset(std::move(*project), false);
   const QSettings settings(SettingsPath(), QSettings::IniFormat);
   path_ = settings.value(kAutosaveOrigin).toString();
+  LoadOutsideShown();
   emit PathChanged();
   return {};
 }
@@ -221,6 +227,43 @@ void DocumentManager::DiscardAutosave() {
   QSettings settings(SettingsPath(), QSettings::IniFormat);
   settings.remove(kAutosaveOrigin);
   assert(!QFile::exists(autosave));
+}
+
+void DocumentManager::SetOutsideShown(bool is_shown) {
+  assert(!data_folder_.isEmpty());
+  const bool is_same = is_shown == is_outside_shown_;
+  if (is_same) {
+    return;
+  }
+  is_outside_shown_ = is_shown;
+  StoreOutsideShown();
+  emit OutsideShownChanged();
+  assert(is_outside_shown_ == is_shown);
+}
+
+void DocumentManager::LoadOutsideShown() {
+  assert(!data_folder_.isEmpty());
+  const QSettings settings(SettingsPath(), QSettings::IniFormat);
+  const QStringList hidden = settings.value(kOutsideHidden).toStringList();
+  const bool was_shown = is_outside_shown_;
+  is_outside_shown_ = !HasPath() || !hidden.contains(path_);
+  if (was_shown != is_outside_shown_) {
+    emit OutsideShownChanged();
+  }
+}
+
+void DocumentManager::StoreOutsideShown() const {
+  assert(!data_folder_.isEmpty());
+  if (!HasPath()) {
+    return;
+  }
+  QSettings settings(SettingsPath(), QSettings::IniFormat);
+  QStringList hidden = settings.value(kOutsideHidden).toStringList();
+  hidden.removeAll(path_);
+  if (!is_outside_shown_) {
+    hidden.append(path_);
+  }
+  settings.setValue(kOutsideHidden, hidden);
 }
 
 void DocumentManager::Remember(const QString& path) {

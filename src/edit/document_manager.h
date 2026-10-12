@@ -61,18 +61,30 @@ class DocumentManager final : public QObject {
   // The file the app's settings live in, shared by whoever saves one.
   QString SettingsPath() const;
 
+  // Whether the stage draws things past the frame edge. Remembered for
+  // each project file, not kept in it nor undoable; a new project
+  // starts with it on.
+  bool IsOutsideShown() const { return is_outside_shown_; }
+  void SetOutsideShown(bool is_shown);
+
  signals:
   void PathChanged();
   void RecentFilesChanged();
   // The timed autosave couldn't write; the UI tells the user why.
   void AutosaveFailed(const QString& why);
+  void OutsideShownChanged();
 
  private:
   void Remember(const QString& path);
+  // Reads the outside switch for the file now open.
+  void LoadOutsideShown();
+  // Writes it for the file now open, when there is one.
+  void StoreOutsideShown() const;
 
   HistoryManager* history_;
   QString data_folder_;
   QString path_;
+  bool is_outside_shown_ = true;
   QTimer autosave_timer_;
 };
 

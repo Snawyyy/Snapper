@@ -11,6 +11,7 @@
 #include <QWidget>
 
 #include <optional>
+#include <vector>
 
 #include "edit/change_watcher.h"
 #include "render/frame_renderer.h"
@@ -53,7 +54,8 @@ class StageView final : public QWidget {
   // How the view looks at the frame (zoom and pan).
   const StageCamera& camera() const { return camera_; }
   // Ctrl+wheel zooms toward the cursor; the middle button drags the view
-  // along; Shift+1 fits the frame, Shift+2 frames the pick, Shift+0 is
+  // along; Shift+1 fits the frame, Shift+3 fits all the shot holds,
+  // Shift+2 frames the pick, Shift+0 is
   // actual size.
   void SetCamera(const StageCamera& camera);
 
@@ -86,6 +88,16 @@ class StageView final : public QWidget {
 
  private:
   void PaintHandles(const StageFrame& frame, QPainter* painter);
+  // Past the frame edge (shown is the frame picture's size): the stage
+  // a little darker and, while the outside is shown, everything of the
+  // shot that lies there, dimmed.
+  void PaintOutside(const StageFrame& frame, QSize shown, QPainter* painter);
+  // A small red arrow at the view edge toward each picked layer that is
+  // wholly off the visible stage.
+  void PaintOffArrows(const StageFrame& frame, QPainter* painter);
+  // The thin line round the frame.
+  void PaintFrameEdge(const StageFrame& frame, QSize shown,
+                      QPainter* painter) const;
   // A red rope from each picked follower to what it follows, and back
   // from a picked leader to its followers.
   void PaintRopes(const StageFrame& frame, QPainter* painter);
@@ -114,13 +126,18 @@ class StageView final : public QWidget {
   void BackOut();
   // Zooms by notches wheel notches toward cursor.
   void ZoomBy(double notches, QPointF cursor);
-  // Shift+1, +2 or +0: fit, frame the pick, actual size. True when key
-  // was one of them.
+  // Shift+1, +3, +2 or +0: fit, fit all, frame the pick, actual size.
+  // True when key was one of them.
   bool CameraKey(QKeyEvent* event);
   // Says the zoom beside the cursor.
   void ShowZoom(QPointF cursor);
   // The box round the picked layers, in widget pixels; empty with none.
   QRectF PickBox(const StageFrame& frame);
+  // The box round the frame and every layer live in the shot, in widget
+  // pixels: what Fit all frames.
+  QRectF AllBox(const StageFrame& frame);
+  // The box round layers, in widget pixels; empty when none shows.
+  QRectF BoxOf(const StageFrame& frame, const std::vector<LayerId>& layers);
   // As a drag is grabbed: leaves a faint copy of the picked pieces or
   // layers, drawn by the frame renderer, where they sit now.
   void GrabGhost(const StageFrame& frame);
@@ -153,6 +170,9 @@ class StageView final : public QWidget {
 
   Managers managers_;
   StageCamera camera_;
+  // O: shows or hides the outside of the frame. True when the key was
+  // dealt with.
+  bool OutsideKey(QKeyEvent* event);
   // A doll card is over the stage.
   bool is_drop_target_ = false;
   // The middle button is dragging the view; where the mouse was.

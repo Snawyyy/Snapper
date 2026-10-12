@@ -58,7 +58,15 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
+Last done (2026-10-12, branch `ccr-33af7348-m78soh`, cut from
+`claude/next`): editing outside the frame (docs/features/
+off-frame-editing.md): the stage draws the shot past the frame at 40 %
+with a darker surround and a frame line, O hides it (remembered per
+project file), Shift+3 fits all, a red arrow points to picks out of
+view, Shift+2 now frames the pick in the right place. No tests yet, the
+owner adds them later. Next in docs/features: Smart Dials.
+
+Before that (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
 inspector as a hardware panel (pose box: dials, pad, faders; golden ratio,
 raised plates over sunken frames; other boxes with faders; dropdowns
 sunken; dials and sliders take the wheel, reset on a double tap and wait
