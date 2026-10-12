@@ -51,6 +51,13 @@ void ExportDialog::BuildLayout() {
   size_.addItem(tr("Full size"), 1.0);
   size_.addItem(tr("Half size"), 0.5);
   size_.addItem(tr("Quarter size"), 0.25);
+  // In SubtitleOut order.
+  subtitles_.addItem(tr("Burned in"));
+  subtitles_.addItem(tr("Side file"));
+  subtitles_.addItem(tr("Both"));
+  subtitles_.setToolTip(tr("Burned in draws the cues into the picture. A "
+                           "side file goes next to the video: SRT, or "
+                           "WebVTT beside a WebM."));
   file_row_.addWidget(&path_, 1);
   file_row_.addWidget(&browse_);
   buttons_.addWidget(&sound_only_);
@@ -64,12 +71,13 @@ void ExportDialog::BuildLayout() {
   AddNumberRow(&layout_, tr("From frame"), &from_, nullptr);
   AddNumberRow(&layout_, tr("Up to frame"), &to_, nullptr);
   layout_.addRow(tr("Size"), &size_);
+  layout_.addRow(tr("Subtitles"), &subtitles_);
   layout_.addRow(tr("File"), &file_row_);
   layout_.addRow(&progress_);
   layout_.addRow(&status_);
   layout_.addRow(&buttons_);
   status_.setWordWrap(true);
-  assert(layout_.rowCount() == 10);
+  assert(layout_.rowCount() == 11);
 }
 
 void ExportDialog::Wire() {
@@ -118,7 +126,8 @@ void ExportDialog::Wire() {
 ExportRequest ExportDialog::Request() const {
   const auto format = static_cast<VideoFormat>(format_.currentIndex());
   ExportRequest request{path_.text().trimmed(), format, Frame(0), Frame(0),
-                        size_.currentData().toDouble()};
+                        size_.currentData().toDouble(),
+                        static_cast<SubtitleOut>(subtitles_.currentIndex())};
   const PlaybackManager* playback = managers_.playback;
   const int range = range_.currentIndex();
   const bool is_loop =

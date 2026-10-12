@@ -41,7 +41,10 @@ Result<void> ReelManager::TrimStart(ClipId clip, Frame start) {
       WithClip(history_->current(), clip,
                [start](Clip* edited, int*) -> Result<void> {
                  const int shift = start.index() - edited->start.index();
-                 const int in = edited->in.index() + shift;
+                 // Text has no source to run out of: its in stays 0.
+                 const int in = IsTextClip(*edited)
+                                    ? 0
+                                    : edited->in.index() + shift;
                  const int length = edited->length.index() - shift;
                  const bool is_valid = in >= 0 && length >= 1;
                  if (!is_valid) {

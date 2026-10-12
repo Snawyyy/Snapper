@@ -16,6 +16,7 @@
 #include "edit/selection_manager.h"
 #include "edit/shot_timing.h"
 #include "edit/sound_manager.h"
+#include "render/reel_text.h"
 #include "ui/checkerboard.h"
 #include "ui/form_helpers.h"
 #include "ui/theme.h"
@@ -33,6 +34,7 @@ constexpr std::array<int, 10> kLabelSteps = {1,  2,   5,   10,  15,
 constexpr QColor kShotClip{0x4b, 0x5a, 0x8f};
 constexpr QColor kVideoClip{0x2f, 0x77, 0x6a};
 constexpr QColor kMissing{0x7d, 0x2c, 0x2c};
+constexpr QColor kTextClip{0x7a, 0x4f, 0x8c};
 
 }  // namespace
 
@@ -188,7 +190,6 @@ void ReelTimeline::PaintTracks(QPainter* painter) const {
   const Reel& reel = managers_.history->current().reel;
   const int count = static_cast<int>(reel.tracks.size());
   assert(count <= kMaxAllTracks);
-  const int sounds = SoundTrackCount(reel);
   for (int t = 0; t < count; ++t) {
     const double top = TrackTop(t);
     painter->fillRect(QRectF(kHeaderWidth, top, width(), kTrackHeight - 1),
@@ -202,7 +203,7 @@ void ReelTimeline::PaintTracks(QPainter* painter) const {
     }
     painter->setPen(theme::kTextOff);
     painter->drawText(QRectF(0, top, kHeaderWidth, kTrackHeight),
-                      Qt::AlignCenter, tr("V%1").arg(t - sounds + 1));
+                      Qt::AlignCenter, TrackName(t));
   }
   painter->save();
   painter->setClipRect(QRectF(kHeaderWidth, kRulerHeight, width(), height()));
@@ -270,6 +271,11 @@ void ReelTimeline::PaintPictureBody(QPainter* painter, const Clip& clip,
   assert(painter != nullptr);
   assert(!IsSoundClip(clip));
   const Project& project = managers_.history->current();
+  const bool is_text = IsTextClip(clip);
+  if (is_text) {
+    PaintTextBody(painter, clip, box);
+    return;
+  }
   const auto* video = std::get_if<VideoSource>(&clip.source);
   const Shot* shot =
       video != nullptr
@@ -307,6 +313,31 @@ void ReelTimeline::PaintPictureBody(QPainter* painter, const Clip& clip,
                       Qt::AlignRight | Qt::AlignBottom,
                       hidden == 1 ? tr("1 key hidden")
                                   : tr("%1 keys hidden").arg(hidden));
+  }
+}
+
+void ReelTimeline::PaintTextBody(QPainter* painter, const Clip& clip,
+                                 const QRectF& box) const {
+  assert(painter != nullptr);
+  assert(IsTextClip(clip));
+  const Project& project = managers_.history->current();
+  const auto& text = std::get<TextSource>(clip.source);
+  painter->fillRect(box, kTextClip);
+  // The look's fill color as a swatch, as a shot shows its background.
+  painter->fillRect(QRectF(box.topLeft(), QSizeF(5, box.height())),
+                    LookOf(project.reel, clip).letters.fill);
+  const QString first = text.text.section(QLatin1Char('\n'), 0, 0);
+  painter->setPen(theme::kText);
+  painter->drawText(box.adjusted(8, 3, -4, -3), Qt::AlignLeft | Qt::AlignTop,
+                    first.isEmpty() ? tr("(no words)") : first);
+  // A cue wrapping past two lines is hard to read in time.
+  const bool is_cue = FindClip(project.reel, clip.id).track ==
+                      SubtitleTrack(project.reel);
+  const bool is_long = is_cue && ReelTextLines(project, clip) > 2;
+  if (is_long) {
+    painter->setPen(theme::kHandle);
+    painter->drawText(box.adjusted(8, 3, -6, -3),
+                      Qt::AlignRight | Qt::AlignBottom, tr("! 3+ lines"));
   }
 }
 

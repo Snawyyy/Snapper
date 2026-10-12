@@ -167,25 +167,8 @@ void Painter::operator()(const ImageLayer& layer) const {
 void Painter::operator()(const TextLayer& layer) const {
   assert(painter != nullptr);
   assert(layer.size > 0.0);
-  const QFont font = TextFont(layer);
-  const QFontMetricsF metrics(font);
-  const QRectF box = TextBox(layer);
-  QPainterPath path;
-  double y = box.top() + metrics.ascent();
-  for (const QString& line : layer.text.split(QLatin1Char('\n'))) {
-    path.addText(-metrics.horizontalAdvance(line) / 2.0, y, font, line);
-    y += metrics.lineSpacing();
-  }
   painter->setTransform(world);
-  const bool has_outline = layer.outline_width > 0.0;
-  if (has_outline) {
-    // The stroke straddles the edge; doubling keeps the outer half the
-    // width asked for.
-    painter->strokePath(path, QPen(layer.outline, layer.outline_width * 2.0,
-                                   Qt::SolidLine, Qt::RoundCap,
-                                   Qt::RoundJoin));
-  }
-  painter->fillPath(path, layer.fill);
+  PaintLettering(TextPath(layer), layer, painter);
 }
 
 // Effects change what is drawn instead; RenderShot applies them.
@@ -203,6 +186,38 @@ QFont TextFont(const TextLayer& text) {
   font.setPixelSize(std::max(1, static_cast<int>(text.size)));
   font.setBold(text.is_bold);
   return font;
+}
+
+QPainterPath TextPath(const TextLayer& text) {
+  assert(text.size > 0.0);
+  assert(!text.font_family.isNull());
+  const QFont font = TextFont(text);
+  const QFontMetricsF metrics(font);
+  const QRectF box = TextBox(text);
+  QPainterPath path;
+  double y = box.top() + metrics.ascent();
+  // addText lays each line out with Qt's text layout: right-to-left
+  // runs, mixed directions and per-letter font fallback come with it.
+  for (const QString& line : text.text.split(QLatin1Char('\n'))) {
+    path.addText(-metrics.horizontalAdvance(line) / 2.0, y, font, line);
+    y += metrics.lineSpacing();
+  }
+  return path;
+}
+
+void PaintLettering(const QPainterPath& path, const TextLayer& text,
+                    QPainter* painter) {
+  assert(painter != nullptr);
+  assert(text.outline_width >= 0.0);
+  const bool has_outline = text.outline_width > 0.0;
+  if (has_outline) {
+    // The stroke straddles the edge; doubling keeps the outer half the
+    // width asked for.
+    painter->strokePath(path, QPen(text.outline, text.outline_width * 2.0,
+                                   Qt::SolidLine, Qt::RoundCap,
+                                   Qt::RoundJoin));
+  }
+  painter->fillPath(path, text.fill);
 }
 
 QRectF TextBox(const TextLayer& text) {

@@ -81,8 +81,11 @@ Result<void> ReelManager::AddTrack() {
     return std::unexpected(Error{why_not});
   }
   Project next = history_->current();
-  next.reel.tracks.emplace_back();
-  assert(next.reel.tracks.back().clips.empty());
+  // On top of the picture tracks, under the subtitle track.
+  const int subtitles = SubtitleTrack(next.reel);
+  const auto at = subtitles >= 0 ? next.reel.tracks.begin() + subtitles
+                                 : next.reel.tracks.end();
+  next.reel.tracks.insert(at, ReelTrack());
   return history_->Apply(Tr("Add track"), std::move(next));
 }
 

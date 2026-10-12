@@ -109,9 +109,15 @@ sound tracks under the picture tracks with Mute, Solo and a fader,
 dropped sound files with waveforms, a volume line and fades, the song
 as a clip on old projects, the mix in playback and export (plus Sound
 only WAV), and shots on the reel play the reel's sound under their clip
-on the Pose tab (`edit/reel_sound.cpp`, `SoundManager`). No tests yet,
-the owner adds them later. Next in docs/features: Text and subtitles
-on the reel.
+on the Pose tab (`edit/reel_sound.cpp`, `SoundManager`). Then Text and
+subtitles on the reel, first pass (docs/features/
+reel-text-and-subtitles.md says what is left): text clips (T+ or Ctrl+T,
+typed in place, dragged and scaled on the preview, a Text tab for look,
+palette colors, place tiles, In and Out, linked styles) and a subtitle
+track timed by tapping L, with a cue list, find and replace, SRT and
+WebVTT import and burned in or side file export (`edit/reel_text.cpp`,
+`edit/reel_subtitles.cpp`, `render/reel_text.cpp`). No tests yet, the
+owner adds them later. Next in docs/features: Reference on the Pose tab.
 
 Before that (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
 inspector as a hardware panel (pose box: dials, pad, faders; golden ratio,

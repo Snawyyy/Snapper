@@ -1,6 +1,7 @@
 #ifndef SNAPPER_EDIT_REEL_MANAGER_H_
 #define SNAPPER_EDIT_REEL_MANAGER_H_
 
+#include <QPointF>
 #include <QString>
 #include <QStringList>
 
@@ -9,6 +10,7 @@
 #include "base/error.h"
 #include "base/frame.h"
 #include "edit/reel_edits.h"
+#include "io/subtitle_file.h"
 #include "model/reel.h"
 #include "model/shot.h"
 
@@ -30,6 +32,25 @@ struct ShotResize final {
   int delta = 0;
   Frame length;
   QString stopped;
+};
+
+// A new text clip's length, a cue's longest when tapped, and how long L
+// must be held to end a cue on letting go.
+constexpr int kTextClipFrames = 2 * kFramesPerSecond;
+constexpr int kCueFrames = 4 * kFramesPerSecond;
+constexpr int kHoldFrames = kFramesPerSecond / 4;
+
+// The usual places for text: bottom middle, top middle, the lower third
+// at the left, the middle.
+enum class TextSpot { kBottom, kTop, kLowerThird, kMiddle };
+constexpr int kTextSpotCount = 4;
+
+// Where a text drag put the text, and whether it caught on a guide
+// across (x) or down (y), for the preview to show the guide.
+struct TextPlaced final {
+  QPointF place;
+  bool is_snapped_x = false;
+  bool is_snapped_y = false;
 };
 
 // The reel, the final video: which clips are on which track, where and
@@ -123,6 +144,75 @@ class ReelManager final {
   // track with room. Part of the song's own step.
   static void ReplaceSong(Project* project, const QString& old_song);
 
+  // Text clips (edit/reel_text.cpp). A text clip at at, kTextClipFrames
+  // long, on the highest picture track with room there (a new one on
+  // top when none has and one can be added).
+  Result<ClipId> AddText(Frame at);
+  QString WhyNoAddText(Frame at) const;
+  // The words of a text clip or cue, as one step.
+  Result<void> SetText(ClipId clip, const QString& text);
+  // The lettering and box of every text clip in clips from look, each
+  // keeping its own place; a cue sharing the subtitle track's look
+  // changes the track's look. Unlinks them from their style. label
+  // names the step ("Text size").
+  Result<void> SetTextLook(const std::vector<ClipId>& clips,
+                           const ReelTextLook& look, const QString& label);
+  // Drags clip's text: its middle to place (a share of the frame) and
+  // its letters to size, from where the open drag started. Within reach
+  // (a share of the frame; 0 for none) the middle snaps to the frame's
+  // middle and the text's edges to the title-safe margin.
+  Result<TextPlaced> PlaceText(ClipId clip, QPointF place, double size,
+                               double reach);
+  // Puts each text clip's text at a usual place, inside the title-safe
+  // margin.
+  Result<void> SetTextSpot(const std::vector<ClipId>& clips, TextSpot spot);
+  // How text clips appear (is_appear) or leave, over length frames.
+  Result<void> SetTextMotion(const std::vector<ClipId>& clips, bool is_appear,
+                             TextMotion motion, Frame length);
+  // Saves from's look as the style name (replacing one so named), links
+  // from to it, and every clip linked to it takes the new look, keeping
+  // its place.
+  Result<void> SaveTextStyle(const QString& name, ClipId from);
+  // Gives clips the look of the style name, keeping their places; with
+  // is_linked they follow later changes to it.
+  Result<void> ApplyTextStyle(const std::vector<ClipId>& clips,
+                              const QString& name, bool is_linked);
+  // Takes the style away; clips linked to it keep their look.
+  Result<void> RemoveTextStyle(const QString& name);
+  // Cues: keep their own look (true) or share the track's.
+  Result<void> SetOwnLook(const std::vector<ClipId>& clips, bool is_own);
+
+  // Subtitles (edit/reel_subtitles.cpp). The subtitle track's shared
+  // look.
+  Result<void> SetSubtitleLook(const ReelTextLook& look, const QString& label);
+  // The lines waiting to be timed: every non-empty line of text.
+  Result<void> SetSubtitleLines(const QString& text);
+  // L: ends the cue running at at and starts the next waiting line
+  // there, up to kCueFrames long or until the next cue. Makes the
+  // subtitle track when there is none.
+  Result<ClipId> TapCue(Frame at);
+  QString WhyNoTap(Frame at) const;
+  // L let go after held frames: a hold (kHoldFrames or more) ends the
+  // cue the last tap started at at. A short tap changes nothing.
+  Result<void> ReleaseCue(Frame at, Frame held);
+  // Alt drag of a cue's end: it and the next cue's start, when the two
+  // touch, move to end together from where the open drag started, so no
+  // gap opens.
+  Result<void> RollCueEdge(ClipId clip, Frame end);
+  // The same for a cue's start and the end of the cue touching it.
+  Result<void> RollCueStart(ClipId clip, Frame start);
+  // True when an edge drag of clip with is_alt rolls it with the cue it
+  // touches: an Alt drag of a cue.
+  bool IsCueRoll(ClipId clip, bool is_alt) const;
+  // An SRT or WebVTT file's cues onto the subtitle track (made when
+  // there is none), replacing the cues they overlap.
+  Result<std::vector<ClipId>> ImportSubtitles(const QString& path);
+  // Every cue's text with find replaced by with, as one step; how many
+  // cues changed.
+  Result<int> ReplaceInCues(const QString& find, const QString& with);
+  // The subtitle track's cues, in order, for the list and the files.
+  static std::vector<SubtitleCue> CuesOf(const Reel& reel);
+
   // How clip hands over to the clip touching its end on its track:
   // a cut, or a mix 1 to LongestTransition frames long.
   Result<void> SetTransition(ClipId clip, Transition transition);
@@ -176,6 +266,8 @@ class ReelManager final {
   std::vector<Lifted> clipboard_;
   // How shot clip edge drags treat the keys; not saved, not undone.
   EdgeMode edge_mode_ = EdgeMode::kHold;
+  // The cue the last L press started, which a hold of L ends.
+  ClipId last_cue_;
 };
 
 }  // namespace snapper

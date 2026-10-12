@@ -24,6 +24,11 @@ Error InTheWay() { return Error{Tr("There's a clip in the way.")}; }
 QString WrongTrack(const ReelTrack& track, const ClipSource& source) {
   assert(track.clips.size() <= static_cast<size_t>(kMaxClipsPerTrack));
   const bool is_sound = std::holds_alternative<SoundSource>(source);
+  const bool is_text = std::holds_alternative<TextSource>(source);
+  const bool is_wrong_subtitle = track.is_subtitle && !is_text;
+  if (is_wrong_subtitle) {
+    return Tr("The subtitle track holds only text.");
+  }
   if (is_sound == track.is_sound) {
     return QString();
   }
@@ -87,7 +92,8 @@ Result<ClipId> SplitIn(Project* project, ClipId id, Frame at) {
   const int cut = at.index() - found->start.index();
   right.id = TakeClipId(project);
   right.start = at;
-  right.in = Frame(found->in.index() + cut);
+  // Text starts over on each half: its appear plays on the right half.
+  right.in = IsTextClip(*found) ? Frame(0) : Frame(found->in.index() + cut);
   right.length = Frame(found->length.index() - cut);
   ReelTrack& track = TrackOf(project, spot.track);
   Clip& left = track.clips[static_cast<size_t>(spot.index)];

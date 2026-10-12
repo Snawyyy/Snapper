@@ -26,8 +26,9 @@ class FrameRenderer final {
   // for a faster preview. Past the last shot the frame is black.
   QImage RenderFrame(const Project& project, Frame master, double scale);
   // The reel (the final video) at frame: each track's clip, bottom
-  // first, a shot clip drawn as its shot alone and a video fitted to the
-  // canvas. Where nothing plays the frame is black. Over a transition
+  // first, a shot clip drawn as its shot alone, a video fitted to the
+  // canvas and a text clip's words over what is below (PaintReelText).
+  // Where nothing plays the frame is black. Over a transition
   // the clip and the next one are mixed. videos supplies the video
   // pictures; with nullptr, videos are left out. under is what lies
   // below every track: black, or clear for an export that keeps alpha.
@@ -62,7 +63,7 @@ class FrameRenderer final {
 
  private:
   // Draws clip's source at source over out: a shot whole, a video
-  // fitted to the canvas.
+  // fitted to the canvas, text where its look places it.
   void DrawClip(const Project& project, const Clip& clip, Frame source,
                 double scale, VideoFrames* videos, QImage* out);
 

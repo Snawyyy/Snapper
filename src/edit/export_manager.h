@@ -18,6 +18,10 @@ namespace snapper {
 class HistoryManager;
 class PlaybackManager;
 
+// Where the subtitle track goes in an export: drawn into the picture,
+// as a file beside the video (SRT, or WebVTT beside a WebM), or both.
+enum class SubtitleOut { kBurnedIn, kSideFile, kBoth };
+
 struct ExportRequest final {
   QString path;
   VideoFormat format = VideoFormat::kMp4;
@@ -26,6 +30,7 @@ struct ExportRequest final {
   Frame end;
   // Output size against the canvas; GIFs are usually smaller.
   double scale = 1.0;
+  SubtitleOut subtitles = SubtitleOut::kBurnedIn;
 };
 
 // Renders the final video to any VideoFormat (the song goes along
@@ -62,6 +67,11 @@ class ExportManager final : public QObject {
   // sound elsewhere. Written at once, not on the worker.
   Result<void> ExportSound(const QString& path) const;
   QString WhyNoSoundExport() const;
+  // True when the exported reel has cues on its subtitle track.
+  bool HasSubtitles() const;
+  // Where the subtitle file beside the video at path goes: the same
+  // name ending .srt, or .vtt beside a WebM.
+  static QString SubtitlePath(const QString& path, VideoFormat format);
 
  signals:
   void Progress(int done, int total);
@@ -74,6 +84,9 @@ class ExportManager final : public QObject {
   void Done();
   // What the export sounds like from its frame 0; nullptr for silence.
   std::shared_ptr<const AudioClip> Mix() const;
+  // Writes the cues from start up to end, timed from start, beside the
+  // video at path.
+  Result<void> WriteSubtitles(const ExportRequest& range) const;
 
   HistoryManager* history_;
   PlaybackManager* playback_;

@@ -85,6 +85,7 @@ Result<Project> ReadProject(const QString& path) {
   MoveShotTransitions(read->value("shots").toArray(), &project.reel,
                       &issues);
   project.reel.markers = MarkersFromJson(read->value("cut_markers"), &issues);
+  ReelTextFromJson(read->value("reel_text"), &project.reel, &issues);
   project.recent_colors = ColorsFromJson(read->value("recent_colors"),
                                          kMaxRecentColors, &issues);
   const bool is_damaged = issues.HasIssue() || !IsValidCanvas(project.canvas);
@@ -124,6 +125,7 @@ Result<void> WriteProject(const QString& path, const Project& project) {
       {"shots", shots},
       {"reel", ReelToJson(project.reel)},
       {"cut_markers", MarkersToJson(project.reel.markers)},
+      {"reel_text", ReelTextToJson(project.reel)},
       {"recent_colors", ColorsToJson(project.recent_colors)}};
   if (project.new_shots_transparent) {
     object.insert("new_shots_transparent", true);

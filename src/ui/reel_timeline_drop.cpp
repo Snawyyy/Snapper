@@ -2,6 +2,7 @@
 
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QFileInfo>
 #include <QMimeData>
 #include <QWheelEvent>
 
@@ -109,6 +110,17 @@ void ReelTimeline::dropEvent(QDropEvent* event) {
   QStringList sounds;
   std::vector<QString> videos;
   for (const QString& file : FilesOf(event->mimeData())) {
+    // Subtitle files land on the subtitle track, wherever dropped.
+    const QString suffix = QFileInfo(file).suffix().toLower();
+    const bool is_subtitles = suffix == "srt" || suffix == "vtt";
+    if (is_subtitles) {
+      const auto made = managers_.reel->ImportSubtitles(file);
+      Report(ProblemOf(made));
+      if (made) {
+        added.insert(made->begin(), made->end());
+      }
+      continue;
+    }
     if (IsSoundFile(file)) {
       sounds.append(file);
     } else {

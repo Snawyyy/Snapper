@@ -70,12 +70,7 @@ void AddFields(const TextLayer& text, QJsonObject* object) {
   assert(object != nullptr);
   assert(object->contains("type"));
   object->insert("text", text.text);
-  object->insert("font", text.font_family);
-  object->insert("size", text.size);
-  object->insert("bold", text.is_bold);
-  object->insert("fill", ColorToJson(text.fill));
-  object->insert("outline", ColorToJson(text.outline));
-  object->insert("outline_width", text.outline_width);
+  AddLetters(text, object);
 }
 
 void AddFields(const EffectLayer& effect, QJsonObject* object) {
@@ -147,14 +142,7 @@ LayerContent ContentFromJson(const QJsonObject& object, JsonIssues* issues) {
     case 2: {
       TextLayer text;
       text.text = object.value("text").toString();
-      text.font_family = object.value("font").toString(text.font_family);
-      text.size = object.value("size").toDouble(text.size);
-      text.is_bold = object.value("bold").toBool(text.is_bold);
-      text.fill = ColorFromJson(object.value("fill"), text.fill, issues);
-      text.outline =
-          ColorFromJson(object.value("outline"), text.outline, issues);
-      text.outline_width =
-          object.value("outline_width").toDouble(text.outline_width);
+      ReadLetters(object, &text, issues);
       return text;
     }
     case 3: {
@@ -301,6 +289,32 @@ void ReadHolds(const QJsonValue& value, Shot* shot, JsonIssues* issues) {
 }
 
 }  // namespace
+
+void AddLetters(const TextLayer& text, QJsonObject* object) {
+  assert(object != nullptr);
+  assert(text.size > 0.0);
+  object->insert("font", text.font_family);
+  object->insert("size", text.size);
+  object->insert("bold", text.is_bold);
+  object->insert("fill", ColorToJson(text.fill));
+  object->insert("outline", ColorToJson(text.outline));
+  object->insert("outline_width", text.outline_width);
+}
+
+void ReadLetters(const QJsonObject& object, TextLayer* text,
+                 JsonIssues* issues) {
+  assert(text != nullptr);
+  assert(issues != nullptr);
+  text->font_family = object.value("font").toString(text->font_family);
+  text->size = std::max(object.value("size").toDouble(text->size), 1.0);
+  text->is_bold = object.value("bold").toBool(text->is_bold);
+  text->fill = ColorFromJson(object.value("fill"), text->fill, issues);
+  text->outline =
+      ColorFromJson(object.value("outline"), text->outline, issues);
+  text->outline_width =
+      std::max(object.value("outline_width").toDouble(text->outline_width),
+               0.0);
+}
 
 QJsonObject ShotToJson(const Shot& shot) {
   assert(shot.id.IsValid());

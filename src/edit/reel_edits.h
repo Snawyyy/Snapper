@@ -20,7 +20,8 @@ bool IsTrack(const Project& project, int track);
 ReelTrack& TrackOf(Project* project, int track);
 Error InTheWay();
 // Why source can't go on track (sound only on sound tracks, pictures
-// only on the others); empty when it can.
+// only on the others, only text on the subtitle track); empty when it
+// can.
 QString WrongTrack(const ReelTrack& track, const ClipSource& source);
 // Keeps a sound clip's fades inside it, the fade out shortened first
 // when the two would cross.

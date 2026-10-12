@@ -21,6 +21,12 @@ Frame SourceLength(const Project& project, const Clip& clip) {
   if (is_sound) {
     return sound->length;
   }
+  // Words have no end of their own: the clip shows them as long as it
+  // runs.
+  const bool is_text = IsTextClip(clip);
+  if (is_text) {
+    return Frame(kMaxFrame);
+  }
   const Shot* shot = FindShot(project, std::get<ShotSource>(clip.source).shot);
   const bool is_gone = shot == nullptr;
   return is_gone ? Frame(0) : shot->length;

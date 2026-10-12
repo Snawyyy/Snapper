@@ -2,6 +2,7 @@
 #define SNAPPER_IO_REEL_JSON_H_
 
 #include <QJsonArray>
+#include <QJsonObject>
 #include <QJsonValue>
 
 #include <vector>
@@ -18,6 +19,12 @@ Reel ReelFromJson(const QJsonValue& value, JsonIssues* issues);
 // The reel's cut markers, kept apart from its tracks; a file without
 // them (made before they existed) has none.
 QJsonArray MarkersToJson(const std::vector<Frame>& markers);
+// The reel's text settings kept apart from its tracks: the subtitle
+// track's look, the saved text styles and the lines waiting to be
+// timed. A file without them gets the defaults.
+QJsonObject ReelTextToJson(const Reel& reel);
+void ReelTextFromJson(const QJsonValue& value, Reel* reel,
+                      JsonIssues* issues);
 std::vector<Frame> MarkersFromJson(const QJsonValue& value,
                                    JsonIssues* issues);
 

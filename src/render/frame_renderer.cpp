@@ -14,6 +14,7 @@
 #include "anim/sampler.h"
 #include "render/effects.h"
 #include "render/layer_painter.h"
+#include "render/reel_text.h"
 
 namespace snapper {
 namespace {
@@ -242,6 +243,13 @@ void FrameRenderer::DrawClip(const Project& project, const Clip& clip,
     }
     return;
   }
+  const bool is_text = IsTextClip(clip);
+  if (is_text) {
+    QPainter painter(out);
+    PaintReelText(project, clip, source.index() - clip.in.index(), scale,
+                  &painter);
+    return;
+  }
   const Shot* shot =
       FindShot(project, std::get<ShotSource>(clip.source).shot);
   // A clip can outlive its shot; like the timeline, it shows nothing.
@@ -260,7 +268,8 @@ QImage FrameRenderer::RenderReel(const Project& project, Frame frame,
   assert(frame.index() >= 0);
   QImage out = Blank(project, scale, under);
   for (const ReelPiece& piece : ReelAt(project, frame)) {
-    const bool is_mixing = piece.next != nullptr;
+    // Text clips draw their own appear and leave; they never mix.
+    const bool is_mixing = piece.next != nullptr && !IsTextClip(*piece.clip);
     if (!is_mixing) {
       DrawClip(project, *piece.clip, piece.source, scale, videos, &out);
       continue;

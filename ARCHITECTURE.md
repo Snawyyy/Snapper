@@ -659,6 +659,29 @@ other shot plays the song where it sits (`MixShots`).
 `PlaybackManager::SoundOn` is what each timeline plays, and export
 mixes the same (`ExportManager::ExportSound` writes it as a WAV).
 
+Text lives on the reel too. A text clip is a `Clip` whose source is a
+`TextSource`: its words, a `ReelTextLook` (a shot text layer's
+lettering, a box color, and its middle as a share of the frame, so a
+new canvas size keeps it in place), how it appears and leaves
+(`TextMotion`, played inside the clip's ends) and the named style it
+follows. It has no length of its own (`SourceLength` is endless, its
+`in` stays 0) and moves, trims, splits, copies and snaps through the
+same edits as other clips. The one subtitle track (`ReelTrack::
+is_subtitle`, last in `Reel::tracks`, so drawn on top; made by the
+first cue) holds only text clips, its cues; a cue shows the reel's
+`subtitle_look` unless it keeps its own (`LookOf`). `Reel` also keeps
+the saved `text_styles` and the `subtitle_lines` waiting to be timed;
+they save under `reel_text`. ReelManager owns every text edit
+(`edit/reel_text.cpp`: add, words, look, drag, place tiles, motions,
+styles; `edit/reel_subtitles.cpp`: tap L to time a line (`TapCue`,
+`ReleaseCue`), roll a cue edge with its neighbour, SRT and WebVTT import
+through `io/subtitle_file.h`, find and replace, `CuesOf`).
+`PaintReelText` (`render/reel_text.cpp`) draws a text clip in
+`RenderReel` through the same `TextPath` and `PaintLettering` as a text
+layer, wrapping lines at the title-safe width (`kTitleSafe`). Export
+burns the cues in, writes them beside the video (`SubtitleOut`,
+`ExportManager::WriteSubtitles`: SRT, WebVTT beside a WebM) or both.
+
 ## Rendering
 
 `FrameRenderer` draws on the CPU with `QPainter` into a `QImage`, so it

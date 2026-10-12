@@ -139,6 +139,8 @@ void ExportDialog::Refresh() {
     to_.setMaximum(last);
   }
   Explain(&export_, is_running ? tr("Already exporting.") : WhyNotReady());
+  layout_.setRowVisible(&subtitles_, managers_.exporter->IsReelExport() &&
+                                         managers_.exporter->HasSubtitles());
   const QString note = managers_.exporter->FormatNote(Request().format);
   note_.setText(note);
   layout_.setRowVisible(&note_, !note.isEmpty());
@@ -146,6 +148,7 @@ void ExportDialog::Refresh() {
   for (QWidget* field : {static_cast<QWidget*>(&format_),
                          static_cast<QWidget*>(&range_),
                          static_cast<QWidget*>(&size_),
+                         static_cast<QWidget*>(&subtitles_),
                          static_cast<QWidget*>(&path_),
                          static_cast<QWidget*>(&browse_)}) {
     Explain(field, is_running ? tr("Not while exporting. Cancel first.")

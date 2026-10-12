@@ -49,7 +49,13 @@ QString ReelManager::WhyNoTransition(ClipId clip) const {
   if (is_sound) {
     return Tr("Sound clips cross with their fades instead.");
   }
-  const bool is_joined = NextTouching(track, found) != nullptr;
+  const Clip* next = NextTouching(track, found);
+  const bool is_text =
+      IsTextClip(found) || (next != nullptr && IsTextClip(*next));
+  if (is_text) {
+    return Tr("Text appears and leaves by its own In and Out instead.");
+  }
+  const bool is_joined = next != nullptr;
   if (!is_joined) {
     return Tr("A transition needs a clip starting right where this "
               "one ends.");

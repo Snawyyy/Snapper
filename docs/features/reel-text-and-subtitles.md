@@ -1,6 +1,10 @@
 # Text and subtitles on the reel
 
-Status: planned. Asked for by the owner for the Video tab.
+Status: built, first pass (2026-10-12); owner tests by eye. Asked for by the owner for the Video tab.
+
+First pass: text clips are a fourth clip source (`TextSource` in `model/reel.h`) that moves, trims, splits, copies, snaps and ripple-deletes like any clip. T+ or Ctrl+T adds one at the playhead on the highest free picture track and opens it for typing; double-click on the preview or the clip types in place (Ctrl+Enter or clicking away finishes, Escape cancels). On the preview a picked text drags (catching on the frame middle and the title-safe margin, Ctrl frees it) and its yellow corners scale it; each drag is one step. A Text tab beside the preview sets font, size, bold, fill, outline and box colors (from the floating palette: click a color button, then a swatch), place tiles, In and Out (Cut, Fade, Pop, Slide up, Type on, with frames) and named styles (save, apply, keep linked, remove). The subtitle track appears on top with the first cue; cues share the track's look (the Text tab edits it when no text clip is picked) unless one keeps its own. The Subtitles tab takes pasted lines, L taps them in while playing (hold L to end a line on letting go), lists every cue (click jumps, words editable), finds and replaces, and imports SRT or WebVTT (also by dropping the file on the reel). Alt drag of a cue edge rolls it with the touching cue. Export offers burned in (default), side file (SRT, WebVTT beside a WebM) or both. Lines wrap at the title-safe width, a cue past two lines is flagged on its clip, right-to-left text and font fallback come from Qt's text layout, and places are shares of the frame. All in `ReelManager` (`edit/reel_text.cpp`, `edit/reel_subtitles.cpp`), drawn by `render/reel_text.cpp`.
+
+Not built yet: a subtitle stream inside MOV and WebM files, the font picker marking fonts that cover the typed text, caching drawn text per clip and frame, and snapping cue edges to other tracks' clips beyond what every reel drag already does.
 
 Needs: the [floating palette](palette.md); the export formats from [Transparent background](transparent-background.md) for a subtitle stream.
 
@@ -65,8 +69,8 @@ Checked against the keys Snapper binds today: T, Shift+T, S, M and D are taken, 
 
 ## Open questions
 
-- [ ] Should shot text layers move to the reel, or stay for text that belongs to one shot?
-- [ ] Burned in or side file as the default for subtitles?
+- [ ] Should shot text layers move to the reel, or stay for text that belongs to one shot? First pass: they stay; both show, the reel's text on top.
+- [ ] Burned in or side file as the default for subtitles? First pass: burned in, as the doc suggests.
 
 ## Not in the first version
 

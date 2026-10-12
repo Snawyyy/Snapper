@@ -73,6 +73,50 @@ bool IsSoundClip(const Clip& clip) {
   return std::holds_alternative<SoundSource>(clip.source);
 }
 
+bool IsTextClip(const Clip& clip) {
+  assert(clip.length.index() >= 0);
+  assert(clip.in.index() >= 0);
+  return std::holds_alternative<TextSource>(clip.source);
+}
+
+int SubtitleTrack(const Reel& reel) {
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
+  assert(kMaxAllTracks > 0);
+  const auto found = std::ranges::find_if(
+      reel.tracks, [](const ReelTrack& track) { return track.is_subtitle; });
+  const bool has_track = found != reel.tracks.end();
+  return has_track ? static_cast<int>(found - reel.tracks.begin()) : -1;
+}
+
+int PictureTrackCount(const Reel& reel) {
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
+  assert(kMaxReelTracks > 0);
+  return static_cast<int>(std::ranges::count_if(
+      reel.tracks, [](const ReelTrack& track) {
+        return !track.is_sound && !track.is_subtitle;
+      }));
+}
+
+const ReelTextLook& LookOf(const Reel& reel, const Clip& clip) {
+  assert(IsTextClip(clip));
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
+  const auto& text = std::get<TextSource>(clip.source);
+  const int subtitles = SubtitleTrack(reel);
+  const bool is_cue =
+      subtitles >= 0 && FindClip(reel, clip.id).track == subtitles;
+  const bool is_shared = is_cue && !text.is_own_look;
+  return is_shared ? reel.subtitle_look : text.look;
+}
+
+const TextStyle* FindTextStyle(const Reel& reel, const QString& name) {
+  assert(reel.text_styles.size() <= static_cast<size_t>(kMaxTextStyles));
+  assert(name.size() < 100000);
+  const auto found = std::ranges::find_if(
+      reel.text_styles,
+      [&name](const TextStyle& style) { return style.name == name; });
+  return found != reel.text_styles.end() ? &*found : nullptr;
+}
+
 int SoundTrackCount(const Reel& reel) {
   assert(reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   assert(kMaxSoundTracks > 0);

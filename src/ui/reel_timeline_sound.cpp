@@ -63,6 +63,9 @@ QString ReelTimeline::TrackName(int track) const {
   assert(track < static_cast<int>(reel.tracks.size()));
   const ReelTrack& row = reel.tracks[static_cast<size_t>(track)];
   const int sounds = SoundTrackCount(reel);
+  if (row.is_subtitle) {
+    return tr("Subs");
+  }
   if (!row.is_sound) {
     return tr("V%1").arg(track - sounds + 1);
   }

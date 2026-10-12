@@ -3,6 +3,7 @@
 
 #include <QFont>
 #include <QPainter>
+#include <QPainterPath>
 #include <QRectF>
 #include <QTransform>
 
@@ -21,6 +22,12 @@ namespace snapper {
 // space; drawing and clicking both use it.
 QRectF TextBox(const TextLayer& text);
 QFont TextFont(const TextLayer& text);
+// The text's letters as a path, each line centred, in the same space as
+// TextBox; PaintLettering draws it with the outline under the fill.
+// Text layers and the reel's text clips both draw through these.
+QPainterPath TextPath(const TextLayer& text);
+void PaintLettering(const QPainterPath& path, const TextLayer& text,
+                    QPainter* painter);
 
 // A layer showing doll at rest, unkeyed, for canvases that draw a doll
 // outside any shot (the rig canvas, draw mode).

@@ -1,17 +1,24 @@
 #include "edit/export_manager.h"
 
+#include <QDir>
+#include <QFileInfo>
 #include <QSaveFile>
 #include <QtConcurrent/QtConcurrentRun>
 
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <utility>
+#include <vector>
 
 #include "anim/master_timeline.h"
 #include "anim/reel_timeline.h"
 #include "base/text.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
+#include "edit/reel_manager.h"
+#include "io/subtitle_file.h"
+#include "media/video_formats.h"
 #include "edit/video_file_frames.h"
 #include "media/wav_file.h"
 #include "render/frame_renderer.h"
@@ -220,15 +227,76 @@ Result<void> ExportManager::Start(const ExportRequest& request) {
     settings.audio = std::make_shared<const AudioClip>(
         Slice(*mix, SecondsAtFrame(range.start), length));
   }
+  const bool has_subtitles = IsReelExport() && HasSubtitles();
+  const bool wants_file = has_subtitles &&
+                          range.subtitles != SubtitleOut::kBurnedIn;
+  if (wants_file) {
+    auto written = WriteSubtitles(range);
+    if (!written) {
+      return written;
+    }
+  }
+  // Without burning in, the cues stay out of the picture.
+  Project shown = project;
+  const int subtitles = SubtitleTrack(shown.reel);
+  const bool is_left_out =
+      subtitles >= 0 && range.subtitles == SubtitleOut::kSideFile;
+  if (is_left_out) {
+    shown.reel.tracks[static_cast<size_t>(subtitles)].clips.clear();
+  }
   cancel_ = std::make_shared<std::atomic<bool>>(false);
   done_ = std::make_shared<std::atomic<int>>(0);
   total_ = range.end.index() - range.start.index();
   path_ = range.path;
   worker_.setFuture(QtConcurrent::run(
-      RunExport,
-      ExportJob{project, range, settings, IsReelExport(), cancel_, done_}));
+      RunExport, ExportJob{std::move(shown), range, settings, IsReelExport(),
+                           cancel_, done_}));
   progress_timer_.start();
   emit Progress(0, total_);
+  return {};
+}
+
+bool ExportManager::HasSubtitles() const {
+  assert(history_ != nullptr);
+  assert(playback_ != nullptr);
+  return !ReelManager::CuesOf(history_->current().reel).empty();
+}
+
+QString ExportManager::SubtitlePath(const QString& path, VideoFormat format) {
+  assert(!path.isEmpty());
+  assert(static_cast<int>(format) < kVideoFormatCount);
+  const QFileInfo info(path);
+  const bool is_folder = FormatSuffix(format).isEmpty();
+  // A PNG frames folder gets its file beside it, named after it.
+  const QString base = is_folder ? info.absoluteFilePath()
+                                 : info.dir().filePath(info.completeBaseName());
+  return base + (format == VideoFormat::kWebm ? QStringLiteral(".vtt")
+                                              : QStringLiteral(".srt"));
+}
+
+Result<void> ExportManager::WriteSubtitles(const ExportRequest& range) const {
+  assert(history_ != nullptr);
+  assert(range.start < range.end);
+  std::vector<SubtitleCue> cues;
+  for (const SubtitleCue& cue : ReelManager::CuesOf(history_->current().reel)) {
+    const bool is_in = cue.start < range.end && range.start < cue.end;
+    if (is_in) {
+      const int from = std::max(cue.start, range.start).index();
+      const int to = std::min(cue.end, range.end).index();
+      cues.push_back({Frame(from - range.start.index()),
+                      Frame(to - range.start.index()), cue.text});
+    }
+  }
+  const QString path = SubtitlePath(range.path, range.format);
+  const QString text =
+      range.format == VideoFormat::kWebm ? VttText(cues) : SrtText(cues);
+  QSaveFile file(path);
+  const bool is_written = file.open(QIODevice::WriteOnly) &&
+                          file.write(text.toUtf8()) >= 0 && file.commit();
+  if (!is_written) {
+    return std::unexpected(
+        Error{Tr("Can't write %1: %2").arg(path, file.errorString())});
+  }
   return {};
 }
 

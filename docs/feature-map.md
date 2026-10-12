@@ -32,6 +32,7 @@ it in the same commit.
 | Reel, clips, cuts, markers | The reel | model/reel.h, anim/reel_timeline.cpp, edit/reel_edits.cpp, ui/reel_timeline.cpp | ReelManager | anim/reel_tests, edit/reel_editing_tests, ui/reel_timeline_tests |
 | Resizing shots on the reel, fit to gap | The reel | edit/reel_resize.cpp, edit/shot_timing.cpp, ui/reel_timeline_input.cpp, ui/video_page.cpp | ReelManager | none yet (owner tests by eye) |
 | Sound on the reel (sound tracks, volume line, fades, Mute and Solo, shots borrow the reel's sound, WAV export) | The reel | model/reel.h (SoundSource, ReelTrack sound fields), edit/reel_sound.cpp, edit/reel_edits.cpp (WrongTrack, FitFades), edit/sound_manager.cpp, edit/playback_manager.cpp (SoundOn, ShotsSound), edit/export_manager.cpp, edit/document_manager.cpp, io/reel_json.cpp, media/audio_clip.cpp (ProbeSoundSeconds), ui/reel_timeline_sound.cpp, ui/reel_timeline_drop.cpp, ui/timeline_view.cpp (PaintWave, PickSoundClip), ui/export_dialog_actions.cpp, ui/video_page.cpp | ReelManager, SoundManager | none yet (owner tests by eye) |
+| Text and subtitles on the reel (text clips, In and Out, styles, subtitle track, tap L, SRT and WebVTT, subtitle export) | The reel | model/reel.h (TextSource, ReelTextLook, TextStyle, ReelTrack::is_subtitle, LookOf), edit/reel_text.cpp, edit/reel_subtitles.cpp, edit/reel_edits.cpp (WrongTrack), edit/export_manager.cpp (SubtitleOut, WriteSubtitles), render/reel_text.cpp, render/layer_painter.cpp (TextPath, PaintLettering), io/reel_json.cpp (ReelTextToJson), io/subtitle_file.cpp, ui/reel_preview.cpp, ui/reel_text_panel.cpp, ui/subtitle_panel.cpp, ui/inline_text_edit.cpp, ui/video_page.cpp (T+, L), ui/reel_timeline.cpp (PaintTextBody), ui/export_dialog.cpp | ReelManager, ExportManager | none yet (owner tests by eye) |
 | Reel transitions | The reel | model/transition.h, edit/reel_transitions.cpp, ui/transition_picker.cpp | ReelManager | edit/reel_transition_tests, render/render_tests |
 | Rendering (stage, warp, preview) | Rendering | render/frame_renderer.cpp, render/layer_painter.cpp, render/warp_raster.cpp, render/warp_cache.cpp | none (draws only) | render/render_tests, render/warp_raster_tests, render/warp_cache_tests |
 | Save, load, JSON, legacy files | Project data and undo | io/project_file.cpp, io/doll_json.cpp, io/json_values.cpp, io/reconcile.cpp | DocumentManager | io/project_file_tests, io/doll_file_tests, io/warp_json_tests |
@@ -129,6 +130,23 @@ EffectKind (model/layer.h):
 - ui/cast_panel.cpp and ui/layer_box.cpp list from the Count
 - render/layer_painter.cpp and render/stage_hit.cpp assert only
 - tests: render/render_tests, edit/stage_tests, io/project_file_tests
+
+TextMotion (model/reel.h, how a text clip comes in and goes out):
+- model/reel.h: enum, `kTextMotionCount`
+- render/reel_text.cpp: the switch in `PaintReelText` (the look)
+- io/reel_json.cpp: `kMotionNames`
+- ui/reel_text_panel.cpp: `kMotionNames` (tile labels, in enum order)
+- tests: none yet
+
+TextSpot (edit/reel_manager.h, a place tile): `kTextSpotCount`;
+edit/reel_text.cpp `SpotPlace` switch; ui/reel_text_panel.cpp
+`kSpotNames`.
+
+ClipSource (model/reel.h, a new clip source): every `get_if` and
+`holds_alternative` on it: anim/reel_timeline.cpp (`SourceLength`),
+render/frame_renderer.cpp (`DrawClip`), io/reel_json.cpp
+(`ClipToJson`, `ClipFromJson`), edit/reel_edits.cpp (`WrongTrack`),
+ui/reel_timeline.cpp (`PaintPictureBody`), edit/sound_manager.cpp.
 
 VideoFormat (media/video_formats.h, an export format):
 - media/video_formats.h: enum, `kVideoFormatCount`

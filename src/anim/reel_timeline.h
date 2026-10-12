@@ -33,7 +33,7 @@ Frame UsedTransition(const ReelTrack& track, const Clip& clip);
 Frame LongestTransition(const ReelTrack& track, const Clip& clip);
 
 // How long clip's source is: the whole video or sound file, or the shot
-// as it is now; 0 when its shot is gone.
+// as it is now; 0 when its shot is gone; endless (kMaxFrame) for text.
 Frame SourceLength(const Project& project, const Clip& clip);
 // The frames of clip that have a picture. A shot shortened after it was
 // placed leaves the clip's tail empty rather than moving anything.

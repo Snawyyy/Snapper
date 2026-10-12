@@ -121,9 +121,11 @@ void ReelTimeline::StartDrag(ClipId clip, Drag drag, QPointF at,
   has_moved_ = false;
   drag_playhead_.Begin();
   const bool is_move = drag == Drag::kMove;
-  is_resize_ = !is_move && managers_.reel->IsShotResize(
-                               clip, modifiers.testFlag(Qt::AltModifier));
-  const QString label = is_resize_ ? managers_.reel->ResizeLabel(Picked(), clip)
+  const bool is_alt = modifiers.testFlag(Qt::AltModifier);
+  is_resize_ = !is_move && managers_.reel->IsShotResize(clip, is_alt);
+  is_roll_ = !is_move && managers_.reel->IsCueRoll(clip, is_alt);
+  const QString label = is_roll_     ? tr("Move cue")
+                        : is_resize_ ? managers_.reel->ResizeLabel(Picked(), clip)
                         : !is_move ? tr("Trim clip")
                         : Picked().size() > 1 ? tr("Move clips")
                                               : tr("Move clip");
@@ -171,8 +173,11 @@ void ReelTimeline::Follow(QPointF at, Qt::KeyboardModifiers modifiers) {
     return;
   }
   const bool is_start = drag_ == Drag::kTrimStart;
-  Report(ProblemOf(is_start ? managers_.reel->TrimStart(dragged_, edge)
-                            : managers_.reel->TrimEnd(dragged_, edge)));
+  ReelManager& reel = *managers_.reel;
+  Report(ProblemOf(is_roll_ ? (is_start ? reel.RollCueStart(dragged_, edge)
+                                        : reel.RollCueEdge(dragged_, edge))
+                   : is_start ? reel.TrimStart(dragged_, edge)
+                              : reel.TrimEnd(dragged_, edge)));
   ShowTrim(raw, edge, at);
   CarryPlayhead(edge);
 }
@@ -336,6 +341,7 @@ void ReelTimeline::mouseReleaseEvent(QMouseEvent* event) {
   drag_track_ = -1;
   has_moved_ = false;
   is_resize_ = false;
+  is_roll_ = false;
   assert(scope_ == nullptr);
 }
 
@@ -403,6 +409,19 @@ void ReelTimeline::mouseDoubleClickEvent(QMouseEvent* event) {
     return;
   }
   const ClipId clip = ClipAt(at);
+  const Clip* found = clip.IsValid()
+                          ? ClipOf(managers_.history->current().reel, clip)
+                          : nullptr;
+  const bool is_text = found != nullptr && IsTextClip(*found);
+  if (is_text) {
+    emit TextEditAsked(clip);
+    return;
+  }
+  const bool is_subtitle_track =
+      track == SubtitleTrack(managers_.history->current().reel);
+  if (is_subtitle_track) {
+    return;
+  }
   const bool can_fit =
       clip.IsValid() && managers_.reel->WhyNoFit(clip, FrameAt(at.x())).isEmpty();
   if (can_fit) {

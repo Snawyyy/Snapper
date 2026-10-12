@@ -94,6 +94,8 @@ class ReelTimeline final : public QWidget {
   void Problem(const QString& why);
   // The shot edge mode was switched from a menu.
   void EdgeModeChanged();
+  // A text clip was double-clicked: its words want typing.
+  void TextEditAsked(ClipId clip);
 
  protected:
   void paintEvent(QPaintEvent* event) override;
@@ -148,6 +150,10 @@ class ReelTimeline final : public QWidget {
                         const QRectF& box) const;
   void PaintHatch(QPainter* painter, const Clip& clip,
                   const QRectF& box) const;
+  // A text clip or cue: its first line, a swatch of its fill, and a
+  // warning on a cue that wraps past two lines.
+  void PaintTextBody(QPainter* painter, const Clip& clip,
+                     const QRectF& box) const;
 
   // Sound (ui/reel_timeline_sound.cpp). A sound clip: its waveform
   // (dimmed on a track not heard), volume line and fade handles.
@@ -277,6 +283,8 @@ class ReelTimeline final : public QWidget {
   bool has_moved_ = false;
   // The end drag changes the shot's length instead of trimming.
   bool is_resize_ = false;
+  // An Alt drag of a cue's edge: the touching cue's edge goes along.
+  bool is_roll_ = false;
   // The rubber band while picking by box, and how it combines.
   QPointF box_to_;
   PickMode box_mode_ = PickMode::kReplace;

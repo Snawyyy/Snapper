@@ -1,6 +1,8 @@
 #include "ui/video_page.h"
 
+#include <QApplication>
 #include <QFileDialog>
+#include <QKeyEvent>
 #include <QSignalBlocker>
 
 #include <cassert>
@@ -30,7 +32,11 @@ VideoPage::VideoPage(const Managers& managers)
       bar_layout_(&bar_),
       bin_(managers),
       preview_(managers),
+      text_panel_(managers),
+      subtitle_panel_(managers),
       import_(tr("Import...")),
+      add_text_(tr("T+")),
+      tap_key_(QKeySequence(Qt::Key_L), this),
       split_button_(tr("Split at playhead")),
       mark_(tr("Mark cut")),
       add_track_(tr("Add track")),
@@ -39,14 +45,19 @@ VideoPage::VideoPage(const Managers& managers)
       timeline_(managers) {
   assert(managers_.IsComplete());
   layout_.setContentsMargins(0, 0, 0, 0);
+  side_.addTab(&text_panel_, tr("Text"));
+  side_.addTab(&subtitle_panel_, tr("Subtitles"));
   top_.addWidget(&bin_);
   top_.addWidget(&preview_);
+  top_.addWidget(&side_);
   top_.setStretchFactor(0, 1);
   top_.setStretchFactor(1, 4);
+  top_.setStretchFactor(2, 1);
   bar_layout_.setContentsMargins(4, 2, 4, 2);
   bar_layout_.addWidget(&transport_);
   bar_layout_.addSpacing(kBarGap);
   bar_layout_.addWidget(&import_);
+  bar_layout_.addWidget(&add_text_);
   bar_layout_.addWidget(&split_button_);
   bar_layout_.addWidget(&mark_);
   bar_layout_.addWidget(&add_track_);
@@ -99,6 +110,7 @@ VideoPage::VideoPage(const Managers& managers)
   connect(&timeline_, &ReelTimeline::EdgeModeChanged, this,
           [this] { Refresh(); });
   connect(&timeline_, &ReelTimeline::Problem, this, &VideoPage::Problem);
+  WireText();
   const auto refresh = [this] { Refresh(); };
   connect(managers_.history, &HistoryManager::Changed, this, refresh);
   connect(managers_.selection, &SelectionManager::Changed, this, refresh);
@@ -151,10 +163,105 @@ void VideoPage::AskForVideos() {
   ImportVideos(paths);
 }
 
+void VideoPage::WireText() {
+  assert(managers_.reel != nullptr);
+  assert(managers_.playback != nullptr);
+  add_text_.setObjectName("add_text");
+  add_text_.setShortcut(QKeySequence(Qt::CTRL | Qt::Key_T));
+  add_text_.setFocusPolicy(Qt::NoFocus);
+  add_text_.setToolTip(tr("Adds a text clip at the playhead on the highest "
+                          "free track (Ctrl+T), ready to type in."));
+  connect(&add_text_, &QPushButton::clicked, this, &VideoPage::AddText);
+  connect(&preview_, &ReelPreview::Problem, this, &VideoPage::Problem);
+  connect(&text_panel_, &ReelTextPanel::Problem, this, &VideoPage::Problem);
+  connect(&subtitle_panel_, &SubtitlePanel::Problem, this,
+          &VideoPage::Problem);
+  connect(&timeline_, &ReelTimeline::TextEditAsked, this,
+          &VideoPage::EditText);
+  // L taps work while the song plays, like M; letting go is seen by the
+  // filter, wherever the focus is.
+  tap_key_.setAutoRepeat(false);
+  connect(&tap_key_, &QShortcut::activated, this, &VideoPage::PressTap);
+  qApp->installEventFilter(this);
+}
+
+void VideoPage::AddText() {
+  assert(managers_.reel != nullptr);
+  assert(managers_.selection != nullptr);
+  const auto made =
+      managers_.reel->AddText(managers_.playback->FrameOn(Timeline::kReel));
+  Report(ProblemOf(made));
+  if (!made) {
+    return;
+  }
+  managers_.selection->PickClips({*made}, PickMode::kReplace);
+  side_.setCurrentWidget(&text_panel_);
+  preview_.EditText(*made);
+}
+
+void VideoPage::EditText(ClipId clip) {
+  assert(clip.IsValid());
+  assert(managers_.playback != nullptr);
+  const Clip* found = ClipOf(managers_.history->current().reel, clip);
+  if (found == nullptr) {
+    return;
+  }
+  // The words show while they are typed: the playhead goes inside.
+  const Frame now = managers_.playback->FrameOn(Timeline::kReel);
+  const bool is_inside = found->start <= now && now < found->end();
+  if (!is_inside) {
+    managers_.playback->Seek(
+        Frame(found->start.index() + found->length.index() / 2));
+  }
+  preview_.EditText(clip);
+}
+
+void VideoPage::PressTap() {
+  assert(managers_.reel != nullptr);
+  assert(managers_.playback != nullptr);
+  const bool is_shown = isVisible();
+  if (!is_shown) {
+    return;
+  }
+  const auto made =
+      managers_.reel->TapCue(managers_.playback->FrameOn(Timeline::kReel));
+  Report(ProblemOf(made));
+  if (made) {
+    tap_clock_.start();
+  }
+}
+
+void VideoPage::ReleaseTap() {
+  assert(managers_.reel != nullptr);
+  assert(tap_clock_.isValid());
+  const Frame held(static_cast<int>(tap_clock_.elapsed() * kFramesPerSecond /
+                                    1000));
+  tap_clock_.invalidate();
+  Report(ProblemOf(managers_.reel->ReleaseCue(
+      managers_.playback->FrameOn(Timeline::kReel), held)));
+}
+
+bool VideoPage::eventFilter(QObject* watched, QEvent* event) {
+  assert(event != nullptr);
+  assert(watched != nullptr);
+  const bool is_release = event->type() == QEvent::KeyRelease &&
+                          tap_clock_.isValid();
+  if (is_release) {
+    const auto* key = static_cast<const QKeyEvent*>(event);
+    const bool is_tap_key = key->key() == Qt::Key_L && !key->isAutoRepeat();
+    if (is_tap_key) {
+      ReleaseTap();
+    }
+  }
+  return QWidget::eventFilter(watched, event);
+}
+
 void VideoPage::Refresh() {
   assert(managers_.reel != nullptr);
   assert(managers_.selection != nullptr);
   const auto& picked = managers_.selection->clips();
+  Explain(&add_text_, managers_.reel->WhyNoAddText(
+                          managers_.playback->FrameOn(Timeline::kReel)));
   Explain(&split_button_,
           managers_.reel->WhyNoSplit(
               std::vector<ClipId>(picked.begin(), picked.end()),

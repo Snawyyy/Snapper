@@ -8,6 +8,7 @@
 #include <variant>
 
 #include "base/text.h"
+#include "io/layer_json.h"
 #include "model/project.h"
 
 namespace snapper {
@@ -37,6 +38,76 @@ Transition TransitionFromJson(const QJsonValue& value, JsonIssues* issues) {
   return transition;
 }
 
+QJsonObject LookToJson(const ReelTextLook& look) {
+  assert(look.letters.size > 0.0);
+  assert(look.box.isValid());
+  QJsonObject object;
+  AddLetters(look.letters, &object);
+  object.insert("box", ColorToJson(look.box));
+  object.insert("place", PointToJson(look.place));
+  return object;
+}
+
+ReelTextLook LookFromJson(const QJsonValue& value, ReelTextLook fallback,
+                          JsonIssues* issues) {
+  assert(issues != nullptr);
+  assert(fallback.box.isValid());
+  const bool is_missing = !value.isObject();
+  if (is_missing) {
+    return fallback;
+  }
+  const QJsonObject object = value.toObject();
+  ReelTextLook look = fallback;
+  ReadLetters(object, &look.letters, issues);
+  look.box = ColorFromJson(object.value("box"), look.box, issues);
+  const bool has_place = object.contains("place");
+  if (has_place) {
+    const QPointF place = PointFromJson(object.value("place"));
+    look.place = QPointF(std::clamp(place.x(), -1.0, 2.0),
+                         std::clamp(place.y(), -1.0, 2.0));
+  }
+  return look;
+}
+
+constexpr std::array<const char*, kTextMotionCount> kMotionNames = {
+    "cut", "fade", "pop", "slide_up", "type_on"};
+
+QJsonObject TextToJson(const TextSource& text) {
+  assert(static_cast<int>(text.appear) < kTextMotionCount);
+  assert(static_cast<int>(text.leave) < kTextMotionCount);
+  QJsonObject object{
+      {"words", text.text},
+      {"look", LookToJson(text.look)},
+      {"appear", EnumToJson(static_cast<int>(text.appear), kMotionNames)},
+      {"appear_length", text.appear_length.index()},
+      {"leave", EnumToJson(static_cast<int>(text.leave), kMotionNames)},
+      {"leave_length", text.leave_length.index()}};
+  if (!text.style.isEmpty()) {
+    object.insert("style", text.style);
+  }
+  if (text.is_own_look) {
+    object.insert("own_look", true);
+  }
+  return object;
+}
+
+TextSource TextFromJson(const QJsonObject& object, JsonIssues* issues) {
+  assert(issues != nullptr);
+  assert(kMotionNames.size() == kTextMotionCount);
+  TextSource text;
+  text.text = object.value("words").toString().left(kMaxReelTextLength);
+  text.look = LookFromJson(object.value("look"), ReelTextLook(), issues);
+  text.appear = static_cast<TextMotion>(
+      EnumFromJson(object.value("appear"), kMotionNames, issues));
+  text.appear_length = Frame(object.value("appear_length").toInt(6));
+  text.leave = static_cast<TextMotion>(
+      EnumFromJson(object.value("leave"), kMotionNames, issues));
+  text.leave_length = Frame(object.value("leave_length").toInt(6));
+  text.style = object.value("style").toString();
+  text.is_own_look = object.value("own_look").toBool();
+  return text;
+}
+
 QJsonObject ClipToJson(const Clip& clip) {
   assert(clip.id.IsValid());
   assert(clip.length.index() >= 1);
@@ -47,7 +118,10 @@ QJsonObject ClipToJson(const Clip& clip) {
   const auto* video = std::get_if<VideoSource>(&clip.source);
   const auto* sound = std::get_if<SoundSource>(&clip.source);
   const auto* shot = std::get_if<ShotSource>(&clip.source);
-  if (video != nullptr) {
+  const auto* text = std::get_if<TextSource>(&clip.source);
+  if (text != nullptr) {
+    object.insert("text", TextToJson(*text));
+  } else if (video != nullptr) {
     object.insert("video", video->path);
     object.insert("video_length", video->length.index());
   } else if (sound != nullptr) {
@@ -77,7 +151,10 @@ Clip ClipFromJson(const QJsonObject& object, JsonIssues* issues) {
   clip.length = Frame(object.value("length").toInt());
   const bool is_video = object.contains("video");
   const bool is_sound = object.contains("sound");
-  if (is_video) {
+  const bool is_text = object.value("text").isObject();
+  if (is_text) {
+    clip.source = TextFromJson(object.value("text").toObject(), issues);
+  } else if (is_video) {
     clip.source = VideoSource{object.value("video").toString(),
                               Frame(object.value("video_length").toInt())};
   } else if (is_sound) {
@@ -103,14 +180,17 @@ Clip ClipFromJson(const QJsonObject& object, JsonIssues* issues) {
 
 ReelTrack TrackFromJson(const QJsonValue& value, JsonIssues* issues) {
   assert(issues != nullptr);
-  // A picture track is a bare list of clips; a sound track an object
-  // with its header settings and its clips.
+  // A picture track is a bare list of clips; a sound or subtitle track
+  // an object with its header settings and its clips.
   const QJsonObject header = value.toObject();
   const bool is_sound = value.isObject() && header.value("sound").toBool();
-  const QJsonArray clips =
-      is_sound ? header.value("clips").toArray() : value.toArray();
+  const bool is_subtitle =
+      value.isObject() && header.value("subtitles").toBool();
+  const QJsonArray clips = value.isObject() ? header.value("clips").toArray()
+                                            : value.toArray();
   ReelTrack track;
   track.is_sound = is_sound;
+  track.is_subtitle = is_subtitle && !is_sound;
   if (is_sound) {
     track.name = header.value("name").toString();
     track.is_muted = header.value("muted").toBool();
@@ -125,7 +205,8 @@ ReelTrack TrackFromJson(const QJsonValue& value, JsonIssues* issues) {
   }
   for (const QJsonValue& item : clips) {
     const Clip clip = ClipFromJson(item.toObject(), issues);
-    const bool is_kind_right = IsSoundClip(clip) == is_sound;
+    const bool is_kind_right = IsSoundClip(clip) == is_sound &&
+                               (IsTextClip(clip) || !track.is_subtitle);
     if (!is_kind_right) {
       issues->Note(Tr("a clip is on the wrong kind of track"));
       continue;
@@ -150,6 +231,10 @@ QJsonArray ReelToJson(const Reel& reel) {
     QJsonArray clips;
     for (const Clip& clip : track.clips) {
       clips.append(ClipToJson(clip));
+    }
+    if (track.is_subtitle) {
+      tracks.append(QJsonObject{{"subtitles", true}, {"clips", clips}});
+      continue;
     }
     if (!track.is_sound) {
       tracks.append(clips);
@@ -184,15 +269,68 @@ Reel ReelFromJson(const QJsonValue& value, JsonIssues* issues) {
   for (const QJsonValue& track : tracks) {
     reel.tracks.push_back(TrackFromJson(track, issues));
   }
-  // Sound tracks sit under the picture ones, whatever the file says.
+  // Sound tracks sit under the picture ones and the one subtitle track
+  // above them all, whatever the file says; a second one is a picture
+  // track.
   std::ranges::stable_partition(
       reel.tracks, [](const ReelTrack& track) { return track.is_sound; });
-  const bool has_picture = SoundTrackCount(reel) <
-                           static_cast<int>(reel.tracks.size());
+  const int subtitles = SubtitleTrack(reel);
+  for (ReelTrack& track : reel.tracks) {
+    track.is_subtitle = track.is_subtitle &&
+                        &track == &reel.tracks[static_cast<size_t>(
+                                      std::max(subtitles, 0))];
+  }
+  std::ranges::stable_partition(
+      reel.tracks, [](const ReelTrack& track) { return !track.is_subtitle; });
+  const bool has_picture = PictureTrackCount(reel) > 0;
   if (!has_picture) {
-    reel.tracks.emplace_back();
+    reel.tracks.insert(reel.tracks.begin() + SoundTrackCount(reel),
+                       ReelTrack());
   }
   return reel;
+}
+
+QJsonObject ReelTextToJson(const Reel& reel) {
+  assert(reel.text_styles.size() <= static_cast<size_t>(kMaxTextStyles));
+  assert(reel.subtitle_lines.size() <=
+         static_cast<size_t>(kMaxSubtitleLines));
+  QJsonArray styles;
+  for (const TextStyle& style : reel.text_styles) {
+    styles.append(
+        QJsonObject{{"name", style.name}, {"look", LookToJson(style.look)}});
+  }
+  QJsonArray lines;
+  for (const QString& line : reel.subtitle_lines) {
+    lines.append(line);
+  }
+  return QJsonObject{{"subtitle_look", LookToJson(reel.subtitle_look)},
+                     {"styles", styles},
+                     {"lines", lines}};
+}
+
+void ReelTextFromJson(const QJsonValue& value, Reel* reel,
+                      JsonIssues* issues) {
+  assert(reel != nullptr);
+  assert(issues != nullptr);
+  const QJsonObject object = value.toObject();
+  reel->subtitle_look = LookFromJson(object.value("subtitle_look"),
+                                     Reel::DefaultSubtitleLook(), issues);
+  for (const QJsonValue& item :
+       Bounded(object.value("styles"), kMaxTextStyles, "text styles",
+               issues)) {
+    const QJsonObject style = item.toObject();
+    const QString name = style.value("name").toString();
+    const bool is_new = !name.isEmpty() && FindTextStyle(*reel, name) == nullptr;
+    if (is_new) {
+      reel->text_styles.push_back(
+          {name, LookFromJson(style.value("look"), ReelTextLook(), issues)});
+    }
+  }
+  for (const QJsonValue& item : Bounded(object.value("lines"),
+                                        kMaxSubtitleLines, "subtitle lines",
+                                        issues)) {
+    reel->subtitle_lines.push_back(item.toString());
+  }
 }
 
 QJsonArray MarkersToJson(const std::vector<Frame>& markers) {

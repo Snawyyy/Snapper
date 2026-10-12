@@ -51,6 +51,8 @@ class ExportDialog final : public QDialog {
   QSpinBox from_;
   QSpinBox to_;
   ChoiceRow size_;
+  // Where the subtitle track goes: in the picture, a file beside, both.
+  ChoiceRow subtitles_;
   QHBoxLayout file_row_;
   QLineEdit path_;
   QPushButton browse_;
