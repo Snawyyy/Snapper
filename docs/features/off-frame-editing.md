@@ -2,6 +2,8 @@
 
 Status: planned. Reported by the owner: limbs outside the shot's frame cannot be picked or edited.
 
+Needs: nothing.
+
 A doll walking in from off screen, an arm swinging past the edge or a prop waiting to be thrown in all live partly outside the frame. Today the stage paints only the rendered frame picture (`StageView::paintEvent` draws one canvas-sized image), so anything past the frame edge is invisible on the stage and there is nothing to click. The stage should work like a pasteboard: everything is drawn and editable, and the frame only marks what the camera will export.
 
 ## Seeing outside the frame

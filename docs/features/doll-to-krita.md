@@ -2,6 +2,8 @@
 
 Status: planned.
 
+Needs: nothing; its first part (the exporter keeping names) is needed by Smart Dials and Skins, so it is built first.
+
 A doll folder holds PNGs and two JSON files, not the Krita file it came from. Doll to Krita rebuilds a Krita file from the folder, with every piece as a group and every drawing as a named layer, so a lost .kra, a doll made by someone else, or drawings made in Snapper can be edited in Krita and sent back without losing the rig.
 
 ## First, the exporter must keep names

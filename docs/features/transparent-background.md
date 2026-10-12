@@ -2,12 +2,14 @@
 
 Status: planned.
 
+Needs: nothing. It brings the new export formats (PNG sequence, WebM, MOV) that [Sound on the reel](reel-audio.md) and [Text and subtitles](reel-text-and-subtitles.md) also use.
+
 A shot's background is a solid color today (white by default, `model/shot.h`), and export makes MP4 or GIF only, neither of which keeps transparency well. A see-through background lets a shot sit over live video in the reel, or go into another program as a cutout.
 
 ## Setting it
 
 - In the shot settings, the Background color swatch gets a Transparent tile beside it. The color stays remembered, so turning Transparent off brings the same color back.
-- Also in the palette popup, as the first swatch, so any place that picks a background can pick none.
+- Also in the [floating palette](palette.md), as the first swatch, so any place that picks a background can pick none.
 - New project tiles: a fifth start, Transparent, for projects that will be composited elsewhere.
 - Several shots picked on the master track: the setting applies to all of them in one undo step.
 

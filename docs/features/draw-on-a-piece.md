@@ -2,6 +2,8 @@
 
 Status: planned.
 
+Needs: the [floating palette](palette.md).
+
 Draw a new drawing for a piece without leaving Snapper: a new mouth shape, a fist, a squinting eye. It becomes one more drawing of that piece, so keys, the Drawing picker and Smart Dial stops can use it like any drawing from Krita.
 
 ## Getting in
@@ -37,13 +39,7 @@ Draw a new drawing for a piece without leaving Snapper: a new mouth shape, a fis
 
 ## Floating palette
 
-The same palette is used by [joint circles](joint-snap.md), [skins](skins.md) and the [Comp tab](compositing.md).
-
-- Opens with draw mode: every color used in this piece's drawings, biggest areas first, as swatches.
-- Movable anywhere over the preview and remembered between sessions; folds down to the current color only.
-- A second tab: all colors of the doll, for a color the piece never used (a tongue in a mouth that had none).
-- Hover a swatch to see where it is used: those pixels flash in the drawing.
-- Click picks; right click Add color for a new one, which then joins the palette for this doll.
+Draw mode opens the [floating palette](palette.md) on the piece's own colors: every color in its drawings, biggest areas first, with the doll's other colors one tab away. Hovering a swatch flashes where it is used; right click adds a new color for this doll.
 
 ## Undo inside draw mode
 

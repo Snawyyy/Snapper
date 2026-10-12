@@ -2,6 +2,8 @@
 
 Status: planned.
 
+Needs: nothing for the snapping; the [floating palette](palette.md) for circle colors.
+
 Placing a joint should land it on the limb's true center, and bending it should not open a gap. Today a lone pivot only catches on the middle and edges of the drawing's box (`ui/rig_canvas_snap.cpp`), not on the shape drawn inside it. From the measured width, an optional circle fills the joint so bent limbs look connected, the overlapping-circles joint used in cutout animation.
 
 ## Snapping to the shape
@@ -18,7 +20,7 @@ Placing a joint should land it on the limb's true center, and bending it should 
 
 - A circle drawn at the joint, its diameter the limb's width measured there, so the bend shows a round elbow instead of a gap or a corner.
 - On by a toggle per joint in the joint's settings (proposed key: J on a picked joint). A doll setting turns it on for new joints.
-- Color: picked from the same floating palette as [Draw on a piece](draw-on-a-piece.md), so it is one of the doll's own colors. By default it takes the most common color at the joint, which is usually the limb's fill.
+- Color: picked from the [floating palette](palette.md), so it is one of the doll's own colors. By default it takes the most common color at the joint, which is usually the limb's fill.
 - Outline: optional, with its own color and width from the palette, drawn only on the outer side of the bend so it continues the limb's outline instead of crossing the fill.
 - Size: follows the width automatically; a Size fader nudges it (90% to 120%) for limbs that taper at the joint.
 - Draw order: between the two pieces, just under the upper one, so it fills the gap without covering either drawing's lines.

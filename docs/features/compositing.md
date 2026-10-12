@@ -2,6 +2,8 @@
 
 Status: planned. Inspired by OLM OpenTools and F's Plugins.
 
+Needs: the [floating palette](palette.md) for color targets.
+
 A Compositing tab for Snapper, with effects reverse engineered from the tools Japanese anime studios use.
 
 ## What Snapper has today
@@ -78,7 +80,7 @@ A Comp tab beside Pose, Rig and Video, where a shot's finished frame gets the an
 ### Gradients
 
 - Shapes, as tiles: Linear (between two points), Radial (a circle from a center), Ellipse (a stretched, turnable circle), Four-corner (bilinear: a color on each corner of a box, blended across it), Angle (sweeps around a center like a clock hand), Diamond, and From edge (by distance from the target's outline, the Distance Gradation way).
-- Colors: two by default, more by double clicking the ramp to add a stop; each stop has a color from the floating palette and its own opacity, so a gradient can fade to clear. Four-corner has four corner colors instead of a ramp.
+- Colors: two by default, more by double clicking the ramp to add a stop; each stop has a color from the [floating palette](palette.md) and its own opacity, so a gradient can fade to clear. Four-corner has four corner colors instead of a ramp.
 - Handles on the stage while the effect is picked: yellow points for the ends, center, radius and corners, dragged like every handle; Shift keeps angles to 15 degree steps. Every handle is keyed, so a light can slide across a shot.
 - Where it applies: any target, including the whole shot (Everything below) and Picked colors, so a blush lands only on the skin fill. With Picked colors, the gradient keeps the target's outline crisp.
 - Follows: on a doll or picked pieces, the gradient is placed in the doll's own space, so it moves and turns with the doll; on the whole shot it stays in screen space.
@@ -108,7 +110,7 @@ A Comp tab beside Pose, Rig and Video, where a shot's finished frame gets the an
 ### Targets
 
 - Every effect has an Applies to row of tiles: Everything below (today's behavior), A layer (a doll or picture), Picked pieces, Picked colors.
-- Picked colors use the floating palette from the drawing feature: click swatches (Shift adds, Ctrl flips) or press I and click the stage to pick a color under the cursor.
+- Picked colors use the [floating palette](palette.md): click swatches (Shift adds, Ctrl flips) or press I and click the stage to pick a color under the cursor.
 - Targets combine: "skin color on the doll Mika only".
 - An effect on a doll follows the doll; one on Everything stays in screen space after the camera, as today.
 - Show mask (hold K): the stage shows what the effect touches in white over black, to check a color pick.

@@ -2,6 +2,8 @@
 
 Status: planned. Inspired by Spine's skins.
 
+Needs: the Krita exporter keeping layer names (first part of [Doll to Krita](doll-to-krita.md)) and the [floating palette](palette.md).
+
 A skin is a named look for a doll: for each piece it touches, which drawing shows. Picking a skin swaps all of them at once (school uniform, pajamas, angry face), so one rig, one set of keys and one set of dials serve every outfit, without making a second doll.
 
 ## Making a skin (Rig tab)
@@ -34,7 +36,7 @@ A skin is a named look for a doll: for each piece it touches, which drawing show
 ## Colors that follow the skin
 
 - [Joint circles](joint-snap.md) can take a color per skin (a pajama sleeve elbow is not a uniform elbow). If a skin sets none, the circle measures the color again from the swapped drawing.
-- The floating palette shows the colors of the skin's drawings while that skin is on.
+- The [floating palette](palette.md) shows the colors of the skin's drawings while that skin is on.
 
 ## Undo, saving and Krita
 

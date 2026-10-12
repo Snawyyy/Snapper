@@ -2,6 +2,8 @@
 
 Status: planned. Raised in review; the owner set the rule for shots.
 
+Needs: nothing for the tracks; the export formats from [Transparent background](transparent-background.md) for MOV, WebM and PNG sequence sound.
+
 A project has one song today, played under the shots and the reel. There is no way to add a sound effect, a voice take or a second music cue. This adds audio tracks to the reel, where all sound lives, and lets the Pose tab play whatever sound the reel has under the shot being posed.
 
 ## The rule for shots

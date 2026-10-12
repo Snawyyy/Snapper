@@ -2,6 +2,8 @@
 
 Status: planned.
 
+Needs: nothing; it reuses the doll code, so every doll feature built before it comes for free.
+
 Props such as a cup or a mic, from any PNG or GIF. Snapper already has a picture layer (`ImageLayer` in `model/layer.h`), but it is one still image with a path and nothing else: it cannot be held, animate, bend or sit between a doll's fingers. An object fixes that by being a doll with one piece, so it gets warp, jelly, smooth warp, joint snap and skins for free.
 
 ## Adding objects

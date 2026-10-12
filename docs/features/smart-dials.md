@@ -2,6 +2,8 @@
 
 Status: planned. Inspired by Moho's Smart Bones and switch layers.
 
+Needs: the Krita exporter keeping layer names (first part of [Doll to Krita](doll-to-krita.md)). Works better with [Draw on a piece](draw-on-a-piece.md) for new stop drawings.
+
 A Smart Dial is a named control on a doll that moves several pieces at once between saved stops. Between stops the moves blend and the drawings swap, so one dial sweep plays a head turn, a blink or a mouth shape. All raster, no mesh needed.
 
 ## Making a dial (Rig tab)
@@ -19,7 +21,7 @@ A Smart Dial is a named control on a doll that moves several pieces at once betw
 
 - Dials show in the Pose box under a Smart dials fold when the whole doll, or any piece a dial drives, is picked. Picking a piece shows only the dials that move it.
 - Same feel as the other dials: drag or turn the wheel, double click to reset to rest, a value chip shows the stop name or the blend ("Front 60% Right").
-- Snaps to stops when near them; hold Alt while dragging to turn freely without snapping, hold Ctrl for fine steps.
+- Snaps to stops when near them; hold Ctrl while dragging to turn freely without snapping, hold Shift for fine steps (the same keys as every dial and fader).
 - Several dolls picked: dials with the same name turn together, so a crowd can blink at once. Dials missing on some dolls are greyed with a tooltip naming them.
 - Hover a dial and the pieces it drives get a light red outline on the stage, so you know what it will move before touching it.
 
@@ -50,14 +52,14 @@ A Smart Dial is a named control on a doll that moves several pieces at once betw
 
 | Key | Where | Does |
 | --- | --- | --- |
-| Alt + drag | Smart dial | Turn freely, no snapping to stops |
-| Ctrl + drag | Smart dial | Fine steps |
+| Ctrl + drag | Smart dial | Turn freely, no snapping to stops |
+| Shift + drag or wheel | Smart dial | Fine steps |
 | Double click | Smart dial | Back to the rest stop |
 
 ## Open questions
 
 - [ ] Should a dial also drive warp dots, or only moves and drawing swaps in the first version?
-- [ ] Is snapping to stops the right default, or should free turning be the default with Alt to snap?
+- [ ] Is snapping to stops the right default, or should free turning be the default with Ctrl to snap?
 
 ## Not in the first version
 

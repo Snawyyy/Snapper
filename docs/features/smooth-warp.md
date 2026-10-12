@@ -2,6 +2,8 @@
 
 Status: planned. Inspired by the Pixel Edge Upscaler test page (xBR and RotSprite).
 
+Needs: nothing.
+
 Warped, turned and scaled pieces should look like the smoothed anime frame, not like blown-up pixel brush strokes. Today the warp reads the nearest pixel (`render/warp_raster.cpp`), so a stretched part shows big square steps. The fix: upscale each drawing once with xBR when the doll loads, keep it in the warp cache, and have the warp blend between pixels instead of picking one.
 
 ## The look

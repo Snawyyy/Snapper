@@ -2,13 +2,15 @@
 
 Status: planned. Asked for by the owner for the Video tab.
 
+Needs: the [floating palette](palette.md); the export formats from [Transparent background](transparent-background.md) for a subtitle stream.
+
 The Video tab's reel holds video clips and shot clips only (`ClipSource` in `model/reel.h`). Text exists, but only inside a shot as a text layer for lyrics, so a title over a speedpaint, a caption across several shots or a full subtitle file needs a trip through another editor. This adds text clips that sit on reel tracks like any clip, and a subtitle track for timed lines.
 
 ## Text clips
 
 - A text clip is a new clip source beside video and shot. It sits on any reel track, is drawn over the tracks below it, and moves, trims, splits, copies, snaps and ripple-deletes exactly like other clips, through `ReelManager`.
 - Add: a "T+" tile in the reel's bar, or Ctrl+T, drops a text clip at the playhead on the highest empty track, 2 seconds long, and opens it for typing straight away.
-- Look: the same settings as a shot's text layer (font, size, bold, fill, outline color and width), so a style learned in the Pose tab works here. Colors come from the floating palette.
+- Look: the same settings as a shot's text layer (font, size, bold, fill, outline color and width), so a style learned in the Pose tab works here. Colors come from the [floating palette](palette.md).
 - Place: drag the text on the video preview to move it; corner handles scale it. Position tiles snap it to the usual places (bottom center, top center, lower third left, middle). Guides catch on the frame center and a title-safe margin (10% in from each edge).
 - Edit in place: double click the text on the preview or the clip to type; Escape cancels the edit, Enter on its own line adds a line, Ctrl+Enter finishes.
 - In and out: tiles for how it appears and leaves (Cut, Fade, Pop, Slide up, Type on), with a length in frames. They are part of the clip, so trimming keeps them at the ends.

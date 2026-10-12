@@ -2,6 +2,8 @@
 
 Status: planned. Asked for by the owner.
 
+Needs: nothing; it uses the video reader the Video tab already has.
+
 Animating from reference (a filmed take, a dance video, a GIF of a walk) means seeing it behind the doll frame by frame. Today a picture layer would show it, but it would also end up in the shot, the Video tab and the export. A reference is a video, GIF or picture placed in a shot's Pose tab only: it plays in step with the timeline, has an opacity slider, and never shows anywhere outside the Pose tab.
 
 ## Adding a reference
