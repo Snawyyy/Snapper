@@ -42,7 +42,8 @@ PaletteManager::PaletteManager(HistoryManager* history,
 const Doll* PaletteManager::PickedDoll() const {
   const Project& project = history_->current();
   const Shot* shot = FindShot(project, selection_->shot());
-  if (shot == nullptr) {
+  // Nothing picked yet (a project just opened): no layer to look up.
+  if (shot == nullptr || !selection_->layer().IsValid()) {
     return nullptr;
   }
   const Layer* layer = FindLayer(*shot, selection_->layer());
