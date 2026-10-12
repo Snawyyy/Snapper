@@ -55,6 +55,10 @@ class ShotStrip final : public QWidget {
   void mouseReleaseEvent(QMouseEvent* event) override;
   void contextMenuEvent(QContextMenuEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
+  // The wheel (up and down or sideways) slides the shots along when they
+  // are wider than the strip.
+  void wheelEvent(QWheelEvent* event) override;
+  void resizeEvent(QResizeEvent* event) override;
 
  private:
   enum class Drag { kNone, kMove, kLength };
@@ -78,6 +82,10 @@ class ShotStrip final : public QWidget {
   // Notes the chip under at, for the paint.
   void UpdateChipHover(QPointF at);
   void Report(const QString& problem) { emit Problem(problem); }
+  // scroll_ kept between 0 and how far the shots reach past the strip.
+  void KeepScroll();
+  // Slides so the picked shot is in view.
+  void ShowPicked();
   // Removes shots; the toast offers Undo for exactly that step.
   void DeletePicked(const std::vector<ShotId>& picked);
 
@@ -97,6 +105,8 @@ class ShotStrip final : public QWidget {
   // Frames already added by the edge drag in progress.
   int drag_frames_ = 0;
   std::unique_ptr<EditScope> scope_;
+  // How far the shots are slid left, in pixels.
+  double scroll_ = 0.0;
 };
 
 }  // namespace snapper

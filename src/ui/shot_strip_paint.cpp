@@ -24,7 +24,7 @@ constexpr double kThumbChecker = 4.0;
 std::vector<ShotStrip::Block> ShotStrip::Blocks() const {
   assert(managers_.history != nullptr);
   std::vector<Block> blocks;
-  double x = 2.0;
+  double x = 2.0 - scroll_;
   for (const auto& shot : managers_.history->current().shots) {
     const double width = WidthOf(*shot);
     blocks.push_back({shot->id, QRectF(x, 2.0, width, kStripHeight - 4.0)});
@@ -37,8 +37,8 @@ std::vector<ShotStrip::Block> ShotStrip::Blocks() const {
 QRectF ShotStrip::AddBlock() const {
   assert(managers_.history != nullptr);
   const auto blocks = Blocks();
-  const double x = blocks.empty() ? 2.0 : blocks.back().rect.right() + 2.0;
-  assert(x >= 0.0);
+  const double x =
+      blocks.empty() ? 2.0 - scroll_ : blocks.back().rect.right() + 2.0;
   return QRectF(x, 2.0, kAddWidth, kStripHeight - 4.0);
 }
 

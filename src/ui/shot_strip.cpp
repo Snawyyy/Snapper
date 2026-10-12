@@ -8,6 +8,8 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
+#include <QResizeEvent>
+#include <QWheelEvent>
 
 #include <algorithm>
 #include <cassert>
@@ -40,6 +42,10 @@ ShotStrip::ShotStrip(const Managers& managers)
   const auto update_me = [this] { update(); };
   connect(managers_.history, &HistoryManager::Changed, this, update_me);
   connect(managers_.selection, &SelectionManager::Changed, this, update_me);
+  connect(managers_.selection, &SelectionManager::Changed, this,
+          [this] { ShowPicked(); });
+  connect(managers_.history, &HistoryManager::Changed, this,
+          [this] { KeepScroll(); });
   assert(hasMouseTracking());
 }
 
@@ -318,6 +324,56 @@ void ShotStrip::Menu(ShotId shot, QPoint where) {
   connect(menu.addAction(tr("Delete")), &QAction::triggered, this,
           [this] { DeletePicked(PickedShots()); });
   menu.exec(where);
+}
+
+void ShotStrip::KeepScroll() {
+  assert(managers_.history != nullptr);
+  // How far the + block reaches with no slide at all.
+  const double reach = AddBlock().right() + scroll_ + 2.0;
+  const double most = std::max(0.0, reach - width());
+  const double kept = std::clamp(scroll_, 0.0, most);
+  if (kept != scroll_) {
+    scroll_ = kept;
+    update();
+  }
+}
+
+void ShotStrip::ShowPicked() {
+  assert(managers_.selection != nullptr);
+  const ShotId picked = managers_.selection->shot();
+  for (const Block& block : Blocks()) {
+    if (block.shot != picked) {
+      continue;
+    }
+    if (block.rect.left() < 0.0) {
+      scroll_ += block.rect.left() - 2.0;
+    } else if (block.rect.right() > width()) {
+      scroll_ += block.rect.right() - width() + 2.0;
+    }
+  }
+  KeepScroll();
+  update();
+}
+
+void ShotStrip::wheelEvent(QWheelEvent* event) {
+  assert(event != nullptr);
+  const QPoint pixels = event->pixelDelta();
+  const QPoint turn = event->angleDelta();
+  // A touchpad gives pixels; a wheel notch slides a fifth of the strip.
+  const double by =
+      !pixels.isNull()
+          ? -(pixels.x() != 0 ? pixels.x() : pixels.y())
+          : -(turn.x() != 0 ? turn.x() : turn.y()) / 120.0 * width() / 5.0;
+  scroll_ += by;
+  KeepScroll();
+  UpdateChipHover(event->position());
+  update();
+  event->accept();
+}
+
+void ShotStrip::resizeEvent(QResizeEvent* event) {
+  QWidget::resizeEvent(event);
+  KeepScroll();
 }
 
 }  // namespace snapper

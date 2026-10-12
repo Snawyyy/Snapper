@@ -6,7 +6,6 @@
 #include <QCloseEvent>
 #include <QKeySequence>
 #include <QMenuBar>
-#include <QScrollBar>
 #include <QStatusBar>
 
 #include <cassert>
@@ -17,6 +16,7 @@
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/scroll_fit.h"
 #include "ui/bar_text.h"
 #include "ui/timing_chart_action.h"
 #include "ui/toast_manager.h"
@@ -237,11 +237,8 @@ void MainWindow::BuildPages() {
   rig_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   rig_scroll_.setFrameShape(QFrame::NoFrame);
   rig_scroll_.setWidget(&rig_panel_);
-  // As wide as the panel ever needs, so the split never shifts.
-  rig_scroll_.setMinimumWidth(rig_panel_.minimumSizeHint().width() +
-                              rig_scroll_.verticalScrollBar()
-                                  ->sizeHint()
-                                  .width());
+  // As wide as the settings need, whatever piece they show.
+  KeepWideEnough(&rig_scroll_);
   rig_split_.addWidget(&rig_scroll_);
   rig_split_.setCollapsible(1, false);
   rig_split_.setStretchFactor(0, 3);
