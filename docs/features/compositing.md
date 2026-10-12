@@ -71,7 +71,7 @@ A Comp tab beside Pose, Rig and Video, where a shot's finished frame gets the an
 - Light direction: a dial on the effect, keyed like any control, so a light can swing across a shot. A shot Light (one direction shared by every rim light and cel gradient that picks "Shot light") keeps several dolls lit from the same side, set once.
 - Follows the doll: the band is computed on the doll's posed shape each frame, so turning, bending and jelly keep the rim on the lit side.
 - Inside only: the band never draws past the target's outline, and Picked colors can limit it further (skin and hair, not the outline color).
-- Blend: Add (glow), Screen (soft) or Replace with the light color (flat anime rim), with a strength fader.
+- Blend: any of the shared blend modes below, Add by default (glow); Screen gives a soft rim, Normal a flat anime rim in the light color.
 - On the stage while the effect is picked, a yellow arrow handle sets the direction by dragging, the same feel as other handles.
 - F's Plugins' RimFill source is MIT and readable, so its method is checked there before building.
 
@@ -82,10 +82,28 @@ A Comp tab beside Pose, Rig and Video, where a shot's finished frame gets the an
 - Handles on the stage while the effect is picked: yellow points for the ends, center, radius and corners, dragged like every handle; Shift keeps angles to 15 degree steps. Every handle is keyed, so a light can slide across a shot.
 - Where it applies: any target, including the whole shot (Everything below) and Picked colors, so a blush lands only on the skin fill. With Picked colors, the gradient keeps the target's outline crisp.
 - Follows: on a doll or picked pieces, the gradient is placed in the doll's own space, so it moves and turns with the doll; on the whole shot it stays in screen space.
-- Blend: Normal, Multiply (shade), Screen and Add (light), Overlay, with a strength fader.
+- Blend: any of the shared blend modes below; Multiply shades, Screen and Add light, Overlay tints.
 - Steps: a Steps fader turns the smooth ramp into 2 to 8 flat bands, the hard-edged cel gradient anime uses; 0 keeps it smooth. A Dither option for a pixel-art look.
 - Scene gradient: a tile of its own in the Add row that drops a gradient over the whole shot in one click (target Everything below, screen space, Overlay blend), for a sunset tint, a dark vignette or a top-down light. It can also sit at the bottom of the stack as the shot's background, replacing the flat background color with a sky, and keyed handles let that sky change during the shot.
 - Shared light: picking "Shot light" aims a linear or radial gradient from the same direction as the rim lights.
+
+### Blend modes
+
+- One shared set, used by every effect and every stage layer (dolls, objects, pictures, text), replacing the short per-effect lists above. One blend function in the renderer, so a mode looks the same everywhere.
+- The set, grouped the way artists know it:
+    - Normal
+    - Darken group: Darken, Multiply, Color Burn, Linear Burn
+    - Lighten group: Lighten, Screen, Color Dodge, Add
+    - Contrast group: Overlay, Soft Light, Hard Light
+    - Compare group: Difference, Exclusion, Subtract
+    - Color group: Hue, Saturation, Color, Luminosity
+- Most map onto Qt's own painter composition modes; Linear Burn, Subtract and the Color group are written once in the renderer.
+- Picking: a sunken dropdown in the effect or layer box, grouped as above. Hovering a mode in the open list previews it live on the stage, so modes can be compared without committing; the pick is one undo step.
+- Cycling: Shift+= and Shift+- step the picked layer's or effect's mode up and down the list, the same as in painting programs, with a chip naming the mode.
+- Strength: the existing opacity fader blends the result with what is below, separate from the mode.
+- Keyed as a step: the mode can change at a key (a flash that switches to Add for two frames) but never blends between two modes.
+- Transparent shots: modes act on what is drawn below; over the empty, see-through area they behave as Normal, so exports with alpha stay clean ([Transparent background](transparent-background.md)).
+- Saved by name in the project, so a renamed or reordered list never changes a finished shot.
 
 ### Targets
 
@@ -129,6 +147,7 @@ A Comp tab beside Pose, Rig and Video, where a shot's finished frame gets the an
 | A | Comp tab | Add an effect |
 | V (hold) | Comp tab | All effects off while held |
 | K (hold) | Comp tab | Show what the picked effect touches |
+| Shift+= and Shift+- | Layer or effect picked | Next and previous blend mode |
 
 ### Not in the first version
 

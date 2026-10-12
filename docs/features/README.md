@@ -74,3 +74,4 @@ Every proposed key is free in Snapper today (checked against the keys bound in t
 | A | Comp tab | Add an effect | Compositing |
 | V (hold) | Comp tab | All effects off while held | Compositing |
 | K (hold) | Comp tab | Show what the picked effect touches | Compositing |
+| Shift+= and Shift+- | Layer or effect picked | Next and previous blend mode | Compositing |
