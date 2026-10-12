@@ -176,7 +176,19 @@ the library.
 
 In Krita, a group is a piece and each child layer is one of its
 drawings (head: happy, angry...). The visible child is the default. A
-plain layer is a piece with one drawing.
+plain layer is a piece with one drawing. The exporter also writes each
+drawing's layer name and the folder groups around each piece
+(`ArtPiece::layer_names`, `folder`); `DrawingName` gives a drawing's
+name, "head 1" for dolls exported before names were kept.
+
+Doll to Krita goes the other way. `io/ora_file.cpp` writes a doll as
+an OpenRaster file (`io/zip_writer.cpp` makes the zip) with the groups,
+names, the default drawing shown and a hidden "Snapper rig" layer of
+joint crosses; `DollLibraryManager::ExportToKrita` writes it and keeps
+its path in the library rig.json (`Rig::krita_file`), and
+`ui/krita_menu.cpp` asks, writes and opens Krita. The Krita plugin's
+Import Snapper Doll does the same inside Krita. A reload names the
+drawings a re-export lost (`RemovedDrawings`).
 
 A doll is keyed as a whole, as a drawing is in traditional animation:
 posing any piece keys every piece and the layer's own move at that

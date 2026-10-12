@@ -12,6 +12,7 @@
 #include <QWidget>
 
 #include "ui/cast_panel.h"
+#include "ui/krita_menu.h"
 #include "ui/command_palette.h"
 #include "ui/export_dialog.h"
 #include "ui/file_menu.h"
@@ -84,6 +85,7 @@ class MainWindow final : public QMainWindow {
 
   Managers managers_;
   FileMenu file_menu_;
+  KritaMenu krita_menu_;
   QMenu edit_menu_;
   QMenu view_menu_;
   MotionMenu motion_menu_;

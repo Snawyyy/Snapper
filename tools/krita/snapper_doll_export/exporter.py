@@ -23,6 +23,9 @@ MAX_NODES = 4096  # Bounds the layer walk.
 NOT_PAINT = {"grouplayer", "transparencymask", "filtermask",
              "transformmask", "selectionmask", "colorizemask"}
 RIG_FILE = "rig.json"
+# The hidden layer of joint crosses Snapper puts on top of a doll it
+# turns back into a Krita file; reference only, never a piece.
+RIG_LAYER = "Snapper rig"
 
 
 def library_folder():
@@ -40,32 +43,34 @@ def is_paint(node):
 
 
 def pieces_of(document):
-    """(name, [drawing nodes], default index), bottom to top.
+    """(name, [drawing nodes], default index, folder), bottom to top.
 
     A visible group holding only layers is one piece whose layers,
     hidden ones too, are its drawings; the visible one is the default.
-    A group holding groups is just a folder. A visible plain layer is a
-    piece with one drawing.
+    A group holding groups is just a folder; folder lists the folders
+    around a piece, outermost first. A visible plain layer is a piece
+    with one drawing. The rig layer Snapper adds is never a piece.
     """
     pieces = []
-    stack = list(reversed(document.topLevelNodes()))
+    stack = [(node, []) for node in reversed(document.topLevelNodes())]
     for _ in range(MAX_NODES):
         if not stack:
             break
-        node = stack.pop()
-        if not node.visible():
+        node, folder = stack.pop()
+        if not node.visible() or node.name() == RIG_LAYER:
             continue
         children = [c for c in node.childNodes()
                     if c.type() == "grouplayer" or is_paint(c)]
         if node.type() == "grouplayer":
             if any(c.type() == "grouplayer" for c in children):
-                stack.extend(reversed(children))
+                inside = folder + [node.name()]
+                stack.extend((c, inside) for c in reversed(children))
             elif children:
                 visible = [i for i, c in enumerate(children) if c.visible()]
                 pieces.append((node.name(), children,
-                               visible[-1] if visible else 0))
+                               visible[-1] if visible else 0, folder))
         elif is_paint(node) and not node.bounds().isEmpty():
-            pieces.append((node.name(), [node], 0))
+            pieces.append((node.name(), [node], 0, folder))
     return pieces
 
 
@@ -116,11 +121,11 @@ def problem(document):
     if len(pieces) > art_json.MAX_PIECES:
         return ("A doll holds at most %d pieces; this document has %d."
                 % (art_json.MAX_PIECES, len(pieces)))
-    crowded = [n for n, d, _ in pieces if len(d) > art_json.MAX_DRAWINGS]
+    crowded = [p[0] for p in pieces if len(p[1]) > art_json.MAX_DRAWINGS]
     if crowded:
         return ("A piece holds at most %d drawings; %s has more."
                 % (art_json.MAX_DRAWINGS, crowded[0]))
-    twice = art_json.duplicate_names([n for n, _, _ in pieces])
+    twice = art_json.duplicate_names([p[0] for p in pieces])
     if twice:
         return ("Two pieces are called \"%s\". Snapper keeps rigs by "
                 "piece name, so rename one." % twice[0])
@@ -130,7 +135,8 @@ def problem(document):
 def write_doll(document, folder):
     os.makedirs(folder)
     described = []
-    for index, (name, drawings, default) in enumerate(pieces_of(document)):
+    for index, (name, drawings, default, groups) in enumerate(
+            pieces_of(document)):
         box = shared_box(drawings)
         files = art_json.drawing_names(index, name, len(drawings))
         for node, file in zip(drawings, files):
@@ -138,7 +144,9 @@ def write_doll(document, folder):
                 raise OSError("Could not save %s" % file)
         described.append({"name": name, "x": box.x(), "y": box.y(),
                           "w": box.width(), "h": box.height(),
-                          "drawings": files, "default": default})
+                          "drawings": files, "default": default,
+                          "layer_names": [node.name() for node in drawings],
+                          "folder": groups})
     art = art_json.build(document.width(), document.height(), described)
     with open(os.path.join(folder, "art.json"), "w") as file:
         json.dump(art, file, indent=2)
@@ -182,6 +190,15 @@ class SnapperDollExport(Extension):
         action = window.createAction("snapper_doll_export", TITLE + "...",
                                      "tools/scripts")
         action.triggered.connect(self.run)
+        bring = window.createAction("snapper_doll_import",
+                                    "Import Snapper Doll...",
+                                    "tools/scripts")
+        bring.triggered.connect(self.run_import)
+
+    def run_import(self):
+        # Imported here: importer.py imports this module.
+        from . import importer
+        importer.run(Krita.instance().activeWindow().qwindow())
 
     def run(self):
         # Asked for at click time: Krita frees the Window handed to

@@ -94,6 +94,9 @@ void CastPanel::Wire() {
   connect(&down_, &QPushButton::clicked, this, [this] { Restack(-1); });
   connect(&library_, &QListWidget::itemSelectionChanged, this,
           &CastPanel::RefreshButtons);
+  library_.setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(&library_, &QWidget::customContextMenuRequested, this,
+          &CastPanel::ShowLibraryMenu);
   connect(&layers_, &QListWidget::itemSelectionChanged, this,
           &CastPanel::PickLayer);
   connect(&layers_, &QListWidget::itemChanged, this, &CastPanel::ToggleShown);

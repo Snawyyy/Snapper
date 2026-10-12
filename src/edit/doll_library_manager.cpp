@@ -2,6 +2,9 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QProcess>
+#include <QSettings>
+#include <QStandardPaths>
 
 #include <cassert>
 #include <variant>
@@ -10,6 +13,7 @@
 #include "edit/edit_scope.h"
 #include "edit/history_manager.h"
 #include "edit/mesh_edits.h"
+#include "io/ora_file.h"
 
 namespace snapper {
 namespace {
@@ -104,6 +108,7 @@ Result<ReconcileReport> DollLibraryManager::Reload(const QString& name) {
   Doll fresh = *doll;
   fresh.art = *art;
   fresh.rig = Reconcile(*art, doll->rig, &report);
+  report.removed_drawings = RemovedDrawings(doll->art, *art);
   Project next = history_->current();
   next.dolls[name] = std::make_shared<const Doll>(std::move(fresh));
   // Redrawn pieces get their shape mesh made again, keeping their dots.
@@ -162,7 +167,102 @@ Result<void> DollLibraryManager::SaveRig(const QString& name) {
     return std::unexpected(
         Error{Tr("%1 isn't in the project.").arg(name)});
   }
-  return WriteRig(FolderOf(name), doll->rig);
+  // The library's own note of the doll's Krita file is not the
+  // project's to drop.
+  Rig rig = doll->rig;
+  rig.krita_file = KritaFileOf(name);
+  return WriteRig(FolderOf(name), rig);
+}
+
+QString DollLibraryManager::KritaFileOf(const QString& name) const {
+  assert(!name.isEmpty());
+  const auto rig = ReadRig(FolderOf(name));
+  return rig ? rig->krita_file : QString();
+}
+
+QString DollLibraryManager::SuggestedKritaFile(const QString& name) const {
+  assert(!name.isEmpty());
+  assert(!folder_.isEmpty());
+  const QString kept = KritaFileOf(name);
+  if (!kept.isEmpty()) {
+    return kept;
+  }
+  return QFileInfo(folder_).dir().filePath(name + QStringLiteral(".ora"));
+}
+
+bool DollLibraryManager::IsKritaFileStale(const QString& name) const {
+  assert(!name.isEmpty());
+  const QFileInfo file(KritaFileOf(name));
+  const bool is_missing = file.filePath().isEmpty() || !file.exists();
+  if (is_missing) {
+    return true;
+  }
+  return file.lastModified() < ArtStamp(name);
+}
+
+Result<void> DollLibraryManager::ExportToKrita(const QString& name,
+                                               const QString& path) {
+  assert(!name.isEmpty());
+  assert(history_ != nullptr);
+  if (path.isEmpty()) {
+    return std::unexpected(Error{Tr("Pick where to save the Krita file.")});
+  }
+  auto loaded = LoadDoll(FolderOf(name));
+  if (!loaded) {
+    return std::unexpected(loaded.error());
+  }
+  Doll doll = loaded->doll;
+  const Doll* in_project = FindDoll(history_->current(), name);
+  if (in_project != nullptr) {
+    doll.rig = in_project->rig;
+  }
+  auto library_rig = ReadRig(FolderOf(name));
+  if (!library_rig) {
+    return std::unexpected(library_rig.error());
+  }
+  library_rig->krita_file = QFileInfo(path).absoluteFilePath();
+  // The note goes in first so the Krita file is the newer of the two.
+  auto noted = WriteRig(FolderOf(name), *library_rig);
+  if (!noted) {
+    return noted;
+  }
+  return WriteDollOra(doll, path);
+}
+
+QString DollLibraryManager::KritaProgram() const {
+  assert(!folder_.isEmpty());
+  const QSettings settings(SettingsPath(), QSettings::IniFormat);
+  const QString set = settings.value(QStringLiteral("krita_program")).toString();
+  const bool is_set = !set.isEmpty() && QFileInfo(set).isExecutable();
+  return is_set ? set : QStandardPaths::findExecutable(QStringLiteral("krita"));
+}
+
+void DollLibraryManager::SetKritaProgram(const QString& program) {
+  assert(!folder_.isEmpty());
+  QSettings settings(SettingsPath(), QSettings::IniFormat);
+  settings.setValue(QStringLiteral("krita_program"), program);
+}
+
+Result<void> DollLibraryManager::OpenInKrita(const QString& path) const {
+  assert(!path.isEmpty());
+  const QString program = KritaProgram();
+  if (program.isEmpty()) {
+    return std::unexpected(Error{
+        Tr("Krita wasn't found. Set its program under File > Krita "
+           "program.")});
+  }
+  const bool is_started = QProcess::startDetached(program, {path});
+  if (!is_started) {
+    return std::unexpected(Error{Tr("Can't start %1.").arg(program)});
+  }
+  return {};
+}
+
+QString DollLibraryManager::SettingsPath() const {
+  assert(!folder_.isEmpty());
+  // The library sits in the data folder, beside the settings file
+  // DocumentManager keeps there.
+  return QFileInfo(folder_).dir().filePath(QStringLiteral("settings.ini"));
 }
 
 Result<void> DollLibraryManager::Remove(const QString& name) {

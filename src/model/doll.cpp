@@ -27,6 +27,16 @@ const ArtPiece* FindArt(const Doll& doll, const QString& name) {
   return FindNamed(doll.art.pieces, name);
 }
 
+QString DrawingName(const ArtPiece& piece, int index) {
+  assert(index >= 0);
+  assert(index < static_cast<int>(piece.drawings.size()));
+  const size_t at = static_cast<size_t>(index);
+  const bool is_named =
+      at < piece.layer_names.size() && !piece.layer_names[at].isEmpty();
+  return is_named ? piece.layer_names[at]
+                  : QStringLiteral("%1 %2").arg(piece.name).arg(index + 1);
+}
+
 QSize ArtSizeOf(const Doll& doll, const QString& name) {
   const ArtPiece* art = FindArt(doll, name);
   assert(art == nullptr || art->size.width() >= 0);

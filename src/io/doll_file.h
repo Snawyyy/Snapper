@@ -43,6 +43,9 @@ struct ReconcileReport final {
   QStringList remeshed;
   int carried = 0;
   int lost = 0;
+  // Drawings a re-export no longer has, as "piece: drawing", so a
+  // layer deleted in Krita is told, never silently dropped.
+  QStringList removed_drawings;
 
   bool IsClean() const {
     return added.isEmpty() && missing.isEmpty() && dropped_chains.isEmpty();
@@ -53,6 +56,10 @@ struct ReconcileReport final {
 // rig piece (new ones pivot at their middle and stack as in Krita),
 // and nothing whose art is gone survives. report says what changed.
 Rig Reconcile(const DollArt& art, const Rig& rig, ReconcileReport* report);
+
+// The drawings of pieces in both before and after that after no longer
+// has, by name (see DrawingName), as "piece: drawing".
+QStringList RemovedDrawings(const DollArt& before, const DollArt& after);
 
 struct LoadedDoll final {
   Doll doll;

@@ -8,7 +8,7 @@ In build order. Each file has a Needs line naming what must come first; Doll to 
 
 ### Foundations: what other features stand on, and the bug-like gap
 
-- [ ] [Doll to Krita](doll-to-krita.md): turn a doll folder back into a Krita file and round-trip it without losing the rig.
+- [x] [Doll to Krita](doll-to-krita.md): turn a doll folder back into a Krita file and round-trip it without losing the rig.
 - [ ] [Floating palette](palette.md): one color panel offering the doll's own colors first, shared by drawing, joint circles, skins, compositing and text.
 - [ ] [Editing outside the frame](off-frame-editing.md): limbs past the shot's frame are drawn dimmed and can be picked and edited, like a pasteboard.
 

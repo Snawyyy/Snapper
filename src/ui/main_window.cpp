@@ -37,6 +37,7 @@ void ShowStep(QAction* action, const StepFace& face) {
 MainWindow::MainWindow(const Managers& managers)
     : managers_(managers),
       file_menu_(managers.document, managers.history, this),
+      krita_menu_(managers.library, managers.toasts, this),
       edit_menu_(tr("&Edit")),
       view_menu_(tr("&View")),
       motion_menu_(managers.motion),
@@ -269,7 +270,11 @@ void MainWindow::BuildMenus() {
   QMenu* file = file_menu_.menu();
   // Export sits just above Quit.
   file->insertAction(file->actions().last(), &export_action_);
+  file->insertMenu(file->actions().last(), krita_menu_.menu());
+  file->insertAction(file->actions().last(), krita_menu_.program_action());
   file->insertSeparator(file->actions().last());
+  connect(&cast_, &CastPanel::OpenInKritaRequested, &krita_menu_,
+          &KritaMenu::Open);
   connect(&export_action_, &QAction::triggered, &export_dialog_, [this] {
     export_dialog_.show();
     export_dialog_.raise();

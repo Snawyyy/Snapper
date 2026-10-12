@@ -33,11 +33,15 @@ class CastPanel final : public QWidget {
 
  signals:
   void Problem(const QString& why);
+  // The user asked to open a library doll in Krita (right click a card).
+  void OpenInKritaRequested(const QString& doll);
 
  private:
   void BuildLayout();
   void Wire();
   void RefreshLibrary();
+  // The right click menu of the library card under at.
+  void ShowLibraryMenu(const QPoint& at);
   // The small picture of a library doll, kept once drawn.
   QPixmap PictureOf(const QString& name);
   void RefreshLayers();

@@ -56,6 +56,26 @@ class DollLibraryManager final : public QObject {
   // How many layers in the project show the doll.
   int UseCount(const QString& name) const;
 
+  // Doll to Krita. The Krita file the library doll called name was
+  // last written to (kept in its rig.json), or empty when never.
+  QString KritaFileOf(const QString& name) const;
+  // Where a first Doll to Krita offers to save: beside the library.
+  QString SuggestedKritaFile(const QString& name) const;
+  // True when the doll's art or rig changed after its Krita file was
+  // written, so opening it again should offer to rebuild it.
+  bool IsKritaFileStale(const QString& name) const;
+  // Writes the library doll called name as an OpenRaster file at path
+  // (with the project's rig when the doll is in the project, for the
+  // joint crosses) and remembers path in its rig.json.
+  Result<void> ExportToKrita(const QString& name, const QString& path);
+  // The Krita program: the one set in settings, else one on the PATH;
+  // empty when none is found.
+  QString KritaProgram() const;
+  void SetKritaProgram(const QString& program);
+  // Opens path in Krita. Refused, saying why, when Krita isn't found,
+  // so the caller can show the file instead.
+  Result<void> OpenInKrita(const QString& path) const;
+
  signals:
   // Dolls were added to or removed from the library folder.
   void LibraryChanged();
@@ -64,6 +84,7 @@ class DollLibraryManager final : public QObject {
 
  private:
   QDateTime ArtStamp(const QString& name) const;
+  QString SettingsPath() const;
   void Rescan();
 
   HistoryManager* history_;

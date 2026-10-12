@@ -37,9 +37,18 @@ struct ArtPiece final {
   // Top-left corner of the drawings in doll space, and their size.
   QPointF position;
   QSize size;
+  // Each drawing's Krita layer name, one per drawing; empty for dolls
+  // exported before names were kept (see DrawingName).
+  std::vector<QString> layer_names;
+  // The Krita groups holding the piece, outermost first.
+  std::vector<QString> folder;
 
   bool operator==(const ArtPiece&) const = default;
 };
+
+// The name of drawing index of piece: its Krita layer name, or for old
+// dolls "head 1", "head 2" by position.
+QString DrawingName(const ArtPiece& piece, int index);
 
 // What Krita exported: art.json. Snapper only reads it.
 struct DollArt final {
@@ -254,6 +263,9 @@ struct Rig final {
   std::vector<IkChain> chains;
   // Dot groups every shot shows for this doll (their dots have no layer).
   std::vector<DotGroup> dot_groups;
+  // Where Doll to Krita last wrote this doll's Krita file; empty when
+  // it never did.
+  QString krita_file;
 
   bool operator==(const Rig&) const = default;
 };

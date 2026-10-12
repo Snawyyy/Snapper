@@ -1,6 +1,6 @@
 # Doll to Krita
 
-Status: planned.
+Status: built, first version (not yet tried in Krita). Waiting on later features: the Snapper drawing question on re-export (Draw on a piece), the skin prefix question (Skins), Krita color labels (OpenRaster has none), the Rig tab doll menu and a Show in folder button on the toast.
 
 Needs: nothing; its first part (the exporter keeping names) is needed by Smart Dials and Skins, so it is built first.
 

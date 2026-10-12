@@ -173,6 +173,19 @@ ArtPiece ArtPieceFromJson(const QJsonObject& object, JsonIssues* issues) {
   piece.default_drawing = object.value("default").toInt();
   piece.position = PointFromJson(object.value("position"));
   piece.size = SizeFromJson(object.value("size"));
+  // Older exports have no layer names; a list that does not match the
+  // drawings one for one is dropped, so DrawingName falls back.
+  const QJsonArray names = Bounded(object.value("layer_names"),
+                                   kMaxPieceDrawings, "layer names", issues);
+  if (names.size() == drawings.size()) {
+    for (const QJsonValue& name : names) {
+      piece.layer_names.push_back(name.toString());
+    }
+  }
+  const QJsonArray folder = object.value("folder").toArray();
+  for (const QJsonValue& group : folder) {
+    piece.folder.push_back(group.toString());
+  }
   const bool is_valid = !piece.name.isEmpty() && !piece.drawings.empty();
   if (!is_valid) {
     issues->Note(QStringLiteral("a piece has no name or drawings"));
@@ -224,11 +237,18 @@ QJsonObject ArtToJson(const DollArt& art) {
   QJsonArray pieces;
   for (const ArtPiece& piece : art.pieces) {
     assert(!piece.name.isEmpty());
-    pieces.append(QJsonObject{{"name", piece.name},
-                              {"drawings", Names(piece.drawings)},
-                              {"default", piece.default_drawing},
-                              {"position", PointToJson(piece.position)},
-                              {"size", SizeToJson(piece.size)}});
+    QJsonObject object{{"name", piece.name},
+                       {"drawings", Names(piece.drawings)},
+                       {"default", piece.default_drawing},
+                       {"position", PointToJson(piece.position)},
+                       {"size", SizeToJson(piece.size)}};
+    if (!piece.layer_names.empty()) {
+      object.insert("layer_names", Names(piece.layer_names));
+    }
+    if (!piece.folder.empty()) {
+      object.insert("folder", Names(piece.folder));
+    }
+    pieces.append(object);
   }
   return QJsonObject{{"canvas", SizeToJson(art.canvas)}, {"pieces", pieces}};
 }
@@ -278,9 +298,13 @@ QJsonObject RigToJson(const Rig& rig, bool with_layers) {
                               {"tip", PointToJson(chain.tip)},
                               {"clockwise", chain.bends_clockwise}});
   }
-  return QJsonObject{{"pieces", pieces},
-                     {"chains", chains},
-                     {"dot_groups", DotGroupsToJson(rig.dot_groups)}};
+  QJsonObject out{{"pieces", pieces},
+                  {"chains", chains},
+                  {"dot_groups", DotGroupsToJson(rig.dot_groups)}};
+  if (!rig.krita_file.isEmpty()) {
+    out.insert("krita_file", rig.krita_file);
+  }
+  return out;
 }
 
 Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
@@ -316,6 +340,7 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
                           chain.value("clockwise").toBool(true)});
   }
   rig.dot_groups = DotGroupsFromJson(object.value("dot_groups"), issues);
+  rig.krita_file = object.value("krita_file").toString();
   assert(rig.chains.size() <= static_cast<size_t>(kMaxIkChains));
   return rig;
 }

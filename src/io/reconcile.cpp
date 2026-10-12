@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 
 #include "io/doll_file.h"
@@ -34,6 +35,7 @@ Rig Reconcile(const DollArt& art, const Rig& rig, ReconcileReport* report) {
   assert(art.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   *report = ReconcileReport();
   Rig fitted;
+  fitted.krita_file = rig.krita_file;
   int stack = 0;
   for (const ArtPiece& piece : art.pieces) {
     fitted.pieces.push_back(
@@ -65,6 +67,36 @@ Rig Reconcile(const DollArt& art, const Rig& rig, ReconcileReport* report) {
   }
   assert(fitted.pieces.size() == art.pieces.size());
   return fitted;
+}
+
+QStringList RemovedDrawings(const DollArt& before, const DollArt& after) {
+  assert(before.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+  assert(after.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+  QStringList removed;
+  for (const ArtPiece& old : before.pieces) {
+    const auto now = std::find_if(
+        after.pieces.begin(), after.pieces.end(),
+        [&old](const ArtPiece& piece) { return piece.name == old.name; });
+    if (now == after.pieces.end()) {
+      continue;
+    }
+    // An old export had no names, so only the count can be compared.
+    const bool is_by_count = old.layer_names.empty();
+    const int now_count = static_cast<int>(now->drawings.size());
+    QStringList kept;
+    for (int i = 0; i < now_count; ++i) {
+      kept.append(DrawingName(*now, i));
+    }
+    for (int i = 0; i < static_cast<int>(old.drawings.size()); ++i) {
+      const QString name = DrawingName(old, i);
+      const bool is_gone =
+          is_by_count ? i >= now_count : !kept.contains(name);
+      if (is_gone) {
+        removed.append(old.name + QStringLiteral(": ") + name);
+      }
+    }
+  }
+  return removed;
 }
 
 }  // namespace snapper

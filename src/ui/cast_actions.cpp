@@ -48,12 +48,16 @@ QString Outcome(
     return reports.error().message;
   }
   QStringList lost;
+  QStringList removed;
   QStringList remeshed;
   int carried = 0;
   int let_go = 0;
   for (const auto& [doll, report] : *reports) {
     for (const QString& gone : report.missing + report.dropped_chains) {
       lost.append(doll + ": " + gone);
+    }
+    for (const QString& drawing : report.removed_drawings) {
+      removed.append(doll + " " + drawing);
     }
     remeshed += report.remeshed;
     carried += report.carried;
@@ -65,6 +69,11 @@ QString Outcome(
   if (has_lost) {
     said.append(QObject::tr("Gone from the art, so dropped from the rig: %1")
                     .arg(lost.join(", ")));
+  }
+  const bool has_removed = !removed.isEmpty();
+  if (has_removed) {
+    said.append(QObject::tr("Drawings no longer in Krita: %1")
+                    .arg(removed.join(", ")));
   }
   const bool has_remeshed = !remeshed.isEmpty();
   if (has_remeshed) {
@@ -236,6 +245,19 @@ void CastPanel::Reload() {
     stale_.remove(doll);
   }
   RefreshLibrary();
+}
+
+void CastPanel::ShowLibraryMenu(const QPoint& at) {
+  const QListWidgetItem* item = library_.itemAt(at);
+  if (item == nullptr) {
+    return;
+  }
+  const QString name = item->data(kKeyRole).toString();
+  assert(!name.isEmpty());
+  QMenu menu;
+  menu.addAction(tr("Open in Krita"), this,
+                 [this, name] { emit OpenInKritaRequested(name); });
+  menu.exec(library_.viewport()->mapToGlobal(at));
 }
 
 void CastPanel::Place() {
