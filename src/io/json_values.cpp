@@ -70,6 +70,30 @@ QString ColorToJson(const QColor& color) {
   return color.name(QColor::HexArgb);
 }
 
+QJsonArray ColorsToJson(const std::vector<QColor>& colors) {
+  QJsonArray array;
+  for (const QColor& color : colors) {
+    array.append(ColorToJson(color));
+  }
+  return array;
+}
+
+std::vector<QColor> ColorsFromJson(const QJsonValue& value, int limit,
+                                   JsonIssues* issues) {
+  assert(issues != nullptr);
+  assert(limit > 0);
+  std::vector<QColor> colors;
+  for (const QJsonValue& item : Bounded(value, limit, "colors", issues)) {
+    const QColor color = QColor::fromString(item.toString());
+    if (!color.isValid()) {
+      issues->Note(QStringLiteral("bad color %1").arg(item.toString()));
+      continue;
+    }
+    colors.push_back(color);
+  }
+  return colors;
+}
+
 QColor ColorFromJson(const QJsonValue& value, QColor fallback,
                      JsonIssues* issues) {
   assert(issues != nullptr);

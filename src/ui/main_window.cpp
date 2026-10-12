@@ -38,6 +38,9 @@ MainWindow::MainWindow(const Managers& managers)
     : managers_(managers),
       file_menu_(managers.document, managers.history, this),
       krita_menu_(managers.library, managers.toasts, this),
+      color_palette_(managers.palette, managers.document->SettingsPath(),
+                     this),
+      color_palette_action_(tr("Color &palette")),
       edit_menu_(tr("&Edit")),
       view_menu_(tr("&View")),
       motion_menu_(managers.motion),
@@ -312,6 +315,15 @@ void MainWindow::BuildViewAndHelp() {
   sounds_action_.setToolTip(tr("Quiet ticks and chimes for undo, redo and "
                                "big wins."));
   view_menu_.addAction(&sounds_action_);
+  color_palette_action_.setCheckable(true);
+  color_palette_action_.setToolTip(
+      tr("The floating palette: the picked piece's and doll's colors, "
+         "recent and added ones."));
+  view_menu_.addAction(&color_palette_action_);
+  connect(&color_palette_action_, &QAction::toggled, &color_palette_,
+          &PalettePanel::SetOpen);
+  connect(&color_palette_, &PalettePanel::OpenChanged,
+          &color_palette_action_, &QAction::setChecked);
   connect(&sounds_action_, &QAction::toggled, &sound_, &UiSound::SetOn);
   connect(managers_.toasts, &ToastManager::Cheered, &sound_,
           [this] { sound_.Play(UiSound::Blip::kChime); });

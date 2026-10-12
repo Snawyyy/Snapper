@@ -11,6 +11,7 @@
 #include "edit/history_manager.h"
 #include "edit/key_manager.h"
 #include "edit/link_manager.h"
+#include "edit/palette_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/preset_manager.h"
@@ -62,6 +63,7 @@ class AppContext final {
   PokeManager poke_;
   GroupManager groups_;
   SettingsManager settings_;
+  PaletteManager palette_;
   MainWindow window_;
 };
 

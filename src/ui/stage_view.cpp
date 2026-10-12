@@ -10,6 +10,7 @@
 #include <variant>
 
 #include "edit/history_manager.h"
+#include "edit/palette_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/poke_manager.h"
 #include "edit/selection_manager.h"
@@ -46,6 +47,10 @@ StageView::StageView(const Managers& managers)
   connect(managers_.selection, &SelectionManager::Changed, this,
           [this] { tool_.Observe(); });
   connect(managers_.poke, &PokeManager::Changed, this, update_me);
+  if (managers_.palette != nullptr) {
+    connect(managers_.palette, &PaletteManager::HoverChanged, this,
+            update_me);
+  }
   connect(&hover_, &HandleHover::Changed, this, update_me);
   connect(&feedback_, &DragFeedback::Changed, this, update_me);
   connect(&watcher_, &ChangeWatcher::Stepped, this, &StageView::ShowStep);
@@ -86,6 +91,9 @@ void StageView::paintEvent(QPaintEvent* event) {
       managers_.history->current(),
       managers_.playback->FrameOn(Timeline::kShots), frame->scale);
   painter.drawImage(frame->corner, image);
+  shown_ = image;
+  shown_corner_ = frame->corner;
+  PaintColorFlash(image, frame->corner, &painter);
   const Shot* shown = FindShot(managers_.history->current(), frame->shot);
   const bool is_empty_shot = shown != nullptr && shown->layers.empty();
   if (is_empty_shot) {
@@ -295,6 +303,9 @@ void StageView::keyPressEvent(QKeyEvent* event) {
   if (was_poke_ended) {
     update();
     event->accept();
+    return;
+  }
+  if (PaletteKey(event)) {
     return;
   }
   const bool was_nudge = NudgeKey(event);

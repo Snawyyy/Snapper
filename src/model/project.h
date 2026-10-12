@@ -18,6 +18,7 @@ constexpr int kMinCanvasSide = 16;
 constexpr int kMaxCanvasSide = 7680;
 constexpr int kMaxShots = 512;
 constexpr int kMaxProjectDolls = 64;
+constexpr int kMaxRecentColors = 8;
 
 // The video frame every shot renders into, in pixels.
 struct CanvasSize final {
@@ -46,6 +47,9 @@ struct Project final {
   int next_shot_id = 1;
   int next_layer_id = 1;
   int next_clip_id = 1;
+  // The last colors picked anywhere in the project, newest first, at
+  // most kMaxRecentColors.
+  std::vector<QColor> recent_colors;
 
   bool operator==(const Project&) const = default;
 };

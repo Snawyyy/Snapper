@@ -1,6 +1,6 @@
 # Floating palette
 
-Status: planned. Shared by [Draw on a piece](draw-on-a-piece.md), [Joint circles](joint-snap.md), [Skins](skins.md), [Compositing](compositing.md) (color swap, gradients, rim light, targets), [Text and subtitles](reel-text-and-subtitles.md) and [Transparent background](transparent-background.md).
+Status: built, first version (skin colors wait for Skins; draw mode hooks the auto open). Shared by [Draw on a piece](draw-on-a-piece.md), [Joint circles](joint-snap.md), [Skins](skins.md), [Compositing](compositing.md) (color swap, gradients, rim light, targets), [Text and subtitles](reel-text-and-subtitles.md) and [Transparent background](transparent-background.md).
 
 Needs: nothing; build it early, six features use it.
 
@@ -17,6 +17,7 @@ Dolls are drawn with a few flat colors, so the colors that matter are the ones a
 
 ## Using it
 
+- It opens by itself when draw mode starts and closes by itself when draw mode ends ([Draw on a piece](draw-on-a-piece.md) calls `PaletteManager::SetShown`); View > Color palette still opens it by hand.
 - It floats over the stage, opens where it was last left, can be moved anywhere and folds down to the current color only. One palette at a time; opening it for another feature moves it there.
 - Click a swatch to pick. In places that take several colors (effect targets), Shift click adds and Ctrl click flips, the same as picking anywhere in Snapper.
 - Hover a swatch: the pixels of that color flash on the stage, so you see where it is used before picking it.

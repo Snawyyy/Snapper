@@ -36,6 +36,7 @@ Rig Reconcile(const DollArt& art, const Rig& rig, ReconcileReport* report) {
   *report = ReconcileReport();
   Rig fitted;
   fitted.krita_file = rig.krita_file;
+  fitted.added_colors = rig.added_colors;
   int stack = 0;
   for (const ArtPiece& piece : art.pieces) {
     fitted.pieces.push_back(

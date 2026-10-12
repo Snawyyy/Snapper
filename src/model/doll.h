@@ -1,6 +1,7 @@
 #ifndef SNAPPER_MODEL_DOLL_H_
 #define SNAPPER_MODEL_DOLL_H_
 
+#include <QColor>
 #include <QPointF>
 #include <QSize>
 #include <QString>
@@ -21,6 +22,8 @@ using LayerId = Id<LayerTag>;
 constexpr int kMaxDollPieces = 128;
 constexpr int kMaxPieceDrawings = 64;
 constexpr int kMaxIkChains = 32;
+// Hand-added palette colors a doll keeps.
+constexpr int kMaxAddedColors = 64;
 constexpr int kMaxWarpCells = 8;
 // The most points a warp has: a shape mesh's, which is more than the
 // biggest grid's.
@@ -266,6 +269,8 @@ struct Rig final {
   // Where Doll to Krita last wrote this doll's Krita file; empty when
   // it never did.
   QString krita_file;
+  // Colors added to the palette by hand for this doll, oldest first.
+  std::vector<QColor> added_colors;
 
   bool operator==(const Rig&) const = default;
 };

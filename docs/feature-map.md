@@ -43,6 +43,7 @@ it in the same commit.
 | Feel preview (hopping blob) | Picking many | anim/hop_preview.cpp, ui/wobble_blob.cpp, ui/drag_box_show.cpp | HopPreview (no edits) | anim/hop_preview_tests, ui/drag_panel_tests |
 | Playback, song, export | Time | edit/playback_manager.cpp, edit/export_manager.cpp, ui/transport_bar.cpp, ui/top_bar.cpp, media/video_encoder.cpp | PlaybackManager, ExportManager | edit/playback_tests, edit/export_tests, media/media_tests |
 | Krita exporter | Dolls | tools/krita/snapper_doll_export/ | none (writes doll folders) | io/doll_file_tests |
+| Floating palette (colors, recent, added, stage flash, I to pick) | Dolls | edit/palette_manager.cpp, render/drawing_colors.cpp, ui/palette_panel.cpp, ui/stage_view_palette.cpp | PaletteManager | edit/palette_tests |
 | Doll to Krita (.ora, Open in Krita) | Dolls | io/ora_file.cpp, io/zip_writer.cpp, io/reconcile.cpp (RemovedDrawings), ui/krita_menu.cpp, tools/krita/snapper_doll_export/importer.py | DollLibraryManager | io/doll_file_tests |
 
 ## Adding a new kind

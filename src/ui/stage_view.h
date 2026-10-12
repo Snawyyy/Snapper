@@ -136,6 +136,13 @@ class StageView final : public QWidget {
   // P down or up: holding it arms poking (see StagePoke). Returns true
   // when the key was P and is dealt with.
   bool PokeKey(QKeyEvent* event, bool is_down);
+  // The pixels of the palette's hovered color, lit up over image (drawn
+  // at corner), so a swatch shows where its color is used.
+  void PaintColorFlash(const QImage& image, QPointF corner,
+                       QPainter* painter) const;
+  // I with the palette open: picks the color under the cursor from the
+  // frame last drawn. True when the key was dealt with.
+  bool PaletteKey(QKeyEvent* event);
   // The layer a click at point would pick; invalid for none.
   LayerId LayerUnder(QPointF point, const StageFrame& frame) const;
   // Ctrl+A: every piece of the picked doll, or every layer.
@@ -161,6 +168,9 @@ class StageView final : public QWidget {
   ChangeWatcher watcher_;
   StageFlash flash_;
   std::optional<Pick> hover_pick_;
+  // The frame last drawn and where, for picking a color with I.
+  QImage shown_;
+  QPointF shown_corner_;
   // Wheel movement not yet a whole notch.
   int wheel_left_ = 0;
   // Degrees turned by the wheel since the chip last faded.

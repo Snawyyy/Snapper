@@ -10,6 +10,7 @@
 #include <QString>
 
 #include <cassert>
+#include <vector>
 #include <span>
 
 #include "model/key.h"
@@ -41,6 +42,10 @@ QSize SizeFromJson(const QJsonValue& value);
 QString ColorToJson(const QColor& color);
 QColor ColorFromJson(const QJsonValue& value, QColor fallback,
                      JsonIssues* issues);
+// A list of colors (palette colors); at most limit are read.
+QJsonArray ColorsToJson(const std::vector<QColor>& colors);
+std::vector<QColor> ColorsFromJson(const QJsonValue& value, int limit,
+                                   JsonIssues* issues);
 
 // Enums are stored by name, so files survive reordering the enum.
 // names[i] is the name of value i.

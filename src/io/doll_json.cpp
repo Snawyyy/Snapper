@@ -304,6 +304,9 @@ QJsonObject RigToJson(const Rig& rig, bool with_layers) {
   if (!rig.krita_file.isEmpty()) {
     out.insert("krita_file", rig.krita_file);
   }
+  if (!rig.added_colors.empty()) {
+    out.insert("added_colors", ColorsToJson(rig.added_colors));
+  }
   return out;
 }
 
@@ -341,6 +344,8 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
   }
   rig.dot_groups = DotGroupsFromJson(object.value("dot_groups"), issues);
   rig.krita_file = object.value("krita_file").toString();
+  rig.added_colors =
+      ColorsFromJson(object.value("added_colors"), kMaxAddedColors, issues);
   assert(rig.chains.size() <= static_cast<size_t>(kMaxIkChains));
   return rig;
 }

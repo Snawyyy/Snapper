@@ -190,6 +190,16 @@ its path in the library rig.json (`Rig::krita_file`), and
 Import Snapper Doll does the same inside Krita. A reload names the
 drawings a re-export lost (`RemovedDrawings`).
 
+The floating palette (`PaletteManager`) gives every feature that asks
+for a color the same colors: the picked piece's and doll's solid
+colors (`render/drawing_colors.cpp`, cached per drawing file), the
+project's recent ones (`Project::recent_colors`, recorded by the edit
+that uses a color through `WithRecent`) and the doll's hand-added ones
+(`Rig::added_colors`). It never changes a drawing. It also holds the
+current and hovered color, so `ui/palette_panel.cpp` and the stage
+(flash, I to pick) agree; draw mode opens and closes it with `SetShown`.
+
+
 A doll is keyed as a whole, as a drawing is in traditional animation:
 posing any piece keys every piece and the layer's own move at that
 frame, so one key on the doll's timeline row is its full pose.

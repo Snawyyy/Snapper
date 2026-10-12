@@ -11,6 +11,7 @@ class HistoryManager;
 class KeyManager;
 class LinkManager;
 class MotionManager;
+class PaletteManager;
 class PlaybackManager;
 class PokeManager;
 class PoseManager;
@@ -47,6 +48,8 @@ struct Managers final {
   PokeManager* poke = nullptr;
   GroupManager* groups = nullptr;
   SettingsManager* settings = nullptr;
+  // Not in IsComplete: widgets that show the palette assert it themselves.
+  PaletteManager* palette = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&
