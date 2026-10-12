@@ -18,6 +18,7 @@ In the order we plan to build them.
 - [ ] [Text and subtitles on the reel](reel-text-and-subtitles.md): text clips on Video tab tracks and a subtitle track timed by tapping to the song.
 - [ ] [Resizing shots on the reel](reel-shot-resize.md): drag a shot clip's edge on the Video tab timeline to change the shot's own length.
 - [ ] [Reference on the Pose tab](pose-reference.md): a video, GIF or picture behind the doll with an opacity fader, in step with the timeline, never in the final video.
+- [ ] [Sound on the reel](reel-audio.md): audio tracks for sound effects, voice and music, with volume keys and fades; shots play the reel sound under them in the Pose tab.
 - [ ] [Compositing](compositing.md): a Comp tab with anime finishing effects, rim light included, that target a doll, pieces or palette colors.
 
 ## Adding a new feature
