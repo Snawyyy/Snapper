@@ -37,7 +37,11 @@ namespace snapper {
 // it there. Click a clip to pick it (Shift adds, Ctrl flips), drag a
 // box over empty space to pick what it touches, Ctrl+A picks all and
 // Escape or a click on empty space clears. Drag a clip to move it,
-// along or to another track; drag its ends to trim it. Drags snap to
+// along or to another track; drag its ends to trim it. The ends of a
+// shot clip showing its whole shot change the shot's own length instead
+// (Alt flips trim and resize, Shift ripples, ReelManager::ResizeShots);
+// double-clicking a shot clip inside a gap offers to fit the shot to it.
+// Ctrl turns snapping off. Drags snap to
 // other clips' cuts, cut markers and the playhead, and flash when they
 // do; a chip beside the cursor says how many frames the drag went, a
 // faint ghost marks where it began, and letting go pops. Escape cancels
@@ -84,6 +88,8 @@ class ReelTimeline final : public QWidget {
 
  signals:
   void Problem(const QString& why);
+  // The shot edge mode was switched from a menu.
+  void EdgeModeChanged();
 
  protected:
   void paintEvent(QPaintEvent* event) override;
@@ -142,11 +148,18 @@ class ReelTimeline final : public QWidget {
   ClipId ClipAt(QPointF at) const;
   // Which drag pressing at on clip starts: an end or the body.
   Drag DragFor(ClipId clip, QPointF at) const;
-  void StartDrag(ClipId clip, Drag drag, QPointF at);
+  // An end drag of a shot clip resizes its shot when ReelManager says so
+  // for the modifiers held at the press (Alt flips it).
+  void StartDrag(ClipId clip, Drag drag, QPointF at,
+                 Qt::KeyboardModifiers modifiers);
   // As a clip or its end is grabbed: leaves a faint copy of the clips
   // that drag, drawn by PaintClip, where they sit now.
   void GrabGhost();
-  void Follow(QPointF at);
+  // Ctrl turns snapping off; Shift ripples a shot resize.
+  void Follow(QPointF at, Qt::KeyboardModifiers modifiers);
+  // A shot clip end drag that changes the shot's length; the chip says
+  // the new length, the change and what stopped it.
+  void FollowResize(Frame raw, Frame edge, QPointF at, bool is_ripple);
   // Moves the playhead to the frame the dragged clip edge lands on.
   void CarryPlayhead(Frame landing);
   // Shows a trim: how many frames the edge went from its start, and a
@@ -168,6 +181,11 @@ class ReelTimeline final : public QWidget {
   void FillGap(int track, Frame at);
   // Asks how clip hands over to the next one, then sets it.
   void EditTransition(ClipId clip);
+  // A double click on shot clip inside a gap: offers to fit the shot to
+  // the gap (held or stretched) or to pick what plays there.
+  void OfferFit(ClipId clip, int track, Frame at, QPoint where);
+  // The edge mode entries of a menu: Hold and Stretch.
+  void AddEdgeModes(QMenu* menu);
   void ClipMenu(QPoint where);
   void TrackMenu(int track, QPoint where);
   void SeekTo(double x);
@@ -204,6 +222,8 @@ class ReelTimeline final : public QWidget {
   // True while a drag lands its step, so its clips do not slide again.
   bool is_landing_drag_ = false;
   bool has_moved_ = false;
+  // The end drag changes the shot's length instead of trimming.
+  bool is_resize_ = false;
   // The rubber band while picking by box, and how it combines.
   QPointF box_to_;
   PickMode box_mode_ = PickMode::kReplace;

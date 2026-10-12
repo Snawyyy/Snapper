@@ -17,6 +17,20 @@ class HistoryManager;
 
 QString TransitionName(TransitionKind kind);
 
+// What a shot clip's edge drag does to its shot's keys: Hold keeps the
+// keys where they are (new frames hold the last pose), Stretch moves
+// every key in proportion so the same action plays faster or slower.
+enum class EdgeMode { kHold, kStretch };
+
+// Where a shot resize ended up: how many frames each shot grew (less
+// than asked when something stopped it, and why), and the grabbed
+// clip's shot's new length.
+struct ShotResize final {
+  int delta = 0;
+  Frame length;
+  QString stopped;
+};
+
 // The reel, the final video: which clips are on which track, where and
 // how much of their source each shows. A shot clip is a finished video
 // here; what is inside it is edited only on the shot itself.
@@ -86,6 +100,35 @@ class ReelManager final {
   // Drops a cut marker at at, or takes away the one already there.
   Result<void> ToggleMarker(Frame at);
 
+  // Resizing shots from the reel (edit/reel_resize.cpp).
+  // True when clip shows its whole shot, from its first frame to its
+  // last.
+  bool IsFullClip(ClipId clip) const;
+  // True when dragging clip's edge changes its shot's length rather than
+  // trimming the clip: a full shot clip, or with alt a partial one.
+  bool IsShotResize(ClipId clip, bool is_alt) const;
+  // The undo name of resizing clip's shot with picked: "Resize shot
+  // Intro", or "Resize shots" when picked holds clips of other shots.
+  QString ResizeLabel(const std::vector<ClipId>& picked, ClipId clip) const;
+  // Drags clip's start or end edge to edge, from where the open drag
+  // started (HistoryManager::before), changing the length of its shot
+  // and of every other picked shot clip's shot by the same frames, by
+  // edge_mode. Full clips of those shots follow; the dragged ones' edges
+  // move; partial ones keep their in point and length. With ripple,
+  // later clips on their tracks move by the change and a start edge
+  // stays put. Stops short at a clip in the way or the length limits.
+  Result<ShotResize> ResizeShots(const std::vector<ClipId>& picked,
+                                 ClipId clip, bool is_start, Frame edge,
+                                 bool is_ripple);
+  // Why clip's shot can't be fitted to the gap between the cut markers
+  // around at; empty when it can.
+  QString WhyNoFit(ClipId clip, Frame at) const;
+  // Makes clip's shot exactly as long as that gap (held or stretched by
+  // mode) and lays clip over it, as one step.
+  Result<void> FitShotToGap(ClipId clip, Frame at, EdgeMode mode);
+  EdgeMode edge_mode() const { return edge_mode_; }
+  void SetEdgeMode(EdgeMode mode) { edge_mode_ = mode; }
+
   // Why each can't act now, for greyed-out controls; empty when it can.
   QString WhyNoSplit(const std::vector<ClipId>& clips, Frame at) const;
   // For copy, cut, remove and ripple delete: something is picked.
@@ -100,6 +143,8 @@ class ReelManager final {
   HistoryManager* history_;
   // Copied clips, starts counted from the first one's.
   std::vector<Lifted> clipboard_;
+  // How shot clip edge drags treat the keys; not saved, not undone.
+  EdgeMode edge_mode_ = EdgeMode::kHold;
 };
 
 }  // namespace snapper

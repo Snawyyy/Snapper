@@ -1,6 +1,7 @@
 #include "ui/video_page.h"
 
 #include <QFileDialog>
+#include <QSignalBlocker>
 
 #include <cassert>
 #include <set>
@@ -32,6 +33,7 @@ VideoPage::VideoPage(const Managers& managers)
       split_button_(tr("Split at playhead")),
       mark_(tr("Mark cut")),
       add_track_(tr("Add track")),
+      edge_mode_(tr("Edges: Hold")),
       transport_(managers),
       timeline_(managers) {
   assert(managers_.IsComplete());
@@ -47,6 +49,7 @@ VideoPage::VideoPage(const Managers& managers)
   bar_layout_.addWidget(&split_button_);
   bar_layout_.addWidget(&mark_);
   bar_layout_.addWidget(&add_track_);
+  bar_layout_.addWidget(&edge_mode_);
   bar_layout_.addStretch(1);
   bottom_layout_.setContentsMargins(0, 0, 0, 0);
   bottom_layout_.setSpacing(0);
@@ -78,6 +81,20 @@ VideoPage::VideoPage(const Managers& managers)
   });
   connect(&add_track_, &QPushButton::clicked, this,
           [this] { Report(ProblemOf(managers_.reel->AddTrack())); });
+  edge_mode_.setObjectName("edge_mode");
+  edge_mode_.setCheckable(true);
+  edge_mode_.setFocusPolicy(Qt::NoFocus);
+  edge_mode_.setToolTip(
+      tr("What dragging a shot clip's edge does to the shot's keys. Hold: "
+         "new frames hold the last pose. Stretch: every key moves in "
+         "proportion, so the action plays faster or slower."));
+  connect(&edge_mode_, &QPushButton::toggled, this, [this](bool is_down) {
+    managers_.reel->SetEdgeMode(is_down ? EdgeMode::kStretch
+                                        : EdgeMode::kHold);
+    Refresh();
+  });
+  connect(&timeline_, &ReelTimeline::EdgeModeChanged, this,
+          [this] { Refresh(); });
   connect(&timeline_, &ReelTimeline::Problem, this, &VideoPage::Problem);
   const auto refresh = [this] { Refresh(); };
   connect(managers_.history, &HistoryManager::Changed, this, refresh);
@@ -123,6 +140,10 @@ void VideoPage::Refresh() {
               std::vector<ClipId>(picked.begin(), picked.end()),
               managers_.playback->FrameOn(Timeline::kReel)));
   Explain(&add_track_, managers_.reel->WhyNoAddTrack());
+  const bool is_stretch = managers_.reel->edge_mode() == EdgeMode::kStretch;
+  const QSignalBlocker quiet(&edge_mode_);
+  edge_mode_.setChecked(is_stretch);
+  edge_mode_.setText(is_stretch ? tr("Edges: Stretch") : tr("Edges: Hold"));
 }
 
 }  // namespace snapper

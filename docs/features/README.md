@@ -23,7 +23,7 @@ In build order. Each file has a Needs line naming what must come first; Doll to 
 
 ### Video tab and output
 
-- [ ] [Resizing shots on the reel](reel-shot-resize.md): drag a shot clip's edge on the Video tab timeline to change the shot's own length.
+- [x] [Resizing shots on the reel](reel-shot-resize.md): drag a shot clip's edge on the Video tab timeline to change the shot's own length.
 - [ ] [Transparent shot background](transparent-background.md): see-through shots over video in the reel, and export with alpha.
 - [ ] [Sound on the reel](reel-audio.md): audio tracks for sound effects, voice and music, with volume keys and fades; shots play the reel sound under them in the Pose tab.
 - [ ] [Text and subtitles on the reel](reel-text-and-subtitles.md): text clips on Video tab tracks and a subtitle track timed by tapping to the song.

@@ -24,6 +24,9 @@ QString AngleText(double degrees);
 QString OffsetText(QPointF pixels);
 // A time shift in frames, signed: "+3 f", "-2 f", "0 f".
 QString FramesText(int frames);
+// A shot's new length and the change, with what stopped the drag if
+// anything: "72 f, 3.0 s  +24", "1 f, 0.0 s  -47  (A shot is ...)".
+QString ShotLengthText(int frames, int delta, const QString& stopped);
 // Where a dragged item would land in a row, counting from 1: "Place 3".
 QString PositionText(int position);
 // A size change as a percentage of the start: 1.5 gives "150 %".

@@ -582,7 +582,21 @@ under the reel as it does under the shots. Once the reel has a clip it
 is what gets exported; until then the shots are, one after another.
 
 Drags on the reel snap to other clips' cuts, cut markers, the playhead
-and frame 0 (`SnapDelta`, `SnapFrame`).
+and frame 0 (`SnapDelta`, `SnapFrame`); Ctrl turns snapping off.
+
+A shot clip showing its whole shot (a full clip) resizes the shot
+when an edge is dragged; Alt trims instead, and on a partial clip Alt
+resizes. `ReelManager::ResizeShots` (`edit/reel_resize.cpp`) works from
+the drag's start: the shots of the grabbed and picked shot clips get
+the same frames more or fewer, by the edge mode (Hold, or Stretch with
+`StretchShot`); a start edge adds frames at the front and moves every
+key, link, hold and layer span (`ShiftShotFront`, `edit/shot_timing.h`).
+Every full clip of a resized shot follows, dragged edges move, partial
+clips keep their in and length, Shift ripples later clips, and a clip
+in the way stops the drag at the most that fits. Keys past a shot's end
+are kept, hidden (`HiddenKeyFrames`, a badge on the clip).
+`FitShotToGap` lays a shot clip over the gap between two markers with
+its shot exactly as long.
 
 The reel's timeline edits like the shots' one: clips pick as every
 list does (a box picks what it touches, `ClipsIn`), drags move and

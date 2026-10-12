@@ -14,6 +14,7 @@
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
+#include "edit/shot_timing.h"
 #include "ui/form_helpers.h"
 #include "ui/theme.h"
 
@@ -235,6 +236,18 @@ void ReelTimeline::PaintClip(QPainter* painter, const Clip& clip) const {
   painter->setPen(theme::kText);
   painter->drawText(box.adjusted(8, 3, -4, -3), Qt::AlignLeft | Qt::AlignTop,
                     name);
+  // Keys a shortened shot keeps past its end, where the clip ends.
+  const int hidden = shot != nullptr ? HiddenKeyFrames(*shot) : 0;
+  const bool shows_hidden = hidden > 0 && clip.in.index() +
+                                                  clip.length.index() >=
+                                              shot->length.index();
+  if (shows_hidden) {
+    painter->setPen(theme::kTextOff);
+    painter->drawText(box.adjusted(8, 3, -6, -3),
+                      Qt::AlignRight | Qt::AlignBottom,
+                      hidden == 1 ? tr("1 key hidden")
+                                  : tr("%1 keys hidden").arg(hidden));
+  }
   const bool is_picked = managers_.selection->clips().contains(clip.id);
   painter->setPen(QPen(is_picked ? theme::kPick : theme::kShadow,
                        is_picked ? 2.0 : 1.0));

@@ -1,6 +1,7 @@
 // ReelTimeline's mouse: picking, moving, trimming and seeking.
 
 #include <QFileDialog>
+#include <QMenu>
 #include <QMouseEvent>
 
 #include <algorithm>
@@ -110,7 +111,8 @@ void ReelTimeline::SeekTo(double x) {
   managers_.playback->Seek(FrameAt(x));
 }
 
-void ReelTimeline::StartDrag(ClipId clip, Drag drag, QPointF at) {
+void ReelTimeline::StartDrag(ClipId clip, Drag drag, QPointF at,
+                             Qt::KeyboardModifiers modifiers) {
   assert(clip.IsValid());
   assert(drag != Drag::kNone && drag != Drag::kSeek);
   drag_ = drag;
@@ -119,14 +121,17 @@ void ReelTimeline::StartDrag(ClipId clip, Drag drag, QPointF at) {
   has_moved_ = false;
   drag_playhead_.Begin();
   const bool is_move = drag == Drag::kMove;
-  const QString label = !is_move               ? tr("Trim clip")
+  is_resize_ = !is_move && managers_.reel->IsShotResize(
+                               clip, modifiers.testFlag(Qt::AltModifier));
+  const QString label = is_resize_ ? managers_.reel->ResizeLabel(Picked(), clip)
+                        : !is_move ? tr("Trim clip")
                         : Picked().size() > 1 ? tr("Move clips")
                                               : tr("Move clip");
   scope_ = std::make_unique<EditScope>(managers_.history, label);
   GrabGhost();
 }
 
-void ReelTimeline::Follow(QPointF at) {
+void ReelTimeline::Follow(QPointF at, Qt::KeyboardModifiers modifiers) {
   assert(drag_ != Drag::kNone);
   assert(scope_ != nullptr);
   const Project& start = managers_.history->before();
@@ -137,6 +142,8 @@ void ReelTimeline::Follow(QPointF at) {
     return;
   }
   has_moved_ = true;
+  const bool is_free = modifiers.testFlag(Qt::ControlModifier);
+  const int reach = is_free ? 0 : SnapReach();
   const bool is_move = drag_ == Drag::kMove;
   if (is_move) {
     const std::vector<ClipId> picked = Picked();
@@ -144,7 +151,7 @@ void ReelTimeline::Follow(QPointF at) {
         static_cast<int>(std::lround((at.x() - press_.x()) / zoom_));
     const int frames =
         SnapDelta(start, std::set<ClipId>(picked.begin(), picked.end()), raw,
-                  SnapReach(), playhead);
+                  reach, playhead);
     // Upwards is a higher track.
     const int tracks =
         static_cast<int>(std::lround((press_.y() - at.y()) / kTrackHeight));
@@ -158,12 +165,34 @@ void ReelTimeline::Follow(QPointF at) {
     return;
   }
   const Frame raw = FrameAt(at.x() + zoom_ / 2.0);
-  const Frame edge = SnapFrame(start, raw, SnapReach(), {dragged_}, playhead);
+  const Frame edge = SnapFrame(start, raw, reach, {dragged_}, playhead);
+  if (is_resize_) {
+    FollowResize(raw, edge, at, modifiers.testFlag(Qt::ShiftModifier));
+    return;
+  }
   const bool is_start = drag_ == Drag::kTrimStart;
   Report(ProblemOf(is_start ? managers_.reel->TrimStart(dragged_, edge)
                             : managers_.reel->TrimEnd(dragged_, edge)));
   ShowTrim(raw, edge, at);
   CarryPlayhead(edge);
+}
+
+void ReelTimeline::FollowResize(Frame raw, Frame edge, QPointF at,
+                                bool is_ripple) {
+  assert(is_resize_);
+  assert(managers_.reel != nullptr);
+  const bool is_start = drag_ == Drag::kTrimStart;
+  const auto resized =
+      managers_.reel->ResizeShots(Picked(), dragged_, is_start, edge, is_ripple);
+  if (!resized) {
+    Report(resized.error().message);
+    return;
+  }
+  // The playhead stays on its reel frame: a resize does not carry it.
+  feedback_.Update(press_, at,
+                   ShotLengthText(resized->length.index(), resized->delta,
+                                  resized->stopped),
+                   edge.index() != raw.index());
 }
 
 void ReelTimeline::CarryPlayhead(Frame landing) {
@@ -223,7 +252,7 @@ void ReelTimeline::mousePressEvent(QMouseEvent* event) {
   Pick(clip, event->modifiers());
   const bool is_still_picked = managers_.selection->clips().contains(clip);
   if (is_still_picked) {
-    StartDrag(clip, DragFor(clip, at), at);
+    StartDrag(clip, DragFor(clip, at), at, event->modifiers());
   }
 }
 
@@ -261,7 +290,7 @@ void ReelTimeline::mouseMoveEvent(QMouseEvent* event) {
   }
   const bool is_dragging = drag_ != Drag::kNone;
   if (is_dragging) {
-    Follow(at);
+    Follow(at, event->modifiers());
   }
 }
 
@@ -285,6 +314,7 @@ void ReelTimeline::mouseReleaseEvent(QMouseEvent* event) {
   drag_ = Drag::kNone;
   dragged_ = ClipId();
   has_moved_ = false;
+  is_resize_ = false;
   assert(scope_ == nullptr);
 }
 
@@ -336,7 +366,35 @@ void ReelTimeline::mouseDoubleClickEvent(QMouseEvent* event) {
     EditTransition(joint);
     return;
   }
+  const ClipId clip = ClipAt(at);
+  const bool can_fit =
+      clip.IsValid() && managers_.reel->WhyNoFit(clip, FrameAt(at.x())).isEmpty();
+  if (can_fit) {
+    OfferFit(clip, track, FrameAt(at.x()), event->globalPosition().toPoint());
+    return;
+  }
   FillGap(track, FrameAt(at.x()));
+}
+
+void ReelTimeline::OfferFit(ClipId clip, int track, Frame at, QPoint where) {
+  assert(clip.IsValid());
+  assert(track >= 0);
+  QMenu menu(this);
+  QAction* hold = menu.addAction(tr("Fit shot to gap"));
+  QAction* stretch = menu.addAction(tr("Fit shot to gap, stretched"));
+  stretch->setToolTip(tr("Moves every key in proportion, so the same "
+                         "action plays faster or slower."));
+  menu.addSeparator();
+  QAction* fill = menu.addAction(tr("Pick what plays here..."));
+  const QAction* chosen = menu.exec(where);
+  const bool is_fit = chosen == hold || chosen == stretch;
+  if (is_fit) {
+    const EdgeMode mode =
+        chosen == stretch ? EdgeMode::kStretch : EdgeMode::kHold;
+    Report(ProblemOf(managers_.reel->FitShotToGap(clip, at, mode)));
+  } else if (chosen == fill) {
+    FillGap(track, at);
+  }
 }
 
 void ReelTimeline::EditTransition(ClipId clip) {

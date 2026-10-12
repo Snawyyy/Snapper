@@ -30,6 +30,7 @@ it in the same commit.
 | Stage contents, layers, effects | Shots | model/layer.h, edit/stage_manager.cpp, render/effects.cpp | StageManager | edit/stage_tests, render/render_tests |
 | Links (follow another's move) | Links | anim/links.cpp, edit/link_manager.cpp, ui/link_box.cpp | LinkManager | anim/link_tests, edit/link_manager_tests |
 | Reel, clips, cuts, markers | The reel | model/reel.h, anim/reel_timeline.cpp, edit/reel_edits.cpp, ui/reel_timeline.cpp | ReelManager | anim/reel_tests, edit/reel_editing_tests, ui/reel_timeline_tests |
+| Resizing shots on the reel, fit to gap | The reel | edit/reel_resize.cpp, edit/shot_timing.cpp, ui/reel_timeline_input.cpp, ui/video_page.cpp | ReelManager | none yet (owner tests by eye) |
 | Reel transitions | The reel | model/transition.h, edit/reel_transitions.cpp, ui/transition_picker.cpp | ReelManager | edit/reel_transition_tests, render/render_tests |
 | Rendering (stage, warp, preview) | Rendering | render/frame_renderer.cpp, render/layer_painter.cpp, render/warp_raster.cpp, render/warp_cache.cpp | none (draws only) | render/render_tests, render/warp_raster_tests, render/warp_cache_tests |
 | Save, load, JSON, legacy files | Project data and undo | io/project_file.cpp, io/doll_json.cpp, io/json_values.cpp, io/reconcile.cpp | DocumentManager | io/project_file_tests, io/doll_file_tests, io/warp_json_tests |

@@ -4,6 +4,8 @@
 #include <cassert>
 #include <cmath>
 
+#include "base/frame.h"
+
 namespace snapper {
 namespace {
 
@@ -43,6 +45,18 @@ QString FramesText(int frames) {
   assert(frames > -1000000000);
   assert(frames < 1000000000);
   return QStringLiteral("%1 f").arg(Signed(frames));
+}
+
+QString ShotLengthText(int frames, int delta, const QString& stopped) {
+  assert(frames >= 0 && frames < 1000000000);
+  assert(delta > -1000000000 && delta < 1000000000);
+  const QString text =
+      QStringLiteral("%1 f, %2 s  %3")
+          .arg(frames)
+          .arg(static_cast<double>(frames) / kFramesPerSecond, 0, 'f', 1)
+          .arg(Signed(delta));
+  const bool is_stopped = !stopped.isEmpty();
+  return is_stopped ? QStringLiteral("%1  (%2)").arg(text, stopped) : text;
 }
 
 QString PositionText(int position) {

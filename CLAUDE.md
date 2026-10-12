@@ -92,8 +92,14 @@ props as one-piece dolls in the library (an Objects row in the Cast
 panel, files dropped on it or on the stage), GIF play modes on the shot
 clock in an Object fold, and right click Hold with a doll piece, Drop
 here and hand-offs, following place, turn and scale
-(`ObjectManager`, `LinkSolver::HeldMove`). No tests yet, the owner adds
-them later. Next in docs/features: Resizing shots on the reel.
+(`ObjectManager`, `LinkSolver::HeldMove`). Then Resizing shots on the
+reel, first pass (docs/features/reel-shot-resize.md says what is left):
+dragging a full shot clip's edge changes the shot's own length (Alt
+trims, Shift ripples, Ctrl no snap, Edges button for Hold or Stretch),
+other full clips follow, and a double click in a gap offers Fit shot to
+gap (`ReelManager::ResizeShots`, `edit/shot_timing.h`). No tests yet,
+the owner adds them later. Next in docs/features: Transparent shot
+background.
 
 Before that (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
 inspector as a hardware panel (pose box: dials, pad, faders; golden ratio,

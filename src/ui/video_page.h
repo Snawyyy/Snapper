@@ -56,6 +56,8 @@ class VideoPage final : public QWidget {
   QPushButton split_button_;
   QPushButton mark_;
   QPushButton add_track_;
+  // Shot clip edges: hold the keys (up) or stretch the timing (down).
+  QPushButton edge_mode_;
   TransportBar transport_;
   ReelTimeline timeline_;
 };

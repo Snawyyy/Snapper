@@ -1,6 +1,12 @@
 # Resizing shots on the reel
 
-Status: planned. Asked for by the owner for the Video tab.
+Status: built, first pass (2026-10-12); owner tests by eye. Asked for by the owner for the Video tab.
+
+First pass: dragging either edge of a full shot clip changes the shot itself (`ReelManager::ResizeShots`, `edit/reel_resize.cpp`); Alt trims instead, and on a partial clip Alt resizes. The left edge adds or takes frames at the shot's start and moves every key, link, hold and layer span with it (`ShiftShotFront`, `edit/shot_timing.cpp`). The Edges button in the reel bar (and the clip's right click menu) switches Hold and Stretch (`StretchShot`). Every full clip of the shot follows, Shift ripples later clips, a clip in the way stops the drag and Ctrl turns snapping off. The chip shows "72 f, 3.0 s  +24" and what stopped it. Many picked shot clips resize together, as one undo step named "Resize shot Intro"; Escape cancels; the playhead stays put. A clip showing its shot's end says "3 keys hidden" when keys sit past the end. Double clicking a shot clip inside a gap offers Fit shot to gap, held or stretched.
+
+Not built yet: the fit offer on a drop from the shot strip; greyed hidden keys on the Pose tab timeline; a separate right click menu for a clip edge (the edge mode is on the clip menu) and saving the edge mode.
+
+Defaults taken for the open questions and gaps: resizing is the default on full clips (Alt trims); keys past the end are kept hidden. Alt is read at the press, not switched mid drag. Taking frames off the start folds the keys before the new start onto frame 0 (the later kept), so those are not kept hidden. Every other full clip of the shot grows too and can block the drag like the dragged clip's neighbour.
 
 Needs: nothing.
 

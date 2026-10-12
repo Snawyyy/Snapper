@@ -166,7 +166,34 @@ void ReelTimeline::ClipMenu(QPoint where) {
   QMenu menu(this);
   menu.setToolTipsVisible(true);
   AddCommands(&menu);
+  menu.addSeparator();
+  AddEdgeModes(&menu);
   menu.exec(where);
+}
+
+void ReelTimeline::AddEdgeModes(QMenu* menu) {
+  assert(menu != nullptr);
+  assert(managers_.reel != nullptr);
+  const EdgeMode now = managers_.reel->edge_mode();
+  QAction* hold = menu->addAction(tr("Shot edges hold the keys"));
+  hold->setCheckable(true);
+  hold->setChecked(now == EdgeMode::kHold);
+  hold->setToolTip(tr("Dragging a shot clip's edge adds or takes away "
+                      "frames; new frames hold the last pose."));
+  QAction* stretch = menu->addAction(tr("Shot edges stretch the timing"));
+  stretch->setCheckable(true);
+  stretch->setChecked(now == EdgeMode::kStretch);
+  stretch->setToolTip(tr("Dragging a shot clip's edge moves every key in "
+                         "proportion, so the action plays faster or "
+                         "slower."));
+  connect(hold, &QAction::triggered, this, [this] {
+    managers_.reel->SetEdgeMode(EdgeMode::kHold);
+    emit EdgeModeChanged();
+  });
+  connect(stretch, &QAction::triggered, this, [this] {
+    managers_.reel->SetEdgeMode(EdgeMode::kStretch);
+    emit EdgeModeChanged();
+  });
 }
 
 void ReelTimeline::TrackMenu(int track, QPoint where) {
