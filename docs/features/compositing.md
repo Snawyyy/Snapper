@@ -57,7 +57,7 @@ A Comp tab beside Pose, Rig and Video, where a shot's finished frame gets the an
 | 2 | Color swap | OLM Color Key, ColorSwitch | Swaps picked palette colors for others, keyed, for night scenes, hit flashes, line recolor | Color pairs from the palette; edge thin and feather |
 | 3 | Transmitted light | Distance Gradation, Flare, InnerFlare | Glow spreading out from (or into) a shape's edge, for lamps, magic, backlight | Size, falloff curve, color, inside or outside, strength |
 | 4 | Rim light | RimFill, Distance Gradation | A thin band of light on the edges of a target that face a light direction, the anime backlit rim | Light direction (dial, keyed), width, color, falloff, strength |
-| 5 | Cel gradient | TargetGrad, Distance Gradation | A gradient laid over chosen fill colors only: blush on skin, sky fades | Two colors, direction or from-edge, picked fills |
+| 5 | Gradient | TargetGrad, TargetGradRadical, Distance Gradation | A gradient laid over the target, often chosen fill colors only: blush on skin, sky fades, a dark corner | Shape (linear, radial, ellipse, four-corner, angle, diamond, from-edge), color stops, handles on the stage |
 | 6 | Anime motion blur | OLM Directional Blur | Smears a target along its motion with cartoon streak noise | Direction (auto from motion or set), length, streak noise |
 | 7 | Sparkle | OLM KiraKira, Star | Star streaks and glow from the brightest parts | Threshold, streak count, length, rotation |
 | 8 | Speed and burst lines | SpeedLines, BurstLines, RadialLines, TouchLines | Drawn lines across the frame or around a point, new each frame or held | Center, density, thickness, color, change every N frames |
@@ -74,6 +74,17 @@ A Comp tab beside Pose, Rig and Video, where a shot's finished frame gets the an
 - Blend: Add (glow), Screen (soft) or Replace with the light color (flat anime rim), with a strength fader.
 - On the stage while the effect is picked, a yellow arrow handle sets the direction by dragging, the same feel as other handles.
 - F's Plugins' RimFill source is MIT and readable, so its method is checked there before building.
+
+### Gradients
+
+- Shapes, as tiles: Linear (between two points), Radial (a circle from a center), Ellipse (a stretched, turnable circle), Four-corner (bilinear: a color on each corner of a box, blended across it), Angle (sweeps around a center like a clock hand), Diamond, and From edge (by distance from the target's outline, the Distance Gradation way).
+- Colors: two by default, more by double clicking the ramp to add a stop; each stop has a color from the floating palette and its own opacity, so a gradient can fade to clear. Four-corner has four corner colors instead of a ramp.
+- Handles on the stage while the effect is picked: yellow points for the ends, center, radius and corners, dragged like every handle; Shift keeps angles to 15 degree steps. Every handle is keyed, so a light can slide across a shot.
+- Where it applies: any target, including the whole shot (Everything below) and Picked colors, so a blush lands only on the skin fill. With Picked colors, the gradient keeps the target's outline crisp.
+- Follows: on a doll or picked pieces, the gradient is placed in the doll's own space, so it moves and turns with the doll; on the whole shot it stays in screen space.
+- Blend: Normal, Multiply (shade), Screen and Add (light), Overlay, with a strength fader.
+- Steps: a Steps fader turns the smooth ramp into 2 to 8 flat bands, the hard-edged cel gradient anime uses; 0 keeps it smooth. A Dither option for a pixel-art look.
+- Shared light: picking "Shot light" aims a linear or radial gradient from the same direction as the rim lights.
 
 ### Targets
 
