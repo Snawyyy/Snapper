@@ -113,11 +113,12 @@ void AddDrawActions(QMenu* menu, const Managers& managers) {
   const QString no_draw = WhyNoDrawHere(managers, false);
   draw->setEnabled(no_draw.isEmpty());
   draw->setToolTip(no_draw.isEmpty()
-                       ? QObject::tr("A copy of the drawing it shows, to "
-                                     "change in draw mode.")
+                       ? QObject::tr("A blank drawing for the piece, with "
+                                     "its shown drawing to look at (hold "
+                                     "R, or D for the onion).")
                        : no_draw);
   QObject::connect(draw, &QAction::triggered, menu, [managers] {
-    RequestDraw(managers, DrawStart::kShowing);
+    RequestDraw(managers, DrawStart::kBlank);
   });
   QAction* edit = menu->addAction(QObject::tr("Edit drawing"));
   edit->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_N));
@@ -141,7 +142,7 @@ void AddDrawKeys(QWidget* widget, const Managers& managers) {
   draw->setShortcut(QKeySequence(Qt::Key_N));
   draw->setShortcutContext(Qt::WidgetWithChildrenShortcut);
   QObject::connect(draw, &QAction::triggered, widget, [managers] {
-    RequestDraw(managers, DrawStart::kShowing);
+    RequestDraw(managers, DrawStart::kBlank);
   });
   auto* edit = new QAction(QObject::tr("Edit drawing"), widget);
   edit->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_N));

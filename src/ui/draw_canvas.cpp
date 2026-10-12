@@ -128,7 +128,10 @@ void DrawCanvas::mousePressEvent(QMouseEvent* event) {
     return;
   }
   const QPoint at = PixelAt(event->position());
-  const bool is_alt = event->modifiers().testFlag(Qt::AltModifier);
+  // Alt held picks with any tool; is_alt_ covers systems that drop the
+  // modifier from the click.
+  const bool is_alt =
+      is_alt_ || event->modifiers().testFlag(Qt::AltModifier);
   if (is_alt) {
     draw->PickColor(at);
     return;
@@ -197,10 +200,14 @@ bool DrawCanvas::ToolKey(QKeyEvent* event) {
   assert(event != nullptr);
   DrawManager* draw = managers_.draw;
   const int key = event->key();
-  const bool is_shift = event->modifiers().testFlag(Qt::ShiftModifier);
   switch (key) {
     case Qt::Key_B: draw->SetTool(DrawTool::kBrush); return true;
-    case Qt::Key_E: draw->SetTool(DrawTool::kEraser); return true;
+    case Qt::Key_E:
+      // E flips the eraser on and off, back to the brush.
+      draw->SetTool(draw->tool() == DrawTool::kEraser ? DrawTool::kBrush
+                                                      : DrawTool::kEraser);
+      return true;
+    case Qt::Key_D: draw->SetOnion(!draw->is_onion()); return true;
     case Qt::Key_G: draw->SetTool(DrawTool::kFill); return true;
     case Qt::Key_I: draw->SetTool(DrawTool::kPicker); return true;
     case Qt::Key_BracketLeft:
@@ -210,9 +217,7 @@ bool DrawCanvas::ToolKey(QKeyEvent* event) {
       draw->SetBrushSize(draw->brush_size() + 1);
       return true;
     case Qt::Key_R:
-      if (is_shift) {
-        draw->SetOnion(!draw->is_onion());
-      } else if (!event->isAutoRepeat()) {
+      if (!event->isAutoRepeat()) {
         draw->SetPeeking(true);
       }
       return true;

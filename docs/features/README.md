@@ -69,9 +69,9 @@ Every proposed key is free in Snapper today (checked against the keys bound in t
 | N | Piece picked | New drawing | Draw on a piece |
 | Shift+N | Piece picked | Edit the showing drawing (a copy if it came from Krita) | Draw on a piece |
 | R (hold) | Draw mode | Show the original drawing while held | Draw on a piece |
-| Shift+R | Draw mode | Original as onion under yours, on and off | Draw on a piece |
+| D | Draw mode | Original as onion under yours, on and off | Draw on a piece |
 | B | Draw mode | Brush | Draw on a piece |
-| E | Draw mode | Eraser | Draw on a piece |
+| E | Draw mode | Eraser on and off (back to the brush) | Draw on a piece |
 | G | Draw mode | Fill bucket | Draw on a piece |
 | W | Draw mode | Magic wand | Draw on a piece |
 | I | Draw mode | Color picker | Draw on a piece |

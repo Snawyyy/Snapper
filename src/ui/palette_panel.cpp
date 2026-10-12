@@ -23,6 +23,11 @@ constexpr int kSwatch = 22;
 constexpr int kGap = 3;
 constexpr int kPanelWidth = 8 * (kSwatch + kGap) + kGap + 16;
 constexpr char kPlaceKey[] = "palette/place";
+constexpr char kSizeKey[] = "palette/size";
+// The resize corner, and the smallest the panel gets.
+constexpr int kGrip = 14;
+constexpr int kMinWidth = 3 * (kSwatch + kGap) + kGap + 16;
+constexpr int kMinHeight = 60;
 
 }  // namespace
 
@@ -82,8 +87,7 @@ void SwatchGrid::paintEvent(QPaintEvent* event) {
                    : is_hovered ? QPen(theme::kHandle, 1.5)
                                 : QPen(theme::kShadow, 1.0));
     painter.setBrush(color);
-    painter.drawRoundedRect(QRectF(box).adjusted(0.5, 0.5, -0.5, -0.5), 3,
-                            3);
+    painter.drawRect(QRectF(box).adjusted(0.5, 0.5, -0.5, -0.5));
   }
 }
 
@@ -99,11 +103,8 @@ void SwatchGrid::mouseMoveEvent(QMouseEvent* event) {
 
 void SwatchGrid::mousePressEvent(QMouseEvent* event) {
   assert(event != nullptr);
-  const QColor color = ColorAt(event->position().toPoint());
-  const bool is_pick = event->button() == Qt::LeftButton && color.isValid();
-  if (is_pick) {
-    emit Clicked(color, event->modifiers());
-  }
+  // The panel takes the press: a click picks, a drag moves the panel.
+  event->ignore();
 }
 
 void SwatchGrid::leaveEvent(QEvent* event) {
@@ -127,7 +128,9 @@ PalettePanel::PalettePanel(PaletteManager* palette, QString settings_path,
   assert(palette_ != nullptr);
   assert(window != nullptr);
   setAttribute(Qt::WA_StyledBackground);
-  setFixedWidth(kPanelWidth);
+  setMinimumWidth(kMinWidth);
+  resize(kPanelWidth, height());
+  setMouseTracking(true);
   layout_.setContentsMargins(8, 6, 8, 8);
   layout_.setSpacing(4);
   auto* title_row = new QHBoxLayout(&title_);
@@ -142,7 +145,7 @@ PalettePanel::PalettePanel(PaletteManager* palette, QString settings_path,
   title_row->addWidget(&title_text_, 1);
   title_row->addWidget(&fold_);
   title_row->addWidget(&close_);
-  title_.setCursor(Qt::SizeAllCursor);
+  setCursor(Qt::SizeAllCursor);
   for (const QString& name :
        {tr("Piece"), tr("Doll"), tr("Recent"), tr("Added")}) {
     tabs_.addTab(name);
@@ -155,7 +158,6 @@ PalettePanel::PalettePanel(PaletteManager* palette, QString settings_path,
   auto* row = new QHBoxLayout(&current_row_);
   row->setContentsMargins(0, 0, 0, 0);
   current_swatch_.setFixedSize(44, 22);
-  current_hex_.setTextInteractionFlags(Qt::TextSelectableByMouse);
   row->addWidget(&current_swatch_);
   row->addWidget(&current_hex_, 1);
   layout_.addWidget(&title_);
@@ -169,7 +171,6 @@ PalettePanel::PalettePanel(PaletteManager* palette, QString settings_path,
   connect(palette_, &PaletteManager::ShownChanged, this,
           &PalettePanel::SetOpen);
   connect(&grid_, &SwatchGrid::Hovered, palette_, &PaletteManager::Hover);
-  connect(&grid_, &SwatchGrid::Clicked, palette_, &PaletteManager::Pick);
   connect(&grid_, &SwatchGrid::MenuAsked, this, &PalettePanel::ShowMenu);
   connect(&fold_, &QToolButton::clicked, this,
           [this] { SetFolded(!is_folded_); });
@@ -225,10 +226,10 @@ void PalettePanel::Refresh() {
   empty_.setVisible(!is_folded_ && colors.empty());
   current_swatch_.setStyleSheet(
       QStringLiteral("background: %1; border: 1px solid %2; "
-                     "border-radius: 3px;")
+                     "border-radius: 0px;")
           .arg(current.name(), theme::kShadow.name()));
   current_hex_.setText(current.name().toUpper());
-  adjustSize();
+  FitHeight();
 }
 
 void PalettePanel::SetFolded(bool is_folded) {
@@ -275,43 +276,88 @@ void PalettePanel::AddColor() {
   }
 }
 
+void PalettePanel::FitHeight() {
+  const int needed = layout_.hasHeightForWidth()
+                         ? layout_.totalHeightForWidth(width())
+                         : layout_.totalSizeHint().height();
+  const int asked = is_folded_ ? 0 : asked_height_;
+  resize(width(), std::max({needed, asked, kMinHeight}));
+}
+
+bool PalettePanel::IsOnGrip(QPoint at) const {
+  return at.x() >= width() - kGrip && at.y() >= height() - kGrip;
+}
+
 void PalettePanel::KeepPlace() {
   QSettings settings(settings_path_, QSettings::IniFormat);
   settings.setValue(kPlaceKey, pos());
+  settings.setValue(kSizeKey, QSize(width(), asked_height_));
 }
 
 void PalettePanel::RestorePlace() {
   const QWidget* window = parentWidget();
   assert(window != nullptr);
   const QSettings settings(settings_path_, QSettings::IniFormat);
-  const QPoint fallback(window->width() - kPanelWidth - 24, 80);
+  const QSize kept =
+      settings.value(kSizeKey, QSize(kPanelWidth, 0)).toSize();
+  const int most_wide = std::max(kMinWidth, window->width() - 20);
+  resize(std::clamp(kept.width(), kMinWidth, most_wide), height());
+  asked_height_ = std::clamp(kept.height(), 0,
+                             std::max(0, window->height() - 20));
+  const QPoint fallback(window->width() - width() - 24, 80);
   QPoint place = settings.value(kPlaceKey, fallback).toPoint();
   // Kept on screen when the window got smaller since.
   place.setX(std::clamp(place.x(), 0, std::max(0, window->width() - 60)));
   place.setY(std::clamp(place.y(), 0, std::max(0, window->height() - 40)));
   move(place);
+  FitHeight();
 }
 
 void PalettePanel::mousePressEvent(QMouseEvent* event) {
   assert(event != nullptr);
-  const QPoint at = event->position().toPoint();
-  const bool is_title = event->button() == Qt::LeftButton &&
-                        title_.geometry().contains(at);
-  if (is_title) {
-    is_moving_ = true;
-    grab_ = at;
-    raise();
+  if (event->button() != Qt::LeftButton) {
+    return;
   }
+  const QPoint at = event->position().toPoint();
+  raise();
+  if (IsOnGrip(at)) {
+    is_resizing_ = true;
+    resize_from_ = size();
+    resize_at_ = event->globalPosition().toPoint();
+    return;
+  }
+  is_pressed_ = true;
+  is_moving_ = false;
+  grab_ = at;
+  press_keys_ = event->modifiers();
 }
 
 void PalettePanel::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  const QWidget* window = parentWidget();
+  assert(window != nullptr);
+  const QPoint at = event->position().toPoint();
+  if (is_resizing_) {
+    const QPoint by = event->globalPosition().toPoint() - resize_at_;
+    const int wide = std::clamp(resize_from_.width() + by.x(), kMinWidth,
+                                std::max(kMinWidth, window->width() - x()));
+    asked_height_ = std::clamp(resize_from_.height() + by.y(), kMinHeight,
+                               std::max(kMinHeight, window->height() - y()));
+    resize(wide, height());
+    FitHeight();
+    return;
+  }
+  if (!is_pressed_) {
+    setCursor(IsOnGrip(at) ? Qt::SizeFDiagCursor : Qt::SizeAllCursor);
+    return;
+  }
+  const bool is_far = (at - grab_).manhattanLength() >=
+                      QApplication::startDragDistance();
+  is_moving_ = is_moving_ || is_far;
   if (!is_moving_) {
     return;
   }
-  const QWidget* window = parentWidget();
-  assert(window != nullptr);
-  QPoint place = mapToParent(event->position().toPoint() - grab_);
+  QPoint place = mapToParent(at - grab_);
   place.setX(std::clamp(place.x(), 0, std::max(0, window->width() - 60)));
   place.setY(std::clamp(place.y(), 0, std::max(0, window->height() - 40)));
   move(place);
@@ -319,20 +365,46 @@ void PalettePanel::mouseMoveEvent(QMouseEvent* event) {
 
 void PalettePanel::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
-  if (is_moving_) {
-    is_moving_ = false;
+  if (event->button() != Qt::LeftButton) {
+    return;
+  }
+  if (is_resizing_) {
+    is_resizing_ = false;
     KeepPlace();
+    return;
+  }
+  const bool was_click = is_pressed_ && !is_moving_;
+  const bool was_move = is_pressed_ && is_moving_;
+  is_pressed_ = false;
+  is_moving_ = false;
+  if (was_move) {
+    KeepPlace();
+    return;
+  }
+  const bool is_on_grid =
+      was_click && grid_.isVisible() && grid_.geometry().contains(grab_);
+  if (is_on_grid) {
+    const QColor color = grid_.ColorAt(grid_.mapFrom(this, grab_));
+    if (color.isValid()) {
+      palette_->Pick(color, press_keys_);
+    }
   }
 }
 
 void PalettePanel::paintEvent(QPaintEvent* event) {
   assert(event != nullptr);
   QPainter painter(this);
-  painter.setRenderHint(QPainter::Antialiasing);
   painter.setPen(QPen(theme::kShadow, 1.0));
   painter.setBrush(theme::kFace);
-  painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 6,
-                          6);
+  painter.drawRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5));
+  // The resize corner: three short lines.
+  painter.setPen(QPen(theme::kTextOff, 1.0));
+  const QPointF corner(width() - 3.0, height() - 3.0);
+  for (int line = 1; line <= 3; ++line) {
+    const double reach = 3.0 * line;
+    painter.drawLine(corner - QPointF(reach, 0.0),
+                     corner - QPointF(0.0, reach));
+  }
 }
 
 }  // namespace snapper

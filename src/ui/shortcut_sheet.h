@@ -45,8 +45,9 @@ inline constexpr std::array<Gesture, 23> kGestures = {{
     {"Drag a doll card", "Put the doll on the stage"},
     {"N / Shift+N", "Draw a new drawing for the picked piece / draw over "
                     "the one it shows"},
-    {"Draw mode: B E G I, [ ], hold R, Shift+R",
-     "Brush, eraser, fill, pick a color; brush size; the original; onion"},
+    {"Draw mode: B, E, G, I or hold Alt, [ ], hold R, D",
+     "Brush, eraser on and off, fill, pick a color; brush size; the "
+     "original; onion on and off"},
     {"Shift+[ / Shift+]", "Doll picked: previous / next skin"},
 }};
 

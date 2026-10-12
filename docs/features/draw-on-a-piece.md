@@ -2,7 +2,7 @@
 
 Status: built, first pass (2026-10-12); owner tests by eye.
 
-First pass: N (a copy of the drawing showing), Shift+N (draw over the
+First pass: N (a blank drawing, the shown one kept for R and the onion), Shift+N (draw over the
 drawing showing), the stage's right click and three "+ New drawing"
 entries at the end of the Pose box's Drawing picker (blank, copy of
 this one, copy of the default) start draw mode (`DrawManager`). It
@@ -11,8 +11,8 @@ rests it, so it lines up with the face), the rest of the doll dimmed
 at rest, a frame at the drawing size that turns red while a stroke
 runs past it, and pixel lines past 800 %; the wheel zooms, the middle
 button pans, Shift+1 fits. Tools: hard pixel brush (B, [ and ], right
-button erases, Shift+click draws a line), eraser (E), exact-color fill
-(G), color picker (I, or Alt held); hold R for the original, Shift+R for
+button erases, Shift+click draws a line), eraser (E, again for the brush), exact-color fill
+(G), color picker (I, or Alt held); hold R for the original, D for
 the onion at 30 %. Ctrl+Z and Ctrl+Y undo strokes inside draw mode. The
 floating palette opens on the piece's colors and gives the brush color.
 A name field in the title bar (default "mouth 2"); Done (Enter) saves
@@ -56,7 +56,7 @@ Draw a new drawing for a piece without leaving Snapper: a new mouth shape, a fis
 ## Reference
 
 - Hold R: the original drawing shows in place of yours; let go and yours is back. Tap it repeatedly to flick between the two and see what moved.
-- Original as onion: a toggle (proposed: Shift+R) keeps the original under yours at 30%, for tracing.
+- Original as onion: a toggle (D) keeps the original under yours at 30%, for tracing.
 - "Original" means the drawing you started from; a picker beside it can choose any other drawing of the piece as the reference.
 
 ## Tools
@@ -102,9 +102,9 @@ Draw mode opens the [floating palette](palette.md) on the piece's own colors: ev
 | N | Piece picked | New drawing |
 | Shift+N | Piece picked | Edit the showing drawing (a copy if it came from Krita) |
 | R (hold) | Draw mode | Show the original drawing while held |
-| Shift+R | Draw mode | Original as onion under yours, on and off |
+| D | Draw mode | Original as onion under yours, on and off |
 | B | Draw mode | Brush |
-| E | Draw mode | Eraser |
+| E | Draw mode | Eraser on and off (back to the brush) |
 | G | Draw mode | Fill bucket |
 | W | Draw mode | Magic wand |
 | I | Draw mode | Color picker |

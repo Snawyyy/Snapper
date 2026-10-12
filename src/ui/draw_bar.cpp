@@ -19,7 +19,7 @@ struct ToolFace final {
 constexpr std::array<ToolFace, kDrawToolCount> kToolFaces = {{
     {"Brush", "B", "A hard pixel brush. Right button erases; Shift+click "
                    "draws a line from the last point; [ and ] size it."},
-    {"Eraser", "E", "The same brush, clearing to transparent."},
+    {"Eraser", "E", "The same brush, clearing to transparent; E again goes back to the brush."},
     {"Fill", "G", "Fills the touching area of the same color."},
     {"Pick", "I", "Click to take a color (hold Alt with any tool)."},
 }};
@@ -47,7 +47,7 @@ DrawBar::DrawBar(const Managers& managers)
   name_.setPlaceholderText(tr("Name"));
   name_.setToolTip(tr("What the drawing is called in the Drawing picker."));
   name_.setMaximumWidth(140);
-  onion_.setToolTip(tr("Show the original under yours at 30 % (Shift+R). "
+  onion_.setToolTip(tr("Show the original under yours at 30 % (D). "
                        "Hold R to see only the original."));
   done_.setToolTip(tr("Save the drawing (Enter)."));
   cancel_.setToolTip(tr("Leave without saving (Escape)."));
