@@ -15,6 +15,7 @@ In the order we plan to build them.
 - [ ] [Doll to Krita](doll-to-krita.md): turn a doll folder back into a Krita file and round-trip it without losing the rig.
 - [ ] [Objects](objects.md): PNG and GIF props a doll can hold, pass and drop, slotting into its draw order.
 - [ ] [Editing outside the frame](off-frame-editing.md): limbs past the shot's frame are drawn dimmed and can be picked and edited, like a pasteboard.
+- [ ] [Text and subtitles on the reel](reel-text-and-subtitles.md): text clips on Video tab tracks and a subtitle track timed by tapping to the song.
 - [ ] [Compositing](compositing.md): a Comp tab with anime finishing effects that target a doll, pieces or palette colors.
 
 ## Adding a new feature
@@ -61,6 +62,10 @@ Every proposed key is free in Snapper today (checked against the keys bound in t
 | Enter | Draw mode | Done, save the drawing | Draw on a piece |
 | Escape | Draw mode | Cancel, asks first if anything was drawn | Draw on a piece |
 | O | Stage | Show or hide the outside of the frame | Editing outside the frame |
+| Ctrl+T | Video tab | Add a text clip at the playhead | Text and subtitles |
+| L | Video tab, playing | Start the next subtitle line at the playhead | Text and subtitles |
+| Ctrl+Enter | Editing text | Finish the edit | Text and subtitles |
+| Alt + drag | Cue edge | Move it together with the next cue's start | Text and subtitles |
 | A | Comp tab | Add an effect | Compositing |
 | V (hold) | Comp tab | All effects off while held | Compositing |
 | K (hold) | Comp tab | Show what the picked effect touches | Compositing |
