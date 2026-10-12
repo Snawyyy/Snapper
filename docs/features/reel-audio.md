@@ -1,6 +1,10 @@
 # Sound on the reel
 
-Status: planned. Raised in review; the owner set the rule for shots.
+Status: built, first pass (2026-10-12); owner tests by eye.
+
+First pass: sound tracks under the picture tracks (2 by default, up to 8; Add sound track in a track's menu) with a header showing the name, Mute (M), Solo (S) and a volume fader (drag; double click back to 0 dB). Sound files (WAV, MP3, OGG, FLAC, M4A, AAC, Opus) drop on a sound track or anywhere on the reel (first sound track with room at the drop point, several in a row, one undo step), or come in through Import... on the Video tab. Sound clips move, trim, split, copy, paste, ripple delete and snap like video clips; they never land on a picture track or the other way round. Each clip draws its waveform (worked out once when the file loads), dimmed on a track that is not heard, and a yellow volume line: drag it for the whole clip (value chip in dB, double click resets); a picked clip shows fade handles on its top corners to drag inward. The song becomes a clip from frame 0 on the first sound track when an old project opens or a song is chosen. Playback and export mix the heard tracks with clip volumes, fades and track volumes; the Export dialog has Sound only (WAV). On the Pose tab a shot placed on the reel plays the reel's sound under its clip (the clip last picked on the Video tab, else the first); the wave band's name says "From clip at 0:42" and a click on it lists the shot's clips to pick another; frames the clip leaves out are silent and hatched in the wave band. A shot not on the reel plays the song as before. A sound file that can't be read keeps its clip, red, named "(find file)".
+
+Not built yet: volume points (Ctrl click) and keyed volume, crossfading overlapped fades, linked sound from video files (and Unlink), scrub sound and its setting, the level meter, the Sounds row in the Cast panel, renaming a track, a file finder for a missing file, and "last played" for picking a shot's clip (only last picked). Sound past the last picture clip plays on the reel but is not exported, so an old project's export keeps its length. Mixing happens on play, so an edit made while playing is heard on the next play.
 
 Needs: nothing for the tracks; the export formats from [Transparent background](transparent-background.md) for MOV, WebM and PNG sequence sound.
 
@@ -64,8 +68,8 @@ No new keys: S, M, Delete, Shift+Delete and the copy keys work on audio clips as
 
 ## Open questions
 
-- [ ] When a shot is on the reel several times, should the Pose tab follow the last picked clip (planned) or always the first one?
-- [ ] Should sound effects be allowed inside a shot for timing, if they are always moved to the reel when the shot is placed?
+- [ ] When a shot is on the reel several times, should the Pose tab follow the last picked clip (planned) or always the first one? First pass: the last picked, else the first; not remembered across sessions.
+- [ ] Should sound effects be allowed inside a shot for timing, if they are always moved to the reel when the shot is placed? First pass: no, sound lives only on the reel.
 
 ## Not in the first version
 

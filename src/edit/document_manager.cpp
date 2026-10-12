@@ -9,6 +9,7 @@
 
 #include "base/text.h"
 #include "edit/history_manager.h"
+#include "edit/reel_manager.h"
 #include "io/project_file.h"
 
 namespace snapper {
@@ -54,6 +55,7 @@ Result<void> DocumentManager::New(const QString& name, CanvasSize canvas,
   project.name = name.trimmed();
   project.canvas = canvas;
   project.new_shots_transparent = is_transparent;
+  ReelManager::AddSoundTracks(&project);
   history_->Reset(std::move(project));
   path_.clear();
   LoadOutsideShown();
@@ -68,6 +70,7 @@ Result<void> DocumentManager::Open(const QString& path) {
   if (!project) {
     return std::unexpected(project.error());
   }
+  ReelManager::AddSoundTracks(&*project);
   history_->Reset(std::move(*project));
   path_ = QFileInfo(path).absoluteFilePath();
   Remember(path_);
@@ -169,7 +172,10 @@ Result<void> DocumentManager::SetSong(const QString& song) {
     return std::unexpected(Error{Tr("%1 doesn't exist.").arg(song)});
   }
   Project next = history_->current();
+  const QString old_song = next.song;
   next.song = song.isEmpty() ? QString() : QFileInfo(song).absoluteFilePath();
+  // The song is a clip on the reel's first sound track too.
+  ReelManager::ReplaceSong(&next, old_song);
   return history_->Apply(song.isEmpty() ? Tr("Remove song") : Tr("Set song"),
                          std::move(next));
 }
@@ -214,6 +220,7 @@ Result<void> DocumentManager::Recover() {
   }
   // Recovered work is unsaved until the user saves it, which writes to
   // the file it came from when it had one.
+  ReelManager::AddSoundTracks(&*project);
   history_->Reset(std::move(*project), false);
   const QSettings settings(SettingsPath(), QSettings::IniFormat);
   path_ = settings.value(kAutosaveOrigin).toString();

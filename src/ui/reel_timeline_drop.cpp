@@ -16,6 +16,7 @@
 #include "edit/playback_manager.h"
 #include "edit/reel_manager.h"
 #include "edit/selection_manager.h"
+#include "edit/sound_manager.h"
 #include "ui/reel_timeline.h"
 #include "ui/shot_bin.h"
 
@@ -103,8 +104,31 @@ void ReelTimeline::dropEvent(QDropEvent* event) {
       added.insert(*clip);
     }
   }
-  // Several files land one after another.
+  // Sound files go to a sound track: the one dropped on, else the first
+  // with room at the drop point; in a row, as one step.
+  QStringList sounds;
+  std::vector<QString> videos;
   for (const QString& file : FilesOf(event->mimeData())) {
+    if (IsSoundFile(file)) {
+      sounds.append(file);
+    } else {
+      videos.push_back(file);
+    }
+  }
+  const bool has_sounds = !sounds.isEmpty();
+  if (has_sounds) {
+    const bool is_sound_track =
+        managers_.history->current().reel.tracks[static_cast<size_t>(track)]
+            .is_sound;
+    const auto made =
+        managers_.reel->AddSounds(sounds, is_sound_track ? track : -1, at);
+    Report(ProblemOf(made));
+    if (made) {
+      added.insert(made->begin(), made->end());
+    }
+  }
+  // Several files land one after another.
+  for (const QString& file : videos) {
     const auto clip = managers_.reel->AddVideo(file, track, at);
     Report(ProblemOf(clip));
     if (!clip) {

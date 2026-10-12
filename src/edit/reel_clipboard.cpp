@@ -22,7 +22,7 @@ struct Copies final {
 };
 
 Result<Copies> CopiesOf(const Reel& reel, const std::vector<ClipId>& clips) {
-  assert(reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   assert(clips.size() < 1000000);
   const std::set<ClipId> ids(clips.begin(), clips.end());
   const bool is_empty = ids.empty();

@@ -58,6 +58,10 @@ class ExportManager final : public QObject {
   // Why the playback loop can't be the export range: there is none, or
   // it is on the other timeline. Empty when it can.
   QString WhyNoLoop() const;
+  // Export sound only: the whole mix as a WAV file, for finishing the
+  // sound elsewhere. Written at once, not on the worker.
+  Result<void> ExportSound(const QString& path) const;
+  QString WhyNoSoundExport() const;
 
  signals:
   void Progress(int done, int total);
@@ -68,6 +72,8 @@ class ExportManager final : public QObject {
  private:
   void Report();
   void Done();
+  // What the export sounds like from its frame 0; nullptr for silence.
+  std::shared_ptr<const AudioClip> Mix() const;
 
   HistoryManager* history_;
   PlaybackManager* playback_;

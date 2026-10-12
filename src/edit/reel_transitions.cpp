@@ -45,6 +45,10 @@ QString ReelManager::WhyNoTransition(ClipId clip) const {
   }
   const ReelTrack& track = reel.tracks[static_cast<size_t>(spot.track)];
   const Clip& found = track.clips[static_cast<size_t>(spot.index)];
+  const bool is_sound = IsSoundClip(found);
+  if (is_sound) {
+    return Tr("Sound clips cross with their fades instead.");
+  }
   const bool is_joined = NextTouching(track, found) != nullptr;
   if (!is_joined) {
     return Tr("A transition needs a clip starting right where this "

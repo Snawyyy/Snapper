@@ -229,6 +229,10 @@ void ReelTimeline::mousePressEvent(QMouseEvent* event) {
     SeekTo(at.x());
     return;
   }
+  const bool is_header = PressSoundHeader(at);
+  if (is_header) {
+    return;
+  }
   const ClipId badge = BadgeAt(at);
   const bool is_badge = badge.IsValid();
   if (is_badge) {
@@ -249,7 +253,16 @@ void ReelTimeline::mousePressEvent(QMouseEvent* event) {
     return;
   }
   is_plain_press_ = event->modifiers() == Qt::NoModifier;
+  // A sound clip's fade handles and volume line come before its ends.
+  const Drag sound = SoundDragFor(clip, at);
+  const bool is_sound_drag = sound != Drag::kNone;
+  if (is_sound_drag) {
+    managers_.selection->PickClips({clip}, PickMode::kReplace);
+    StartSoundDrag(clip, sound, at);
+    return;
+  }
   Pick(clip, event->modifiers());
+  PreferPicked();
   const bool is_still_picked = managers_.selection->clips().contains(clip);
   if (is_still_picked) {
     StartDrag(clip, DragFor(clip, at), at, event->modifiers());
@@ -288,6 +301,13 @@ void ReelTimeline::mouseMoveEvent(QMouseEvent* event) {
     update();
     return;
   }
+  const bool is_sound_drag = drag_ == Drag::kVolume ||
+                             drag_ == Drag::kFadeIn ||
+                             drag_ == Drag::kFadeOut || drag_ == Drag::kFader;
+  if (is_sound_drag) {
+    FollowSound(at);
+    return;
+  }
   const bool is_dragging = drag_ != Drag::kNone;
   if (is_dragging) {
     Follow(at, event->modifiers());
@@ -313,6 +333,7 @@ void ReelTimeline::mouseReleaseEvent(QMouseEvent* event) {
   }
   drag_ = Drag::kNone;
   dragged_ = ClipId();
+  drag_track_ = -1;
   has_moved_ = false;
   is_resize_ = false;
   assert(scope_ == nullptr);
@@ -350,8 +371,23 @@ void ReelTimeline::mouseDoubleClickEvent(QMouseEvent* event) {
   assert(managers_.history != nullptr);
   const QPointF at = event->position();
   const int track = TrackAt(at.y());
-  const bool is_on_track = event->button() == Qt::LeftButton &&
-                           track >= 0 && at.x() >= kHeaderWidth;
+  const bool is_left = event->button() == Qt::LeftButton;
+  const bool is_on_track = is_left && track >= 0 && at.x() >= kHeaderWidth;
+  const bool is_sound_track =
+      track >= 0 &&
+      managers_.history->current().reel.tracks[static_cast<size_t>(track)]
+          .is_sound;
+  if (is_left && is_sound_track) {
+    // The first click opened a drag; a double click resets instead.
+    feedback_.Cancel();
+    if (scope_ != nullptr) {
+      scope_->Cancel();
+    }
+    scope_.reset();
+    drag_ = Drag::kNone;
+    ResetSoundAt(at);
+    return;
+  }
   if (!is_on_track) {
     QWidget::mouseDoubleClickEvent(event);
     return;

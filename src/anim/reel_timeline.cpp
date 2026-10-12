@@ -16,6 +16,11 @@ Frame SourceLength(const Project& project, const Clip& clip) {
   if (is_video) {
     return video->length;
   }
+  const auto* sound = std::get_if<SoundSource>(&clip.source);
+  const bool is_sound = sound != nullptr;
+  if (is_sound) {
+    return sound->length;
+  }
   const Shot* shot = FindShot(project, std::get<ShotSource>(clip.source).shot);
   const bool is_gone = shot == nullptr;
   return is_gone ? Frame(0) : shot->length;
@@ -73,10 +78,15 @@ void MixInto(const ReelTrack& track, int into, ReelPiece* piece) {
 
 std::vector<ReelPiece> ReelAt(const Project& project, Frame frame) {
   assert(frame.index() >= 0);
-  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   std::vector<ReelPiece> pieces;
   const int track_count = static_cast<int>(project.reel.tracks.size());
   for (int t = 0; t < track_count; ++t) {
+    // Sound has no picture.
+    const bool is_sound = project.reel.tracks[static_cast<size_t>(t)].is_sound;
+    if (is_sound) {
+      continue;
+    }
     for (const Clip& clip : project.reel.tracks[static_cast<size_t>(t)].clips) {
       const int into = frame.index() - clip.start.index();
       const bool is_shown =
@@ -97,13 +107,28 @@ std::vector<ReelPiece> ReelAt(const Project& project, Frame frame) {
 }
 
 Frame ReelLength(const Project& project) {
-  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   assert(kMaxClipsPerTrack > 0);
   Frame end;
   for (const ReelTrack& track : project.reel.tracks) {
-    const bool has_clips = !track.clips.empty();
+    // The picture sets the video's length, so a song laid under a short
+    // cut does not stretch it.
+    const bool has_clips = !track.clips.empty() && !track.is_sound;
     if (has_clips) {
       // Sorted and never overlapping: the last clip ends last.
+      end = std::max(end, track.clips.back().end());
+    }
+  }
+  return end;
+}
+
+Frame SoundEnd(const Project& project) {
+  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
+  assert(kMaxClipsPerTrack > 0);
+  Frame end;
+  for (const ReelTrack& track : project.reel.tracks) {
+    const bool has_clips = !track.clips.empty() && track.is_sound;
+    if (has_clips) {
       end = std::max(end, track.clips.back().end());
     }
   }
@@ -119,7 +144,7 @@ Frame TrackEnd(const Project& project, int track) {
 
 std::set<Frame> ReelCuts(const Project& project,
                          const std::set<ClipId>& ignore) {
-  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   assert(ignore.size() < 1000000);
   std::set<Frame> cuts;
   for (const ReelTrack& track : project.reel.tracks) {
@@ -135,7 +160,7 @@ std::set<Frame> ReelCuts(const Project& project,
 }
 
 std::set<ClipId> AllClips(const Reel& reel) {
-  assert(reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   assert(kMaxClipsPerTrack > 0);
   std::set<ClipId> all;
   for (const ReelTrack& track : reel.tracks) {
@@ -148,7 +173,7 @@ std::set<ClipId> AllClips(const Reel& reel) {
 
 std::set<ClipId> ClipsIn(const Reel& reel, int low, int high, Frame first,
                          Frame last) {
-  assert(reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   assert(first.index() >= 0 && last.index() >= 0);
   const int count = static_cast<int>(reel.tracks.size());
   const int bottom = std::clamp(std::min(low, high), 0, count);
@@ -253,7 +278,7 @@ Slot SlotAt(const Reel& reel, Frame at) {
 
 const Clip* SlotClip(const Reel& reel, int track, Slot slot) {
   assert(slot.IsValid());
-  assert(reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   const bool is_track =
       track >= 0 && track < static_cast<int>(reel.tracks.size());
   if (!is_track) {
@@ -311,7 +336,7 @@ const Clip* NearestVideo(const ReelTrack& track, Frame at) {
 std::optional<SlotFill> SlotFillAt(const Project& project, int track,
                                    Frame at) {
   assert(at.index() >= 0);
-  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   const Slot slot = SlotAt(project.reel, at);
   const bool is_track =
       track >= 0 && track < static_cast<int>(project.reel.tracks.size());

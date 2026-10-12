@@ -637,6 +637,28 @@ slides the video under the gap. `ReelManager::FillSlot` re-picks the
 clip already filling the gap, or cuts away what is under it and lays
 a new clip over it, as one undo step.
 
+Sound lives only on the reel, on sound tracks under the picture ones
+(`ReelTrack::is_sound`, at the bottom of `Reel::tracks`; 2 by default,
+up to `kMaxSoundTracks`). A sound clip is a `Clip` whose source is a
+`SoundSource` (a file by path), with a volume and fades; a sound track
+has a name, Mute, Solo and a volume. Sound clips move, trim, split,
+copy, paste and snap through the same edits as picture clips, and
+`WrongTrack` keeps each kind on its own tracks. Sound has no picture
+(`ReelAt` skips sound tracks) and does not set the video's length
+(`ReelLength`; `SoundEnd` for the sound). A file from before sound
+tracks, or a new project, gets the default sound tracks with the song
+laid from frame 0 on the first (`ReelManager::AddSoundTracks`, called by
+`DocumentManager`); choosing a song replaces its clip (`ReplaceSong`).
+The sound edits are in `edit/reel_sound.cpp`. `SoundManager` decodes
+each file once in the background, keeps its waveform, and mixes the
+heard tracks (`MixReel`). Shots have no sound of their own: on the
+shots timeline a shot placed on the reel plays the reel's mix under its
+clip (the one last picked on the Video tab, else the first;
+`SoundClipOf`), silent where the clip leaves its frames out, and any
+other shot plays the song where it sits (`MixShots`).
+`PlaybackManager::SoundOn` is what each timeline plays, and export
+mixes the same (`ExportManager::ExportSound` writes it as a WAV).
+
 ## Rendering
 
 `FrameRenderer` draws on the CPU with `QPainter` into a `QImage`, so it
@@ -731,7 +753,8 @@ are destroyed in reverse.
 | `RigManager`           | Rig edits: joints, IK, shape meshes and warp grids, their dots, drag and physics nodes, colliders |
 | `PokeManager`          | Live poke of a doll on the stage: never in history (see Poking) |
 | `ShotManager`          | Shots on the master track: order, length, look |
-| `ReelManager`          | The reel: clips, tracks, cuts, transitions     |
+| `ReelManager`          | The reel: clips, tracks, cuts, transitions, sound clips, volume, fades, Mute and Solo |
+| `SoundManager`         | The reel's sound files decoded and their waveforms; the mix; which clip a shot borrows its sound from |
 | `StageManager`         | What is in a shot: actors, props, text, effects |
 | `LinkManager`          | Which things copy another's movement, how much |
 | `SelectionManager`     | What is picked: shots, layers, pieces, keys, clips |
@@ -743,8 +766,8 @@ are destroyed in reverse.
 | `KeyManager`           | Keys on the timeline: move, space, ease, retime, bake a timing chart |
 | `TimingChartManager`   | The timing chart session: picked thing and frames to chart, ticks, live preview in one `EditScope`, Apply or Cancel |
 | `PresetManager`        | Saved poses                                    |
-| `PlaybackManager`      | Playhead on either timeline, play, loop, song  |
-| `ExportManager`        | MP4, GIF, PNG frames, WebM, MOV export, threaded |
+| `PlaybackManager`      | Playhead on either timeline, play, loop, song, the sound each timeline plays |
+| `ExportManager`        | MP4, GIF, PNG frames, WebM, MOV export, threaded; sound only as WAV |
 | `MotionManager` (`ui`) | How long and how softly the UI moves: the Motion table, Full / Calm / Off, saved in settings |
 | `ToastManager` (`ui`)  | Toasts: the queue, their time, stacking, dismissal and the Undo they offer |
 | `TimingChartDialog` (`ui`) | The floating timing chart window (Shift+T, or Define timing chart... in the stage and timeline menus); its strip only draws the ticks and forwards drags to `TimingChartManager` |

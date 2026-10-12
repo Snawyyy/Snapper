@@ -55,7 +55,7 @@ QPointF ReelTimeline::SlideShift(const Clip& clip, int track) const {
 
 void ReelTimeline::ShowStep(const Project& before, bool is_travel) {
   assert(managers_.history != nullptr);
-  assert(before.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(before.reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   ClipChanges changes = DiffClips(before, managers_.history->current());
   // A drag already showed the clips moving.
   if (is_landing_drag_) {

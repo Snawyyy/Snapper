@@ -45,12 +45,20 @@ QJsonObject ClipToJson(const Clip& clip) {
                      {"in", clip.in.index()},
                      {"length", clip.length.index()}};
   const auto* video = std::get_if<VideoSource>(&clip.source);
-  const bool is_video = video != nullptr;
-  if (is_video) {
+  const auto* sound = std::get_if<SoundSource>(&clip.source);
+  const auto* shot = std::get_if<ShotSource>(&clip.source);
+  if (video != nullptr) {
     object.insert("video", video->path);
     object.insert("video_length", video->length.index());
+  } else if (sound != nullptr) {
+    object.insert("sound", sound->path);
+    object.insert("sound_length", sound->length.index());
+    object.insert("volume", clip.volume);
+    object.insert("fade_in", clip.fade_in.index());
+    object.insert("fade_out", clip.fade_out.index());
   } else {
-    object.insert("shot", std::get<ShotSource>(clip.source).shot.value());
+    assert(shot != nullptr);
+    object.insert("shot", shot->shot.value());
   }
   const bool has_transition = clip.out.kind != TransitionKind::kCut;
   if (has_transition) {
@@ -68,9 +76,17 @@ Clip ClipFromJson(const QJsonObject& object, JsonIssues* issues) {
   clip.in = Frame(object.value("in").toInt());
   clip.length = Frame(object.value("length").toInt());
   const bool is_video = object.contains("video");
+  const bool is_sound = object.contains("sound");
   if (is_video) {
     clip.source = VideoSource{object.value("video").toString(),
                               Frame(object.value("video_length").toInt())};
+  } else if (is_sound) {
+    clip.source = SoundSource{object.value("sound").toString(),
+                              Frame(object.value("sound_length").toInt())};
+    clip.volume =
+        std::clamp(object.value("volume").toDouble(1.0), 0.0, kMaxGain);
+    clip.fade_in = Frame(std::max(object.value("fade_in").toInt(), 0));
+    clip.fade_out = Frame(std::max(object.value("fade_out").toInt(), 0));
   } else {
     clip.source = ShotSource{ShotId(object.value("shot").toInt())};
   }
@@ -85,10 +101,23 @@ Clip ClipFromJson(const QJsonObject& object, JsonIssues* issues) {
   return clip;
 }
 
-ReelTrack TrackFromJson(const QJsonArray& clips, JsonIssues* issues) {
+ReelTrack TrackFromJson(const QJsonValue& value, JsonIssues* issues) {
   assert(issues != nullptr);
-  assert(clips.size() >= 0);
+  // A picture track is a bare list of clips; a sound track an object
+  // with its header settings and its clips.
+  const QJsonObject header = value.toObject();
+  const bool is_sound = value.isObject() && header.value("sound").toBool();
+  const QJsonArray clips =
+      is_sound ? header.value("clips").toArray() : value.toArray();
   ReelTrack track;
+  track.is_sound = is_sound;
+  if (is_sound) {
+    track.name = header.value("name").toString();
+    track.is_muted = header.value("muted").toBool();
+    track.is_solo = header.value("solo").toBool();
+    track.volume =
+        std::clamp(header.value("volume").toDouble(1.0), 0.0, kMaxGain);
+  }
   const bool is_too_many = clips.size() > kMaxClipsPerTrack;
   if (is_too_many) {
     issues->Note(Tr("a reel track has too many clips"));
@@ -96,6 +125,11 @@ ReelTrack TrackFromJson(const QJsonArray& clips, JsonIssues* issues) {
   }
   for (const QJsonValue& item : clips) {
     const Clip clip = ClipFromJson(item.toObject(), issues);
+    const bool is_kind_right = IsSoundClip(clip) == is_sound;
+    if (!is_kind_right) {
+      issues->Note(Tr("a clip is on the wrong kind of track"));
+      continue;
+    }
     const bool can_place = clip.length.index() >= 1 && HasRoom(track, clip);
     if (!can_place) {
       issues->Note(Tr("clips overlap on a reel track"));
@@ -109,7 +143,7 @@ ReelTrack TrackFromJson(const QJsonArray& clips, JsonIssues* issues) {
 }  // namespace
 
 QJsonArray ReelToJson(const Reel& reel) {
-  assert(reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   assert(kMaxClipsPerTrack > 0);
   QJsonArray tracks;
   for (const ReelTrack& track : reel.tracks) {
@@ -117,7 +151,16 @@ QJsonArray ReelToJson(const Reel& reel) {
     for (const Clip& clip : track.clips) {
       clips.append(ClipToJson(clip));
     }
-    tracks.append(clips);
+    if (!track.is_sound) {
+      tracks.append(clips);
+      continue;
+    }
+    tracks.append(QJsonObject{{"sound", true},
+                              {"name", track.name},
+                              {"muted", track.is_muted},
+                              {"solo", track.is_solo},
+                              {"volume", track.volume},
+                              {"clips", clips}});
   }
   return tracks;
 }
@@ -131,7 +174,7 @@ Reel ReelFromJson(const QJsonValue& value, JsonIssues* issues) {
   }
   const QJsonArray tracks = value.toArray();
   const bool is_valid = value.isArray() && !tracks.isEmpty() &&
-                        tracks.size() <= kMaxReelTracks;
+                        tracks.size() <= kMaxAllTracks;
   if (!is_valid) {
     issues->Note(Tr("the reel has no tracks or too many"));
     return Reel();
@@ -139,7 +182,15 @@ Reel ReelFromJson(const QJsonValue& value, JsonIssues* issues) {
   Reel reel;
   reel.tracks.clear();
   for (const QJsonValue& track : tracks) {
-    reel.tracks.push_back(TrackFromJson(track.toArray(), issues));
+    reel.tracks.push_back(TrackFromJson(track, issues));
+  }
+  // Sound tracks sit under the picture ones, whatever the file says.
+  std::ranges::stable_partition(
+      reel.tracks, [](const ReelTrack& track) { return track.is_sound; });
+  const bool has_picture = SoundTrackCount(reel) <
+                           static_cast<int>(reel.tracks.size());
+  if (!has_picture) {
+    reel.tracks.emplace_back();
   }
   return reel;
 }

@@ -25,6 +25,7 @@ class SelectionManager;
 class SettingsManager;
 class ShotManager;
 class SkinManager;
+class SoundManager;
 class StageManager;
 class TimingChartManager;
 class ToastManager;
@@ -62,6 +63,9 @@ struct Managers final {
   SkinManager* skins = nullptr;
   // Not in IsComplete either: the object row, box and menu check it.
   ObjectManager* objects = nullptr;
+  // Not in IsComplete either: the reel's waveforms and sound headers
+  // check it.
+  SoundManager* sounds = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&

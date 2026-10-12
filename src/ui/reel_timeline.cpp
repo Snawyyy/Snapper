@@ -15,6 +15,7 @@
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/shot_timing.h"
+#include "edit/sound_manager.h"
 #include "ui/checkerboard.h"
 #include "ui/form_helpers.h"
 #include "ui/theme.h"
@@ -68,6 +69,11 @@ ReelTimeline::ReelTimeline(const Managers& managers)
   connect(managers_.selection, &SelectionManager::Changed, this, update_me);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
           update_me);
+  // Waveforms show as their files finish loading.
+  if (managers_.sounds != nullptr) {
+    connect(managers_.sounds, &SoundManager::SoundsChanged, this,
+            [this] { update(); });
+  }
   update_me();
   assert(acceptDrops());
 }
@@ -98,7 +104,7 @@ int ReelTimeline::TrackAt(double y) const {
   assert(std::isfinite(y));
   const int count =
       static_cast<int>(managers_.history->current().reel.tracks.size());
-  assert(count <= kMaxReelTracks);
+  assert(count <= kMaxAllTracks);
   const int row = static_cast<int>(std::floor((y - kRulerHeight) /
                                               kTrackHeight));
   const bool is_on_tracks = y >= kRulerHeight && row >= 0 && row < count;
@@ -181,16 +187,22 @@ void ReelTimeline::PaintTracks(QPainter* painter) const {
   assert(painter != nullptr);
   const Reel& reel = managers_.history->current().reel;
   const int count = static_cast<int>(reel.tracks.size());
-  assert(count <= kMaxReelTracks);
+  assert(count <= kMaxAllTracks);
+  const int sounds = SoundTrackCount(reel);
   for (int t = 0; t < count; ++t) {
     const double top = TrackTop(t);
     painter->fillRect(QRectF(kHeaderWidth, top, width(), kTrackHeight - 1),
                       t % 2 == 0 ? theme::kField : theme::kFaceDark);
     painter->fillRect(QRectF(0, top, kHeaderWidth - 1, kTrackHeight - 1),
                       theme::kFace);
+    const bool is_sound = reel.tracks[static_cast<size_t>(t)].is_sound;
+    if (is_sound) {
+      PaintSoundHeader(painter, t);
+      continue;
+    }
     painter->setPen(theme::kTextOff);
     painter->drawText(QRectF(0, top, kHeaderWidth, kTrackHeight),
-                      Qt::AlignCenter, tr("V%1").arg(t + 1));
+                      Qt::AlignCenter, tr("V%1").arg(t - sounds + 1));
   }
   painter->save();
   painter->setClipRect(QRectF(kHeaderWidth, kRulerHeight, width(), height()));
@@ -206,8 +218,58 @@ void ReelTimeline::PaintTracks(QPainter* painter) const {
 void ReelTimeline::PaintClip(QPainter* painter, const Clip& clip) const {
   assert(painter != nullptr);
   assert(clip.length.index() >= 1);
-  const Project& project = managers_.history->current();
   const QRectF box = ClipRect(clip.id);
+  const bool is_sound = IsSoundClip(clip);
+  if (is_sound) {
+    PaintSoundBody(painter, clip, box);
+  } else {
+    PaintPictureBody(painter, clip, box);
+  }
+  const bool is_picked = managers_.selection->clips().contains(clip.id);
+  painter->setPen(QPen(is_picked ? theme::kPick : theme::kShadow,
+                       is_picked ? 2.0 : 1.0));
+  painter->drawRect(box);
+  // The ends trim: yellow, like every handle. A hovered one widens and
+  // brightens, even on a clip that is not picked.
+  const double start =
+      HoverAmount(hover_.ScaleOf(GrabKind::kEdge, EdgeKey(clip.id, true)));
+  const double end =
+      HoverAmount(hover_.ScaleOf(GrabKind::kEdge, EdgeKey(clip.id, false)));
+  const bool shows_ends = is_picked || start > 0.0 || end > 0.0;
+  if (shows_ends) {
+    const QColor lit_start = theme::kHandle.lighter(100 + int(40 * start));
+    const QColor lit_end = theme::kHandle.lighter(100 + int(40 * end));
+    painter->fillRect(
+        QRectF(box.left(), box.top(), 3 + 3 * start, box.height()),
+        lit_start);
+    painter->fillRect(QRectF(box.right() - 3 - 3 * end, box.top(),
+                             3 + 3 * end, box.height()),
+                      lit_end);
+  }
+}
+
+void ReelTimeline::PaintHatch(QPainter* painter, const Clip& clip,
+                              const QRectF& box) const {
+  assert(painter != nullptr);
+  assert(clip.length.index() >= 1);
+  // Frames with nothing to show or play (a shot cut shorter since, a
+  // clip past its file's end) are hatched.
+  const double shown =
+      XOf(Frame(clip.start.index() +
+                ShownLength(managers_.history->current(), clip).index()));
+  const bool has_gap = shown < box.right();
+  if (has_gap) {
+    painter->fillRect(QRectF(shown, box.top(), box.right() - shown,
+                             box.height()),
+                      QBrush(theme::kShadow, Qt::BDiagPattern));
+  }
+}
+
+void ReelTimeline::PaintPictureBody(QPainter* painter, const Clip& clip,
+                                    const QRectF& box) const {
+  assert(painter != nullptr);
+  assert(!IsSoundClip(clip));
+  const Project& project = managers_.history->current();
   const auto* video = std::get_if<VideoSource>(&clip.source);
   const Shot* shot =
       video != nullptr
@@ -217,15 +279,7 @@ void ReelTimeline::PaintClip(QPainter* painter, const Clip& clip) const {
   painter->fillRect(box, is_missing          ? kMissing
                          : video != nullptr ? kVideoClip
                                             : kShotClip);
-  // Frames with nothing to show (a shot cut shorter since) are hatched.
-  const double shown = XOf(Frame(clip.start.index() +
-                                 ShownLength(project, clip).index()));
-  const bool has_gap = shown < box.right();
-  if (has_gap) {
-    painter->fillRect(QRectF(shown, box.top(), box.right() - shown,
-                             box.height()),
-                      QBrush(theme::kShadow, Qt::BDiagPattern));
-  }
+  PaintHatch(painter, clip, box);
   const bool has_swatch = shot != nullptr;
   if (has_swatch) {
     // A see-through shot shows the checker instead of its color.
@@ -253,27 +307,6 @@ void ReelTimeline::PaintClip(QPainter* painter, const Clip& clip) const {
                       Qt::AlignRight | Qt::AlignBottom,
                       hidden == 1 ? tr("1 key hidden")
                                   : tr("%1 keys hidden").arg(hidden));
-  }
-  const bool is_picked = managers_.selection->clips().contains(clip.id);
-  painter->setPen(QPen(is_picked ? theme::kPick : theme::kShadow,
-                       is_picked ? 2.0 : 1.0));
-  painter->drawRect(box);
-  // The ends trim: yellow, like every handle. A hovered one widens and
-  // brightens, even on a clip that is not picked.
-  const double start =
-      HoverAmount(hover_.ScaleOf(GrabKind::kEdge, EdgeKey(clip.id, true)));
-  const double end =
-      HoverAmount(hover_.ScaleOf(GrabKind::kEdge, EdgeKey(clip.id, false)));
-  const bool shows_ends = is_picked || start > 0.0 || end > 0.0;
-  if (shows_ends) {
-    const QColor lit_start = theme::kHandle.lighter(100 + int(40 * start));
-    const QColor lit_end = theme::kHandle.lighter(100 + int(40 * end));
-    painter->fillRect(
-        QRectF(box.left(), box.top(), 3 + 3 * start, box.height()),
-        lit_start);
-    painter->fillRect(QRectF(box.right() - 3 - 3 * end, box.top(),
-                             3 + 3 * end, box.height()),
-                      lit_end);
   }
 }
 

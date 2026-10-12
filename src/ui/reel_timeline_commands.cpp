@@ -207,12 +207,18 @@ void ReelTimeline::TrackMenu(int track, QPoint where) {
   Explain(add, managers_.reel->WhyNoAddTrack());
   connect(add, &QAction::triggered, this,
           [this] { Report(ProblemOf(managers_.reel->AddTrack())); });
-  QAction* remove = menu.addAction(tr("Remove track V%1").arg(track + 1));
+  QAction* add_sound = menu.addAction(tr("Add sound track"));
+  Explain(add_sound, managers_.reel->WhyNoAddSoundTrack());
+  connect(add_sound, &QAction::triggered, this,
+          [this] { Report(ProblemOf(managers_.reel->AddSoundTrack())); });
+  const QString name = TrackName(track);
+  QAction* remove = menu.addAction(tr("Remove track %1").arg(name));
   Explain(remove, managers_.reel->WhyNoRemoveTrack(track));
-  connect(remove, &QAction::triggered, this, [this, track] {
+  connect(remove, &QAction::triggered, this, [this, track, name] {
     managers_.toasts->Finish(ProblemOf(managers_.reel->RemoveTrack(track)),
-                             tr("Removed track V%1").arg(track + 1));
+                             tr("Removed track %1").arg(name));
   });
+  AddSoundTrackEntries(&menu, track);
   menu.exec(where);
 }
 

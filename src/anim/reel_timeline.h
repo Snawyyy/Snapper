@@ -32,16 +32,18 @@ Frame UsedTransition(const ReelTrack& track, const Clip& clip);
 // 0 when none touches.
 Frame LongestTransition(const ReelTrack& track, const Clip& clip);
 
-// How long clip's source is: the whole video file, or the shot as it is
-// now; 0 when its shot is gone.
+// How long clip's source is: the whole video or sound file, or the shot
+// as it is now; 0 when its shot is gone.
 Frame SourceLength(const Project& project, const Clip& clip);
 // The frames of clip that have a picture. A shot shortened after it was
 // placed leaves the clip's tail empty rather than moving anything.
 Frame ShownLength(const Project& project, const Clip& clip);
 // What shows at frame, bottom track first, each with its source frame.
 std::vector<ReelPiece> ReelAt(const Project& project, Frame frame);
-// From the first frame to the end of the last clip.
+// From the first frame to the end of the last picture clip.
 Frame ReelLength(const Project& project);
+// The end of the last sound clip; 0 with none.
+Frame SoundEnd(const Project& project);
 // Where track's last clip ends: the first frame free for good after it.
 Frame TrackEnd(const Project& project, int track);
 // Every frame where a clip starts or ends, for jumping cut to cut.

@@ -12,6 +12,7 @@
 #include "anim/master_timeline.h"
 #include "anim/reel_timeline.h"
 #include "edit/history_manager.h"
+#include "edit/sound_manager.h"
 #include "edit/timeline_rows.h"
 
 namespace snapper {
@@ -51,6 +52,7 @@ void PlaybackManager::Play() {
     frame_ = HasLoop() ? loop_start_ : Frame(0);
     emit FrameChanged(frame_);
   }
+  FreshenSound();
   player_.Play(SecondsAtFrame(frame_));
   ticker_.start();
   emit PlayingChanged(true);
@@ -86,6 +88,7 @@ void PlaybackManager::Seek(Frame frame) {
   frame_ = clamped;
   const bool was_playing = IsPlaying();
   if (was_playing) {
+    FreshenSound();
     player_.Play(SecondsAtFrame(frame_));
   }
   if (is_moved) {
@@ -143,6 +146,7 @@ void PlaybackManager::SetTimeline(Timeline timeline) {
   ClearLoop();
   std::swap(frame_, parked_);
   timeline_ = timeline;
+  Stale();
   frame_ = std::min(frame_, LastFrame());
   emit TimelineChanged(timeline_);
   emit FrameChanged(frame_);
@@ -186,12 +190,15 @@ void PlaybackManager::Tick() {
 
 void PlaybackManager::FollowProject() {
   assert(history_ != nullptr);
+  Stale();
   const QString& song = history_->current().song;
   const bool is_new_song = song != song_path_;
   if (is_new_song) {
     song_path_ = song;
     song_.reset();
     song_error_.clear();
+    playing_.reset();
+    is_shots_stale_ = true;
     player_.SetClip(nullptr);
     const bool has_song = !song.isEmpty();
     if (has_song) {
@@ -217,15 +224,91 @@ void PlaybackManager::SongLoaded() {
   }
   if (loaded) {
     song_ = std::make_shared<const AudioClip>(std::move(*loaded));
-    player_.SetClip(song_);
   } else {
     song_error_ = loaded.error().message;
   }
+  is_shots_stale_ = true;
+  Stale();
   const bool was_playing = IsPlaying();
   if (was_playing) {
-    player_.Play(SecondsAtFrame(frame_));
+    const double at = player_.Position();
+    FreshenSound();
+    player_.Play(at);
   }
   emit SongChanged();
+}
+
+void PlaybackManager::SetSounds(SoundManager* sounds) {
+  assert(history_ != nullptr);
+  assert(!IsPlaying() || sounds == sounds_);
+  sounds_ = sounds;
+  if (sounds_ != nullptr) {
+    connect(sounds_, &SoundManager::SoundsChanged, this, [this] {
+      is_shots_stale_ = true;
+      Stale();
+    });
+  }
+  is_shots_stale_ = true;
+  Stale();
+}
+
+std::shared_ptr<const AudioClip> PlaybackManager::ShotsSound() {
+  assert(history_ != nullptr);
+  const Project& project = history_->current();
+  std::vector<std::pair<ShotId, Frame>> lengths;
+  for (const auto& shot : project.shots) {
+    lengths.emplace_back(shot->id, shot->length);
+  }
+  const bool is_same = !is_shots_stale_ && shots_reel_ == project.reel &&
+                       shots_lengths_ == lengths;
+  if (!is_same) {
+    shots_sound_ = SoundOn(Timeline::kShots);
+    shots_reel_ = project.reel;
+    shots_lengths_ = std::move(lengths);
+    is_shots_stale_ = false;
+  }
+  return shots_sound_;
+}
+
+std::shared_ptr<const AudioClip> PlaybackManager::SoundOn(
+    Timeline timeline) const {
+  assert(history_ != nullptr);
+  assert(timeline == Timeline::kShots || timeline == Timeline::kReel);
+  const Project& project = history_->current();
+  const bool has_sound_tracks =
+      sounds_ != nullptr && SoundTrackCount(project.reel) > 0;
+  if (!has_sound_tracks) {
+    return song_;
+  }
+  const bool is_reel = timeline == Timeline::kReel;
+  if (is_reel) {
+    return std::make_shared<const AudioClip>(sounds_->MixReel(
+        project, std::max(ReelLength(project), SoundEnd(project))));
+  }
+  auto shots = sounds_->MixShots(project, song_.get());
+  return shots != nullptr ? shots : song_;
+}
+
+bool PlaybackManager::IsLoadingSound() const {
+  assert(history_ != nullptr);
+  const bool is_reel_loading = sounds_ != nullptr && sounds_->IsLoading();
+  return IsLoadingSong() || is_reel_loading;
+}
+
+void PlaybackManager::Stale() {
+  assert(history_ != nullptr);
+  is_stale_ = true;
+}
+
+void PlaybackManager::FreshenSound() {
+  assert(history_ != nullptr);
+  if (!is_stale_) {
+    return;
+  }
+  playing_ = timeline_ == Timeline::kShots ? ShotsSound()
+                                           : SoundOn(timeline_);
+  player_.SetClip(playing_);
+  is_stale_ = false;
 }
 
 Frame PlaybackManager::LastFrame() const {
@@ -236,9 +319,10 @@ Frame PlaybackManager::LastFrame() const {
   // over the music before any clip is placed.
   const Frame song =
       song_ != nullptr ? FrameAtSeconds(song_->Seconds()) : Frame(0);
-  const int total = (is_reel ? std::max(ReelLength(project), song)
-                             : TotalLength(project))
-                        .index();
+  const int total =
+      (is_reel ? std::max({ReelLength(project), song, SoundEnd(project)})
+               : TotalLength(project))
+          .index();
   assert(total >= 0);
   return Frame(std::max(total - 1, 0));
 }

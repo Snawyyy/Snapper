@@ -57,6 +57,10 @@ namespace snapper {
 // paste at the playhead, Ctrl+D duplicates; right-click for the same
 // and for tracks. The wheel scrolls, Ctrl zooms. Shots here are
 // finished videos: what is inside them is edited on the Pose tab.
+// Sound tracks sit at the bottom: sound files drop there (or anywhere,
+// landing on the first free one), each clip shows its waveform, a
+// volume line to drag and fade handles; the header has Mute, Solo and
+// a fader.
 class ReelTimeline final : public QWidget {
   Q_OBJECT
 
@@ -107,7 +111,20 @@ class ReelTimeline final : public QWidget {
   void dropEvent(QDropEvent* event) override;
 
  private:
-  enum class Drag { kNone, kSeek, kMove, kTrimStart, kTrimEnd, kBox };
+  // kVolume, kFadeIn and kFadeOut drag a sound clip's volume line and
+  // fade handles; kFader a sound track header's volume.
+  enum class Drag {
+    kNone,
+    kSeek,
+    kMove,
+    kTrimStart,
+    kTrimEnd,
+    kBox,
+    kVolume,
+    kFadeIn,
+    kFadeOut,
+    kFader,
+  };
   // What a key or a menu entry asks of the picked clips.
   enum class Command {
     kNone,
@@ -127,6 +144,40 @@ class ReelTimeline final : public QWidget {
   void PaintRuler(QPainter* painter) const;
   void PaintTracks(QPainter* painter) const;
   void PaintClip(QPainter* painter, const Clip& clip) const;
+  void PaintPictureBody(QPainter* painter, const Clip& clip,
+                        const QRectF& box) const;
+  void PaintHatch(QPainter* painter, const Clip& clip,
+                  const QRectF& box) const;
+
+  // Sound (ui/reel_timeline_sound.cpp). A sound clip: its waveform
+  // (dimmed on a track not heard), volume line and fade handles.
+  void PaintSoundBody(QPainter* painter, const Clip& clip,
+                      const QRectF& box) const;
+  // A sound track's header: its name, Mute and Solo, and a fader.
+  void PaintSoundHeader(QPainter* painter, int track) const;
+  QRectF MuteRect(int track) const;
+  QRectF SoloRect(int track) const;
+  QRectF FaderRect(int track) const;
+  // Where a sound clip's volume line is drawn in box.
+  static double VolumeY(const QRectF& box, double gain);
+  // The volume line or a fade handle of a sound clip under at, or kNone.
+  Drag SoundDragFor(ClipId clip, QPointF at) const;
+  // A press on a sound track's header: Mute, Solo, or the fader (which
+  // starts a drag). False when at is on none of them.
+  bool PressSoundHeader(QPointF at);
+  // A double click on a fader or volume line puts it back to 0 dB.
+  bool ResetSoundAt(QPointF at);
+  // Opens the drag's step for a volume line or fade handle drag.
+  void StartSoundDrag(ClipId clip, Drag drag, QPointF at);
+  // Follows a volume line, fade or fader drag; the chip shows the value.
+  void FollowSound(QPointF at);
+  // "V2" for a picture track; a sound track's name, or "A1".
+  QString TrackName(int track) const;
+  // Mute and Solo in a sound track's menu; nothing for other tracks.
+  void AddSoundTrackEntries(QMenu* menu, int track);
+  // Picking one shot clip makes it the one its shot borrows its sound
+  // from on the Pose tab.
+  void PreferPicked();
   // PaintClip, grown, flashed or ringed while the clip pops in or is
   // brought back by undo or redo.
   void PaintClipFx(QPainter* painter, const Clip& clip) const;
@@ -215,6 +266,8 @@ class ReelTimeline final : public QWidget {
   double scroll_ = 0.0;
   Drag drag_ = Drag::kNone;
   ClipId dragged_;
+  // The sound track whose fader drags.
+  int drag_track_ = -1;
   QPointF press_;
   // A plain click on a clip already in a bigger pick picks just it, once
   // it is clear the click was not a drag.

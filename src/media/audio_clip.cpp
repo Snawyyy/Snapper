@@ -160,6 +160,32 @@ Result<AudioClip> DecodeAudio(const QString& path) {
   return clip;
 }
 
+Result<double> ProbeSoundSeconds(const QString& path) {
+  assert(!path.isEmpty());
+  assert(kMaxAudioSeconds > 0);
+  const auto decoder = OpenDecoder(path);
+  if (!decoder) {
+    return std::unexpected(decoder.error());
+  }
+  const AVFormatContext* input = decoder->input.get();
+  const AVStream* stream = input->streams[decoder->stream];
+  const bool has_stream_time = stream->duration != AV_NOPTS_VALUE &&
+                               stream->duration > 0;
+  const double seconds =
+      has_stream_time
+          ? static_cast<double>(stream->duration) * av_q2d(stream->time_base)
+      : input->duration != AV_NOPTS_VALUE
+          ? static_cast<double>(input->duration) / AV_TIME_BASE
+          : 0.0;
+  const bool is_usable = std::isfinite(seconds) && seconds > 0.0 &&
+                         seconds <= kMaxAudioSeconds;
+  if (!is_usable) {
+    return std::unexpected(Error{
+        Tr("%1 is empty or longer than 30 minutes.").arg(path)});
+  }
+  return seconds;
+}
+
 std::vector<float> Peaks(const AudioClip& clip, int count) {
   assert(count >= 0);
   assert(clip.samples.size() <= kMaxSamples);

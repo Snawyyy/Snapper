@@ -1,5 +1,6 @@
 // ReelManager's edits that touch many clips or whole tracks.
 
+#include <algorithm>
 #include <cassert>
 #include <set>
 #include <utility>
@@ -32,14 +33,25 @@ Result<void> ReelManager::MoveAll(const std::vector<ClipId>& clips,
     }
     item.clip.start = Frame(start);
     ReelTrack& row = next.reel.tracks[static_cast<size_t>(track)];
+    const QString wrong = WrongTrack(row, item.clip.source);
+    if (!wrong.isEmpty()) {
+      return std::unexpected(Error{wrong});
+    }
     const bool has_room = HasRoom(row, item.clip);
     if (!has_room) {
       return std::unexpected(InTheWay());
     }
     PlaceClip(&row, std::move(item.clip));
   }
+  const bool is_all_sound = !clips.empty() && std::ranges::all_of(
+      clips, [&next](ClipId id) {
+        const Clip* clip = ClipOf(next.reel, id);
+        return clip != nullptr && IsSoundClip(*clip);
+      });
   return history_->Apply(
-      CountLabel(ids.size(), Tr("Move clip"), Tr("Move clips")),
+      is_all_sound
+          ? Tr("Move sound")
+          : CountLabel(ids.size(), Tr("Move clip"), Tr("Move clips")),
       std::move(next));
 }
 

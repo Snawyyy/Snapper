@@ -14,6 +14,7 @@
 #include "edit/edit_scope.h"
 #include "edit/selection_manager.h"
 #include "edit/timeline_rows.h"
+#include "model/reel.h"
 #include "ui/change_effects.h"
 #include "ui/drag_feedback.h"
 #include "ui/drag_playhead.h"
@@ -76,6 +77,12 @@ class TimelineView final : public QWidget {
   // Frames between ruler numbers at the current zoom.
   int LabelStep() const;
   void PaintWave(QPainter* painter) const;
+  // The reel clip the picked shot borrows its sound from; nullptr when
+  // it plays the song.
+  const Clip* SoundClip() const;
+  // A press on the wave band's name: lists the clips of the shot, to
+  // pick which one's sound plays under it.
+  void PickSoundClip(QPoint where);
   // Names and keys of every row; as a ghost, only the picked keys.
   void PaintRows(QPainter* painter, const std::vector<TimelineRow>& rows,
                  bool is_ghost);

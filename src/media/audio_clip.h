@@ -30,6 +30,10 @@ struct AudioClip final {
 
 Result<AudioClip> DecodeAudio(const QString& path);
 
+// How long the sound in path lasts, read without decoding it. Video
+// files with a sound track work too.
+Result<double> ProbeSoundSeconds(const QString& path);
+
 // The loudest sample in each of count equal slices, 0 to 1, for
 // drawing a waveform.
 std::vector<float> Peaks(const AudioClip& clip, int count);

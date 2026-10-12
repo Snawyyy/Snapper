@@ -103,9 +103,15 @@ transparent-background.md says what is left): a Transparent tile in the
 Shot box and a Transparent start, a checkerboard on the stage (Shift+V
 previews over a color), see-through clips over lower reel tracks, and
 new export formats PNG frames, WebM and MOV with alpha
-(`media/video_formats.h`, `ShotManager::SetTransparentAll`). No tests
-yet, the owner adds them later. Next in docs/features: Sound on the
-reel.
+(`media/video_formats.h`, `ShotManager::SetTransparentAll`). Then Sound
+on the reel, first pass (docs/features/reel-audio.md says what is left):
+sound tracks under the picture tracks with Mute, Solo and a fader,
+dropped sound files with waveforms, a volume line and fades, the song
+as a clip on old projects, the mix in playback and export (plus Sound
+only WAV), and shots on the reel play the reel's sound under their clip
+on the Pose tab (`edit/reel_sound.cpp`, `SoundManager`). No tests yet,
+the owner adds them later. Next in docs/features: Text and subtitles
+on the reel.
 
 Before that (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
 inspector as a hardware panel (pose box: dials, pad, faders; golden ratio,

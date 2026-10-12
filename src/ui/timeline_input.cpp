@@ -48,6 +48,14 @@ void TimelineView::mousePressEvent(QMouseEvent* event) {
   assert(event != nullptr);
   assert(managers_.selection != nullptr);
   const QPointF at = event->position();
+  // The wave band's name is the chip that picks which clip's sound plays.
+  const bool is_sound_chip = event->button() == Qt::LeftButton &&
+                             at.x() < kNameWidth && at.y() >= kRulerHeight &&
+                             at.y() < kRulerHeight + kWaveHeight;
+  if (is_sound_chip) {
+    PickSoundClip(event->globalPosition().toPoint());
+    return;
+  }
   const auto frame = FrameAt(at.x());
   const bool is_usable =
       frame.has_value() && event->button() == Qt::LeftButton;

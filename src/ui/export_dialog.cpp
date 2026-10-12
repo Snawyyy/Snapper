@@ -19,6 +19,7 @@ ExportDialog::ExportDialog(const Managers& managers, QWidget* parent)
       managers_(managers),
       layout_(this),
       browse_(tr("Browse...")),
+      sound_only_(tr("Sound only (WAV)...")),
       export_(tr("Export")),
       cancel_(tr("Close")) {
   assert(managers_.IsComplete());
@@ -52,6 +53,7 @@ void ExportDialog::BuildLayout() {
   size_.addItem(tr("Quarter size"), 0.25);
   file_row_.addWidget(&path_, 1);
   file_row_.addWidget(&browse_);
+  buttons_.addWidget(&sound_only_);
   buttons_.addStretch(1);
   buttons_.addWidget(&export_);
   buttons_.addWidget(&cancel_);
@@ -83,6 +85,8 @@ void ExportDialog::Wire() {
   connect(&path_, &QLineEdit::textChanged, this, &ExportDialog::Refresh);
   connect(&browse_, &QPushButton::clicked, this, &ExportDialog::Browse);
   connect(&export_, &QPushButton::clicked, this, &ExportDialog::Start);
+  connect(&sound_only_, &QPushButton::clicked, this,
+          &ExportDialog::ExportSound);
   connect(&cancel_, &QPushButton::clicked, this, [this, exporter] {
     const bool is_running = exporter->IsRunning();
     if (is_running) {

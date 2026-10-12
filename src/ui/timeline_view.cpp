@@ -1,5 +1,6 @@
 #include "ui/timeline_view.h"
 
+#include <QMenu>
 #include <QPainter>
 
 #include <algorithm>
@@ -11,7 +12,9 @@
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
+#include "edit/sound_manager.h"
 #include "media/audio_clip.h"
+#include "ui/form_helpers.h"
 #include "ui/paint_clip.h"
 #include "ui/playhead.h"
 #include "ui/theme.h"
@@ -57,6 +60,12 @@ TimelineView::TimelineView(const Managers& managers)
           update_me);
   connect(managers_.playback, &PlaybackManager::SongChanged, this,
           update_me);
+  // The wave shows the reel's sound once it loads, and follows the clip
+  // the shot borrows it from.
+  if (managers_.sounds != nullptr) {
+    connect(managers_.sounds, &SoundManager::SoundsChanged, this,
+            update_me);
+  }
   assert(frame_width_ > 0.0);
 }
 
@@ -189,10 +198,48 @@ void TimelineView::PaintGrid(QPainter* painter) const {
   }
 }
 
+const Clip* TimelineView::SoundClip() const {
+  assert(managers_.history != nullptr);
+  assert(managers_.selection != nullptr);
+  const ShotId shot = managers_.selection->shot();
+  const bool can_borrow = managers_.sounds != nullptr && shot.IsValid();
+  if (!can_borrow) {
+    return nullptr;
+  }
+  const Project& project = managers_.history->current();
+  return ClipOf(project.reel, managers_.sounds->SoundClipOf(project, shot));
+}
+
+void TimelineView::PickSoundClip(QPoint where) {
+  assert(managers_.history != nullptr);
+  const ShotId shot = managers_.selection->shot();
+  const bool can_borrow = managers_.sounds != nullptr && shot.IsValid();
+  if (!can_borrow) {
+    return;
+  }
+  const Project& project = managers_.history->current();
+  const Clip* now = SoundClip();
+  QMenu menu(this);
+  for (const ClipId id : managers_.sounds->ClipsOf(project, shot)) {
+    const Clip* clip = ClipOf(project.reel, id);
+    QAction* item =
+        menu.addAction(tr("Sound from clip at %1").arg(TimeText(clip->start)));
+    item->setCheckable(true);
+    item->setChecked(clip == now);
+    connect(item, &QAction::triggered, this,
+            [this, id] { managers_.sounds->PreferClip(id); });
+  }
+  const bool is_empty = menu.isEmpty();
+  if (!is_empty) {
+    menu.exec(where);
+  }
+}
+
 void TimelineView::PaintWave(QPainter* painter) const {
   assert(painter != nullptr);
   assert(managers_.playback != nullptr);
-  const auto song = managers_.playback->song();
+  // What the shot plays: the reel's sound under its clip, or the song.
+  const auto song = managers_.playback->ShotsSound();
   const Project& project = managers_.history->current();
   const int index = ShotIndex(project, managers_.selection->shot());
   const bool has_wave = song != nullptr && index >= 0;
@@ -201,10 +248,27 @@ void TimelineView::PaintWave(QPainter* painter) const {
   painter->fillRect(band, theme::kFaceDark);
   painter->fillRect(QRectF(0, kRulerHeight, kNameWidth, kWaveHeight),
                     theme::kFace);
-  painter->setPen(theme::kTextOff);
+  const Clip* clip = SoundClip();
+  painter->setPen(clip != nullptr ? theme::kText : theme::kTextOff);
   painter->drawText(QRectF(6, kRulerHeight, kNameWidth - 8, kWaveHeight),
                     Qt::AlignVCenter | Qt::AlignLeft,
-                    has_wave ? tr("Song") : tr("No song"));
+                    clip != nullptr
+                        ? tr("From clip at %1").arg(TimeText(clip->start))
+                    : has_wave ? tr("Song")
+                               : tr("No song"));
+  if (clip != nullptr) {
+    // Frames the clip leaves out are silent: shaded, so it is clear why.
+    const double from = std::max<double>(XOf(clip->in), kNameWidth);
+    const double to = std::max<double>(
+        XOf(Frame(clip->in.index() + clip->length.index())), kNameWidth);
+    const QBrush shade(theme::kTextOff, Qt::BDiagPattern);
+    painter->fillRect(
+        QRectF(kNameWidth, kRulerHeight, from - kNameWidth, kWaveHeight),
+        shade);
+    painter->fillRect(
+        QRectF(to, kRulerHeight, std::max(width() - to, 0.0), kWaveHeight),
+        shade);
+  }
   if (!has_wave) {
     return;
   }

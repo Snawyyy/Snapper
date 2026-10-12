@@ -19,6 +19,12 @@ namespace snapper {
 bool IsTrack(const Project& project, int track);
 ReelTrack& TrackOf(Project* project, int track);
 Error InTheWay();
+// Why source can't go on track (sound only on sound tracks, pictures
+// only on the others); empty when it can.
+QString WrongTrack(const ReelTrack& track, const ClipSource& source);
+// Keeps a sound clip's fades inside it, the fade out shortened first
+// when the two would cross.
+void FitFades(Clip* clip);
 
 // A clip taken off its track, and the track it came from.
 struct Lifted final {
@@ -32,7 +38,7 @@ struct Lifted final {
 template <typename Change>
 Result<Project> WithClip(Project project, ClipId id, Change change) {
   assert(id.value() >= 0);
-  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   const ClipSpot spot = FindClip(project.reel, id);
   const bool is_present = spot.IsValid();
   if (!is_present) {
@@ -46,11 +52,18 @@ Result<Project> WithClip(Project project, ClipId id, Change change) {
   if (!done) {
     return std::unexpected(done.error());
   }
-  const bool fits = IsTrack(project, track) && clip.length.index() >= 1 &&
+  const bool is_track = IsTrack(project, track);
+  const QString wrong =
+      is_track ? WrongTrack(TrackOf(&project, track), clip.source) : QString();
+  if (!wrong.isEmpty()) {
+    return std::unexpected(Error{wrong});
+  }
+  const bool fits = is_track && clip.length.index() >= 1 &&
                     HasRoom(TrackOf(&project, track), clip);
   if (!fits) {
     return std::unexpected(InTheWay());
   }
+  FitFades(&clip);
   PlaceClip(&TrackOf(&project, track), std::move(clip));
   return project;
 }

@@ -11,6 +11,7 @@
 #include "edit/playback_manager.h"
 #include "edit/reel_manager.h"
 #include "edit/selection_manager.h"
+#include "edit/sound_manager.h"
 #include "ui/form_helpers.h"
 
 namespace snapper {
@@ -29,7 +30,7 @@ VideoPage::VideoPage(const Managers& managers)
       bar_layout_(&bar_),
       bin_(managers),
       preview_(managers),
-      import_(tr("Import video...")),
+      import_(tr("Import...")),
       split_button_(tr("Split at playhead")),
       mark_(tr("Mark cut")),
       add_track_(tr("Add track")),
@@ -60,7 +61,9 @@ VideoPage::VideoPage(const Managers& managers)
   split_.setStretchFactor(0, 3);
   split_.setStretchFactor(1, 2);
   layout_.addWidget(&split_);
-  import_.setToolTip(tr("Puts video files on the bottom track."));
+  import_.setToolTip(tr("Puts video files on the bottom picture track, "
+                        "and sound files on a sound track at the "
+                        "playhead."));
   connect(&import_, &QPushButton::clicked, this, &VideoPage::AskForVideos);
   connect(&split_button_, &QPushButton::clicked, this, [this] {
     Report(ProblemOf(managers_.reel->SplitAll(
@@ -108,12 +111,28 @@ void VideoPage::ImportVideos(const QStringList& paths) {
   assert(managers_.reel != nullptr);
   assert(paths.size() < 100000);
   std::set<ClipId> added;
+  QStringList sounds;
+  // The bottom picture track sits on top of the sound tracks.
+  const int bottom = SoundTrackCount(managers_.history->current().reel);
   for (const QString& path : paths) {
-    const Frame end = TrackEnd(managers_.history->current(), 0);
-    const auto clip = managers_.reel->AddVideo(path, 0, end);
+    if (IsSoundFile(path)) {
+      sounds.append(path);
+      continue;
+    }
+    const Frame end = TrackEnd(managers_.history->current(), bottom);
+    const auto clip = managers_.reel->AddVideo(path, bottom, end);
     Report(ProblemOf(clip));
     if (clip) {
       added.insert(*clip);
+    }
+  }
+  const bool has_sounds = !sounds.isEmpty();
+  if (has_sounds) {
+    const auto made = managers_.reel->AddSounds(
+        sounds, -1, managers_.playback->FrameOn(Timeline::kReel));
+    Report(ProblemOf(made));
+    if (made) {
+      added.insert(made->begin(), made->end());
     }
   }
   const bool has_added = !added.empty();
@@ -126,8 +145,9 @@ void VideoPage::AskForVideos() {
   assert(managers_.reel != nullptr);
   assert(managers_.selection != nullptr);
   const QStringList paths = QFileDialog::getOpenFileNames(
-      this, tr("Import video"), QString(),
-      tr("Videos (*.mp4 *.mov *.mkv *.webm *.avi *.m4v);;All files (*)"));
+      this, tr("Import video or sound"), QString(),
+      tr("Videos and sounds (*.mp4 *.mov *.mkv *.webm *.avi *.m4v *.wav "
+         "*.mp3 *.ogg *.flac *.m4a *.aac *.opus);;All files (*)"));
   ImportVideos(paths);
 }
 

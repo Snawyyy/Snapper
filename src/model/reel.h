@@ -14,9 +14,16 @@
 namespace snapper {
 
 constexpr int kDefaultReelTracks = 3;
+// Picture tracks; sound tracks count apart (kMaxSoundTracks).
 constexpr int kMaxReelTracks = 8;
+constexpr int kDefaultSoundTracks = 2;
+constexpr int kMaxSoundTracks = 8;
+// Every track of either kind: the most a reel's track list holds.
+constexpr int kMaxAllTracks = kMaxReelTracks + kMaxSoundTracks;
 constexpr int kMaxClipsPerTrack = 1024;
 constexpr int kMaxCutMarkers = 2048;
+// The loudest a clip or track gets: +6 dB, as a gain.
+constexpr double kMaxGain = 1.9952623149688795;
 
 struct ClipTag;
 using ClipId = Id<ClipTag>;
@@ -38,7 +45,17 @@ struct ShotSource final {
   bool operator==(const ShotSource&) const = default;
 };
 
-using ClipSource = std::variant<VideoSource, ShotSource>;
+// A sound file (WAV, MP3, OGG, FLAC) on a sound track: a song, an
+// effect, a voice take. Kept by path, like a video file.
+struct SoundSource final {
+  QString path;
+  // The whole file, read once when it was added.
+  Frame length;
+
+  bool operator==(const SoundSource&) const = default;
+};
+
+using ClipSource = std::variant<VideoSource, ShotSource, SoundSource>;
 
 // A stretch of a source placed on the reel. It shows the source from
 // in for length frames, starting at reel frame start.
@@ -51,14 +68,28 @@ struct Clip final {
   // Into the next clip on the track. It plays only while that clip
   // starts where this one ends; pulled apart, the two just cut.
   Transition out;
+  // Sound clips only: the clip's gain (1 is as recorded, 0 silent, at
+  // most kMaxGain) and how many frames it fades in and out over.
+  double volume = 1.0;
+  Frame fade_in;
+  Frame fade_out;
 
   Frame end() const { return Frame(start.index() + length.index()); }
   bool operator==(const Clip&) const = default;
 };
 
 // One row of the reel. Its clips are sorted by start and never overlap.
+// A sound track holds only sound clips and a picture track none; sound
+// tracks sit under the picture ones.
 struct ReelTrack final {
   std::vector<Clip> clips;
+  bool is_sound = false;
+  // Sound tracks only: the header's name (empty shows "A1", "A2"...),
+  // Mute, Solo and the track's gain.
+  QString name;
+  bool is_muted = false;
+  bool is_solo = false;
+  double volume = 1.0;
 
   bool operator==(const ReelTrack&) const = default;
 };
@@ -92,7 +123,13 @@ const Clip* ClipOf(const Reel& reel, ClipId id);
 bool HasRoom(const ReelTrack& track, const Clip& clip);
 // Puts clip into track at its place by start; the caller checked room.
 void PlaceClip(ReelTrack* track, Clip clip);
+// True when no picture track has a clip: sound alone is not a video.
 bool IsReelEmpty(const Reel& reel);
+bool IsSoundClip(const Clip& clip);
+// How many of the reel's tracks are sound tracks.
+int SoundTrackCount(const Reel& reel);
+// The sound tracks that play: unmuted, and soloed when any is.
+bool IsTrackHeard(const Reel& reel, int track);
 // The clip on track starting where clip ends, or nullptr: the two
 // touch, and clip's transition plays between them.
 const Clip* NextTouching(const ReelTrack& track, const Clip& clip);

@@ -1,13 +1,14 @@
 #include "edit/reel_edits.h"
 
 #include <algorithm>
+#include <variant>
 
 #include "edit/project_edits.h"
 
 namespace snapper {
 
 bool IsTrack(const Project& project, int track) {
-  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   assert(track >= -kMaxReelTracks * 2);
   return track >= 0 && track < static_cast<int>(project.reel.tracks.size());
 }
@@ -20,6 +21,26 @@ ReelTrack& TrackOf(Project* project, int track) {
 
 Error InTheWay() { return Error{Tr("There's a clip in the way.")}; }
 
+QString WrongTrack(const ReelTrack& track, const ClipSource& source) {
+  assert(track.clips.size() <= static_cast<size_t>(kMaxClipsPerTrack));
+  const bool is_sound = std::holds_alternative<SoundSource>(source);
+  if (is_sound == track.is_sound) {
+    return QString();
+  }
+  return is_sound ? Tr("Sound goes on a sound track.")
+                  : Tr("Sound tracks hold only sound.");
+}
+
+void FitFades(Clip* clip) {
+  assert(clip != nullptr);
+  assert(clip->length.index() >= 1);
+  const int length = clip->length.index();
+  const int in = std::clamp(clip->fade_in.index(), 0, length);
+  const int out = std::clamp(clip->fade_out.index(), 0, length - in);
+  clip->fade_in = Frame(in);
+  clip->fade_out = Frame(out);
+}
+
 Result<Project> WithNewClip(Project project, ClipSource source, int track,
                             Frame start, Frame length, ClipId* id) {
   assert(id != nullptr);
@@ -27,6 +48,10 @@ Result<Project> WithNewClip(Project project, ClipSource source, int track,
   const bool is_track = IsTrack(project, track);
   if (!is_track) {
     return std::unexpected(Error{Tr("That track no longer exists.")});
+  }
+  const QString wrong = WrongTrack(TrackOf(&project, track), source);
+  if (!wrong.isEmpty()) {
+    return std::unexpected(Error{wrong});
   }
   const bool is_full = TrackOf(&project, track).clips.size() >=
                        static_cast<size_t>(kMaxClipsPerTrack);
@@ -68,8 +93,13 @@ Result<ClipId> SplitIn(Project* project, ClipId id, Frame at) {
   Clip& left = track.clips[static_cast<size_t>(spot.index)];
   left.length = Frame(cut);
   // The right half ends where the clip did, so it keeps the transition
-  // out; the new cut between the halves is a plain one.
+  // out; the new cut between the halves is a plain one. Fades stay on
+  // the outer ends.
   left.out = Transition();
+  left.fade_out = Frame(0);
+  right.fade_in = Frame(0);
+  FitFades(&left);
+  FitFades(&right);
   const ClipId made = right.id;
   PlaceClip(&track, std::move(right));
   return made;
@@ -78,7 +108,7 @@ Result<ClipId> SplitIn(Project* project, ClipId id, Frame at) {
 Result<std::vector<Lifted>> Lift(Project* project,
                                  const std::set<ClipId>& ids) {
   assert(project != nullptr);
-  assert(ids.size() <= static_cast<size_t>(kMaxReelTracks) *
+  assert(ids.size() <= static_cast<size_t>(kMaxAllTracks) *
                            kMaxClipsPerTrack);
   std::vector<Lifted> lifted;
   for (const ClipId id : ids) {
@@ -121,6 +151,9 @@ Result<void> PlaceCopies(Project* project, const std::vector<Lifted>& copies,
                          FindClip(project->reel, id).index)];
     clip.in = copy.clip.in;
     clip.out = copy.clip.out;
+    clip.volume = copy.clip.volume;
+    clip.fade_in = copy.clip.fade_in;
+    clip.fade_out = copy.clip.fade_out;
     made->push_back(id);
   }
   return {};

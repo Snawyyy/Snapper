@@ -3,11 +3,12 @@
 #include <algorithm>
 #include <cassert>
 #include <utility>
+#include <variant>
 
 namespace snapper {
 
 ClipSpot FindClip(const Reel& reel, ClipId id) {
-  assert(reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   assert(id.value() >= 0);
   const int track_count = static_cast<int>(reel.tracks.size());
   for (int t = 0; t < track_count; ++t) {
@@ -24,7 +25,7 @@ ClipSpot FindClip(const Reel& reel, ClipId id) {
 }
 
 const Clip* ClipOf(const Reel& reel, ClipId id) {
-  assert(reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   assert(id.value() >= 0);
   const ClipSpot spot = FindClip(reel, id);
   const bool is_found = spot.IsValid();
@@ -59,10 +60,34 @@ void PlaceClip(ReelTrack* track, Clip clip) {
 }
 
 bool IsReelEmpty(const Reel& reel) {
-  assert(reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   assert(kMaxClipsPerTrack > 0);
-  return std::ranges::all_of(
-      reel.tracks, [](const ReelTrack& track) { return track.clips.empty(); });
+  return std::ranges::all_of(reel.tracks, [](const ReelTrack& track) {
+    return track.is_sound || track.clips.empty();
+  });
+}
+
+bool IsSoundClip(const Clip& clip) {
+  assert(clip.length.index() >= 0);
+  assert(clip.volume >= 0.0);
+  return std::holds_alternative<SoundSource>(clip.source);
+}
+
+int SoundTrackCount(const Reel& reel) {
+  assert(reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
+  assert(kMaxSoundTracks > 0);
+  return static_cast<int>(std::ranges::count_if(
+      reel.tracks, [](const ReelTrack& track) { return track.is_sound; }));
+}
+
+bool IsTrackHeard(const Reel& reel, int track) {
+  assert(track >= 0);
+  assert(track < static_cast<int>(reel.tracks.size()));
+  const ReelTrack& row = reel.tracks[static_cast<size_t>(track)];
+  const bool has_solo = std::ranges::any_of(
+      reel.tracks,
+      [](const ReelTrack& other) { return other.is_sound && other.is_solo; });
+  return row.is_sound && !row.is_muted && (!has_solo || row.is_solo);
 }
 
 const Clip* NextTouching(const ReelTrack& track, const Clip& clip) {

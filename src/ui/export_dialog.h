@@ -37,6 +37,8 @@ class ExportDialog final : public QDialog {
   void Wire();
   void Browse();
   void Start();
+  // Export sound only: the mix as a WAV, for finishing it elsewhere.
+  void ExportSound();
   void Refresh();
   void PickFormat(int index);
 
@@ -55,6 +57,7 @@ class ExportDialog final : public QDialog {
   QProgressBar progress_;
   QLabel status_;
   QHBoxLayout buttons_;
+  QPushButton sound_only_;
   QPushButton export_;
   QPushButton cancel_;
 };

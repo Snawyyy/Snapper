@@ -155,8 +155,8 @@ std::vector<LayerId> ChangedLayers(const Project& before,
 }
 
 ClipChanges DiffClips(const Project& before, const Project& after) {
-  assert(before.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
-  assert(after.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
+  assert(before.reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
+  assert(after.reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   ClipChanges changes;
   for (int t = 0; t < static_cast<int>(after.reel.tracks.size()); ++t) {
     for (const Clip& clip : after.reel.tracks[static_cast<size_t>(t)].clips) {

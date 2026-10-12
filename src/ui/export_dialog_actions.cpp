@@ -97,9 +97,33 @@ void ExportDialog::Start() {
   Refresh();
 }
 
+void ExportDialog::ExportSound() {
+  assert(managers_.exporter != nullptr);
+  assert(managers_.history != nullptr);
+  const QString why_not = managers_.exporter->WhyNoSoundExport();
+  if (!why_not.isEmpty()) {
+    status_.setText(why_not);
+    return;
+  }
+  const QString path = QFileDialog::getSaveFileName(
+      this, tr("Export sound to"),
+      managers_.history->current().name + tr(" sound.wav"),
+      tr("WAV files (*.wav)"));
+  const bool is_chosen = !path.isEmpty();
+  if (!is_chosen) {
+    return;
+  }
+  const bool has_suffix = QFileInfo(path).suffix().toLower() == "wav";
+  const QString file = has_suffix ? path : path + ".wav";
+  const auto written = managers_.exporter->ExportSound(file);
+  status_.setText(written ? tr("Saved the sound to %1.").arg(file)
+                          : written.error().message);
+}
+
 void ExportDialog::Refresh() {
   assert(managers_.exporter != nullptr);
   const bool is_running = managers_.exporter->IsRunning();
+  Explain(&sound_only_, managers_.exporter->WhyNoSoundExport());
   const bool is_custom = range_.currentIndex() == kCustom;
   layout_.setRowVisible(&from_, is_custom);
   layout_.setRowVisible(&to_, is_custom);

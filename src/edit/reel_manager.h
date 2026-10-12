@@ -2,6 +2,7 @@
 #define SNAPPER_EDIT_REEL_MANAGER_H_
 
 #include <QString>
+#include <QStringList>
 
 #include <vector>
 
@@ -90,8 +91,37 @@ class ReelManager final {
   Result<std::vector<ClipId>> DuplicateAll(const std::vector<ClipId>& clips);
   // A new empty track on top.
   Result<void> AddTrack();
-  // Only an empty track goes, and the reel keeps at least one.
+  // Only an empty track goes, and the reel keeps at least one of each
+  // kind.
   Result<void> RemoveTrack(int track);
+
+  // Sound (edit/reel_sound.cpp). A sound file as a clip source, its
+  // length read now.
+  Result<SoundSource> ReadSound(const QString& path) const;
+  // Sound files laid in a row from start, as one step: on track when it
+  // is a sound track, else on the first sound track with room for the
+  // whole row (a new one when none has room and one can be added).
+  Result<std::vector<ClipId>> AddSounds(const QStringList& paths, int track,
+                                        Frame start);
+  // A new empty sound track on top of the others.
+  Result<void> AddSoundTrack();
+  // gain 0 (silent) to kMaxGain (+6 dB), for the clip's volume line.
+  Result<void> SetClipVolume(ClipId clip, double gain);
+  // Frames the clip fades in or out over, kept inside the clip.
+  Result<void> SetFadeIn(ClipId clip, Frame frames);
+  Result<void> SetFadeOut(ClipId clip, Frame frames);
+  Result<void> SetTrackVolume(int track, double gain);
+  Result<void> SetTrackMuted(int track, bool is_muted);
+  Result<void> SetTrackSolo(int track, bool is_solo);
+  // A reel with no sound tracks (a new project, or a file from before
+  // them) gets the default ones, and the project's song becomes a clip
+  // from frame 0 on the first, so its timing does not change. Not an
+  // undo step: for a project just opened or made.
+  static void AddSoundTracks(Project* project);
+  // Choosing another song: the clips of old_song go and the project's
+  // song (when it has one) is laid from frame 0 on the first sound
+  // track with room. Part of the song's own step.
+  static void ReplaceSong(Project* project, const QString& old_song);
 
   // How clip hands over to the clip touching its end on its track:
   // a cut, or a mix 1 to LongestTransition frames long.
@@ -137,6 +167,7 @@ class ReelManager final {
   QString WhyNoDuplicate(const std::vector<ClipId>& clips) const;
   QString WhyNoTransition(ClipId clip) const;
   QString WhyNoAddTrack() const;
+  QString WhyNoAddSoundTrack() const;
   QString WhyNoRemoveTrack(int track) const;
 
  private:

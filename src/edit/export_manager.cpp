@@ -1,5 +1,6 @@
 #include "edit/export_manager.h"
 
+#include <QSaveFile>
 #include <QtConcurrent/QtConcurrentRun>
 
 #include <algorithm>
@@ -12,6 +13,7 @@
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/video_file_frames.h"
+#include "media/wav_file.h"
 #include "render/frame_renderer.h"
 
 namespace snapper {
@@ -112,6 +114,8 @@ QString ExportManager::WhyNoExport(VideoFormat format) const {
   const bool is_empty = ExportLength().index() == 0;
   const bool wants_song = HasSound(format) && !project.song.isEmpty();
   const bool is_song_missing = wants_song && playback_->song() == nullptr;
+  const bool is_sound_loading =
+      HasSound(format) && playback_->IsLoadingSound();
   const QString no_encoder = WhyNoEncoder(format);
   if (is_busy) {
     return Tr("An export is already running.");
@@ -128,7 +132,59 @@ QString ExportManager::WhyNoExport(VideoFormat format) const {
                : Tr("The song can't be read: %1")
                      .arg(playback_->song_error());
   }
+  if (is_sound_loading) {
+    return Tr("Wait for the sound to finish loading.");
+  }
   return QString();
+}
+
+std::shared_ptr<const AudioClip> ExportManager::Mix() const {
+  assert(history_ != nullptr);
+  assert(playback_ != nullptr);
+  return playback_->SoundOn(IsReelExport() ? Timeline::kReel
+                                           : Timeline::kShots);
+}
+
+QString ExportManager::WhyNoSoundExport() const {
+  assert(history_ != nullptr);
+  assert(playback_ != nullptr);
+  const bool is_busy = worker_.isRunning();
+  if (is_busy) {
+    return Tr("An export is already running.");
+  }
+  const bool is_loading = playback_->IsLoadingSound();
+  if (is_loading) {
+    return Tr("Wait for the sound to finish loading.");
+  }
+  const Project& project = history_->current();
+  const bool is_empty = ExportLength().index() == 0 ||
+                        (project.song.isEmpty() &&
+                         SoundEnd(project).index() == 0);
+  return is_empty ? Tr("There is no sound to export.") : QString();
+}
+
+Result<void> ExportManager::ExportSound(const QString& path) const {
+  assert(history_ != nullptr);
+  assert(playback_ != nullptr);
+  const QString why_not = WhyNoSoundExport();
+  if (!why_not.isEmpty()) {
+    return std::unexpected(Error{why_not});
+  }
+  const auto mix = Mix();
+  if (mix == nullptr) {
+    return std::unexpected(Error{Tr("There is no sound to export.")});
+  }
+  const AudioClip whole = Slice(*mix, 0.0,
+                                std::min(SecondsAtFrame(ExportLength()),
+                                         double{kMaxAudioSeconds}));
+  QSaveFile file(path);
+  const bool is_written = file.open(QIODevice::WriteOnly) &&
+                          file.write(WaveFile(whole)) >= 0 && file.commit();
+  if (!is_written) {
+    return std::unexpected(
+        Error{Tr("Can't write %1: %2").arg(path, file.errorString())});
+  }
+  return {};
 }
 
 Result<void> ExportManager::Start(const ExportRequest& request) {
@@ -153,13 +209,16 @@ Result<void> ExportManager::Start(const ExportRequest& request) {
                           EvenSide(project.canvas.width, range.scale),
                           EvenSide(project.canvas.height, range.scale),
                           nullptr};
-  const bool has_song =
-      HasSound(range.format) && playback_->song() != nullptr;
-  if (has_song) {
-    const double length = SecondsAtFrame(range.end) -
-                          SecondsAtFrame(range.start);
-    settings.audio = std::make_shared<const AudioClip>(Slice(
-        *playback_->song(), SecondsAtFrame(range.start), length));
+  // The same sound the timeline plays: the reel's mix of its unmuted
+  // tracks, or each shot's sound, or the song.
+  const auto mix = HasSound(range.format) ? Mix() : nullptr;
+  const bool has_sound = mix != nullptr;
+  if (has_sound) {
+    const double length = std::min(SecondsAtFrame(range.end) -
+                                       SecondsAtFrame(range.start),
+                                   double{kMaxAudioSeconds});
+    settings.audio = std::make_shared<const AudioClip>(
+        Slice(*mix, SecondsAtFrame(range.start), length));
   }
   cancel_ = std::make_shared<std::atomic<bool>>(false);
   done_ = std::make_shared<std::atomic<int>>(0);

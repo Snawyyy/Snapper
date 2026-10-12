@@ -24,6 +24,7 @@
 #include "edit/settings_manager.h"
 #include "edit/shot_manager.h"
 #include "edit/skin_manager.h"
+#include "edit/sound_manager.h"
 #include "edit/stage_manager.h"
 #include "edit/timing_chart_manager.h"
 #include "ui/managers.h"
@@ -59,6 +60,7 @@ struct Bench final {
   DrawManager draw{&history, &playback, nullptr};
   SkinManager skins{&history};
   ObjectManager objects{&history, &library, &stage, &links};
+  SoundManager sounds{&history};
 
   Managers All() {
     Managers all{&history, &document, &library, &rig, &shots, &stage,
@@ -69,6 +71,7 @@ struct Bench final {
     all.draw = &draw;
     all.skins = &skins;
     all.objects = &objects;
+    all.sounds = &sounds;
     return all;
   }
 };

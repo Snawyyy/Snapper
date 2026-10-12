@@ -32,17 +32,24 @@ AppContext::AppContext(const QString& data_folder)
       draw_(&history_, &playback_, &palette_),
       skins_(&history_),
       objects_(&history_, &library_, &stage_, &links_),
+      sounds_(&history_),
       window_(Managers{&history_, &document_, &library_, &rig_, &shots_,
                        &stage_, &selection_, &pose_, &keys_, &presets_,
                        &playback_, &exporter_, &links_, &reel_, &motion_,
                        &toasts_, &timing_, &poke_, &groups_, &settings_,
-                       &palette_, &dials_, &draw_, &skins_, &objects_}) {
+                       &palette_, &dials_, &draw_, &skins_, &objects_,
+                       &sounds_}) {
   assert(!data_folder.isEmpty());
+  // Declared after playback, so the reel's sound is handed over here.
+  playback_.SetSounds(&sounds_);
   assert(!history_.IsDirty());
 }
 
 AppContext::~AppContext() {
   assert(!history_.IsScopeOpen());
+  // The sounds go before playback does.
+  playback_.Pause();
+  playback_.SetSounds(nullptr);
   // A clean exit leaves nothing to recover; unsaved work keeps its
   // autosave so it can be recovered next time.
   const bool is_saved = !history_.IsDirty();

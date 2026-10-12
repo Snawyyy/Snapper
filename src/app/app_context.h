@@ -24,6 +24,7 @@
 #include "edit/settings_manager.h"
 #include "edit/shot_manager.h"
 #include "edit/skin_manager.h"
+#include "edit/sound_manager.h"
 #include "edit/stage_manager.h"
 #include "edit/poke_manager.h"
 #include "edit/timing_chart_manager.h"
@@ -72,6 +73,7 @@ class AppContext final {
   DrawManager draw_;
   SkinManager skins_;
   ObjectManager objects_;
+  SoundManager sounds_;
   MainWindow window_;
 };
 

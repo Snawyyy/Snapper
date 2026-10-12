@@ -144,9 +144,21 @@ Result<ClipId> ReelManager::AddShot(ShotId shot, int track, Frame start) {
 QString ReelManager::WhyNoAddTrack() const {
   assert(history_ != nullptr);
   assert(kMaxReelTracks > 0);
-  const bool is_full = history_->current().reel.tracks.size() >=
-                       static_cast<size_t>(kMaxReelTracks);
+  const Reel& reel = history_->current().reel;
+  const bool is_full = static_cast<int>(reel.tracks.size()) -
+                           SoundTrackCount(reel) >=
+                       kMaxReelTracks;
   return is_full ? Tr("The video holds at most %1 tracks.").arg(kMaxReelTracks)
+                 : QString();
+}
+
+QString ReelManager::WhyNoAddSoundTrack() const {
+  assert(history_ != nullptr);
+  assert(kMaxSoundTracks > 0);
+  const bool is_full =
+      SoundTrackCount(history_->current().reel) >= kMaxSoundTracks;
+  return is_full ? Tr("The video holds at most %1 sound tracks.")
+                       .arg(kMaxSoundTracks)
                  : QString();
 }
 
@@ -159,8 +171,11 @@ QString ReelManager::WhyNoRemoveTrack(int track) const {
   if (!is_track) {
     return Tr("That track no longer exists.");
   }
-  const bool can_go =
-      count > 1 && reel.tracks[static_cast<size_t>(track)].clips.empty();
+  // One track of each kind stays.
+  const ReelTrack& row = reel.tracks[static_cast<size_t>(track)];
+  const int sounds = SoundTrackCount(reel);
+  const int same = row.is_sound ? sounds : count - sounds;
+  const bool can_go = same > 1 && row.clips.empty();
   return can_go ? QString()
                 : Tr("Only an empty track can go, and one must stay.");
 }
