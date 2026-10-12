@@ -16,6 +16,7 @@ In the order we plan to build them.
 - [ ] [Objects](objects.md): PNG and GIF props a doll can hold, pass and drop, slotting into its draw order.
 - [ ] [Editing outside the frame](off-frame-editing.md): limbs past the shot's frame are drawn dimmed and can be picked and edited, like a pasteboard.
 - [ ] [Text and subtitles on the reel](reel-text-and-subtitles.md): text clips on Video tab tracks and a subtitle track timed by tapping to the song.
+- [ ] [Resizing shots on the reel](reel-shot-resize.md): drag a shot clip's edge on the Video tab timeline to change the shot's own length.
 - [ ] [Compositing](compositing.md): a Comp tab with anime finishing effects that target a doll, pieces or palette colors.
 
 ## Adding a new feature
@@ -66,6 +67,10 @@ Every proposed key is free in Snapper today (checked against the keys bound in t
 | L | Video tab, playing | Start the next subtitle line at the playhead | Text and subtitles |
 | Ctrl+Enter | Editing text | Finish the edit | Text and subtitles |
 | Alt + drag | Cue edge | Move it together with the next cue's start | Text and subtitles |
+| Alt + edge drag | Full shot clip | Trim the clip only, the shot stays the same length | Resizing shots |
+| Shift + edge drag | Partial shot clip | Resize the shot instead of trimming | Resizing shots |
+| Ctrl + edge drag | Shot clip | Stretch the shot's timing, keys move in proportion | Resizing shots |
+| Ctrl+Shift + edge drag | Shot clip | Ripple: later clips on the track move by the change | Resizing shots |
 | A | Comp tab | Add an effect | Compositing |
 | V (hold) | Comp tab | All effects off while held | Compositing |
 | K (hold) | Comp tab | Show what the picked effect touches | Compositing |
