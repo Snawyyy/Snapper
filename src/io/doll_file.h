@@ -57,6 +57,12 @@ struct ReconcileReport final {
 // and nothing whose art is gone survives. report says what changed.
 Rig Reconcile(const DollArt& art, const Rig& rig, ReconcileReport* report);
 
+// Lists each piece's drawings made in Snapper (RigPiece::own_drawings)
+// after its Krita drawings in doll's art, with their names, so the rest
+// of Snapper sees one list. A drawing already listed is left alone, so
+// calling it again changes nothing.
+void AddOwnDrawings(Doll* doll);
+
 // The drawings of pieces in both before and after that after no longer
 // has, by name (see DrawingName), as "piece: drawing".
 QStringList RemovedDrawings(const DollArt& before, const DollArt& after);

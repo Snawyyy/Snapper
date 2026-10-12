@@ -13,6 +13,7 @@
 #include "edit/pose_manager.h"
 #include "edit/project_edits.h"
 #include "edit/selection_manager.h"
+#include "ui/draw_actions.h"
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
 #include "ui/live_edit.h"
@@ -184,9 +185,13 @@ void PoseBox::Refresh() {
   for (int i = 0; i < count; ++i) {
     drawing_.addItem(art->drawings[static_cast<size_t>(i)]);
   }
+  drawing_count_ = count;
+  const int starts = is_piece && count > 0 ? AddDrawStarts(&drawing_, managers_)
+                                           : 0;
   drawing_.setCurrentIndex(std::clamp(pose.drawing + 1, 0, count));
-  // Only a piece with a choice of drawings shows the picker.
-  const bool has_choice = count > 1;
+  // Only a piece with a choice of drawings, or a way to draw one, shows
+  // the picker.
+  const bool has_choice = count > 1 || starts > 0;
   const bool is_drawing_new = drawing_.isHidden() == has_choice;
   if (is_drawing_new) {
     layout_.setRowVisible(&drawing_, has_choice);
@@ -224,6 +229,12 @@ void PoseBox::SwapDrawing(int index) {
   const auto spot = SpotOf(managers_);
   const auto track = spot ? PickedTrack(managers_, spot->shot) : std::nullopt;
   if (!track) {
+    return;
+  }
+  const bool is_new = index > drawing_count_;
+  if (is_new) {
+    Refresh();
+    RequestDraw(managers_, DrawStartAt(index - drawing_count_ - 1));
     return;
   }
   emit Problem(ProblemOf(

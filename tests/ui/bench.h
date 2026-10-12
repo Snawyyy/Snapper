@@ -7,6 +7,7 @@
 #include "edit/dial_manager.h"
 #include "edit/doll_library_manager.h"
 #include "edit/document_manager.h"
+#include "edit/draw_manager.h"
 #include "edit/export_manager.h"
 #include "edit/group_manager.h"
 #include "edit/history_manager.h"
@@ -53,6 +54,7 @@ struct Bench final {
   GroupManager groups{&history};
   SettingsManager settings{&history};
   DialManager dials{&history};
+  DrawManager draw{&history, &playback, nullptr};
 
   Managers All() {
     Managers all{&history, &document, &library, &rig, &shots, &stage,
@@ -60,6 +62,7 @@ struct Bench final {
                  &links, &reel, &motion, &toasts, &timing, &poke, &groups,
                  &settings};
     all.dials = &dials;
+    all.draw = &draw;
     return all;
   }
 };

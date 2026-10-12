@@ -5,6 +5,7 @@
 #include <cassert>
 
 #include "base/text.h"
+#include "io/doll_file.h"
 #include "io/doll_json.h"
 #include "io/json_file.h"
 #include "io/layer_json.h"
@@ -32,6 +33,7 @@ void ReadDolls(const QJsonArray& dolls, Project* project, JsonIssues* issues) {
     doll.folder = object.value("folder").toString();
     doll.art = ArtFromJson(object.value("art").toObject(), issues);
     doll.rig = RigFromJson(object.value("rig").toObject(), issues);
+    AddOwnDrawings(&doll);
     project->dolls[doll.name] = std::make_shared<const Doll>(doll);
   }
 }

@@ -22,6 +22,10 @@ namespace snapper {
 QRectF TextBox(const TextLayer& text);
 QFont TextFont(const TextLayer& text);
 
+// A layer showing doll at rest, unkeyed, for canvases that draw a doll
+// outside any shot (the rig canvas, draw mode).
+Layer RestLayer(const QString& doll);
+
 // Draws one picture layer (doll, image or text) through view, which
 // maps shot space to the output, moved by its shot's links (links may
 // be nullptr for a layer outside any shot). Effect layers are not drawn

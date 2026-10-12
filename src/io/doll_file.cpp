@@ -155,6 +155,7 @@ Result<LoadedDoll> LoadDoll(const QString& folder) {
   loaded.doll.folder = QDir(folder).absolutePath();
   loaded.doll.art = *art;
   loaded.doll.rig = Reconcile(*art, *rig, &loaded.report);
+  AddOwnDrawings(&loaded.doll);
   assert(loaded.doll.rig.pieces.size() == loaded.doll.art.pieces.size());
   return loaded;
 }

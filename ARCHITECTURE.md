@@ -424,6 +424,26 @@ Smart dials fold of the inspector) makes dials from template tiles and
 turns them (`DialTrack`: snap to stops, Ctrl free, Shift fine, double
 click to rest).
 
+Draw on a piece (`DrawManager`, `edit/draw_manager.cpp`,
+`edit/draw_save.cpp`) draws a new drawing for a piece inside Snapper.
+The session (the drawing being made, at the piece's size, the tool,
+brush size and stroke undo) lives outside the project's history; the
+hard pixel brush, line and fill are `render/pixel_paint.h`. Done saves
+a PNG in the doll folder's `snapper` folder and lists it in the rig
+(`RigPiece::own_drawings`, rig.json), since art.json is Krita's;
+`AddOwnDrawings` (`io/doll_file.h`) lists those after the piece's
+Krita drawings in the doll's art whenever a doll is loaded, reloaded
+or read from a project, so keys, the Drawing picker and dial stops see
+one list. Done is one undo step that also shows the new drawing on the
+piece at the frame drawing began; a new version of a Snapper drawing
+gets a new file, so caches never show a stale one. The Krita exporter
+carries the `snapper` folder over like rig.json. `DrawCanvas`
+(`ui/draw_canvas.cpp`) covers the stage while drawing: the piece at its
+rest place over the dimmed doll at rest (`RestLayer`, shared with the
+rig canvas), with `DrawBar` (title, name, Done, Cancel) and
+`DrawTools`; N, Shift+N, the stage's right click and the Drawing
+picker's "+" entries start it (`ui/draw_actions.cpp`).
+
 ## Poking
 
 Holding P over a doll on the stage and dragging or flicking pokes it
@@ -615,6 +635,7 @@ are destroyed in reverse.
 | `SelectionManager`     | What is picked: shots, layers, pieces, keys, clips |
 | `PoseManager`          | Pose edits, IK drags, copy, paste, mirror      |
 | `DialManager`          | Smart dials: make, stops, rest, swap, turn (keyed per doll layer) |
+| `DrawManager`          | Draw mode: the drawing being made, its tools and stroke undo; Done saves it into the doll as one step |
 | `KeyManager`           | Keys on the timeline: move, space, ease, retime, bake a timing chart |
 | `TimingChartManager`   | The timing chart session: picked thing and frames to chart, ticks, live preview in one `EditScope`, Apply or Cancel |
 | `PresetManager`        | Saved poses                                    |

@@ -23,6 +23,9 @@ MAX_NODES = 4096  # Bounds the layer walk.
 NOT_PAINT = {"grouplayer", "transparencymask", "filtermask",
              "transformmask", "selectionmask", "colorizemask"}
 RIG_FILE = "rig.json"
+# Drawings made in Snapper's draw mode; Snapper's, carried over like the
+# rig.
+SNAPPER_FOLDER = "snapper"
 # The hidden layer of joint crosses Snapper puts on top of a doll it
 # turns back into a Krita file; reference only, never a piece.
 RIG_LAYER = "Snapper rig"
@@ -162,7 +165,8 @@ def export(document, parent):
     name = os.path.splitext(os.path.basename(path))[0] if path else "Doll"
     target = os.path.join(library_folder(), art_json.folder_name(name))
     # Built beside the old doll and swapped in, so a failed export
-    # leaves the old one whole. The rig is carried over untouched.
+    # leaves the old one whole. The rig and the drawings made in Snapper
+    # are carried over untouched.
     staging = target + ".part"
     shutil.rmtree(staging, ignore_errors=True)
     try:
@@ -170,6 +174,9 @@ def export(document, parent):
         old_rig = os.path.join(target, RIG_FILE)
         if os.path.exists(old_rig):
             shutil.copy2(old_rig, os.path.join(staging, RIG_FILE))
+        old_own = os.path.join(target, SNAPPER_FOLDER)
+        if os.path.isdir(old_own):
+            shutil.copytree(old_own, os.path.join(staging, SNAPPER_FOLDER))
         shutil.rmtree(target, ignore_errors=True)
         os.replace(staging, target)
     except OSError as error:

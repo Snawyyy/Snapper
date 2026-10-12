@@ -108,7 +108,8 @@ Result<ReconcileReport> DollLibraryManager::Reload(const QString& name) {
   Doll fresh = *doll;
   fresh.art = *art;
   fresh.rig = Reconcile(*art, doll->rig, &report);
-  report.removed_drawings = RemovedDrawings(doll->art, *art);
+  AddOwnDrawings(&fresh);
+  report.removed_drawings = RemovedDrawings(doll->art, fresh.art);
   Project next = history_->current();
   next.dolls[name] = std::make_shared<const Doll>(std::move(fresh));
   // Redrawn pieces get their shape mesh made again, keeping their dots.

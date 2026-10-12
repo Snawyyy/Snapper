@@ -20,7 +20,9 @@ RigPiece FitPiece(const ArtPiece& art, const RigPiece* old, int stack,
             -1, WarpGrid()};
   }
   RigPiece piece = *old;
-  const int drawings = static_cast<int>(art.drawings.size());
+  // Drawings made in Snapper come after Krita's.
+  const int drawings = static_cast<int>(art.drawings.size() +
+                                        piece.own_drawings.size());
   const bool is_default_gone = piece.default_drawing >= drawings;
   if (is_default_gone) {
     piece.default_drawing = -1;
@@ -68,6 +70,33 @@ Rig Reconcile(const DollArt& art, const Rig& rig, ReconcileReport* report) {
   }
   assert(fitted.pieces.size() == art.pieces.size());
   return fitted;
+}
+
+void AddOwnDrawings(Doll* doll) {
+  assert(doll != nullptr);
+  assert(doll->art.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+  for (ArtPiece& art : doll->art.pieces) {
+    const RigPiece* rig = FindRig(doll->rig, art.name);
+    const bool has_own = rig != nullptr && !rig->own_drawings.empty();
+    if (!has_own) {
+      continue;
+    }
+    for (const OwnDrawing& own : rig->own_drawings) {
+      const bool is_listed =
+          std::find(art.drawings.begin(), art.drawings.end(), own.file) !=
+          art.drawings.end();
+      const bool is_full =
+          art.drawings.size() >= static_cast<size_t>(kMaxPieceDrawings);
+      if (is_listed || is_full) {
+        continue;
+      }
+      // Krita's drawings keep their names (or none, for old exports).
+      art.layer_names.resize(art.drawings.size());
+      art.drawings.push_back(own.file);
+      art.layer_names.push_back(own.name);
+    }
+    assert(art.layer_names.size() == art.drawings.size());
+  }
 }
 
 QStringList RemovedDrawings(const DollArt& before, const DollArt& after) {

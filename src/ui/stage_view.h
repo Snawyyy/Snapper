@@ -10,6 +10,7 @@
 #include <QMenu>
 #include <QWidget>
 
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -18,6 +19,7 @@
 #include "render/stage_camera.h"
 #include "render/stage_geometry.h"
 #include "render/stage_hit.h"
+#include "ui/draw_canvas.h"
 #include "ui/drag_feedback.h"
 #include "ui/handle_hover.h"
 #include "ui/managers.h"
@@ -167,6 +169,8 @@ class StageView final : public QWidget {
   // The right-click menu's link actions, for the thing at point; empty
   // when there is nothing to offer.
   void AddLinkActions(QMenu* menu, QPointF point, const StageFrame& frame);
+  // Draw mode's canvas over the stage, and N and Shift+N to start it.
+  void SetUpDraw();
 
   Managers managers_;
   StageCamera camera_;
@@ -195,6 +199,8 @@ class StageView final : public QWidget {
   int wheel_left_ = 0;
   // Degrees turned by the wheel since the chip last faded.
   double wheel_degrees_ = 0.0;
+  // Covers the stage while drawing; none without a DrawManager.
+  std::unique_ptr<DrawCanvas> draw_;
 };
 
 }  // namespace snapper

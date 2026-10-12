@@ -49,6 +49,9 @@ class PoseBox final : public QGroupBox {
   // The Lean and Swivel dials' row, inside layout_; for a whole doll only.
   QWidget* turns_row_ = nullptr;
   QComboBox drawing_;
+  // How many of the piece's drawings the picker lists, after "Rig
+  // default"; the new drawing entries follow them.
+  int drawing_count_ = 0;
 };
 
 // The camera of the shot under the playhead, keyed at the playhead.

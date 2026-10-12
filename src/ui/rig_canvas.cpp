@@ -18,16 +18,6 @@ constexpr double kJointRadius = kHandleDraw / 2;
 // The thin outline of the piece under the cursor.
 constexpr QColor kHoverLine{255, 255, 255, 200};
 
-// The doll at rest, as a layer the painter can draw.
-Layer RestLayer(const QString& doll) {
-  assert(!doll.isEmpty());
-  Layer layer;
-  layer.id = LayerId(1);
-  layer.content = DollLayer{doll, {}, false};
-  assert(layer.transform.keys.empty());
-  return layer;
-}
-
 // Where everything is drawn at rest: one matrix per piece.
 std::map<QString, QTransform> RestPieces(const Doll& doll) {
   assert(doll.rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));

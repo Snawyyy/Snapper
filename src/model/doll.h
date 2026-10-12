@@ -210,6 +210,18 @@ struct PieceDots final {
   bool operator==(const PieceDots&) const = default;
 };
 
+// A drawing made in Snapper's draw mode. It is kept in the rig, because
+// art.json is Krita's and a re-export rewrites it; loading a doll lists
+// it after the piece's Krita drawings (AddOwnDrawings), so keys, the
+// Drawing picker and dial stops use it like any other drawing.
+struct OwnDrawing final {
+  // The PNG inside the doll folder ("snapper/mouth 2.png").
+  QString file;
+  QString name;
+
+  bool operator==(const OwnDrawing&) const = default;
+};
+
 // How Snapper moves a piece: rig.json.
 struct RigPiece final {
   QString name;
@@ -244,6 +256,8 @@ struct RigPiece final {
   // shot's. The fields above are what every other layer shows, and what
   // a new one starts with (the doll's default).
   std::map<LayerId, PieceDots> layer_dots{};
+  // Drawings made in Snapper, oldest first.
+  std::vector<OwnDrawing> own_drawings{};
 
   bool operator==(const RigPiece&) const = default;
 };
@@ -331,6 +345,11 @@ bool CanParent(const Rig& rig, const QString& child, const QString& parent);
 // The drawing a piece shows for a pose's drawing choice, as a full
 // path; empty if the piece has no such drawing.
 QString DrawingPath(const Doll& doll, const QString& piece, int drawing);
+
+// The own drawing (made in Snapper) that is drawing index of piece, or
+// nullptr for a Krita drawing.
+const OwnDrawing* OwnDrawingAt(const Doll& doll, const QString& piece,
+                               int index);
 
 }  // namespace snapper
 

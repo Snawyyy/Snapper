@@ -66,8 +66,13 @@ project file), Shift+3 fits all, a red arrow points to picks out of
 view, Shift+2 now frames the pick in the right place. Then Smart Dials,
 first pass (docs/features/smart-dials.md says what is left): a Smart
 dials fold in the Pose panel, template tiles, Set stop, dial keys on
-the doll row, `DialManager`. No tests yet, the owner adds them later.
-Next in docs/features: Draw on a piece.
+the doll row, `DialManager`. Then Draw on a piece, first pass
+(docs/features/draw-on-a-piece.md says what is left): N, Shift+N, right
+click or the Drawing picker's "+" entries open draw mode over the
+stage (pixel brush, eraser, fill, picker, R and onion, stroke undo);
+Done saves a PNG in the doll's `snapper` folder, listed in rig.json,
+as one undo step (`DrawManager`). No tests yet, the owner adds them
+later. Next in docs/features: Joint snap and joint circles.
 
 Before that (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
 inspector as a hardware panel (pose box: dials, pad, faders; golden ratio,

@@ -134,6 +134,24 @@ QString DrawingPath(const Doll& doll, const QString& piece, int drawing) {
   return QDir(doll.folder).filePath(art->drawings[static_cast<size_t>(index)]);
 }
 
+const OwnDrawing* OwnDrawingAt(const Doll& doll, const QString& piece,
+                               int index) {
+  assert(!piece.isEmpty());
+  assert(index >= -1);
+  const ArtPiece* art = FindArt(doll, piece);
+  const RigPiece* rig = FindRig(doll.rig, piece);
+  const bool is_known = art != nullptr && rig != nullptr && index >= 0 &&
+                        index < static_cast<int>(art->drawings.size());
+  if (!is_known) {
+    return nullptr;
+  }
+  const QString& file = art->drawings[static_cast<size_t>(index)];
+  const auto found = std::find_if(
+      rig->own_drawings.begin(), rig->own_drawings.end(),
+      [&file](const OwnDrawing& own) { return own.file == file; });
+  return found == rig->own_drawings.end() ? nullptr : &*found;
+}
+
 PieceDots DotsOf(const RigPiece& piece, LayerId layer) {
   assert(piece.layer_dots.size() < 1000000);
   assert(layer.value() >= 0);

@@ -60,6 +60,7 @@ StageView::StageView(const Managers& managers)
   connect(&flash_, &StageFlash::Changed, this, update_me);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
           update_me);
+  SetUpDraw();
   assert(focusPolicy() == Qt::StrongFocus);
 }
 

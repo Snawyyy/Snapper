@@ -1,6 +1,38 @@
 # Draw on a piece
 
-Status: planned.
+Status: built, first pass (2026-10-12); owner tests by eye.
+
+First pass: N (a copy of the drawing showing), Shift+N (draw over the
+drawing showing), the stage's right click and three "+ New drawing"
+entries at the end of the Pose box's Drawing picker (blank, copy of
+this one, copy of the default) start draw mode (`DrawManager`). It
+covers the stage with the piece at its rest place (turned as the rig
+rests it, so it lines up with the face), the rest of the doll dimmed
+at rest, a frame at the drawing size that turns red while a stroke
+runs past it, and pixel lines past 800 %; the wheel zooms, the middle
+button pans, Shift+1 fits. Tools: hard pixel brush (B, [ and ], right
+button erases, Shift+click draws a line), eraser (E), exact-color fill
+(G), color picker (I, or Alt held); hold R for the original, Shift+R for
+the onion at 30 %. Ctrl+Z and Ctrl+Y undo strokes inside draw mode. The
+floating palette opens on the piece's colors and gives the brush color.
+A name field in the title bar (default "mouth 2"); Done (Enter) saves
+`snapper/<name>.png` in the doll folder, lists it in rig.json
+(`RigPiece::own_drawings`, shown after the Krita drawings by
+`AddOwnDrawings`) and shows it on the piece at that frame, as one undo
+step; Edit on a Snapper drawing saves a new version in its place, on a
+Krita drawing makes a copy. Cancel (Escape) asks in the bar when
+something was drawn. The Krita exporter now carries the `snapper`
+folder over like rig.json. Not built yet: the magic wand and
+selections (H, arrows, Delete), the transparent pixels view (X), fill
+tolerance, Fill all and Close gaps, the reference picker (the reference
+is the drawing started from, or for a blank start the one showing),
+the pencil badge and right click menu in the picker (Rename,
+Duplicate, Delete, Show in folder), the Smart Dial "New drawing for
+this stop", the Bend mesh question on Done (the mesh is kept; parts
+outside it do not bend), the mirrored twin copy, and colliders or
+Smooth warp redone for the new drawing. A Krita re-export
+that adds drawings to a piece shifts the index of its Snapper drawings,
+as reordering in Krita already does for keys.
 
 Needs: the [floating palette](palette.md).
 
@@ -88,8 +120,8 @@ Draw mode opens the [floating palette](palette.md) on the piece's own colors: ev
 
 ## Open questions
 
-- [ ] Draw on the doll at rest (planned), or also on the doll as posed at the playhead?
-- [ ] When a new drawing goes past the bend mesh, is asking on Done right, or should it warn while drawing?
+- [ ] Draw on the doll at rest (planned), or also on the doll as posed at the playhead? First pass: at rest only.
+- [ ] When a new drawing goes past the bend mesh, is asking on Done right, or should it warn while drawing? First pass: neither; Done keeps the mesh.
 
 ## Not in the first version
 

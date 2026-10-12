@@ -9,6 +9,7 @@
 #include "edit/link_manager.h"
 #include "edit/selection_manager.h"
 #include "render/stage_hit.h"
+#include "ui/draw_actions.h"
 #include "ui/problem.h"
 #include "ui/stage_view.h"
 #include "ui/timing_chart_action.h"
@@ -48,6 +49,7 @@ void StageView::contextMenuEvent(QContextMenuEvent* event) {
   menu.setToolTipsVisible(true);
   AddLinkActions(&menu, event->pos(), *frame);
   AddTimingChartAction(&menu, managers_);
+  AddDrawActions(&menu, managers_);
   const bool has_actions = !menu.isEmpty();
   if (has_actions) {
     menu.exec(event->globalPos());

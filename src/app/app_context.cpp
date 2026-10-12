@@ -29,11 +29,12 @@ AppContext::AppContext(const QString& data_folder)
       settings_(&history_),
       palette_(&history_, &selection_),
       dials_(&history_),
+      draw_(&history_, &playback_, &palette_),
       window_(Managers{&history_, &document_, &library_, &rig_, &shots_,
                        &stage_, &selection_, &pose_, &keys_, &presets_,
                        &playback_, &exporter_, &links_, &reel_, &motion_,
                        &toasts_, &timing_, &poke_, &groups_, &settings_,
-                       &palette_, &dials_}) {
+                       &palette_, &dials_, &draw_}) {
   assert(!data_folder.isEmpty());
   assert(!history_.IsDirty());
 }

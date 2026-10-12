@@ -160,6 +160,15 @@ QRectF TextBox(const TextLayer& text) {
   return QRectF(-width / 2.0, -height / 2.0, width, height);
 }
 
+Layer RestLayer(const QString& doll) {
+  assert(!doll.isEmpty());
+  Layer layer;
+  layer.id = LayerId(1);
+  layer.content = DollLayer{doll, {}, false};
+  assert(layer.transform.keys.empty());
+  return layer;
+}
+
 void PaintLayer(const Project& project, const Layer& layer, Frame frame,
                 const QTransform& view, LinkSolver* links, ImageCache* cache,
                 QPainter* painter, const std::set<QString>* only_pieces) {

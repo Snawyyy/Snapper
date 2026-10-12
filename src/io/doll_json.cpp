@@ -11,6 +11,7 @@
 
 #include "io/collider_json.h"
 #include "io/dot_group_json.h"
+#include "io/own_drawing_json.h"
 #include "io/point_motion_json.h"
 #include "io/smart_dial_json.h"
 #include "io/warp_json.h"
@@ -289,6 +290,9 @@ QJsonObject RigToJson(const Rig& rig, bool with_layers) {
     if (has_layers) {
       object.insert("layers", LayerDotsToJson(piece.layer_dots));
     }
+    if (!piece.own_drawings.empty()) {
+      object.insert("own_drawings", OwnDrawingsToJson(piece.own_drawings));
+    }
     pieces.append(object);
   }
   QJsonArray chains;
@@ -335,6 +339,8 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
                           ColliderFromJson(piece.value("collider")),
                           LayerDotsFromJson(piece.value("layers"), grid,
                                             issues)});
+    rig.pieces.back().own_drawings =
+        OwnDrawingsFromJson(piece.value("own_drawings"), issues);
   }
   const QJsonArray chains =
       Bounded(object.value("chains"), kMaxIkChains, "IK chains", issues);

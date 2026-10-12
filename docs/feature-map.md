@@ -46,6 +46,7 @@ it in the same commit.
 | Floating palette (colors, recent, added, stage flash, I to pick) | Dolls | edit/palette_manager.cpp, render/drawing_colors.cpp, ui/palette_panel.cpp, ui/stage_view_palette.cpp | PaletteManager | edit/palette_tests |
 | Doll to Krita (.ora, Open in Krita) | Dolls | io/ora_file.cpp, io/zip_writer.cpp, io/reconcile.cpp (RemovedDrawings), ui/krita_menu.cpp, tools/krita/snapper_doll_export/importer.py | DollLibraryManager | io/doll_file_tests |
 | Editing outside the frame (pasteboard, O, Fit all, off-view arrow) | Rendering | render/frame_renderer.cpp (RenderArea), ui/stage_view_outside.cpp, ui/stage_view_camera.cpp, edit/document_manager.cpp | DocumentManager (the O switch) | none yet |
+| Draw on a piece (draw mode, N, Snapper drawings) | Dolls | edit/draw_manager.cpp, edit/draw_save.cpp, render/pixel_paint.cpp, io/own_drawing_json.cpp, io/reconcile.cpp (AddOwnDrawings), ui/draw_canvas.cpp, ui/draw_canvas_paint.cpp, ui/draw_bar.cpp, ui/draw_actions.cpp, ui/stage_view_draw.cpp | DrawManager | none yet |
 | Smart dials (stops, blend, Set stop, dial keys) | Dolls | model/smart_dial.h, anim/smart_dial.cpp, edit/dial_manager.cpp, io/smart_dial_json.cpp, ui/dial_box.cpp, ui/dial_track.cpp, edit/track_ref.h (kDial) | DialManager | none yet |
 
 ## Adding a new kind
