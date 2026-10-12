@@ -17,6 +17,7 @@ In the order we plan to build them.
 - [ ] [Editing outside the frame](off-frame-editing.md): limbs past the shot's frame are drawn dimmed and can be picked and edited, like a pasteboard.
 - [ ] [Text and subtitles on the reel](reel-text-and-subtitles.md): text clips on Video tab tracks and a subtitle track timed by tapping to the song.
 - [ ] [Resizing shots on the reel](reel-shot-resize.md): drag a shot clip's edge on the Video tab timeline to change the shot's own length.
+- [ ] [Reference on the Pose tab](pose-reference.md): a video, GIF or picture behind the doll with an opacity fader, in step with the timeline, never in the final video.
 - [ ] [Compositing](compositing.md): a Comp tab with anime finishing effects, rim light included, that target a doll, pieces or palette colors.
 
 ## Adding a new feature
@@ -71,6 +72,10 @@ Every proposed key is free in Snapper today (checked against the keys bound in t
 | Shift + edge drag | Partial shot clip | Resize the shot instead of trimming | Resizing shots |
 | Ctrl + edge drag | Shot clip | Stretch the shot's timing, keys move in proportion | Resizing shots |
 | Ctrl+Shift + edge drag | Shot clip | Ripple: later clips on the track move by the change | Resizing shots |
+| Alt + drop | Pose tab | Add the dropped file as a reference | Reference |
+| Y | Pose tab | Show or hide every reference | Reference |
+| Alt + drag | Reference row | Slide the video under the row | Reference |
+| M | Reference row picked | Drop a marker on the reference (reuses Mark cut) | Reference |
 | A | Comp tab | Add an effect | Compositing |
 | V (hold) | Comp tab | All effects off while held | Compositing |
 | K (hold) | Comp tab | Show what the picked effect touches | Compositing |
