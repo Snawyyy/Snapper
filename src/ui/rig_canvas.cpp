@@ -139,6 +139,7 @@ void RigCanvas::PaintOverlay(QPainter* painter) const {
       PaintCollider(painter, pieces, rig);
     }
   }
+  PaintShapeSnap(painter, pieces);
   const bool shows_hang = is_hanging_ && pieces.contains(piece_);
   if (shows_hang) {
     const QTransform world = World();

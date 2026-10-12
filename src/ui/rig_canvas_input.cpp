@@ -245,15 +245,20 @@ void RigCanvas::mouseMoveEvent(QMouseEvent* event) {
     }
     return;
   }
-  MovePivots(*doll, event->position());
+  MovePivots(*doll, event->position(),
+             event->modifiers().testFlag(Qt::ControlModifier));
 }
 
-void RigCanvas::MovePivots(const Doll& doll, QPointF cursor) {
+void RigCanvas::MovePivots(const Doll& doll, QPointF cursor, bool is_free) {
   assert(std::isfinite(cursor.x()) && std::isfinite(cursor.y()));
   assert(managers_.rig != nullptr);
   // Each joint moves by the cursor's step, in its own drawing's pixels.
   std::map<QString, QPointF> offsets;
-  bool is_snapped = false;
+  PivotSnap snap;
+  const std::optional<ShapeSnapKind> was =
+      shape_snap_ ? std::optional<ShapeSnapKind>(shape_snap_->kind)
+                  : std::nullopt;
+  shape_snap_.reset();
   for (const QString& piece : picked_) {
     const auto now = IntoPiece(doll, piece, World(), cursor);
     const auto before = IntoPiece(doll, piece, World(), last_);
@@ -261,21 +266,38 @@ void RigCanvas::MovePivots(const Doll& doll, QPointF cursor) {
     if (is_mapped) {
       offsets[piece] = *now - *before;
     }
-    // A lone pivot catches on the middle and edges of its drawing.
+    // A lone pivot catches on its drawn limb and its drawing's box,
+    // unless Ctrl is held.
     const RigPiece* rig_piece = FindRig(doll.rig, piece);
     const bool is_lone = picked_.size() == 1 && now.has_value() &&
                          rig_piece != nullptr;
     if (is_lone) {
       const QPointF wanted = grab_pivot_ + (*now - grab_cursor_);
-      offsets[piece] = SnappedPivot(doll, piece, wanted, &is_snapped) -
-                       rig_piece->pivot;
+      snap = is_free ? PivotSnap{wanted, std::nullopt, false}
+                     : SnappedPivot(doll, piece, wanted);
+      offsets[piece] = snap.spot - rig_piece->pivot;
+      shape_snap_ = snap.shape;
+      snap_piece_ = piece;
     }
   }
   last_ = cursor;
-  if (is_snapped) {
-    ShowDrag(cursor);
+  const bool is_shape = shape_snap_.has_value();
+  if (is_shape) {
+    // The chip names what it caught and flashes when that changes.
+    const bool is_new = !was.has_value() || *was != shape_snap_->kind;
+    feedback_.Update(start_, cursor, SnapName(shape_snap_->kind), is_new);
   }
   emit Problem(ProblemOf(managers_.rig->MovePivots(doll_, offsets)));
+}
+
+QString RigCanvas::SnapName(ShapeSnapKind kind) const {
+  assert(kind == ShapeSnapKind::kWidthMiddle ||
+         kind == ShapeSnapKind::kEndCenter ||
+         kind == ShapeSnapKind::kOverlapCenter);
+  assert(drag_ != Drag::kNone);
+  return kind == ShapeSnapKind::kWidthMiddle ? tr("Width middle")
+         : kind == ShapeSnapKind::kEndCenter ? tr("End center")
+                                             : tr("Overlap center");
 }
 
 void RigCanvas::ShowDrag(QPointF cursor) {
@@ -297,6 +319,7 @@ void RigCanvas::mouseReleaseEvent(QMouseEvent* event) {
   }
   feedback_.Settle();
   scope_.reset();
+  shape_snap_.reset();
   drag_ = Drag::kNone;
   chain_.clear();
   is_started_ = false;
@@ -353,7 +376,9 @@ void RigCanvas::keyPressEvent(QKeyEvent* event) {
     scope_->Cancel();
     scope_.reset();
     feedback_.Cancel();
+    shape_snap_.reset();
     drag_ = Drag::kNone;
+    update();
     return;
   }
   QWidget::keyPressEvent(event);

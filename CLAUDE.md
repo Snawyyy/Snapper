@@ -71,8 +71,13 @@ the doll row, `DialManager`. Then Draw on a piece, first pass
 click or the Drawing picker's "+" entries open draw mode over the
 stage (pixel brush, eraser, fill, picker, R and onion, stroke undo);
 Done saves a PNG in the doll's `snapper` folder, listed in rig.json,
-as one undo step (`DrawManager`). No tests yet, the owner adds them
-later. Next in docs/features: Joint snap and joint circles.
+as one undo step (`DrawManager`). Then Joint snap, first pass
+(docs/features/joint-snap.md says what is left): a lone joint dragged on
+the rig canvas catches on the width middle, an end circle's center or
+the overlap with its parent (`anim/joint_snap.cpp`), Ctrl drags freely,
+and right click Snap to shape or Snap all joints moves joints in one
+undo step; joint circles are not built yet. No tests yet, the owner adds
+them later. Next in docs/features: Skins.
 
 Before that (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
 inspector as a hardware panel (pose box: dials, pad, faders; golden ratio,

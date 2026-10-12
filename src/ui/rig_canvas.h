@@ -12,6 +12,7 @@
 #include <set>
 #include <vector>
 
+#include "anim/joint_snap.h"
 #include "edit/edit_scope.h"
 #include "edit/selection_manager.h"
 #include "render/image_cache.h"
@@ -33,7 +34,10 @@ namespace snapper {
 // any press the handle under the cursor grows, shows its cursor, and a
 // thin dashed outline marks the piece a click would pick. A drag shows
 // a chip with how far it went, a faint ghost where the handle was, and
-// pops on letting go. Escape cancels a drag or a hang.
+// pops on letting go. Escape cancels a drag or a hang. A lone joint
+// dragged catches on its drawn limb (the middle of its width, an end's
+// circle center, where it crosses its parent) with a red line across the
+// limb, or on its drawing's box; Ctrl drags it freely.
 class RigCanvas final : public QWidget {
   Q_OBJECT
 
@@ -126,21 +130,31 @@ class RigCanvas final : public QWidget {
   // opens the one undo step of the drag.
   void GrabPivot(const QString& joint, QPointF point);
   // The cursor moved with pivots grabbed: moves each by its step (a lone
-  // pivot catches on its drawing).
-  void MovePivots(const Doll& doll, QPointF cursor);
+  // pivot catches on its drawing, unless is_free: Ctrl held).
+  void MovePivots(const Doll& doll, QPointF cursor, bool is_free);
   // Alt on a joint: pulls a rope from it; letting go over a piece hangs
   // the joint's piece from it.
   void StartRope(const QString& joint, QPointF at);
-  // wanted (a pivot in piece's drawing pixels) caught on the middle and
-  // edges of the drawing within a few screen pixels; says whether it
-  // caught.
-  QPointF SnappedPivot(const Doll& doll, const QString& piece,
-                       QPointF wanted, bool* is_snapped) const;
+  // wanted (a pivot in piece's drawing pixels) caught on the drawn
+  // limb (width middle, end center, overlap with its parent) or the
+  // middle and edges of the drawing within a few screen pixels
+  // (SnapPivot, anim/joint_snap.h).
+  PivotSnap SnappedPivot(const Doll& doll, const QString& piece,
+                         QPointF wanted);
+  // The shape snap caught by the pivot drag: the line across the limb,
+  // its middle and an end's circle.
+  void PaintShapeSnap(QPainter* painter,
+                      const std::map<QString, QTransform>& pieces) const;
+  // Right click > Snap to shape or Snap all joints: moves the joints
+  // onto their drawn limbs (RigManager::SnapJointsToShape).
+  void SnapJoints(const std::vector<QString>& pieces);
   void ApplyPick(const std::set<QString>& pieces, PickMode mode,
                  const QString& focus);
   void FinishBox();
   // Shows what the joint or tip drag says: chip, ghost and snap flash.
   void ShowDrag(QPointF cursor);
+  // The chip's name for a shape snap ("Width middle").
+  QString SnapName(ShapeSnapKind kind) const;
 
   Managers managers_;
   HandleHover hover_;
@@ -174,6 +188,11 @@ class RigCanvas final : public QWidget {
   QPointF grab_cursor_;
   QPointF grab_pivot_;
   QPointF cursor_;
+  // The drawings measured for joint snap.
+  LimbMemo limbs_;
+  // What the lone pivot drag caught on its piece's shape, if anything.
+  std::optional<ShapeSnap> shape_snap_;
+  QString snap_piece_;
   QString chain_;
   std::unique_ptr<EditScope> scope_;
 };

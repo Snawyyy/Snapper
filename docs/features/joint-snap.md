@@ -1,6 +1,8 @@
 # Joint snap and joint circles
 
-Status: planned.
+Status: built, first pass (2026-10-12); owner tests by eye.
+
+First pass: the snapping half. `anim/joint_snap.cpp` (pure) measures a drawing once (`MeasureLimbs`: visible pixels at alpha 8 and up, holes closed so an outline-only limb counts as filled, one label per separate shape, each shape's long direction from its pixel spread) and finds the width middle across the limb at the cursor, the center of each end circle, and where the piece's and its parent's center lines cross inside both. A lone joint dragged on the rig canvas catches on these within 6 screen pixels: a spot (end or overlap center) wins first, else the nearer of the width middle and the old box snaps. A red line across the limb, a dot at the middle and the end circle show while it is caught, and the chip names it ("Width middle", "End center", "Overlap center"); Ctrl drags freely. Right click a piece: Snap to shape moves its joint, Snap all joints moves every joint of the doll (`RigManager::SnapJointsToShape`, one undo step, a toast lists what moved). Not built yet: joint circles (drawing, J, palette color, outline, Size fader, draw order, saving, mirror, skins) and the keys sheet entry for Ctrl. Defaults taken: the limb's long direction is the whole shape's, not measured locally, so a strongly curved limb measures across its average direction; a hollow shape is filled in like an outline-only limb; joint circles will be off until turned on per joint (open question below).
 
 Needs: nothing for the snapping; the [floating palette](palette.md) for circle colors.
 
@@ -51,7 +53,7 @@ Placing a joint should land it on the limb's true center, and bending it should 
 
 ## Open questions
 
-- [ ] Joint circles: on by default for new dolls, or off until turned on per joint?
+- [ ] Joint circles: on by default for new dolls, or off until turned on per joint? (First pass default: off until turned on per joint; circles are not built yet.)
 
 ## Not in the first version
 

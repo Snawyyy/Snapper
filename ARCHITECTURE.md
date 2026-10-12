@@ -886,6 +886,17 @@ parent. A lone pivot dragged catches on the middle and edges of its
 drawing within 6 pixels (`SnapToGuides`), and saving the rig to the
 library says so in a toast.
 
+Joint snap (`anim/joint_snap.h`, pure) also catches it on the drawn
+limb: `MeasureLimbs` labels each solid shape of a drawing (alpha 8 and
+up as the shape mesh counts it, holes closed in) with its long
+direction, and `SnapPivot` picks, within the same reach, an end circle's
+center or where the piece's and its parent's center lines cross first,
+else the nearer of the middle of the width across the limb and the box
+snaps. `RigCanvas` keeps measured drawings in a `LimbMemo`, draws the
+caught line, middle and end circle, names it in the chip, and lets Ctrl
+drag freely. Right click > Snap to shape or Snap all joints goes through
+`RigManager::SnapJointsToShape` (edit/rig_snap.cpp), one undo step.
+
 Find a command (Ctrl+/, Help menu, `CommandPalette`) is a box that
 drops over the window and searches every menu action by name
 (`MatchCommands`, pure: letters in order, word starts and side-by-side

@@ -72,10 +72,17 @@ void RigCanvas::contextMenuEvent(QContextMenuEvent* event) {
                                              : tr("Make collider"));
   QAction* remove = menu.addAction(tr("Remove collider"));
   menu.addSeparator();
+  QAction* snap = menu.addAction(tr("Snap to shape"));
+  QAction* snap_all = menu.addAction(tr("Snap all joints"));
+  menu.addSeparator();
   QAction* mirror = menu.addAction(tr("Mirror rig to other side"));
   Explain(mirror, managers_.rig->WhyNoMirror(doll_, *hit));
   Explain(remove, is_collider ? QString()
                               : tr("%1 is not a collider yet.").arg(*hit));
+  std::vector<QString> all;
+  for (const RigPiece& piece : doll->rig.pieces) {
+    all.push_back(piece.name);
+  }
   const QAction* chosen = menu.exec(event->globalPos());
   const bool is_make = chosen == make;
   const bool is_remove = chosen == remove;
@@ -86,6 +93,10 @@ void RigCanvas::contextMenuEvent(QContextMenuEvent* event) {
     RemoveCollider(*hit);
   } else if (is_mirror) {
     MirrorToOtherSide(*hit);
+  } else if (chosen == snap) {
+    SnapJoints({*hit});
+  } else if (chosen == snap_all) {
+    SnapJoints(all);
   }
 }
 

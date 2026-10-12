@@ -48,6 +48,7 @@ it in the same commit.
 | Editing outside the frame (pasteboard, O, Fit all, off-view arrow) | Rendering | render/frame_renderer.cpp (RenderArea), ui/stage_view_outside.cpp, ui/stage_view_camera.cpp, edit/document_manager.cpp | DocumentManager (the O switch) | none yet |
 | Draw on a piece (draw mode, N, Snapper drawings) | Dolls | edit/draw_manager.cpp, edit/draw_save.cpp, render/pixel_paint.cpp, io/own_drawing_json.cpp, io/reconcile.cpp (AddOwnDrawings), ui/draw_canvas.cpp, ui/draw_canvas_paint.cpp, ui/draw_bar.cpp, ui/draw_actions.cpp, ui/stage_view_draw.cpp | DrawManager | none yet |
 | Smart dials (stops, blend, Set stop, dial keys) | Dolls | model/smart_dial.h, anim/smart_dial.cpp, edit/dial_manager.cpp, io/smart_dial_json.cpp, ui/dial_box.cpp, ui/dial_track.cpp, edit/track_ref.h (kDial) | DialManager | none yet |
+| Joint snap (width middle, end center, overlap center, Snap to shape) | Dolls | anim/joint_snap.cpp, edit/rig_snap.cpp, ui/rig_canvas_snap.cpp, ui/rig_canvas_input.cpp (MovePivots), ui/rig_canvas_collider.cpp (menu) | RigManager (SnapJointsToShape) | none yet |
 
 ## Adding a new kind
 

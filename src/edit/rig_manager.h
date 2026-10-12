@@ -202,6 +202,14 @@ class RigManager final {
                           const std::map<QString, QPointF>& offsets);
   Result<void> CopyAllToOtherSide(const QString& doll,
                                   const std::vector<QString>& pieces);
+  // Moves each piece's joint onto its drawing's shape (NearestShapeSnap,
+  // anim/joint_snap.h: the end or overlap center whose circle it is in,
+  // else the middle of the limb's width through it), as one undo step.
+  // drawings holds each piece's drawing at rest, by piece. Says which
+  // pieces moved; refused when none did.
+  Result<std::vector<QString>> SnapJointsToShape(
+      const QString& doll, const std::vector<QString>& pieces,
+      const std::map<QString, QImage>& drawings);
 
   // upper must be lower's parent; the name must be new.
   Result<void> AddChain(const QString& doll, const IkChain& chain);
