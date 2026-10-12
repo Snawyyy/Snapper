@@ -619,6 +619,22 @@ handles and drags work outside it unchanged. Shift+3 fits all the shot
 holds; a red arrow at the view edge points to a picked layer out of
 view. Export still renders only the frame.
 
+Each doll's rig has a look (`DrawingLook`: Crisp, Smooth, Smooth
+flat) and a Hard edges switch; a piece may stay Crisp. `LayerPainter`
+turns them into a `WarpLook`. Crisp reads the nearest pixel, as
+before. Smooth draws from a copy upscaled 2x or 4x by Scale2x
+(`render/upscale.cpp`, 2x only past 2048 pixels a side), kept in the
+`WarpCache` within its byte budget: warps blend between its pixels
+(bilinear) and may be bent up to twice the drawing's size when zoomed;
+turned or scaled pieces draw the copy with the painter's smooth
+scaling over the same rectangle, so nothing moves. Smooth flat keeps
+fully covered pixels on the drawing's own colors; Hard edges keeps or
+drops edge pixels whole. Hit tests ask for the default look, so they
+read the original drawing. Holding backslash on the stage sets the
+stage renderers' `ImageCache` to Crisp only. RigManager owns the
+edits; a rig without a look opens Crisp, a new doll starts Smooth
+(`ReadRig`).
+
 `RenderReel` draws a reel frame: shot clips through `RenderShot`, video
 clips fitted to the canvas, keeping their shape. Over a transition both
 clips are drawn over the tracks below and mixed by `Combine`. Pictures

@@ -83,7 +83,10 @@ Result<Rig> ReadRig(const QString& folder) {
     return FromLegacy(*old, folder).rig;
   }
   if (is_new_doll) {
-    return Rig();
+    // New dolls start Smooth; old rigs open as they were saved.
+    Rig fresh;
+    fresh.look = DrawingLook::kSmooth;
+    return fresh;
   }
   const auto read =
       CheckFormat(ReadJsonFile(path), "snapper-rig", kRigVersion, path);

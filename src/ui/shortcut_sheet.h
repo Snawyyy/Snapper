@@ -21,7 +21,7 @@ struct Gesture final {
 
 // The gestures of the stage, timeline and rig canvas that are not menu
 // entries: wheel, drags, nudge, guides.
-inline constexpr std::array<Gesture, 22> kGestures = {{
+inline constexpr std::array<Gesture, 23> kGestures = {{
     {"Click", "Pick what is under the cursor; Shift adds, Ctrl flips"},
     {"Drag on empty space", "Box pick; Shift adds, Ctrl takes out"},
     {"Drag a pick", "Move it; Shift locks to one axis, Ctrl scales"},
@@ -37,6 +37,7 @@ inline constexpr std::array<Gesture, 22> kGestures = {{
     {"Escape", "Cancel a drag, drop the dot, then drop the pick"},
     {"D", "Make the picked dots drag behind (or stop)"},
     {"Hold P and drag", "Poke a doll to feel its physics"},
+    {"Hold \\", "Show every drawing Crisp, to compare with Smooth"},
     {"Right-click", "Link, unlink and more for what is under the cursor"},
     {"Alt + drag a joint", "Pull a rope onto the part it hangs from"},
     {"Ctrl + drag a joint", "Place it freely, no snapping to the shape"},

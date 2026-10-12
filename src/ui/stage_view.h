@@ -155,6 +155,10 @@ class StageView final : public QWidget {
   // P down or up: holding it arms poking (see StagePoke). Returns true
   // when the key was P and is dealt with.
   bool PokeKey(QKeyEvent* event, bool is_down);
+  // Backslash held shows every drawing Crisp, to compare with the
+  // dolls' looks; letting go goes back. Changes no setting.
+  bool CrispKey(QKeyEvent* event, bool is_down);
+  void ShowCrisp(bool is_on);
   // The pixels of the palette's hovered color, lit up over image (drawn
   // at corner), so a swatch shows where its color is used.
   void PaintColorFlash(const QImage& image, QPointF corner,

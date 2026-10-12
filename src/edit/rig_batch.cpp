@@ -130,6 +130,58 @@ Result<void> RigManager::SetKeepShapeAll(const QString& doll,
       }));
 }
 
+Result<void> RigManager::SetStaysCrispAll(const QString& doll,
+                                          const std::vector<QString>& pieces,
+                                          bool stays_crisp) {
+  assert(history_ != nullptr);
+  assert(pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+  return history_->Apply(
+      stays_crisp ? Tr("Keep crisp") : Tr("Follow doll look"),
+      WithRig(history_->current(), doll, [&](Rig* rig) {
+        return EachPiece(rig, doll, pieces, [stays_crisp](RigPiece* piece) {
+          piece->stays_crisp = stays_crisp;
+          return Result<void>();
+        });
+      }));
+}
+
+Result<void> RigManager::SetLook(const QString& doll, DrawingLook look) {
+  assert(history_ != nullptr);
+  const int index = static_cast<int>(look);
+  assert(index >= 0 && index < kDrawingLookCount);
+  return history_->Apply(
+      Tr("Look %1").arg(LookName(look)),
+      WithRig(history_->current(), doll, [look](Rig* rig) {
+        rig->look = look;
+        return Result<void>();
+      }));
+}
+
+Result<void> RigManager::SetHardEdges(const QString& doll, bool is_hard) {
+  assert(history_ != nullptr);
+  assert(!doll.isNull());
+  return history_->Apply(
+      is_hard ? Tr("Hard edges") : Tr("Soft edges"),
+      WithRig(history_->current(), doll, [is_hard](Rig* rig) {
+        rig->hard_edges = is_hard;
+        return Result<void>();
+      }));
+}
+
+QString LookName(DrawingLook look) {
+  assert(static_cast<int>(look) >= 0);
+  assert(static_cast<int>(look) < kDrawingLookCount);
+  switch (look) {
+    case DrawingLook::kCrisp:
+      return Tr("Crisp");
+    case DrawingLook::kSmooth:
+      return Tr("Smooth");
+    case DrawingLook::kSmoothFlat:
+      return Tr("Smooth flat");
+  }
+  return QString();
+}
+
 Result<void> RigManager::MovePivots(
     const QString& doll, const std::map<QString, QPointF>& offsets) {
   assert(history_ != nullptr);

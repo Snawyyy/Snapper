@@ -198,6 +198,15 @@ class RigManager final {
   Result<void> SetKeepShapeAll(const QString& doll,
                                const std::vector<QString>& pieces,
                                bool keeps_shape);
+  // Makes pieces draw Crisp whatever the doll's look, or follow it
+  // again; one undo step.
+  Result<void> SetStaysCrispAll(const QString& doll,
+                                const std::vector<QString>& pieces,
+                                bool stays_crisp);
+  // How doll's drawings look when moved (Crisp, Smooth, Smooth flat),
+  // and whether smooth edges cut out; one undo step each.
+  Result<void> SetLook(const QString& doll, DrawingLook look);
+  Result<void> SetHardEdges(const QString& doll, bool is_hard);
   // Each piece's joint moves by its own offset (drawing pixels).
   Result<void> MovePivots(const QString& doll,
                           const std::map<QString, QPointF>& offsets);
@@ -234,6 +243,9 @@ class RigManager final {
 
   HistoryManager* history_;
 };
+
+// What a look is called on its tile and in undo ("Smooth flat").
+QString LookName(DrawingLook look);
 
 }  // namespace snapper
 

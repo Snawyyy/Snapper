@@ -237,6 +237,13 @@ struct JointCircle final {
   bool operator==(const JointCircle&) const = default;
 };
 
+// How a doll's drawings look when they are warped, turned or scaled.
+// Crisp reads the nearest pixel (real pixel art); Smooth reads an
+// upscaled copy blended between pixels; Smooth flat is Smooth with the
+// inside snapped back to the drawing's own colors, so only edges soften.
+enum class DrawingLook { kCrisp, kSmooth, kSmoothFlat };
+inline constexpr int kDrawingLookCount = 3;
+
 // How Snapper moves a piece: rig.json.
 struct RigPiece final {
   QString name;
@@ -274,6 +281,8 @@ struct RigPiece final {
   // Drawings made in Snapper, oldest first.
   std::vector<OwnDrawing> own_drawings{};
   JointCircle joint_circle{};
+  // Draws Crisp whatever the doll's look (a pixel-art screen on a chest).
+  bool stays_crisp = false;
 
   bool operator==(const RigPiece&) const = default;
 };
@@ -308,6 +317,11 @@ struct Rig final {
   // Skins, in the order the Skins box lists them; where two worn skins
   // touch the same piece, the one earlier in the list wins.
   std::vector<Skin> skins{};
+  // Crisp for a rig made before looks existed; a new doll starts Smooth
+  // (ReadRig).
+  DrawingLook look = DrawingLook::kCrisp;
+  // Smooth edges are blended into what is behind; hard edges cut out.
+  bool hard_edges = false;
 
   bool operator==(const Rig&) const = default;
 };

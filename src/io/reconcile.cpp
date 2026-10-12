@@ -45,6 +45,8 @@ Rig Reconcile(const DollArt& art, const Rig& rig, ReconcileReport* report) {
   fitted.dot_groups = rig.dot_groups;
   fitted.dials = rig.dials;
   fitted.skins = rig.skins;
+  fitted.look = rig.look;
+  fitted.hard_edges = rig.hard_edges;
   int stack = 0;
   for (const ArtPiece& piece : art.pieces) {
     fitted.pieces.push_back(

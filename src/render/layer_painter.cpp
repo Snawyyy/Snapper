@@ -14,6 +14,7 @@
 #include "anim/doll_pose.h"
 #include "anim/joint_snap.h"
 #include "anim/sampler.h"
+#include "render/upscale.h"
 #include "render/warp_raster.h"
 
 namespace snapper {
@@ -22,15 +23,29 @@ namespace {
 // How many quarters of a drawing's size are enough to bend for it to
 // fill transform's pixels: a doll drawn at half size needs only half
 // the pixels each way. Rounds to the nearest quarter, up on a tie;
-// never less than a quarter.
-int DetailFor(const QTransform& transform) {
+// never less than a quarter, never more than most.
+int DetailFor(const QTransform& transform, int most = kFullDetail) {
   assert(kFullDetail > 1);
+  assert(most >= 1);
   const double pixels_per_pixel =
       std::sqrt(std::abs(transform.determinant()));
   assert(pixels_per_pixel >= 0.0);
   const int quarters =
       static_cast<int>(std::ceil(pixels_per_pixel * 4.0 - 0.5));
-  return std::clamp(quarters, 1, kFullDetail);
+  return std::clamp(quarters, 1, most);
+}
+
+// How piece of doll reads its drawing: Crisp while cache is held to
+// Crisp or the piece stays Crisp, else the doll's look.
+WarpLook LookOf(const Doll& doll, const QString& piece,
+                const ImageCache& cache) {
+  assert(static_cast<int>(doll.rig.look) < kDrawingLookCount);
+  assert(!piece.isEmpty());
+  const RigPiece* rig = FindRig(doll.rig, piece);
+  const bool is_crisp =
+      cache.is_crisp_only() || (rig != nullptr && rig->stays_crisp);
+  return is_crisp ? WarpLook{}
+                  : WarpLookFor(doll.rig.look, doll.rig.hard_edges);
 }
 
 // Each content kind draws itself; PaintLayer picks by visiting.
@@ -76,12 +91,17 @@ void Painter::operator()(const DollLayer& layer) const {
     }
     painter->setOpacity(layer_opacity * piece.opacity);
     PaintJointCircle(*doll, piece, image);
+    const QTransform on_screen = piece.transform * world;
+    const WarpLook look = LookOf(*doll, piece.name, *cache);
+    // A smooth look is blended by the painter too, unless it cuts out.
+    painter->setRenderHint(QPainter::SmoothPixmapTransform,
+                           look.is_blended && !look.is_hard);
     const bool is_warped = !piece.warp_points.empty();
     if (is_warped) {
-      const QTransform on_screen = piece.transform * world;
-      const WarpedImage& warped =
-          cache->Warped(piece.drawing, piece.grid, piece.warp_points,
-                        DetailFor(on_screen));
+      const WarpedImage& warped = cache->Warped(
+          piece.drawing, piece.grid, piece.warp_points,
+          DetailFor(on_screen, look.is_blended ? kSmoothDetail : kFullDetail),
+          look);
       // A small bend is drawn stretched back to the drawing's size.
       painter->setTransform(QTransform::fromScale(1.0 / warped.detail,
                                                   1.0 / warped.detail) *
@@ -90,10 +110,20 @@ void Painter::operator()(const DollLayer& layer) const {
                             on_screen);
       painter->drawImage(0, 0, warped.image);
     } else {
-      painter->setTransform(piece.transform * world);
-      painter->drawImage(QRectF(QPointF(), QSizeF(piece.size)), image);
+      // A smooth piece draws its upscaled copy over the same rectangle,
+      // so it sits on exactly the same spot.
+      const QImage& shown =
+          look.is_blended
+              ? cache->Upscaled(
+                    piece.drawing,
+                    UpscaleTimes(image.size(),
+                                 std::sqrt(std::abs(on_screen.determinant()))))
+              : image;
+      painter->setTransform(on_screen);
+      painter->drawImage(QRectF(QPointF(), QSizeF(piece.size)), shown);
     }
   }
+  painter->setRenderHint(QPainter::SmoothPixmapTransform, false);
   painter->setOpacity(layer_opacity);
 }
 

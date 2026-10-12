@@ -1,6 +1,10 @@
 # Smooth warp
 
-Status: planned. Inspired by the Pixel Edge Upscaler test page (xBR and RotSprite).
+Status: built, first pass (2026-10-12); owner tests by eye. Inspired by the Pixel Edge Upscaler test page (xBR and RotSprite).
+
+The first pass: each doll's rig has a look (Crisp, Smooth, Smooth flat) and a Hard edges switch, set in the Rig tab's Look box (three tiles and a tick box, one undo step each through RigManager), and each piece a Keep crisp tick in its settings. Saved in rig.json and kept on re-import; a rig without a look opens Crisp, a doll with no rig.json yet starts Smooth. A smooth drawing is upscaled once (Scale2x, the simplest of the xBR family, applied twice for 4x, once for 2x) when first drawn and kept in the renderer's WarpCache next to its bends, within its byte budget, least recently used dropped first. Warps blend between the upscaled pixels (bilinear); turned and scaled pieces draw the upscaled copy with the painter's smooth scaling, so both moves share the look. Smooth flat keeps fully covered pixels on the drawing's own colors; Hard edges keeps or drops edge pixels whole. Bends are made up to twice the drawing's size when zoomed in. Hold backslash on the stage to see everything Crisp. Hit tests, meshes, colliders and outlines still read the original drawing.
+
+Not built yet: real xBR (Scale2x stands in), the live bent preview on each tile, upscaling in the background, the on-disk cache next to the doll, a draft look while dragging, the export dialog's look override, and Smooth flat for pieces that are only turned or scaled (they draw like Smooth). "Very large" means a side past 2048 pixels (upscaled 2x at most), since the renderer does not know the canvas.
 
 Needs: nothing.
 
@@ -52,7 +56,7 @@ Warped, turned and scaled pieces should look like the smoothed anime frame, not 
 
 ## Open questions
 
-- [ ] Should new dolls start Smooth or Smooth flat?
+- [x] Should new dolls start Smooth or Smooth flat? First pass: Smooth, as the doc proposes.
 
 ## Not in the first version
 

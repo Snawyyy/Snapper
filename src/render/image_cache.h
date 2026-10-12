@@ -31,11 +31,21 @@ class ImageCache final {
   // The drawing at path bent by grid over points (see WarpImage),
   // kept so the same bend is made once. An empty image if path can't
   // be read. The reference holds until the next call.
+  // Hit tests use the default look, so they read the original drawing.
   const WarpedImage& Warped(const QString& path, const WarpGrid& grid,
                             const std::vector<QPointF>& points,
-                            int detail = kFullDetail);
+                            int detail = kFullDetail,
+                            const WarpLook& look = {});
+  // The drawing at path upscaled times (2 or 4) for the Smooth look
+  // (see UpscaleDrawing); null if path can't be read. The reference
+  // holds until the next call.
+  const QImage& Upscaled(const QString& path, int times);
   // Forgets path, for when a file changed on disk.
   void Forget(const QString& path);
+  // While on, every drawing paints Crisp whatever its doll's look: the
+  // stage's hold-to-compare key.
+  void set_crisp_only(bool is_on) { is_crisp_only_ = is_on; }
+  bool is_crisp_only() const { return is_crisp_only_; }
   std::int64_t bytes() const { return bytes_; }
   // The poses solved so far for the shot being drawn (see PoseMemo).
   PoseMemo* poses() { return &poses_; }
@@ -57,6 +67,7 @@ class ImageCache final {
   WarpCache warps_;
   PoseMemo poses_;
   LimbMemo limbs_;
+  bool is_crisp_only_ = false;
 };
 
 }  // namespace snapper

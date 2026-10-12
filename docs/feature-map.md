@@ -50,6 +50,7 @@ it in the same commit.
 | Smart dials (stops, blend, Set stop, dial keys) | Dolls | model/smart_dial.h, anim/smart_dial.cpp, edit/dial_manager.cpp, io/smart_dial_json.cpp, ui/dial_box.cpp, ui/dial_track.cpp, edit/track_ref.h (kDial) | DialManager | none yet |
 | Skins (make in the Rig tab, wear in the Pose tab, Shift+[ and ]) | Dolls | model/skin.h, anim/skin.cpp (ApplySkins), anim/doll_pose.cpp, edit/skin_manager.cpp, io/skin_json.cpp, io/layer_json.cpp, io/reconcile.cpp, ui/skin_box.cpp, ui/skin_rig_box.cpp, ui/skin_tiles.cpp, ui/rig_panel.cpp (Drawing picker), edit/track_ref.h (kSkin) | SkinManager | none yet |
 | Joint snap and joint circles (width middle, end center, overlap center, Snap to shape, J) | Dolls | anim/joint_snap.cpp, edit/rig_snap.cpp, model/doll.h (JointCircle), io/doll_json.cpp, render/layer_painter.cpp (PaintJointCircle), ui/rig_canvas_snap.cpp, ui/rig_canvas_input.cpp (MovePivots, J), ui/rig_canvas_collider.cpp (menu) | RigManager (SnapJointsToShape, ToggleJointCircle, SetJointCircleColor) | none yet |
+| Smooth warp (looks Crisp, Smooth, Smooth flat; Hard edges; Keep crisp; hold backslash) | Rendering | model/doll.h (DrawingLook), render/upscale.cpp, render/warp_raster.cpp (WarpLook), render/warp_cache.cpp (Upscaled), render/image_cache.cpp, render/layer_painter.cpp (LookOf), io/doll_json.cpp, io/doll_file.cpp (ReadRig), io/reconcile.cpp, edit/rig_batch.cpp, ui/look_box.cpp, ui/rig_panel.cpp, ui/stage_view_look.cpp | RigManager (SetLook, SetHardEdges, SetStaysCrispAll) | none yet |
 
 ## Adding a new kind
 
@@ -146,6 +147,10 @@ Other enums with switch sites:
   ui/drag_feedback.cpp; test ui/drag_feedback_tests.
 - DotShape (ui/dot_shape.h): ui/dot_shape.cpp, ui/stage_view_paint.cpp;
   test ui/dot_shape_tests.
+- DrawingLook (model/doll.h, `kDrawingLookCount`): io/doll_json.cpp
+  (`kLookNames`), edit/rig_batch.cpp (`LookName` switch),
+  render/warp_raster.cpp (`WarpLookFor`), ui/look_box.cpp (`LookHelp`
+  switch, tiles from the Count).
 - MeshDetail (model/warp_mesh.h): anim/shape_mesh.cpp, io/warp_json.cpp,
   edit/mesh_edits.cpp, edit/rig_mesh.cpp, ui/rig_panel.cpp; tests
   anim/shape_mesh_tests, io/warp_json_tests, edit/mesh_edit_tests.

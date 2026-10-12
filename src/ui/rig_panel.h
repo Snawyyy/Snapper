@@ -19,6 +19,7 @@
 #include "model/doll.h"
 #include "ui/collider_box.h"
 #include "ui/live_edit.h"
+#include "ui/look_box.h"
 #include "ui/managers.h"
 #include "ui/skin_rig_box.h"
 
@@ -105,6 +106,8 @@ class RigPanel final : public QWidget {
   QPushButton remove_chain_;
   ColliderBox collider_box_;
   SkinRigBox skins_;
+  LookBox look_;
+  QCheckBox stays_crisp_;
   QHBoxLayout mirror_buttons_;
   QPushButton copy_piece_;
   QPushButton copy_side_;

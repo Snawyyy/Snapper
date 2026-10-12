@@ -84,6 +84,7 @@ void RigPanel::Refresh() {
   Explain(&save_rig_, doll_.isEmpty() ? tr("Import a doll first.")
                                       : QString());
   skins_.SetDoll(doll_);
+  look_.SetDoll(doll_);
   RefreshPieces();
   assert(doll_.isEmpty() || FindDoll(project, doll_) != nullptr);
 }
@@ -127,7 +128,7 @@ void RigPanel::ShowOrderAndRest(const Doll& doll, const RigPiece& focus) {
 }
 
 void RigPanel::RefreshPiece() {
-  assert(form_.rowCount() == 11);
+  assert(form_.rowCount() == 12);
   assert(managers_.IsComplete());
   const Doll* doll = doll_.isEmpty()
                          ? nullptr
@@ -146,6 +147,7 @@ void RigPanel::RefreshPiece() {
                          static_cast<QWidget*>(&drawing_),
                          static_cast<QWidget*>(&warp_on_),
                          static_cast<QWidget*>(&keep_shape_),
+                         static_cast<QWidget*>(&stays_crisp_),
                          static_cast<QWidget*>(&add_chain_)}) {
     Explain(field, why_not);
   }
@@ -171,6 +173,7 @@ void RigPanel::RefreshPiece() {
                               ? 0
                               : std::max(0, parent_.findText(rig->parent)));
   keep_shape_.setChecked(rig->keeps_shape);
+  stays_crisp_.setChecked(rig->stays_crisp);
   ShowOrderAndRest(*doll, *rig);
   drawing_.clear();
   const QString skin = skins_.skin();
@@ -202,7 +205,7 @@ void RigPanel::RefreshPiece() {
 
 void RigPanel::ShowWarp(const RigPiece* rig) {
   assert(managers_.rig != nullptr);
-  assert(form_.rowCount() == 11);
+  assert(form_.rowCount() == 12);
   const QSignalBlocker quiet_columns(warp_columns_);
   const QSignalBlocker quiet_rows(warp_rows_);
   const QSignalBlocker quiet_detail(detail_);

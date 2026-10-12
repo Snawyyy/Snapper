@@ -2,6 +2,8 @@
 
 #include <cassert>
 
+#include "render/upscale.h"
+
 namespace snapper {
 
 const QImage& ImageCache::Get(const QString& path) {
@@ -28,13 +30,23 @@ const QImage& ImageCache::Get(const QString& path) {
 
 const WarpedImage& ImageCache::Warped(const QString& path, const WarpGrid& grid,
                                       const std::vector<QPointF>& points,
-                                      int detail) {
+                                      int detail, const WarpLook& look) {
   assert(bytes_ >= 0);
   assert(images_.size() == uses_.size());
   static const WarpedImage kNothing{};
   const QImage& image = Get(path);
   const bool is_loaded = !image.isNull();
-  return is_loaded ? warps_.Bent(path, image, grid, points, detail) : kNothing;
+  return is_loaded ? warps_.Bent(path, image, grid, points, detail, look)
+                   : kNothing;
+}
+
+const QImage& ImageCache::Upscaled(const QString& path, int times) {
+  assert(bytes_ >= 0);
+  assert(times == 2 || times == kMaxUpscale);
+  static const QImage kNothing;
+  const QImage& image = Get(path);
+  const bool is_loaded = !image.isNull();
+  return is_loaded ? warps_.Upscaled(path, image, times) : kNothing;
 }
 
 void ImageCache::Forget(const QString& path) {

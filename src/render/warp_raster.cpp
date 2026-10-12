@@ -34,6 +34,68 @@ struct Triangle final {
   return is_inside ? row[x] : 0u;
 }
 
+// The pixel at x, y of a premultiplied image; outside is clear.
+[[gnu::always_inline]] inline QRgb PixelAt(const QImage& image, int x, int y) {
+  const bool is_inside =
+      x >= 0 && y >= 0 && x < image.width() && y < image.height();
+  return is_inside
+             ? reinterpret_cast<const QRgb*>(image.constScanLine(y))[x]
+             : 0u;
+}
+
+// One channel (at shift) of four pixels mixed by weights out of 65536.
+[[gnu::always_inline]] inline QRgb MixChannel(const QRgb (&p)[4],
+                                              const unsigned (&w)[4],
+                                              int shift) {
+  const unsigned sum = ((p[0] >> shift) & 0xffu) * w[0] +
+                       ((p[1] >> shift) & 0xffu) * w[1] +
+                       ((p[2] >> shift) & 0xffu) * w[2] +
+                       ((p[3] >> shift) & 0xffu) * w[3];
+  return ((sum + 32768u) >> 16) << shift;
+}
+
+// Bilinear read of a premultiplied image: the four pixels around at,
+// mixed by how near each centre is. A pixel centre reads its own pixel,
+// so a drawing at rest sits where the nearest read put it.
+[[gnu::always_inline]] inline QRgb Blend(const QImage& image, QPointF at) {
+  assert(std::isfinite(at.x()) && std::isfinite(at.y()));
+  const double sx = at.x() - 0.5;
+  const double sy = at.y() - 0.5;
+  const double fx0 = std::floor(sx);
+  const double fy0 = std::floor(sy);
+  const int x = static_cast<int>(fx0);
+  const int y = static_cast<int>(fy0);
+  const auto ix = static_cast<unsigned>((sx - fx0) * 256.0);
+  const auto iy = static_cast<unsigned>((sy - fy0) * 256.0);
+  const QRgb p[4] = {PixelAt(image, x, y), PixelAt(image, x + 1, y),
+                     PixelAt(image, x, y + 1), PixelAt(image, x + 1, y + 1)};
+  const unsigned w[4] = {(256u - ix) * (256u - iy), ix * (256u - iy),
+                         (256u - ix) * iy, ix * iy};
+  return MixChannel(p, w, 0) | MixChannel(p, w, 8) | MixChannel(p, w, 16) |
+         MixChannel(p, w, 24);
+}
+
+// A read as look asks.
+[[gnu::always_inline]] inline QRgb ReadLooked(const QImage& image, QPointF at,
+                                              const WarpLook& look) {
+  const QRgb mixed = Blend(image, at);
+  const int alpha = qAlpha(mixed);
+  const bool is_inside = alpha == 255;
+  if (is_inside) {
+    return look.is_flat ? Sample(image, at) : mixed;
+  }
+  if (!look.is_hard) {
+    return mixed;
+  }
+  const bool is_dropped = alpha < 128;
+  if (is_dropped) {
+    return 0u;
+  }
+  const QRgb nearest = Sample(image, at);
+  const bool is_own = look.is_flat && qAlpha(nearest) == 255;
+  return is_own ? nearest : (qUnpremultiply(mixed) | 0xff000000u);
+}
+
 // How far a barycentric weight moves per pixel to the right, and its
 // value at the row's left edge (px = 0): weight = slope * px + base.
 struct Line final {
@@ -93,10 +155,11 @@ Line Mixed(const Line (&weights)[3], double f0, double f1, double f2) {
           f0 * weights[0].base + f1 * weights[1].base + f2 * weights[2].base};
 }
 
-// Draws one row of the triangle between columns x0 and x1. Inside a
-// triangle the source position moves the same step for every pixel, so
-// it is found once and stepped along.
-void DrawRow(const QImage& source, const Triangle& triangle,
+// Draws one row of the triangle between columns x0 and x1, reading the
+// source with read. Inside a triangle the source position moves the
+// same step for every pixel, so it is found once and stepped along.
+template <typename Read>
+void DrawRow(const Read& read, const Triangle& triangle,
              const Line (&weights)[3], double origin_x, int x0, int x1,
              QRgb* row) {
   assert(row != nullptr);
@@ -107,15 +170,16 @@ void DrawRow(const QImage& source, const Triangle& triangle,
                           triangle.from[2].y());
   for (int x = x0; x < x1; ++x) {
     const double px = x + 0.5 + origin_x;
-    row[x] = Sample(source, QPointF(at_x.slope * px + at_x.base,
-                                    at_y.slope * px + at_y.base));
+    row[x] = read(QPointF(at_x.slope * px + at_x.base,
+                          at_y.slope * px + at_y.base));
   }
 }
 
-void DrawTriangle(const QImage& source, const Triangle& triangle,
-                  QPointF origin, QImage* target) {
+template <typename Read>
+void DrawTriangle(const Read& read, const Triangle& triangle, QPointF origin,
+                  QImage* target) {
   assert(target != nullptr);
-  assert(!source.isNull());
+  assert(!target->isNull());
   const QPointF& a = triangle.to[0];
   const QPointF& b = triangle.to[1];
   const QPointF& c = triangle.to[2];
@@ -150,16 +214,45 @@ void DrawTriangle(const QImage& source, const Triangle& triangle,
     const int x1 = static_cast<int>(std::min<double>(last, box.right() + 1));
     const bool is_covered = x0 < x1;
     if (is_covered) {
-      DrawRow(source, triangle, weights, origin.x(), x0, x1,
+      DrawRow(read, triangle, weights, origin.x(), x0, x1,
               reinterpret_cast<QRgb*>(target->scanLine(y)));
     }
   }
 }
 
+// Every triangle of grid, from rest to points, read with read.
+template <typename Read>
+void DrawTriangles(const Read& read, const WarpGrid& grid,
+                   const std::vector<QPointF>& rest,
+                   const std::vector<QPointF>& points, WarpedImage* warped) {
+  assert(warped != nullptr);
+  assert(rest.size() == points.size());
+  for (const MeshTriangle& t : WarpTriangles(grid)) {
+    const auto a = static_cast<size_t>(t[0]);
+    const auto b = static_cast<size_t>(t[1]);
+    const auto c = static_cast<size_t>(t[2]);
+    DrawTriangle(read,
+                 {{points[a], points[b], points[c]},
+                  {rest[a], rest[b], rest[c]}},
+                 warped->origin, &warped->image);
+  }
+}
+
 }  // namespace
 
+WarpLook WarpLookFor(DrawingLook look, bool hard_edges) {
+  assert(static_cast<int>(look) < kDrawingLookCount);
+  assert(static_cast<int>(look) >= 0);
+  const bool is_crisp = look == DrawingLook::kCrisp;
+  if (is_crisp) {
+    return {};
+  }
+  return {true, look == DrawingLook::kSmoothFlat, hard_edges};
+}
+
 WarpedImage WarpImage(const QImage& source, const WarpGrid& grid,
-                      const std::vector<QPointF>& points) {
+                      const std::vector<QPointF>& points,
+                      const WarpLook& look) {
   assert(!source.isNull());
   assert(points.size() <= static_cast<size_t>(kMaxWarpPoints));
   const QImage premultiplied =
@@ -179,14 +272,13 @@ WarpedImage WarpImage(const QImage& source, const WarpGrid& grid,
   WarpedImage warped{QImage(area.size(), QImage::Format_ARGB32_Premultiplied),
                      QPointF(area.topLeft())};
   warped.image.fill(Qt::transparent);
-  for (const MeshTriangle& t : WarpTriangles(grid)) {
-    const auto a = static_cast<size_t>(t[0]);
-    const auto b = static_cast<size_t>(t[1]);
-    const auto c = static_cast<size_t>(t[2]);
-    DrawTriangle(premultiplied,
-                 {{points[a], points[b], points[c]},
-                  {rest[a], rest[b], rest[c]}},
-                 warped.origin, &warped.image);
+  if (look.is_blended) {
+    DrawTriangles(
+        [&](QPointF at) { return ReadLooked(premultiplied, at, look); }, grid,
+        rest, points, &warped);
+  } else {
+    DrawTriangles([&](QPointF at) { return Sample(premultiplied, at); }, grid,
+                  rest, points, &warped);
   }
   return warped;
 }

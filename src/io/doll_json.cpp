@@ -4,6 +4,7 @@
 #include <QJsonObject>
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <map>
 #include <cmath>
@@ -20,6 +21,22 @@
 
 namespace snapper {
 namespace {
+
+// DrawingLook by its value.
+constexpr std::array<const char*, kDrawingLookCount> kLookNames{
+    "crisp", "smooth", "smooth_flat"};
+
+// An unknown or missing name opens Crisp, as before looks existed.
+DrawingLook LookFromName(const QString& name) {
+  assert(kLookNames.size() == static_cast<size_t>(kDrawingLookCount));
+  for (size_t i = 0; i < kLookNames.size(); ++i) {
+    const bool is_match = name == QLatin1String(kLookNames[i]);
+    if (is_match) {
+      return static_cast<DrawingLook>(i);
+    }
+  }
+  return DrawingLook::kCrisp;
+}
 
 QJsonArray ReachToJson(const std::vector<double>& reach) {
   assert(reach.size() <= static_cast<size_t>(kMaxWarpPoints));
@@ -303,6 +320,9 @@ QJsonObject RigToJson(const Rig& rig, bool with_layers) {
       }
       object.insert("joint_circle", circle);
     }
+    if (piece.stays_crisp) {
+      object.insert("crisp", true);
+    }
     pieces.append(object);
   }
   QJsonArray chains;
@@ -327,6 +347,12 @@ QJsonObject RigToJson(const Rig& rig, bool with_layers) {
   }
   if (!rig.skins.empty()) {
     out.insert("skins", SkinsToJson(rig.skins));
+  }
+  // Always written, so a saved new doll keeps its look; a rig without
+  // one is from before looks and opens Crisp.
+  out.insert("look", kLookNames[static_cast<size_t>(rig.look)]);
+  if (rig.hard_edges) {
+    out.insert("hard_edges", true);
   }
   return out;
 }
@@ -360,6 +386,7 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
         circle.contains("color")
             ? ColorFromJson(circle.value("color"), QColor(Qt::black), issues)
             : QColor()};
+    rig.pieces.back().stays_crisp = piece.value("crisp").toBool();
   }
   const QJsonArray chains =
       Bounded(object.value("chains"), kMaxIkChains, "IK chains", issues);
@@ -377,6 +404,8 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
       ColorsFromJson(object.value("added_colors"), kMaxAddedColors, issues);
   rig.dials = DialsFromJson(object.value("dials"), issues);
   rig.skins = SkinsFromJson(object.value("skins"), issues);
+  rig.look = LookFromName(object.value("look").toString());
+  rig.hard_edges = object.value("hard_edges").toBool();
   assert(rig.chains.size() <= static_cast<size_t>(kMaxIkChains));
   return rig;
 }

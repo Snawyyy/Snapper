@@ -330,7 +330,7 @@ void StageView::keyPressEvent(QKeyEvent* event) {
     event->accept();
     return;
   }
-  const bool was_poke_key = PokeKey(event, true);
+  const bool was_poke_key = PokeKey(event, true) || CrispKey(event, true);
   if (was_poke_key) {
     event->accept();
     return;

@@ -82,8 +82,12 @@ Skins, first pass (docs/features/skins.md says what is left): a Skins
 box in the Rig tab makes skins and, with one picked, the Drawing picker
 sets or hides pieces in it; a Skins fold in the inspector wears them at
 the playhead on their own keyed track (Shift click stacks, Shift+[ and
-] step), applied by the shared sampler (`SkinManager`). No tests yet,
-the owner adds them later. Next in docs/features: Smooth warp.
+] step), applied by the shared sampler (`SkinManager`). Then Smooth
+warp, first pass (docs/features/smooth-warp.md says what is left): a
+Look box in the Rig tab (Crisp, Smooth, Smooth flat, Hard edges) and a
+per-piece Keep crisp; smooth pieces draw from a Scale2x upscale kept in
+the WarpCache, blended, and hold backslash shows Crisp. No tests yet,
+the owner adds them later. Next in docs/features: Objects.
 
 Before that (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
 inspector as a hardware panel (pose box: dials, pad, faders; golden ratio,

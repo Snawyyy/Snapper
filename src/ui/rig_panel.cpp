@@ -24,6 +24,7 @@ RigPanel::RigPanel(const Managers& managers)
       remove_chain_(tr("Remove")),
       collider_box_(managers),
       skins_(managers),
+      look_(managers),
       copy_piece_(tr("Copy to other side")),
       copy_side_(tr("Copy whole side")),
       mirror_nodes_(tr("Mirror rig to other side")),
@@ -35,6 +36,7 @@ RigPanel::RigPanel(const Managers& managers)
   BuildLayout();
   connect(&collider_box_, &ColliderBox::Problem, this, &RigPanel::Problem);
   connect(&skins_, &SkinRigBox::Problem, this, &RigPanel::Problem);
+  connect(&look_, &LookBox::Problem, this, &RigPanel::Problem);
   connect(&skins_, &SkinRigBox::SkinPicked, this, [this](const QString& s) {
     emit SkinPicked(s);
     RefreshPiece();
@@ -111,6 +113,11 @@ void RigPanel::BuildLayout() {
   AddNumberRow(&form_, tr("Draw order"), &order_, &live_);
   form_.addRow(tr("Drawing"), &drawing_);
   form_.addRow(QString(), &keep_shape_);
+  stays_crisp_.setObjectName("stays_crisp");
+  stays_crisp_.setText(tr("Keep crisp"));
+  stays_crisp_.setToolTip(tr("Draws this piece Crisp whatever the doll's "
+                             "look: for a pixel-art screen and the like."));
+  form_.addRow(QString(), &stays_crisp_);
   AddTitle(&form_, &warp_title_, tr("Warp"));
   form_.addRow(QString(), &warp_on_);
   form_.addRow(tr("Detail"), &detail_);
@@ -123,6 +130,7 @@ void RigPanel::BuildLayout() {
   chain_buttons_.addWidget(&remove_chain_);
   layout_.addWidget(&dolls_);
   layout_.addWidget(&pieces_, 2);
+  layout_.addWidget(&look_);
   layout_.addWidget(&skins_);
   layout_.addLayout(&form_);
   layout_.addWidget(&collider_box_);
@@ -138,12 +146,12 @@ void RigPanel::BuildLayout() {
   layout_.addLayout(&chain_buttons_);
   layout_.addWidget(&save_rig_);
   layout_.addWidget(&hint_);
-  assert(form_.rowCount() == 11);
+  assert(form_.rowCount() == 12);
 }
 
 void RigPanel::Wire() {
   assert(managers_.IsComplete());
-  assert(form_.rowCount() == 11);
+  assert(form_.rowCount() == 12);
   RigManager* rig = managers_.rig;
   connect(&dolls_, &QComboBox::textActivated, this, [this](const QString& d) {
     doll_ = d;
@@ -205,6 +213,9 @@ void RigPanel::Wire() {
   WireWarp();
   connect(&keep_shape_, &QCheckBox::clicked, this, [this, rig](bool is_on) {
     emit Problem(ProblemOf(rig->SetKeepShapeAll(doll_, Picked(), is_on)));
+  });
+  connect(&stays_crisp_, &QCheckBox::clicked, this, [this, rig](bool is_on) {
+    emit Problem(ProblemOf(rig->SetStaysCrispAll(doll_, Picked(), is_on)));
   });
   WireChains();
 }
