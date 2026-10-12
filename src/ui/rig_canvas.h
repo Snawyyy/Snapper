@@ -45,6 +45,8 @@ class RigCanvas final : public QWidget {
   explicit RigCanvas(const Managers& managers);
 
   void SetDoll(const QString& doll);
+  // Shows the doll wearing skin (empty: none), while it is being changed.
+  void SetSkin(const QString& skin);
   void SetPiece(const QString& piece);
   // Picks pieces with focus shown in the panel, as the panel's list does.
   void SetPick(const QStringList& picked, const QString& focus);
@@ -168,6 +170,7 @@ class RigCanvas final : public QWidget {
   QString hover_piece_;
   ImageCache cache_;
   QString doll_;
+  QString skin_;
   QString piece_;
   std::set<QString> picked_;
   std::set<QString> picked_dots_;

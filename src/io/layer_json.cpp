@@ -40,6 +40,10 @@ void AddFields(const DollLayer& doll, QJsonObject* object) {
     }
     object->insert("dials", dials);
   }
+  const bool has_skins = !doll.skins.keys.empty();
+  if (has_skins) {
+    object->insert("skins", ChannelToJson(doll.skins));
+  }
 }
 
 void AddFields(const ImageLayer& image, QJsonObject* object) {
@@ -102,6 +106,7 @@ DollLayer DollFromJson(const QJsonObject& object, JsonIssues* issues) {
   for (auto it = dials.begin(); it != dials.end(); ++it) {
     doll.dials[it.key()] = ChannelFromJson(it.value(), 0.5, issues);
   }
+  doll.skins = ChannelFromJson(object.value("skins"), SkinSet(), issues);
   assert(doll.pieces.size() <= static_cast<size_t>(kMaxPieceTracks));
   return doll;
 }

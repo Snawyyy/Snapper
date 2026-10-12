@@ -40,32 +40,6 @@ Result<Project> WithDial(const Project& project, const QString& doll,
   });
 }
 
-// project with change(DollLayer*) run on every layer that shows doll.
-template <typename Change>
-Project WithDollLayers(Project project, const QString& doll, Change change) {
-  assert(!doll.isEmpty());
-  assert(project.shots.size() <= static_cast<size_t>(kMaxShots));
-  for (auto& shared : project.shots) {
-    const bool has_doll = std::ranges::any_of(
-        shared->layers, [&doll](const Layer& layer) {
-          const auto* posed = std::get_if<DollLayer>(&layer.content);
-          return posed != nullptr && posed->doll == doll;
-        });
-    if (!has_doll) {
-      continue;
-    }
-    Shot shot = *shared;
-    for (Layer& layer : shot.layers) {
-      auto* posed = std::get_if<DollLayer>(&layer.content);
-      if (posed != nullptr && posed->doll == doll) {
-        change(posed);
-      }
-    }
-    shared = std::make_shared<const Shot>(std::move(shot));
-  }
-  return project;
-}
-
 // The first of name, "name 2", "name 3"... that dials do not use.
 QString FreshDialName(const std::vector<SmartDial>& dials,
                       const QString& name) {

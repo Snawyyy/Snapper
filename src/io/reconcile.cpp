@@ -39,10 +39,12 @@ Rig Reconcile(const DollArt& art, const Rig& rig, ReconcileReport* report) {
   Rig fitted;
   fitted.krita_file = rig.krita_file;
   fitted.added_colors = rig.added_colors;
-  // Groups and dials name pieces and drawings; ones that went missing
-  // are skipped where they are used, never deleted here.
+  // Groups, dials and skins name pieces and drawings; ones that went
+  // missing are skipped where they are used (the piece shows its
+  // default), never deleted here.
   fitted.dot_groups = rig.dot_groups;
   fitted.dials = rig.dials;
+  fitted.skins = rig.skins;
   int stack = 0;
   for (const ArtPiece& piece : art.pieces) {
     fitted.pieces.push_back(

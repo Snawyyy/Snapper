@@ -1,6 +1,12 @@
 # Skins
 
-Status: planned. Inspired by Spine's skins.
+Status: built, first pass (2026-10-12); owner tests by eye. Inspired by Spine's skins.
+
+First pass: skins live in the rig (`Rig::skins`, rig.json, carried through a Krita re-import) and are worn per doll layer on their own keyed track (`DollLayer::skins`, track kind `kSkin`, shown on the doll's timeline row), holding until the next skin key. `SkinManager` owns every edit, one undo step each ("Skin pajamas", "Take off skin pajamas"). Rig tab: a Skins box under the piece list; "+ Skin" makes one (a copy of the skin being changed, or an empty one), From Krita names makes one per "skin/drawing" prefix; clicking a tile picks it to change, the rig canvas then shows the doll wearing it and the Drawing picker sets the picked pieces' drawing in it, "None (hidden)" hides them, "Not in" takes them out; right click: Rename, Duplicate, Move up, Move down, Delete (greyed while a shot keys it, naming the shots). Pose tab: a Skins fold in the inspector while a doll is picked whole; click a tile to wear it alone, click a lit one to take it off, Shift click to stack; every picked doll with a skin of that name changes; Shift+[ and Shift+] step through the skins (none sits between the last and the first); right click, Update from current look takes the drawings swapped (and pieces hidden with opacity 0) by hand at the playhead into the skin. The shared sampler applies skins after the dials: a hand-picked drawing beats every skin, a dial's drawing becomes the worn skin's "skin/drawing" version where it exists, and the skin higher in the list wins. A drawing a skin names that is gone leaves the piece on its default (a re-export already reports removed drawings).
+
+Not built yet: tile pictures of the doll wearing each skin, drag to reorder (Move up and down instead), the chips with skin names on the timeline (the keys show on the doll's row), greyed tiles for picked dolls without the skin, cast card skin dots and a starting skin, skin colors for joint circles and the palette, Draw on a piece's "Also for skin", Mirror copying skin choices to twins, the wheel on a piece to swap its drawing in a skin, and offering Krita skins on load (it is a button).
+
+Defaults taken for the open points: a skin's keys are their own track, not part of the whole-doll key, so a later pose key never takes an outfit off; hiding is opacity 0 on the piece; "the doll as it looks now" for "+" means the skin being changed (or none); Update from current look lives in the Pose tab, where there is a look to take.
 
 Needs: the Krita exporter keeping layer names (first part of [Doll to Krita](doll-to-krita.md)) and the [floating palette](palette.md).
 

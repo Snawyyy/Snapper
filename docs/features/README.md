@@ -17,7 +17,7 @@ In build order. Each file has a Needs line naming what must come first; Doll to 
 - [x] [Smart Dials](smart-dials.md): one dial per action (head turn, blink, mouth) that swaps piece drawings and slides joints with them, keyed like any fader.
 - [x] [Draw on a piece](draw-on-a-piece.md): draw a new drawing for a limb inside Snapper, with reference flicking, a floating palette and pixel tools.
 - [x] [Joint snap and joint circles](joint-snap.md): joints catch on the middle of the drawn limb's width, and a circle of that width fills the bend.
-- [ ] [Skins](skins.md): a named set of drawings across many pieces that swaps a doll's whole look with one tile.
+- [x] [Skins](skins.md): a named set of drawings across many pieces that swaps a doll's whole look with one tile.
 - [ ] [Smooth warp](smooth-warp.md): upscale drawings with xBR and blend when warping, so bent parts stay smooth instead of jagged.
 - [ ] [Objects](objects.md): PNG and GIF props a doll can hold, pass and drop, slotting into its draw order.
 

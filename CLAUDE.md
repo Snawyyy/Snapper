@@ -77,8 +77,13 @@ the rig canvas catches on the width middle, an end circle's center or
 the overlap with its parent (`anim/joint_snap.cpp`), Ctrl drags freely,
 and right click Snap to shape or Snap all joints moves joints in one
 undo step; J turns a joint circle on (limb-wide disc under the child,
-drawing's color, recolored by a palette pick, saved in rig.json). No tests yet, the owner adds
-them later. Next in docs/features: Skins.
+drawing's color, recolored by a palette pick, saved in rig.json). Then
+Skins, first pass (docs/features/skins.md says what is left): a Skins
+box in the Rig tab makes skins and, with one picked, the Drawing picker
+sets or hides pieces in it; a Skins fold in the inspector wears them at
+the playhead on their own keyed track (Shift click stacks, Shift+[ and
+] step), applied by the shared sampler (`SkinManager`). No tests yet,
+the owner adds them later. Next in docs/features: Smooth warp.
 
 Before that (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
 inspector as a hardware panel (pose box: dials, pad, faders; golden ratio,

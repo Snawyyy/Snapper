@@ -12,6 +12,7 @@
 
 #include "base/id.h"
 #include "model/dot_group.h"
+#include "model/skin.h"
 #include "model/smart_dial.h"
 #include "model/warp_mesh.h"
 
@@ -53,6 +54,8 @@ struct ArtPiece final {
 // The name of drawing index of piece: its Krita layer name, or for old
 // dolls "head 1", "head 2" by position.
 QString DrawingName(const ArtPiece& piece, int index);
+// The index of piece's drawing called name (see DrawingName), or -1.
+int FindDrawing(const ArtPiece& piece, const QString& name);
 
 // What Krita exported: art.json. Snapper only reads it.
 struct DollArt final {
@@ -302,6 +305,9 @@ struct Rig final {
   // Smart dials, in the order they are listed; for the drawing, a dial
   // later in the list wins.
   std::vector<SmartDial> dials;
+  // Skins, in the order the Skins box lists them; where two worn skins
+  // touch the same piece, the one earlier in the list wins.
+  std::vector<Skin> skins{};
 
   bool operator==(const Rig&) const = default;
 };

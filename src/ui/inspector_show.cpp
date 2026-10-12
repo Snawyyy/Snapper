@@ -61,6 +61,7 @@ InspectorShow ShowFor(const Project& project, ShotId shot,
   show.layer = is_whole;
   show.saved_poses = is_doll && is_whole;
   show.dials = is_doll;
+  show.skins = is_doll && is_whole;
   show.groups = is_doll && (has_dot || has_groups ||
                             HasWarpActivity(project, shot, picks));
   show.drag = has_dot;

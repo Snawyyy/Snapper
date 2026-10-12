@@ -6,6 +6,7 @@
 #include <cassert>
 
 #include "anim/doll_pose.h"
+#include "anim/skin.h"
 #include "edit/history_manager.h"
 #include "edit/palette_manager.h"
 #include "render/layer_painter.h"
@@ -56,6 +57,13 @@ void RigCanvas::SetDoll(const QString& doll) {
   StopHanging();
   update();
   assert(piece_.isEmpty());
+}
+
+void RigCanvas::SetSkin(const QString& skin) {
+  assert(skin.size() < 100000);
+  skin_ = skin;
+  update();
+  assert(skin_ == skin);
 }
 
 void RigCanvas::SetPiece(const QString& piece) {
@@ -116,8 +124,13 @@ void RigCanvas::paintEvent(QPaintEvent* event) {
                           canvas),
                    Qt::white);
   painter.resetTransform();
-  PaintLayer(project, RestLayer(doll_), Frame(0), world, nullptr, &cache_,
-             &painter);
+  Layer rest = RestLayer(doll_);
+  const bool is_skinned = !skin_.isEmpty();
+  if (is_skinned) {
+    std::get<DollLayer>(rest.content).skins =
+        WornFromStart(SkinSet{{skin_}});
+  }
+  PaintLayer(project, rest, Frame(0), world, nullptr, &cache_, &painter);
   painter.setRenderHint(QPainter::Antialiasing);
   PaintOverlay(&painter);
   if (is_boxing_) {

@@ -23,6 +23,8 @@ struct InspectorShow final {
   bool saved_poses = false;
   // Smart dials: for a doll, whole or by piece.
   bool dials = false;
+  // Skins: for a doll picked whole.
+  bool skins = false;
   // Dot groups: on a doll that has dots worth grouping (drag nodes or
   // motions on a picked piece, picked dots, or groups already there).
   bool groups = false;

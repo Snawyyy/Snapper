@@ -21,6 +21,8 @@ double Lerp(double a, double b, double t);
 QPointF Lerp(QPointF a, QPointF b, double t);
 PiecePose Lerp(const PiecePose& a, const PiecePose& b, double t);
 CameraPose Lerp(const CameraPose& a, const CameraPose& b, double t);
+// Skins never blend: a holds until the next key.
+SkinSet Lerp(const SkinSet& a, const SkinSet& b, double t);
 
 // The one sampler: the value of channel at frame. Before the first key
 // it holds the first key, after the last it holds the last, and with no

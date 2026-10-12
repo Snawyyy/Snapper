@@ -79,4 +79,10 @@ CameraPose Lerp(const CameraPose& a, const CameraPose& b, double t) {
   return out;
 }
 
+SkinSet Lerp(const SkinSet& a, const SkinSet& b, double t) {
+  assert(std::isfinite(t));
+  assert(a.names.size() < 100000 && b.names.size() < 100000);
+  return a;
+}
+
 }  // namespace snapper

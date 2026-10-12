@@ -23,6 +23,7 @@ class RigManager;
 class SelectionManager;
 class SettingsManager;
 class ShotManager;
+class SkinManager;
 class StageManager;
 class TimingChartManager;
 class ToastManager;
@@ -56,6 +57,8 @@ struct Managers final {
   DialManager* dials = nullptr;
   // Not in IsComplete either: draw mode's canvas and entries check it.
   DrawManager* draw = nullptr;
+  // Not in IsComplete either: the skin boxes check it.
+  SkinManager* skins = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&

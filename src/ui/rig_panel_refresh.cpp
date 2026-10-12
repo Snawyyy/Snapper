@@ -7,6 +7,7 @@
 
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
+#include "edit/skin_manager.h"
 #include "ui/form_helpers.h"
 #include "ui/problem.h"
 #include "ui/rig_panel.h"
@@ -82,6 +83,7 @@ void RigPanel::Refresh() {
   }
   Explain(&save_rig_, doll_.isEmpty() ? tr("Import a doll first.")
                                       : QString());
+  skins_.SetDoll(doll_);
   RefreshPieces();
   assert(doll_.isEmpty() || FindDoll(project, doll_) != nullptr);
 }
@@ -171,11 +173,28 @@ void RigPanel::RefreshPiece() {
   keep_shape_.setChecked(rig->keeps_shape);
   ShowOrderAndRest(*doll, *rig);
   drawing_.clear();
-  drawing_.addItem(tr("As in Krita"));
+  const QString skin = skins_.skin();
+  const bool is_skin = !skin.isEmpty();
+  if (is_skin) {
+    // Changing a skin: what the piece shows in it.
+    drawing_.addItem(tr("Not in %1").arg(skin));
+    drawing_.addItem(tr("None (hidden)"));
+  } else {
+    drawing_.addItem(tr("As in Krita"));
+  }
   for (const QString& file : art->drawings) {
     drawing_.addItem(file);
   }
-  drawing_.setCurrentIndex(rig->default_drawing + 1);
+  const int in_skin =
+      is_skin ? managers_.skins->DrawingIn(doll_, skin, piece_) : 0;
+  drawing_.setCurrentIndex(!is_skin                 ? rig->default_drawing + 1
+                           : in_skin == kSkinUnset  ? 0
+                           : in_skin == kSkinHidden ? 1
+                                                    : in_skin + 2);
+  drawing_.setToolTip(is_skin ? tr("What the picked pieces show while %1 is "
+                                   "worn.")
+                                    .arg(skin)
+                              : QString());
   Explain(&add_chain_, rig->parent.isEmpty()
                            ? tr("A chain needs the piece to hang from one.")
                            : QString());

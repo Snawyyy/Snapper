@@ -5,6 +5,7 @@
 #include "edit/doll_library_manager.h"
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
+#include "edit/skin_manager.h"
 #include "ui/form_helpers.h"
 #include "ui/live_edit.h"
 #include "ui/problem.h"
@@ -22,6 +23,7 @@ RigPanel::RigPanel(const Managers& managers)
       flip_chain_(tr("Flip bend")),
       remove_chain_(tr("Remove")),
       collider_box_(managers),
+      skins_(managers),
       copy_piece_(tr("Copy to other side")),
       copy_side_(tr("Copy whole side")),
       mirror_nodes_(tr("Mirror rig to other side")),
@@ -32,6 +34,11 @@ RigPanel::RigPanel(const Managers& managers)
   assert(managers_.IsComplete());
   BuildLayout();
   connect(&collider_box_, &ColliderBox::Problem, this, &RigPanel::Problem);
+  connect(&skins_, &SkinRigBox::Problem, this, &RigPanel::Problem);
+  connect(&skins_, &SkinRigBox::SkinPicked, this, [this](const QString& s) {
+    emit SkinPicked(s);
+    RefreshPiece();
+  });
   Wire();
   Refresh();
   assert(layout_.count() > 0);
@@ -116,6 +123,7 @@ void RigPanel::BuildLayout() {
   chain_buttons_.addWidget(&remove_chain_);
   layout_.addWidget(&dolls_);
   layout_.addWidget(&pieces_, 2);
+  layout_.addWidget(&skins_);
   layout_.addLayout(&form_);
   layout_.addWidget(&collider_box_);
   mirror_buttons_.addWidget(&copy_piece_);
@@ -181,7 +189,18 @@ void RigPanel::Wire() {
     }
   });
   connect(&drawing_, &QComboBox::activated, this, [this, rig](int index) {
-    emit Problem(ProblemOf(rig->SetDefaultDrawing(doll_, piece_, index - 1)));
+    const QString skin = skins_.skin();
+    if (skin.isEmpty()) {
+      emit Problem(
+          ProblemOf(rig->SetDefaultDrawing(doll_, piece_, index - 1)));
+      return;
+    }
+    // The first two entries are "Not in the skin" and "None (hidden)".
+    const int drawing = index == 0   ? kSkinUnset
+                        : index == 1 ? kSkinHidden
+                                     : index - 2;
+    emit Problem(ProblemOf(
+        managers_.skins->SetDrawing(doll_, skin, Picked(), drawing)));
   });
   WireWarp();
   connect(&keep_shape_, &QCheckBox::clicked, this, [this, rig](bool is_on) {

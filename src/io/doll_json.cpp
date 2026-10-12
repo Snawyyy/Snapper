@@ -13,6 +13,7 @@
 #include "io/dot_group_json.h"
 #include "io/own_drawing_json.h"
 #include "io/point_motion_json.h"
+#include "io/skin_json.h"
 #include "io/smart_dial_json.h"
 #include "io/warp_json.h"
 #include "model/node_physics.h"
@@ -324,6 +325,9 @@ QJsonObject RigToJson(const Rig& rig, bool with_layers) {
   if (!rig.dials.empty()) {
     out.insert("dials", DialsToJson(rig.dials));
   }
+  if (!rig.skins.empty()) {
+    out.insert("skins", SkinsToJson(rig.skins));
+  }
   return out;
 }
 
@@ -372,6 +376,7 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
   rig.added_colors =
       ColorsFromJson(object.value("added_colors"), kMaxAddedColors, issues);
   rig.dials = DialsFromJson(object.value("dials"), issues);
+  rig.skins = SkinsFromJson(object.value("skins"), issues);
   assert(rig.chains.size() <= static_cast<size_t>(kMaxIkChains));
   return rig;
 }

@@ -93,6 +93,8 @@ MainWindow::MainWindow(const Managers& managers)
           &RigCanvas::SetDoll);
   connect(&rig_panel_, &RigPanel::PickChanged, &rig_canvas_,
           &RigCanvas::SetPick);
+  connect(&rig_panel_, &RigPanel::SkinPicked, &rig_canvas_,
+          &RigCanvas::SetSkin);
   connect(&rig_canvas_, &RigCanvas::PickChanged, &rig_panel_,
           &RigPanel::SetPick);
   rig_canvas_.SetDoll(rig_panel_.doll());

@@ -14,17 +14,7 @@ int DrawingIndex(const Doll& doll, const QString& piece,
                  const QString& name) {
   assert(!piece.isEmpty());
   const ArtPiece* art = FindArt(doll, piece);
-  const bool has_art = art != nullptr && !name.isEmpty();
-  if (!has_art) {
-    return -1;
-  }
-  const int count = static_cast<int>(art->drawings.size());
-  for (int i = 0; i < count; ++i) {
-    if (DrawingName(*art, i) == name) {
-      return i;
-    }
-  }
-  return -1;
+  return art != nullptr ? FindDrawing(*art, name) : -1;
 }
 
 // stop's pose for piece, rest when it names none.

@@ -2,6 +2,7 @@
 #define SNAPPER_MODEL_POSE_H_
 
 #include <QPointF>
+#include <QString>
 
 #include <vector>
 
@@ -33,6 +34,15 @@ struct PiecePose final {
   std::vector<QPointF> warp;
 
   bool operator==(const PiecePose&) const = default;
+};
+
+// The skins a doll layer wears, by name. Where two touch the same piece
+// the one higher in the doll's Skins list wins, so the order here does
+// not matter. Keyed like a pose, it holds until the next key.
+struct SkinSet final {
+  std::vector<QString> names;
+
+  bool operator==(const SkinSet&) const = default;
 };
 
 // Where the shot's camera looks. center is the canvas point (from the

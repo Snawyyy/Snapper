@@ -20,6 +20,7 @@
 #include "ui/managers.h"
 #include "ui/point_motion_box.h"
 #include "ui/poses_box.h"
+#include "ui/skin_box.h"
 
 namespace snapper {
 
@@ -63,6 +64,7 @@ class Inspector final : public QScrollArea {
   ShotBox shot_;
   PoseBox pose_;
   DialBox dials_;
+  SkinBox skins_;
   DragBox drag_;
   PointMotionBox point_motion_;
   CameraBox camera_;

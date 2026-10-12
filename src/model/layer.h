@@ -29,6 +29,8 @@ struct DollLayer final {
   // Each smart dial's value (0 to 1) by dial name; a dial without keys
   // sits at its rest stop.
   std::map<QString, Channel<double>> dials{};
+  // The skins it wears (track kind kSkin); without keys it wears none.
+  Channel<SkinSet> skins{};
 
   bool operator==(const DollLayer&) const = default;
 };

@@ -62,6 +62,10 @@ PiecePose ValueFromJson(const QJsonValue& value, PiecePose fallback,
 QJsonValue ValueToJson(const CameraPose& pose);
 CameraPose ValueFromJson(const QJsonValue& value, CameraPose fallback,
                          JsonIssues* issues);
+// The skins worn, as a list of names.
+QJsonValue ValueToJson(const SkinSet& skins);
+SkinSet ValueFromJson(const QJsonValue& value, SkinSet fallback,
+                      JsonIssues* issues);
 
 QString EaseToJson(Ease ease);
 Ease EaseFromJson(const QJsonValue& value, JsonIssues* issues);

@@ -424,6 +424,22 @@ Smart dials fold of the inspector) makes dials from template tiles and
 turns them (`DialTrack`: snap to stops, Ctrl free, Shift fine, double
 click to rest).
 
+Skins (`model/skin.h`, `SkinManager`, `anim/skin.cpp`) are named looks
+in the doll's rig (`Rig::skins`, rig.json, kept by `Reconcile`): piece
+to drawing by Krita layer name, an empty name hiding the piece. Which
+skins a layer wears is its own keyed track (`DollLayer::skins`, a
+`Channel<SkinSet>`, track kind `kSkin`, on the doll's timeline row), not
+part of the whole-doll key, so a later pose key never takes an outfit
+off. `SamplePoses(doll, layer, frame)` runs `ApplySkins` after the
+dials: a hand-picked drawing beats every skin, a dial's drawing turns
+into the worn skin's "skin/drawing" version where the doll has one,
+otherwise the first worn skin in the list that names the piece sets
+its drawing or hides it (opacity 0). `SkinRigBox` (Rig tab) makes,
+renames, orders and deletes skins and picks one to change: the rig
+canvas wears it (`WornFromStart`) and the Drawing picker writes into
+it. `SkinBox` (the inspector's Skins fold) wears them at the playhead;
+Shift+[ and Shift+] step through them.
+
 Draw on a piece (`DrawManager`, `edit/draw_manager.cpp`,
 `edit/draw_save.cpp`) draws a new drawing for a piece inside Snapper.
 The session (the drawing being made, at the piece's size, the tool,
@@ -635,6 +651,7 @@ are destroyed in reverse.
 | `SelectionManager`     | What is picked: shots, layers, pieces, keys, clips |
 | `PoseManager`          | Pose edits, IK drags, copy, paste, mirror      |
 | `DialManager`          | Smart dials: make, stops, rest, swap, turn (keyed per doll layer) |
+| `SkinManager`          | Skins: make, rename, order, set drawings, Krita names; wear and step them (keyed per doll layer) |
 | `DrawManager`          | Draw mode: the drawing being made, its tools and stroke undo; Done saves it into the doll as one step |
 | `KeyManager`           | Keys on the timeline: move, space, ease, retime, bake a timing chart |
 | `TimingChartManager`   | The timing chart session: picked thing and frames to chart, ticks, live preview in one `EditScope`, Apply or Cancel |

@@ -15,8 +15,15 @@ namespace snapper {
 
 // Which channel of keys: a layer's own move, one doll piece, the
 // shot's camera, an effect's strength, or one smart dial of a doll
-// layer (its value, 0 to 1).
-enum class TrackKind { kLayer, kPiece, kCamera, kEffectAmount, kDial };
+// layer (its value, 0 to 1), or the skins a doll layer wears.
+enum class TrackKind {
+  kLayer,
+  kPiece,
+  kCamera,
+  kEffectAmount,
+  kDial,
+  kSkin
+};
 
 // The address of one channel, so pose, key and preset tools and the
 // selection all point at keys the same way.
@@ -42,7 +49,7 @@ struct KeyRef final {
 };
 
 // Calls visit(Channel<T>*) with the channel track names in shot, which
-// is a channel of PiecePose, CameraPose or double. A piece or dial
+// is a channel of PiecePose, CameraPose, double or SkinSet. A piece or dial
 // without keys yet gets an empty channel to write into. Fails when the layer is gone
 // or is the wrong kind for the track.
 template <typename Visit>
@@ -76,6 +83,10 @@ Result<void> VisitTrack(Shot* shot, const TrackRef& track, Visit visit) {
                        !track.piece.isEmpty();
   if (is_dial) {
     return visit(&doll->dials[track.piece]);
+  }
+  const bool is_skin = track.kind == TrackKind::kSkin && doll != nullptr;
+  if (is_skin) {
+    return visit(&doll->skins);
   }
   auto* effect = std::get_if<EffectLayer>(&layer->content);
   const bool is_effect =
@@ -129,6 +140,11 @@ bool ReadTrack(const Shot& shot, const TrackRef& track, Read read) {
     } else {
       read(Channel<double>());
     }
+    return true;
+  }
+  const bool is_skin = track.kind == TrackKind::kSkin && doll != nullptr;
+  if (is_skin) {
+    read(doll->skins);
     return true;
   }
   const auto* effect = std::get_if<EffectLayer>(&layer->content);

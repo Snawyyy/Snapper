@@ -22,6 +22,7 @@
 #include "edit/selection_manager.h"
 #include "edit/settings_manager.h"
 #include "edit/shot_manager.h"
+#include "edit/skin_manager.h"
 #include "edit/stage_manager.h"
 #include "edit/timing_chart_manager.h"
 #include "ui/managers.h"
@@ -55,6 +56,7 @@ struct Bench final {
   SettingsManager settings{&history};
   DialManager dials{&history};
   DrawManager draw{&history, &playback, nullptr};
+  SkinManager skins{&history};
 
   Managers All() {
     Managers all{&history, &document, &library, &rig, &shots, &stage,
@@ -63,6 +65,7 @@ struct Bench final {
                  &settings};
     all.dials = &dials;
     all.draw = &draw;
+    all.skins = &skins;
     return all;
   }
 };

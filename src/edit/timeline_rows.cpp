@@ -26,6 +26,10 @@ std::vector<TrackRef> LayerTracks(const Shot& shot, const Layer& layer) {
     for (const auto& [dial, channel] : doll->dials) {
       tracks.push_back({shot.id, TrackKind::kDial, layer.id, dial});
     }
+    const bool has_skins = !doll->skins.keys.empty();
+    if (has_skins) {
+      tracks.push_back({shot.id, TrackKind::kSkin, layer.id, {}});
+    }
   }
   const bool is_effect = std::holds_alternative<EffectLayer>(layer.content);
   if (is_effect) {

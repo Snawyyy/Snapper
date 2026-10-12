@@ -225,6 +225,38 @@ CameraPose ValueFromJson(const QJsonValue& value, CameraPose fallback,
   return pose;
 }
 
+QJsonValue ValueToJson(const SkinSet& skins) {
+  assert(skins.names.size() < 100000);
+  QJsonArray names;
+  for (const QString& name : skins.names) {
+    names.append(name);
+  }
+  assert(names.size() == static_cast<qsizetype>(skins.names.size()));
+  return names;
+}
+
+SkinSet ValueFromJson(const QJsonValue& value, SkinSet fallback,
+                      JsonIssues* issues) {
+  assert(issues != nullptr);
+  const bool is_list = value.isArray();
+  if (!is_list) {
+    return fallback;
+  }
+  // A layer wears at most every skin its doll has.
+  const QJsonArray names = Bounded(value, 32, "worn skins", issues);
+  SkinSet skins;
+  for (const QJsonValue& name : names) {
+    const QString text = name.toString();
+    const bool is_new = !text.isEmpty() &&
+                        std::find(skins.names.begin(), skins.names.end(),
+                                  text) == skins.names.end();
+    if (is_new) {
+      skins.names.push_back(text);
+    }
+  }
+  return skins;
+}
+
 QString EaseToJson(Ease ease) {
   assert(static_cast<int>(ease) < kEaseCount);
   assert(kEaseNames.size() == static_cast<size_t>(kEaseCount));

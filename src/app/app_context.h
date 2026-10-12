@@ -22,6 +22,7 @@
 #include "edit/selection_manager.h"
 #include "edit/settings_manager.h"
 #include "edit/shot_manager.h"
+#include "edit/skin_manager.h"
 #include "edit/stage_manager.h"
 #include "edit/poke_manager.h"
 #include "edit/timing_chart_manager.h"
@@ -68,6 +69,7 @@ class AppContext final {
   PaletteManager palette_;
   DialManager dials_;
   DrawManager draw_;
+  SkinManager skins_;
   MainWindow window_;
 };
 

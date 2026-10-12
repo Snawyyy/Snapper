@@ -37,6 +37,19 @@ QString DrawingName(const ArtPiece& piece, int index) {
                   : QStringLiteral("%1 %2").arg(piece.name).arg(index + 1);
 }
 
+int FindDrawing(const ArtPiece& piece, const QString& name) {
+  assert(piece.drawings.size() < 100000);
+  assert(name.size() < 100000);
+  const int count = static_cast<int>(piece.drawings.size());
+  const bool is_named = !name.isEmpty();
+  for (int i = 0; is_named && i < count; ++i) {
+    if (DrawingName(piece, i) == name) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 QSize ArtSizeOf(const Doll& doll, const QString& name) {
   const ArtPiece* art = FindArt(doll, name);
   assert(art == nullptr || art->size.width() >= 0);

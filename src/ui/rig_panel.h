@@ -20,6 +20,7 @@
 #include "ui/collider_box.h"
 #include "ui/live_edit.h"
 #include "ui/managers.h"
+#include "ui/skin_rig_box.h"
 
 namespace snapper {
 
@@ -28,7 +29,9 @@ constexpr int kDefaultWarpCells = 3;
 
 // The rig's settings beside the rig canvas: which doll, its pieces as a
 // tree, the picked piece's parent, draw order, default drawing and warp
-// grid, its IK chains, and saving the rig back to the library.
+// grid, its IK chains, its skins, and saving the rig back to the
+// library. While a skin is being changed the Drawing picker sets the
+// picked pieces' drawing in that skin instead of the default.
 class RigPanel final : public QWidget {
   Q_OBJECT
 
@@ -44,6 +47,8 @@ class RigPanel final : public QWidget {
 
  signals:
   void DollPicked(const QString& doll);
+  // The skin being changed (empty for none), for the canvas to wear.
+  void SkinPicked(const QString& skin);
   void PickChanged(const QStringList& picked, const QString& focus);
   void Problem(const QString& why);
 
@@ -99,6 +104,7 @@ class RigPanel final : public QWidget {
   QPushButton flip_chain_;
   QPushButton remove_chain_;
   ColliderBox collider_box_;
+  SkinRigBox skins_;
   QHBoxLayout mirror_buttons_;
   QPushButton copy_piece_;
   QPushButton copy_side_;

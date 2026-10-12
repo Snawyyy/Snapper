@@ -7,6 +7,7 @@
 #include <variant>
 
 #include "anim/sampler.h"
+#include "anim/skin.h"
 #include "anim/smart_dial.h"
 #include "anim/warp.h"
 
@@ -62,7 +63,13 @@ PoseMap SamplePoses(const Doll& doll, const DollLayer& layer, Frame frame) {
   assert(frame.index() >= 0);
   assert(layer.pieces.size() <= static_cast<size_t>(kMaxPieceTracks));
   PoseMap poses = SamplePoses(layer, frame);
+  const bool has_skins = !doll.rig.skins.empty();
+  const std::set<QString> hand =
+      has_skins ? HandPicked(poses) : std::set<QString>();
   ApplyDials(doll, layer, frame, &poses);
+  if (has_skins) {
+    ApplySkins(doll, SkinsAt(doll, layer, frame), hand, &poses);
+  }
   return poses;
 }
 
