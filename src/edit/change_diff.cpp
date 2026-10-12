@@ -133,6 +133,27 @@ KeyChanges DiffKeys(const Project& before, const Project& after,
   return changes;
 }
 
+std::vector<LayerId> ChangedLayers(const Project& before,
+                                   const Project& after, ShotId shot) {
+  assert(shot.value() >= 0);
+  assert(after.shots.size() <= static_cast<size_t>(kMaxShots));
+  std::vector<LayerId> changed;
+  const Shot* old_shot = FindShot(before, shot);
+  const Shot* new_shot = FindShot(after, shot);
+  const bool has_both = old_shot != nullptr && new_shot != nullptr;
+  if (!has_both) {
+    return changed;
+  }
+  for (const Layer& layer : new_shot->layers) {
+    const Layer* old_layer = FindLayer(*old_shot, layer.id);
+    const bool is_changed = old_layer != nullptr && !(*old_layer == layer);
+    if (is_changed) {
+      changed.push_back(layer.id);
+    }
+  }
+  return changed;
+}
+
 ClipChanges DiffClips(const Project& before, const Project& after) {
   assert(before.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));
   assert(after.reel.tracks.size() <= static_cast<size_t>(kMaxReelTracks));

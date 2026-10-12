@@ -129,7 +129,14 @@ std::optional<PushedGrid> PushedGridOf(const Doll& doll, const Layer& layer,
   }
   PushedGrid pushed{*grid, PushFieldsFor(doll, layer, keyed, placed, shifts,
                                          piece, Frame(f))};
-  PushGrid(rig->warp, ReachesOf(*rig), pushed.fields, &pushed.grid.points);
+  // Every piece is pushed from the same unpushed state here, so a piece
+  // that is pushed back takes half.
+  std::vector<bool> is_half;
+  for (const PushField& field : pushed.fields) {
+    is_half.push_back(field.is_shared);
+  }
+  PushGridShared(rig->warp, ReachesOf(*rig), pushed.fields, is_half,
+                 &pushed.grid.points);
   return pushed;
 }
 
@@ -325,10 +332,13 @@ void DragTrail::Add(State state) {
   }
 }
 
-PoseMap DraggedPoses(const Doll& doll, const Layer& layer, Frame frame,
+PoseMap DraggedPoses(const Doll& shared, const Layer& layer, Frame frame,
                      const LinkShifts& shifts, DragTrail* trail) {
   assert(frame.index() >= 0);
   assert(std::holds_alternative<DollLayer>(layer.content));
+  // The layer's own drag nodes, motions and reach, where it has them.
+  const DollFor own(shared, layer.id);
+  const Doll& doll = own.get();
   PoseMap poses = SamplePoses(std::get<DollLayer>(layer.content), frame);
   const Frame beat = BeatOf(layer, frame);
   AddMotions(doll, beat, &poses);

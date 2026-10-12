@@ -103,7 +103,7 @@ Result<Rig> ReadRig(const QString& folder) {
 Result<void> WriteRig(const QString& folder, const Rig& rig) {
   assert(!folder.isEmpty());
   assert(rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
-  QJsonObject object = RigToJson(rig);
+  QJsonObject object = RigToJson(rig, false);
   object.insert("format", "snapper-rig");
   object.insert("version", kRigVersion);
   return WriteJsonFile(QDir(folder).filePath(kRigFileName), object);

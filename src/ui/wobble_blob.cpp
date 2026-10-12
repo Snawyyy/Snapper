@@ -44,7 +44,9 @@ WobbleBlob::WobbleBlob(MotionManager* motion, QWidget* parent)
   assert(motion != nullptr);
   assert(kFrameMs > 0);
   setObjectName("feel_preview");
-  setFixedSize(sizeHint());
+  setFixedHeight(sizeHint().height());
+  setMinimumWidth(sizeHint().width());
+  setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
   timer_.setInterval(kFrameMs);
   connect(&timer_, &QTimer::timeout, this, [this] {
     hop_.Step();

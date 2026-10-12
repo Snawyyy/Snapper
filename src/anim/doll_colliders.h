@@ -23,6 +23,12 @@ namespace snapper {
 // against the collider it has as drawn (both pieces at rest). See
 // PushedFromRest.
 struct PushField final {
+  // The piece whose outline this is.
+  QString pusher;
+  // True when the pushed piece's own collider pushes that piece back
+  // (two squashy pieces meeting): the two share the move, so neither
+  // keeps its shape while the other gives way for both.
+  bool is_shared = false;
   std::vector<ColliderEdge> edges;
   QRectF box;
   std::vector<QPointF> ghosts;

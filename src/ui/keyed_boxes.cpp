@@ -17,10 +17,30 @@
 #include "ui/form_helpers.h"
 #include "ui/live_edit.h"
 #include "ui/playhead.h"
+#include "ui/pose_controls.h"
 #include "ui/problem.h"
 
 namespace snapper {
 namespace {
+
+// The Move pad's side, and the height both top cells share.
+constexpr int kPadSide = 96;
+// The Turn dial: big, as the control used most after Move.
+constexpr int kTurnDial = 72;
+// The top row's width shares: Move gets the golden ratio's long part,
+// Turn the short one (62 to 38).
+constexpr int kGoldenLong = 62;
+constexpr int kGoldenShort = 38;
+// Space between the panel's rows, on an 8 px rhythm.
+constexpr int kRowGap = 8;
+// Scale faders span 0 to this; past it the cap rests at the end.
+constexpr double kScaleShown = 3.0;
+// The camera's zoom fader spans up to this; the shake fader up to
+// kShakeShown pixels.
+constexpr double kZoomShown = 4.0;
+constexpr double kShakeShown = 60.0;
+// Skew's whole range, both ways.
+constexpr double kSkewShown = 85.0;
 
 // The pose a track shows at frame.
 PiecePose PoseAt(const Project& project, const TrackRef& track,
@@ -93,21 +113,33 @@ PoseBox::PoseBox(const Managers& managers)
     fields_[static_cast<size_t>(i)].setObjectName(
         QLatin1String(names[static_cast<size_t>(i)]));
   }
-  AddNumberPair(&layout_, tr("Move"), &move_row_,
-                {tr("x"), &fields_[kX]}, {tr("y"), &fields_[kY]}, &live_);
-  AddNumberPair(&layout_, tr("Scale"), &scale_row_,
-                {tr("x"), &fields_[kScaleX]}, {tr("y"), &fields_[kScaleY]},
-                &live_);
-  AddAngleRow(&layout_, tr("Turn"), &fields_[kTurn], &live_);
-  AddNumberRow(&layout_, tr("Skew"), &fields_[kSkew], &live_);
-  AddNumberRow(&layout_, tr("Opacity"), &fields_[kOpacity], &live_);
-  AddNumberRow(&layout_, tr("Lean"), &fields_[kLean], &live_);
-  AddNumberRow(&layout_, tr("Swivel"), &fields_[kSwivel], &live_);
+  // The two most used controls share the top row at one height, then
+  // the sliders, then the rarely used turns; the fields stay as small
+  // readouts you can still type in.
+  layout_.setVerticalSpacing(kRowGap);
+  layout_.addRow(MakeCellRow(
+      {MakePadCell(tr("Move"), &fields_[kX], &fields_[kY], &live_, this),
+       MakeDialCell(tr("Turn"), &fields_[kTurn], &live_, kTurnDial,
+                    kPadSide, this)},
+      {kGoldenLong, kGoldenShort}, this));
+  layout_.addRow(MakeFaderRow(tr("Scale x"), &fields_[kScaleX], &live_,
+                              kScaleShown, 1.0, this));
+  layout_.addRow(MakeFaderRow(tr("Scale y"), &fields_[kScaleY], &live_,
+                              kScaleShown, 1.0, this));
+  layout_.addRow(MakeFaderRow(tr("Skew"), &fields_[kSkew], &live_,
+                              kSkewShown, 0.0, this));
+  layout_.addRow(MakeFaderRow(tr("Opacity"), &fields_[kOpacity], &live_, 1.0,
+                              1.0, this));
+  turns_row_ = MakeCellRow(
+      {MakeMiniDial(tr("Lean"), &fields_[kLean], &live_, this),
+       MakeMiniDial(tr("Swivel"), &fields_[kSwivel], &live_, this)},
+      {}, this);
+  layout_.addRow(turns_row_);
   for (QDoubleSpinBox& field : fields_) {
     MakeLive(&field, &live_, tr("Pose"), this, [this] { Commit(); });
   }
   layout_.addRow(tr("Drawing"), &drawing_);
-  assert(layout_.rowCount() >= 8);
+  assert(layout_.rowCount() >= 6);
   connect(&drawing_, &QComboBox::activated, this, &PoseBox::SwapDrawing);
   Follow(managers_, this);
   Refresh();
@@ -134,10 +166,10 @@ void PoseBox::Refresh() {
   const bool is_whole_doll =
       track->kind == TrackKind::kLayer &&
       DollOfLayer(project, track->shot, track->layer) != nullptr;
-  for (QDoubleSpinBox* turn : {&fields_[kLean], &fields_[kSwivel]}) {
-    Explain(turn, is_whole_doll
-                      ? QString()
-                      : tr("Double-click a doll to pick it whole first."));
+  // Lean and Swivel turn a whole doll; on a limb they have no meaning.
+  const bool is_turns_new = turns_row_->isHidden() == is_whole_doll;
+  if (is_turns_new) {
+    layout_.setRowVisible(turns_row_, is_whole_doll);
   }
   const QSignalBlocker quiet(drawing_);
   drawing_.clear();
@@ -153,8 +185,12 @@ void PoseBox::Refresh() {
     drawing_.addItem(art->drawings[static_cast<size_t>(i)]);
   }
   drawing_.setCurrentIndex(std::clamp(pose.drawing + 1, 0, count));
-  Explain(&drawing_, count > 1 ? QString()
-                               : tr("This piece has only one drawing."));
+  // Only a piece with a choice of drawings shows the picker.
+  const bool has_choice = count > 1;
+  const bool is_drawing_new = drawing_.isHidden() == has_choice;
+  if (is_drawing_new) {
+    layout_.setRowVisible(&drawing_, has_choice);
+  }
 }
 
 void PoseBox::Commit() {
@@ -210,15 +246,20 @@ CameraBox::CameraBox(const Managers& managers)
     fields_[static_cast<size_t>(i)].setObjectName(
         QLatin1String(names[static_cast<size_t>(i)]));
   }
-  AddNumberPair(&layout_, tr("Look at"), &look_row_,
-                {tr("x"), &fields_[kX]}, {tr("y"), &fields_[kY]}, &live_);
-  AddNumberRow(&layout_, tr("Zoom"), &fields_[kZoom], &live_);
-  AddAngleRow(&layout_, tr("Turn"), &fields_[kTurn], &live_);
-  AddNumberRow(&layout_, tr("Shake"), &fields_[kShake], &live_);
+  layout_.setVerticalSpacing(kRowGap);
+  layout_.addRow(MakeCellRow(
+      {MakePadCell(tr("Look at"), &fields_[kX], &fields_[kY], &live_, this),
+       MakeDialCell(tr("Turn"), &fields_[kTurn], &live_, kTurnDial,
+                    kPadSide, this)},
+      {kGoldenLong, kGoldenShort}, this));
+  layout_.addRow(MakeFaderRow(tr("Zoom"), &fields_[kZoom], &live_,
+                              kZoomShown, 1.0, this));
+  layout_.addRow(MakeFaderRow(tr("Shake"), &fields_[kShake], &live_,
+                              kShakeShown, 0.0, this));
   for (QDoubleSpinBox& field : fields_) {
     MakeLive(&field, &live_, tr("Move camera"), this, [this] { Commit(); });
   }
-  assert(layout_.rowCount() >= 4);
+  assert(layout_.rowCount() >= 3);
   Follow(managers_, this);
   Refresh();
 }

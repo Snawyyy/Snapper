@@ -134,6 +134,9 @@ Result<LayerId> StageManager::Duplicate(ShotId shot, LayerId layer) {
     edited->layers.insert(at + 1, std::move(copy));
     return Result<void>();
   });
+  if (copied) {
+    *copied = WithCopiedLayerDots(std::move(*copied), {{layer, id}});
+  }
   auto applied = history_->Apply(Tr("Duplicate layer"), std::move(copied));
   if (!applied) {
     return std::unexpected(applied.error());

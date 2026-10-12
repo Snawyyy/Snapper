@@ -100,8 +100,11 @@ void FillCloth(const RigPiece& from, const std::vector<QPointF>& old,
 
 }  // namespace
 
-CarryCount CarryDots(const RigPiece& from, QSize from_size,
-                     const WarpGrid& fresh, QSize size, RigPiece* to) {
+namespace {
+
+// CarryDots for one set of settings: the fields of from, no layers.
+CarryCount CarryOne(const RigPiece& from, QSize from_size,
+                    const WarpGrid& fresh, QSize size, RigPiece* to) {
   assert(to != nullptr);
   assert(from.warp.PointCount() <= kMaxWarpPoints);
   *to = from;
@@ -145,6 +148,27 @@ CarryCount CarryDots(const RigPiece& from, QSize from_size,
                                      [](double r) { return r > 0.0; });
   if (!has_reach) {
     to->warp_reach.clear();
+  }
+  return count;
+}
+
+}  // namespace
+
+CarryCount CarryDots(const RigPiece& from, QSize from_size,
+                     const WarpGrid& fresh, QSize size, RigPiece* to) {
+  assert(to != nullptr);
+  assert(from.layer_dots.size() < 1000000);
+  const CarryCount count = CarryOne(from, from_size, fresh, size, to);
+  // Each layer's own settings find their new dots the same way.
+  to->layer_dots.clear();
+  for (const auto& [layer, dots] : from.layer_dots) {
+    RigPiece source = from;
+    ShowDots(dots, &source);
+    source.layer_dots.clear();
+    RigPiece carried;
+    CarryOne(source, from_size, fresh, size, &carried);
+    to->layer_dots[layer] = {carried.warp_reach, carried.drag_nodes,
+                             carried.point_motions};
   }
   return count;
 }

@@ -64,11 +64,13 @@ bool IsDragNode(const Project& project, const DotRef& dot) {
   const RigPiece* rig =
       doll != nullptr ? FindRig(doll->rig, dot.piece) : nullptr;
   const bool has_rig = rig != nullptr;
-  return has_rig && std::any_of(rig->drag_nodes.begin(),
-                                rig->drag_nodes.end(),
-                                [&dot](const DragNode& n) {
-                                  return n.point == dot.point;
-                                });
+  if (!has_rig) {
+    return false;
+  }
+  const std::vector<DragNode>& nodes = DragNodesOf(*rig, dot.layer);
+  return std::any_of(nodes.begin(), nodes.end(), [&dot](const DragNode& n) {
+    return n.point == dot.point;
+  });
 }
 
 // The dots of dots that are drag nodes now.

@@ -10,8 +10,12 @@
 #include "edit/project_edits.h"
 #include "edit/selection_manager.h"
 #include "ui/follow.h"
+#include "edit/group_manager.h"
+#include "ui/group_chips.h"
+#include "ui/inspector_show.h"
 #include "ui/inspector_title.h"
 #include "ui/playhead.h"
+#include "ui/scroll_guard.h"
 
 namespace snapper {
 
@@ -20,7 +24,6 @@ Inspector::Inspector(const Managers& managers)
       managers_(managers),
       shot_(managers),
       pose_(managers),
-      groups_(managers),
       drag_(managers),
       point_motion_(managers),
       camera_(managers),
@@ -38,7 +41,6 @@ Inspector::Inspector(const Managers& managers)
   layout_.addWidget(&hint_);
   layout_.addWidget(&shot_);
   layout_.addWidget(&pose_);
-  AddFolded(&groups_, "groups");
   layout_.addWidget(&drag_);
   AddFolded(&point_motion_, "dot_animation");
   layout_.addWidget(&layer_);
@@ -48,7 +50,6 @@ Inspector::Inspector(const Managers& managers)
   layout_.addStretch(1);
   connect(&pose_, &PoseBox::Problem, this, &Inspector::Problem);
   connect(&shot_, &ShotBox::Problem, this, &Inspector::Problem);
-  connect(&groups_, &GroupBox::Problem, this, &Inspector::Problem);
   connect(&drag_, &DragBox::Problem, this, &Inspector::Problem);
   connect(&point_motion_, &PointMotionBox::Problem, this,
           &Inspector::Problem);
@@ -57,6 +58,7 @@ Inspector::Inspector(const Managers& managers)
   connect(&link_, &LinkBox::Problem, this, &Inspector::Problem);
   connect(&poses_, &PosesBox::Problem, this, &Inspector::Problem);
   setWidgetResizable(true);
+  WatchScrolling(this);
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   // The scroll area must not delete body_, a member; it is taken back in
   // the destructor below.
@@ -106,9 +108,6 @@ void Inspector::Refresh() {
   const Project& project = managers_.history->current();
   const bool has_shot = FindShot(project, selection.shot()) != nullptr;
   const bool has_pick = has_shot && !selection.picks().empty();
-  const bool is_doll =
-      has_pick && DollOfLayer(project, selection.shot(), selection.layer()) !=
-                      nullptr;
   const auto spot = SpotOf(managers_);
   const bool is_here = spot.has_value() && spot->shot == selection.shot();
   const QString words = InspectorTitle(
@@ -124,17 +123,25 @@ void Inspector::Refresh() {
   if (is_new_title) {
     title_.setText(html);
   }
-  hint_.setVisible(!has_shot);
-  shot_.setVisible(has_shot && !has_pick);
-  Show(&camera_, has_shot && !has_pick);
-  pose_.setVisible(has_pick);
-  Show(&link_, has_pick && link_.IsLinked());
-  Show(&layer_, has_pick && selection.layer().IsValid());
-  Show(&poses_, is_doll);
-  Show(&groups_, is_doll);
+  const bool has_groups =
+      has_pick && !GroupsOfPicks(
+                       managers_.groups->GroupsOf(selection.shot()),
+                       selection.picks())
+                       .empty();
   const bool has_dot = has_pick && selection.dot().has_value();
-  drag_.setVisible(has_dot);
-  Show(&point_motion_, has_dot);
+  const InspectorShow show =
+      ShowFor(project, selection.shot(), selection.picks(), has_dot,
+              has_pick && link_.IsLinked(), has_groups);
+  hint_.setVisible(!has_shot);
+  shot_.setVisible(show.shot);
+  Show(&camera_, show.camera);
+  pose_.setVisible(show.pose);
+  Show(&link_, show.link);
+  Show(&layer_, show.layer);
+  Show(&poses_, show.saved_poses);
+  // The dot controls and the groups share one panel.
+  drag_.ShowParts(show.drag, show.groups);
+  Show(&point_motion_, show.dot_animation);
   assert(!(shot_.isVisibleTo(this) && pose_.isVisibleTo(this)));
   assert(has_pick || !link_.isVisibleTo(this));
 }

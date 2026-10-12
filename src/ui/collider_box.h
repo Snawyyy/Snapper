@@ -4,6 +4,7 @@
 #include <QCheckBox>
 #include <QGroupBox>
 #include <QLabel>
+#include <QScrollArea>
 #include <QString>
 #include <QVBoxLayout>
 
@@ -16,8 +17,9 @@ namespace snapper {
 
 // The rig panel's list of what a collider pushes: every other piece of
 // the doll, ticked while the collider pushes its warp
-// dots (greyed, with the reason, for a piece with no warp grid). Shown
-// only while the focused piece is a collider.
+// dots (greyed, with the reason, for a piece with no warp grid). The
+// list scrolls past a few rows, so a big doll never pushes the panel off
+// the screen. Shown only while the focused piece is a collider.
 class ColliderBox final : public QGroupBox {
   Q_OBJECT
 
@@ -36,6 +38,9 @@ class ColliderBox final : public QGroupBox {
   QString piece_;
   QVBoxLayout layout_;
   QLabel note_;
+  QScrollArea scroll_;
+  // The ticks' column, inside scroll_ (which owns it).
+  QVBoxLayout* ticks_layout_ = nullptr;
   std::vector<std::unique_ptr<QCheckBox>> ticks_;
 };
 

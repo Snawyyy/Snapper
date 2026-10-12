@@ -24,7 +24,8 @@ std::optional<PickedDot> Resolve(const Managers& managers,
   if (!has_rig) {
     return std::nullopt;
   }
-  return PickedDot{posed->doll, dot.piece, dot.point, rig};
+  return PickedDot{posed->doll, dot.layer, dot.piece, dot.point,
+                   std::make_shared<const RigPiece>(PieceFor(*rig, dot.layer))};
 }
 
 }  // namespace

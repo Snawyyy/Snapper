@@ -102,6 +102,7 @@ Result<void> RigManager::SetWarpAll(const QString& doll,
       piece->warp_reach.clear();
       piece->drag_nodes.clear();
       piece->point_motions.clear();
+      piece->layer_dots.clear();
       return Result<void>();
     });
   });

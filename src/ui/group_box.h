@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "edit/group_edits.h"
+#include "ui/chip_button.h"
 #include "ui/managers.h"
 
 namespace snapper {
@@ -54,7 +55,7 @@ class GroupBox final : public QGroupBox {
   QLabel hint_;
   QWidget chips_;
   QGridLayout chips_layout_;
-  std::vector<QPushButton*> buttons_;
+  std::vector<ChipButton*> buttons_;
   Names names_;
   QPushButton make_;
 };

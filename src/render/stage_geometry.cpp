@@ -144,10 +144,12 @@ std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
       WarpOf(SamplePoses(keys, local), *rig, art->size, piece);
   const std::vector<QPointF> shown =
       WarpOf(posed->poses, *rig, art->size, piece);
+  // The dots as this layer has them (its own, or the doll's default).
+  const PieceDots dots = DotsOf(*rig, layer);
   const bool has_reach =
-      static_cast<int>(rig->warp_reach.size()) == rig->warp.PointCount();
+      static_cast<int>(dots.warp_reach.size()) == rig->warp.PointCount();
   std::vector<std::optional<NodeKind>> kinds(shown.size());
-  for (const DragNode& node : rig->drag_nodes) {
+  for (const DragNode& node : dots.drag_nodes) {
     const bool is_inside =
         node.point >= 0 && node.point < static_cast<int>(kinds.size());
     if (is_inside) {
@@ -155,12 +157,12 @@ std::optional<WarpOnScreen> PieceWarpOnScreen(const Project& project,
     }
   }
   std::vector<int> moves;
-  for (const PointMotion& motion : rig->point_motions) {
+  for (const PointMotion& motion : dots.point_motions) {
     moves.push_back(motion.point);
   }
   return WarpOnScreen{
       rig->warp, shown, keyed,
-      has_reach ? rig->warp_reach
+      has_reach ? dots.warp_reach
                 : std::vector<double>(
                       static_cast<size_t>(rig->warp.PointCount()), 0.0),
       kinds, moves, art->size, posed->pieces.at(piece) * posed->to_screen};

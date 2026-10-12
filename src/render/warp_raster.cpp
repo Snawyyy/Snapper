@@ -5,8 +5,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <cstdint>
-
 #include "anim/warp.h"
 #include "anim/warp_shape.h"
 
@@ -18,66 +16,22 @@ namespace {
 constexpr double kEdgeSlack = 1e-6;
 // A warp may push a drawing at most this far past its own size.
 constexpr int kMaxWarpedSide = 16384;
-// Mixing weights run 0 to this, so a weight of one is a whole step.
-constexpr std::uint32_t kWeightOne = 256;
-
 struct Triangle final {
   QPointF to[3];
   QPointF from[3];
 };
 
-// x and y mixed, weight/256 of the way to y, all four channels at once
-// (red and blue in one word, alpha and green in another). Whole
-// weights in 256ths are exact to within one level of a 255 scale, and
-// mixing a colour with itself gives it back.
-[[gnu::always_inline]] inline QRgb Mix(QRgb x, QRgb y, std::uint32_t weight) {
-  assert(weight <= kWeightOne);
-  assert(kWeightOne == 256);
-  constexpr std::uint32_t kPairs = 0x00ff00ffu;
-  constexpr std::uint32_t kHalf = 0x00800080u;
-  const std::uint32_t keep = kWeightOne - weight;
-  const std::uint32_t rb =
-      ((x & kPairs) * keep + (y & kPairs) * weight + kHalf) >> 8;
-  const std::uint32_t ag =
-      (((x >> 8) & kPairs) * keep + ((y >> 8) & kPairs) * weight + kHalf) >> 8;
-  return ((ag & kPairs) << 8) | (rb & kPairs);
-}
-
-[[gnu::always_inline]] inline std::uint32_t WeightOf(double fraction) {
-  assert(fraction >= 0.0 && fraction <= 1.0);
-  assert(kWeightOne == 256);
-  return static_cast<std::uint32_t>(fraction * kWeightOne + 0.5);
-}
-
-// Bilinear read of a premultiplied image; outside is clear.
+// Nearest-neighbour read of a premultiplied image; outside is clear.
 [[gnu::always_inline]] inline QRgb Sample(const QImage& image, QPointF at) {
   assert(image.format() == QImage::Format_ARGB32_Premultiplied);
   assert(std::isfinite(at.x()) && std::isfinite(at.y()));
-  const double x = at.x() - 0.5;
-  const double y = at.y() - 0.5;
-  const int left = static_cast<int>(std::floor(x));
-  const int top = static_cast<int>(std::floor(y));
-  const std::uint32_t fx = WeightOf(x - left);
-  const std::uint32_t fy = WeightOf(y - top);
-  const bool is_inside = left >= 0 && top >= 0 && left + 1 < image.width() &&
-                         top + 1 < image.height();
-  if (is_inside) {
-    // All four neighbours are in the picture: no edge checks.
-    const auto* upper = reinterpret_cast<const QRgb*>(image.constScanLine(top));
-    const auto* lower =
-        reinterpret_cast<const QRgb*>(image.constScanLine(top + 1));
-    return Mix(Mix(upper[left], upper[left + 1], fx),
-               Mix(lower[left], lower[left + 1], fx), fy);
-  }
-  const auto pixel = [&image](int px, int py) -> QRgb {
-    const bool is_in = px >= 0 && py >= 0 && px < image.width() &&
-                       py < image.height();
-    const auto* row = reinterpret_cast<const QRgb*>(image.constScanLine(
-        is_in ? py : 0));
-    return is_in ? row[px] : 0u;
-  };
-  return Mix(Mix(pixel(left, top), pixel(left + 1, top), fx),
-             Mix(pixel(left, top + 1), pixel(left + 1, top + 1), fx), fy);
+  const int x = static_cast<int>(std::floor(at.x()));
+  const int y = static_cast<int>(std::floor(at.y()));
+  const bool is_inside =
+      x >= 0 && y >= 0 && x < image.width() && y < image.height();
+  const auto* row = reinterpret_cast<const QRgb*>(
+      image.constScanLine(is_inside ? y : 0));
+  return is_inside ? row[x] : 0u;
 }
 
 // How far a barycentric weight moves per pixel to the right, and its
@@ -133,7 +87,7 @@ void RowWeights(const Triangle& triangle, double area, double py,
 // What f0, f1 and f2 (the value at each corner) mix to across a row.
 Line Mixed(const Line (&weights)[3], double f0, double f1, double f2) {
   assert(std::isfinite(f0) && std::isfinite(f1) && std::isfinite(f2));
-  assert(kWeightOne == 256);
+  assert(std::isfinite(weights[0].slope));
   return {f0 * weights[0].slope + f1 * weights[1].slope +
               f2 * weights[2].slope,
           f0 * weights[0].base + f1 * weights[1].base + f2 * weights[2].base};

@@ -10,6 +10,10 @@
 
 namespace snapper {
 
+// How much of a push a piece takes when the other piece it meets pushes
+// back: half each, so the two squash the same.
+inline constexpr double kSharedShare = 0.5;
+
 // The least a collider's push spreads to the neighbouring grid points,
 // in grid cells, so a push bends the drawing smoothly even where the
 // pushed point has no rubber reach of its own.
@@ -37,6 +41,15 @@ std::vector<double> ReachesOf(const RigPiece& rig);
 void PushGrid(const WarpGrid& grid, const std::vector<double>& reach,
               const std::vector<PushField>& fields,
               std::vector<QPointF>* points);
+
+// As PushGrid, but a field flagged in is_half (one flag per field)
+// moves the points only half the way it asks: the other piece, which
+// this one pushes back, makes the other half. Fields not flagged push
+// whole first. With no flags set it is PushGrid.
+void PushGridShared(const WarpGrid& grid, const std::vector<double>& reach,
+                    const std::vector<PushField>& fields,
+                    const std::vector<bool>& is_half,
+                    std::vector<QPointF>* points);
 
 }  // namespace snapper
 

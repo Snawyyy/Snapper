@@ -13,6 +13,7 @@
 #include "edit/group_manager.h"
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/chip_button.h"
 #include "ui/follow.h"
 #include "ui/group_chips.h"
 #include "ui/problem.h"
@@ -57,7 +58,7 @@ void GroupBox::Rebuild(const std::vector<ShownGroup>& shown) {
   assert(shown.size() <= kMaxGroupChips);
   assert(buttons_.size() <= kMaxGroupChips);
   // The old chips may be the one being clicked: let them go after.
-  for (QPushButton* button : buttons_) {
+  for (ChipButton* button : buttons_) {
     chips_layout_.removeWidget(button);
     button->hide();
     button->deleteLater();
@@ -66,7 +67,7 @@ void GroupBox::Rebuild(const std::vector<ShownGroup>& shown) {
   names_.clear();
   for (const ShownGroup& group : shown) {
     // The chips_ parent owns the chip from here.
-    QPushButton* chip = std::make_unique<QPushButton>(&chips_).release();
+    ChipButton* chip = std::make_unique<ChipButton>(&chips_).release();
     const QString name = group.name;
     chip->setCheckable(true);
     chip->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -105,7 +106,7 @@ void GroupBox::Refresh() {
     font.setItalic(shown[i].is_default);
     font.setBold(look.share == GroupShare::kSome);
     buttons_[i]->setFont(font);
-    buttons_[i]->setText(look.text);
+    buttons_[i]->SetFullText(look.text);
     buttons_[i]->setToolTip(look.tip);
     buttons_[i]->setChecked(look.share == GroupShare::kAll);
   }

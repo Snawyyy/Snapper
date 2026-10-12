@@ -86,9 +86,11 @@ void DragBox::ShowFine(const Look& look, const KindMix& mix,
     QDoubleSpinBox* box = BoxOf(field);
     const bool is_row =
         std::find(rows.begin(), rows.end(), field) != rows.end();
-    fine_.form()->setRowVisible(box, is_row);
+    // The fader row (name, fader, readout) is the readout's parent.
+    QWidget* row = box->parentWidget();
+    fine_.form()->setRowVisible(row, is_row);
     Explain(box, has_node ? QString() : why, FineHelp(field, mix));
-    auto* label = qobject_cast<QLabel*>(fine_.form()->labelForField(box));
+    auto* label = row->findChild<QLabel*>();
     const bool has_label = label != nullptr;
     if (has_label) {
       label->setText(FineLabel(field, mix));

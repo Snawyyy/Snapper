@@ -10,14 +10,13 @@ namespace snapper {
 
 // Sizes of the shot strip, in pixels.
 inline constexpr double kPixelsPerFrame = 2.0;
-inline constexpr double kMinBlock = 56.0;
+// Wide enough for the first frame and a name beside it.
+inline constexpr double kMinBlock = 112.0;
 inline constexpr double kAddWidth = 28.0;
 inline constexpr int kStripHeight = 40;
-// How wide the first-frame picture a long chip shows is drawn (sourced
-// larger), and how long a chip must be to show it.
+// How wide the first-frame picture of a chip is drawn (sourced larger).
 inline constexpr int kStripThumbWidth = 64;
-inline constexpr double kPictureWidth = 40.0;
-inline constexpr double kPictureFrom = 110.0;
+inline constexpr double kPictureWidth = 46.0;
 
 // How wide shot's chip is.
 inline double WidthOf(const Shot& shot) {

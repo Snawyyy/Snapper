@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <memory>
 
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
@@ -11,6 +12,10 @@
 namespace snapper {
 
 namespace {
+
+// The list shows this many pixels of ticks before it scrolls: about
+// seven rows.
+constexpr int kMaxListHeight = 170;
 
 // What the list says about a collider piece.
 QString NoteFor(const QString& piece, bool has_others) {
@@ -34,8 +39,17 @@ ColliderBox::ColliderBox(const Managers& managers)
   setObjectName("collider_box");
   note_.setWordWrap(true);
   layout_.addWidget(&note_);
+  // The scroll area owns the body, which owns the column.
+  QWidget* body = std::make_unique<QWidget>().release();
+  ticks_layout_ = std::make_unique<QVBoxLayout>(body).release();
+  ticks_layout_->setContentsMargins(4, 2, 4, 2);
+  scroll_.setWidget(body);
+  scroll_.setWidgetResizable(true);
+  scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  scroll_.setMaximumHeight(kMaxListHeight);
+  layout_.addWidget(&scroll_);
   setVisible(false);
-  assert(layout_.count() == 1);
+  assert(layout_.count() == 2);
 }
 
 void ColliderBox::Show(const QString& doll, const QString& piece) {
@@ -54,7 +68,7 @@ void ColliderBox::Show(const QString& doll, const QString& piece) {
   // A tick may be the one whose click led here: let it finish first.
   for (std::unique_ptr<QCheckBox>& old : ticks_) {
     old->hide();
-    layout_.removeWidget(old.get());
+    ticks_layout_->removeWidget(old.get());
     old.release()->deleteLater();
   }
   ticks_.clear();
@@ -88,7 +102,7 @@ void ColliderBox::Show(const QString& doll, const QString& piece) {
       emit Problem(ProblemOf(managers_.rig->SetColliderPushes(
           doll_, piece_, name, on)));
     });
-    layout_.addWidget(tick.get());
+    ticks_layout_->addWidget(tick.get());
     ticks_.push_back(std::move(tick));
   }
 }

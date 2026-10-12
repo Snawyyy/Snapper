@@ -18,10 +18,46 @@ void HistoryManager::Commit(const QString& label, Project next) {
   if (is_blocked) {
     return;
   }
+  const bool is_folded = is_bursting_ && CanFoldBurst(label, revision_);
   Project before = std::exchange(current_, std::move(next));
-  Record(label, std::move(before), revision_);
+  if (!is_folded) {
+    Record(label, std::move(before), revision_);
+  }
   revision_ = next_revision_++;
+  if (is_bursting_) {
+    NoteBurst(label);
+  }
   emit Changed();
+}
+
+bool HistoryManager::CanFoldBurst(const QString& label, int revision) const {
+  assert(revision_ < next_revision_);
+  assert(!label.isEmpty());
+  const bool is_same_burst = !undo_.empty() && revision == burst_revision_ &&
+                             label == burst_label_ && redo_.empty();
+  return is_same_burst && burst_clock_.isValid() &&
+         burst_clock_.elapsed() < kBurstMs;
+}
+
+void HistoryManager::NoteBurst(const QString& label) {
+  assert(!label.isEmpty());
+  assert(revision_ < next_revision_);
+  burst_label_ = label;
+  burst_revision_ = revision_;
+  burst_clock_.restart();
+}
+
+HistoryManager::BurstGuard::BurstGuard(HistoryManager* history)
+    : history_(history) {
+  assert(history_ != nullptr);
+  assert(!history_->is_bursting_);
+  history_->is_bursting_ = true;
+}
+
+HistoryManager::BurstGuard::~BurstGuard() {
+  assert(history_ != nullptr);
+  assert(history_->is_bursting_);
+  history_->is_bursting_ = false;
 }
 
 Result<void> HistoryManager::Apply(const QString& label,
@@ -148,8 +184,17 @@ void HistoryManager::CloseScope(const QString& label, bool keep) {
   assert(!label.isEmpty());
   is_scope_open_ = false;
   const bool is_kept_change = keep && current_ != scope_start_;
+  // A live edit closing inside a burst (a wheel tick on a dial) folds
+  // into the step before it instead of making a new one.
+  const bool is_folded = is_kept_change && is_bursting_ &&
+                         CanFoldBurst(label, scope_start_revision_);
   if (is_kept_change) {
-    Record(label, std::move(scope_start_), scope_start_revision_);
+    if (!is_folded) {
+      Record(label, std::move(scope_start_), scope_start_revision_);
+    }
+    if (is_bursting_) {
+      NoteBurst(label);
+    }
   } else {
     current_ = std::move(scope_start_);
     revision_ = scope_start_revision_;
@@ -162,7 +207,9 @@ void HistoryManager::Record(const QString& label, Project before,
                             int before_revision) {
   assert(!label.isEmpty());
   assert(before_revision < next_revision_);
-  undo_.push_back({label, std::move(before), before_revision});
+  StepScope scope = ScopeOf(before, current_);
+  undo_.push_back(
+      {label, std::move(before), before_revision, std::move(scope)});
   const bool is_full = undo_.size() > static_cast<size_t>(kMaxUndoSteps);
   if (is_full) {
     undo_.pop_front();
@@ -175,7 +222,7 @@ void HistoryManager::Travel(std::deque<Step>* from, std::deque<Step>* to) {
   assert(!from->empty());
   Step step = std::move(from->back());
   from->pop_back();
-  to->push_back({step.label, std::move(current_), revision_});
+  to->push_back({step.label, std::move(current_), revision_, step.scope});
   current_ = std::move(step.project);
   revision_ = step.revision;
   emit Changed();

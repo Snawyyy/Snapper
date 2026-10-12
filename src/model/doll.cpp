@@ -124,4 +124,57 @@ QString DrawingPath(const Doll& doll, const QString& piece, int drawing) {
   return QDir(doll.folder).filePath(art->drawings[static_cast<size_t>(index)]);
 }
 
+PieceDots DotsOf(const RigPiece& piece, LayerId layer) {
+  assert(piece.layer_dots.size() < 1000000);
+  assert(layer.value() >= 0);
+  const auto own = piece.layer_dots.find(layer);
+  const bool has_own = own != piece.layer_dots.end();
+  return has_own ? own->second
+                 : PieceDots{piece.warp_reach, piece.drag_nodes,
+                             piece.point_motions};
+}
+
+const std::vector<DragNode>& DragNodesOf(const RigPiece& piece, LayerId layer) {
+  assert(piece.layer_dots.size() < 1000000);
+  assert(layer.value() >= 0);
+  const auto own = piece.layer_dots.find(layer);
+  const bool has_own = own != piece.layer_dots.end();
+  return has_own ? own->second.drag_nodes : piece.drag_nodes;
+}
+
+void ShowDots(const PieceDots& dots, RigPiece* piece) {
+  assert(piece != nullptr);
+  assert(dots.drag_nodes.size() <= static_cast<size_t>(kMaxWarpPoints));
+  piece->warp_reach = dots.warp_reach;
+  piece->drag_nodes = dots.drag_nodes;
+  piece->point_motions = dots.point_motions;
+}
+
+RigPiece PieceFor(const RigPiece& piece, LayerId layer) {
+  assert(layer.value() >= 0);
+  assert(piece.layer_dots.size() < 1000000);
+  RigPiece shown = piece;
+  ShowDots(DotsOf(piece, layer), &shown);
+  shown.layer_dots.clear();
+  return shown;
+}
+
+DollFor::DollFor(const Doll& doll, LayerId layer)
+    : shared_(&doll) {
+  assert(layer.value() >= 0);
+  assert(doll.rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+  const bool is_own = std::any_of(
+      doll.rig.pieces.begin(), doll.rig.pieces.end(),
+      [layer](const RigPiece& piece) {
+        return piece.layer_dots.contains(layer);
+      });
+  if (!is_own) {
+    return;
+  }
+  own_ = std::make_unique<Doll>(doll);
+  for (RigPiece& piece : own_->rig.pieces) {
+    piece = PieceFor(piece, layer);
+  }
+}
+
 }  // namespace snapper

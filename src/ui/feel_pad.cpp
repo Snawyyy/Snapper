@@ -39,7 +39,10 @@ FeelPad::FeelPad(QWidget* parent) : QWidget(parent) {
   setObjectName("feel_pad");
   setFocusPolicy(Qt::ClickFocus);
   setCursor(Qt::CrossCursor);
-  setFixedSize(sizeHint());
+  // As wide as it is given, so it can take its share of a row.
+  setFixedHeight(sizeHint().height());
+  setMinimumWidth(sizeHint().width());
+  setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
   assert(Area().isValid());
 }
 

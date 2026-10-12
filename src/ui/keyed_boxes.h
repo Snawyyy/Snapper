@@ -46,8 +46,8 @@ class PoseBox final : public QGroupBox {
   QFormLayout layout_;
   LiveEdit live_;
   std::array<QDoubleSpinBox, kCount> fields_;
-  QHBoxLayout move_row_;
-  QHBoxLayout scale_row_;
+  // The Lean and Swivel dials' row, inside layout_; for a whole doll only.
+  QWidget* turns_row_ = nullptr;
   QComboBox drawing_;
 };
 
@@ -72,7 +72,6 @@ class CameraBox final : public QGroupBox {
   QFormLayout layout_;
   LiveEdit live_;
   std::array<QDoubleSpinBox, kCount> fields_;
-  QHBoxLayout look_row_;
 };
 
 }  // namespace snapper

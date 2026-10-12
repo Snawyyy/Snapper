@@ -33,11 +33,11 @@ snapper_module(media
   LIBS Qt6::Gui Qt6::Multimedia PkgConfig::FFMPEG)
 snapper_module(render
   MODULES anim)
-# The per-pixel loops of the warp are far too slow unoptimised, and a
-# debug build is what gets used while editing: they stay -O2 there.
-set_source_files_properties(
-  ${PROJECT_SOURCE_DIR}/src/render/warp_raster.cpp
-  PROPERTIES COMPILE_OPTIONS "$<$<CONFIG:Debug>:-O2>")
+# The poses, springs and per-pixel warp loops (anim and render) are far
+# too slow unoptimised, and a debug build is what gets used while
+# editing: they stay -O2 there (asserts stay on, so it still checks).
+target_compile_options(snapper_anim PRIVATE "$<$<CONFIG:Debug>:-O2>")
+target_compile_options(snapper_render PRIVATE "$<$<CONFIG:Debug>:-O2>")
 snapper_module(edit
   MODULES io media render
   LIBS Qt6::Concurrent)

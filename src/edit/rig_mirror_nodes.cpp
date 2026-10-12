@@ -5,10 +5,12 @@
 #include <cassert>
 #include <cmath>
 #include <map>
+#include <set>
 
 #include "anim/mirror.h"
 #include "anim/warp.h"
 #include "anim/warp_shape.h"
+#include "edit/group_mirror.h"
 #include "edit/history_manager.h"
 #include "edit/rig_edits.h"
 #include "edit/rig_manager.h"
@@ -103,6 +105,32 @@ void PutTwinDot(const DragNode* node, const PointMotion* moving,
   to->warp_reach[static_cast<size_t>(point)] = reach;
 }
 
+// project with the groups of the dots' pieces made again on their twins
+// (before is the project the mirror started from).
+Project WithDotGroups(Project project, const Project& before,
+                      const std::vector<DotRef>& dots) {
+  assert(dots.size() < 10000000);
+  assert(!dots.empty());
+  std::set<QString> dolls;
+  for (const DotRef& dot : dots) {
+    dolls.insert(dot.doll);
+  }
+  for (const QString& name : dolls) {
+    std::vector<QString> pieces;
+    for (const DotRef& dot : dots) {
+      const bool is_new = dot.doll == name &&
+                          std::find(pieces.begin(), pieces.end(), dot.piece) ==
+                              pieces.end();
+      if (is_new) {
+        pieces.push_back(dot.piece);
+      }
+    }
+    project = WithTwinGroups(project, name, *FindDoll(before, name),
+                             *FindDoll(project, name), pieces);
+  }
+  return project;
+}
+
 }  // namespace
 
 QString RigManager::WhyNoMirror(const QString& doll,
@@ -149,8 +177,7 @@ Result<void> RigManager::MirrorNodes(const QString& doll,
   const Doll& found = *FindDoll(history_->current(), doll);
   const RigPiece& from = *FindRig(found.rig, piece);
   const QString partner = MirrorName(piece);
-  return history_->Apply(
-      Tr("Mirror %1 to %2").arg(piece, partner),
+  Result<Project> built =
       WithPiece(history_->current(), doll, partner,
                 [&](RigPiece* to) -> Result<void> {
                   const std::vector<int> pairs = PairsOf(found, from, *to);
@@ -173,7 +200,15 @@ Result<void> RigManager::MirrorNodes(const QString& doll,
                   }
                   to->collider = MirroredCollider(found, from, *to);
                   return {};
-                }));
+                });
+  const bool is_refused = !built;
+  if (is_refused) {
+    return std::unexpected(built.error());
+  }
+  // The groups of the dots go over to the twin's dots too.
+  return history_->Apply(
+      Tr("Mirror %1 to %2").arg(piece, partner),
+      WithTwinGroups(*built, doll, found, *FindDoll(*built, doll), {piece}));
 }
 
 Result<void> RigManager::MirrorDots(const std::vector<DotRef>& dots) {
@@ -191,7 +226,8 @@ Result<void> RigManager::MirrorDots(const std::vector<DotRef>& dots) {
       return std::unexpected(Error{why_not});
     }
     const Doll& found = *FindDoll(*next, dot.doll);
-    const RigPiece& from = *FindRig(found.rig, dot.piece);
+    // The dot as the layer it is picked on has it.
+    const RigPiece from = PieceFor(*FindRig(found.rig, dot.piece), dot.layer);
     const DragNode* node = nullptr;
     for (const DragNode& n : from.drag_nodes) {
       node = n.point == dot.point ? &n : node;
@@ -207,7 +243,16 @@ Result<void> RigManager::MirrorDots(const std::vector<DotRef>& dots) {
     next = WithPiece(
         *next, dot.doll, MirrorName(dot.piece),
         [&](RigPiece* to) -> Result<void> {
-          PutTwinDot(node, moving, reach, point, to);
+          const bool is_layer = dot.layer.IsValid();
+          if (!is_layer) {
+            PutTwinDot(node, moving, reach, point, to);
+            return {};
+          }
+          // The twin's dots change on the same layer only.
+          RigPiece shown = PieceFor(*to, dot.layer);
+          PutTwinDot(node, moving, reach, point, &shown);
+          to->layer_dots[dot.layer] = {shown.warp_reach, shown.drag_nodes,
+                                       shown.point_motions};
           return {};
         });
     const bool is_refused = !next;
@@ -215,11 +260,13 @@ Result<void> RigManager::MirrorDots(const std::vector<DotRef>& dots) {
       return std::unexpected(next.error());
     }
   }
+  // The groups of those dots go over to the twins' dots too.
+  Project project = WithDotGroups(*next, history_->current(), dots);
   return history_->Apply(
       dots.size() == 1 ? Tr("Mirror 1 dot to the other side")
                        : Tr("Mirror %1 dots to the other side")
                              .arg(dots.size()),
-      std::move(next));
+      std::move(project));
 }
 
 }  // namespace snapper

@@ -18,6 +18,7 @@
 #include "edit/reel_manager.h"
 #include "edit/rig_manager.h"
 #include "edit/selection_manager.h"
+#include "edit/settings_manager.h"
 #include "edit/shot_manager.h"
 #include "edit/stage_manager.h"
 #include "edit/timing_chart_manager.h"
@@ -49,13 +50,24 @@ struct Bench final {
   ToastManager toasts{&history};
   PokeManager poke{&history, &playback};
   GroupManager groups{&history};
+  SettingsManager settings{&history};
 
   Managers All() {
     return {&history, &document, &library, &rig, &shots, &stage,
             &selection, &pose, &keys, &presets, &playback, &exporter,
-            &links, &reel, &motion, &toasts, &timing, &poke, &groups};
+            &links, &reel, &motion, &toasts, &timing, &poke, &groups,
+            &settings};
   }
 };
+
+// The piece 0 of the doll as layer 1 shows it: the layer's own warp dots
+// (drag nodes, motions, reach) where it has changed them, else the doll's.
+inline RigPiece Shown(const Bench& bench, const char* doll) {
+  assert(doll != nullptr);
+  assert(!bench.history.current().dolls.empty());
+  return PieceFor(bench.history.current().dolls.at(doll)->rig.pieces[0],
+                  LayerId(1));
+}
 
 }  // namespace snapper
 

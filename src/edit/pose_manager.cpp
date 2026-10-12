@@ -216,7 +216,8 @@ Result<void> PoseManager::Pull(const TrackRef& track, Frame frame,
         Error{Tr("Give the piece a warp grid in the rig first.")});
   }
   const WarpGrid grid = rig->warp;
-  const double reach = ReachOf(*rig, point);
+  // The reach this layer's dot has (its own, else the doll's).
+  const double reach = ReachOf(PieceFor(*rig, track.layer), point);
   return history_->Apply(
       Tr("Warp %1").arg(track.piece),
       KeyedAt(base, track, frame, PiecePose(),

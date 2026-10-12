@@ -238,10 +238,10 @@ void ScrubTests::ALabelGreysWithItsField() {
   PoseBox box(bench.All());
   ScrubLabel* label = LabelOf(&box, "Lean");
   QVERIFY(label != nullptr);
-  // Lean needs a whole doll picked; a single piece is not one.
-  QVERIFY(!label->isEnabled());
-  QVERIFY(label->toolTip().contains("Double-click a doll"));
+  // Lean needs a whole doll picked; for a single piece it is hidden.
+  QVERIFY(!label->isVisibleTo(&box));
   bench.selection.SelectLayer(LayerId(1));
+  QVERIFY(label->isVisibleTo(&box));
   QVERIFY(label->isEnabled());
 }
 

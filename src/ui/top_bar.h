@@ -2,24 +2,21 @@
 #define SNAPPER_UI_TOP_BAR_H_
 
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QPushButton>
 #include <QWidget>
 
 #include "ui/bar_text.h"
-#include "ui/bump_label.h"
 #include "ui/managers.h"
 #include "ui/mode_tabs.h"
 #include "ui/step_button.h"
 
 namespace snapper {
 
-// The bar across the top: the Pose, Rig and Video tabs, the transport
-// (first frame, back, play or pause, forward, last frame, the frame
-// counter and the time) and the Undo and Redo buttons. It shows what
-// the playback and history managers say and forwards clicks to them;
-// the words and states come from bar_text.h. The keys stay on the
-// menu entries, so no button takes focus and Space still plays.
+// The bar across the top: the Pose, Rig and Video tabs and the Undo
+// and Redo buttons. It shows what the history manager says and forwards
+// clicks to it; the words and states come from bar_text.h. The keys stay
+// on the menu entries, so no button takes focus. The play controls live
+// above the timelines (TransportBar).
 class TopBar final : public QWidget {
   Q_OBJECT
 
@@ -32,13 +29,15 @@ class TopBar final : public QWidget {
   void ShowUndo(const StepFace& face);
   void ShowRedo(const StepFace& face);
 
+ signals:
+  // The Undo or Redo button was pressed; the window decides what it
+  // undoes (the shot being worked in, or the newest change).
+  void UndoRequested();
+  void RedoRequested();
+
  private:
-  // Puts the transport and the counters after the tabs.
-  void BuildTransport();
-  // Puts the Undo and Redo buttons after the transport.
+  // Puts the Undo and Redo buttons after the tabs.
   void BuildSteps();
-  // Shows the playhead and whether the song is playing.
-  void ShowPlayhead();
   // Makes a button that never takes focus and fades its hover.
   void AddButton(QPushButton* button, const QString& tip);
 
@@ -47,13 +46,6 @@ class TopBar final : public QWidget {
   // it before it goes.
   QHBoxLayout layout_;
   ModeTabs tabs_;
-  QPushButton first_;
-  QPushButton back_;
-  QPushButton play_;
-  QPushButton next_;
-  QPushButton last_;
-  BumpLabel counter_;
-  BumpLabel time_;
   StepButton undo_;
   StepButton redo_;
 };

@@ -34,6 +34,11 @@ class LiveEdit final {
   }
   // Lands the burst as one step.
   void Finish() { scope_.reset(); }
+  // Holds a burst of the history while it lives, so edits that land one
+  // after another (wheel ticks on a dial) fold into one undo step.
+  std::unique_ptr<HistoryManager::BurstGuard> Burst() {
+    return std::make_unique<HistoryManager::BurstGuard>(history_);
+  }
   // Drops the burst: the project goes back to how it was before it.
   void Cancel() {
     const bool is_open = scope_ != nullptr;

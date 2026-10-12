@@ -286,7 +286,7 @@ void PoseToolTests::WheelSetsReachOfEveryPickedDot() {
   QVERIFY(tool.PickedDot(kFrame).has_value());
   // One notch adds to each dot's own reach, as one step.
   tool.Wheel(1, false, kFrame);
-  const RigPiece& rig = bench.history.current().dolls.at("Dot")->rig.pieces[0];
+  const RigPiece& rig = Shown(bench, "Dot");
   QCOMPARE(rig.warp_reach[0], 1.0 + kReachStep);
   QCOMPARE(rig.warp_reach[8], kReachStep);
   QCOMPARE(rig.warp_reach[4], 0.0);
@@ -345,7 +345,7 @@ void PoseToolTests::WarpDotsTakeReachAndDrag() {
   QCOMPARE(tool.PickedDot(kFrame), (WarpDot{LayerId(1), "body", 0}));
   tool.Wheel(3, false, kFrame);
   tool.Wheel(-1, true, kFrame);
-  const RigPiece& rig = bench.history.current().dolls.at("Dot")->rig.pieces[0];
+  const RigPiece& rig = Shown(bench, "Dot");
   QCOMPARE(rig.warp_reach[0], 3 * kReachStep - kFineReachStep);
   QCOMPARE(Body(bench).rotation, 0.0);
   // Again drops it, and the wheel turns the body as before.
@@ -359,7 +359,7 @@ void PoseToolTests::WarpDotsTakeReachAndDrag() {
   // D makes the picked dot drag, and again stops it.
   tool.ToggleDrag(kFrame);
   const auto drags = [&bench] {
-    return bench.history.current().dolls.at("Dot")->rig.pieces[0].drag_nodes;
+    return Shown(bench, "Dot").drag_nodes;
   };
   QCOMPARE(drags().size(), size_t{1});
   QCOMPARE(drags()[0].point, 0);

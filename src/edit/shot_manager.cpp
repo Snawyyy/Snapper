@@ -68,6 +68,7 @@ Result<ShotId> ShotManager::Duplicate(ShotId shot) {
   DropDeadLinks(&copy);
   next.shots.insert(next.shots.begin() + index + 1,
                     std::make_shared<const Shot>(copy));
+  next = WithCopiedLayerDots(std::move(next), renamed);
   auto applied = history_->Apply(Tr("Duplicate shot"), std::move(next));
   if (!applied) {
     return std::unexpected(applied.error());

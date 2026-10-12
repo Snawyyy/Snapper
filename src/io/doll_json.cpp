@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <map>
 #include <cmath>
 #include <vector>
 
@@ -180,6 +181,42 @@ ArtPiece ArtPieceFromJson(const QJsonObject& object, JsonIssues* issues) {
   return piece;
 }
 
+// Each layer's own dot settings, by the layer's id.
+QJsonObject LayerDotsToJson(const std::map<LayerId, PieceDots>& layers) {
+  assert(layers.size() < 1000000);
+  QJsonObject out;
+  for (const auto& [layer, dots] : layers) {
+    out.insert(QString::number(layer.value()),
+               QJsonObject{{"reach", ReachToJson(dots.warp_reach)},
+                           {"drag", DragToJson(dots.drag_nodes)},
+                           {"motions",
+                            PointMotionsToJson(dots.point_motions)}});
+  }
+  assert(out.size() == static_cast<qsizetype>(layers.size()));
+  return out;
+}
+
+std::map<LayerId, PieceDots> LayerDotsFromJson(const QJsonValue& value,
+                                               const WarpGrid& grid,
+                                               JsonIssues* issues) {
+  assert(issues != nullptr);
+  assert(grid.columns >= 0);
+  std::map<LayerId, PieceDots> layers;
+  const QJsonObject object = value.toObject();
+  for (auto it = object.begin(); it != object.end(); ++it) {
+    bool is_id = false;
+    const int id = it.key().toInt(&is_id);
+    const QJsonObject dots = it.value().toObject();
+    const bool is_layer = is_id && id >= 1;
+    if (is_layer) {
+      layers[LayerId(id)] = {ReachFromJson(dots.value("reach"), grid),
+                             DragFromJson(dots.value("drag"), grid),
+                             PointMotionsFromJson(dots, grid, issues)};
+    }
+  }
+  return layers;
+}
+
 }  // namespace
 
 QJsonObject ArtToJson(const DollArt& art) {
@@ -209,7 +246,7 @@ DollArt ArtFromJson(const QJsonObject& object, JsonIssues* issues) {
   return art;
 }
 
-QJsonObject RigToJson(const Rig& rig) {
+QJsonObject RigToJson(const Rig& rig, bool with_layers) {
   assert(rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   assert(rig.chains.size() <= static_cast<size_t>(kMaxIkChains));
   QJsonArray pieces;
@@ -227,6 +264,10 @@ QJsonObject RigToJson(const Rig& rig) {
         {"motions", PointMotionsToJson(piece.point_motions)},
         {"collider", ColliderToJson(piece.collider)}};
     WarpToJson(piece.warp, &object);
+    const bool has_layers = with_layers && !piece.layer_dots.empty();
+    if (has_layers) {
+      object.insert("layers", LayerDotsToJson(piece.layer_dots));
+    }
     pieces.append(object);
   }
   QJsonArray chains;
@@ -260,7 +301,9 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
                           ReachFromJson(piece.value("reach"), grid),
                           DragFromJson(piece.value("drag"), grid),
                           PointMotionsFromJson(piece, grid, issues),
-                          ColliderFromJson(piece.value("collider"))});
+                          ColliderFromJson(piece.value("collider")),
+                          LayerDotsFromJson(piece.value("layers"), grid,
+                                            issues)});
   }
   const QJsonArray chains =
       Bounded(object.value("chains"), kMaxIkChains, "IK chains", issues);

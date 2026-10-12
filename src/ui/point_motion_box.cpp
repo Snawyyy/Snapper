@@ -14,16 +14,25 @@
 #include "ui/number_input.h"
 #include "ui/form_helpers.h"
 #include "ui/picked_dot.h"
+#include "ui/pose_controls.h"
 #include "ui/problem.h"
 
 namespace snapper {
 namespace {
+
+// The size fader spans 0 to this many pixels; past it the cap rests at
+// the end (the field still takes up to the largest size).
+constexpr double kSizeShown = 100.0;
+// Space between the box's rows, on an 8 px rhythm.
+constexpr int kRowGap = 8;
 
 // The picked dots, and the motions the ones that move have.
 struct Look final {
   std::vector<DotRef> dots;
   std::vector<DotRef> moving;
   std::vector<const PointMotion*> motions;
+  // Keeps the rigs the motions above point into.
+  std::vector<std::shared_ptr<const RigPiece>> keep;
 };
 
 Look LookAt(const Managers& managers) {
@@ -31,7 +40,8 @@ Look LookAt(const Managers& managers) {
   assert(managers.history != nullptr);
   Look look;
   for (const PickedDot& dot : PickedDotsOf(managers)) {
-    look.dots.push_back({dot.doll, dot.piece, dot.point});
+    look.dots.push_back({dot.doll, dot.piece, dot.point, dot.layer});
+    look.keep.push_back(dot.rig);
     const PointMotion* found = FindMotion(*dot.rig, dot.point);
     const bool is_moving = found != nullptr;
     if (is_moving) {
@@ -92,7 +102,7 @@ PointMotionBox::PointMotionBox(const Managers& managers)
                 [this] { Commit(MotionField::kCycle, &cycle_); });
   Follow(managers_, this);
   Refresh();
-  assert(layout_.rowCount() == 5);
+  assert(layout_.rowCount() == 4);
 }
 
 void PointMotionBox::Build() {
@@ -126,11 +136,17 @@ void PointMotionBox::Build() {
   angle_.setRange(-180.0, 180.0);
   angle_.setWrapping(true);
   SetUpNumber(&delay_, Number::kFraction);
+  // The kind tiles, the sliders, then the whole-number cycle beside the
+  // direction dial.
+  layout_.setVerticalSpacing(kRowGap);
   layout_.addRow(tr("Moves"), &kinds_);
-  AddNumberRow(&layout_, tr("Size"), &size_, &live_);
-  AddNumberRow(&layout_, tr("Cycle"), &cycle_, &live_);
-  AddAngleRow(&layout_, tr("Direction"), &angle_, &live_);
-  AddNumberRow(&layout_, tr("Delay"), &delay_, &live_);
+  layout_.addRow(MakeFaderRow(tr("Size"), &size_, &live_, kSizeShown, 0.0,
+                              this));
+  layout_.addRow(MakeFaderRow(tr("Delay"), &delay_, &live_, 1.0, 0.0, this));
+  layout_.addRow(MakeCellRow(
+      {MakeSpinCell(tr("Cycle"), &cycle_, &live_, this),
+       MakeMiniDial(tr("Direction"), &angle_, &live_, this)},
+      {}, this));
 }
 
 void PointMotionBox::SetKind(WarpMotionKind kind) {

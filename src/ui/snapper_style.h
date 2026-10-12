@@ -35,8 +35,8 @@ ButtonLook LookOfButton(bool is_enabled, bool is_down, bool is_checked,
                         double hover);
 
 // The one style of the app: Windows underneath, with raised buttons
-// that brighten under the pointer and sink when pressed, and chunky
-// tabs. Every widget gets it from the application, so no widget
+// that brighten under the pointer and sink when pressed, chunky tabs,
+// and sunken dropdowns. Every widget gets it from the application, so no widget
 // carries a stylesheet.
 class SnapperStyle final : public QProxyStyle {
  public:
@@ -47,6 +47,14 @@ class SnapperStyle final : public QProxyStyle {
                      const QWidget* widget) const override;
   void drawControl(ControlElement element, const QStyleOption* option,
                    QPainter* painter, const QWidget* widget) const override;
+  // Dropdowns are sunken boxes with a raised arrow button.
+  void drawComplexControl(ComplexControl control,
+                          const QStyleOptionComplex* option,
+                          QPainter* painter,
+                          const QWidget* widget) const override;
+  // A dropdown takes the full width it is given and opens a sunken list.
+  void polish(QWidget* widget) override;
+  using QProxyStyle::polish;
   QSize sizeFromContents(ContentsType type, const QStyleOption* option,
                          const QSize& size,
                          const QWidget* widget) const override;

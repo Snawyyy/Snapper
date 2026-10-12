@@ -97,7 +97,7 @@ void PoseToolDotsTests::DAndDeleteActOnEveryPickedDot() {
   tool.Release();
   QCOMPARE(bench.selection.dots().size(), size_t{9});
   const auto drags = [&bench] {
-    return bench.history.current().dolls.at("Dot")->rig.pieces[0].drag_nodes;
+    return Shown(bench, "Dot").drag_nodes;
   };
   tool.ToggleDrag(kFrame);
   QCOMPARE(drags().size(), size_t{9});

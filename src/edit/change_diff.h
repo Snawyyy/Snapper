@@ -75,6 +75,12 @@ struct ClipChanges final {
 
 ClipChanges DiffClips(const Project& before, const Project& after);
 
+// The layers of one shot that both projects have and that differ
+// between them, in the later project's order. A layer only one side has
+// is left out: the stage has nothing to flash for it.
+std::vector<LayerId> ChangedLayers(const Project& before,
+                                   const Project& after, ShotId shot);
+
 }  // namespace snapper
 
 #endif  // SNAPPER_EDIT_CHANGE_DIFF_H_

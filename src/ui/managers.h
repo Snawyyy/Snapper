@@ -18,6 +18,7 @@ class PresetManager;
 class ReelManager;
 class RigManager;
 class SelectionManager;
+class SettingsManager;
 class ShotManager;
 class StageManager;
 class TimingChartManager;
@@ -45,11 +46,13 @@ struct Managers final {
   TimingChartManager* timing = nullptr;
   PokeManager* poke = nullptr;
   GroupManager* groups = nullptr;
+  SettingsManager* settings = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&
            selection && pose && keys && presets && playback && exporter &&
-           links && reel && motion && toasts && timing && poke && groups;
+           links && reel && motion && toasts && timing && poke && groups &&
+           settings;
   }
 };
 

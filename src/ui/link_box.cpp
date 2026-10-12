@@ -8,9 +8,16 @@
 #include "edit/selection_manager.h"
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
+#include "ui/pose_controls.h"
 #include "ui/problem.h"
 
 namespace snapper {
+namespace {
+
+// The strength fader spans 0 to this; past it the cap rests at the end.
+constexpr double kStrengthShown = 2.0;
+
+}  // namespace
 
 LinkBox::LinkBox(const Managers& managers)
     : QGroupBox(tr("Link")), managers_(managers), layout_(this),
@@ -26,7 +33,8 @@ LinkBox::LinkBox(const Managers& managers)
   unlink_.setText(tr("Unlink"));
   unlink_.setObjectName("unlink");
   layout_.addRow(&follows_);
-  AddNumberRow(&layout_, tr("Strength"), &strength_, &live_);
+  layout_.addRow(MakeFaderRow(tr("Strength"), &strength_, &live_,
+                              kStrengthShown, 1.0, this));
   layout_.addRow(&unlink_);
   MakeLive(&strength_, &live_, tr("Link strength"), this,
            [this] { Commit(); });
