@@ -43,7 +43,9 @@ const Doll* PaletteManager::PickedDoll() const {
   const Project& project = history_->current();
   const Shot* shot = FindShot(project, selection_->shot());
   // Nothing picked yet (a project just opened): no layer to look up.
-  if (shot == nullptr || !selection_->layer().IsValid()) {
+  const bool has_layer = selection_->layer().IsValid();
+  const bool is_pickable = shot != nullptr && has_layer;
+  if (!is_pickable) {
     return nullptr;
   }
   const Layer* layer = FindLayer(*shot, selection_->layer());
