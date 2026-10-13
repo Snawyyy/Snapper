@@ -105,3 +105,28 @@ an error. None of their pictures were looked at yet.
 - Never sends: smart render, frame setup, user changed param, update
   params UI, sequence data, other layers or other times. Plugins that
   need those (CameraShake and the like) wait until it does.
+
+## Light, glow and gradients (InnerFlare, InnerFlareRot, Star, Sputtering, Grain, TargetGrad, TargetGradRadical)
+
+### InnerFlare
+
+Files: `InnerFlare/` (`InnerFlare.cpp`, `InnerFlare.h`, `AlphaCopy.cpp`,
+`AlphaCopy.h`, `AlphaCopyR.cpp`, `AlphaCopyR.h`, `NF_Target.h`,
+`README.MD`); `_NFLib/fx/` `NF_AlphaHyperbolic`, `NF_Blend`, `NF_Blur`,
+`NF_MinMax`, `NF_Mult` (`.cpp` and `.h`). Units
+`innerflare_unit_1..3.cpp` (`AlphaCopy.cpp` and `AlphaCopyR.cpp` both
+define `AlpheCopyInfo`).
+
+```
+InnerFlare/InnerFlare.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+InnerFlare/InnerFlare.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+InnerFlare/InnerFlare.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+InnerFlare/InnerFlare.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+InnerFlare/InnerFlare.h:19: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+InnerFlare/InnerFlare.h:20: "..\_NFLib\fx\NF_blur.h" -> "../_NFLib/fx/NF_Blur.h"
+InnerFlare/InnerFlare.h:25: "..\_NFLib\fx\NF_AlphaHyperbolic.h" -> "../_NFLib/fx/NF_AlphaHyperbolic.h"
+InnerFlare/InnerFlare.h:26: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
+InnerFlare/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+InnerFlare/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+_NFLib/fx/NF_Blend.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+```
