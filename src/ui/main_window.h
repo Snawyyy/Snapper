@@ -11,6 +11,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "ui/dock_grips.h"
 #include "ui/grip_splitter.h"
 #include "ui/cast_panel.h"
 #include "ui/krita_menu.h"
@@ -67,9 +68,6 @@ class MainWindow final : public QMainWindow {
 
  protected:
   void closeEvent(QCloseEvent* event) override;
-  // Repaints the dock separators as the pointer crosses them, so the one
-  // under it lights up.
-  bool event(QEvent* event) override;
 
  private:
   void BuildMenus();
@@ -137,6 +135,7 @@ class MainWindow final : public QMainWindow {
   CastPanel cast_;
   QDockWidget inspector_dock_;
   Inspector inspector_;
+  DockGrips dock_grips_;
   // Floats over the pages, so it comes after the panels it floats over.
   ToastView toast_view_;
   // A burst of red pixels over everything, when something big goes well.

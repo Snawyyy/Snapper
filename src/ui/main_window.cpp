@@ -70,6 +70,8 @@ MainWindow::MainWindow(const Managers& managers)
       cast_(managers),
       inspector_dock_(tr("Inspector")),
       inspector_(managers),
+      dock_grips_(this, {&cast_dock_, &inspector_dock_},
+                  managers.document->SettingsPath()),
       toast_view_(managers.toasts, managers.motion, this, &pages_),
       burst_(managers.toasts, managers.motion, this),
       shaker_(managers.motion),
@@ -89,7 +91,6 @@ MainWindow::MainWindow(const Managers& managers)
       palette_(menuBar(), this),
       sheet_(menuBar(), this) {
   assert(managers_.IsComplete());
-  setAttribute(Qt::WA_Hover);
   BuildMenus();
   BuildPages();
   connect(&cast_, &CastPanel::DollOpenAsked, &rig_panel_,
@@ -213,21 +214,6 @@ void MainWindow::FollowPlayhead() {
   }
 }
 
-bool MainWindow::event(QEvent* event) {
-  assert(event != nullptr);
-  assert(centralWidget() != nullptr || event->type() != QEvent::Show);
-  const QEvent::Type type = event->type();
-  const bool is_pointer_moving =
-      type == QEvent::HoverMove || type == QEvent::HoverEnter ||
-      type == QEvent::HoverLeave || type == QEvent::MouseMove ||
-      type == QEvent::Leave;
-  const bool result = QMainWindow::event(event);
-  if (is_pointer_moving) {
-    update();
-  }
-  return result;
-}
-
 void MainWindow::closeEvent(QCloseEvent* event) {
   assert(event != nullptr);
   assert(managers_.history != nullptr);
@@ -248,8 +234,9 @@ void MainWindow::BuildPages() {
   timeline_layout_.addWidget(&pose_transport_, 0, Qt::AlignLeft);
   timeline_layout_.addWidget(&timeline_, 1);
   pose_split_.addWidget(&timeline_host_);
-  pose_split_.setStretchFactor(0, 3);
-  pose_split_.setStretchFactor(1, 1);
+  pose_split_.SetDefaultShares({3, 1});
+  pose_split_.Remember(QStringLiteral("pose"),
+                       managers_.document->SettingsPath());
   pose_layout_.setContentsMargins(0, 0, 0, 0);
   pose_layout_.setSpacing(0);
   pose_layout_.addWidget(&strip_);
@@ -263,8 +250,9 @@ void MainWindow::BuildPages() {
   KeepWideEnough(&rig_scroll_);
   rig_split_.addWidget(&rig_scroll_);
   rig_split_.setCollapsible(1, false);
-  rig_split_.setStretchFactor(0, 3);
-  rig_split_.setStretchFactor(1, 1);
+  rig_split_.SetDefaultShares({3, 1});
+  rig_split_.Remember(QStringLiteral("rig"),
+                      managers_.document->SettingsPath());
   pages_.addWidget(&video_page_);
   pages_.addWidget(&pose_page_);
   pages_.addWidget(&comp_page_);

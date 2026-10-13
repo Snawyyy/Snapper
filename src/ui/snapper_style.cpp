@@ -2,7 +2,6 @@
 
 #include <QAbstractItemView>
 #include <QComboBox>
-#include <QCursor>
 #include <QFrame>
 #include <QPainter>
 #include <QSplitterHandle>
@@ -100,13 +99,12 @@ void DrawButton(const QStyleOption* option, QPainter* painter,
 
 // A splitter handle or dock separator: a thin groove in a wide grab area
 // that turns into a yellow draggable handle under the pointer.
-// Dock separators come with no hover state, so is_under_cursor says it.
-void DrawGrip(const QStyleOption* option, QPainter* painter,
-              bool is_under_cursor) {
+// Dock separators come with no hover state, so is_lit says it.
+void DrawGrip(const QStyleOption* option, QPainter* painter, bool is_lit) {
   assert(option != nullptr);
   assert(painter != nullptr);
   const bool is_active =
-      is_under_cursor ||
+      is_lit ||
       option->state.testFlags(QStyle::State_MouseOver | QStyle::State_Sunken);
   painter->fillRect(option->rect, option->palette.window());
   DrawGripLine(painter, option->rect, is_active);
@@ -192,10 +190,11 @@ void SnapperStyle::drawPrimitive(PrimitiveElement element,
     return;
   }
   if (element == PE_IndicatorDockWidgetResizeHandle) {
-    const bool is_under_cursor =
-        widget != nullptr &&
-        option->rect.contains(widget->mapFromGlobal(QCursor::pos()));
-    DrawGrip(option, painter, is_under_cursor);
+    // DockGrips names the separator to light in the window's property.
+    const QRect lit = widget != nullptr
+                          ? widget->property("litGrip").toRect()
+                          : QRect();
+    DrawGrip(option, painter, !lit.isNull() && option->rect.intersects(lit));
     return;
   }
   const bool is_group_frame =

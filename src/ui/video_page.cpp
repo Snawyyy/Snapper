@@ -9,6 +9,7 @@
 #include <variant>
 
 #include "anim/reel_timeline.h"
+#include "edit/document_manager.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/reel_manager.h"
@@ -92,9 +93,9 @@ VideoPage::VideoPage(const Managers& managers)
   top_.addWidget(&side_);
   // The preview takes the golden ratio's long part; the two lists share
   // the short one.
-  top_.setStretchFactor(0, kGoldenShort / 2);
-  top_.setStretchFactor(1, kGoldenLong);
-  top_.setStretchFactor(2, kGoldenShort / 2);
+  top_.SetDefaultShares({kGoldenShort / 2, kGoldenLong, kGoldenShort / 2});
+  top_.Remember(QStringLiteral("video_top"),
+                managers_.document->SettingsPath());
   BuildBar();
   bottom_layout_.setContentsMargins(0, 0, 0, 0);
   bottom_layout_.setSpacing(0);
@@ -102,8 +103,9 @@ VideoPage::VideoPage(const Managers& managers)
   bottom_layout_.addWidget(&timeline_, 1);
   split_.addWidget(&top_);
   split_.addWidget(&bottom_);
-  split_.setStretchFactor(0, kGoldenLong);
-  split_.setStretchFactor(1, kGoldenShort);
+  split_.SetDefaultShares({kGoldenLong, kGoldenShort});
+  split_.Remember(QStringLiteral("video_main"),
+                  managers_.document->SettingsPath());
   layout_.addWidget(&split_);
   connect(&new_shot_, &QPushButton::clicked, &timeline_,
           &ReelTimeline::NewShotAtPlayhead);

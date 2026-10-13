@@ -18,6 +18,8 @@ constexpr double kZoomPerNotch = 1.15;
 constexpr double kWheelNotch = 120.0;
 
 QPointF Centred(QSizeF canvas, QSizeF widget, double scale) {
+  assert(scale >= 0.0);
+  assert(canvas.width() >= 0.0 && canvas.height() >= 0.0);
   return QPointF((widget.width() - canvas.width() * scale) / 2.0,
                  (widget.height() - canvas.height() * scale) / 2.0);
 }
@@ -63,6 +65,8 @@ void ViewCamera::Wheel(const QWheelEvent& event, double base, QSizeF canvas,
 }
 
 bool ViewCamera::Press(const QMouseEvent& event) {
+  assert(owner_ != nullptr);
+  assert(zoom_ > 0.0);
   const bool is_pan = event.button() == Qt::MiddleButton;
   if (is_pan) {
     is_panning_ = true;
@@ -73,6 +77,8 @@ bool ViewCamera::Press(const QMouseEvent& event) {
 }
 
 bool ViewCamera::Move(const QMouseEvent& event) {
+  assert(owner_ != nullptr);
+  assert(std::isfinite(event.position().x() + event.position().y()));
   if (is_panning_) {
     pan_ += event.position() - pan_from_;
     pan_from_ = event.position();
@@ -81,6 +87,8 @@ bool ViewCamera::Move(const QMouseEvent& event) {
 }
 
 bool ViewCamera::Release(const QMouseEvent& event) {
+  assert(owner_ != nullptr);
+  assert(zoom_ > 0.0);
   const bool was_pan = is_panning_ && event.button() == Qt::MiddleButton;
   if (was_pan) {
     is_panning_ = false;

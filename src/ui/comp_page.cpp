@@ -10,6 +10,7 @@
 #include <cassert>
 
 #include "anim/reel_timeline.h"
+#include "edit/document_manager.h"
 #include "edit/comp_manager.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
@@ -68,8 +69,9 @@ CompPage::CompPage(const Managers& managers)
   bottom_layout_.addWidget(&transport_, 0, Qt::AlignLeft);
   bottom_layout_.addWidget(&timeline_, 1);
   center_.addWidget(&bottom_);
-  center_.setStretchFactor(0, 3);
-  center_.setStretchFactor(1, 1);
+  center_.SetDefaultShares({3, 1});
+  center_.Remember(QStringLiteral("comp_center"),
+                   managers_.document->SettingsPath());
   split_.addWidget(&center_);
   panel_scroll_.setWidgetResizable(true);
   panel_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -77,9 +79,9 @@ CompPage::CompPage(const Managers& managers)
   panel_scroll_.setWidget(&panel_);
   panel_scroll_.setMinimumWidth(280);
   split_.addWidget(&panel_scroll_);
-  split_.setStretchFactor(0, 0);
-  split_.setStretchFactor(1, 3);
-  split_.setStretchFactor(2, 1);
+  split_.SetDefaultShares({0, 3, 1});
+  split_.Remember(QStringLiteral("comp_main"),
+                  managers_.document->SettingsPath());
   layout_.addWidget(&split_);
   const auto report = [this](const QString& why) { Report(why); };
   connect(&stack_, &CompStack::Problem, this, report);

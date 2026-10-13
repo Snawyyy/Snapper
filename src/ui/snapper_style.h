@@ -43,6 +43,9 @@ ButtonLook LookOfButton(bool is_enabled, bool is_down, bool is_checked,
 // How wide a splitter handle or dock separator is, so it is easy to
 // catch; the line drawn in it stays thin until the pointer is over it.
 inline constexpr int kGripExtent = 10;
+// How long the pointer rests on a grip before it lights up, so one
+// swept across does not flash.
+inline constexpr int kGripDwellMs = 160;
 
 // Paints the ridges of a grip into box, along its long side: dark and
 // raised at rest, yellow on a dark band when is_active (the pointer is
