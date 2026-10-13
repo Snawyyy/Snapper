@@ -10,7 +10,8 @@
   PLUGIN(RimFill, rimfill) \
   PLUGIN(SpeedLines, speedlines) \
   PLUGIN(BurstLines, burstlines) \
-  PLUGIN(RadialLines, radiallines)
+  PLUGIN(RadialLines, radiallines) \
+  PLUGIN(TouchLines, touchlines)
 
 #define FSP_DECLARE_PLUGIN(ID, PREFIX) \
   extern "C" PF_Err fsp_##PREFIX##_EffectMain( \

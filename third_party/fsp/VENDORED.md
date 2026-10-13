@@ -215,4 +215,50 @@ RadialLines/RadialLines.h:29: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blen
 
 Checked by eye: focus lines from the edges toward the center, seed
 moves them, the center point, hyperbolic, blur, noise and two colors
-work, and lines are as wide at half scale.
+work, and weight and blur halve at half scale.
+
+### TouchLines
+
+Copied `TouchLines/` (`A_Noise.cpp`, `ThresholdLine.cpp`,
+`TouchCtLine.cpp`, `TouchLineFilter.cpp`, `TouchLines.cpp`,
+`TouchStLine.cpp`, `ThresholdLine.h`, `TouchLineFilter.h`,
+`TouchLines.h`, `NF_Target.h`, `README.MD`) and `_NFLib/fx/debug_font`,
+`NF_DrawWorld`, `NF_MinMax`, `NF_Noise`, `NF_Paint` (`.cpp`, `.h`),
+`debug_font_1424.h` and `NF_Draw.h` (`NF_DrawWorld.cpp` includes it;
+`NF_Draw.cpp` is not in TouchLines' project). `A_Noise.cpp`,
+`NF_Blend.cpp` and `TouchLineFilter.cpp` repeat helpers of
+`ThresholdLine.cpp`, so each has its own unit
+(`units/touchlines_unit_2.cpp` to `_4.cpp`).
+
+```
+TouchLines/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+TouchLines/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+TouchLines/ThresholdLine.h:25: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+TouchLines/TouchLineFilter.h:5: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+TouchLines/TouchLineFilter.h:6: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+TouchLines/TouchLines.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+TouchLines/TouchLines.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+TouchLines/TouchLines.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+TouchLines/TouchLines.h:19: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+TouchLines/TouchLines.h:20: "..\_NFLib\fx\NF_ChannelMinmax.h" -> "../_NFLib/fx/NF_ChannelMinMax.h"
+TouchLines/TouchLines.h:21: "..\_NFLib\fx\NF_ChannelBlur.h" -> "../_NFLib/fx/NF_ChannelBlur.h"
+TouchLines/TouchLines.h:22: "..\_NFLib\fx\debug_font.h" -> "../_NFLib/fx/debug_font.h"
+TouchLines/TouchLines.h:23: "..\_NFLib\fx\NF_Paint.h" -> "../_NFLib/fx/NF_Paint.h"
+TouchLines/TouchLines.h:24: "..\_NFLib\fx\NF_Noise.h" -> "../_NFLib/fx/NF_Noise.h"
+TouchLines/TouchLines.h:25: "..\_NFLib\fx\NF_Draw.h" -> "../_NFLib/fx/NF_Draw.h"
+TouchLines/TouchLines.h:29: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+TouchLines/TouchLines.h:30: "..\_NFLib\fx\NF_Blur.h" -> "../_NFLib/fx/NF_Blur.h"
+TouchLines/TouchLines.h:31: "..\_NFLib\fx\NF_DrawAALine.h" -> "../_NFLib/fx/NF_DrawAALine.h"
+TouchLines/TouchLines.h:32: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
+_NFLib/fx/NF_DrawWorld.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+_NFLib/fx/NF_Draw.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+_NFLib/fx/NF_Noise.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+_NFLib/fx/NF_Paint.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+```
+
+(Lines 19 to 27 of `TouchLines.h` sit in a comment.) Checked by eye:
+the target mask finds the drawing's edges (luminance and alpha), lines
+start on those edges straight along the angle or toward the center,
+seed moves them, size halves at half scale. `value` is a chance per
+edge pixel (value / 2000), so the default 1 draws almost nothing on a
+small picture; that is the plugin's own scale.
