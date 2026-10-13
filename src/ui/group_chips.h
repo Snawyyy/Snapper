@@ -2,6 +2,7 @@
 #define SNAPPER_UI_GROUP_CHIPS_H_
 
 #include <QString>
+#include <Qt>
 
 #include <set>
 #include <vector>
@@ -31,8 +32,11 @@ ChipLook ChipOf(const ShownGroup& group, const std::vector<WarpDot>& picked);
 std::vector<ShownGroup> GroupsOfPicks(const std::vector<ShownGroup>& groups,
                                       const std::set<Pick>& picks);
 
-// How a click on a chip picks, from the keys held: Ctrl flips, Shift
-// adds, neither replaces.
+// How a click on a chip picks, from the keys held: the shared pick rule
+// (ClickMode in pick_keys.h) for something not picked: Ctrl flips and
+// wins over Shift, Shift adds, neither replaces.
+PickMode GroupPickMode(Qt::KeyboardModifiers keys);
+// The same from the two keys alone.
 PickMode GroupPickMode(bool is_shift, bool is_ctrl);
 
 }  // namespace snapper

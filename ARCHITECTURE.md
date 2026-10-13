@@ -434,8 +434,9 @@ opacity multiply; a hand-picked drawing wins), so physics, IK and links
 read the result. Set stop takes the hand pose of the driven pieces at
 the playhead into the stop under the knob and resets those hand keys,
 so the doll looks the same after. `DialBox` (`ui/dial_box.cpp`, the
-Smart dials fold of the inspector) makes dials from template tiles and
-turns them (`DialTrack`: snap to stops, Ctrl free, Shift fine, double
+Smart dials fold of the inspector) makes dials from the templates of
+its "+ Dial" menu (shared with the inspector's "+ Smart dial" tile for a
+doll with none) and turns them (`DialTrack`: snap to stops, Ctrl free, Shift fine, double
 click to rest).
 
 Skins (`model/skin.h`, `SkinManager`, `anim/skin.cpp`) are named looks
@@ -451,8 +452,11 @@ otherwise the first worn skin in the list that names the piece sets
 its drawing or hides it (opacity 0). `SkinRigBox` (Rig tab) makes,
 renames, orders and deletes skins and picks one to change: the rig
 canvas wears it (`WornFromStart`) and the Drawing picker writes into
-it. `SkinBox` (the inspector's Skins fold) wears them at the playhead;
-Shift+[ and Shift+] step through them.
+it. `SkinBox` (the inspector's Skins fold, shown only for a doll with
+skins) wears them at the playhead: a click puts one on alone, Alt click
+or the right-click entry Stack on what is worn stacks it (Shift never
+does: Shift adds to a pick everywhere); Shift+[ and Shift+] step
+through them.
 
 Draw on a piece (`DrawManager`, `edit/draw_manager.cpp`,
 `edit/draw_save.cpp`) draws a new drawing for a piece inside Snapper.
@@ -1201,23 +1205,41 @@ in or scrub by its name, so the edit path is unchanged and a drag is one
 undo step. `BoundDrag` holds what the pad and fader share (start values,
 Set, Finish, Cancel on Escape).
 
-Which boxes show is decided by `ShowFor` (`ui/inspector_show.h`, pure):
-the pose for any pick; the layer's settings only for a whole layer or
-doll, not a limb; saved poses only for a whole doll; groups on a doll
-whose picked pieces have a warp grid with drag nodes or motions, or
-while dots are picked or a group exists; the drag node and dot
-animation while a dot is picked; the link only when linked. In the pose
-box, Lean and Swivel show for a whole doll only and the Drawing picker
-for a piece with more than one drawing.
+Which boxes show is decided by `ShowFor` (`ui/inspector_show.h`, pure;
+what the pick has beyond the stage pick comes in `PickExtras`): the
+shot and its camera with nothing picked; the pose for any pick; the
+layer's settings only for a whole layer or doll, not a limb; saved poses
+only for a whole doll; Smart dials only for a doll that has dials (a doll
+without gets a lone "+ Smart dial" tile whose menu is the Dials box's
+templates); Skins only for a whole doll that has skins; References only
+while one of the shot's references is picked; groups on a doll whose
+picked pieces have a warp grid with drag nodes or motions, or while dots
+are picked or a group exists; the drag node and dot animation while a
+dot is picked; the link only when linked. In the pose box, Lean and
+Swivel show for a whole doll only and the Drawing picker for a piece
+with more than one drawing.
+
+Every inspector box is built from the panel kit like the Pose box: each
+group of settings is a plate over a sunken frame (Name, Length and
+Background in the Shot box; Name, Frames and a plated Text section in
+the Layer box; Plays tiles, Timing and Held by in the Object box; a
+Reference plate with Look and Plays sections; Follows with Unlink in the
+Link box; Saved and Save as in Saved poses; one plate per smart dial
+over its track, with its readout and Set stop under it), numbers are
+small readouts scrubbed by their name or faders, rows are
+`theme::kRowGap` apart, and what cannot act is greyed with the reason.
+Group chips wrap in a `FlowLayout` and pick by `ClickMode`.
 
 Dropdowns are drawn by `SnapperStyle` as sunken full-width boxes with a
 raised arrow button, and open a sunken list. A dial or slider under the
 cursor leaves the wheel to the inspector while it scrolls (`scroll_guard.h`).
 
 Most boxes below the title fold away under their heading (`Inspector::
-AddFolded`, `FoldSection`; open at first, the fold kept in the settings
-file); the Layer box and the ones whose title says how many are picked
-do not. The tiles of a material and of a dot motion share `LoopTile` (a
+AddFolded`, `FoldSection`; open at first, except the Camera, right under
+the Shot box, and Saved poses, which start closed; the fold kept in the
+settings file); the Layer box and the ones whose title says how many
+are picked do not. The inspector asks for the width its boxes need, but
+never more than its share of the screen (`KeepWideEnough`). The tiles of a material and of a dot motion share `LoopTile` (a
 tiny cartoon that loops only under the pointer; `KindTile`, `MotionTile`,
 art in `material_art.h` and `motion_art.h`); the Dot animation box picks
 how dots move on six tiles (None, Wave, Pulse, Breathe, Sway, Shiver),
@@ -1226,8 +1248,9 @@ outlined when the picked dots use them.
 The side panel shows only the settings of what is picked: the shot
 and its camera with nothing picked on the stage; pose, layer, motion
 and saved poses for picked pieces or layers; the drag node and dot
-animation panels for a picked warp dot, and the Link box only while a
-pick follows something (`Inspector::Refresh`).
+animation panels for a picked warp dot, the Link box only while a
+pick follows something, and a reference's settings only while it is
+picked (`Inspector::Refresh`, which also follows the ReferenceManager).
 
 Panel kit. Every panel is built from `ui/panel_kit.h` so all of them
 look like the Pose box: `MakePlate` (a centred raised plate, a control

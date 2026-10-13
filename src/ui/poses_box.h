@@ -38,7 +38,6 @@ class PosesBox final : public QGroupBox {
   QVBoxLayout layout_;
   QListWidget list_;
   QLineEdit name_;
-  QHBoxLayout buttons_;
   QPushButton save_;
   QPushButton use_;
   QPushButton forget_;

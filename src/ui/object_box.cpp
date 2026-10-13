@@ -9,15 +9,20 @@
 #include "edit/selection_manager.h"
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
+#include "ui/panel_kit.h"
 #include "ui/playhead.h"
+#include "ui/pose_controls.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 
 namespace snapper {
 
 ObjectBox::ObjectBox(const Managers& managers)
-    : QGroupBox(tr("Object")), managers_(managers), layout_(this) {
+    : QGroupBox(tr("Object")), managers_(managers), layout_(this),
+      live_(managers.history) {
   assert(managers_.IsComplete());
   assert(managers_.objects != nullptr);
+  // Every way it can play on show as tiles, one click each.
   mode_.addItem(tr("Loop"));
   mode_.addItem(tr("Once"));
   mode_.addItem(tr("Ping-pong"));
@@ -28,7 +33,7 @@ ObjectBox::ObjectBox(const Managers& managers)
                       "keyed drawing, for picking a frame by hand."));
   speed_.setRange(0, kMaxFramesPerDrawing);
   speed_.setSpecialValueText(tr("Own timing"));
-  speed_.setSuffix(tr(" frames each"));
+  speed_.setSuffix(tr(" fr each"));
   speed_.setObjectName("frames_per_drawing");
   speed_.setToolTip(tr("Shot frames each picture frame shows for: 2 is on "
                        "twos. Own timing keeps the GIF's."));
@@ -43,15 +48,23 @@ ObjectBox::ObjectBox(const Managers& managers)
   holds_.setObjectName("holds");
   drop_.setText(tr("Drop here"));
   drop_.setObjectName("drop");
-  layout_.addRow(tr("Play"), &mode_);
-  layout_.addRow(tr("Speed"), &speed_);
-  layout_.addRow(tr("Start"), &start_);
-  layout_.addRow(tr("Offset"), &offset_);
-  layout_.addRow(&holds_);
-  layout_.addRow(&drop_);
-  connect(&mode_, &QComboBox::activated, this, [this] { Commit(); });
+  // Like the Pose box: plates over sunken frames; the three timing
+  // numbers share one frame, what holds it sits over Drop here.
+  layout_.setVerticalSpacing(theme::kRowGap);
+  layout_.addRow(MakePlated(tr("Plays"), &mode_, this));
+  auto* timing = MakeOwned<QWidget>(this);
+  auto* column = MakeOwned<QVBoxLayout>(timing);
+  column->setContentsMargins(0, 0, 0, 0);
+  column->setSpacing(theme::kRowGap / 2);
+  column->addWidget(MakeSpinCell(tr("Speed"), &speed_, &live_, timing));
+  column->addWidget(MakeSpinCell(tr("Start"), &start_, &live_, timing));
+  column->addWidget(MakeSpinCell(tr("Offset"), &offset_, &live_, timing));
+  layout_.addRow(MakePlated(tr("Timing"), timing, this));
+  layout_.addRow(MakePlated(tr("Held by"), &holds_, this, &drop_));
+  connect(&mode_, &ChoiceRow::currentIndexChanged, this, [this] { Commit(); });
+  // A scrub or a run of steps is one undo step.
   for (QSpinBox* box : {&speed_, &start_, &offset_}) {
-    connect(box, &QSpinBox::valueChanged, this, [this] { Commit(); });
+    MakeLive(box, &live_, tr("Object timing"), this, [this] { Commit(); });
   }
   connect(&drop_, &QPushButton::clicked, this, [this] {
     const auto spot = SpotOf(managers_);
@@ -62,7 +75,7 @@ ObjectBox::ObjectBox(const Managers& managers)
   });
   Follow(managers_, this);
   Refresh();
-  assert(layout_.rowCount() == 6);
+  assert(layout_.rowCount() == 3);
 }
 
 std::vector<LayerId> ObjectBox::Picked() const {

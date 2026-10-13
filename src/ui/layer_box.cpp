@@ -14,9 +14,11 @@
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
 #include "ui/live_edit.h"
+#include "ui/panel_kit.h"
 #include "ui/playhead.h"
 #include "ui/pose_controls.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 
 namespace snapper {
 namespace {
@@ -25,6 +27,9 @@ namespace {
 // to kOutlineShown; past them the cap rests at the end.
 constexpr double kSizeShown = 300.0;
 constexpr double kOutlineShown = 30.0;
+// Name, frames, mirror, the text section, and the effect's title, kind
+// and strength.
+constexpr int kRowCount = 7;
 
 }  // namespace
 
@@ -52,19 +57,34 @@ void LayerBox::BuildRows() {
   for (int kind = 0; kind < kEffectKindCount; ++kind) {
     effect_.addItem(EffectName(static_cast<EffectKind>(kind)));
   }
-  layout_.addRow(tr("Name"), &name_);
-  AddNumberPair(&layout_, tr("Frames"), &timing_row_,
-                {tr("from"), &start_}, {tr("for"), &length_}, &live_);
-  layout_.addRow(QString(), &flip_);
-  AddTitle(&layout_, &text_title_, tr("Text"));
-  layout_.addRow(tr("Words"), &words_);
-  layout_.addRow(MakeFaderRow(tr("Size"), &size_, &live_, kSizeShown,
-                              TextLayer().size, this));
-  layout_.addRow(QString(), &bold_);
-  AddPair(&layout_, tr("Colours"), &colour_row_, &fill_, &outline_);
-  layout_.addRow(MakeFaderRow(tr("Outline"), &outline_width_, &live_,
-                              kOutlineShown, TextLayer().outline_width,
-                              this));
+  // Like the Pose box: plates over sunken frames, the two timing numbers
+  // in one frame, the text's settings in their own plated section.
+  layout_.setVerticalSpacing(theme::kRowGap);
+  name_.setToolTip(tr("The layer's name, on its timeline row."));
+  layout_.addRow(MakePlated(tr("Name"), &name_, this));
+  start_.setToolTip(tr("The shot frame the layer starts on."));
+  length_.setToolTip(tr("How many frames it shows for; 0 is to the end of "
+                        "the shot."));
+  layout_.addRow(MakePlated(
+      tr("Frames"),
+      MakeCellRow({MakeSpinCell(tr("From"), &start_, &live_, this),
+                   MakeSpinCell(tr("For"), &length_, &live_, this)},
+                  {}, this),
+      this));
+  flip_.setToolTip(tr("Mirror the doll left to right, keys and all."));
+  layout_.addRow(&flip_);
+  auto* text = MakeOwned<QWidget>(this);
+  QFormLayout* rows = SettingsForm(text);
+  words_.setToolTip(tr("What it says; it lands when you leave the field."));
+  rows->addRow(tr("Words"), &words_);
+  rows->addRow(MakeFaderRow(tr("Size"), &size_, &live_, kSizeShown,
+                            TextLayer().size, text));
+  rows->addRow(&bold_);
+  AddPair(rows, tr("Colours"), &colour_row_, &fill_, &outline_);
+  rows->addRow(MakeFaderRow(tr("Outline"), &outline_width_, &live_,
+                            kOutlineShown, TextLayer().outline_width, text));
+  text_section_ = PlatedSection(tr("Text"), text, this);
+  layout_.addRow(text_section_);
   AddTitle(&layout_, &effect_title_, tr("Effect"));
   AddPair(&layout_, tr("Kind"), &effect_row_, &effect_, &effect_colour_);
   layout_.addRow(MakeFaderRow(tr("Strength"), &strength_, &live_, 1.0, 1.0,
@@ -72,12 +92,12 @@ void LayerBox::BuildRows() {
   fill_.setToolTip(tr("Fill colour"));
   outline_.setToolTip(tr("Outline colour"));
   strength_.setToolTip(tr("Keyed at the playhead."));
-  assert(layout_.rowCount() == 12);
+  assert(layout_.rowCount() == kRowCount);
 }
 
 void LayerBox::Wire() {
   assert(managers_.IsComplete());
-  assert(layout_.rowCount() == 12);
+  assert(layout_.rowCount() == kRowCount);
   connect(&name_, &QLineEdit::editingFinished, this, &LayerBox::CommitName);
   for (QSpinBox* box : {&start_, &length_}) {
     MakeLive(box, &live_, tr("Change layer timing"), this,
@@ -131,13 +151,7 @@ void LayerBox::ShowRows(bool is_doll, bool is_text, bool is_effect) {
   assert(!(is_doll && is_text));
   assert(!(is_text && is_effect));
   layout_.setRowVisible(&flip_, is_doll);
-  layout_.setRowVisible(&text_title_, is_text);
-  layout_.setRowVisible(&words_, is_text);
-  // A fader row is the readout's parent: name, fader and readout.
-  layout_.setRowVisible(size_.parentWidget(), is_text);
-  layout_.setRowVisible(&bold_, is_text);
-  layout_.setRowVisible(&colour_row_, is_text);
-  layout_.setRowVisible(outline_width_.parentWidget(), is_text);
+  layout_.setRowVisible(text_section_, is_text);
   layout_.setRowVisible(&effect_title_, is_effect);
   layout_.setRowVisible(&effect_row_, is_effect);
   layout_.setRowVisible(strength_.parentWidget(), is_effect);

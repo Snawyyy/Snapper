@@ -16,6 +16,7 @@
 #include "ui/picked_dot.h"
 #include "ui/pose_controls.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 
 namespace snapper {
 namespace {
@@ -23,8 +24,6 @@ namespace {
 // The size fader spans 0 to this many pixels; past it the cap rests at
 // the end (the field still takes up to the largest size).
 constexpr double kSizeShown = 100.0;
-// Space between the box's rows, on an 8 px rhythm.
-constexpr int kRowGap = 8;
 
 // The picked dots, and the motions the ones that move have.
 struct Look final {
@@ -138,8 +137,10 @@ void PointMotionBox::Build() {
   SetUpNumber(&delay_, Number::kFraction);
   // The kind tiles, the sliders, then the whole-number cycle beside the
   // direction dial.
-  layout_.setVerticalSpacing(kRowGap);
-  layout_.addRow(tr("Moves"), &kinds_);
+  // Like the Pose box: the tiles on a plate over a sunken frame, then
+  // the sliders and the two small controls under it.
+  layout_.setVerticalSpacing(theme::kRowGap);
+  layout_.addRow(MakePlated(tr("Moves"), &kinds_, this));
   layout_.addRow(MakeFaderRow(tr("Size"), &size_, &live_, kSizeShown, 0.0,
                               this));
   layout_.addRow(MakeFaderRow(tr("Delay"), &delay_, &live_, 1.0, 0.0, this));

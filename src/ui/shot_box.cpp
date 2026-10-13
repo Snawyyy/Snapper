@@ -11,7 +11,10 @@
 #include "edit/shot_manager.h"
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
+#include "ui/panel_kit.h"
+#include "ui/pose_controls.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 
 namespace snapper {
 
@@ -21,9 +24,11 @@ ShotBox::ShotBox(const Managers& managers)
       transparent_(tr("Transparent")) {
   assert(managers_.IsComplete());
   name_.setObjectName("shot_name");
+  name_.setToolTip(tr("The shot's name, on its chip and on the reel."));
   length_.setObjectName("shot_length");
   length_.setRange(1, kMaxFrame);
-  length_.setSuffix(tr(" frames"));
+  length_.setToolTip(tr("Length in frames; 24 is a second. Drag the name "
+                        "to scrub it."));
   SetScrubUnit(&length_, 1.0);
   length_seconds_.setObjectName("shot_seconds");
   length_seconds_.setDecimals(2);
@@ -31,22 +36,33 @@ ShotBox::ShotBox(const Managers& managers)
                            SecondsAtFrame(Frame(kMaxFrame)));
   length_seconds_.setSingleStep(0.5);
   SetScrubUnit(&length_seconds_, 0.5);
-  length_seconds_.setSuffix(tr(" s"));
   length_seconds_.setToolTip(
       tr("Length in seconds, rounded to the nearest frame."));
-  layout_.addRow(tr("Name"), &name_);
-  AddNumberRow(&layout_, tr("Length"), &length_, &live_);
-  AddNumberRow(&layout_, tr("Seconds"), &length_seconds_, &live_);
+  // Like the Pose box: each group of settings is a plate over a sunken
+  // frame; the two lengths share one frame, as they are one number.
+  layout_.setVerticalSpacing(theme::kRowGap);
+  layout_.addRow(MakePlated(tr("Name"), &name_, this));
+  layout_.addRow(MakePlated(
+      tr("Length"),
+      MakeCellRow({MakeSpinCell(tr("Frames"), &length_, &live_, this),
+                   MakeSpinCell(tr("Seconds"), &length_seconds_, &live_,
+                                this)},
+                  {}, this),
+      this));
   transparent_.setObjectName("shot_transparent");
   transparent_.setCheckable(true);
   transparent_.setToolTip(
       tr("See-through: nothing behind the dolls, for putting the shot over "
          "video or into another program. The color is kept for when you "
          "turn this off."));
+  background_.setToolTip(tr("The color behind everything. Click to pick "
+                            "another."));
+  // The swatch takes the golden ratio's long part, the tile the short.
   background_layout_.setContentsMargins(0, 0, 0, 0);
-  background_layout_.addWidget(&background_, 1);
-  background_layout_.addWidget(&transparent_);
-  layout_.addRow(tr("Background"), &background_row_);
+  background_layout_.setSpacing(kTileGap);
+  background_layout_.addWidget(&background_, kGoldenLong);
+  background_layout_.addWidget(&transparent_, kGoldenShort);
+  layout_.addRow(MakePlated(tr("Background"), &background_row_, this));
   connect(&transparent_, &QPushButton::clicked, this, [this](bool is_on) {
     emit Problem(
         ProblemOf(managers_.shots->SetTransparentAll(Picked(), is_on)));
@@ -80,7 +96,7 @@ ShotBox::ShotBox(const Managers& managers)
           &ShotBox::PickBackground);
   Follow(managers_, this);
   Refresh();
-  assert(layout_.rowCount() == 4);
+  assert(layout_.rowCount() == 3);
 }
 
 const Shot* ShotBox::Focused() const {

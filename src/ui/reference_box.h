@@ -21,8 +21,9 @@ namespace snapper {
 // The picked shot's references: which one (the picked row, or the first),
 // its opacity, behind or in front, its eye, flip, tint, the fit tiles,
 // when it starts, where in the file, its speed, its markers, finding a
-// moved file and removing it. The inspector shows it while the shot has
-// references. Every change goes through the ReferenceManager.
+// moved file and removing it. The inspector shows it only while one of
+// the shot's references is picked. Every change goes through the
+// ReferenceManager.
 class ReferenceBox final : public QGroupBox {
   Q_OBJECT
 
@@ -35,6 +36,10 @@ class ReferenceBox final : public QGroupBox {
 
  private:
   void BuildRows();
+  // The Look section (opacity, front, eye, flip, tint, fit) and the
+  // Plays section (start, slide, speed, markers).
+  void BuildLook();
+  void BuildTime();
   void Wire();
   // The reference the box shows: the picked one, else the first; invalid
   // when the shot has none.
@@ -58,7 +63,6 @@ class ReferenceBox final : public QGroupBox {
   QHBoxLayout fit_row_;
   QPushButton fit_frame_;
   QPushButton fit_height_;
-  QHBoxLayout time_row_;
   QSpinBox start_;
   QDoubleSpinBox skip_;
   QDoubleSpinBox speed_;

@@ -1,7 +1,6 @@
 #ifndef SNAPPER_UI_OBJECT_BOX_H_
 #define SNAPPER_UI_OBJECT_BOX_H_
 
-#include <QComboBox>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLabel>
@@ -12,13 +11,15 @@
 #include <vector>
 
 #include "model/layer.h"
+#include "ui/choice_row.h"
+#include "ui/live_edit.h"
 #include "ui/managers.h"
 
 namespace snapper {
 
 // An object picked whole: how its GIF plays (Loop, Once, Ping-pong,
-// Hold; speed; start; offset), what holds it frame by frame, and Drop
-// here. The inspector shows it only for objects.
+// Hold, as tiles; speed; start; offset), what holds it frame by frame,
+// and Drop here. The inspector shows it only for objects.
 class ObjectBox final : public QGroupBox {
   Q_OBJECT
 
@@ -36,7 +37,8 @@ class ObjectBox final : public QGroupBox {
 
   Managers managers_;
   QFormLayout layout_;
-  QComboBox mode_;
+  LiveEdit live_;
+  ChoiceRow mode_;
   QSpinBox speed_;
   QSpinBox start_;
   QSpinBox offset_;

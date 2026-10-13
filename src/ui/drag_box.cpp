@@ -12,6 +12,7 @@
 #include "ui/pose_controls.h"
 #include "ui/picked_dot.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 
 namespace snapper {
 
@@ -25,7 +26,9 @@ DragBox::DragBox(const Managers& managers)
       groups_(managers) {
   assert(managers_.IsComplete());
   tiles_.setObjectName("kind_tiles");
-  layout_.addRow(&tiles_);
+  // Like the Pose box: plates over sunken frames, rows 8 px apart.
+  layout_.setVerticalSpacing(theme::kRowGap);
+  layout_.addRow(MakePlated(tr("Made of"), &tiles_, this));
   SetUpPadRow();
   SetUpPresets();
   SetUpReachRow();
@@ -49,13 +52,14 @@ DragBox::DragBox(const Managers& managers)
   });
   connect(&tiles_, &KindTiles::Chosen, this,
           [this](Material material) { ChooseMaterial(material); });
-  // The groups: a flat group box inside a plate and a sunken frame.
+  // The groups: a flat group box in a section of its own, its title at
+  // the edge and the chips indented under it.
   groups_.setTitle(QString());
   groups_.setFlat(true);
-  groups_cell_ = MakePlated(tr("Groups"), &groups_, this);
+  groups_cell_ = PlatedSection(tr("Groups"), &groups_, this);
   connect(&groups_, &GroupBox::Problem, this, &DragBox::Problem);
   outer_.setContentsMargins(4, 4, 4, 4);
-  outer_.setSpacing(8);
+  outer_.setSpacing(theme::kRowGap);
   outer_.addWidget(&dots_part_);
   outer_.addWidget(groups_cell_);
   Follow(managers_, this);

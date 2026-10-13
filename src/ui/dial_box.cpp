@@ -1,5 +1,6 @@
 #include "ui/dial_box.h"
 
+#include <QHBoxLayout>
 #include <QInputDialog>
 #include <QMenu>
 
@@ -13,8 +14,11 @@
 #include "edit/selection_manager.h"
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
+#include "ui/panel_kit.h"
 #include "ui/playhead.h"
+#include "ui/pose_controls.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 
 namespace snapper {
 
@@ -22,22 +26,36 @@ DialBox::DialBox(const Managers& managers)
     : QGroupBox(tr("Smart dials")), managers_(managers), layout_(this) {
   assert(managers_.IsComplete());
   assert(managers_.dials != nullptr);
+  templates_.setToolTipsVisible(true);
   for (int kind = 0; kind < kDialTemplateCount; ++kind) {
-    auto* tile = new QPushButton(
-        tr("+ %1").arg(TemplateName(static_cast<DialTemplate>(kind))), this);
-    tiles_.addWidget(tile);
-    tile_buttons_.push_back(tile);
-    connect(tile, &QPushButton::clicked, this,
-            [this, kind] { AddDial(kind); });
+    templates_.addAction(
+        TemplateName(static_cast<DialTemplate>(kind)), this,
+        [this, kind] { AddDial(kind); });
   }
-  layout_.addLayout(&tiles_);
+  layout_.setSpacing(theme::kRowGap);
   layout_.addLayout(&rows_layout_);
-  empty_.setWordWrap(true);
-  empty_.setText(tr("Pick the pieces a dial should move, then a tile."));
-  layout_.addWidget(&empty_);
+  rows_layout_.setSpacing(theme::kRowGap);
+  empty_ = EmptyHint(tr("No dial moves the picked pieces. Pick the pieces "
+                        "a dial should move, then + Dial."),
+                     this);
+  layout_.addWidget(empty_);
+  add_.setObjectName("add_dial");
+  add_.setText(tr("+ Dial"));
+  add_.setMenu(&templates_);
+  add_.setPopupMode(QToolButton::InstantPopup);
+  add_.setToolButtonStyle(Qt::ToolButtonTextOnly);
+  layout_.addWidget(&add_, 0, Qt::AlignLeft);
   Follow(managers_, this);
   Refresh();
-  assert(tile_buttons_.size() == static_cast<size_t>(kDialTemplateCount));
+  assert(templates_.actions().size() == kDialTemplateCount);
+}
+
+QString DialBox::WhyNoDial() const {
+  assert(managers_.dials != nullptr);
+  assert(managers_.selection != nullptr);
+  return managers_.dials->WhyNoDial(managers_.selection->shot(),
+                                    managers_.selection->layer(),
+                                    PickedPieces());
 }
 
 std::vector<QString> DialBox::PickedPieces() const {
@@ -73,10 +91,12 @@ void DialBox::Refresh() {
   const ShotId shot = managers_.selection->shot();
   const LayerId layer = managers_.selection->layer();
   const std::vector<QString> pieces = PickedPieces();
-  const QString why = managers_.dials->WhyNoDial(shot, layer, pieces);
-  for (QPushButton* tile : tile_buttons_) {
-    Explain(tile, why);
+  const QString why = WhyNoDial();
+  for (QAction* entry : templates_.actions()) {
+    Explain(entry, why);
   }
+  Explain(&add_, why,
+          tr("Make a dial that drives the picked pieces, from a template."));
   // Picking pieces only shows the dials that move one of them.
   std::vector<SmartDial> dials;
   for (const SmartDial& dial : managers_.dials->DialsOf(shot, layer, {})) {
@@ -92,7 +112,7 @@ void DialBox::Refresh() {
   if (is_new) {
     Rebuild(dials);
   }
-  empty_.setVisible(rows_.empty());
+  empty_->setVisible(rows_.empty());
   const auto spot = SpotOf(managers_);
   const bool is_here = spot.has_value() && spot->shot == shot;
   for (size_t i = 0; i < rows_.size(); ++i) {
@@ -119,24 +139,21 @@ void DialBox::Rebuild(const std::vector<SmartDial>& dials) {
   for (const SmartDial& dial : dials) {
     Row row;
     row.name = dial.name;
-    row.widget = new QWidget(this);
-    auto* lines = new QVBoxLayout(row.widget);
-    lines->setContentsMargins(0, 2, 0, 2);
-    auto* top = new QHBoxLayout();
-    row.title = new QLabel(QStringLiteral("<b>%1</b>")
-                               .arg(dial.name.toHtmlEscaped()),
-                           row.widget);
-    row.readout = new QLabel(row.widget);
-    row.set_stop = new QPushButton(tr("Set stop"), row.widget);
+    // The name on a plate over the track, with what it shows and Set stop
+    // in the bar under it, like a fader of the Pose box.
+    auto* bar = MakeOwned<QWidget>(this);
+    auto* line = MakeOwned<QHBoxLayout>(bar);
+    line->setContentsMargins(4, 2, 4, 2);
+    row.readout = MakeOwned<QLabel>(bar);
+    row.set_stop = MakeOwned<QPushButton>(tr("Set stop"), bar);
     row.set_stop->setToolTip(
-        tr("Save how its pieces look now as the stop under the knob"));
-    top->addWidget(row.title);
-    top->addStretch(1);
-    top->addWidget(row.readout);
-    top->addWidget(row.set_stop);
-    lines->addLayout(top);
-    row.track = new DialTrack(row.widget);
-    lines->addWidget(row.track);
+        tr("Save how its pieces look now as the stop under the knob."));
+    line->addWidget(row.readout, 1);
+    line->addWidget(row.set_stop);
+    row.track = MakeOwned<DialTrack>(this);
+    row.track->setToolTip(tr("Drag the knob to turn the dial; double click "
+                             "rests it. Right click a tick for its stop."));
+    row.widget = MakePlated(dial.name, row.track, this, bar);
     rows_layout_.addWidget(row.widget);
     const QString name = dial.name;
     row.widget->setContextMenuPolicy(Qt::CustomContextMenu);

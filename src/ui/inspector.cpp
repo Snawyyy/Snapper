@@ -12,11 +12,14 @@
 #include "edit/selection_manager.h"
 #include "ui/follow.h"
 #include "edit/group_manager.h"
+#include "ui/form_helpers.h"
 #include "ui/group_chips.h"
 #include "ui/inspector_show.h"
 #include "ui/inspector_title.h"
 #include "ui/playhead.h"
+#include "ui/scroll_fit.h"
 #include "ui/scroll_guard.h"
+#include "ui/theme.h"
 
 namespace snapper {
 
@@ -35,7 +38,7 @@ Inspector::Inspector(const Managers& managers)
       poses_(managers) {
   assert(managers.IsComplete());
   layout_.setContentsMargins(4, 4, 4, 4);
-  layout_.setSpacing(4);
+  layout_.setSpacing(theme::kRowGap);
   title_.setObjectName("inspector_title");
   title_.setTextFormat(Qt::RichText);
   layout_.addWidget(&title_);
@@ -43,6 +46,10 @@ Inspector::Inspector(const Managers& managers)
   hint_.setText(tr("Add a shot in the strip above to start."));
   layout_.addWidget(&hint_);
   layout_.addWidget(&shot_);
+  // The camera sits right under its shot, folded closed until opened:
+  // most of the time a shot is set up, not filmed. (A new key, so a fold
+  // left open by the old default starts closed too.)
+  AddFolded(&camera_, "shot_camera", false);
   layout_.addWidget(&pose_);
   const bool has_objects = managers_.objects != nullptr;
   if (has_objects) {
@@ -56,15 +63,24 @@ Inspector::Inspector(const Managers& managers)
     AddFolded(references_.get(), "references");
     connect(references_.get(), &ReferenceBox::Problem, this,
             &Inspector::Problem);
+    // Picking a reference row shows its settings.
+    connect(managers_.references, &ReferenceManager::Changed, this,
+            &Inspector::Refresh);
   }
   AddFolded(&skins_, "skins");
   AddFolded(&dials_, "smart_dials");
+  new_dial_.setObjectName("new_dial");
+  new_dial_.setText(tr("+ Smart dial"));
+  new_dial_.setMenu(dials_.templates());
+  new_dial_.setPopupMode(QToolButton::InstantPopup);
+  new_dial_.setToolButtonStyle(Qt::ToolButtonTextOnly);
+  layout_.addWidget(&new_dial_, 0, Qt::AlignLeft);
   layout_.addWidget(&drag_);
   AddFolded(&point_motion_, "dot_animation");
   layout_.addWidget(&layer_);
-  AddFolded(&camera_, "camera");
   AddFolded(&link_, "link");
-  AddFolded(&poses_, "saved_poses");
+  // Saved poses are reached for now and then: folded until opened.
+  AddFolded(&poses_, "saved_poses_shut", false);
   layout_.addStretch(1);
   connect(&pose_, &PoseBox::Problem, this, &Inspector::Problem);
   connect(&dials_, &DialBox::Problem, this, &Inspector::Problem);
@@ -79,24 +95,26 @@ Inspector::Inspector(const Managers& managers)
   connect(&poses_, &PosesBox::Problem, this, &Inspector::Problem);
   setWidgetResizable(true);
   WatchScrolling(this);
-  setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  // Sideways only past the cap KeepWideEnough sets.
+  setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   // The scroll area must not delete body_, a member; it is taken back in
   // the destructor below.
   setWidget(&body_);
-  // Wide enough that paired fields (x and y) never get cut off.
-  setMinimumWidth(body_.minimumSizeHint().width() +
-                  verticalScrollBar()->sizeHint().width() + 4);
+  // Wide enough that paired fields (x and y) never get cut off, as boxes
+  // come and go, but never more than its share of the screen.
+  KeepWideEnough(this);
   Follow(managers_, this);
   Refresh();
   assert(widget() == &body_);
 }
 
-void Inspector::AddFolded(QGroupBox* box, const QString& key) {
+void Inspector::AddFolded(QGroupBox* box, const QString& key,
+                          bool is_open_at_first) {
   assert(box != nullptr);
   assert(!key.isEmpty());
   auto fold = std::make_unique<FoldSection>(
       box->title(), managers_.motion, managers_.document->SettingsPath(), key,
-      &body_, true);
+      &body_, is_open_at_first);
   box->setTitle(QString());
   box->setFlat(true);
   fold->form()->addRow(box);
@@ -148,23 +166,35 @@ void Inspector::Refresh() {
                        managers_.groups->GroupsOf(selection.shot()),
                        selection.picks())
                        .empty();
-  const bool has_dot = has_pick && selection.dot().has_value();
+  PickExtras extras;
+  extras.has_dot = has_pick && selection.dot().has_value();
+  extras.is_linked = has_pick && link_.IsLinked();
+  extras.has_groups = has_groups;
+  extras.has_reference =
+      managers_.references != nullptr &&
+      managers_.references->PickedIn(selection.shot()).IsValid();
   const InspectorShow show =
-      ShowFor(project, selection.shot(), selection.picks(), has_dot,
-              has_pick && link_.IsLinked(), has_groups);
+      ShowFor(project, selection.shot(), selection.picks(), extras);
   hint_.setVisible(!has_shot);
   shot_.setVisible(show.shot);
   Show(&camera_, show.camera);
   pose_.setVisible(show.pose);
   Show(&dials_, show.dials);
+  const bool is_new_dial_new = new_dial_.isHidden() == show.add_dial;
+  if (is_new_dial_new) {
+    new_dial_.setVisible(show.add_dial);
+  }
+  if (show.add_dial) {
+    Explain(&new_dial_, dials_.WhyNoDial(),
+            tr("This doll has no smart dials yet. Pick the pieces a dial "
+               "should move, then make one from a template."));
+  }
   Show(&skins_, show.skins);
   if (object_ != nullptr) {
     Show(object_.get(), show.object);
   }
   if (references_ != nullptr) {
-    // Shown while the shot has references, whatever is picked.
-    Show(references_.get(),
-         has_shot && !managers_.references->Of(selection.shot()).empty());
+    Show(references_.get(), show.references);
   }
   Show(&link_, show.link);
   Show(&layer_, show.layer);

@@ -4,6 +4,7 @@
 #include <QGroupBox>
 #include <QLabel>
 #include <QScrollArea>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -27,12 +28,14 @@
 
 namespace snapper {
 
-// The right-hand panel: only the settings of what is picked. With
-// nothing picked on the stage: the shot and its camera. With pieces or
-// layers: their pose at the playhead, what they are
-// linked to, the layer's settings, saved poses for a doll, and the
-// picked warp dot's drag and animation.
-// Stacked and scrollable.
+// The right-hand panel: only the settings of what is picked (see
+// ShowFor). With nothing picked on the stage: the shot, and its camera
+// folded closed at first. With pieces or layers: their pose at the
+// playhead, what they are linked to, the layer's settings, a doll's
+// dials (or a "+" tile for its first), skins when it has some, its saved
+// poses folded, and the picked warp dot's drag and animation. A picked
+// reference shows its settings. Stacked and scrollable; never wider
+// than its share of the screen (KeepWideEnough).
 class Inspector final : public QScrollArea {
   Q_OBJECT
 
@@ -51,8 +54,9 @@ class Inspector final : public QScrollArea {
  private:
   // Puts box in the stack under a heading that folds it away (the
   // heading is box's title; the fold is kept in the settings, open at
-  // first).
-  void AddFolded(QGroupBox* box, const QString& key);
+  // first unless is_open_at_first is false).
+  void AddFolded(QGroupBox* box, const QString& key,
+                 bool is_open_at_first = true);
   // Shows or hides box with its heading.
   void Show(QGroupBox* box, bool is_shown);
 
@@ -67,6 +71,8 @@ class Inspector final : public QScrollArea {
   ShotBox shot_;
   PoseBox pose_;
   DialBox dials_;
+  // A doll with no dials: one tile whose menu makes the first.
+  QToolButton new_dial_;
   SkinBox skins_;
   DragBox drag_;
   PointMotionBox point_motion_;
