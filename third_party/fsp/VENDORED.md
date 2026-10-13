@@ -146,3 +146,20 @@ _NFLib/fx/NF_Paint.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
 Checked by eye: a disc and a box on transparent; Outer 4 and Inner 2
 give a 6 pixel ring (3 at scale 0.5), the fill dropped unless Blend
 with original is on.
+
+### Thin
+
+Sources `Thin/` (`Thin.cpp`, `Thin.h`, `Thinsub.cpp`, `NF_Target.h`,
+`README.MD`), no `_NFLib/fx` files. One unit.
+
+```
+Thin/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+Thin/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+Thin/Thin.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+Thin/Thin.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+Thin/Thin.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+```
+
+Checked by eye: black lines 9 and 10 pixels wide between red and blue
+cels; ThinValue 2 takes 2 pixels off each side (1 at scale 0.5) and
+fills them with the cel next to them.
