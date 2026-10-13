@@ -19,6 +19,7 @@
 #include "edit/pose_manager.h"
 #include "edit/preset_manager.h"
 #include "edit/reel_manager.h"
+#include "edit/reference_manager.h"
 #include "edit/rig_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/settings_manager.h"
@@ -61,6 +62,7 @@ struct Bench final {
   SkinManager skins{&history};
   ObjectManager objects{&history, &library, &stage, &links};
   SoundManager sounds{&history};
+  ReferenceManager references{&history};
 
   Managers All() {
     Managers all{&history, &document, &library, &rig, &shots, &stage,
@@ -72,6 +74,7 @@ struct Bench final {
     all.skins = &skins;
     all.objects = &objects;
     all.sounds = &sounds;
+    all.references = &references;
     return all;
   }
 };

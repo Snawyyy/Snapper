@@ -7,6 +7,7 @@
 #include <QDropEvent>
 #include <QImage>
 #include <QString>
+#include <QStringList>
 #include <QMenu>
 #include <QWidget>
 
@@ -15,6 +16,8 @@
 #include <vector>
 
 #include "edit/change_watcher.h"
+#include "edit/edit_scope.h"
+#include "model/reference.h"
 #include "render/frame_renderer.h"
 #include "render/stage_camera.h"
 #include "render/stage_geometry.h"
@@ -182,6 +185,40 @@ class StageView final : public QWidget {
   void AddLinkActions(QMenu* menu, QPointF point, const StageFrame& frame);
   // Draw mode's canvas over the stage, and N and Shift+N to start it.
   void SetUpDraw();
+
+  // References (ui/stage_view_reference.cpp). The behind ones on one
+  // frame-sized picture, for the renderer to put under the layers; null
+  // when none shows.
+  QImage ReferencesUnder(const StageFrame& frame);
+  // The front ones over the frame, every shown one's thin dashed border,
+  // the picked one's handles and a "reference ended" chip.
+  void PaintReferencesOver(const StageFrame& frame, QSize shown,
+                           QPainter* painter);
+  // A press on the picked reference: a corner scales it, inside moves
+  // it, as one undo step. A press elsewhere unpicks it; false then.
+  bool ReferencePress(QPointF point, const StageFrame& frame);
+  bool ReferenceMove(QPointF point);
+  bool ReferenceRelease();
+  // Escape during a reference drag: it never happened.
+  bool CancelReferenceDrag();
+  // The picked reference's box, in widget pixels; empty with none.
+  QRectF PickedReferenceBox(const StageFrame& frame) const;
+  // Alt + drop: the files become references of the shot.
+  void DropReferences(const QStringList& files);
+
+  // A reference drag: what was pressed and how it stood then.
+  struct ReferenceDrag final {
+    ShotId shot;
+    ReferenceId id;
+    bool is_scale = false;
+    QPointF press;
+    QPointF middle;
+    QPointF center;
+    double scale = 1.0;
+    double frame_scale = 1.0;
+  };
+  std::optional<ReferenceDrag> reference_drag_;
+  std::unique_ptr<EditScope> reference_scope_;
 
   Managers managers_;
   StageCamera camera_;

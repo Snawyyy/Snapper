@@ -1,5 +1,6 @@
 // StageView's drop: a doll card dragged here goes on the stage, and
-// picture files dropped here become objects placed where they fell.
+// picture files dropped here become objects placed where they fell, or
+// with Alt held references to animate over.
 
 #include <QMimeData>
 
@@ -21,8 +22,9 @@ namespace {
 bool IsWanted(const QMimeData* data, const Managers& managers) {
   assert(data != nullptr);
   const bool is_doll = !DollsOfDrop(data).isEmpty();
-  const bool is_files =
-      managers.objects != nullptr && !FilesOfDrop(data).isEmpty();
+  const bool can_take_files =
+      managers.objects != nullptr || managers.references != nullptr;
+  const bool is_files = can_take_files && !FilesOfDrop(data).isEmpty();
   return is_doll || is_files;
 }
 
@@ -64,6 +66,17 @@ void StageView::dropEvent(QDropEvent* event) {
   if (is_doll) {
     event->acceptProposedAction();
     emit Problem(PutDollsOnStage(managers_, dolls));
+  }
+  // Alt: the files are references to animate over, not objects.
+  const bool is_reference_drop =
+      !is_doll && managers_.references != nullptr &&
+      event->modifiers().testFlag(Qt::AltModifier) &&
+      !FilesOfDrop(event->mimeData()).isEmpty();
+  if (is_reference_drop) {
+    event->acceptProposedAction();
+    DropReferences(FilesOfDrop(event->mimeData()));
+    update();
+    return;
   }
   const QStringList files = managers_.objects != nullptr
                                 ? FilesOfDrop(event->mimeData())

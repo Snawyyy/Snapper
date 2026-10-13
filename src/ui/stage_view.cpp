@@ -16,10 +16,12 @@
 #include "edit/poke_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/project_edits.h"
+#include "edit/reference_manager.h"
 #include "render/stage_geometry.h"
 #include "render/stage_hit.h"
 #include "ui/drag_text.h"
 #include "ui/playhead.h"
+#include "ui/reference_keys.h"
 #include "ui/theme.h"
 
 namespace snapper {
@@ -52,6 +54,10 @@ StageView::StageView(const Managers& managers)
           update_me);
   if (managers_.palette != nullptr) {
     connect(managers_.palette, &PaletteManager::HoverChanged, this,
+            update_me);
+  }
+  if (managers_.references != nullptr) {
+    connect(managers_.references, &ReferenceManager::Changed, this,
             update_me);
   }
   connect(&hover_, &HandleHover::Changed, this, update_me);
@@ -91,12 +97,16 @@ void StageView::paintEvent(QPaintEvent* event) {
     return;
   }
   poke_.Sync(renderer_.cache()->poses());
+  // References only ever reach the renderer from here.
+  const QImage under = ReferencesUnder(*frame);
   const QImage image = renderer_.RenderFrame(
       managers_.history->current(),
-      managers_.playback->FrameOn(Timeline::kShots), frame->scale);
+      managers_.playback->FrameOn(Timeline::kShots), frame->scale,
+      under.isNull() ? nullptr : &under);
   PaintOutside(*frame, image.size(), &painter);
   PaintBehind(*frame, image.size(), &painter);
   painter.drawImage(frame->corner, image);
+  PaintReferencesOver(*frame, image.size(), &painter);
   PaintFrameEdge(*frame, image.size(), &painter);
   shown_ = image;
   shown_corner_ = frame->corner;
@@ -147,6 +157,11 @@ void StageView::mousePressEvent(QMouseEvent* event) {
   const auto frame = CurrentFrame();
   const bool is_usable = frame.has_value() &&
                          event->button() == Qt::LeftButton;
+  const bool is_reference =
+      is_usable && ReferencePress(event->position(), *frame);
+  if (is_reference) {
+    return;
+  }
   const bool is_poke = is_usable && poke_.Press(
       event->position(), LayerUnder(event->position(), *frame), *frame);
   if (is_poke) {
@@ -172,6 +187,10 @@ void StageView::mouseMoveEvent(QMouseEvent* event) {
     camera_ = Panned(camera_, event->position() - pan_from_);
     pan_from_ = event->position();
     update();
+    return;
+  }
+  const bool was_reference = ReferenceMove(event->position());
+  if (was_reference) {
     return;
   }
   const auto poke_frame = CurrentFrame();
@@ -246,6 +265,11 @@ void StageView::mouseReleaseEvent(QMouseEvent* event) {
     return;
   }
   const bool is_left = event->button() == Qt::LeftButton;
+  const bool was_reference = is_left && ReferenceRelease();
+  if (was_reference) {
+    UpdateHover(event->position());
+    return;
+  }
   const bool was_poking = is_left && poke_.IsPoking();
   if (was_poking) {
     poke_.Release();
@@ -310,9 +334,18 @@ void StageView::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
   const bool is_escape = event->key() == Qt::Key_Escape;
   const bool is_all = event->matches(QKeySequence::SelectAll);
-  const bool was_poke_ended = is_escape && poke_.Cancel();
+  const bool was_poke_ended =
+      is_escape && (CancelReferenceDrag() || poke_.Cancel());
   if (was_poke_ended) {
     update();
+    event->accept();
+    return;
+  }
+  QString reference_problem;
+  const bool was_reference_key =
+      ReferenceKey(*event, managers_, &reference_problem);
+  if (was_reference_key) {
+    emit Problem(reference_problem);
     event->accept();
     return;
   }

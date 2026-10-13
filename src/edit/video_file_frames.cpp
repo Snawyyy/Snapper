@@ -2,11 +2,19 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 
 namespace snapper {
 
 QImage VideoFileFrames::Picture(const QString& path, Frame frame) {
   assert(frame.index() >= 0);
+  assert(readers_.size() <= static_cast<size_t>(kMaxOpenVideos));
+  return PictureAtSeconds(path, SecondsAtFrame(frame));
+}
+
+QImage VideoFileFrames::PictureAtSeconds(const QString& path,
+                                         double seconds) {
+  assert(std::isfinite(seconds) && seconds >= 0.0);
   assert(readers_.size() <= static_cast<size_t>(kMaxOpenVideos));
   const bool is_known_broken = path.isEmpty() || broken_.contains(path);
   if (is_known_broken) {
@@ -17,7 +25,7 @@ QImage VideoFileFrames::Picture(const QString& path, Frame frame) {
   if (!is_open) {
     return QImage();
   }
-  auto picture = reader->PictureAt(SecondsAtFrame(frame));
+  auto picture = reader->PictureAt(seconds);
   return picture.has_value() ? *picture : QImage();
 }
 

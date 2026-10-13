@@ -20,6 +20,7 @@ class PokeManager;
 class PoseManager;
 class PresetManager;
 class ReelManager;
+class ReferenceManager;
 class RigManager;
 class SelectionManager;
 class SettingsManager;
@@ -66,6 +67,9 @@ struct Managers final {
   // Not in IsComplete either: the reel's waveforms and sound headers
   // check it.
   SoundManager* sounds = nullptr;
+  // Not in IsComplete either: the stage, the Pose timeline's reference
+  // rows, the References box and the shot menu check it.
+  ReferenceManager* references = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&

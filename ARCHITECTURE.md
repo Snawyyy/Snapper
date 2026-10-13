@@ -531,6 +531,21 @@ An effect layer (flash, fill, invert, zoom punch, halftone, glitch,
 posterize) changes everything drawn below it, like an adjustment
 layer. Effects are drawn in screen space, after the camera.
 
+A shot may hold references (`Shot::references`, `model/reference.h`):
+videos, GIFs and pictures linked by path to animate over. They are not
+layers and have no keys, so posing, key copy and paste never touch
+them; `ReferenceManager` owns every edit (one named undo step each) and
+the view state (the picked one, Y hiding them all), and hands out each
+one's picture of the moment through its own `VideoFileFrames`. Only
+`StageView` draws them (`ui/stage_view_reference.cpp`): the ones behind
+go to `FrameRenderer::RenderFrame` as its `under` picture, drawn over
+the background and below every layer; the ones in front are painted
+over the frame. Nothing else passes `under`, so export, the Video tab,
+thumbnails and the reel never show a reference. They are placed in
+canvas space, without the camera. The Pose timeline gives each its own
+row above the doll rows (`ui/timeline_references.cpp`), not counted in
+the shot's length.
+
 ## Links
 
 A layer or a doll piece can follow another thing's movement: right-

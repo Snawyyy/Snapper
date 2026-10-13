@@ -131,12 +131,18 @@ QTransform FrameRenderer::ViewTransform(const Project& project,
 }
 
 QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
-                                 Frame local, double scale) {
+                                 Frame local, double scale,
+                                 const QImage* under) {
   assert(scale > 0.0);
   assert(shot.layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
   QImage frame = Blank(project, scale,
                        shot.is_transparent ? QColor(Qt::transparent)
                                            : shot.background);
+  const bool has_under = under != nullptr && !under->isNull();
+  if (has_under) {
+    QPainter painter(&frame);
+    painter.drawImage(0, 0, *under);
+  }
   const QTransform view = ViewTransform(project, shot, local, scale);
   LinkSolver links(project, shot, cache_.poses());
   for (const Layer& layer : shot.layers) {
@@ -214,7 +220,7 @@ QImage FrameRenderer::RenderArea(const Project& project, const Shot& shot,
 }
 
 QImage FrameRenderer::RenderFrame(const Project& project, Frame master,
-                                  double scale) {
+                                  double scale, const QImage* under) {
   assert(scale > 0.0);
   assert(master.index() >= 0);
   const ShotMoment moment = Locate(project, master);
@@ -223,7 +229,7 @@ QImage FrameRenderer::RenderFrame(const Project& project, Frame master,
     return Blank(project, scale, Qt::black);
   }
   const Shot& shot = *project.shots[static_cast<size_t>(moment.shot)];
-  return RenderShot(project, shot, moment.local, scale);
+  return RenderShot(project, shot, moment.local, scale, under);
 }
 
 void FrameRenderer::DrawClip(const Project& project, const Clip& clip,

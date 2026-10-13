@@ -8,6 +8,7 @@
 #include "edit/document_manager.h"
 #include "edit/history_manager.h"
 #include "edit/project_edits.h"
+#include "edit/reference_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/follow.h"
 #include "edit/group_manager.h"
@@ -48,6 +49,13 @@ Inspector::Inspector(const Managers& managers)
     object_ = std::make_unique<ObjectBox>(managers_);
     AddFolded(object_.get(), "object");
     connect(object_.get(), &ObjectBox::Problem, this, &Inspector::Problem);
+  }
+  const bool has_references = managers_.references != nullptr;
+  if (has_references) {
+    references_ = std::make_unique<ReferenceBox>(managers_);
+    AddFolded(references_.get(), "references");
+    connect(references_.get(), &ReferenceBox::Problem, this,
+            &Inspector::Problem);
   }
   AddFolded(&skins_, "skins");
   AddFolded(&dials_, "smart_dials");
@@ -152,6 +160,11 @@ void Inspector::Refresh() {
   Show(&skins_, show.skins);
   if (object_ != nullptr) {
     Show(object_.get(), show.object);
+  }
+  if (references_ != nullptr) {
+    // Shown while the shot has references, whatever is picked.
+    Show(references_.get(),
+         has_shot && !managers_.references->Of(selection.shot()).empty());
   }
   Show(&link_, show.link);
   Show(&layer_, show.layer);

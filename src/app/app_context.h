@@ -19,6 +19,7 @@
 #include "edit/pose_manager.h"
 #include "edit/preset_manager.h"
 #include "edit/reel_manager.h"
+#include "edit/reference_manager.h"
 #include "edit/rig_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/settings_manager.h"
@@ -74,6 +75,7 @@ class AppContext final {
   SkinManager skins_;
   ObjectManager objects_;
   SoundManager sounds_;
+  ReferenceManager references_;
   MainWindow window_;
 };
 

@@ -2,6 +2,7 @@
 
 #include <QColorDialog>
 #include <QContextMenuEvent>
+#include <QFileDialog>
 #include <QInputDialog>
 #include <QKeyEvent>
 #include <QMenu>
@@ -18,6 +19,7 @@
 #include "anim/master_timeline.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
+#include "edit/reference_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/shot_manager.h"
 #include "ui/drag_text.h"
@@ -317,6 +319,23 @@ void ShotStrip::Menu(ShotId shot, QPoint where) {
                   managers_.shots->SetBackgroundAll(PickedShots(), picked)));
             }
           });
+  const bool has_references = managers_.references != nullptr;
+  if (has_references) {
+    QAction* add = menu.addAction(tr("Add reference..."));
+    add->setToolTip(tr("A video, GIF or picture to animate over, seen on "
+                       "the Pose tab only; never in the video. Or hold Alt "
+                       "while dropping a file on the stage."));
+    connect(add, &QAction::triggered, this, [this, shot] {
+      const QString path = QFileDialog::getOpenFileName(
+          this, tr("Add reference"), QString(),
+          tr("Videos and pictures (*.mp4 *.mov *.webm *.mkv *.avi *.m4v "
+             "*.gif *.png *.apng *.webp *.jpg *.jpeg *.bmp);;All files (*)"));
+      const bool is_picked = !path.isEmpty();
+      if (is_picked) {
+        Report(ProblemOf(managers_.references->Add(shot, path)));
+      }
+    });
+  }
   connect(menu.addAction(tr("Duplicate")), &QAction::triggered, this,
           [this] {
             Report(ProblemOf(managers_.shots->DuplicateAll(PickedShots())));

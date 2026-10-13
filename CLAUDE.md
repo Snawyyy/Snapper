@@ -116,8 +116,14 @@ typed in place, dragged and scaled on the preview, a Text tab for look,
 palette colors, place tiles, In and Out, linked styles) and a subtitle
 track timed by tapping L, with a cue list, find and replace, SRT and
 WebVTT import and burned in or side file export (`edit/reel_text.cpp`,
-`edit/reel_subtitles.cpp`, `render/reel_text.cpp`). No tests yet, the
-owner adds them later. Next in docs/features: Reference on the Pose tab.
+`edit/reel_subtitles.cpp`, `render/reel_text.cpp`). Then Reference on
+the Pose tab, first pass (docs/features/pose-reference.md says what is
+left): videos, GIFs and pictures linked into a shot (shot menu or Alt +
+drop), drawn behind or over the layers on the Pose stage only, with a
+dashed row each on the timeline (drag the start, Alt slides the video),
+a References fold (opacity, tint, fit, speed, markers), Y and M
+(`ReferenceManager`, the renderer's `under` picture). No tests yet, the
+owner adds them later. Next in docs/features: Compositing.
 
 Before that (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
 inspector as a hardware panel (pose box: dials, pad, faders; golden ratio,

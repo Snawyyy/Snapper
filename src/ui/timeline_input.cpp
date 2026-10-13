@@ -17,6 +17,7 @@
 #include "edit/playback_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/reference_keys.h"
 #include "ui/space_keys_action.h"
 #include "ui/timeline_layout.h"
 #include "ui/timeline_view.h"
@@ -54,6 +55,10 @@ void TimelineView::mousePressEvent(QMouseEvent* event) {
                              at.y() < kRulerHeight + kWaveHeight;
   if (is_sound_chip) {
     PickSoundClip(event->globalPosition().toPoint());
+    return;
+  }
+  const bool was_reference = ReferencePress(*event);
+  if (was_reference) {
     return;
   }
   const auto frame = FrameAt(at.x());
@@ -118,6 +123,10 @@ void TimelineView::mouseMoveEvent(QMouseEvent* event) {
   const auto frame = FrameAt(std::max<double>(event->position().x(),
                                               kNameWidth));
   assert(frame.has_value());
+  const bool was_reference = ReferenceDragTo(event->position());
+  if (was_reference) {
+    return;
+  }
   if (is_scrubbing_) {
     Seek(*frame);
     return;
@@ -139,6 +148,10 @@ void TimelineView::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
   assert(managers_.history != nullptr);
   is_scrubbing_ = false;
+  const bool was_reference = EndReferenceDrag();
+  if (was_reference) {
+    return;
+  }
   EndKeyDrag();
   if (is_boxing_) {
     FinishBox();
@@ -173,7 +186,7 @@ void TimelineView::FinishBox() {
   std::set<KeyRef> caught;
   for (size_t i = 0; i < rows.size(); ++i) {
     const double top =
-        kRulerHeight + kWaveHeight + static_cast<double>(i) * kRowHeight;
+        RowsTop() + static_cast<double>(i) * kRowHeight;
     const bool is_row_in =
         box.intersects(QRectF(0, top, width(), kRowHeight));
     for (const Frame key : rows[i].keys) {
@@ -214,6 +227,10 @@ void TimelineView::mouseDoubleClickEvent(QMouseEvent* event) {
 void TimelineView::contextMenuEvent(QContextMenuEvent* event) {
   assert(event != nullptr);
   assert(managers_.selection != nullptr);
+  const bool was_reference = ReferenceMenu(event->pos(), event->globalPos());
+  if (was_reference) {
+    return;
+  }
   const Project& project = managers_.history->current();
   const auto rows = TimelineRows(project, managers_.selection->shot());
   const int index = RowAt(event->pos().y(), rows.size());
@@ -313,8 +330,16 @@ void TimelineView::keyPressEvent(QKeyEvent* event) {
                          event->key() == Qt::Key_Backspace;
   const bool is_copy = event->matches(QKeySequence::Copy);
   const bool is_escape = event->key() == Qt::Key_Escape;
-  const bool was_dragging = is_escape && CancelKeyDrag();
+  const bool was_dragging =
+      is_escape && (CancelReferenceDrag() || CancelKeyDrag());
   if (was_dragging) {
+    return;
+  }
+  QString reference_problem;
+  const bool was_reference_key =
+      ReferenceKey(*event, managers_, &reference_problem);
+  if (was_reference_key) {
+    Report(reference_problem);
     return;
   }
   const bool is_all = event->matches(QKeySequence::SelectAll);

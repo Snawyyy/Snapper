@@ -24,7 +24,11 @@ class FrameRenderer final {
   // effects.
   // scale is the output size against the canvas: 1 for export, less
   // for a faster preview. Past the last shot the frame is black.
-  QImage RenderFrame(const Project& project, Frame master, double scale);
+  // under, when given, is drawn over the background and below every
+  // layer: the Pose tab stage passes its references there. Nothing that
+  // makes the shot's own pictures (export, reel, thumbnails) passes it.
+  QImage RenderFrame(const Project& project, Frame master, double scale,
+                     const QImage* under = nullptr);
   // The reel (the final video) at frame: each track's clip, bottom
   // first, a shot clip drawn as its shot alone, a video fitted to the
   // canvas and a text clip's words over what is below (PaintReelText).
@@ -36,9 +40,10 @@ class FrameRenderer final {
   QImage RenderReel(const Project& project, Frame frame, double scale,
                     VideoFrames* videos, QColor under = Qt::black);
   // One shot on its own, at a frame of its own. A see-through shot
-  // (Shot::is_transparent) leaves its empty area clear.
+  // (Shot::is_transparent) leaves its empty area clear. under as in
+  // RenderFrame.
   QImage RenderShot(const Project& project, const Shot& shot, Frame local,
-                    double scale);
+                    double scale, const QImage* under = nullptr);
 
   // Only some layers of a shot on a clear picture, with no effects: a
   // layer that maps to an empty set is drawn whole, one that maps to

@@ -1,6 +1,12 @@
 # Reference on the Pose tab
 
-Status: planned. Asked for by the owner.
+Status: built, first pass (2026-10-12); owner tests by eye.
+
+First pass: a `Reference` lives in the shot (`Shot::references`, saved by path) and `ReferenceManager` owns every edit as a named undo step. Add one with Add reference... in the shot strip's menu or Alt + drop on the Pose stage or timeline (a still picture through Qt; videos and GIFs through the Video tab's `VideoFileFrames`, so playing forward decodes each picture once). Each gets a dashed blue row above the doll rows with an eye, its markers as ticks and faint lines down the rows; drag the bar to move its start, Alt + drag to slide the video under it, right click to find a moved file, clear markers or remove it. The References box in the inspector has the opacity fader (50 %), In front, Shown, Flip, a blue or red tint, Fit to frame and Fit to height, start, seconds in, a speed fader and markers. On the stage the picked one has a red dashed box with corner handles: drag inside to move, a corner to scale, Escape cancels. Y hides them all, M marks the picked one at the playhead; a video that has run out holds its last frame at half opacity with a "reference ended" chip. Only `StageView` hands references to the renderer (`RenderFrame`'s `under` picture), so export, the Video tab, thumbnails and the reel never see them.
+
+Not built yet: the Match tile (needs a marked stretch of the shot), the opacity fader on the row itself, the nearest decoded frame while scrubbing fast (each paint decodes the exact one), Duplicate asking whether to keep references (it keeps them), animated PNG timing (FFmpeg gives APNG no length, so it shows its first frame), and the Rig tab.
+
+Defaults taken for the open questions: references stay on the Pose tab only; opacity starts at 50 %. A reference is placed in canvas space, without the shot camera, so it holds still while the camera moves. Paths are stored absolute.
 
 Needs: nothing; it uses the video reader the Video tab already has.
 

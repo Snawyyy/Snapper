@@ -11,6 +11,7 @@
 #include "edit/change_diff.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
+#include "edit/reference_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/sound_manager.h"
 #include "media/audio_clip.h"
@@ -66,6 +67,11 @@ TimelineView::TimelineView(const Managers& managers)
     connect(managers_.sounds, &SoundManager::SoundsChanged, this,
             update_me);
   }
+  if (managers_.references != nullptr) {
+    connect(managers_.references, &ReferenceManager::Changed, this,
+            update_me);
+    setAcceptDrops(true);
+  }
   assert(frame_width_ > 0.0);
 }
 
@@ -114,7 +120,9 @@ void TimelineView::paintEvent(QPaintEvent* event) {
   PaintRuler(&painter);
   PaintWave(&painter);
   PaintGrid(&painter);
+  PaintReferences(&painter);
   PaintRows(&painter, rows, false);
+  PaintReferenceMarks(&painter);
   PaintPlayhead(&painter);
   if (is_boxing_) {
     painter.setPen(QPen(theme::kPick, 1.0, Qt::DashLine));
@@ -318,7 +326,7 @@ std::optional<Frame> TimelineView::PlayheadHere() const {
 int TimelineView::RowAt(double y, size_t count) const {
   assert(std::isfinite(y));
   assert(count < 100000);
-  const double top = kRulerHeight + kWaveHeight;
+  const double top = RowsTop();
   const int row = static_cast<int>(std::floor((y - top) / kRowHeight));
   const bool is_row = y >= top && row < static_cast<int>(count);
   return is_row ? row : -1;
@@ -351,7 +359,7 @@ void TimelineView::UpdateHover(QPointF point) {
   assert(key_drag_ == nullptr);
   const Project& project = managers_.history->current();
   const auto rows = TimelineRows(project, managers_.selection->shot());
-  const bool is_in_rows = point.y() >= kRulerHeight + kWaveHeight;
+  const bool is_in_rows = point.y() >= RowsTop();
   const int index = is_in_rows ? RowAt(point.y(), rows.size()) : -1;
   const bool is_row = index >= 0;
   const auto key = is_row ? KeyNear(rows[static_cast<size_t>(index)],

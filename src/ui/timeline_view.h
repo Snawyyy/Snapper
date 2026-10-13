@@ -1,6 +1,10 @@
 #ifndef SNAPPER_UI_TIMELINE_VIEW_H_
 #define SNAPPER_UI_TIMELINE_VIEW_H_
 
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QMouseEvent>
 #include <QString>
 #include <QWidget>
 
@@ -15,6 +19,7 @@
 #include "edit/selection_manager.h"
 #include "edit/timeline_rows.h"
 #include "model/reel.h"
+#include "model/reference.h"
 #include "ui/change_effects.h"
 #include "ui/drag_feedback.h"
 #include "ui/drag_playhead.h"
@@ -67,8 +72,35 @@ class TimelineView final : public QWidget {
   void keyPressEvent(QKeyEvent* event) override;
   void wheelEvent(QWheelEvent* event) override;
   void leaveEvent(QEvent* event) override;
+  // Files dropped with Alt held become references of the shot.
+  void dragEnterEvent(QDragEnterEvent* event) override;
+  void dragMoveEvent(QDragMoveEvent* event) override;
+  void dropEvent(QDropEvent* event) override;
 
  private:
+  // Reference rows (ui/timeline_references.cpp), one per reference of
+  // the shot, between the wave and the first doll row, each with a
+  // dashed bar where it plays, its markers as ticks, and an eye. The
+  // marks also show as faint lines down the rows below.
+  int ReferenceRows() const;
+  // Where the doll, layer and camera rows begin.
+  double RowsTop() const;
+  void PaintReferences(QPainter* painter) const;
+  void PaintReferenceMarks(QPainter* painter) const;
+  // The reference row under y, or -1.
+  int ReferenceRowAt(double y) const;
+  // A press on a reference row: its eye shows or hides it; anywhere
+  // else picks it, and on its bar starts a drag of its start (Alt:
+  // slides the video under the row instead), one undo step. False when
+  // the press was not on a reference row.
+  bool ReferencePress(const QMouseEvent& event);
+  bool ReferenceDragTo(QPointF at);
+  bool EndReferenceDrag();
+  bool CancelReferenceDrag();
+  // Right click on a reference row: find the file, clear markers,
+  // remove.
+  bool ReferenceMenu(QPoint at, QPoint where);
+
   void PaintRuler(QPainter* painter) const;
   // Where frames show: right of the names, from top down.
   QRectF FrameArea(double top) const;
@@ -171,6 +203,14 @@ class TimelineView final : public QWidget {
   // The playhead before the press: a key drag carries it, Escape
   // brings it back.
   DragPlayhead drag_playhead_;
+  // A reference bar drag: the step it lands as, which one, whether it
+  // slides the video (Alt), and where it and the press started.
+  std::unique_ptr<EditScope> reference_drag_;
+  ReferenceId reference_dragged_;
+  bool is_reference_slide_ = false;
+  double reference_press_x_ = 0.0;
+  Frame reference_start_;
+  double reference_skip_ = 0.0;
 };
 
 }  // namespace snapper

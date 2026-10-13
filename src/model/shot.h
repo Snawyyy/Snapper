@@ -12,6 +12,7 @@
 #include "model/key.h"
 #include "model/layer.h"
 #include "model/pose.h"
+#include "model/reference.h"
 
 namespace snapper {
 
@@ -81,6 +82,9 @@ struct Shot final {
   // stays remembered, for turning this off and for formats with no
   // alpha (MP4), which put the shot over it.
   bool is_transparent = false;
+  // Videos and pictures to animate over, shown on the Pose tab stage
+  // only (never exported), first on top of the timeline.
+  std::vector<Reference> references{};
 
   bool operator==(const Shot&) const = default;
 };

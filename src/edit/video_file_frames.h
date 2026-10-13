@@ -31,6 +31,9 @@ class VideoFileFrames final : public VideoFrames {
   Q_DISABLE_COPY_MOVE(VideoFileFrames)
 
   QImage Picture(const QString& path, Frame frame) override;
+  // The picture showing seconds into the file, for readers that are not
+  // on whole frames (a reference played slower or faster).
+  QImage PictureAtSeconds(const QString& path, double seconds);
   // Paths that failed to open since the last Forget.
   const std::set<QString>& broken() const { return broken_; }
   // Closes every file, so moved or re-rendered files are read afresh.

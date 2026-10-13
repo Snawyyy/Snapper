@@ -8,6 +8,7 @@
 #include <variant>
 
 #include "io/dot_group_json.h"
+#include "io/reference_json.h"
 #include "model/doll.h"
 #include "model/smart_dial.h"
 
@@ -338,6 +339,10 @@ QJsonObject ShotToJson(const Shot& shot) {
   if (shot.is_transparent) {
     object.insert("transparent", true);
   }
+  const bool has_references = !shot.references.empty();
+  if (has_references) {
+    object.insert("references", ReferencesToJson(shot.references));
+  }
   return object;
 }
 
@@ -365,6 +370,7 @@ Shot ShotFromJson(const QJsonObject& object, JsonIssues* issues) {
   ReadLinks(object.value("links").toArray(), &shot, issues);
   shot.dot_groups = DotGroupsFromJson(object.value("dot_groups"), issues);
   ReadHolds(object.value("holds"), &shot, issues);
+  shot.references = ReferencesFromJson(object.value("references"), issues);
   assert(static_cast<int>(shot.layers.size()) <= kMaxLayersPerShot);
   return shot;
 }

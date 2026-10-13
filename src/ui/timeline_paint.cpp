@@ -34,7 +34,7 @@ void TimelineView::PaintRows(QPainter* painter,
   assert(painter != nullptr);
   assert(!rows.empty());
   painter->setRenderHint(QPainter::Antialiasing);
-  double top = kRulerHeight + kWaveHeight;
+  double top = RowsTop();
   size_t row_index = 0;
   for (const TimelineRow& row : rows) {
     const bool is_current =
@@ -53,7 +53,7 @@ void TimelineView::PaintRows(QPainter* painter,
     }
     const double middle = top + kRowHeight / 2.0;
     // Scrolled keys, bars and puffs never reach over the names.
-    const PaintClip keep_in(painter, FrameArea(kRulerHeight + kWaveHeight));
+    const PaintClip keep_in(painter, FrameArea(RowsTop()));
     PaintKeys(painter, row, row_index, middle, is_ghost);
     if (!is_ghost) {
       PaintPuffs(painter, row, middle);

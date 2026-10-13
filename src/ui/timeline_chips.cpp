@@ -33,10 +33,10 @@ void TimelineView::ShowChips() {
     return;
   }
   // The box round the picked keys that are in view.
-  const QRectF area = FrameArea(kRulerHeight + kWaveHeight);
+  const QRectF area = FrameArea(RowsTop());
   bool is_any = false;
   QRectF box;
-  double top = kRulerHeight + kWaveHeight;
+  double top = RowsTop();
   for (const TimelineRow& row : rows) {
     for (const Frame frame : row.keys) {
       const double x = XOf(frame) + frame_width_ / 2.0;
