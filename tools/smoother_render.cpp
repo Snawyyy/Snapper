@@ -6,10 +6,12 @@
 //   smoother_render <in.png> <out.png> [name=value ...] [zoom=4]
 //
 // Names are the smoother's own ("Smoothness=0", "Gamma Correction=Gamma
-// Colors", "Gamma Color 1=#000000"); zoom enlarges the result by whole
-// pixels so the steps can be seen.
+// Colors", "Gamma Color 1=#000000"); line=#RRGGBB (repeatable) is a
+// picked target color; zoom enlarges the result by whole pixels so the
+// steps can be seen.
 
 #include <QColor>
+#include <QElapsedTimer>
 #include <QImage>
 #include <QPainter>
 #include <QString>
@@ -17,6 +19,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <vector>
 
 #include "fsp/olm_smoother_info.h"
 #include "render/comp_smoother.h"
@@ -129,6 +132,7 @@ int Smooth(int argc, char** argv) {
   }
   FspValues values = snapper::DefaultFspValues(snapper::OlmSmootherInfo());
   int zoom = 1;
+  std::vector<QColor> lines;
   for (int i = 3; i < argc; ++i) {
     const QString arg = QString::fromLocal8Bit(argv[i]);
     const qsizetype equals = arg.indexOf(QLatin1Char('='));
@@ -139,6 +143,12 @@ int Smooth(int argc, char** argv) {
       zoom = std::clamp(text.toInt(), 1, kMaxZoom);
       continue;
     }
+    // The effect's picked target colors.
+    const bool is_line = name == QStringLiteral("line");
+    if (is_line) {
+      lines.push_back(QColor::fromString(text));
+      continue;
+    }
     const FspParam* param = ParamNamed(name);
     const bool is_ok =
         equals > 0 && param != nullptr && ReadValue(*param, text, &values);
@@ -147,8 +157,13 @@ int Smooth(int argc, char** argv) {
       return 1;
     }
   }
-  const snapper::SmootherParams params = snapper::SmootherParamsOf(values);
+  snapper::SmootherParams params = snapper::SmootherParamsOf(values);
+  params.line_colors = lines;
+  QElapsedTimer clock;
+  clock.start();
   const QImage output = snapper::SmoothCel(input, params);
+  std::printf("%dx%d smoothed in %lld ms\n", input.width(), input.height(),
+              static_cast<long long>(clock.elapsed()));
   const bool did_save =
       Zoomed(output, zoom).save(QString::fromLocal8Bit(argv[2]));
   return did_save ? 0 : 1;
