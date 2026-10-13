@@ -21,7 +21,9 @@ enum class FspParamType {
   kCheckbox,  // 0 or 1.
   kPopup,     // The choice's number, from 1 as After Effects counts.
   kColor,     // 0xRRGGBB.
-  kPoint,     // Two slots: x then y, in pixels of the picture.
+  // Two slots: x then y, in percent of the picture's width and height
+  // (50, 50 is the middle), so a point stays put at any preview size.
+  kPoint,
 };
 
 // One parameter, as the plugin declares it (read by running the plugin's
@@ -31,12 +33,17 @@ struct FspParam {
   FspParamType type = FspParamType::kFloat;
   double low = 0.0;      // Smallest value that may be typed.
   double high = 1.0;     // Largest value that may be typed.
-  double neutral = 0.0;  // The plugin's own default.
-  QStringList choices;   // Popup entries, in order.
+  // The range the plugin's own slider shows (narrower than low..high).
+  double slider_low = 0.0;
+  double slider_high = 1.0;
+  double neutral = 0.0;    // The plugin's own default (a point's x).
+  double neutral_y = 0.0;  // A point's default y.
+  QStringList choices;     // Popup entries, in order.
   // Where the value starts in the plugin's values; a point takes two.
   int slot = 0;
   // A parameter of the plugin's own that has no meaning here (a layer
-  // picker, a button) is kept but not shown.
+  // picker, a group, a button) is kept, with one slot, but not shown;
+  // its type is then kSlider and its value is ignored.
   bool is_hidden = false;
 };
 

@@ -26,9 +26,15 @@ snapper_module(model
   LIBS Qt6::Gui)
 # F's Plugins: the real plugin code (third_party/fsp) under a stand-in
 # for the After Effects host, behind src/fsp/fsp_effects.h.
+add_subdirectory(third_party/fsp)
 snapper_module(fsp
   MODULES base
   LIBS Qt6::Gui)
+target_link_libraries(snapper_fsp PRIVATE fsp_vendor)
+# Runs one plugin over a PNG, to look at a port without the app.
+add_executable(fsp_render EXCLUDE_FROM_ALL tools/fsp_render.cpp)
+target_link_libraries(fsp_render PRIVATE snapper_fsp)
+snapper_warnings(fsp_render)
 # anim and io read a plugin's parameters (a Comp effect's knobs and how
 # they are saved).
 snapper_module(anim
