@@ -58,44 +58,48 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-13, branch `ccr-33af7348-m78soh`, pushed, not
-merged to main): the UX polish pass, from
+Last done (2026-10-13, branch `claude/polish-packages-review-itg8v0`,
+cut from `ccr-33af7348-m78soh`, pushed, not merged to main): every
+package of the UX polish pass is in, from
 `docs/redesign/ux-polish-plan.md` (read it first: the problems found,
-the style kit, the work packages). Built and merged: WP0 the panel kit,
-screen fit and pick rule (`ui/panel_kit.h`, `ui/screen_fit.h`,
-`ui/pick_keys.h`, `ui/pick_list.h`, `ui/flow_layout.h`); WP2 the Video
-tab (record sound with `RecordManager`, New shot here, double click
-opens a shot via `VideoPage::OpenShotAsked`, a side panel only for the
-pick, track scroll, wrapping bar); WP4 the inspector rebuilt with the
-kit and showing only what the pick needs; WP5 one pick rule on the
-canvases, timeline, strip, lists and references, Cast and Rig panel as
-plated sections. None of it was seen by eye yet; recording never ran on
-a real microphone.
+the style kit, the work packages). WP0 the panel kit, screen fit and
+pick rule (`ui/panel_kit.h`, `ui/screen_fit.h`, `ui/pick_keys.h`,
+`ui/pick_list.h`, `ui/flow_layout.h`); WP1 the window shell (fits any
+screen and comes back as left, golden splits via
+`ui/golden_splitter.h`, Cast and Inspector on Pose only, tabs Video,
+Pose, Rig, Comp with Ctrl+1 to 4, Export in the top bar, a shot opened
+from the reel lands on Pose, dialogs sized with `FitDialog`); WP2 the
+Video tab (record sound with `RecordManager`, New shot here, double
+click opens a shot, a side panel only for the pick, track scroll,
+wrapping bar); WP3 a draft sketch per shot (`DraftManager`: cels drawn
+with the draw mode brush, Alt+N and Alt+Shift+N, a dashed Draft row, a
+Draft fold in the inspector, onion, opacity, eye, not exported); WP4
+the inspector rebuilt with the kit and showing only what the pick
+needs; WP5 one pick rule on the canvases, timeline, strip, lists and
+references, Cast and Rig panel as plated sections. None of it was seen
+by eye yet; recording never ran on a real microphone. Owner said no
+tests from agents: they write and build only the app (`--target
+snapper`); the owner tests at home.
 
-Not finished, saved as WIP branches on GitHub (stopped by a usage
-limit; each holds a partial, unbuilt commit on top of this branch):
-- `wip/ux-wp1-window-shell`: WP1, the window fits any screen
-  (`FitWindowToScreen`, `RememberLayout`, `GoldenDocks`), golden splits,
-  Cast and Inspector on Pose only, tab order Video, Pose, Rig, Comp,
-  Export in the top bar, wire `OpenShotAsked` to Pose and a key back,
-  dialogs sized with `FitDialog`.
-- `wip/ux-wp3-draft-layer`: WP3, one raster draft per shot made of
-  cels (sketch the plan of a shot to its timing), drawn with the draw
-  mode brush, a dashed Draft row, onion, opacity, eye, not exported.
-To finish one: check out the WIP branch, read its diff and the plan,
-merge `ccr-33af7348-m78soh` in, finish, build, then merge it back.
+Build here (cloud): no toolchain is preinstalled. Install Miniconda from
+repo.anaconda.com to `/opt/conda`, then `conda create -p /opt/qtenv
+--override-channels -c conda-forge qt6-main qt6-multimedia "ffmpeg>=8"
+pkg-config libgl-devel libegl-devel libglx-devel libopengl-devel` (the
+code needs ffmpeg 8 or later: `SwsContext` is opaque in 7). Configure
+with `PKG_CONFIG_PATH=/opt/qtenv/lib/pkgconfig cmake --preset debug
+-DCMAKE_PREFIX_PATH=/opt/qtenv -DSNAPPER_LINTER=` and build `--target
+snapper`. If a new Q_OBJECT header links with "undefined vtable",
+delete that module's `*_autogen` folder in the build dir and build
+again. Known test debt, for the owner: about 31 test programs do not
+compile with gcc 13 (missing-field-initializers on `ArtPiece`), 5 ui
+tests abort on the palette assert in `tests/ui/bench.h`, and
+`video_page_tests` DraggingAnEndTrims (now resizes the shot) and
+`collider_ui_tests` (colliders now live per drawing) need updating.
 
-Build here (cloud): Qt 6.8 and ffmpeg 7 come from conda in
-`/opt/qtenv`; configure with `PKG_CONFIG_PATH=/opt/qtenv/lib/pkgconfig
-cmake --preset debug -DCMAKE_PREFIX_PATH=/opt/qtenv`. If a new Q_OBJECT
-header links with "undefined vtable", delete that module's
-`*_autogen` folder in the build dir and build again. About 31 test
-programs do not compile with gcc 13 (missing-field-initializers on
-`ArtPiece` in tests) and 5 ui tests abort on the palette assert in
-`tests/ui/bench.h` (no `PaletteManager` there): both older than this
-session. Tests the owner will need to update: `video_page_tests`
-DraggingAnEndTrims (now resizes the shot), `collider_ui_tests`
-(colliders now live per drawing).
+Next steps: the owner tries the polish pass by eye (window fit on each
+screen, tab order and Ctrl+1 back to Video, opening a shot from the
+reel, the Draft row and fold, sound recording on a real microphone) and
+says what feels wrong.
 
 Before that, the same branch (2026-10-12 to 13): every planned feature
 in `docs/features` got a first pass (each file says what is left):
