@@ -145,3 +145,23 @@ WhiteKeying/WhiteKeyingFilter.h:6: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils
 WhiteKeying/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
 WhiteKeying/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
 ```
+
+### AlphaFill
+
+Copied `AlphaFill/` (`AlphaFill.cpp`, `AlphaFillFilter.cpp`,
+`ChromaKey.cpp`, `AlphaFill.h`, `NF_Target.h`, `README.MD`). Units:
+`units/alphafill_unit_1.cpp` to `_3.cpp`, one per source (the filter
+and the key both define `ChannelTypeHelper` and `GetMaxChannel`).
+
+```
+AlphaFill/AlphaFill.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+AlphaFill/AlphaFill.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+AlphaFill/AlphaFill.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+AlphaFill/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+AlphaFill/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+```
+
+Thresh, Soft and Spill amt are set up hidden; After Effects shows them
+through user changed param when Mode is ColorKey, which this host never
+sends, so they keep their slots but stay hidden. F's GetParams reads
+Spill amt from the Soft slot; kept as written.
