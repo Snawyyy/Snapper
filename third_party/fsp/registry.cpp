@@ -9,7 +9,8 @@
 #define FSP_PLUGINS(PLUGIN) \
   PLUGIN(RimFill, rimfill) \
   PLUGIN(InnerFlare, innerflare) \
-  PLUGIN(InnerFlareRot, innerflarerot)
+  PLUGIN(InnerFlareRot, innerflarerot) \
+  PLUGIN(Star, star)
 
 #define FSP_DECLARE_PLUGIN(ID, PREFIX) \
   extern "C" PF_Err fsp_##PREFIX##_EffectMain( \

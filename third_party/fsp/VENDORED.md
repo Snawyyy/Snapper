@@ -155,3 +155,23 @@ InnerFlareRot/InnerFlareRot.h:26: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_
 InnerFlareRot/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
 InnerFlareRot/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
 ```
+
+### Star
+
+Files: `Star/` (`Star.cpp`, `Star.h`, `StarMain.cpp`, `StarBlend.cpp`,
+`Extract.cpp`, `DrawStar.cpp`, `NF_Target.h`, `README.MD`; not `_pool/`,
+old zips). `DrawStar.cpp` is not compiled: F's project leaves it out.
+Units `star_unit_1..2.cpp` (`Extract.cpp` and `StarBlend.cpp` both
+define the inline `GetMaxChannel`, the same body). Its README names
+Threshold low and high parameters the code no longer has. The output is
+the stars alone on transparent, as F's code draws it (meant to be added
+over the picture).
+
+```
+Star/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+Star/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+Star/Star.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+Star/Star.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+Star/Star.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+Star/Star.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+```
