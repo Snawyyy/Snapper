@@ -9,7 +9,8 @@
 #define FSP_PLUGINS(PLUGIN) \
   PLUGIN(RimFill, rimfill) \
   PLUGIN(SpeedLines, speedlines) \
-  PLUGIN(BurstLines, burstlines)
+  PLUGIN(BurstLines, burstlines) \
+  PLUGIN(RadialLines, radiallines)
 
 #define FSP_DECLARE_PLUGIN(ID, PREFIX) \
   extern "C" PF_Err fsp_##PREFIX##_EffectMain( \

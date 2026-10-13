@@ -187,3 +187,32 @@ _NFLib/vector/NF_VectorMask.h:25: "..\NF_Utils.h" -> "../NF_Utils.h"
 a burst around the center, seed moves it, direction with angleRange,
 sub lines and two colors work, and at half scale distance, length and
 thickness halve.
+
+### RadialLines
+
+Copied `RadialLines/` (`A_Noise.cpp`, `RadialLines.cpp`,
+`RadialLinesFilter.cpp`, `RadialLines.h`, `RadialLinesFilter.h`,
+`NF_Target.h`, `README.MD`) and `_NFLib/fx/NF_AlphaHyperbolic`,
+`NF_ChannelBlur`, `NF_ChannelMinMax` (`.cpp`, `.h`). `NF_Blend.cpp`
+repeats helpers of `RadialLinesFilter.h` and `NF_ChannelBlur.cpp` those
+of `NF_Blur.cpp`, so each has its own unit
+(`units/radiallines_unit_2.cpp`, `_3.cpp`).
+
+```
+RadialLines/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+RadialLines/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+RadialLines/RadialLinesFilter.h:5: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+RadialLines/RadialLinesFilter.h:6: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+RadialLines/RadialLines.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+RadialLines/RadialLines.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+RadialLines/RadialLines.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+RadialLines/RadialLines.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+RadialLines/RadialLines.h:21: "..\_NFLib\fx\NF_Blur.h" -> "../_NFLib/fx/NF_Blur.h"
+RadialLines/RadialLines.h:27: "..\_NFLib\fx\NF_DrawAALine.h" -> "../_NFLib/fx/NF_DrawAALine.h"
+RadialLines/RadialLines.h:28: "..\_NFLib\fx\NF_AlphaHyperbolic.h" -> "../_NFLib/fx/NF_AlphaHyperbolic.h"
+RadialLines/RadialLines.h:29: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
+```
+
+Checked by eye: focus lines from the edges toward the center, seed
+moves them, the center point, hyperbolic, blur, noise and two colors
+work, and lines are as wide at half scale.
