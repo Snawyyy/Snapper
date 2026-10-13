@@ -14,6 +14,7 @@
 #include "render/frame_renderer.h"
 #include "ui/inline_text_edit.h"
 #include "ui/managers.h"
+#include "ui/view_camera.h"
 
 namespace snapper {
 
@@ -37,6 +38,7 @@ class ReelPreview final : public QWidget {
 
  protected:
   void paintEvent(QPaintEvent* event) override;
+  void wheelEvent(QWheelEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;
@@ -46,8 +48,11 @@ class ReelPreview final : public QWidget {
  private:
   enum class Drag { kNone, kMove, kScale };
 
-  // Output pixels per canvas pixel, and where the frame's corner is.
+  // Output pixels per canvas pixel that fit the whole frame, as drawn
+  // (fit and zoom), the frame's drawn size, and where its corner is.
+  double FitScale() const;
   double Scale() const;
+  QSizeF FrameSize() const;
   QPointF Corner() const;
   // A text clip's lettering box on screen; empty when it is not showing.
   QRectF ScreenRect(ClipId clip) const;
@@ -62,6 +67,7 @@ class ReelPreview final : public QWidget {
   void Report(const QString& problem) { emit Problem(problem); }
 
   Managers managers_;
+  ViewCamera camera_;
   FrameRenderer renderer_;
   VideoFileFrames videos_;
   InlineTextEdit typing_;

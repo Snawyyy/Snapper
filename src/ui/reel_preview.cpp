@@ -3,6 +3,7 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QWheelEvent>
 
 #include <algorithm>
 #include <cassert>
@@ -37,7 +38,7 @@ std::vector<QPointF> CornersOf(const QRectF& box) {
 }  // namespace
 
 ReelPreview::ReelPreview(const Managers& managers)
-    : managers_(managers), typing_(this) {
+    : managers_(managers), camera_(this), typing_(this) {
   assert(managers_.IsComplete());
   setMinimumSize(160, 90);
   setMouseTracking(true);
@@ -54,7 +55,7 @@ ReelPreview::ReelPreview(const Managers& managers)
   assert(minimumWidth() > 0);
 }
 
-double ReelPreview::Scale() const {
+double ReelPreview::FitScale() const {
   const Project& project = managers_.history->current();
   assert(IsValidCanvas(project.canvas));
   const double scale =
@@ -63,17 +64,23 @@ double ReelPreview::Scale() const {
   return std::max(scale, 0.01);
 }
 
+double ReelPreview::Scale() const { return camera_.ScaleFor(FitScale()); }
+
+QSizeF ReelPreview::FrameSize() const {
+  const Project& project = managers_.history->current();
+  const double scale = Scale();
+  // As the frame is drawn: its pixel size.
+  return QSizeF(std::max(1.0, std::round(project.canvas.width * scale)),
+                std::max(1.0, std::round(project.canvas.height * scale)));
+}
+
 QPointF ReelPreview::Corner() const {
   const Project& project = managers_.history->current();
   assert(IsValidCanvas(project.canvas));
-  const double scale = Scale();
-  // As the frame is drawn: its pixel size, centred.
-  const double frame_width =
-      std::max(1.0, std::round(project.canvas.width * scale));
-  const double frame_height =
-      std::max(1.0, std::round(project.canvas.height * scale));
-  return QPointF(std::floor((width() - frame_width) / 2.0),
-                 std::floor((height() - frame_height) / 2.0));
+  const QPointF corner = camera_.CornerFor(
+      Scale(), QSizeF(project.canvas.width, project.canvas.height),
+      QSizeF(size()));
+  return QPointF(std::floor(corner.x()), std::floor(corner.y()));
 }
 
 QRectF ReelPreview::ScreenRect(ClipId clip) const {
@@ -156,10 +163,13 @@ void ReelPreview::paintEvent(QPaintEvent* event) {
                         "the tracks below. Ctrl+T adds text."));
     return;
   }
+  // Never drawn finer than one frame pixel per pixel: zoomed in past
+  // that the picture is magnified, not drawn again bigger.
+  const double render_scale = std::min(Scale(), std::max(1.0, FitScale()));
   const QImage frame = renderer_.RenderReel(
-      project, managers_.playback->FrameOn(Timeline::kReel), Scale(),
+      project, managers_.playback->FrameOn(Timeline::kReel), render_scale,
       &videos_);
-  painter.drawImage(Corner(), frame);
+  painter.drawImage(QRectF(Corner(), FrameSize()), frame);
   PaintGuides(&painter);
   PaintPicked(&painter);
 }
@@ -212,9 +222,23 @@ void ReelPreview::PaintGuides(QPainter* painter) const {
   }
 }
 
+void ReelPreview::wheelEvent(QWheelEvent* event) {
+  assert(event != nullptr);
+  const Project& project = managers_.history->current();
+  camera_.Wheel(*event, FitScale(),
+                QSizeF(project.canvas.width, project.canvas.height),
+                QSizeF(size()));
+  update();
+  event->accept();
+}
+
 void ReelPreview::mousePressEvent(QMouseEvent* event) {
   assert(event != nullptr);
   assert(managers_.selection != nullptr);
+  const bool is_camera = camera_.Press(*event);
+  if (is_camera) {
+    return;
+  }
   const bool is_left = event->button() == Qt::LeftButton;
   if (!is_left) {
     return;
@@ -285,6 +309,11 @@ void ReelPreview::Follow(QPointF at, Qt::KeyboardModifiers modifiers) {
 
 void ReelPreview::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  const bool is_panning = camera_.Move(*event);
+  if (is_panning) {
+    update();
+    return;
+  }
   const QPointF at = event->position();
   const bool is_dragging = drag_ != Drag::kNone;
   if (is_dragging) {
@@ -300,6 +329,10 @@ void ReelPreview::mouseMoveEvent(QMouseEvent* event) {
 
 void ReelPreview::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  const bool was_camera = camera_.Release(*event);
+  if (was_camera) {
+    return;
+  }
   // Leaving the scope lands the drag as one step.
   scope_.reset();
   drag_ = Drag::kNone;
@@ -327,6 +360,15 @@ void ReelPreview::mouseDoubleClickEvent(QMouseEvent* event) {
 
 void ReelPreview::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
+  // Shift+1 fits the whole frame, as on the other stages.
+  const bool is_fit = event->modifiers().testFlag(Qt::ShiftModifier) &&
+                      (event->key() == Qt::Key_1 ||
+                       event->key() == Qt::Key_Exclam);
+  if (is_fit) {
+    camera_.Reset();
+    update();
+    return;
+  }
   const bool is_cancel =
       event->key() == Qt::Key_Escape && scope_ != nullptr;
   if (!is_cancel) {

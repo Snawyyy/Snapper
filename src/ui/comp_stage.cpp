@@ -4,6 +4,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QWheelEvent>
 
 #include <algorithm>
 #include <cassert>
@@ -63,7 +64,8 @@ double AngleOf(QPointF from, QPointF to) {
 
 }  // namespace
 
-CompStage::CompStage(const Managers& managers) : managers_(managers) {
+CompStage::CompStage(const Managers& managers)
+    : managers_(managers), camera_(this) {
   assert(managers_.IsComplete());
   assert(managers_.comp != nullptr);
   setFocusPolicy(Qt::ClickFocus);
@@ -93,7 +95,7 @@ void CompStage::ShowChip(const QString& text) {
   update();
 }
 
-double CompStage::Scale() const {
+double CompStage::FitScale() const {
   const CanvasSize& canvas = managers_.history->current().canvas;
   assert(canvas.width > 0 && canvas.height > 0);
   const double fit = std::min((width() - 2.0 * kMargin) / canvas.width,
@@ -101,14 +103,22 @@ double CompStage::Scale() const {
   return std::clamp(fit, 0.05, 1.0);
 }
 
+double CompStage::Scale() const { return camera_.ScaleFor(FitScale()); }
+
+double CompStage::RenderScale() const {
+  // Never drawn finer than one frame pixel per pixel: zoomed in past
+  // that the picture is magnified, not drawn again bigger.
+  return std::min(Scale(), std::max(1.0, FitScale()));
+}
+
 QRectF CompStage::FrameRect() const {
   const CanvasSize& canvas = managers_.history->current().canvas;
   const double scale = Scale();
   const QSizeF size(std::max(1.0, std::round(canvas.width * scale)),
                     std::max(1.0, std::round(canvas.height * scale)));
-  return QRectF(QPointF(std::round((width() - size.width()) / 2.0),
-                        std::round((height() - size.height()) / 2.0)),
-                size);
+  const QPointF corner = camera_.CornerFor(
+      scale, QSizeF(canvas.width, canvas.height), QSizeF(this->size()));
+  return QRectF(QPointF(std::round(corner.x()), std::round(corner.y())), size);
 }
 
 Frame CompStage::Local() const { return Locating(managers_).at.local; }
@@ -126,13 +136,19 @@ QImage CompStage::Picture() {
   if (is_empty) {
     return QImage();
   }
+  const double render_scale = RenderScale();
+  const bool is_new_scale = render_scale != kept_scale_;
+  if (is_new_scale) {
+    Forget();
+    kept_scale_ = render_scale;
+  }
   const auto found = kept_.find(here.reel.index());
   if (found != kept_.end()) {
     return found->second;
   }
   renderer_.SetCompShow(managers_.comp->ShowFor(managers_.selection->shot()));
   QImage picture =
-      renderer_.RenderReel(project, here.reel, Scale(), &videos_);
+      renderer_.RenderReel(project, here.reel, render_scale, &videos_);
   managers_.comp->NoteCosts(renderer_.comp_costs());
   const bool is_full = kept_.size() >= static_cast<size_t>(kMaxKept);
   if (is_full) {
@@ -157,9 +173,13 @@ QColor CompStage::ColorUnderCursor() {
   CompShow off;
   off.is_off = true;
   renderer_.SetCompShow(off);
-  const QImage plain = renderer_.RenderReel(managers_.history->current(),
-                                            here.reel, Scale(), &videos_);
-  const QPoint pixel = (at - frame.topLeft()).toPoint();
+  const QImage plain = renderer_.RenderReel(
+      managers_.history->current(), here.reel, RenderScale(), &videos_);
+  // The picture may be drawn bigger than it was rendered.
+  const QPointF within = (at - frame.topLeft());
+  const QPoint pixel(
+      static_cast<int>(within.x() * plain.width() / frame.width()),
+      static_cast<int>(within.y() * plain.height() / frame.height()));
   const bool is_inside = plain.rect().contains(pixel);
   return is_inside ? plain.pixelColor(pixel) : QColor();
 }
@@ -262,7 +282,8 @@ void CompStage::PickUnder(QPointF point, bool is_adding) {
   if (!is_on_shot) {
     return;
   }
-  const auto hit = HitTest(project, *shot, here.at.local, point - FrameRect().topLeft(), Scale(),
+  const auto hit = HitTest(project, *shot, here.at.local,
+                           point - FrameRect().topLeft(), Scale(),
                            renderer_.cache());
   if (!hit) {
     return;
@@ -285,7 +306,7 @@ void CompStage::paintEvent(QPaintEvent* event) {
   const QImage picture = Picture();
   const bool has_picture = !picture.isNull();
   if (has_picture) {
-    painter.drawImage(frame.topLeft(), picture);
+    painter.drawImage(frame, picture);
   } else {
     painter.fillRect(frame, Qt::black);
   }
@@ -337,8 +358,21 @@ void CompStage::paintEvent(QPaintEvent* event) {
   }
 }
 
+void CompStage::wheelEvent(QWheelEvent* event) {
+  assert(event != nullptr);
+  const CanvasSize& canvas = managers_.history->current().canvas;
+  camera_.Wheel(*event, FitScale(), QSizeF(canvas.width, canvas.height),
+                QSizeF(size()));
+  ShowChip(QStringLiteral("%1%").arg(std::lround(Scale() * 100.0)));
+  event->accept();
+}
+
 void CompStage::mousePressEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  const bool is_camera = camera_.Press(*event);
+  if (is_camera) {
+    return;
+  }
   const bool is_left = event->button() == Qt::LeftButton;
   if (!is_left) {
     return;
@@ -365,6 +399,11 @@ void CompStage::mousePressEvent(QMouseEvent* event) {
 
 void CompStage::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  const bool is_panning = camera_.Move(*event);
+  if (is_panning) {
+    update();
+    return;
+  }
   const bool is_dragging = dragging_ != Handle::kNone && drag_ != nullptr;
   if (!is_dragging) {
     const bool is_over = HandleUnder(event->position()) != Handle::kNone;
@@ -377,6 +416,10 @@ void CompStage::mouseMoveEvent(QMouseEvent* event) {
 
 void CompStage::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  const bool was_camera = camera_.Release(*event);
+  if (was_camera) {
+    return;
+  }
   dragging_ = Handle::kNone;
   drag_.reset();
   setCursor(Qt::ArrowCursor);
@@ -390,6 +433,15 @@ void CompStage::keyPressEvent(QKeyEvent* event) {
     drag_->Cancel();
     drag_.reset();
     dragging_ = Handle::kNone;
+    return;
+  }
+  // Shift+1 fits the whole frame, as on the other stages.
+  const bool is_fit = event->modifiers().testFlag(Qt::ShiftModifier) &&
+                      (event->key() == Qt::Key_1 ||
+                       event->key() == Qt::Key_Exclam);
+  if (is_fit) {
+    camera_.Reset();
+    update();
     return;
   }
   QWidget::keyPressEvent(event);

@@ -1252,6 +1252,8 @@ animation panels for a picked warp dot, the Link box only while a
 pick follows something, and a reference's settings only while it is
 picked (`Inspector::Refresh`, which also follows the ReferenceManager).
 
+View camera. The Comp stage and the Video preview zoom with the wheel toward the pointer and slide with a middle button drag (Shift+1 fits), through `ViewCamera` (`ui/view_camera.h`): the zoom and slide on top of each widget's own fit. The Pose stage and the Rig canvas keep their own copies of the same idea (`StageCamera`, `RigCanvas::zoom_`); on Pose the plain wheel turns the pick, so Ctrl+wheel zooms there. Pictures are rendered at most one frame pixel per pixel and magnified past that.
+
 Grips. Splitter handles and dock separators are `kGripExtent` wide with ridges along them (`DrawGripLine`, `ui/snapper_style.h`) and turn yellow under the pointer or while dragged. Pages use `GripSplitter` (`ui/grip_splitter.h`), whose handles follow enter and leave themselves; dock separators have no hover state in Qt, so the style reads the cursor and `MainWindow::event` repaints as it moves.
 
 Panel kit. Every panel is built from `ui/panel_kit.h` so all of them

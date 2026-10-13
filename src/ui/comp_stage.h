@@ -19,6 +19,7 @@
 #include "model/comp.h"
 #include "render/frame_renderer.h"
 #include "ui/managers.h"
+#include "ui/view_camera.h"
 
 namespace snapper {
 
@@ -47,6 +48,7 @@ class CompStage final : public QWidget {
 
  protected:
   void paintEvent(QPaintEvent* event) override;
+  void wheelEvent(QWheelEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;
@@ -64,7 +66,11 @@ class CompStage final : public QWidget {
 
   // Where the frame sits in the widget and how big it is drawn.
   QRectF FrameRect() const;
+  // The scale that fits the whole frame, the one drawn (fit and zoom),
+  // and the one the picture is rendered at.
+  double FitScale() const;
   double Scale() const;
+  double RenderScale() const;
   // The picture for the playhead, from the kept frames or drawn now.
   QImage Picture();
   void Forget();
@@ -81,7 +87,9 @@ class CompStage final : public QWidget {
   Managers managers_;
   FrameRenderer renderer_;
   VideoFileFrames videos_;
+  ViewCamera camera_;
   std::map<int, QImage> kept_;
+  double kept_scale_ = 0.0;
   Handle dragging_ = Handle::kNone;
   std::unique_ptr<EditScope> drag_;
   QString chip_;
