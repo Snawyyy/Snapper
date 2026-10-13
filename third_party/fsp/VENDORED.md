@@ -163,3 +163,39 @@ Thin/Thin.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
 Checked by eye: black lines 9 and 10 pixels wide between red and blue
 cels; ThinValue 2 takes 2 pixels off each side (1 at scale 0.5) and
 fills them with the cel next to them.
+
+### LineExtraction
+
+Sources `LineExtraction/` (`LineExtraction.cpp`, `LineExtraction.h`,
+`LineExtractionFilter.cpp`, `LineExtractionFilter.h`, `Level.cpp`,
+`Bilateral.cpp`, `NF_Target.h`, `README.MD`; not the `NF_Bilateral.zip`
+archive) and `_NFLib/fx/NF_Blend` and `NF_ChannelMinMax` (already
+here). Three units: `PixelTraits` is in both `NF_Blend.cpp` and
+`LineExtractionFilter.h`, `GetMaxChannel` in both `Level.cpp` and
+`LineExtractionFilter.cpp` (same bodies).
+
+```
+LineExtraction/LineExtractionFilter.h:5: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+LineExtraction/LineExtractionFilter.h:6: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+LineExtraction/LineExtraction.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+LineExtraction/LineExtraction.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+LineExtraction/LineExtraction.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+LineExtraction/LineExtraction.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+LineExtraction/LineExtraction.h:19: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+LineExtraction/LineExtraction.h:20: "..\_NFLib\fx\NF_ChannelMinmax.h" -> "../_NFLib/fx/NF_ChannelMinMax.h"
+LineExtraction/LineExtraction.h:21: "..\_NFLib\fx\NF_Blur.h" -> "../_NFLib/fx/NF_Blur.h"
+LineExtraction/LineExtraction.h:22: "..\_NFLib\fx\NF_ChannelBlur.h" -> "../_NFLib/fx/NF_ChannelBlur.h"
+LineExtraction/LineExtraction.h:23: "..\_NFLib\fx\debug_font.h" -> "../_NFLib/fx/debug_font.h"
+LineExtraction/LineExtraction.h:24: "..\_NFLib\fx\NF_Paint.h" -> "../_NFLib/fx/NF_Paint.h"
+LineExtraction/LineExtraction.h:25: "..\_NFLib\fx\NF_Noise.h" -> "../_NFLib/fx/NF_Noise.h"
+LineExtraction/LineExtraction.h:26: "..\_NFLib\fx\NF_Draw.h" -> "../_NFLib/fx/NF_Draw.h"
+LineExtraction/LineExtraction.h:27: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
+LineExtraction/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+LineExtraction/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+```
+
+Checked by eye: flat color shapes on a tan ground; lines come out at
+each lightness edge in the chosen color, stronger where the lightness
+jump is bigger and none between two colors of equal lightness (as its
+`(max + min) / 2` lightness says); Outer 4 and Inner 4 give 8 pixel
+lines, 4 at scale 0.5; Blend with original lays them over the picture.
