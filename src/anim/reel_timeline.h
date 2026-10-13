@@ -40,6 +40,17 @@ Frame SourceLength(const Project& project, const Clip& clip);
 Frame ShownLength(const Project& project, const Clip& clip);
 // What shows at frame, bottom track first, each with its source frame.
 std::vector<ReelPiece> ReelAt(const Project& project, Frame frame);
+// The shot showing on top at frame, with the frame of it shown and the
+// clip that shows it; shot is invalid and clip nullptr when no shot
+// clip shows there (the Comp tab works on this shot).
+struct ReelShot final {
+  ShotId shot;
+  Frame local;
+  const Clip* clip = nullptr;
+
+  bool IsValid() const { return clip != nullptr; }
+};
+ReelShot ShotAtReel(const Project& project, Frame frame);
 // From the first frame to the end of the last picture clip.
 Frame ReelLength(const Project& project);
 // The end of the last sound clip; 0 with none.

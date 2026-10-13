@@ -14,6 +14,7 @@
 #include <optional>
 
 #include "base/frame.h"
+#include "edit/video_file_frames.h"
 #include "edit/edit_scope.h"
 #include "model/comp.h"
 #include "render/frame_renderer.h"
@@ -21,9 +22,10 @@
 
 namespace snapper {
 
-// The Comp tab's stage: the shot under the playhead with its comp, fitted
-// to the view, through the one renderer, so it matches the export.
-// Frames are kept by frame number until the project, V or K changes, so
+// The Comp tab's stage: the reel's picture at the reel playhead (the
+// Video tab's video, with every shot's comp), fitted to the view, through
+// the one renderer, so it matches the export. The effects it edits are
+// those of the shot on top there. Frames are kept by reel frame until the project, V or K changes, so
 // scrubbing back is instant. While an effect is picked its yellow
 // handles show: points A and B, and an arrow for a light or a direction;
 // dragging one is one undo step, Escape cancels it. A click elsewhere
@@ -78,8 +80,8 @@ class CompStage final : public QWidget {
 
   Managers managers_;
   FrameRenderer renderer_;
+  VideoFileFrames videos_;
   std::map<int, QImage> kept_;
-  ShotId kept_shot_;
   Handle dragging_ = Handle::kNone;
   std::unique_ptr<EditScope> drag_;
   QString chip_;

@@ -15,6 +15,7 @@
 #include "ui/transport_bar.h"
 
 class QKeyEvent;
+class QShowEvent;
 
 namespace snapper {
 
@@ -37,6 +38,7 @@ class CompPage final : public QWidget {
 
  protected:
   bool eventFilter(QObject* watched, QEvent* event) override;
+  void showEvent(QShowEvent* event) override;
 
  private:
   void Report(const QString& problem) {
@@ -48,6 +50,9 @@ class CompPage final : public QWidget {
   bool IsPageKey(const QKeyEvent& key) const;
   void PressKey(const QKeyEvent& key);
   void ReleaseKey(const QKeyEvent& key);
+  // Picks the shot on top at the reel playhead, as the effects belong to
+  // it; the page works on the Video tab's reel, not on the Pose strip.
+  void FollowPlayhead();
 
   Managers managers_;
   // Containers come before what they hold, so the held widgets leave

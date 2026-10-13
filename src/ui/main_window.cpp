@@ -159,10 +159,12 @@ void MainWindow::ShowMode(int index) {
   assert(index >= 0 && index <= static_cast<int>(Mode::kRig));
   assert(managers_.playback != nullptr);
   const int was = pages_.currentIndex();
-  const bool is_video = index == static_cast<int>(Mode::kVideo);
+  // Video and Comp both work on the reel; Pose and Rig on the shots.
+  const bool is_on_reel = index == static_cast<int>(Mode::kVideo) ||
+                          index == static_cast<int>(Mode::kComp);
   pages_.setCurrentIndex(index);
-  managers_.playback->SetTimeline(is_video ? Timeline::kReel
-                                           : Timeline::kShots);
+  managers_.playback->SetTimeline(is_on_reel ? Timeline::kReel
+                                             : Timeline::kShots);
   // The cast shows on the Pose and Rig tabs, the inspector only on Pose;
   // each comes back as it was left there.
   const auto has_cast = [](int mode) {

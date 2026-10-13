@@ -11,7 +11,7 @@
 #include <numbers>
 
 #include "anim/comp_knobs.h"
-#include "anim/master_timeline.h"
+#include "anim/reel_timeline.h"
 #include "edit/comp_manager.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
@@ -31,23 +31,16 @@ constexpr double kHandleSize = 9.0;
 constexpr double kGrabRadius = 14.0;
 constexpr int kChipMs = 1200;
 
-// The located shot of the playhead.
+// The reel playhead, and the shot clip showing on top there.
 struct Here final {
-  const Shot* shot = nullptr;
-  Frame master;
-  Frame local;
+  Frame reel;
+  ReelShot at;
 };
 
 Here Locating(const Managers& managers) {
-  const Project& project = managers.history->current();
   Here here;
-  here.master = managers.playback->FrameOn(Timeline::kShots);
-  const ShotMoment moment = Locate(project, here.master);
-  const bool is_on_shot = moment.shot >= 0;
-  if (is_on_shot) {
-    here.shot = project.shots[static_cast<size_t>(moment.shot)].get();
-    here.local = moment.local;
-  }
+  here.reel = managers.playback->FrameOn(Timeline::kReel);
+  here.at = ShotAtReel(managers.history->current(), here.reel);
   return here;
 }
 
@@ -118,7 +111,7 @@ QRectF CompStage::FrameRect() const {
                 size);
 }
 
-Frame CompStage::Local() const { return Locating(managers_).local; }
+Frame CompStage::Local() const { return Locating(managers_).at.local; }
 
 void CompStage::Forget() {
   kept_.clear();
@@ -128,32 +121,28 @@ void CompStage::Forget() {
 QImage CompStage::Picture() {
   assert(managers_.comp != nullptr);
   const Here here = Locating(managers_);
-  const bool is_on_shot = here.shot != nullptr;
-  if (!is_on_shot) {
+  const Project& project = managers_.history->current();
+  const bool is_empty = IsReelEmpty(project.reel);
+  if (is_empty) {
     return QImage();
   }
-  const bool is_other_shot = here.shot->id != kept_shot_;
-  if (is_other_shot) {
-    Forget();
-    kept_shot_ = here.shot->id;
-  }
-  const auto found = kept_.find(here.local.index());
+  const auto found = kept_.find(here.reel.index());
   if (found != kept_.end()) {
     return found->second;
   }
-  renderer_.SetCompShow(managers_.comp->ShowFor(here.shot->id));
-  QImage picture = renderer_.RenderFrame(managers_.history->current(),
-                                         here.master, Scale());
+  renderer_.SetCompShow(managers_.comp->ShowFor(managers_.selection->shot()));
+  QImage picture =
+      renderer_.RenderReel(project, here.reel, Scale(), &videos_);
   managers_.comp->NoteCosts(renderer_.comp_costs());
   const bool is_full = kept_.size() >= static_cast<size_t>(kMaxKept);
   if (is_full) {
     // Drop the frame farthest from this one.
-    const int now = here.local.index();
+    const int now = here.reel.index();
     const auto far = std::ranges::max_element(
         kept_, {}, [now](const auto& item) { return std::abs(item.first - now); });
     kept_.erase(far);
   }
-  kept_[here.local.index()] = picture;
+  kept_[here.reel.index()] = picture;
   return picture;
 }
 
@@ -162,14 +151,14 @@ QColor CompStage::ColorUnderCursor() {
   const QRectF frame = FrameRect();
   const bool is_on_frame = frame.contains(at);
   const Here here = Locating(managers_);
-  if (!is_on_frame || here.shot == nullptr) {
+  if (!is_on_frame || IsReelEmpty(managers_.history->current().reel)) {
     return QColor();
   }
   CompShow off;
   off.is_off = true;
   renderer_.SetCompShow(off);
-  const QImage plain = renderer_.RenderFrame(managers_.history->current(),
-                                             here.master, Scale());
+  const QImage plain = renderer_.RenderReel(managers_.history->current(),
+                                            here.reel, Scale(), &videos_);
   const QPoint pixel = (at - frame.topLeft()).toPoint();
   const bool is_inside = plain.rect().contains(pixel);
   return is_inside ? plain.pixelColor(pixel) : QColor();
@@ -267,12 +256,13 @@ void CompStage::DragTo(QPointF point, bool is_snapped) {
 
 void CompStage::PickUnder(QPointF point, bool is_adding) {
   const Here here = Locating(managers_);
-  const bool is_on_shot = here.shot != nullptr;
+  const Project& project = managers_.history->current();
+  const Shot* shot = FindShot(project, here.at.shot);
+  const bool is_on_shot = here.at.IsValid() && shot != nullptr;
   if (!is_on_shot) {
     return;
   }
-  const auto hit = HitTest(managers_.history->current(), *here.shot,
-                           here.local, point - FrameRect().topLeft(), Scale(),
+  const auto hit = HitTest(project, *shot, here.at.local, point - FrameRect().topLeft(), Scale(),
                            renderer_.cache());
   if (!hit) {
     return;

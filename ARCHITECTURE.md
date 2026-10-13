@@ -535,7 +535,7 @@ An effect layer (flash, fill, invert, zoom punch, halftone, glitch,
 posterize) changes everything drawn below it, like an adjustment
 layer. Effects are drawn in screen space, after the camera.
 
-A shot also has a comp stack (`Shot::comp`, `model/comp.h`), the Comp
+A shot also has a comp stack (`Shot::comp`, `model/comp.h`). The Comp tab works on the reel: its playhead is the reel's (the mode switch puts the playback on `Timeline::kReel` for Video and Comp), its stage draws `RenderReel`, and `ShotAtReel` (`anim/reel_timeline.h`) names the shot on top at the playhead, which `CompPage` then picks. The Comp
 tab's finishing effects, and a Light (`Shot::light`, a keyed angle).
 `FrameRenderer::RenderShot` runs the stack bottom first after every
 layer (`render/comp.cpp`), so every picture of the shot has it. Each

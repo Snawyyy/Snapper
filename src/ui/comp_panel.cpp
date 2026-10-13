@@ -8,7 +8,7 @@
 #include <cmath>
 
 #include "anim/comp_knobs.h"
-#include "anim/master_timeline.h"
+#include "anim/reel_timeline.h"
 #include "edit/comp_manager.h"
 #include "edit/history_manager.h"
 #include "edit/palette_manager.h"
@@ -147,10 +147,9 @@ void CompPanel::BuildFixed() {
 ShotId CompPanel::Shot() const { return managers_.selection->shot(); }
 
 Frame CompPanel::Local() const {
-  const Project& project = managers_.history->current();
-  const ShotMoment moment =
-      Locate(project, managers_.playback->FrameOn(Timeline::kShots));
-  return moment.shot >= 0 ? moment.local : Frame(0);
+  const Frame playhead = managers_.playback->FrameOn(Timeline::kReel);
+  const ReelShot at = ShotAtReel(managers_.history->current(), playhead);
+  return at.IsValid() ? at.local : Frame(0);
 }
 
 const CompEffect* CompPanel::Picked() const {

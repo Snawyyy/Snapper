@@ -112,6 +112,22 @@ std::vector<ReelPiece> ReelAt(const Project& project, Frame frame) {
   return pieces;
 }
 
+ReelShot ShotAtReel(const Project& project, Frame frame) {
+  assert(frame.index() >= 0);
+  assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
+  ReelShot found;
+  // Bottom track first, so the last shot clip is the one drawn on top.
+  for (const ReelPiece& piece : ReelAt(project, frame)) {
+    const auto* source = std::get_if<ShotSource>(&piece.clip->source);
+    if (source != nullptr) {
+      found.shot = source->shot;
+      found.local = piece.source;
+      found.clip = piece.clip;
+    }
+  }
+  return found;
+}
+
 Frame ReelLength(const Project& project) {
   assert(project.reel.tracks.size() <= static_cast<size_t>(kMaxAllTracks));
   assert(kMaxClipsPerTrack > 0);

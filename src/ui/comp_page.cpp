@@ -9,7 +9,10 @@
 
 #include <cassert>
 
+#include "anim/reel_timeline.h"
 #include "edit/comp_manager.h"
+#include "edit/history_manager.h"
+#include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/problem.h"
 
@@ -82,7 +85,29 @@ CompPage::CompPage(const Managers& managers)
   connect(&stack_, &CompStack::Problem, this, report);
   connect(&stage_, &CompStage::Problem, this, report);
   connect(&panel_, &CompPanel::Problem, this, report);
+  const auto follow = [this] { FollowPlayhead(); };
+  connect(managers_.playback, &PlaybackManager::FrameChanged, this, follow);
+  connect(managers_.history, &HistoryManager::Changed, this, follow);
   qApp->installEventFilter(this);
+}
+
+void CompPage::FollowPlayhead() {
+  assert(managers_.playback != nullptr);
+  assert(managers_.selection != nullptr);
+  if (!isVisible()) {
+    return;
+  }
+  const ReelShot at =
+      ShotAtReel(managers_.history->current(),
+                 managers_.playback->FrameOn(Timeline::kReel));
+  if (at.IsValid()) {
+    managers_.selection->SelectShot(at.shot);
+  }
+}
+
+void CompPage::showEvent(QShowEvent* event) {
+  QWidget::showEvent(event);
+  FollowPlayhead();
 }
 
 CompPage::~CompPage() { qApp->removeEventFilter(this); }
