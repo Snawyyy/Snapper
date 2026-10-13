@@ -50,6 +50,12 @@ Inspector::Inspector(const Managers& managers)
   // most of the time a shot is set up, not filmed. (A new key, so a fold
   // left open by the old default starts closed too.)
   AddFolded(&camera_, "shot_camera", false);
+  // The shot's sketch, planned before anything is keyed.
+  const bool has_draft = managers_.draft != nullptr;
+  if (has_draft) {
+    draft_ = std::make_unique<DraftBox>(managers_);
+    AddFolded(draft_.get(), "draft");
+  }
   layout_.addWidget(&pose_);
   const bool has_objects = managers_.objects != nullptr;
   if (has_objects) {
@@ -178,6 +184,9 @@ void Inspector::Refresh() {
   hint_.setVisible(!has_shot);
   shot_.setVisible(show.shot);
   Show(&camera_, show.camera);
+  if (draft_ != nullptr) {
+    Show(draft_.get(), show.draft);
+  }
   pose_.setVisible(show.pose);
   Show(&dials_, show.dials);
   const bool is_new_dial_new = new_dial_.isHidden() == show.add_dial;

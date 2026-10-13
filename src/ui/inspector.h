@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "ui/dial_box.h"
+#include "ui/draft_box.h"
 #include "ui/drag_box.h"
 #include "ui/fold_section.h"
 #include "ui/shot_box.h"
@@ -84,6 +85,8 @@ class Inspector final : public QScrollArea {
   std::unique_ptr<ObjectBox> object_;
   // Null without the reference manager.
   std::unique_ptr<ReferenceBox> references_;
+  // Null without the draft manager.
+  std::unique_ptr<DraftBox> draft_;
 };
 
 }  // namespace snapper

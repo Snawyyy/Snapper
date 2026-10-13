@@ -46,6 +46,7 @@ InspectorShow ShowFor(const Project& project, ShotId shot,
   const bool has_pick = has_shot && !picks.empty();
   show.shot = has_shot && !has_pick;
   show.camera = show.shot;
+  show.draft = show.shot;
   show.pose = has_pick;
   show.link = has_pick && extras.is_linked;
   show.references = has_shot && extras.has_reference;

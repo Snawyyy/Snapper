@@ -16,6 +16,8 @@ struct InspectorShow final {
   // at first, see Inspector).
   bool shot = false;
   bool camera = false;
+  // The shot's draft sketch: with the shot, while nothing is picked.
+  bool draft = false;
   bool pose = false;
   // Only for something that is linked.
   bool link = false;

@@ -571,7 +571,8 @@ camera) only when `SetDraftShown(true)`: the Pose stage and the Video
 preview turn it on; export, thumbnails and the Comp stage keep it off.
 The Pose timeline's dashed Draft row (`ui/timeline_draft.cpp`, an
 event filter on the timeline) sits under the reference rows and shows
-the cels as keys.
+the cels as keys. The inspector's Draft fold (`ui/draft_box.cpp`) shows
+with the shot while nothing is picked: eye, opacity, draw and delete.
 
 A shot may hold references (`Shot::references`, `model/reference.h`):
 videos, GIFs and pictures linked by path to animate over. They are not
