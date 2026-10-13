@@ -4,7 +4,7 @@ Status: design (2026-10-13). Goal from the owner: take the open source anime com
 
 ## What can and cannot come in
 
-- F's Plugins (https://github.com/bryful/F-s-PluginsProjects, bryful, MIT, source on GitHub, checked at commit 3b6a... see `third_party/fsp/VENDORED.md` once it exists): about 50 After Effects plugins in C++. Their pixel code can run in Snapper.
+- F's Plugins (https://github.com/bryful/F-s-PluginsProjects, bryful, MIT, source on GitHub, vendored from commit db6dad39 of 2026-05-04, recorded in `third_party/fsp/VENDORED.md`): about 50 After Effects plugins in C++. Their pixel code can run in Snapper.
 - OLM OpenTools (Apache 2.0): Windows After Effects binaries only, no source. They cannot be loaded or ported. Our own rebuilds of them stay marked as approximations.
 - Loading arbitrary plugin files (Frei0r, OpenFX) is a later job; the F's route below leaves room for it and does not need it.
 
