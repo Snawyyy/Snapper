@@ -58,7 +58,57 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-12, branch `ccr-33af7348-m78soh`, cut from
+Last done (2026-10-13, branch `ccr-33af7348-m78soh`, pushed, not
+merged to main): the UX polish pass, from
+`docs/redesign/ux-polish-plan.md` (read it first: the problems found,
+the style kit, the work packages). Built and merged: WP0 the panel kit,
+screen fit and pick rule (`ui/panel_kit.h`, `ui/screen_fit.h`,
+`ui/pick_keys.h`, `ui/pick_list.h`, `ui/flow_layout.h`); WP2 the Video
+tab (record sound with `RecordManager`, New shot here, double click
+opens a shot via `VideoPage::OpenShotAsked`, a side panel only for the
+pick, track scroll, wrapping bar); WP4 the inspector rebuilt with the
+kit and showing only what the pick needs; WP5 one pick rule on the
+canvases, timeline, strip, lists and references, Cast and Rig panel as
+plated sections. None of it was seen by eye yet; recording never ran on
+a real microphone.
+
+Not finished, saved as WIP branches on GitHub (stopped by a usage
+limit; each holds a partial, unbuilt commit on top of this branch):
+- `wip/ux-wp1-window-shell`: WP1, the window fits any screen
+  (`FitWindowToScreen`, `RememberLayout`, `GoldenDocks`), golden splits,
+  Cast and Inspector on Pose only, tab order Video, Pose, Rig, Comp,
+  Export in the top bar, wire `OpenShotAsked` to Pose and a key back,
+  dialogs sized with `FitDialog`.
+- `wip/ux-wp3-draft-layer`: WP3, one raster draft per shot made of
+  cels (sketch the plan of a shot to its timing), drawn with the draw
+  mode brush, a dashed Draft row, onion, opacity, eye, not exported.
+To finish one: check out the WIP branch, read its diff and the plan,
+merge `ccr-33af7348-m78soh` in, finish, build, then merge it back.
+
+Build here (cloud): Qt 6.8 and ffmpeg 7 come from conda in
+`/opt/qtenv`; configure with `PKG_CONFIG_PATH=/opt/qtenv/lib/pkgconfig
+cmake --preset debug -DCMAKE_PREFIX_PATH=/opt/qtenv`. If a new Q_OBJECT
+header links with "undefined vtable", delete that module's
+`*_autogen` folder in the build dir and build again. About 31 test
+programs do not compile with gcc 13 (missing-field-initializers on
+`ArtPiece` in tests) and 5 ui tests abort on the palette assert in
+`tests/ui/bench.h` (no `PaletteManager` there): both older than this
+session. Tests the owner will need to update: `video_page_tests`
+DraggingAnEndTrims (now resizes the shot), `collider_ui_tests`
+(colliders now live per drawing).
+
+Before that, the same branch (2026-10-12 to 13): every planned feature
+in `docs/features` got a first pass (each file says what is left):
+editing outside the frame, Smart Dials, Draw on a piece, Joint snap and
+joint circles, Skins, Smooth warp, Objects, Resizing shots on the reel,
+Transparent background, Sound on the reel, Text and subtitles,
+Reference on the Pose tab, Compositing. Plus owner fixes: draw keys (B,
+E flips the eraser, F fill, Alt or I pick, D onion), N starts a blank
+drawing, the palette (square, drag anywhere, corner resize, remembered),
+inspector hidden on Rig, rig settings scroll and never clip, zoom and
+pan on the rig view and stage, side-named twin groups (hair_L, hair_R),
+colliders per drawing, the shot strip scrolls. Details of each:
+(2026-10-12, branch `ccr-33af7348-m78soh`, cut from
 `claude/next`): editing outside the frame (docs/features/
 off-frame-editing.md): the stage draws the shot past the frame at 40 %
 with a darker surround and a frame line, O hides it (remembered per
@@ -198,6 +248,8 @@ dots, not the body (owner to say if the body should shove too).
 
 Next steps:
 
+0. Finish WP1 and WP3 from their WIP branches (see above), then the
+   owner tests the whole polish pass by eye and says what feels wrong.
 1. The owner tests the latest `ui-test` build (the new jelly, groups,
    the key chip bar, corner switch, dials, inspector title); fix what
    they find, one change at a time. The owner said: no tests for visual
