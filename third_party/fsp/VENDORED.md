@@ -526,3 +526,113 @@ start on those edges straight along the angle or toward the center,
 seed moves them, size halves at half scale. `value` is a chance per
 edge pixel (value / 2000), so the default 1 draws almost nothing on a
 small picture; that is the plugin's own scale.
+## Light, glow and gradients (InnerFlare, InnerFlareRot, Star, Sputtering, Grain, TargetGrad, TargetGradRadical)
+
+### InnerFlare
+
+Files: `InnerFlare/` (`InnerFlare.cpp`, `InnerFlare.h`, `AlphaCopy.cpp`,
+`AlphaCopy.h`, `AlphaCopyR.cpp`, `AlphaCopyR.h`, `NF_Target.h`,
+`README.MD`); `_NFLib/fx/` `NF_AlphaHyperbolic`, `NF_Blend`, `NF_Blur`,
+`NF_MinMax`, `NF_Mult` (`.cpp` and `.h`). Units
+`innerflare_unit_1..3.cpp` (`AlphaCopy.cpp` and `AlphaCopyR.cpp` both
+define `AlpheCopyInfo`).
+
+```
+InnerFlare/InnerFlare.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+InnerFlare/InnerFlare.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+InnerFlare/InnerFlare.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+InnerFlare/InnerFlare.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+InnerFlare/InnerFlare.h:19: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+InnerFlare/InnerFlare.h:20: "..\_NFLib\fx\NF_blur.h" -> "../_NFLib/fx/NF_Blur.h"
+InnerFlare/InnerFlare.h:25: "..\_NFLib\fx\NF_AlphaHyperbolic.h" -> "../_NFLib/fx/NF_AlphaHyperbolic.h"
+InnerFlare/InnerFlare.h:26: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
+InnerFlare/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+InnerFlare/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+_NFLib/fx/NF_Blend.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+```
+
+### InnerFlareRot
+
+Files: `InnerFlareRot/` (`InnerFlareRot.cpp`, `InnerFlareRot.h`,
+`AlphaCopyDD.cpp`, `AlphaCopyDD.h`, `AlphaCopyR.cpp`, `AlphaCopyR.h`,
+`NF_Target.h`, `README.MD`); `_NFLib/fx/` `NF_ChannelBlur`,
+`NF_ChannelMinMax` (`.cpp` and `.h`). Units `innerflarerot_unit_1..4.cpp`
+(the AlphaCopy sources share `AlpheCopyInfo`; the Channel blur and
+minmax share `BlurInfo` and `LineBuf` with the plain ones). Its README
+names an `offset` parameter the code no longer has. `NF_ChannelBlur.cpp`
+reports each blur pass through `OutputDebugStringA`, so every render
+with blur prints `BoxBlurH8: err=0` lines on stderr.
+
+```
+InnerFlareRot/InnerFlareRot.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+InnerFlareRot/InnerFlareRot.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+InnerFlareRot/InnerFlareRot.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+InnerFlareRot/InnerFlareRot.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+InnerFlareRot/InnerFlareRot.h:19: "..\_NFLib\fx\NF_ChannelMinmax.h" -> "../_NFLib/fx/NF_ChannelMinMax.h"
+InnerFlareRot/InnerFlareRot.h:20: "..\_NFLib\fx\NF_Channelblur.h" -> "../_NFLib/fx/NF_ChannelBlur.h"
+InnerFlareRot/InnerFlareRot.h:25: "..\_NFLib\fx\NF_AlphaHyperbolic.h" -> "../_NFLib/fx/NF_AlphaHyperbolic.h"
+InnerFlareRot/InnerFlareRot.h:26: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
+InnerFlareRot/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+InnerFlareRot/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+```
+
+### Star
+
+Files: `Star/` (`Star.cpp`, `Star.h`, `StarMain.cpp`, `StarBlend.cpp`,
+`Extract.cpp`, `DrawStar.cpp`, `NF_Target.h`, `README.MD`; not `_pool/`,
+old zips). `DrawStar.cpp` is not compiled: F's project leaves it out.
+Units `star_unit_1..2.cpp` (`Extract.cpp` and `StarBlend.cpp` both
+define the inline `GetMaxChannel`, the same body). Its README names
+Threshold low and high parameters the code no longer has. The output is
+the stars alone on transparent, as F's code draws it (meant to be added
+over the picture).
+
+```
+Star/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+Star/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+Star/Star.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+Star/Star.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+Star/Star.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+Star/Star.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+```
+
+### Sputtering
+
+Files: `Sputtering/` (`Sputtering.cpp`, `Sputtering.h`, `SputMain.cpp`,
+`TargetWorld.cpp`, `TargetWorld.h`, `NF_Target.h`, `README.MD`; not the
+`Data48/` pictures or `Sample.png`); `_NFLib/fx/NF_SpatUtils` (`.cpp`
+and `.h`, which hold the built-in splat shapes). Units
+`sputtering_unit_1..2.cpp` (`NF_Blend.cpp` and `NF_SpatUtils.cpp` both
+specialise `PixelTraits`, with different members). The texture layer
+parameter gets the host's empty layer, so the built-in splats are used,
+as in After Effects with the layer set to None. Auto_Seed adds the frame
+number, always 0 here, so only Seed changes the pattern. The target and
+splat colors and Direction_Angle are added invisible and shown by F's
+UPDATE_PARAMS_UI, which the host never sends: they take values but are
+marked hidden. Spawn_Offset is not scaled down by F's code at preview
+scale (the splats are).
+
+```
+Sputtering/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+Sputtering/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+Sputtering/Sputtering.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+Sputtering/Sputtering.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+Sputtering/Sputtering.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+Sputtering/Sputtering.h:17: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+Sputtering/Sputtering.h:18: "..\_NFLib\fx\NF_SpatUtils.h" -> "../_NFLib/fx/NF_SpatUtils.h"
+Sputtering/Sputtering.h:22: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+Sputtering/Sputtering.h:23: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+Sputtering/Sputtering.h:24: "..\_NFLib\fx\NF_ChannelMinmax.h" -> "../_NFLib/fx/NF_ChannelMinMax.h"
+Sputtering/Sputtering.h:25: "..\_NFLib\fx\NF_Blur.h" -> "../_NFLib/fx/NF_Blur.h"
+Sputtering/Sputtering.h:26: "..\_NFLib\fx\NF_ChannelBlur.h" -> "../_NFLib/fx/NF_ChannelBlur.h"
+Sputtering/Sputtering.h:27: "..\_NFLib\fx\debug_font.h" -> "../_NFLib/fx/debug_font.h"
+Sputtering/Sputtering.h:28: "..\_NFLib\fx\NF_Paint.h" -> "../_NFLib/fx/NF_Paint.h"
+Sputtering/Sputtering.h:29: "..\_NFLib\fx\NF_Noise.h" -> "../_NFLib/fx/NF_Noise.h"
+Sputtering/Sputtering.h:30: "..\_NFLib\fx\NF_Draw.h" -> "../_NFLib/fx/NF_Draw.h"
+Sputtering/Sputtering.h:31: "..\_NFLib\fx\NF_DrawAALine.h" -> "../_NFLib/fx/NF_DrawAALine.h"
+Sputtering/Sputtering.h:36: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
+Sputtering/TargetWorld.h:24: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+_NFLib/fx/NF_SpatUtils.h:24: "..\NF_Utils.h" -> "../NF_Utils.h"
+```
+
+(Lines 22 to 31 of `Sputtering.h` sit in a comment; patched anyway.)

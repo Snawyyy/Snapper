@@ -22,6 +22,10 @@
   PLUGIN(BurstLines, burstlines) \
   PLUGIN(RadialLines, radiallines) \
   PLUGIN(TouchLines, touchlines)
+  PLUGIN(InnerFlare, innerflare) \
+  PLUGIN(InnerFlareRot, innerflarerot) \
+  PLUGIN(Star, star) \
+  PLUGIN(Sputtering, sputtering)
 
 #define FSP_DECLARE_PLUGIN(ID, PREFIX) \
   extern "C" PF_Err fsp_##PREFIX##_EffectMain( \
