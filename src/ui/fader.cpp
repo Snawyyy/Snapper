@@ -35,6 +35,8 @@ Fader::Fader(QDoubleSpinBox* box, LiveEdit* live, double shown_high,
       neutral_(neutral) {
   assert(box_ != nullptr);
   assert(shown_high_ > box_->minimum());
+  // A narrow panel must not squeeze the groove below the cap.
+  setMinimumWidth(static_cast<int>(kCapWidth) * 4);
   setFixedHeight(sizeHint().height());
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
   setFocusPolicy(Qt::StrongFocus);
