@@ -15,6 +15,7 @@
 
 #include "base/error.h"
 #include "base/frame.h"
+#include "edit/selection_manager.h"
 #include "model/comp.h"
 #include "model/shot.h"
 #include "render/comp.h"
@@ -168,15 +169,20 @@ class CompManager final : public QObject {
   Result<void> RemoveSwap(ShotId shot, CompEffectId id, int swap);
 
   static TargetTile TileOf(const CompEffect& effect);
-  // The target chip's words ("Mika: arm_l, 2 colors").
+  // The target chip's words ("Mika: arm_l, 2 colors", "3 pieces on 2
+  // dolls").
   QString TargetText(ShotId shot, const CompEffect& effect) const;
   QString WhyNoTargetLayer(ShotId shot, LayerId layer) const;
-  QString WhyNoTargetPieces(ShotId shot, LayerId layer,
-                            const std::set<QString>& pieces) const;
+  // Why picks (SelectionManager::picks) cannot be a Pieces target: at
+  // least one piece of a doll must be picked; pieces of any number of
+  // dolls, and whole layers picked beside them, all count.
+  QString WhyNoTargetPieces(ShotId shot,
+                            const std::set<snapper::Pick>& picks) const;
   Result<void> TargetEverything(ShotId shot, CompEffectId id);
   Result<void> TargetLayer(ShotId shot, CompEffectId id, LayerId layer);
-  Result<void> TargetPieces(ShotId shot, CompEffectId id, LayerId layer,
-                            const std::set<QString>& pieces);
+  // All the picked pieces of all the picked dolls, in one undo step.
+  Result<void> TargetPieces(ShotId shot, CompEffectId id,
+                            const std::set<snapper::Pick>& picks);
   // A palette or stage pick: alone, Shift adds it, Ctrl flips it.
   Result<void> PickTargetColor(ShotId shot, CompEffectId id, QColor color,
                                Qt::KeyboardModifiers modifiers);

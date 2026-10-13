@@ -13,6 +13,7 @@
 #include "anim/reel_timeline.h"
 #include "anim/sampler.h"
 #include "render/comp.h"
+#include "render/comp_targets.h"
 #include "render/effects.h"
 #include "render/layer_painter.h"
 #include "render/reel_text.h"
@@ -211,22 +212,25 @@ void FrameRenderer::PaintForComp(const Project& project, const Layer& layer,
     painter.setCompositionMode(QPainter::CompositionMode_DestinationOut);
     painter.drawImage(0, 0, own);
   }
+  // Each target joins the parts of every layer it names, bottom first.
   for (const CompTargetKey& key : needs.targets) {
-    const bool is_this = key.layer == layer.id;
+    const CompTargetPart* part = PartOf(key, layer.id);
+    const bool is_this = part != nullptr;
     if (!is_this) {
       continue;
     }
-    const bool is_whole = key.pieces.empty();
+    QImage& picture = pictures->targets[key];
+    if (picture.isNull()) {
+      picture = Blank(project, scale, Qt::transparent);
+    }
+    QPainter painter(&picture);
+    const bool is_whole = part->pieces.empty();
     if (is_whole) {
-      pictures->targets[key] = own;
+      painter.drawImage(0, 0, own);
       continue;
     }
-    const std::set<QString> only(key.pieces.begin(), key.pieces.end());
-    QImage pieces = Blank(project, scale, Qt::transparent);
-    QPainter painter(&pieces);
+    const std::set<QString> only(part->pieces.begin(), part->pieces.end());
     PaintLayer(project, layer, local, view, links, &cache_, &painter, &only);
-    painter.end();
-    pictures->targets[key] = pieces;
   }
   QPainter painter(frame);
   painter.drawImage(0, 0, own);

@@ -18,6 +18,7 @@
 #include "edit/edit_scope.h"
 #include "model/comp.h"
 #include "render/frame_renderer.h"
+#include "ui/comp_stage_pick.h"
 #include "ui/managers.h"
 #include "ui/view_camera.h"
 
@@ -26,11 +27,14 @@ namespace snapper {
 // The Comp tab's stage: the reel's picture at the reel playhead (the
 // Video tab's video, with every shot's comp), fitted to the view, through
 // the one renderer, so it matches the export. The effects it edits are
-// those of the shot on top there. Frames are kept by reel frame until the project, V or K changes, so
-// scrubbing back is instant. While an effect is picked its yellow
-// handles show: points A and B, and an arrow for a light or a direction;
+// those of the shot on top there. Frames are kept by reel frame until
+// the project, V or K changes, so scrubbing back is instant. While an
+// effect is picked its yellow handles show: points A and B, and an
+// arrow for a light or a direction;
 // dragging one is one undo step, Escape cancels it. A click elsewhere
-// picks the layer (and piece) under it, for the Applies to tiles.
+// picks the layer (and piece) under it and a box from empty space picks
+// what it touches, by the shared pick rule (CompStagePick), for the
+// Applies to tiles; pieces of several dolls can be picked together.
 class CompStage final : public QWidget {
   Q_OBJECT
 
@@ -59,7 +63,8 @@ class CompStage final : public QWidget {
   enum class Handle { kNone, kA, kB, kArrow };
 
   void Report(const QString& problem) {
-    if (!problem.isEmpty()) {
+    const bool has_problem = !problem.isEmpty();
+    if (has_problem) {
       emit Problem(problem);
     }
   }
@@ -79,7 +84,8 @@ class CompStage final : public QWidget {
   QPointF ArrowCenter() const;
   Handle HandleUnder(QPointF point);
   void DragTo(QPointF point, bool is_snapped);
-  void PickUnder(QPointF point, bool is_adding);
+  // Where the frame is drawn, for the picking.
+  CompStageSpot Spot() const;
   // The picked effect of the shot being worked in, or nullptr.
   const CompEffect* Picked() const;
   Frame Local() const;
@@ -88,6 +94,7 @@ class CompStage final : public QWidget {
   FrameRenderer renderer_;
   VideoFileFrames videos_;
   ViewCamera camera_;
+  CompStagePick pick_;
   std::map<int, QImage> kept_;
   double kept_scale_ = 0.0;
   Handle dragging_ = Handle::kNone;

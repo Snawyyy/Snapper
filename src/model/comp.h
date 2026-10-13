@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cassert>
+#include <compare>
 #include <vector>
 
 #include "base/id.h"
@@ -136,16 +137,28 @@ struct ColorSwap final {
   bool operator==(const ColorSwap&) const = default;
 };
 
-// What an effect works on. No layer is everything below (the whole
-// frame, in screen space); a layer narrows it to that layer, pieces to
-// those pieces of its doll; colors narrow any of them to pixels of
-// those colors. They combine: "skin color on the doll Mika only".
-struct CompTarget final {
+// One layer an effect works on: those pieces of its doll, or, with no
+// pieces, the whole layer.
+struct CompTargetPart final {
   LayerId layer{};
   std::vector<QString> pieces{};
+
+  auto operator<=>(const CompTargetPart&) const = default;
+};
+
+// What an effect works on. No parts is everything below (the whole
+// frame, in screen space); each part narrows it to a layer, or to some
+// pieces of a doll, and the effect works on the union of the parts, so
+// pieces of several dolls can share one effect; colors narrow any of
+// them to pixels of those colors. They combine: "skin color on the
+// dolls Mika and Rei only".
+struct CompTarget final {
+  std::vector<CompTargetPart> parts{};
   std::vector<QColor> colors{};
 
   bool operator==(const CompTarget&) const = default;
+  // True when the effect is narrowed to layers (not "everything").
+  bool HasLayers() const { return !parts.empty(); }
 };
 
 // One effect of a shot's comp stack. Colors are stored as colors, not

@@ -541,18 +541,26 @@ tab's finishing effects, and a Light (`Shot::light`, a keyed angle).
 `FrameRenderer::RenderShot` runs the stack bottom first after every
 layer (`render/comp.cpp`; what a target needs and its point space in
 `render/comp_targets.cpp`), so every picture of the shot has it. Each
-effect works on a target: everything below, one layer, some pieces of
-a doll, narrowed by picked colors. When an effect needs a target's own
+effect works on a target: everything below, or a list of parts (one
+layer whole, or some pieces of its doll, `CompTargetPart`) so pieces of
+several dolls share one effect, narrowed by picked colors; old files
+with one `layer` and its `pieces` still load, and save as `layers`.
+`CompManager::TargetPieces` takes every picked piece of every picked
+layer (`SelectionManager::picks`) in one undo step; the Comp stage
+picks by the shared pick rule (`ui/comp_stage_pick.cpp`: Ctrl flips,
+Shift adds, a box from empty space). When an effect needs a target's own
 pixels, `NeedsOf` says so and the layer pass paints each layer through
 its own picture (`PaintForComp`), keeping the target as it shows in
-the frame (cut where later layers cover it) and, for shape effects on
+the frame (each layer's part joined into one picture, cut where later
+layers cover it) and, for shape effects on
 everything, the drawn pixels on clear. The effect draws on a clear
 picture (`render/comp_effects.cpp`, `render/comp_light.cpp`) and
 `BlendOnto` (`render/blend.cpp`, the one blend function, W3C formulas,
 Normal over see-through pixels) lays it over the frame through the
 target's mask. Knobs are channels of doubles sampled by the one
 sampler with a per-kind default (`anim/comp_knobs.h`); points live in
-the target layer's space, or the canvas without the camera.
+a lone target layer's space, or the canvas without the camera (also
+for targets of several layers).
 `CompManager` owns every edit (one named undo step each) and the
 tab's view state: the picked effect, V and K (`CompShow`, passed only
 by the Comp stage's own renderer) and each effect's last cost
