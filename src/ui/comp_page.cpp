@@ -11,10 +11,16 @@
 
 #include "edit/comp_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/golden_splitter.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 
 namespace snapper {
 namespace {
+
+// The least widths of the effect stack and the settings panel, in ems.
+constexpr int kStackEms = 12;
+constexpr int kPanelEms = 17;
 
 // True while a text or number field has the keys.
 bool IsTyping() {
@@ -57,7 +63,9 @@ CompPage::CompPage(const Managers& managers)
   stack_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   stack_scroll_.setFrameShape(QFrame::NoFrame);
   stack_scroll_.setWidget(&stack_);
-  stack_scroll_.setMinimumWidth(200);
+  // Narrow sides in ems, so they follow the font and the screen's scale.
+  const int em = theme::Em(this);
+  stack_scroll_.setMinimumWidth(kStackEms * em);
   split_.addWidget(&stack_scroll_);
   center_.addWidget(&stage_);
   bottom_layout_.setContentsMargins(0, 0, 0, 0);
@@ -65,18 +73,20 @@ CompPage::CompPage(const Managers& managers)
   bottom_layout_.addWidget(&transport_, 0, Qt::AlignLeft);
   bottom_layout_.addWidget(&timeline_, 1);
   center_.addWidget(&bottom_);
-  center_.setStretchFactor(0, 3);
-  center_.setStretchFactor(1, 1);
+  // The stage over the timeline by the golden ratio; the stage column
+  // takes the long part of the width, the stack and the panel share the
+  // rest. Named, so the window keeps them as they were left.
+  center_.setObjectName(QStringLiteral("comp_center"));
+  SplitGolden(&center_, 0);
   split_.addWidget(&center_);
   panel_scroll_.setWidgetResizable(true);
   panel_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   panel_scroll_.setFrameShape(QFrame::NoFrame);
   panel_scroll_.setWidget(&panel_);
-  panel_scroll_.setMinimumWidth(280);
+  panel_scroll_.setMinimumWidth(kPanelEms * em);
   split_.addWidget(&panel_scroll_);
-  split_.setStretchFactor(0, 0);
-  split_.setStretchFactor(1, 3);
-  split_.setStretchFactor(2, 1);
+  split_.setObjectName(QStringLiteral("comp"));
+  SplitGoldenAround(&split_);
   layout_.addWidget(&split_);
   const auto report = [this](const QString& why) { Report(why); };
   connect(&stack_, &CompStack::Problem, this, report);

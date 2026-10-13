@@ -12,11 +12,12 @@
 
 namespace snapper {
 
-// The bar across the top: the Pose, Rig, Comp and Video tabs and the Undo
-// and Redo buttons. It shows what the history manager says and forwards
-// clicks to it; the words and states come from bar_text.h. The keys stay
-// on the menu entries, so no button takes focus. The play controls live
-// above the timelines (TransportBar).
+// The bar across the top: the Video, Pose, Rig and Comp tabs (the order
+// of the work), the Undo and Redo buttons and Export at the far end. It
+// shows what the history manager says and forwards clicks to it; the
+// words and states come from bar_text.h. The keys stay on the menu
+// entries, so no button takes focus. The play controls live above the
+// timelines (TransportBar).
 class TopBar final : public QWidget {
   Q_OBJECT
 
@@ -34,6 +35,8 @@ class TopBar final : public QWidget {
   // undoes (the shot being worked in, or the newest change).
   void UndoRequested();
   void RedoRequested();
+  // The Export button was pressed: the window opens the export dialog.
+  void ExportRequested();
 
  private:
   // Puts the Undo and Redo buttons after the tabs.
@@ -48,6 +51,7 @@ class TopBar final : public QWidget {
   ModeTabs tabs_;
   StepButton undo_;
   StepButton redo_;
+  QPushButton export_;
 };
 
 }  // namespace snapper

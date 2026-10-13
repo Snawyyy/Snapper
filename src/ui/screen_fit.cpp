@@ -258,6 +258,11 @@ bool RememberLayout(QMainWindow* window, const QString& settings_path,
                          IsShownEnough(window->geometry(), AllScreens());
   if (!is_placed) {
     FitWindowToScreen(window);
+  } else {
+    // Put back, it still fits again when it moves to another screen.
+    auto follower = std::make_unique<ScreenFollower>(window);
+    window->installEventFilter(follower.get());
+    follower.release();
   }
   const QByteArray docks =
       settings.value(key + QStringLiteral("/docks")).toByteArray();

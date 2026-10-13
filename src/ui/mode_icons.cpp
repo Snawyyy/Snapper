@@ -61,9 +61,10 @@ QIcon ModeIcon(int index, bool is_picked) {
   painter.setRenderHint(QPainter::Antialiasing);
   painter.setPen(QPen(is_picked ? theme::kPick : theme::kText, 1.4));
   painter.setBrush(Qt::NoBrush);
-  const bool is_pose = index == 0;
-  const bool is_rig = index == 1;
-  const bool is_comp = index == 2;
+  // In the tab order: Video, Pose, Rig, Comp.
+  const bool is_pose = index == 1;
+  const bool is_rig = index == 2;
+  const bool is_comp = index == 3;
   if (is_pose) {
     DrawPuppet(&painter);
   } else if (is_rig) {

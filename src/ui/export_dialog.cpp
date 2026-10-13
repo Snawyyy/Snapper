@@ -6,11 +6,17 @@
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "ui/form_helpers.h"
+#include "ui/panel_kit.h"
+#include "ui/screen_fit.h"
+#include "ui/theme.h"
 
 namespace snapper {
 namespace {
 
 enum Range { kWhole = 0, kLoop = 1, kCustom = 2 };
+
+// The dialog's size in ems; FitDialog caps it to the screen.
+const QSizeF kExportEms(34.0, 30.0);
 
 }  // namespace
 
@@ -27,11 +33,11 @@ ExportDialog::ExportDialog(const Managers& managers, QWidget* parent)
   BuildLayout();
   Wire();
   PickFormat(0);
-  assert(layout_.rowCount() > 0);
+  assert(layout_.count() > 0);
 }
 
 void ExportDialog::BuildLayout() {
-  assert(layout_.rowCount() == 0);
+  assert(layout_.count() == 0);
   // In VideoFormat order; the ones that keep transparency say so.
   format_.addItem(tr("MP4 video with the song"));
   format_.addItem(tr("GIF, no sound (alpha)"));
@@ -64,20 +70,44 @@ void ExportDialog::BuildLayout() {
   buttons_.addStretch(1);
   buttons_.addWidget(&export_);
   buttons_.addWidget(&cancel_);
-  layout_.addRow(tr("Format"), &format_);
-  layout_.addRow(&note_);
+  // Each section's body is owned by its section, the section by the
+  // dialog.
+  auto* picture = MakeOwned<QWidget>();
+  picture_form_ = SettingsForm(picture);
+  picture_form_->addRow(tr("Format"), &format_);
+  picture_form_->addRow(&note_);
   note_.setWordWrap(true);
-  layout_.addRow(tr("Range"), &range_);
-  AddNumberRow(&layout_, tr("From frame"), &from_, nullptr);
-  AddNumberRow(&layout_, tr("Up to frame"), &to_, nullptr);
-  layout_.addRow(tr("Size"), &size_);
-  layout_.addRow(tr("Subtitles"), &subtitles_);
-  layout_.addRow(tr("File"), &file_row_);
-  layout_.addRow(&progress_);
-  layout_.addRow(&status_);
-  layout_.addRow(&buttons_);
+  picture_form_->addRow(tr("Size"), &size_);
+  picture_form_->addRow(tr("Subtitles"), &subtitles_);
+  auto* frames = MakeOwned<QWidget>();
+  frames_form_ = SettingsForm(frames);
+  frames_form_->addRow(tr("Range"), &range_);
+  AddNumberRow(frames_form_, tr("From frame"), &from_, nullptr);
+  AddNumberRow(frames_form_, tr("Up to frame"), &to_, nullptr);
+  auto* file = MakeOwned<QWidget>();
+  SettingsForm(file)->addRow(tr("Save to"), &file_row_);
+  layout_.setSpacing(theme::kRowGap);
+  layout_.addWidget(PlatedSection(tr("Picture"), picture, this));
+  layout_.addWidget(PlatedSection(tr("Frames"), frames, this));
+  layout_.addWidget(PlatedSection(tr("File"), file, this));
+  layout_.addStretch(1);
+  layout_.addWidget(&progress_);
+  layout_.addWidget(&status_);
+  layout_.addLayout(&buttons_);
   status_.setWordWrap(true);
-  assert(layout_.rowCount() == 11);
+  assert(layout_.count() == 7);
+}
+
+void ExportDialog::Open() {
+  assert(managers_.exporter != nullptr);
+  assert(layout_.count() > 0);
+  const bool is_closed = !isVisible();
+  if (is_closed) {
+    FitDialog(this, kExportEms);
+  }
+  show();
+  raise();
+  activateWindow();
 }
 
 void ExportDialog::Wire() {

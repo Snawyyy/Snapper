@@ -9,10 +9,16 @@
 #include "edit/document_manager.h"
 #include "edit/timing_chart_manager.h"
 #include "ui/motion.h"
+#include "ui/panel_kit.h"
+#include "ui/screen_fit.h"
+#include "ui/theme.h"
 #include "ui/toast_manager.h"
 
 namespace snapper {
 namespace {
+
+// The window's size in ems; FitDialog caps it to the screen.
+const QSizeF kDialogEms(32.0, 18.0);
 
 struct PresetName final {
   Spacing spacing;
@@ -77,25 +83,31 @@ void TimingChartDialog::BuildLayout() {
   }
   presets_.setPlaceholderText(tr("Custom"));
   presets_.setToolTip(tr("Ready-made spacings for the ticks."));
-  options_.addWidget(&spacing_label_);
-  options_.addWidget(&presets_, 1);
-  keys_label_.setText(tr("Keys:"));
+  keys_label_.setText(tr("Keys"));
   for (const KeyModeName& entry : kKeyModes) {
     key_modes_.addItem(tr(entry.label));
   }
   key_modes_.setToolTip(
       tr("Which frames between A and B get keys. Existing keys only adds "
          "none and only re-poses the keys already there."));
-  key_options_.addWidget(&keys_label_);
-  key_options_.addWidget(&key_modes_, 1);
   apply_.setDefault(true);
   buttons_.addStretch(1);
   buttons_.addWidget(&apply_);
   buttons_.addWidget(&cancel_);
-  layout_.addWidget(&title_);
-  layout_.addWidget(&strip_);
-  layout_.addLayout(&options_);
-  layout_.addLayout(&key_options_);
+  // Each section's body is owned by its section, the section by the
+  // dialog.
+  auto* chart = MakeOwned<QWidget>();
+  QVBoxLayout* column = StackIn(chart);
+  column->setSpacing(theme::kRowGap);
+  column->addWidget(&title_);
+  column->addWidget(&strip_, 1);
+  auto* options = MakeOwned<QWidget>();
+  QFormLayout* form = SettingsForm(options);
+  form->addRow(&spacing_label_, &presets_);
+  form->addRow(&keys_label_, &key_modes_);
+  layout_.setSpacing(theme::kRowGap);
+  layout_.addWidget(PlatedSection(tr("Chart"), chart, this), 1);
+  layout_.addWidget(PlatedSection(tr("Frames between"), options, this));
   layout_.addLayout(&buttons_);
   setLayout(&layout_);
   assert(layout() == &layout_);
@@ -121,6 +133,10 @@ void TimingChartDialog::Show() {
     static_cast<void>(set);
   }
   Refresh();
+  const bool is_closed = !isVisible();
+  if (is_closed) {
+    FitDialog(this, kDialogEms);
+  }
   show();
   raise();
   activateWindow();

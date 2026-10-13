@@ -50,8 +50,6 @@ class TimingChartDialog final : public QDialog {
   QVBoxLayout layout_;
   QLabel title_;
   TimingChartStrip strip_;
-  QHBoxLayout options_;
-  QHBoxLayout key_options_;
   QLabel keys_label_;
   QComboBox key_modes_;
   QLabel spacing_label_;

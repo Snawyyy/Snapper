@@ -6,8 +6,10 @@
 #include <QCloseEvent>
 #include <QKeySequence>
 #include <QMenuBar>
+#include <QSettings>
 #include <QStatusBar>
 
+#include <algorithm>
 #include <cassert>
 
 #include "edit/document_manager.h"
@@ -16,6 +18,8 @@
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/golden_splitter.h"
+#include "ui/screen_fit.h"
 #include "ui/scroll_fit.h"
 #include "ui/bar_text.h"
 #include "ui/timing_chart_action.h"
@@ -23,6 +27,12 @@
 
 namespace snapper {
 namespace {
+
+// Where the window's layout is kept in the settings file, and the keys
+// under it for which posing panels were open.
+const QString kLayoutKey = QStringLiteral("window");
+const QString kCastOpen = QStringLiteral("/cast_open");
+const QString kInspectorOpen = QStringLiteral("/inspector_open");
 
 // Puts a step's words, tooltip and enabled state on its menu entry.
 void ShowStep(QAction* action, const StepFace& face) {
@@ -86,6 +96,7 @@ MainWindow::MainWindow(const Managers& managers)
       help_menu_(tr("&Help")),
       find_action_(tr("&Find a command...")),
       sheet_action_(tr("&Keys and gestures...")),
+      tab_menu_(tr("&Tabs")),
       palette_(menuBar(), this),
       sheet_(menuBar(), this) {
   assert(managers_.IsComplete());
@@ -139,9 +150,58 @@ MainWindow::MainWindow(const Managers& managers)
             toasts->Problem(tr("Autosave failed: %1").arg(why));
           });
   setDockNestingEnabled(true);
-  resize(1440, 900);
+  RestoreLayout();
   Refresh();
   assert(windowTitle().contains(QStringLiteral("Snapper")));
+}
+
+void MainWindow::RestoreLayout() {
+  assert(managers_.document != nullptr);
+  assert(cast_dock_.parent() == this && inspector_dock_.parent() == this);
+  const QString path = managers_.document->SettingsPath();
+  const QSettings settings(path, QSettings::IniFormat);
+  const bool has_docks =
+      settings.contains(kLayoutKey + QStringLiteral("/docks"));
+  RememberLayout(this, path, kLayoutKey);
+  if (!has_docks) {
+    GoldenDocks(this, {&cast_dock_, &inspector_dock_});
+  }
+  // The window opens on Pose, so the panels show as they were left.
+  was_cast_open_ = settings.value(kLayoutKey + kCastOpen, true).toBool();
+  was_inspector_open_ =
+      settings.value(kLayoutKey + kInspectorOpen, true).toBool();
+  cast_dock_.setVisible(was_cast_open_);
+  inspector_dock_.setVisible(was_inspector_open_);
+  RememberSplits(this, path, kLayoutKey);
+  // Too narrow for a column each side: Cast goes behind the Inspector.
+  TabDocksWhenPortrait(this, &cast_dock_, &inspector_dock_);
+}
+
+void MainWindow::SavePanels() const {
+  assert(managers_.document != nullptr);
+  assert(pages_.count() > 0);
+  const bool is_pose = pages_.currentIndex() == static_cast<int>(Mode::kPose);
+  QSettings settings(managers_.document->SettingsPath(), QSettings::IniFormat);
+  settings.setValue(kLayoutKey + kCastOpen,
+                    is_pose ? cast_dock_.isVisible() : was_cast_open_);
+  settings.setValue(kLayoutKey + kInspectorOpen,
+                    is_pose ? inspector_dock_.isVisible()
+                            : was_inspector_open_);
+}
+
+void MainWindow::OpenShot(ShotId shot, Frame local) {
+  assert(managers_.playback != nullptr);
+  assert(managers_.selection != nullptr);
+  const Project& project = managers_.history->current();
+  const int index = ShotIndex(project, shot);
+  const bool is_there = index >= 0;
+  if (!is_there) {
+    return;
+  }
+  SetMode(Mode::kPose);
+  managers_.playback->Seek(
+      Frame(ShotStart(project, index).index() + std::max(0, local.index())));
+  managers_.selection->SelectShot(shot);
 }
 
 void MainWindow::Start(const QString& path) {
@@ -156,34 +216,27 @@ void MainWindow::Start(const QString& path) {
 }
 
 void MainWindow::ShowMode(int index) {
-  assert(index >= 0 && index <= static_cast<int>(Mode::kVideo));
+  assert(index >= 0 && index <= static_cast<int>(Mode::kComp));
   assert(managers_.playback != nullptr);
   const int was = pages_.currentIndex();
   const bool is_video = index == static_cast<int>(Mode::kVideo);
   pages_.setCurrentIndex(index);
   managers_.playback->SetTimeline(is_video ? Timeline::kReel
                                            : Timeline::kShots);
-  // The cast shows on the Pose and Rig tabs, the inspector only on Pose;
-  // each comes back as it was left there.
-  const auto has_cast = [](int mode) {
-    return mode == static_cast<int>(Mode::kPose) ||
-           mode == static_cast<int>(Mode::kRig);
-  };
-  const auto has_inspector = [](int mode) {
-    return mode == static_cast<int>(Mode::kPose);
-  };
-  if (has_cast(was) && !has_cast(index)) {
+  // The cast and the inspector serve posing, so they show on Pose only
+  // (the Rig and Comp tabs have panels of their own); each comes back as
+  // it was left there.
+  const int pose = static_cast<int>(Mode::kPose);
+  const bool is_leaving_pose = was == pose && index != pose;
+  const bool is_entering_pose = was != pose && index == pose;
+  if (is_leaving_pose) {
     was_cast_open_ = cast_dock_.isVisible();
-    cast_dock_.hide();
-  }
-  if (!has_cast(was) && has_cast(index)) {
-    cast_dock_.setVisible(was_cast_open_);
-  }
-  if (has_inspector(was) && !has_inspector(index)) {
     was_inspector_open_ = inspector_dock_.isVisible();
+    cast_dock_.hide();
     inspector_dock_.hide();
   }
-  if (!has_inspector(was) && has_inspector(index)) {
+  if (is_entering_pose) {
+    cast_dock_.setVisible(was_cast_open_);
     inspector_dock_.setVisible(was_inspector_open_);
   }
   // Undo and redo act on a shot in the other tabs, on the newest change
@@ -213,6 +266,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
   assert(managers_.history != nullptr);
   const bool may_close = file_menu_.ConfirmDiscard();
   if (may_close) {
+    SavePanels();
     event->accept();
   } else {
     event->ignore();
@@ -222,14 +276,16 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 void MainWindow::BuildPages() {
   assert(pages_.count() == 0);
   assert(managers_.IsComplete());
+  pages_.addWidget(&video_page_);
   pose_split_.addWidget(&stage_);
   timeline_layout_.setContentsMargins(0, 0, 0, 0);
   timeline_layout_.setSpacing(0);
   timeline_layout_.addWidget(&pose_transport_, 0, Qt::AlignLeft);
   timeline_layout_.addWidget(&timeline_, 1);
   pose_split_.addWidget(&timeline_host_);
-  pose_split_.setStretchFactor(0, 3);
-  pose_split_.setStretchFactor(1, 1);
+  // The stage over the timeline by the golden ratio.
+  pose_split_.setObjectName(QStringLiteral("pose"));
+  SplitGolden(&pose_split_, 0);
   pose_layout_.setContentsMargins(0, 0, 0, 0);
   pose_layout_.setSpacing(0);
   pose_layout_.addWidget(&strip_);
@@ -244,18 +300,18 @@ void MainWindow::BuildPages() {
   KeepWideEnough(&rig_scroll_);
   rig_split_.addWidget(&rig_scroll_);
   rig_split_.setCollapsible(1, false);
-  rig_split_.setStretchFactor(0, 3);
-  rig_split_.setStretchFactor(1, 1);
+  // The canvas takes the golden ratio's long part, the settings the rest.
+  rig_split_.setObjectName(QStringLiteral("rig"));
+  SplitGolden(&rig_split_, 0);
   pages_.addWidget(&rig_split_);
   pages_.addWidget(&comp_page_);
-  pages_.addWidget(&video_page_);
   setCentralWidget(&pages_);
-  assert(pages_.count() == static_cast<int>(Mode::kVideo) + 1);
+  assert(pages_.count() == static_cast<int>(Mode::kComp) + 1);
 }
 
 void MainWindow::BuildModes() {
   assert(top_bar_.tabs()->count() == pages_.count());
-  assert(pages_.count() == static_cast<int>(Mode::kVideo) + 1);
+  assert(pages_.count() == static_cast<int>(Mode::kComp) + 1);
   top_bar_host_.setObjectName(QStringLiteral("modes_bar"));
   top_bar_host_.setMovable(false);
   top_bar_host_.setFloatable(false);
@@ -263,9 +319,15 @@ void MainWindow::BuildModes() {
   top_bar_host_.toggleViewAction()->setVisible(false);
   top_bar_host_.addWidget(&top_bar_);
   addToolBar(Qt::TopToolBarArea, &top_bar_host_);
+  // The window opens on Pose, where most of the time goes.
+  const int pose = static_cast<int>(Mode::kPose);
+  top_bar_.tabs()->setCurrentIndex(pose);
+  pages_.setCurrentIndex(pose);
   connect(top_bar_.tabs(), &QTabBar::currentChanged, this,
           &MainWindow::ShowMode);
-  assert(top_bar_.tabs()->currentIndex() == 0);
+  connect(&top_bar_, &TopBar::ExportRequested, &export_dialog_,
+          &ExportDialog::Open);
+  assert(top_bar_.tabs()->currentIndex() == pose);
 }
 
 void MainWindow::BuildMenus() {
@@ -301,13 +363,12 @@ void MainWindow::BuildMenus() {
   file->insertSeparator(file->actions().last());
   connect(&cast_, &CastPanel::OpenInKritaRequested, &krita_menu_,
           &KritaMenu::Open);
-  connect(&export_action_, &QAction::triggered, &export_dialog_, [this] {
-    export_dialog_.show();
-    export_dialog_.raise();
-  });
+  connect(&export_action_, &QAction::triggered, &export_dialog_,
+          &ExportDialog::Open);
   menuBar()->addMenu(file_menu_.menu());
   menuBar()->addMenu(&edit_menu_);
   view_menu_.addMenu(motion_menu_.menu());
+  BuildTabKeys();
   menuBar()->addMenu(&view_menu_);
   menuBar()->addMenu(&play_menu_);
   BuildViewAndHelp();
@@ -328,6 +389,25 @@ void MainWindow::BuildMenus() {
     connect(step, &QAction::triggered, &sound_,
             [this] { sound_.Play(UiSound::Blip::kTick); });
   }
+}
+
+void MainWindow::BuildTabKeys() {
+  assert(tab_menu_.isEmpty());
+  assert(tab_actions_.size() == 4);
+  // In tab order, so Ctrl+1 is always the way back to Video.
+  const std::array<QString, 4> names = {tr("&Video"), tr("&Pose"),
+                                        tr("&Rig"), tr("&Comp")};
+  constexpr std::array<Qt::Key, 4> kKeys = {Qt::Key_1, Qt::Key_2, Qt::Key_3,
+                                            Qt::Key_4};
+  for (size_t i = 0; i < tab_actions_.size(); ++i) {
+    QAction* action = &tab_actions_[i];
+    action->setText(names[i]);
+    action->setShortcut(QKeySequence(Qt::CTRL | kKeys[i]));
+    const auto mode = static_cast<Mode>(i);
+    connect(action, &QAction::triggered, this, [this, mode] { SetMode(mode); });
+    tab_menu_.addAction(action);
+  }
+  view_menu_.addMenu(&tab_menu_);
 }
 
 void MainWindow::BuildViewAndHelp() {

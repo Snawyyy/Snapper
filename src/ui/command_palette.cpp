@@ -8,12 +8,17 @@
 #include <memory>
 
 #include "ui/command_search.h"
+#include "ui/panel_kit.h"
+#include "ui/screen_fit.h"
+#include "ui/theme.h"
 
 namespace snapper {
 namespace {
 
 // The most menus deep a command can sit.
 constexpr int kMostDepth = 4;
+// The palette's size in ems; FitDialog caps it to the screen.
+const QSizeF kPaletteEms(28.0, 20.0);
 
 QString Plain(const QString& text) {
   assert(text.size() < 100000);
@@ -74,9 +79,16 @@ CommandPalette::CommandPalette(QMenuBar* bar, QWidget* parent)
   why_ = std::make_unique<QLabel>(this).release();
   why_->setObjectName("palette_why");
   why_->setWordWrap(true);
+  // The list and why a greyed one cannot run, framed under the query;
+  // the section owns its body, the palette the section.
+  auto* body = MakeOwned<QWidget>();
+  QVBoxLayout* column = StackIn(body);
+  column->setSpacing(theme::kRowGap / 2);
+  column->addWidget(&found_, 1);
+  column->addWidget(why_);
+  layout_.setSpacing(theme::kRowGap);
   layout_.addWidget(&query_);
-  layout_.addWidget(&found_);
-  layout_.addWidget(why_);
+  layout_.addWidget(PlatedSection(tr("Commands"), body, this), 1);
   query_.installEventFilter(this);
   connect(&query_, &QLineEdit::textChanged, this, [this] { Search(); });
   connect(&query_, &QLineEdit::returnPressed, this, [this] { Run(); });
@@ -88,7 +100,6 @@ CommandPalette::CommandPalette(QMenuBar* bar, QWidget* parent)
     const bool is_blocked = action != nullptr && !action->isEnabled();
     why_->setText(is_blocked ? action->toolTip() : QString());
   });
-  resize(420, 320);
 }
 
 void CommandPalette::Open() {
@@ -97,6 +108,8 @@ void CommandPalette::Open() {
   commands_ = CommandsOf(bar_);
   query_.clear();
   Search();
+  // Sized to the font and screen, high in the window like a search bar.
+  FitDialog(this, kPaletteEms);
   const QWidget* window = parentWidget();
   move(window->mapToGlobal(
       QPoint((window->width() - width()) / 2, window->height() / 6)));

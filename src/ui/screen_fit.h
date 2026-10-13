@@ -57,6 +57,7 @@ void GoldenDocks(QMainWindow* window, const std::vector<QDockWidget*>& docks);
 // Puts window back where it was (size, place, docks) from the settings
 // file under key, and saves it there whenever it closes. A saved place
 // that is off every screen is refused, and the window is fitted instead.
+// Either way it fits again when it lands on a screen it does not fit.
 // Returns whether it was put back. An empty settings_path remembers
 // nothing and only fits.
 bool RememberLayout(QMainWindow* window, const QString& settings_path,

@@ -6,7 +6,16 @@
 #include <cassert>
 #include <memory>
 
+#include "ui/panel_kit.h"
+#include "ui/screen_fit.h"
+
 namespace snapper {
+namespace {
+
+// The sheet's size in ems; FitDialog caps it to the screen.
+const QSizeF kSheetEms(40.0, 34.0);
+
+}  // namespace
 
 ShortcutSheet::ShortcutSheet(QMenuBar* bar, QWidget* parent)
     : QDialog(parent), bar_(bar), layout_(this) {
@@ -21,8 +30,9 @@ ShortcutSheet::ShortcutSheet(QMenuBar* bar, QWidget* parent)
   table_.verticalHeader()->hide();
   table_.setEditTriggers(QAbstractItemView::NoEditTriggers);
   table_.setSelectionMode(QAbstractItemView::NoSelection);
-  layout_.addWidget(&table_);
-  resize(560, 480);
+  // The table is its section's body; the sheet owns the section.
+  layout_.addWidget(
+      PlatedSection(tr("Menu keys, then gestures"), &table_, this));
 }
 
 void ShortcutSheet::Open() {
@@ -49,6 +59,10 @@ void ShortcutSheet::Open() {
     add(tr(gesture.keys), tr(gesture.does));
   }
   table_.resizeColumnToContents(0);
+  const bool is_closed = !isVisible();
+  if (is_closed) {
+    FitDialog(this, kSheetEms);
+  }
   show();
   raise();
 }

@@ -10,6 +10,7 @@
 #include <QSpinBox>
 #include <QString>
 #include <QToolButton>
+#include <QVBoxLayout>
 #include <QWidget>
 
 #include <array>
@@ -39,12 +40,14 @@ class NewProjectDialog final : public QDialog {
   void SetCanvas(CanvasSize canvas);
 
  private:
+  // Puts the name and the size in plated sections over the buttons.
+  void BuildLayout();
   void PickPreset(int index);
   // Presses the tile for index without picking it again.
   void ShowPreset(int index);
   void Refresh();
 
-  QFormLayout layout_;
+  QVBoxLayout layout_;
   QLineEdit name_;
   QWidget tiles_;
   QHBoxLayout tiles_layout_;

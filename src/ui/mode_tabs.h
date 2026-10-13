@@ -12,7 +12,7 @@ namespace snapper {
 
 class MotionManager;
 
-// The Pose, Rig, Comp and Video tabs:chunky tabs from SnapperStyle with a
+// The Video, Pose, Rig and Comp tabs: chunky tabs from SnapperStyle with a
 // Teto red bar under the active one that slides to the next when the
 // tab changes (the Move time; it jumps in Off).
 class ModeTabs final : public QTabBar {
