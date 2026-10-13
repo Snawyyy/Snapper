@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cassert>
 
+#include "ui/snapper_accents.h"
 #include "ui/theme.h"
 
 namespace snapper {
@@ -93,8 +94,34 @@ void DrawButton(const QStyleOption* option, QPainter* painter,
   const bool is_checked = state.testFlag(QStyle::State_On);
   const ButtonLook look = LookOfButton(is_enabled, is_down, is_checked,
                                        HoverOf(option, widget));
-  DrawBevel(painter, option->rect.adjusted(0, 0, -1, -1), look.fill,
-            look.is_sunk);
+  const QRect face = option->rect.adjusted(0, 0, -1, -1);
+  DrawBevel(painter, face, look.fill, look.is_sunk);
+  // A toggled button (Play while playing) wears a red strip at its foot.
+  const bool is_lit = is_enabled && is_checked;
+  if (is_lit) {
+    DrawAccentStrip(painter, QRect(face.left() + 2, face.bottom() - 3,
+                                   face.width() - 3, 2));
+  }
+}
+
+// A tab: raised when not picked and lifting under the pointer, sunken
+// when picked, with a red strip over its top.
+void DrawTabShape(const QStyleOption& option, const QWidget* widget,
+                  QPainter* painter) {
+  assert(painter != nullptr);
+  assert(kTabLiftPx > 0);
+  const bool is_picked = option.state.testFlag(QStyle::State_Selected);
+  const double hover = HoverOf(&option, widget);
+  const ButtonLook look = LookOfButton(true, false, is_picked, hover);
+  const int lift = is_picked ? 0 : static_cast<int>(kTabLiftPx * hover);
+  QRect rect = option.rect.adjusted(0, 0, -2, -1);
+  rect.translate(0, -lift);
+  DrawBevel(painter, rect, is_picked ? theme::kFaceLight.darker(125)
+                                     : look.fill, is_picked);
+  if (is_picked) {
+    DrawAccentStrip(painter, QRect(rect.left() + 2, rect.top() + 2,
+                                   rect.width() - 4, 3));
+  }
 }
 
 // A splitter handle or dock separator: a thin groove in a wide grab area
@@ -114,6 +141,7 @@ void DrawGrip(const QStyleOption* option, QPainter* painter, bool is_lit) {
 
 void DrawGripLine(QPainter* painter, const QRect& box, bool is_active) {
   assert(painter != nullptr);
+  assert(kRidgeGap > 0);
   const bool has_room = box.isValid();
   if (!has_room) {
     return;
@@ -189,7 +217,21 @@ void SnapperStyle::drawPrimitive(PrimitiveElement element,
   if (is_flat_tool) {
     return;
   }
-  if (element == PE_IndicatorDockWidgetResizeHandle) {
+  const bool is_check = element == PE_IndicatorCheckBox ||
+                        element == PE_IndicatorRadioButton;
+  if (is_check) {
+    DrawCheckIndicator(painter, *option, element == PE_IndicatorRadioButton);
+    return;
+  }
+  const bool is_focused_edit = element == PE_FrameLineEdit &&
+                               option->state.testFlag(State_HasFocus);
+  if (is_focused_edit) {
+    QProxyStyle::drawPrimitive(element, option, painter, widget);
+    DrawFocusRing(painter, option->rect);
+    return;
+  }
+  const bool is_dock_grip = element == PE_IndicatorDockWidgetResizeHandle;
+  if (is_dock_grip) {
     // DockGrips names the separator to light in the window's property.
     const QRect lit = widget != nullptr
                           ? widget->property("litGrip").toRect()
@@ -216,21 +258,24 @@ void SnapperStyle::drawControl(ControlElement element,
   assert(option != nullptr);
   assert(painter != nullptr);
   const auto* tab = qstyleoption_cast<const QStyleOptionTab*>(option);
-  if (element == CE_Splitter) {
+  const bool is_splitter = element == CE_Splitter;
+  if (is_splitter) {
     DrawGrip(option, painter, false);
+    return;
+  }
+  const bool is_plate = element == CE_ShapedFrame && widget != nullptr &&
+                        widget->property("titlePlate").toBool();
+  if (is_plate) {
+    QProxyStyle::drawControl(element, option, painter, widget);
+    const QRect box = option->rect;
+    DrawAccentStrip(painter, QRect(box.left() + 1, box.top() + 1, 3,
+                                   box.height() - 2));
     return;
   }
   const bool is_tab_shape = element == CE_TabBarTabShape && tab != nullptr;
   const bool is_tab_label = element == CE_TabBarTabLabel && tab != nullptr;
   if (is_tab_shape) {
-    const bool is_picked = tab->state.testFlag(State_Selected);
-    const double hover = HoverOf(option, widget);
-    const ButtonLook look = LookOfButton(true, false, is_picked, hover);
-    const int lift = is_picked ? 0 : static_cast<int>(kTabLiftPx * hover);
-    QRect rect = option->rect.adjusted(0, 0, -2, -1);
-    rect.translate(0, -lift);
-    DrawBevel(painter, rect, is_picked ? theme::kFaceLight.darker(125)
-                                       : look.fill, is_picked);
+    DrawTabShape(*option, widget, painter);
     return;
   }
   const bool is_push = element == CE_PushButton && widget != nullptr;
@@ -269,6 +314,11 @@ void SnapperStyle::drawComplexControl(ComplexControl control,
   const bool is_combo = control == CC_ComboBox && combo != nullptr;
   if (!is_combo) {
     QProxyStyle::drawComplexControl(control, option, painter, widget);
+    const bool is_focused_spin = control == CC_SpinBox &&
+                                 option->state.testFlag(State_HasFocus);
+    if (is_focused_spin) {
+      DrawFocusRing(painter, option->rect);
+    }
     return;
   }
   const bool is_enabled = combo->state.testFlag(State_Enabled);
@@ -289,6 +339,10 @@ void SnapperStyle::drawComplexControl(ComplexControl control,
   text.palette.setColor(QPalette::ButtonText, theme::kText);
   text.palette.setColor(QPalette::Text, theme::kText);
   drawControl(CE_ComboBoxLabel, &text, painter, widget);
+  const bool is_focused = combo->state.testFlag(State_HasFocus);
+  if (is_focused) {
+    DrawFocusRing(painter, combo->rect);
+  }
 }
 
 int SnapperStyle::pixelMetric(PixelMetric metric, const QStyleOption* option,

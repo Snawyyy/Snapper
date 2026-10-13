@@ -287,7 +287,9 @@ back so conflicts are solved where the code was written.
 - A control that cannot act is greyed out with a tooltip saying why.
 - Undo and redo name what they undo ("Undo Rotate head").
 - New things appear where they cause no jump.
-- Selected things get a Teto red outline; draggable handles are yellow.
+- Selected things get a Teto red outline; draggable handles are yellow;
+  what is on or focused wears red too (picked tab, toggled button, check
+  marks, focused field ring, title plate strip).
 - Handles look small and grab big.
 - Dials turn with the mouse wheel and sliders step with it; a double
   click resets either one (a press alone changes nothing).

@@ -63,7 +63,9 @@ void MakeTitlePlate(QLabel* label) {
   label->setFrameStyle(QFrame::StyledPanel | QFrame::Raised);
   label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
   label->setMargin(kPlateMargin);
-  label->setIndent(kTitlePadX);
+  // The style paints a red strip down its left side.
+  label->setProperty("titlePlate", true);
+  label->setIndent(kTitlePadX + 4);
   QFont bold = label->font();
   bold.setBold(true);
   label->setFont(bold);
