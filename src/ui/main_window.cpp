@@ -156,7 +156,7 @@ void MainWindow::Start(const QString& path) {
 }
 
 void MainWindow::ShowMode(int index) {
-  assert(index >= 0 && index <= static_cast<int>(Mode::kPose));
+  assert(index >= 0 && index <= static_cast<int>(Mode::kRig));
   assert(managers_.playback != nullptr);
   const int was = pages_.currentIndex();
   const bool is_video = index == static_cast<int>(Mode::kVideo);
@@ -246,16 +246,16 @@ void MainWindow::BuildPages() {
   rig_split_.setStretchFactor(0, 3);
   rig_split_.setStretchFactor(1, 1);
   pages_.addWidget(&video_page_);
-  pages_.addWidget(&rig_split_);
-  pages_.addWidget(&comp_page_);
   pages_.addWidget(&pose_page_);
+  pages_.addWidget(&comp_page_);
+  pages_.addWidget(&rig_split_);
   setCentralWidget(&pages_);
-  assert(pages_.count() == static_cast<int>(Mode::kPose) + 1);
+  assert(pages_.count() == static_cast<int>(Mode::kRig) + 1);
 }
 
 void MainWindow::BuildModes() {
   assert(top_bar_.tabs()->count() == pages_.count());
-  assert(pages_.count() == static_cast<int>(Mode::kPose) + 1);
+  assert(pages_.count() == static_cast<int>(Mode::kRig) + 1);
   top_bar_host_.setObjectName(QStringLiteral("modes_bar"));
   top_bar_host_.setMovable(false);
   top_bar_host_.setFloatable(false);
