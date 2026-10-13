@@ -13,6 +13,9 @@ namespace {
 // Points and other numbers whose plugin gives no range of its own.
 constexpr double kFar = 4000.0;
 constexpr double kTurn = 360.0;
+// A point is in percent of the picture; these are how far out it goes.
+constexpr double kPointLow = -100.0;
+constexpr double kPointHigh = 200.0;
 constexpr double kWhite = 0xFFFFFF;
 // A plugin declares at most this many parameters (more are a broken
 // setup, never read).
@@ -24,14 +27,24 @@ KnobSpec SlotSpec(const FspParam& param, double neutral) {
   assert(param.slot >= 0);
   assert(std::isfinite(neutral));
   const bool has_range = param.high > param.low;
-  const double low = has_range ? param.low : -kFar;
-  const double high = has_range ? param.high : kFar;
+  // The fader runs over the plugin's slider range, which is the useful
+  // part of the range it accepts (a width of 0 to 10, not 0 to 200).
+  const bool has_slider = param.slider_high > param.slider_low;
+  const double low = has_slider ? param.slider_low
+                     : has_range ? param.low
+                                 : -kFar;
+  const double high = has_slider ? param.slider_high
+                      : has_range ? param.high
+                                  : kFar;
   switch (param.type) {
     case FspParamType::kSlider:
     case FspParamType::kFloat:
-    case FspParamType::kPoint:
       return KnobSpec{"", std::min(low, neutral), std::max(high, neutral),
                       neutral, false};
+    case FspParamType::kPoint:
+      // In percent of the picture, which may lie outside it.
+      return KnobSpec{"", std::min(kPointLow, neutral),
+                      std::max(kPointHigh, neutral), neutral, false};
     case FspParamType::kAngle: {
       // A plugin's angle may be unbounded; at least one turn is offered.
       const bool is_turn = has_range && high - low >= kTurn;
