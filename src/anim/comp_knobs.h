@@ -23,8 +23,10 @@ struct KnobSpec final {
   bool is_angle = false;
 };
 
-// The spec of knob for kind; nothing when kind does not use it.
-std::optional<KnobSpec> KnobSpecOf(CompKind kind, CompKnob knob);
+// The spec of knob for effect's kind; nothing when it does not use it.
+// A plugin effect (kFsp) answers its plugin's parameters from kParam0
+// on (label empty; FspKnobName in anim/comp_fsp.h has its word).
+std::optional<KnobSpec> KnobSpecOf(const CompEffect& effect, CompKnob knob);
 // True for kinds placed by points on the stage (A, and B for most).
 bool HasPoints(const CompEffect& effect);
 bool HasPointB(const CompEffect& effect);

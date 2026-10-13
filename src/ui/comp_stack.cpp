@@ -11,6 +11,7 @@
 #include "edit/comp_manager.h"
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
+#include "fsp/fsp_effects.h"
 #include "ui/form_helpers.h"
 #include "ui/problem.h"
 #include "ui/theme.h"
@@ -22,9 +23,13 @@ constexpr double kRowHeight = 38.0;
 constexpr double kGap = 6.0;
 constexpr double kEye = 14.0;
 constexpr double kDragStart = 4.0;
+// F's Plugins carries about 50; more is a broken list.
+constexpr size_t kMaxPlugins = 512;
 
 // A color per kind, for the kind mark.
 QColor MarkColor(CompKind kind) {
+  assert(static_cast<int>(kind) >= 0);
+  assert(static_cast<int>(kind) < kCompKindCount);
   switch (kind) {
     case CompKind::kLineSmoother:
       return QColor(0x8a, 0x8a, 0x90);
@@ -44,6 +49,8 @@ QColor MarkColor(CompKind kind) {
       return QColor(0x40, 0x40, 0x40);
     case CompKind::kFinish:
       return QColor(0xa0, 0x80, 0x60);
+    case CompKind::kFsp:
+      return QColor(0xe0, 0x70, 0x40);
   }
   return Qt::gray;
 }
@@ -70,9 +77,15 @@ CompStack::CompStack(const Managers& managers)
 
 void CompStack::BuildAddMenu() {
   assert(add_menu_.isEmpty());
+  assert(managers_.comp != nullptr);
   add_menu_.setToolTipsVisible(true);
   for (int i = 0; i < kCompKindCount; ++i) {
     const auto kind = static_cast<CompKind>(i);
+    // Plugins are listed by their own names below.
+    const bool is_plugin = kind == CompKind::kFsp;
+    if (is_plugin) {
+      continue;
+    }
     QAction* action = add_menu_.addAction(CompManager::KindName(kind));
     action->setToolTip(CompManager::KindHelp(kind));
     connect(action, &QAction::triggered, this, [this, kind] {
@@ -88,6 +101,31 @@ void CompStack::BuildAddMenu() {
     Report(ProblemOf(
         managers_.comp->AddSceneGradient(managers_.selection->shot())));
   });
+  BuildPluginMenu();
+}
+
+void CompStack::BuildPluginMenu() {
+  assert(!add_menu_.isEmpty());
+  const std::vector<FspEffectInfo>& plugins = AllFspEffects();
+  assert(plugins.size() <= kMaxPlugins);
+  add_menu_.addSeparator();
+  QMenu* menu = add_menu_.addMenu(tr("F's Plugins"));
+  menu->setToolTipsVisible(true);
+  const bool is_empty = plugins.empty();
+  menu->setEnabled(!is_empty);
+  menu->menuAction()->setToolTip(
+      is_empty ? tr("This Snapper was built without F's Plugins.")
+               : CompManager::KindHelp(CompKind::kFsp));
+  for (const FspEffectInfo& info : plugins) {
+    const QString id = info.id;
+    QAction* action =
+        menu->addAction(info.name.isEmpty() ? info.id : info.name);
+    Explain(action, CompManager::WhyNoPlugin(id));
+    connect(action, &QAction::triggered, this, [this, id] {
+      Report(ProblemOf(
+          managers_.comp->AddPlugin(managers_.selection->shot(), id)));
+    });
+  }
 }
 
 void CompStack::OpenAdd() {
@@ -184,7 +222,7 @@ void CompStack::paintEvent(QPaintEvent* event) {
     painter.setPen(effect.is_on ? QColor(0xe6, 0xe6, 0xe6)
                                 : QColor(0x80, 0x80, 0x86));
     painter.drawText(name, Qt::AlignLeft | Qt::AlignVCenter,
-                     CompManager::KindName(effect.kind));
+                     CompManager::EffectName(effect));
     const QRectF target(text_left, box.center().y(),
                         box.right() - text_left - 22, box.height() / 2 - 2);
     painter.setPen(QColor(0x9a, 0x9a, 0xa0));

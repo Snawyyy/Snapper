@@ -48,6 +48,9 @@ class CompStack final : public QWidget {
     }
   }
   void BuildAddMenu();
+  // The F's Plugins submenu: every plugin by its own name, greyed with
+  // the reason when one can't be an effect.
+  void BuildPluginMenu();
   void Refresh();
   // The effects, top of the stack first.
   std::vector<CompEffect> Rows() const;

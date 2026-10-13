@@ -24,15 +24,17 @@ snapper_module(base
 snapper_module(model
   MODULES base
   LIBS Qt6::Gui)
-snapper_module(anim
-  MODULES model)
-snapper_module(io
-  MODULES model)
 # F's Plugins: the real plugin code (third_party/fsp) under a stand-in
 # for the After Effects host, behind src/fsp/fsp_effects.h.
 snapper_module(fsp
   MODULES base
   LIBS Qt6::Gui)
+# anim and io read a plugin's parameters (a Comp effect's knobs and how
+# they are saved).
+snapper_module(anim
+  MODULES model fsp)
+snapper_module(io
+  MODULES model fsp)
 snapper_module(media
   MODULES base
   LIBS Qt6::Gui Qt6::Multimedia PkgConfig::FFMPEG)

@@ -5,6 +5,7 @@
 #include <QString>
 
 #include <array>
+#include <cassert>
 #include <vector>
 
 #include "base/id.h"
@@ -34,8 +35,9 @@ enum class CompKind {
   kSparkle,           // Star streaks and glow from bright parts.
   kSpeedLines,        // Burst or parallel lines.
   kFinish,            // Grain, scanlines or posterize.
+  kFsp,               // A plugin from F's Plugins (fsp/fsp_effects.h).
 };
-inline constexpr int kCompKindCount = 9;
+inline constexpr int kCompKindCount = 10;
 
 // The one shared set of blend modes, grouped the way artists know it.
 // Saved by name, so reordering never changes a finished shot.
@@ -77,8 +79,37 @@ enum class CompKnob {
   kAy,
   kBx,
   kBy,
+  // The first of a plugin's value slots (kFsp): slot i is kParam0 + i,
+  // labelled, ranged and saved by the plugin's own parameters.
+  kParam0,
 };
-inline constexpr int kCompKnobCount = 10;
+// The knobs every kind may use, before the plugin slots.
+inline constexpr int kCompFixedKnobCount = 10;
+// A plugin with more value slots than this is refused.
+inline constexpr int kCompParamSlots = 32;
+inline constexpr int kCompKnobCount = kCompFixedKnobCount + kCompParamSlots;
+
+// The knob of a plugin's value slot.
+inline CompKnob ParamKnob(int slot) {
+  assert(slot >= 0 && slot < kCompParamSlots);
+  assert(static_cast<int>(CompKnob::kParam0) == kCompFixedKnobCount);
+  return static_cast<CompKnob>(kCompFixedKnobCount + slot);
+}
+
+// The slot of a plugin knob; -1 for the fixed knobs.
+inline int ParamSlotOf(CompKnob knob) {
+  const int index = static_cast<int>(knob);
+  assert(index >= 0 && index < kCompKnobCount);
+  assert(static_cast<int>(CompKnob::kParam0) == kCompFixedKnobCount);
+  return index >= kCompFixedKnobCount ? index - kCompFixedKnobCount : -1;
+}
+
+// True when a plugin with slot_count value slots fits an effect.
+inline bool FitsCompSlots(int slot_count) {
+  assert(kCompParamSlots > 0);
+  assert(kCompKnobCount > kCompFixedKnobCount);
+  return slot_count >= 0 && slot_count <= kCompParamSlots;
+}
 
 enum class GradientShape {
   kLinear,      // Between A and B.
@@ -141,6 +172,13 @@ struct CompEffect final {
   std::vector<ColorSwap> swaps{};
   // By CompKnob; a knob without keys is its kind's default.
   std::array<Channel<double>, kCompKnobCount> knobs{};
+  // kFsp: the plugin's id (FspEffectInfo::id); its values are the knobs
+  // from kParam0 on.
+  QString plugin{};
+  // kFsp naming a plugin this Snapper lacks: its saved values, kept as
+  // the file had them (compact JSON) so a save writes them back
+  // unchanged. Empty otherwise.
+  QString kept_params{};
 
   bool operator==(const CompEffect&) const = default;
 };

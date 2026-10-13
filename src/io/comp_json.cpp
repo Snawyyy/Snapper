@@ -7,6 +7,8 @@
 #include <cassert>
 #include <utility>
 
+#include "io/comp_fsp_json.h"
+
 namespace snapper {
 namespace {
 
@@ -14,7 +16,8 @@ namespace {
 constexpr std::array<const char*, kCompKindCount> kKindNames = {
     "line_smoother", "color_swap", "transmitted_light",
     "rim_light",     "gradient",   "motion_blur",
-    "sparkle",       "speed_lines", "finish"};
+    "sparkle",       "speed_lines", "finish",
+    "fsp"};
 constexpr std::array<const char*, kBlendModeCount> kBlendNames = {
     "normal",      "darken",     "multiply",   "color_burn", "linear_burn",
     "lighten",     "screen",     "color_dodge", "add",       "overlay",
@@ -22,7 +25,9 @@ constexpr std::array<const char*, kBlendModeCount> kBlendNames = {
     "hue",         "saturation", "color",      "luminosity"};
 constexpr std::array<const char*, kGradientShapeCount> kShapeNames = {
     "linear", "radial", "angle", "diamond", "four_corner", "from_edge"};
-constexpr std::array<const char*, kCompKnobCount> kKnobNames = {
+// The fixed knobs; a plugin's slots are saved by its own names
+// (io/comp_fsp_json.h).
+constexpr std::array<const char*, kCompFixedKnobCount> kKnobNames = {
     "amount", "size", "angle", "softness", "count",
     "rate",   "ax",   "ay",    "bx",       "by"};
 
@@ -63,6 +68,7 @@ CompTarget TargetFromJson(const QJsonObject& object, JsonIssues* issues) {
 
 QJsonObject EffectToJson(const CompEffect& effect) {
   assert(effect.id.IsValid());
+  assert(static_cast<int>(effect.kind) < kCompKindCount);
   QJsonObject object{
       {"id", effect.id.value()},
       {"kind", EnumToJson(static_cast<int>(effect.kind), kKindNames)},
@@ -86,18 +92,24 @@ QJsonObject EffectToJson(const CompEffect& effect) {
   }
   object.insert("swaps", swaps);
   QJsonObject knobs;
-  for (size_t i = 0; i < effect.knobs.size(); ++i) {
+  for (size_t i = 0; i < kKnobNames.size(); ++i) {
     const bool has_keys = !effect.knobs[i].keys.empty();
     if (has_keys) {
       knobs.insert(kKnobNames[i], ChannelToJson(effect.knobs[i]));
     }
   }
   object.insert("knobs", knobs);
+  const bool is_plugin = effect.kind == CompKind::kFsp;
+  if (is_plugin) {
+    object.insert("plugin", effect.plugin);
+    object.insert("params", FspParamsToJson(effect));
+  }
   return object;
 }
 
 CompEffect EffectFromJson(const QJsonObject& object, JsonIssues* issues) {
   assert(issues != nullptr);
+  assert(kKnobNames.size() <= static_cast<size_t>(kCompKnobCount));
   CompEffect effect;
   effect.id = CompEffectId(std::max(object.value("id").toInt(), 0));
   effect.kind = static_cast<CompKind>(
@@ -132,8 +144,13 @@ CompEffect EffectFromJson(const QJsonObject& object, JsonIssues* issues) {
                   ColorFromJson(swap.value("to"), Qt::white, issues)});
   }
   const QJsonObject knobs = object.value("knobs").toObject();
-  for (size_t i = 0; i < effect.knobs.size(); ++i) {
+  for (size_t i = 0; i < kKnobNames.size(); ++i) {
     effect.knobs[i] = ChannelFromJson(knobs.value(kKnobNames[i]), 0.0, issues);
+  }
+  const bool is_plugin = effect.kind == CompKind::kFsp;
+  if (is_plugin) {
+    effect.plugin = object.value("plugin").toString();
+    FspParamsFromJson(object.value("params"), &effect, issues);
   }
   return effect;
 }

@@ -181,7 +181,7 @@ void CompTimeline::PaintEffects(QPainter* painter, const Shot& shot,
     y += kRow;
   };
   for (const CompEffect& effect : rows) {
-    row_of(CompManager::KindName(effect.kind), CompManager::KeyFrames(effect),
+    row_of(CompManager::EffectName(effect), CompManager::KeyFrames(effect),
            effect.id == picked);
   }
   std::set<int> light;

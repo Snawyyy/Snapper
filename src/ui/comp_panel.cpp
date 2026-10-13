@@ -1,13 +1,10 @@
 #include "ui/comp_panel.h"
 
-#include <QFormLayout>
 #include <QGridLayout>
 #include <QSignalBlocker>
 
 #include <cassert>
-#include <cmath>
 
-#include "anim/comp_knobs.h"
 #include "anim/reel_timeline.h"
 #include "edit/comp_manager.h"
 #include "edit/history_manager.h"
@@ -15,7 +12,6 @@
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/angle_dial.h"
-#include "ui/fader.h"
 #include "ui/form_helpers.h"
 #include "ui/problem.h"
 
@@ -69,6 +65,10 @@ void CompPanel::BuildFixed() {
   layout_.addWidget(&title_);
   help_.setWordWrap(true);
   layout_.addWidget(&help_);
+  note_.setWordWrap(true);
+  note_.setStyleSheet(QStringLiteral("QLabel { color: #f2c230; }"));
+  note_.hide();
+  layout_.addWidget(&note_);
   for (const auto& group : kBlendGroups) {
     const bool is_after_first = blend_.count() > 0;
     if (is_after_first) {
@@ -177,6 +177,15 @@ QString CompPanel::Signature(const CompEffect* effect) const {
   for (const QColor& color : effect->target.colors) {
     signature += QStringLiteral("t") + ColorKey(color);
   }
+  // A plugin's rows, and the colors its swatches show.
+  signature += QStringLiteral("p") + effect->plugin;
+  for (const CompRow& row : CompManager::RowsOf(*effect)) {
+    const bool is_color = row.kind == CompRowKind::kColor;
+    if (is_color) {
+      signature += QStringLiteral("c") +
+                   ColorKey(CompManager::KnobColor(*effect, row.knob, Local()));
+    }
+  }
   return signature;
 }
 
@@ -184,11 +193,15 @@ void CompPanel::Refresh() {
   assert(managers_.comp != nullptr);
   const CompEffect* effect = Picked();
   const bool has_effect = effect != nullptr;
-  title_.setText(has_effect ? CompManager::KindName(effect->kind)
+  title_.setText(has_effect ? CompManager::EffectName(*effect)
                             : tr("No effect picked"));
-  help_.setText(has_effect ? CompManager::KindHelp(effect->kind)
+  help_.setText(has_effect ? CompManager::EffectHelp(*effect)
                            : tr("Add an effect with + or A, or pick one in "
                                 "the stack."));
+  const QString why_not_run =
+      has_effect ? managers_.comp->WhyNotRun(*effect) : QString();
+  note_.setText(why_not_run);
+  note_.setVisible(!why_not_run.isEmpty());
   const QString why_none = has_effect ? QString() : tr("Pick an effect first.");
   Explain(&blend_, why_none, blend_.toolTip());
   if (has_effect) {
@@ -493,72 +506,6 @@ void CompPanel::BuildSwaps(const CompEffect& effect, QVBoxLayout* into) {
   into->addWidget(add);
 }
 
-void CompPanel::BuildKnobs(const CompEffect& effect, QVBoxLayout* into) {
-  assert(into != nullptr);
-  assert(knob_rows_.empty());
-  auto* form = new QFormLayout();
-  form->setSpacing(4);
-  for (int i = 0; i < kCompKnobCount; ++i) {
-    const auto knob = static_cast<CompKnob>(i);
-    const bool is_shown = CompManager::IsKnobShown(effect, knob);
-    if (!is_shown) {
-      continue;
-    }
-    const KnobSpec spec = *KnobSpecOf(effect.kind, knob);
-    auto* row = new QHBoxLayout();
-    row->setSpacing(4);
-    auto* box = new QDoubleSpinBox(dynamic_);
-    box->setRange(spec.low, spec.high);
-    const bool is_fraction = spec.high <= 1.0;
-    box->setDecimals(is_fraction ? 2 : 0);
-    box->setSingleStep(is_fraction ? 0.05 : 1.0);
-    box->setValue(KnobAt(effect, knob, Local()));
-    if (spec.is_angle) {
-      row->addWidget(new AngleDial(box, &live_, dynamic_));
-    } else {
-      row->addWidget(new Fader(box, &live_, spec.high, spec.neutral, dynamic_),
-                     1);
-    }
-    row->addWidget(box);
-    auto* key = new QPushButton(tr("Key"), dynamic_);
-    key->setCheckable(true);
-    key->setFocusPolicy(Qt::NoFocus);
-    key->setToolTip(tr("Key this at the playhead, or drop the key there. "
-                       "With two keys or more, changes key it."));
-    row->addWidget(key);
-    const QString label = QStringLiteral("%1 %2").arg(
-        CompManager::KindName(effect.kind),
-        CompManager::KnobLabel(effect.kind, knob).toLower());
-    MakeLive(box, &live_, label, this, [this, knob, box] {
-      const CompEffect* picked = Picked();
-      if (picked != nullptr) {
-        Report(ProblemOf(managers_.comp->SetKnob(Shot(), picked->id, knob,
-                                                 Local(), box->value())));
-      }
-    });
-    connect(key, &QPushButton::clicked, this, [this, knob] {
-      const CompEffect* picked = Picked();
-      if (picked != nullptr) {
-        Report(ProblemOf(
-            managers_.comp->ToggleKey(Shot(), picked->id, knob, Local())));
-      }
-    });
-    form->addRow(CompManager::KnobLabel(effect.kind, knob), row);
-    knob_rows_.push_back(KnobRow{knob, box, key});
-  }
-  into->addLayout(form);
-  eased_ = new QCheckBox(tr("Keys ease"), dynamic_);
-  eased_->setToolTip(tr("Off: keys hold until the next one. On: values "
-                        "glide between keys."));
-  connect(eased_, &QCheckBox::clicked, this, [this](bool is_eased) {
-    const CompEffect* picked = Picked();
-    if (picked != nullptr) {
-      Report(ProblemOf(managers_.comp->SetEased(Shot(), picked->id, is_eased)));
-    }
-  });
-  into->addWidget(eased_);
-}
-
 void CompPanel::BuildLight(QVBoxLayout* into) {
   assert(into != nullptr);
   auto* title = new QLabel(tr("Shot light"), dynamic_);
@@ -593,29 +540,6 @@ void CompPanel::BuildLight(QVBoxLayout* into) {
   connect(light_key_, &QPushButton::clicked, this, [this] {
     Report(ProblemOf(managers_.comp->ToggleShotLightKey(Shot(), Local())));
   });
-}
-
-void CompPanel::ShowValues(const CompEffect& effect) {
-  const Frame local = Local();
-  const ShotId shot = Shot();
-  for (const KnobRow& row : knob_rows_) {
-    assert(row.box != nullptr && row.key != nullptr);
-    const bool is_typing = row.box->hasFocus();
-    if (!is_typing) {
-      ShowNumber(row.box, KnobAt(effect, row.knob, local));
-    }
-    row.key->setChecked(
-        managers_.comp->HasKeyAt(shot, effect.id, row.knob, local));
-  }
-  if (eased_ != nullptr) {
-    eased_->setChecked(CompManager::IsEased(effect));
-  }
-  if (light_box_ != nullptr && !light_box_->hasFocus()) {
-    ShowNumber(light_box_, managers_.comp->ShotLight(shot, local));
-  }
-  if (light_key_ != nullptr) {
-    light_key_->setChecked(managers_.comp->HasShotLightKeyAt(shot, local));
-  }
 }
 
 void CompPanel::AimAt(Aim aim, int index) {
@@ -656,6 +580,10 @@ void CompPanel::TakeColor(const QColor& color,
     case Aim::kSwapTo:
       Report(ProblemOf(managers_.comp->SetSwapColor(
           shot, effect->id, aim_index_, aim_ == Aim::kSwapTo, color)));
+      break;
+    case Aim::kKnobColor:
+      Report(ProblemOf(managers_.comp->SetKnobColor(
+          shot, effect->id, static_cast<CompKnob>(aim_index_), color)));
       break;
     case Aim::kNone:
       break;

@@ -21,8 +21,9 @@ source of truth.
 |----------|---------------------------------------------------|---------------|
 | `base`   | Ids, frame time, errors, `Tr` for messages        | Qt Core       |
 | `model`  | Plain data: dolls, project, shots, keys, reel     | base          |
-| `anim`   | Pure math: sampling keys, pose, IK, warp, presets | model         |
-| `io`     | Reading and writing doll and project files        | model         |
+| `fsp`    | F's Plugins: the plugin list, their parameters, running one over a picture | base |
+| `anim`   | Pure math: sampling keys, pose, IK, warp, presets | model, fsp    |
+| `io`     | Reading and writing doll and project files        | model, fsp    |
 | `media`  | FFmpeg and audio: decode, play, encode, read video | base         |
 | `render` | One frame of the master track or reel to pixels   | anim          |
 | `edit`   | Managers: every change to the project             | render, io, media |
@@ -553,7 +554,24 @@ sampler with a per-kind default (`anim/comp_knobs.h`); points live in
 the target layer's space, or the canvas without the camera.
 `CompManager` owns every edit (one named undo step each) and the
 tab's view state: the picked effect, V and K (`CompShow`, passed only
-by the Comp stage's own renderer) and each effect's last cost.
+by the Comp stage's own renderer) and each effect's last cost
+(`CompReport`, with the plugin effects that refused to run).
+
+One kind, `CompKind::kFsp`, is a plugin from F's Plugins
+(`fsp/fsp_effects.h`, docs/features/fsp-effects.md). The effect keeps
+the plugin's id (`CompEffect::plugin`) and its values in the knob slots
+from `CompKnob::kParam0` on (at most `kCompParamSlots`; a bigger
+plugin is refused), so numbers key, ease and sample like any knob;
+toggles, choices and colors hold one value for the shot. Specs, words
+and per-frame values come from the plugin's own parameters
+(`anim/comp_fsp.h`); the panel's rows from `CompManager::RowsOf`. A
+file saves the values by the plugin's parameter names
+(`io/comp_fsp_json.cpp`); a plugin this Snapper lacks loads as a
+placeholder that keeps the saved values as they were and draws nothing.
+The renderer hands the plugin the target's picture as motion blur takes
+it and lays the answer through the same blend and mask
+(`render/comp_plugin.cpp`); a refusal skips the effect and the panel
+says so.
 
 A shot may hold references (`Shot::references`, `model/reference.h`):
 videos, GIFs and pictures linked by path to animate over. They are not

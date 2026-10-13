@@ -78,22 +78,30 @@ Result<void> CompManager::Edit(
 Result<void> CompManager::SetKnob(ShotId shot, CompEffectId id, CompKnob knob,
                                   Frame frame, double value) {
   assert(frame.index() >= 0);
+  assert(static_cast<int>(knob) < kCompKnobCount);
   const CompEffect* effect = Find(shot, id);
-  if (effect == nullptr) {
+  const bool is_present = effect != nullptr;
+  if (!is_present) {
     return Gone();
   }
-  const auto spec = KnobSpecOf(effect->kind, knob);
+  const auto spec = KnobSpecOf(*effect, knob);
   const bool is_used = spec.has_value();
   if (!is_used) {
     return std::unexpected(Error{Tr("That effect has no such control.")});
   }
   const double kept = std::clamp(value, spec->low, spec->high);
+  // A plugin's toggle, choice or color holds one value for the shot.
+  const bool is_flat_only = !IsKeyable(*effect, knob);
   const QString label = QStringLiteral("%1 %2").arg(
-      KindName(effect->kind), KnobLabel(effect->kind, knob).toLower());
+      EffectName(*effect), KnobLabel(*effect, knob).toLower());
   return Edit(shot, id, label,
               [&](CompEffect* edited) -> Result<void> {
-                Put(&edited->knobs[static_cast<size_t>(knob)], frame, kept,
-                    EaseOf(IsEased(*edited)));
+                auto* channel = &edited->knobs[static_cast<size_t>(knob)];
+                if (is_flat_only) {
+                  channel->keys = {Key<double>{Frame(0), kept, Ease::kStep}};
+                  return {};
+                }
+                Put(channel, frame, kept, EaseOf(IsEased(*edited)));
                 return {};
               });
 }
@@ -101,18 +109,20 @@ Result<void> CompManager::SetKnob(ShotId shot, CompEffectId id, CompKnob knob,
 Result<void> CompManager::SetPoint(ShotId shot, CompEffectId id, bool is_b,
                                    Frame frame, QPointF point) {
   assert(frame.index() >= 0);
+  assert(std::isfinite(point.x()) && std::isfinite(point.y()));
   const CompEffect* effect = Find(shot, id);
-  if (effect == nullptr) {
+  const bool is_present = effect != nullptr;
+  if (!is_present) {
     return Gone();
   }
   const CompKnob x_knob = is_b ? CompKnob::kBx : CompKnob::kAx;
   const CompKnob y_knob = is_b ? CompKnob::kBy : CompKnob::kAy;
-  const auto spec = KnobSpecOf(effect->kind, x_knob);
+  const auto spec = KnobSpecOf(*effect, x_knob);
   const bool is_used = spec.has_value();
   if (!is_used) {
     return std::unexpected(Error{Tr("That effect has no such point.")});
   }
-  const QString label = Tr("Move %1 point").arg(KindName(effect->kind));
+  const QString label = Tr("Move %1 point").arg(EffectName(*effect));
   return Edit(shot, id, label, [&](CompEffect* edited) -> Result<void> {
     const Ease ease = EaseOf(IsEased(*edited));
     Put(&edited->knobs[static_cast<size_t>(x_knob)], frame,
@@ -126,14 +136,21 @@ Result<void> CompManager::SetPoint(ShotId shot, CompEffectId id, bool is_b,
 Result<void> CompManager::ToggleKey(ShotId shot, CompEffectId id,
                                     CompKnob knob, Frame frame) {
   assert(frame.index() >= 0);
+  assert(static_cast<int>(knob) < kCompKnobCount);
   const CompEffect* effect = Find(shot, id);
-  if (effect == nullptr) {
+  const bool is_present = effect != nullptr;
+  if (!is_present) {
     return Gone();
+  }
+  const bool can_key = IsKeyable(*effect, knob);
+  if (!can_key) {
+    return std::unexpected(
+        Error{Tr("That control holds one value for the whole shot.")});
   }
   const bool is_keyed = HasKeyAt(shot, id, knob, frame);
   const QString label =
       (is_keyed ? Tr("Remove key %1") : Tr("Key %1"))
-          .arg(KnobLabel(effect->kind, knob).toLower());
+          .arg(KnobLabel(*effect, knob).toLower());
   const double value = KnobAt(*effect, knob, frame);
   return Edit(shot, id, label, [&](CompEffect* edited) -> Result<void> {
     auto& channel = edited->knobs[static_cast<size_t>(knob)];

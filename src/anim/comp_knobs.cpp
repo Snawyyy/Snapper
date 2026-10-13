@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cmath>
 
+#include "anim/comp_fsp.h"
 #include "anim/sampler.h"
 
 namespace snapper {
@@ -155,9 +156,18 @@ std::optional<KnobSpec> FinishKnob(CompKnob knob) {
   }
 }
 
+// A plugin's own values, plus the Strength every effect mixes by.
+std::optional<KnobSpec> PluginKnob(const CompEffect& effect, CompKnob knob) {
+  assert(effect.kind == CompKind::kFsp);
+  assert(static_cast<int>(knob) < kCompKnobCount);
+  const bool is_amount = knob == CompKnob::kAmount;
+  return is_amount ? std::optional(Strength()) : FspKnobSpec(effect, knob);
+}
+
 }  // namespace
 
-std::optional<KnobSpec> KnobSpecOf(CompKind kind, CompKnob knob) {
+std::optional<KnobSpec> KnobSpecOf(const CompEffect& effect, CompKnob knob) {
+  const CompKind kind = effect.kind;
   assert(static_cast<int>(kind) >= 0 &&
          static_cast<int>(kind) < kCompKindCount);
   assert(static_cast<int>(knob) >= 0 &&
@@ -181,6 +191,8 @@ std::optional<KnobSpec> KnobSpecOf(CompKind kind, CompKnob knob) {
       return LinesKnob(knob);
     case CompKind::kFinish:
       return FinishKnob(knob);
+    case CompKind::kFsp:
+      return PluginKnob(effect, knob);
   }
   return std::nullopt;
 }
@@ -201,7 +213,7 @@ bool HasPointB(const CompEffect& effect) {
 
 double KnobAt(const CompEffect& effect, CompKnob knob, Frame frame) {
   assert(frame.index() >= 0);
-  const auto spec = KnobSpecOf(effect.kind, knob);
+  const auto spec = KnobSpecOf(effect, knob);
   const bool is_used = spec.has_value();
   if (!is_used) {
     return 0.0;

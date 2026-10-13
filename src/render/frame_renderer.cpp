@@ -187,7 +187,7 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
   if (has_comp) {
     const CompContext context{&project, &shot,     local,       scale,
                               view,     &links,    &pictures,   comp_show_};
-    ApplyComp(context, &frame, &comp_costs_);
+    ApplyComp(context, &frame, &comp_report_);
   }
   return frame;
 }

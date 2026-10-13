@@ -9,9 +9,12 @@
 #include <numbers>
 #include <optional>
 
+#include "anim/comp_fsp.h"
 #include "anim/comp_knobs.h"
 #include "render/blend.h"
 #include "render/comp_effects.h"
+#include "render/comp_masks.h"
+#include "render/comp_plugin.h"
 
 namespace snapper {
 namespace {
@@ -46,49 +49,6 @@ int SeedOf(const CompEffect& effect, Frame local, double rate) {
   return step * 131 + effect.id.value() * 7919;
 }
 
-QImage Masked(const QImage& picture, const Mask& mask) {
-  assert(!picture.isNull());
-  const bool is_whole = mask.empty();
-  if (is_whole) {
-    return picture;
-  }
-  QImage out = picture.copy();
-  const int width = out.width();
-  for (int y = 0; y < out.height(); ++y) {
-    auto* row = reinterpret_cast<QRgb*>(out.scanLine(y));
-    for (int x = 0; x < width; ++x) {
-      const int cover = mask[static_cast<size_t>(y) *
-                                 static_cast<size_t>(width) +
-                             static_cast<size_t>(x)];
-      const QRgb p = row[x];
-      row[x] = qRgba(qRed(p) * cover / 255, qGreen(p) * cover / 255,
-                     qBlue(p) * cover / 255, qAlpha(p) * cover / 255);
-    }
-  }
-  return out;
-}
-
-// Paints what region covers white over black: the K view.
-void ShowMask(const Mask& region, QImage* frame) {
-  assert(frame != nullptr);
-  frame->fill(Qt::black);
-  const bool is_whole = region.empty();
-  if (is_whole) {
-    frame->fill(Qt::white);
-    return;
-  }
-  const int width = frame->width();
-  for (int y = 0; y < frame->height(); ++y) {
-    auto* row = reinterpret_cast<QRgb*>(frame->scanLine(y));
-    for (int x = 0; x < width; ++x) {
-      const int cover = region[static_cast<size_t>(y) *
-                                   static_cast<size_t>(width) +
-                               static_cast<size_t>(x)];
-      row[x] = qRgb(cover, cover, cover);
-    }
-  }
-}
-
 // One effect's picture and the mask it is laid down through.
 struct Drawn final {
   QImage picture;
@@ -97,19 +57,26 @@ struct Drawn final {
 
 class CompRun final {
  public:
-  CompRun(const CompContext& context, QImage* frame)
-      : context_(context), frame_(frame) {
+  CompRun(const CompContext& context, QImage* frame, CompReport* report)
+      : context_(context), frame_(frame), report_(report) {
     assert(frame_ != nullptr && context_.shot != nullptr);
     assert(context_.pictures != nullptr);
   }
 
   // false when the effect touches nothing this frame (its layer is not
-  // drawn now): it then costs nothing.
+  // drawn now, or its plugin is not in this Snapper): it then costs
+  // nothing.
   bool Run(const CompEffect& effect) {
     assert(effect.is_on || context_.show.mask_of == effect.id);
     const Frame local = context_.local;
+    const bool is_placeholder =
+        effect.kind == CompKind::kFsp && FspInfoOf(effect) == nullptr;
+    if (is_placeholder) {
+      return false;
+    }
     const auto shape = ShapeOf(effect);
-    if (!shape.has_value()) {
+    const bool is_drawn = shape.has_value();
+    if (!is_drawn) {
       return false;
     }
     const Mask region = RegionOf(effect, *shape);
@@ -119,6 +86,11 @@ class CompRun final {
       return true;
     }
     const Drawn drawn = Draw(effect, *shape, region);
+    const bool is_skipped = drawn.picture.isNull();
+    NoteOutcome(effect.id, is_skipped);
+    if (is_skipped) {
+      return true;
+    }
     BlendOnto(drawn.picture, effect.blend,
               KnobAt(effect, CompKnob::kAmount, local), drawn.mask, frame_);
     return true;
@@ -129,6 +101,22 @@ class CompRun final {
   void KeepBase() { base_ = frame_->copy(); }
 
  private:
+  // Keeps whether the effect's last run gave a picture.
+  void NoteOutcome(CompEffectId id, bool is_failed) {
+    assert(id.IsValid());
+    const bool is_reported = report_ != nullptr;
+    if (!is_reported) {
+      return;
+    }
+    assert(report_->failed.size() <=
+           static_cast<size_t>(kMaxCompEffectsPerShot) * 2);
+    if (is_failed) {
+      report_->failed.insert(id);
+    } else {
+      report_->failed.erase(id);
+    }
+  }
+
   // The target's own shape: empty for the whole frame; nothing when the
   // target layer is not drawn now.
   std::optional<Mask> ShapeOf(const CompEffect& effect) const {
@@ -244,8 +232,24 @@ class CompRun final {
                        static_cast<int>(std::lround(knob(CompKnob::kCount))),
                        SeedOf(effect, local, knob(CompKnob::kRate))),
                 region};
+      case CompKind::kFsp:
+        return DrawPlugin(effect, region);
     }
     return {QImage(frame_->size(), frame_->format()), Mask()};
+  }
+
+  // The plugin works on the target's own pixels, like motion blur: a
+  // layer's picture as it shows, else the frame cut to the region. On a
+  // layer what it draws past the layer (an outline) stays; on the frame
+  // picked colors keep it to those pixels. A null picture skips it.
+  Drawn DrawPlugin(const CompEffect& effect, const Mask& region) const {
+    assert(effect.kind == CompKind::kFsp);
+    assert(context_.scale > 0.0);
+    const bool has_layer = HasLayer(effect);
+    const QImage source =
+        Masked(TargetPicture(effect), has_layer ? Mask() : region);
+    return {RunCompPlugin(effect, source, context_.local, context_.scale),
+            has_layer ? Mask() : region};
   }
 
   Drawn DrawGradient(const CompEffect& effect, const Mask& shape,
@@ -294,6 +298,8 @@ class CompRun final {
 
   const CompContext& context_;
   QImage* frame_;
+  // Not owned; nullptr when nobody asks.
+  CompReport* report_;
   QImage base_;
 };
 
@@ -338,16 +344,17 @@ QTransform CompSpace(const CompContext& context, const CompEffect& effect) {
 }
 
 void ApplyComp(const CompContext& context, QImage* frame,
-               std::map<CompEffectId, double>* costs) {
+               CompReport* report) {
   assert(frame != nullptr && !frame->isNull());
   assert(context.shot != nullptr && context.pictures != nullptr);
   const Shot& shot = *context.shot;
   const bool is_mask_view = context.show.mask_of.IsValid();
   const bool is_off = context.show.is_off && !is_mask_view;
-  if (is_off || shot.comp.empty()) {
+  const bool is_idle = is_off || shot.comp.empty();
+  if (is_idle) {
     return;
   }
-  CompRun run(context, frame);
+  CompRun run(context, frame, report);
   const bool keys_colors = std::ranges::any_of(
       shot.comp, [](const CompEffect& effect) {
         return effect.is_on && !effect.target.colors.empty();
@@ -363,14 +370,17 @@ void ApplyComp(const CompContext& context, QImage* frame,
     }
     const bool is_weak =
         KnobAt(effect, CompKnob::kAmount, context.local) <= 0.0;
-    if (is_weak && !is_shown_mask) {
+    const bool is_skipped = is_weak && !is_shown_mask;
+    if (is_skipped) {
       continue;
     }
     QElapsedTimer clock;
     clock.start();
     run.Run(effect);
-    if (costs != nullptr) {
-      (*costs)[effect.id] = static_cast<double>(clock.nsecsElapsed()) / 1e6;
+    const bool is_reported = report != nullptr;
+    if (is_reported) {
+      report->costs[effect.id] =
+          static_cast<double>(clock.nsecsElapsed()) / 1e6;
     }
     if (is_shown_mask) {
       return;

@@ -47,7 +47,7 @@ Here Locating(const Managers& managers) {
 
 // The knob the arrow handle turns, if the effect has one shown.
 std::optional<CompKnob> ArrowKnob(const CompEffect& effect) {
-  const auto spec = KnobSpecOf(effect.kind, CompKnob::kAngle);
+  const auto spec = KnobSpecOf(effect, CompKnob::kAngle);
   const bool is_turnable = spec.has_value() && spec->is_angle;
   const bool is_burst =
       effect.kind == CompKind::kSpeedLines && effect.style == 0;
@@ -149,7 +149,7 @@ QImage CompStage::Picture() {
   renderer_.SetCompShow(managers_.comp->ShowFor(managers_.selection->shot()));
   QImage picture =
       renderer_.RenderReel(project, here.reel, render_scale, &videos_);
-  managers_.comp->NoteCosts(renderer_.comp_costs());
+  managers_.comp->NoteCosts(renderer_.comp_report());
   const bool is_full = kept_.size() >= static_cast<size_t>(kMaxKept);
   if (is_full) {
     // Drop the frame farthest from this one.
@@ -389,10 +389,10 @@ void CompStage::mousePressEvent(QMouseEvent* event) {
   const QString label =
       handle == Handle::kArrow
           ? QStringLiteral("%1 %2").arg(
-                CompManager::KindName(effect->kind),
-                CompManager::KnobLabel(effect->kind, CompKnob::kAngle)
+                CompManager::EffectName(*effect),
+                CompManager::KnobLabel(*effect, CompKnob::kAngle)
                     .toLower())
-          : tr("Move %1 point").arg(CompManager::KindName(effect->kind));
+          : tr("Move %1 point").arg(CompManager::EffectName(*effect));
   dragging_ = handle;
   drag_ = std::make_unique<EditScope>(managers_.history, label);
 }

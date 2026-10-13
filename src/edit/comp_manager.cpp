@@ -5,7 +5,6 @@
 #include <cassert>
 #include <utility>
 
-#include "anim/comp_knobs.h"
 #include "anim/links.h"
 #include "base/text.h"
 #include "edit/history_manager.h"
@@ -15,13 +14,11 @@
 namespace snapper {
 namespace {
 
-// A frame at 24 fps, in milliseconds.
-constexpr double kFrameBudget = 1000.0 / kFramesPerSecond;
-
 constexpr std::array<const char*, kCompKindCount> kKindNames = {
     "Line smoother", "Color swap",   "Transmitted light",
     "Rim light",     "Gradient",     "Motion blur",
-    "Sparkle",       "Speed lines",  "Finish"};
+    "Sparkle",       "Speed lines",  "Finish",
+    "F's plugin"};
 
 constexpr std::array<const char*, kBlendModeCount> kBlendNames = {
     "Normal",     "Darken",     "Multiply",   "Color burn", "Linear burn",
@@ -61,6 +58,7 @@ CompEffect MadeOf(CompKind kind) {
     case CompKind::kColorSwap:
     case CompKind::kMotionBlur:
     case CompKind::kFinish:
+    case CompKind::kFsp:
       break;
   }
   return effect;
@@ -104,6 +102,9 @@ QString CompManager::KindHelp(CompKind kind) {
       return Tr("Burst lines around a point, or speed lines across.");
     case CompKind::kFinish:
       return Tr("Film grain, scanlines or posterize over everything.");
+    case CompKind::kFsp:
+      return Tr("An effect from F's Plugins by bryful, the After Effects "
+                "plugins' own code.");
   }
   return QString();
 }
@@ -120,11 +121,6 @@ QString CompManager::ShapeName(GradientShape shape) {
   return Tr(kShapeNames[static_cast<size_t>(shape)]);
 }
 
-QString CompManager::KnobLabel(CompKind kind, CompKnob knob) {
-  const auto spec = KnobSpecOf(kind, knob);
-  return spec ? Tr(spec->label) : QString();
-}
-
 std::vector<QString> CompManager::StyleNames(CompKind kind) {
   assert(static_cast<int>(kind) < kCompKindCount);
   switch (kind) {
@@ -136,45 +132,6 @@ std::vector<QString> CompManager::StyleNames(CompKind kind) {
       return {Tr("Grain"), Tr("Scanlines"), Tr("Posterize")};
     default:
       return {};
-  }
-}
-
-bool CompManager::IsKnobShown(const CompEffect& effect, CompKnob knob) {
-  const auto spec = KnobSpecOf(effect.kind, knob);
-  const bool is_point = knob == CompKnob::kAx || knob == CompKnob::kAy ||
-                        knob == CompKnob::kBx || knob == CompKnob::kBy;
-  if (!spec.has_value() || is_point) {
-    return false;
-  }
-  const bool is_lit_angle = knob == CompKnob::kAngle &&
-                            effect.uses_shot_light && CanUseShotLight(effect);
-  if (is_lit_angle) {
-    return false;
-  }
-  switch (effect.kind) {
-    case CompKind::kGradient: {
-      const bool is_edge = effect.shape == GradientShape::kFromEdge;
-      const bool is_corners = effect.shape == GradientShape::kFourCorner;
-      return knob == CompKnob::kSize   ? is_edge
-             : knob == CompKnob::kCount ? !is_corners
-                                        : true;
-    }
-    case CompKind::kSpeedLines: {
-      const bool is_burst = effect.style == 0;
-      return knob == CompKnob::kAngle      ? !is_burst
-             : knob == CompKnob::kSoftness ? is_burst
-                                           : true;
-    }
-    case CompKind::kFinish: {
-      const bool is_poster = effect.style == 2;
-      const bool is_grain = effect.style == 0;
-      return knob == CompKnob::kCount  ? is_poster
-             : knob == CompKnob::kSize ? !is_poster
-             : knob == CompKnob::kRate ? is_grain
-                                       : true;
-    }
-    default:
-      return true;
   }
 }
 
@@ -278,7 +235,7 @@ Result<void> CompManager::Remove(ShotId shot, CompEffectId id) {
   if (!is_present) {
     return std::unexpected(Error{Tr("That effect no longer exists.")});
   }
-  const QString label = Tr("Remove %1").arg(KindName(effect->kind));
+  const QString label = Tr("Remove %1").arg(EffectName(*effect));
   const bool was_picked = PickedIn(shot) == id;
   const auto next = WithShot(history_->current(), shot,
                              [id](Shot* edited) -> Result<void> {
@@ -310,7 +267,7 @@ Result<CompEffectId> CompManager::Duplicate(ShotId shot, CompEffectId id) {
   const int index = CompEffectIndex(Of(shot), id);
   assert(index >= 0);
   return Insert(shot, *effect, index + 1,
-                Tr("Duplicate %1").arg(KindName(effect->kind)));
+                Tr("Duplicate %1").arg(EffectName(*effect)));
 }
 
 Result<void> CompManager::Move(ShotId shot, CompEffectId id, int index) {
@@ -384,71 +341,6 @@ QTransform CompManager::PointSpace(ShotId shot, CompEffectId id, Frame frame,
       FrameRenderer::ViewTransform(project, *found, frame, scale), &links,
       &none, CompShow()};
   return CompSpace(context, *effect);
-}
-
-CompEffectId CompManager::PickedIn(ShotId shot) const {
-  const auto found = picked_.find(shot);
-  const bool is_picked =
-      found != picked_.end() && Find(shot, found->second) != nullptr;
-  return is_picked ? found->second : CompEffectId();
-}
-
-void CompManager::Pick(ShotId shot, CompEffectId id) {
-  assert(shot.value() >= 0);
-  assert(id.value() >= 0);
-  const bool is_same = PickedIn(shot) == id;
-  if (is_same) {
-    return;
-  }
-  picked_[shot] = id;
-  emit Changed();
-}
-
-void CompManager::SetEffectsOff(bool is_off) {
-  const bool is_same = are_effects_off_ == is_off;
-  if (is_same) {
-    return;
-  }
-  are_effects_off_ = is_off;
-  emit Changed();
-}
-
-void CompManager::SetMaskShown(bool is_shown) {
-  const bool is_same = is_mask_shown_ == is_shown;
-  if (is_same) {
-    return;
-  }
-  is_mask_shown_ = is_shown;
-  emit Changed();
-}
-
-CompShow CompManager::ShowFor(ShotId shot) const {
-  CompShow show;
-  show.is_off = are_effects_off_;
-  show.mask_of = is_mask_shown_ ? PickedIn(shot) : CompEffectId();
-  return show;
-}
-
-void CompManager::NoteCosts(const std::map<CompEffectId, double>& costs) {
-  const auto slow = [](const std::map<CompEffectId, double>& all) {
-    std::set<CompEffectId> ids;
-    for (const auto& [id, ms] : all) {
-      if (ms > kFrameBudget) {
-        ids.insert(id);
-      }
-    }
-    return ids;
-  };
-  const bool is_changed = slow(costs) != slow(costs_);
-  costs_ = costs;
-  if (is_changed) {
-    emit Changed();
-  }
-}
-
-bool CompManager::IsSlow(CompEffectId id) const {
-  const auto found = costs_.find(id);
-  return found != costs_.end() && found->second > kFrameBudget;
 }
 
 }  // namespace snapper

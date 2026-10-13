@@ -69,10 +69,19 @@ struct CompContext final {
 // the camera (canvas pixels from the middle).
 QTransform CompSpace(const CompContext& context, const CompEffect& effect);
 
-// Runs shot's comp stack over frame, bottom effect first. costs, when
-// given, gets each run effect's time in milliseconds.
+// What running the comp found, per effect: its time and whether a
+// plugin effect (kFsp) refused to run and was skipped.
+struct CompReport final {
+  // Milliseconds, per effect run.
+  std::map<CompEffectId, double> costs;
+  // Plugin effects whose last run gave no picture.
+  std::set<CompEffectId> failed;
+};
+
+// Runs shot's comp stack over frame, bottom effect first. report, when
+// given, gets each run effect's time and outcome.
 void ApplyComp(const CompContext& context, QImage* frame,
-               std::map<CompEffectId, double>* costs);
+               CompReport* report);
 
 }  // namespace snapper
 

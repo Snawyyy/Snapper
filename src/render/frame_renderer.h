@@ -70,10 +70,9 @@ class FrameRenderer final {
   // How the Comp tab's stage shows the comp (V and K); export and every
   // other renderer keep the default, the whole comp.
   void SetCompShow(const CompShow& show) { comp_show_ = show; }
-  // What each comp effect cost in the last frame, in milliseconds.
-  const std::map<CompEffectId, double>& comp_costs() const {
-    return comp_costs_;
-  }
+  // What each comp effect cost in the last frame, in milliseconds, and
+  // which plugin effects refused to run.
+  const CompReport& comp_report() const { return comp_report_; }
 
  private:
   // Draws layer onto frame through its own picture, keeping the comp's
@@ -90,7 +89,7 @@ class FrameRenderer final {
 
   ImageCache cache_;
   CompShow comp_show_;
-  std::map<CompEffectId, double> comp_costs_;
+  CompReport comp_report_;
 };
 
 }  // namespace snapper

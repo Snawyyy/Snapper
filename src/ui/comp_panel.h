@@ -4,6 +4,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
@@ -15,6 +16,7 @@
 #include <vector>
 
 #include "base/frame.h"
+#include "edit/comp_manager.h"
 #include "model/comp.h"
 #include "ui/live_edit.h"
 #include "ui/managers.h"
@@ -38,13 +40,25 @@ class CompPanel final : public QWidget {
   void Problem(const QString& why);
 
  private:
-  // What a palette pick goes to.
-  enum class Aim { kNone, kColor, kTarget, kStop, kSwapFrom, kSwapTo };
+  // What a palette pick goes to; kKnobColor is a plugin's color knob
+  // (aim_index_ is the knob).
+  enum class Aim {
+    kNone,
+    kColor,
+    kTarget,
+    kStop,
+    kSwapFrom,
+    kSwapTo,
+    kKnobColor
+  };
 
+  // One built control row; only the widgets its kind uses are set.
   struct KnobRow final {
     CompKnob knob = CompKnob::kAmount;
     QDoubleSpinBox* box = nullptr;
     QPushButton* key = nullptr;
+    QCheckBox* toggle = nullptr;
+    QComboBox* choice = nullptr;
   };
 
   void Report(const QString& problem) {
@@ -59,10 +73,18 @@ class CompPanel final : public QWidget {
   void BuildLook(const CompEffect& effect, QVBoxLayout* into);
   void BuildGradient(const CompEffect& effect, QVBoxLayout* into);
   void BuildSwaps(const CompEffect& effect, QVBoxLayout* into);
+  // The rows CompManager::RowsOf names (ui/comp_panel_knobs.cpp).
   void BuildKnobs(const CompEffect& effect, QVBoxLayout* into);
+  void AddNumberRow(const CompRow& row, const CompEffect& effect,
+                    QFormLayout* form);
+  void AddToggleRow(const CompRow& row, QFormLayout* form);
+  void AddChoiceRow(const CompRow& row, QFormLayout* form);
+  void AddColorRow(const CompRow& row, const CompEffect& effect,
+                   QFormLayout* form);
   void BuildLight(QVBoxLayout* into);
   // Shows the knobs' values and keys at the playhead.
   void ShowValues(const CompEffect& effect);
+  void ShowRow(const KnobRow& row, const CompEffect& effect, Frame local);
   void AimAt(Aim aim, int index);
   void TakeColor(const QColor& color, Qt::KeyboardModifiers modifiers);
   QPushButton* Swatch(const QColor& color, const QString& tip,
@@ -78,6 +100,9 @@ class CompPanel final : public QWidget {
   QVBoxLayout layout_;
   QLabel title_;
   QLabel help_;
+  // Why the effect draws nothing (a missing plugin, or one that refused
+  // to run); hidden while it runs.
+  QLabel note_;
   QComboBox blend_;
   QLabel applies_title_;
   QHBoxLayout tiles_row_;
