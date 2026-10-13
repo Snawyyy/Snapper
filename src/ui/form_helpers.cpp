@@ -113,8 +113,6 @@ void AddTitle(QFormLayout* form, QLabel* title, const QString& text) {
   title->setText(text);
   MakeTitlePlate(title);
   form->addRow(title);
-  // Hugs its text at the form's edge instead of spanning the row.
-  form->setAlignment(title, Qt::AlignLeft | Qt::AlignVCenter);
 }
 
 void AddPair(QFormLayout* form, const QString& label, QHBoxLayout* row,

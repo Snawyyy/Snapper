@@ -48,9 +48,10 @@ class MainWindow final : public QMainWindow {
   Q_OBJECT
 
  public:
-  // In the order the work goes: build the doll, pose it, finish the shot,
-  // cut the reel.
-  enum class Mode { kRig = 0, kPose = 1, kComp = 2, kVideo = 3 };
+  // In the order of the workflow in docs/redesign/ux-polish-plan.md: plan
+  // the reel, rig the dolls, finish the shots; Pose, visited most often
+  // for the least time, is last.
+  enum class Mode { kVideo = 0, kRig = 1, kComp = 2, kPose = 3 };
 
   explicit MainWindow(const Managers& managers);
 

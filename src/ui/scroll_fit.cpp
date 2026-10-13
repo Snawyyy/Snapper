@@ -26,7 +26,10 @@ class WidthFollower final : public QObject {
     const int bar = area_->verticalScrollBar()->sizeHint().width();
     const int frame = 2 * area_->frameWidth();
     const int needed = inside->minimumSizeHint().width() + bar + frame;
-    area_->setMinimumWidth(CappedWidth(needed, ScreenWidth()));
+    // Only ever wider: a narrower pick must not shrink the column, or the
+    // layout beside it jumps at every pick.
+    const int wanted = CappedWidth(needed, ScreenWidth());
+    area_->setMinimumWidth(std::max(wanted, area_->minimumWidth()));
   }
 
  protected:

@@ -156,7 +156,7 @@ void MainWindow::Start(const QString& path) {
 }
 
 void MainWindow::ShowMode(int index) {
-  assert(index >= 0 && index <= static_cast<int>(Mode::kVideo));
+  assert(index >= 0 && index <= static_cast<int>(Mode::kPose));
   assert(managers_.playback != nullptr);
   const int was = pages_.currentIndex();
   const bool is_video = index == static_cast<int>(Mode::kVideo);
@@ -234,7 +234,6 @@ void MainWindow::BuildPages() {
   pose_layout_.setSpacing(0);
   pose_layout_.addWidget(&strip_);
   pose_layout_.addWidget(&pose_split_, 1);
-  pages_.addWidget(&pose_page_);
   rig_split_.addWidget(&rig_canvas_);
   rig_scroll_.setWidgetResizable(true);
   rig_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -246,16 +245,17 @@ void MainWindow::BuildPages() {
   rig_split_.setCollapsible(1, false);
   rig_split_.setStretchFactor(0, 3);
   rig_split_.setStretchFactor(1, 1);
-  pages_.insertWidget(static_cast<int>(Mode::kRig), &rig_split_);
-  pages_.addWidget(&comp_page_);
   pages_.addWidget(&video_page_);
+  pages_.addWidget(&rig_split_);
+  pages_.addWidget(&comp_page_);
+  pages_.addWidget(&pose_page_);
   setCentralWidget(&pages_);
-  assert(pages_.count() == static_cast<int>(Mode::kVideo) + 1);
+  assert(pages_.count() == static_cast<int>(Mode::kPose) + 1);
 }
 
 void MainWindow::BuildModes() {
   assert(top_bar_.tabs()->count() == pages_.count());
-  assert(pages_.count() == static_cast<int>(Mode::kVideo) + 1);
+  assert(pages_.count() == static_cast<int>(Mode::kPose) + 1);
   top_bar_host_.setObjectName(QStringLiteral("modes_bar"));
   top_bar_host_.setMovable(false);
   top_bar_host_.setFloatable(false);
@@ -263,8 +263,9 @@ void MainWindow::BuildModes() {
   top_bar_host_.toggleViewAction()->setVisible(false);
   top_bar_host_.addWidget(&top_bar_);
   addToolBar(Qt::TopToolBarArea, &top_bar_host_);
-  // The app opens on Pose; the page is already showing it.
+  // The app opens on Pose.
   top_bar_.tabs()->setCurrentIndex(static_cast<int>(Mode::kPose));
+  pages_.setCurrentIndex(static_cast<int>(Mode::kPose));
   connect(top_bar_.tabs(), &QTabBar::currentChanged, this,
           &MainWindow::ShowMode);
   assert(top_bar_.tabs()->currentIndex() == static_cast<int>(Mode::kPose));

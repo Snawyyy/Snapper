@@ -67,8 +67,8 @@ void MakeTitlePlate(QLabel* label) {
   QFont bold = label->font();
   bold.setBold(true);
   label->setFont(bold);
-  // Hugs its text: the frame under it shows the section's width.
-  label->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+  // Spans the whole width, so it reads as a title bar, not a button.
+  label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 }
 
 QWidget* Framed(QWidget* control, QWidget* bar, QWidget* parent) {
@@ -122,7 +122,7 @@ QWidget* PlatedSection(const QString& title, QWidget* body, QWidget* parent) {
   auto* plate = MakeOwned<QLabel>(title, section.get());
   plate->setObjectName(QStringLiteral("plate"));
   MakeTitlePlate(plate);
-  column->addWidget(plate, 0, Qt::AlignLeft);
+  column->addWidget(plate);
   auto* frame = MakeOwned<QFrame>(section.get());
   frame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
   auto* inside = MakeOwned<QVBoxLayout>(frame);
@@ -152,7 +152,7 @@ SettingsGroup::SettingsGroup(const QString& title, QWidget* parent)
   layout_.setContentsMargins(0, 0, 0, 0);
   layout_.setSpacing(theme::kRowGap / 2);
   MakeTitlePlate(&title_);
-  layout_.addWidget(&title_, 0, Qt::AlignLeft);
+  layout_.addWidget(&title_);
   layout_.addWidget(&body_);
   form_.setContentsMargins(theme::kIndent, 0, 0, 0);
   form_.setVerticalSpacing(theme::kRowGap / 2);

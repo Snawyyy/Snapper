@@ -47,8 +47,8 @@ T* MakeOwned(Args&&... args) {
 // Makes label a raised plate, centred, like a header coming out of the
 // panel (the title of a control cell).
 void MakePlate(QLabel* label);
-// Makes label a title plate: raised, bold, hugging its text at the
-// left edge, so it stands out over the settings indented under it.
+// Makes label a title plate: raised, bold, text at the left, spanning
+// the whole width, so it stands out over the settings indented under it.
 void MakeTitlePlate(QLabel* label);
 
 // A sunken frame round control, with bar right under it (when not
