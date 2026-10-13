@@ -20,8 +20,9 @@
 namespace snapper {
 
 // The picked layer's own settings: name and timing for any layer, flip
-// for a doll, words and style for text, kind, colour and strength for
-// an effect. Rows that don't apply to the layer's kind are hidden.
+// for a doll, words and style for text (a plated section of its own),
+// kind, colour and strength for an effect. Rows that don't apply to the
+// layer's kind are hidden.
 class LayerBox final : public QGroupBox {
   Q_OBJECT
 
@@ -51,10 +52,10 @@ class LayerBox final : public QGroupBox {
   QFormLayout layout_;
   LiveEdit live_;
   QLineEdit name_;
-  QHBoxLayout timing_row_;
   QHBoxLayout colour_row_;
   QHBoxLayout effect_row_;
-  QLabel text_title_;
+  // The text's plated section, a row of layout_; owned by the box.
+  QWidget* text_section_ = nullptr;
   QLabel effect_title_;
   QSpinBox start_;
   QSpinBox length_;

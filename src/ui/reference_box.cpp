@@ -2,7 +2,9 @@
 
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QPalette>
 #include <QSignalBlocker>
+#include <QVBoxLayout>
 
 #include <algorithm>
 #include <cassert>
@@ -13,8 +15,10 @@
 #include "edit/selection_manager.h"
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
+#include "ui/panel_kit.h"
 #include "ui/pose_controls.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 
 namespace snapper {
 namespace {
@@ -40,21 +44,49 @@ ReferenceBox::ReferenceBox(const Managers& managers)
 void ReferenceBox::BuildRows() {
   assert(layout_.rowCount() == 0);
   assert(managers_.references != nullptr);
+  // Like the Pose box: which file on a plate over a sunken frame, then
+  // how it looks, how it fits and when it plays, each its own plated
+  // section with the settings indented under the title.
+  layout_.setVerticalSpacing(theme::kRowGap);
   which_.setObjectName("reference_which");
   which_.setToolTip(tr("The reference these settings change. Click its row "
                        "on the timeline to pick it too."));
-  layout_.addRow(tr("Reference"), &which_);
   missing_.setWordWrap(true);
-  layout_.addRow(&missing_);
-  layout_.addRow(QString(), &find_);
+  find_.setToolTip(tr("Point it at the file again; its settings stay."));
+  auto* file_bar = MakeOwned<QWidget>(this);
+  auto* file_column = MakeOwned<QVBoxLayout>(file_bar);
+  file_column->setContentsMargins(4, 2, 4, 2);
+  file_column->addWidget(&missing_);
+  file_column->addWidget(&find_);
+  layout_.addRow(MakePlated(tr("Reference"), &which_, this, file_bar));
+  BuildLook();
+  BuildTime();
+  remove_.setToolTip(tr("Take this reference off the shot. Undo brings it "
+                        "back."));
+  layout_.addRow(&remove_);
+  hint_.setWordWrap(true);
+  hint_.setText(tr("Seen on this stage only, never in the video. Y shows "
+                   "or hides them all; M marks the picked one at the "
+                   "playhead; drag its corners on the stage to size it."));
+  QPalette quiet = hint_.palette();
+  quiet.setColor(QPalette::WindowText, theme::kTextOff);
+  hint_.setPalette(quiet);
+  layout_.addRow(&hint_);
+}
+
+void ReferenceBox::BuildLook() {
+  assert(layout_.rowCount() == 1);
+  assert(tint_.count() == 0);
+  auto* look = MakeOwned<QWidget>(this);
+  QFormLayout* rows = SettingsForm(look);
   SetUpNumber(&opacity_, Number::kFraction);
-  layout_.addRow(MakeFaderRow(tr("Opacity"), &opacity_, &live_, 1.0,
-                              kDefaultReferenceOpacity, this));
+  rows->addRow(MakeFaderRow(tr("Opacity"), &opacity_, &live_, 1.0,
+                            kDefaultReferenceOpacity, look));
   front_.setToolTip(tr("Over every layer, to check a silhouette; behind "
                        "them all to trace a pose."));
   shown_.setToolTip(tr("This reference's eye. Y hides every reference at "
                        "once."));
-  AddPair(&layout_, QString(), &switch_row_, &front_, &shown_);
+  AddPair(rows, QString(), &switch_row_, &front_, &shown_);
   for (const QString& name : {tr("No tint"), tr("Blue tint"), tr("Red tint")}) {
     tint_.addItem(name);
   }
@@ -62,31 +94,39 @@ void ReferenceBox::BuildRows() {
   tint_.setToolTip(tr("One color over it, like a light table, so it never "
                       "reads as the art."));
   flip_.setToolTip(tr("Mirror it left to right."));
-  AddPair(&layout_, QString(), &look_row_, &flip_, &tint_);
-  AddPair(&layout_, QString(), &fit_row_, &fit_frame_, &fit_height_);
+  AddPair(rows, QString(), &look_row_, &flip_, &tint_);
+  fit_frame_.setToolTip(tr("Size it to cover the shot's frame."));
+  fit_height_.setToolTip(tr("Size it to the frame's height, keeping its "
+                            "shape."));
+  AddPair(rows, tr("Fit"), &fit_row_, &fit_frame_, &fit_height_);
+  layout_.addRow(PlatedSection(tr("Look"), look, this));
+}
+
+void ReferenceBox::BuildTime() {
+  assert(layout_.rowCount() == 2);
+  assert(managers_.references != nullptr);
+  auto* time = MakeOwned<QWidget>(this);
+  QFormLayout* rows = SettingsForm(time);
   start_.setRange(0, kMaxFrame);
-  start_.setPrefix(tr("from "));
   start_.setToolTip(tr("The shot frame it starts on. Or drag its bar on "
                        "the timeline."));
   skip_.setRange(0.0, kMaxFrame / static_cast<double>(kFramesPerSecond));
   skip_.setDecimals(2);
   skip_.setSingleStep(1.0 / kFramesPerSecond);
-  skip_.setSuffix(tr(" s in"));
-  AddPair(&layout_, tr("Plays"), &time_row_, &start_, &skip_);
+  skip_.setSuffix(tr(" s"));
+  rows->addRow(MakeCellRow({MakeSpinCell(tr("Starts"), &start_, &live_, time),
+                            MakeSpinCell(tr("Into"), &skip_, &live_, time)},
+                           {}, time));
   speed_.setRange(kMinReferenceSpeed, kMaxReferenceSpeed);
   speed_.setDecimals(2);
   speed_.setSingleStep(0.05);
   speed_.setSuffix(tr("x"));
-  layout_.addRow(MakeFaderRow(tr("Speed"), &speed_, &live_, kSpeedShown, 1.0,
-                              this));
+  rows->addRow(MakeFaderRow(tr("Speed"), &speed_, &live_, kSpeedShown, 1.0,
+                            time));
   marks_.setWordWrap(true);
-  AddPair(&layout_, tr("Markers"), &marks_row_, &marks_, &clear_marks_);
-  layout_.addRow(QString(), &remove_);
-  hint_.setWordWrap(true);
-  hint_.setText(tr("Seen on this stage only, never in the video. Y shows "
-                   "or hides them all; M marks the picked one at the "
-                   "playhead; drag its corners on the stage to size it."));
-  layout_.addRow(&hint_);
+  clear_marks_.setToolTip(tr("Remove every marker of this reference."));
+  AddPair(rows, tr("Markers"), &marks_row_, &marks_, &clear_marks_);
+  layout_.addRow(PlatedSection(tr("Plays"), time, this));
 }
 
 void ReferenceBox::Wire() {

@@ -38,8 +38,7 @@ bool HasWarpActivity(const Project& project, ShotId shot,
 }  // namespace
 
 InspectorShow ShowFor(const Project& project, ShotId shot,
-                      const std::set<Pick>& picks, bool has_dot,
-                      bool is_linked, bool has_groups) {
+                      const std::set<Pick>& picks, const PickExtras& extras) {
   assert(picks.size() < 1000000);
   assert(shot.value() >= 0);
   InspectorShow show;
@@ -48,7 +47,8 @@ InspectorShow ShowFor(const Project& project, ShotId shot,
   show.shot = has_shot && !has_pick;
   show.camera = show.shot;
   show.pose = has_pick;
-  show.link = has_pick && is_linked;
+  show.link = has_pick && extras.is_linked;
+  show.references = has_shot && extras.has_reference;
   const bool is_idle = !has_pick;
   if (is_idle) {
     return show;
@@ -61,12 +61,14 @@ InspectorShow ShowFor(const Project& project, ShotId shot,
   show.object = is_doll && is_whole && doll->rig.object.is_object;
   show.layer = is_whole;
   show.saved_poses = is_doll && is_whole;
-  show.dials = is_doll;
-  show.skins = is_doll && is_whole;
-  show.groups = is_doll && (has_dot || has_groups ||
+  const bool has_dials = is_doll && !doll->rig.dials.empty();
+  show.dials = has_dials;
+  show.add_dial = is_doll && !has_dials;
+  show.skins = is_doll && is_whole && !doll->rig.skins.empty();
+  show.groups = is_doll && (extras.has_dot || extras.has_groups ||
                             HasWarpActivity(project, shot, picks));
-  show.drag = has_dot;
-  show.dot_animation = has_dot;
+  show.drag = extras.has_dot;
+  show.dot_animation = extras.has_dot;
   return show;
 }
 

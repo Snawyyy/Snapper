@@ -11,8 +11,11 @@
 #include "edit/selection_manager.h"
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
+#include "ui/panel_kit.h"
 #include "ui/playhead.h"
+#include "ui/pose_controls.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 
 namespace snapper {
 
@@ -21,14 +24,15 @@ PosesBox::PosesBox(const Managers& managers)
       save_(tr("Save")), use_(tr("Use")), forget_(tr("Forget")) {
   assert(managers_.IsComplete());
   name_.setPlaceholderText(tr("Name for a pose"));
-  buttons_.addWidget(&save_);
-  buttons_.addWidget(&use_);
-  buttons_.addWidget(&forget_);
-  layout_.addWidget(&list_);
-  layout_.addWidget(&name_);
-  layout_.addLayout(&buttons_);
   list_.setMaximumHeight(110);
-  assert(buttons_.count() == 3);
+  // Like the Pose box: the saved poses on a plate over a sunken frame
+  // with what acts on the picked one under it; then a new one's name
+  // and Save on the golden ratio.
+  layout_.setSpacing(theme::kRowGap);
+  layout_.addWidget(MakePlated(tr("Saved"), &list_, this,
+                               TileRow({&use_, &forget_}, this)));
+  layout_.addWidget(
+      MakePlated(tr("Save as"), GoldenRow(&name_, &save_, this), this));
   connect(&save_, &QPushButton::clicked, this, &PosesBox::Save);
   connect(&use_, &QPushButton::clicked, this, &PosesBox::Use);
   connect(&forget_, &QPushButton::clicked, this, &PosesBox::Forget);
@@ -66,13 +70,18 @@ void PosesBox::Refresh() {
   const QString broken = managers_.presets->load_error();
   const QString no_doll = is_doll ? QString()
                                   : tr("Pick a doll on the stage first.");
-  Explain(&save_, !broken.isEmpty()            ? broken
-                  : name_.text().trimmed().isEmpty() ? tr("Type a name first.")
-                                                     : no_doll);
+  Explain(&save_,
+          !broken.isEmpty()                  ? broken
+          : name_.text().trimmed().isEmpty() ? tr("Type a name first.")
+                                             : no_doll,
+          tr("Save the picked doll's pose at the playhead under this name, "
+             "for any project."));
   const QString no_pick = Picked().isEmpty() ? tr("Pick a saved pose first.")
                                              : QString();
-  Explain(&use_, no_pick.isEmpty() ? no_doll : no_pick);
-  Explain(&forget_, no_pick);
+  Explain(&use_, no_pick.isEmpty() ? no_doll : no_pick,
+          tr("Key the picked saved pose on every picked doll at the "
+             "playhead."));
+  Explain(&forget_, no_pick, tr("Delete the picked saved pose."));
 }
 
 void PosesBox::Save() {

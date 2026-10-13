@@ -9,6 +9,7 @@
 #include "edit/skin_manager.h"
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
+#include "ui/panel_kit.h"
 #include "ui/playhead.h"
 #include "ui/problem.h"
 
@@ -18,17 +19,19 @@ SkinBox::SkinBox(const Managers& managers)
     : QGroupBox(tr("Skins")),
       managers_(managers),
       layout_(this),
-      tiles_(tr("Click to put this skin on at the playhead, again to take it "
-                "off; Shift click stacks it on what is worn. Right click for "
-                "more.")),
+      tiles_(tr("Click to put this skin on at the playhead, alone; again to "
+                "take it off. Alt click stacks it on what is worn. Right "
+                "click for more.")),
       previous_(this),
       next_(this) {
   assert(managers_.IsComplete());
   assert(managers_.skins != nullptr);
   layout_.addWidget(&tiles_);
-  empty_.setWordWrap(true);
-  empty_.setText(tr("This doll has no skins. Make them in the Rig tab."));
-  layout_.addWidget(&empty_);
+  // The inspector shows the box only for a doll with skins; this says so
+  // should it ever show without.
+  empty_ = EmptyHint(tr("This doll has no skins. Make them in the Rig tab."),
+                     this);
+  layout_.addWidget(empty_);
   // Shift+[ types a brace on most keyboards; both are bound.
   previous_.setKeys({QKeySequence(Qt::SHIFT | Qt::Key_BracketLeft),
                      QKeySequence(Qt::Key_BraceLeft),
@@ -63,10 +66,17 @@ void SkinBox::Refresh() {
   tiles_.setEnabled(is_here);
   tiles_.setToolTip(is_here ? QString()
                             : tr("Move the playhead into this shot."));
-  empty_.setVisible(names.empty());
+  empty_->setVisible(names.empty());
 }
 
 void SkinBox::Wear(const QString& skin, Qt::KeyboardModifiers keys) {
+  assert(!skin.isEmpty());
+  // Shift adds to a pick everywhere, so it never means stack here: Alt
+  // does (or the right-click entry).
+  Put(skin, keys.testFlag(Qt::AltModifier));
+}
+
+void SkinBox::Put(const QString& skin, bool is_stacked) {
   assert(!skin.isEmpty());
   assert(managers_.selection != nullptr);
   const auto spot = SpotOf(managers_);
@@ -75,8 +85,7 @@ void SkinBox::Wear(const QString& skin, Qt::KeyboardModifiers keys) {
   if (is_here) {
     emit Problem(ProblemOf(managers_.skins->Wear(
         spot->shot, managers_.selection->PickedLayers(),
-        managers_.selection->layer(), spot->local, skin,
-        keys.testFlag(Qt::ShiftModifier))));
+        managers_.selection->layer(), spot->local, skin, is_stacked)));
   }
   Refresh();
 }
@@ -103,7 +112,14 @@ void SkinBox::ShowMenu(const QString& skin, QPoint global) {
   const bool is_here =
       spot.has_value() && spot->shot == managers_.selection->shot();
   QMenu menu(this);
+  menu.setToolTipsVisible(true);
   menu.addSection(skin);
+  QAction* stack = menu.addAction(tr("Stack on what is worn"), this,
+                                  [this, skin] { Put(skin, true); });
+  stack->setToolTip(tr("Puts it on over the skins worn at the playhead "
+                       "instead of in their place (Alt click does too)."));
+  Explain(stack, is_here ? QString()
+                         : tr("Move the playhead into this shot."));
   QAction* update = menu.addAction(tr("Update from current look"), this, [=, this] {
     emit Problem(ProblemOf(managers_.skins->UpdateFromLook(
         spot->shot, managers_.selection->layer(), spot->local, skin)));

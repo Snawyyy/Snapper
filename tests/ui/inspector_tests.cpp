@@ -268,10 +268,10 @@ void InspectorTests::OnlyWhatIsPickedShows() {
   bench.selection.PickDot(WarpDot{LayerId(1), "head", 0});
   QVERIFY(shown.operator()<DragBox>());
   QVERIFY(shown.operator()<PointMotionBox>());
-  // Nothing picked: the shot and its camera.
+  // Nothing picked: the shot and its camera (folded closed at first).
   bench.selection.Clear();
   QVERIFY(shown.operator()<ShotBox>());
-  QVERIFY(shown.operator()<CameraBox>());
+  QVERIFY(!inspector.findChild<CameraBox*>()->isHidden());
   QVERIFY(!shown.operator()<PoseBox>());
   QVERIFY(!shown.operator()<DragBox>());
   QVERIFY(!shown.operator()<PointMotionBox>());

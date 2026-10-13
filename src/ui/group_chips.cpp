@@ -4,6 +4,7 @@
 #include <cassert>
 
 #include "base/text.h"
+#include "ui/pick_keys.h"
 
 namespace snapper {
 
@@ -48,12 +49,19 @@ std::vector<ShownGroup> GroupsOfPicks(const std::vector<ShownGroup>& groups,
   return shown;
 }
 
-PickMode GroupPickMode(bool is_shift, bool is_ctrl) {
-  const bool is_flip = is_ctrl;
-  assert(!is_flip || is_ctrl);
+PickMode GroupPickMode(Qt::KeyboardModifiers keys) {
+  // A chip is never dragged, so a plain click always picks only it.
+  const std::optional<PickMode> mode = ClickMode(keys, false);
+  assert(mode.has_value());
   assert(PickMode::kReplace != PickMode::kAdd);
-  return is_ctrl ? PickMode::kToggle
-                 : is_shift ? PickMode::kAdd : PickMode::kReplace;
+  return mode.value_or(PickMode::kReplace);
+}
+
+PickMode GroupPickMode(bool is_shift, bool is_ctrl) {
+  Qt::KeyboardModifiers keys;
+  keys.setFlag(Qt::ShiftModifier, is_shift);
+  keys.setFlag(Qt::ControlModifier, is_ctrl);
+  return GroupPickMode(keys);
 }
 
 }  // namespace snapper

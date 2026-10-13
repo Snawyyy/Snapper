@@ -2,9 +2,10 @@
 #define SNAPPER_UI_DIAL_BOX_H_
 
 #include <QGroupBox>
-#include <QHBoxLayout>
 #include <QLabel>
+#include <QMenu>
 #include <QPushButton>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 #include <memory>
@@ -17,19 +18,27 @@
 
 namespace snapper {
 
-// The smart dials of the picked doll: template tiles that make a dial
-// driving the picked pieces, and for each dial (only those moving a
-// picked piece when pieces are picked) its name, its track with the
-// stop ticks, what it shows ("Front 60% Right") and Set stop, which
-// saves the pose of its pieces at the playhead as the stop under the
-// knob. Turning keys the dial on every picked doll that has one of the
-// same name. Right click a dial or a tick for the rest of its settings.
+// The smart dials of the picked doll: for each dial (only those moving a
+// picked piece when pieces are picked) a plate with its name over a
+// sunken frame holding its track with the stop ticks, and under it what
+// it shows ("Front 60% Right") and Set stop, which saves the pose of its
+// pieces at the playhead as the stop under the knob; then a "+ Dial"
+// tile whose menu makes a dial driving the picked pieces from a
+// template. Turning keys the dial on every picked doll that has one of
+// the same name. Right click a dial or a tick for the rest of its
+// settings. The inspector shows the box only for a doll with dials; a
+// doll without any gets its own "+" tile sharing templates().
 class DialBox final : public QGroupBox {
   Q_OBJECT
 
  public:
   explicit DialBox(const Managers& managers);
   void Refresh();
+  // The template entries, each making a dial; greyed with the reason
+  // when no dial can be made from the pick.
+  QMenu* templates() { return &templates_; }
+  // Why no dial can be made from the pick now; empty when one can.
+  QString WhyNoDial() const;
 
  signals:
   void Problem(const QString& why);
@@ -39,7 +48,6 @@ class DialBox final : public QGroupBox {
   struct Row final {
     QString name;
     QWidget* widget = nullptr;
-    QLabel* title = nullptr;
     DialTrack* track = nullptr;
     QLabel* readout = nullptr;
     QPushButton* set_stop = nullptr;
@@ -58,10 +66,11 @@ class DialBox final : public QGroupBox {
 
   Managers managers_;
   QVBoxLayout layout_;
-  QHBoxLayout tiles_;
-  std::vector<QPushButton*> tile_buttons_;
+  QMenu templates_;
+  QToolButton add_;
   QVBoxLayout rows_layout_;
-  QLabel empty_;
+  // Says why no dial shows (none moves a picked piece); owned by the box.
+  QLabel* empty_ = nullptr;
   std::vector<Row> rows_;
   // The dials the rows were built for.
   std::vector<SmartDial> shown_;

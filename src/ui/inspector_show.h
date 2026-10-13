@@ -9,9 +9,11 @@
 namespace snapper {
 
 // Which of the inspector's boxes matter for what is picked. Pure, so the
-// rules can be read and tested without a widget.
+// rules can be read and tested without a widget. Only what the pick can
+// use shows: a box with nothing to work on stays away.
 struct InspectorShow final {
-  // Nothing picked: the shot and its camera.
+  // Nothing picked: the shot and its camera (the camera folded closed
+  // at first, see Inspector).
   bool shot = false;
   bool camera = false;
   bool pose = false;
@@ -19,12 +21,16 @@ struct InspectorShow final {
   bool link = false;
   // The layer's own settings: for a whole layer, not a piece of it.
   bool layer = false;
-  // Saved poses belong to the whole doll, not a limb.
+  // Saved poses belong to the whole doll, not a limb (folded at first).
   bool saved_poses = false;
-  // Smart dials: for a doll, whole or by piece.
+  // Smart dials: for a doll that has some, whole or by piece.
   bool dials = false;
-  // Skins: for a doll picked whole.
+  // A doll with no dials yet: only a "+" tile that makes the first one.
+  bool add_dial = false;
+  // Skins: for a doll picked whole that has skins to wear.
   bool skins = false;
+  // References: only while one of the shot's references is picked.
+  bool references = false;
   // Dot groups: on a doll that has dots worth grouping (drag nodes or
   // motions on a picked piece, picked dots, or groups already there).
   bool groups = false;
@@ -36,12 +42,20 @@ struct InspectorShow final {
   bool object = false;
 };
 
-// has_dot is true while a warp dot is picked, is_linked while the pick
-// follows something or is followed, has_groups when a group of a picked
-// piece exists.
+// What the pick has beside the stage pick itself.
+struct PickExtras final {
+  // A warp dot is picked.
+  bool has_dot = false;
+  // The pick follows something or is followed.
+  bool is_linked = false;
+  // A group of a picked piece exists.
+  bool has_groups = false;
+  // One of the shot's references is picked.
+  bool has_reference = false;
+};
+
 InspectorShow ShowFor(const Project& project, ShotId shot,
-                      const std::set<Pick>& picks, bool has_dot,
-                      bool is_linked, bool has_groups);
+                      const std::set<Pick>& picks, const PickExtras& extras);
 
 }  // namespace snapper
 

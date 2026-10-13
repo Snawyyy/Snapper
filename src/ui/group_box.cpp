@@ -16,14 +16,11 @@
 #include "ui/chip_button.h"
 #include "ui/follow.h"
 #include "ui/group_chips.h"
+#include "ui/panel_kit.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 
 namespace snapper {
-namespace {
-
-constexpr int kChipColumns = 2;
-
-}  // namespace
 
 GroupBox::GroupBox(const Managers& managers)
     : QGroupBox(tr("Groups")),
@@ -32,15 +29,17 @@ GroupBox::GroupBox(const Managers& managers)
       chips_layout_(&chips_) {
   assert(managers_.IsComplete());
   chips_layout_.setContentsMargins(0, 0, 0, 0);
-  hint_.setWordWrap(true);
-  hint_.setText(tr("No groups on what is picked. Pick the dots that should "
-                   "behave alike, then press Group."));
-  hint_.setObjectName("group_hint");
+  layout_.setContentsMargins(0, 0, 0, 0);
+  layout_.setSpacing(theme::kRowGap / 2);
+  hint_ = EmptyHint(tr("No groups on what is picked. Pick the dots that "
+                       "should behave alike, then press Group picked dots."),
+                    this);
+  hint_->setObjectName("group_hint");
   make_.setText(tr("Group picked dots"));
   make_.setObjectName("make_group");
-  layout_.addWidget(&hint_);
+  layout_.addWidget(hint_);
   layout_.addWidget(&chips_);
-  layout_.addWidget(&make_);
+  layout_.addWidget(&make_, 0, Qt::AlignLeft);
   connect(&make_, &QPushButton::clicked, this, [this] { AskName(); });
   Follow(managers_, this);
   Refresh();
@@ -78,8 +77,7 @@ void GroupBox::Rebuild(const std::vector<ShownGroup>& shown) {
             [this, name, chip](const QPoint& at) {
               ShowMenu(name, chip->mapToGlobal(at));
             });
-    const int at = static_cast<int>(buttons_.size());
-    chips_layout_.addWidget(chip, at / kChipColumns, at % kChipColumns);
+    chips_layout_.addWidget(chip);
     buttons_.push_back(chip);
     names_.emplace_back(group.name, group.is_default);
   }
@@ -110,7 +108,8 @@ void GroupBox::Refresh() {
     buttons_[i]->setToolTip(look.tip);
     buttons_[i]->setChecked(look.share == GroupShare::kAll);
   }
-  hint_.setVisible(shown.empty());
+  hint_->setVisible(shown.empty());
+  chips_.setVisible(!shown.empty());
   const QString why = managers_.groups->WhyNoGroup(shot, PickedDots());
   const bool can_group = why.isEmpty();
   make_.setEnabled(can_group);
@@ -123,15 +122,12 @@ void GroupBox::Refresh() {
 void GroupBox::PickChip(const QString& name) {
   assert(managers_.groups != nullptr);
   assert(managers_.selection != nullptr);
-  const Qt::KeyboardModifiers keys = QGuiApplication::keyboardModifiers();
-  const bool is_shift = keys.testFlag(Qt::ShiftModifier);
-  const bool is_ctrl = keys.testFlag(Qt::ControlModifier);
+  const PickMode mode = GroupPickMode(QGuiApplication::keyboardModifiers());
   const ShotId shot = managers_.selection->shot();
   for (const ShownGroup& group : managers_.groups->GroupsOf(shot)) {
     const bool is_it = group.name == name;
     if (is_it) {
-      managers_.selection->PickGroup(group.dots,
-                                     GroupPickMode(is_shift, is_ctrl));
+      managers_.selection->PickGroup(group.dots, mode);
     }
   }
   // A click flips a pressed chip by itself; the pick says how it looks.

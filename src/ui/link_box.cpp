@@ -10,6 +10,7 @@
 #include "ui/form_helpers.h"
 #include "ui/pose_controls.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 
 namespace snapper {
 namespace {
@@ -32,10 +33,13 @@ LinkBox::LinkBox(const Managers& managers)
                           "same, 0.5 half, 0 none, 2 twice as much."));
   unlink_.setText(tr("Unlink"));
   unlink_.setObjectName("unlink");
-  layout_.addRow(&follows_);
+  unlink_.setToolTip(tr("The picked things stop following."));
+  // Like the Pose box: whom it follows on a plate over a sunken frame,
+  // with Unlink under it, then how strongly on a fader.
+  layout_.setVerticalSpacing(theme::kRowGap);
+  layout_.addRow(MakePlated(tr("Follows"), &follows_, this, &unlink_));
   layout_.addRow(MakeFaderRow(tr("Strength"), &strength_, &live_,
                               kStrengthShown, 1.0, this));
-  layout_.addRow(&unlink_);
   MakeLive(&strength_, &live_, tr("Link strength"), this,
            [this] { Commit(); });
   connect(&unlink_, &QPushButton::clicked, this, [this] {
@@ -44,7 +48,7 @@ LinkBox::LinkBox(const Managers& managers)
   });
   Follow(managers_, this);
   Refresh();
-  assert(layout_.rowCount() == 3);
+  assert(layout_.rowCount() == 2);
 }
 
 std::vector<LinkEnd> LinkBox::Picked() const {

@@ -1,7 +1,6 @@
 #ifndef SNAPPER_UI_GROUP_BOX_H_
 #define SNAPPER_UI_GROUP_BOX_H_
 
-#include <QGridLayout>
 #include <QGroupBox>
 #include <QLabel>
 #include <QPoint>
@@ -16,6 +15,7 @@
 
 #include "edit/group_edits.h"
 #include "ui/chip_button.h"
+#include "ui/flow_layout.h"
 #include "ui/managers.h"
 
 namespace snapper {
@@ -23,9 +23,10 @@ namespace snapper {
 // The most chips a shot can show: its own groups and the defaults.
 inline constexpr size_t kMaxGroupChips = 64;
 
-// Groups of warp dots, shown while a doll is picked: a chip per group
-// (click picks its dots, Shift adds, Ctrl flips; pressed when all of it
-// is picked), a Group button that makes a group of the picked dots, and
+// Groups of warp dots, shown while a doll is picked: a chip per group,
+// wrapping onto more lines when narrow (click picks its dots, Shift
+// adds, Ctrl flips, by the shared pick rule; pressed when all of it is
+// picked), a Group button that makes a group of the picked dots, and
 // a right-click menu per chip: rename, add or remove the picked dots,
 // make it a default for every shot or only this shot's, delete.
 // Greyed out with the reason when nothing can act.
@@ -52,9 +53,10 @@ class GroupBox final : public QGroupBox {
 
   Managers managers_;
   QVBoxLayout layout_;
-  QLabel hint_;
+  // Says why no chip shows and how to make one; owned by the box.
+  QLabel* hint_ = nullptr;
   QWidget chips_;
-  QGridLayout chips_layout_;
+  FlowLayout chips_layout_;
   std::vector<ChipButton*> buttons_;
   Names names_;
   QPushButton make_;
