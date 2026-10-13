@@ -1277,7 +1277,13 @@ docks per settings key; a place off every screen is refused),
 1.2 tabs Cast behind the Inspector); the pure parts (`FittedRect`,
 `GoldenDockWidths`, `IsPortrait`, `IsShownEnough`, `DialogSize`) take
 plain numbers. `KeepWideEnough` (`scroll_fit.h`) asks for at most 30 %
-of the screen's width.
+of the screen's width. `ui/golden_splitter.h` shares a splitter by the
+golden ratio (`SplitGolden`, `SplitGoldenAround`) and `RememberSplits`
+puts every named splitter back as it was left. The main window uses all
+of these: tabs in the order of the work (Video, Pose, Rig, Comp, with
+Ctrl+1 to Ctrl+4 and Export at the far end of the top bar), Cast and the
+Inspector on Pose only, and a shot opened from the reel
+(`VideoPage::OpenShotAsked`) lands on Pose with the playhead in it.
 
 The pick keys live in one place, `ui/pick_keys.h`: `ClickMode(mods,
 is_picked)` gives the `PickMode` of a click (Ctrl flips and wins over

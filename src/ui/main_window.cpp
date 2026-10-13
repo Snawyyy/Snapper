@@ -130,6 +130,9 @@ MainWindow::MainWindow(const Managers& managers)
   });
   connect(&rig_panel_, &RigPanel::Problem, this, show_problem);
   connect(&video_page_, &VideoPage::Problem, this, show_problem);
+  // A shot opened from the reel goes to Pose; Ctrl+1 comes back.
+  connect(&video_page_, &VideoPage::OpenShotAsked, this,
+          &MainWindow::OpenShot);
   connect(&comp_page_, &CompPage::Problem, this, show_problem);
   cast_dock_.setObjectName(QStringLiteral("cast"));
   cast_dock_.setWidget(&cast_);
