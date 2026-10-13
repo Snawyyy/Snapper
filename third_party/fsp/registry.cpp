@@ -8,7 +8,8 @@
 
 #define FSP_PLUGINS(PLUGIN) \
   PLUGIN(RimFill, rimfill) \
-  PLUGIN(SpeedLines, speedlines)
+  PLUGIN(SpeedLines, speedlines) \
+  PLUGIN(BurstLines, burstlines)
 
 #define FSP_DECLARE_PLUGIN(ID, PREFIX) \
   extern "C" PF_Err fsp_##PREFIX##_EffectMain( \

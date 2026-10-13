@@ -140,3 +140,50 @@ parallel lines on a clear layer, seed moves them, angle, blur, noise
 and three colors work. The line count follows the picture's longer
 side (the plugin's own rule), so a half scale preview has fewer lines
 of half the width.
+
+### BurstLines
+
+Copied `BurstLines/` (`BrustLinesMain.cpp`, `BurstLines.cpp`,
+`BurstLines.h`, `NF_Target.h`, `README.MD`), `_NFLib/fx/NF_UnMult` and
+`_NFLib/vector/NF_VectorLine`, `NF_VectorMask` (`.cpp`, `.h`; not the
+stray `NF_VectorMask.cppqq`). `NF_UnMult.cpp` and `NF_VectorMask.cpp`
+repeat helpers of `NF_Mult.cpp` and `NF_Blend.cpp`, so each has its own
+unit (`units/burstlines_unit_2.cpp`, `_3.cpp`).
+
+```
+BurstLines/BurstLines.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+BurstLines/BurstLines.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+BurstLines/BurstLines.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+BurstLines/BurstLines.h:19: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+BurstLines/BurstLines.h:22: "..\_NFLib\fx\debug_font.h" -> "../_NFLib/fx/debug_font.h"
+BurstLines/BurstLines.h:23: "..\_NFLib\fx\NF_AlphaHyperbolic.h" -> "../_NFLib/fx/NF_AlphaHyperbolic.h"
+BurstLines/BurstLines.h:24: "..\_NFLib\fx\NF_Bilateral.h" -> "../_NFLib/fx/NF_Bilateral.h"
+BurstLines/BurstLines.h:25: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
+BurstLines/BurstLines.h:26: "..\_NFLib\fx\NF_Blur.h" -> "../_NFLib/fx/NF_Blur.h"
+BurstLines/BurstLines.h:27: "..\_NFLib\fx\NF_ChannelBlur.h" -> "../_NFLib/fx/NF_ChannelBlur.h"
+BurstLines/BurstLines.h:28: "..\_NFLib\fx\NF_ChannelMinmax.h" -> "../_NFLib/fx/NF_ChannelMinMax.h"
+BurstLines/BurstLines.h:29: "..\_NFLib\fx\NF_Draw.h" -> "../_NFLib/fx/NF_Draw.h"
+BurstLines/BurstLines.h:30: "..\_NFLib\fx\NF_DrawWorld.h" -> "../_NFLib/fx/NF_DrawWorld.h"
+BurstLines/BurstLines.h:31: "..\_NFLib\fx\NF_Gradient.h" -> "../_NFLib/fx/NF_Gradient.h"
+BurstLines/BurstLines.h:32: "..\_NFLib\fx\NF_Hyperbolic.h" -> "../_NFLib/fx/NF_Hyperbolic.h"
+BurstLines/BurstLines.h:33: "..\_NFLib\fx\NF_LogicGray.h" -> "../_NFLib/fx/NF_LogicGray.h"
+BurstLines/BurstLines.h:34: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+BurstLines/BurstLines.h:35: "..\_NFLib\fx\NF_Mosaic.h" -> "../_NFLib/fx/NF_Mosaic.h"
+BurstLines/BurstLines.h:36: "..\_NFLib\fx\NF_Noise.h" -> "../_NFLib/fx/NF_Noise.h"
+BurstLines/BurstLines.h:37: "..\_NFLib\fx\NF_Paint.h" -> "../_NFLib/fx/NF_Paint.h"
+BurstLines/BurstLines.h:38: "..\_NFLib\fx\NF_SpatUtils.h" -> "../_NFLib/fx/NF_SpatUtils.h"
+BurstLines/BurstLines.h:39: "..\_NFLib\fx\NF_UnMult.h" -> "../_NFLib/fx/NF_UnMult.h"
+BurstLines/BurstLines.h:41: "..\_NFLib\vector\NF_VectorLine.h" -> "../_NFLib/vector/NF_VectorLine.h"
+BurstLines/BurstLines.h:42: "..\_NFLib\vector\NF_VectorMask.h" -> "../_NFLib/vector/NF_VectorMask.h"
+BurstLines/BurstLines.h:44: "..\_NFLib\fx\NF_DrawAALine.h" -> "../_NFLib/fx/NF_DrawAALine.h"
+BurstLines/BurstLines.h:45: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+BurstLines/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+BurstLines/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+_NFLib/vector/NF_VectorLine.h:24: "..\NF_Utils.h" -> "../NF_Utils.h"
+_NFLib/vector/NF_VectorMask.h:25: "..\NF_Utils.h" -> "../NF_Utils.h"
+```
+
+(Lines 22 to 42 of `BurstLines.h` sit in a comment.) Checked by eye:
+a burst around the center, seed moves it, direction with angleRange,
+sub lines and two colors work, and at half scale distance, length and
+thickness halve.
