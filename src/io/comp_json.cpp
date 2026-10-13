@@ -102,6 +102,9 @@ QJsonObject EffectToJson(const CompEffect& effect) {
   const bool is_plugin = effect.kind == CompKind::kFsp;
   if (is_plugin) {
     object.insert("plugin", effect.plugin);
+  }
+  const bool has_params = HasParamsInFile(effect);
+  if (has_params) {
     object.insert("params", FspParamsToJson(effect));
   }
   return object;
@@ -150,6 +153,11 @@ CompEffect EffectFromJson(const QJsonObject& object, JsonIssues* issues) {
   const bool is_plugin = effect.kind == CompKind::kFsp;
   if (is_plugin) {
     effect.plugin = object.value("plugin").toString();
+  }
+  // A Line smoother saved before it had its own values has no params:
+  // every one reads as its default.
+  const bool has_params = HasParamsInFile(effect);
+  if (has_params) {
     FspParamsFromJson(object.value("params"), &effect, issues);
   }
   return effect;

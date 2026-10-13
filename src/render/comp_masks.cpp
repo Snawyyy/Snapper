@@ -1,5 +1,6 @@
 #include "render/comp_masks.h"
 
+#include <algorithm>
 #include <cassert>
 
 namespace snapper {
@@ -26,6 +27,33 @@ QImage Masked(const QImage& picture, const Mask& mask) {
     }
   }
   return out;
+}
+
+Mask GrownByOne(const Mask& mask, int width, int height) {
+  assert(width > 0 && height > 0);
+  assert(mask.size() ==
+         static_cast<size_t>(width) * static_cast<size_t>(height));
+  Mask grown(mask.size(), 0);
+  const auto at = [width](int x, int y) {
+    return static_cast<size_t>(y) * static_cast<size_t>(width) +
+           static_cast<size_t>(x);
+  };
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      std::uint8_t most = 0;
+      for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+          const int nx = x + dx;
+          const int ny = y + dy;
+          const bool is_inside = nx >= 0 && nx < width && ny >= 0 &&
+                                 ny < height;
+          most = is_inside ? std::max(most, mask[at(nx, ny)]) : most;
+        }
+      }
+      grown[at(x, y)] = most;
+    }
+  }
+  return grown;
 }
 
 void ShowMask(const Mask& region, QImage* frame) {

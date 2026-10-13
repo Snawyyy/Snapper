@@ -16,12 +16,17 @@ KnobSpec Strength() { return KnobSpec{"Strength", 0.0, 1.0, 1.0, false}; }
 
 KnobSpec Point(const char* label, double neutral) {
   assert(label != nullptr);
+  assert(neutral >= -kFar && neutral <= kFar);
   return KnobSpec{label, -kFar, kFar, neutral, false};
 }
 
-std::optional<KnobSpec> SmootherKnob(CompKnob knob) {
+// Strength, then the OLM Smoother's own values in the slots.
+std::optional<KnobSpec> SmootherKnob(const CompEffect& effect,
+                                     CompKnob knob) {
+  assert(effect.kind == CompKind::kLineSmoother);
+  assert(static_cast<int>(knob) < kCompKnobCount);
   const bool is_amount = knob == CompKnob::kAmount;
-  return is_amount ? std::optional(Strength()) : std::nullopt;
+  return is_amount ? std::optional(Strength()) : FspKnobSpec(effect, knob);
 }
 
 std::optional<KnobSpec> SwapKnob(CompKnob knob) {
@@ -174,7 +179,7 @@ std::optional<KnobSpec> KnobSpecOf(const CompEffect& effect, CompKnob knob) {
          static_cast<int>(knob) < kCompKnobCount);
   switch (kind) {
     case CompKind::kLineSmoother:
-      return SmootherKnob(knob);
+      return SmootherKnob(effect, knob);
     case CompKind::kColorSwap:
       return SwapKnob(knob);
     case CompKind::kTransmittedLight:

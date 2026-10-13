@@ -14,6 +14,8 @@ namespace snapper {
 
 // How a kFsp Comp effect's knobs map onto its plugin's parameters
 // (fsp/fsp_effects.h): slot i of the plugin is CompKnob kParam0 + i.
+// The Line smoother's values sit in the same slots, by a table of the
+// same shape (ParamInfoOf).
 
 // Where one value slot sits in its plugin's parameters: the parameter
 // and, for a point, which half (0 x, 1 y; 0 for the rest).
@@ -25,6 +27,11 @@ struct FspSlot final {
 // The plugin effect runs: nullptr when effect is not kFsp, names a
 // plugin this Snapper lacks, or the plugin has too many value slots.
 const FspEffectInfo* FspInfoOf(const CompEffect& effect);
+// The parameters behind effect's value slots: its plugin's (FspInfoOf)
+// for kFsp, the OLM Smoother rebuild's for the Line smoother
+// (fsp/olm_smoother_info.h), nullptr for kinds without slots. The rest
+// of this header reads slots through it.
+const FspEffectInfo* ParamInfoOf(const CompEffect& effect);
 // Why the plugin cannot be an effect; empty when it can.
 QString WhyNoFsp(const FspEffectInfo& info);
 // The parameter behind slot of info; nothing past its last slot.

@@ -78,11 +78,14 @@ QString CompManager::KindName(CompKind kind) {
 }
 
 QString CompManager::KindHelp(CompKind kind) {
+  assert(static_cast<int>(kind) >= 0);
   assert(static_cast<int>(kind) < kCompKindCount);
   switch (kind) {
     case CompKind::kLineSmoother:
-      return Tr("Smooths stair steps on lines without blurring. Pick line "
-                "colors to touch only those.");
+      return Tr("Smooths the stair steps of cel lines and fills without "
+                "blurring them. Pick line colors to touch only those. "
+                "Rebuilt from OLM Smoother v2's manual (Apache 2.0 tools "
+                "by OLM Digital), not its code.");
     case CompKind::kColorSwap:
       return Tr("Swaps picked colors for others: night scenes, hit "
                 "flashes, line recolor.");

@@ -77,8 +77,9 @@ class CompManager final : public QObject {
   // when it does not use it.
   static QString KnobLabel(const CompEffect& effect, CompKnob knob);
   // The controls the panel shows for effect as it is set now, in order:
-  // the shown knobs (IsKnobShown), or a plugin's Strength and then its
-  // own parameters, hidden ones left out. None for a missing plugin.
+  // the shown knobs (IsKnobShown), or a plugin's (or the Line
+  // smoother's) Strength and then its own parameters, hidden ones and
+  // ones its switches make unused left out. None for a missing plugin.
   static std::vector<CompRow> RowsOf(const CompEffect& effect);
   // True when knob may have keys (a plugin's toggles, choices and
   // colors hold one value for the shot).
@@ -218,8 +219,8 @@ class CompManager final : public QObject {
   void Changed();
 
  private:
-  // IsKnobShown for a plugin effect: Strength, and the slots of its
-  // shown number parameters.
+  // IsKnobShown for a plugin effect or the Line smoother: Strength, and
+  // the slots of its shown number parameters.
   static bool IsPluginKnobShown(const CompEffect& effect, CompKnob knob);
   // Applies change(CompEffect*) to one effect as an undo step.
   Result<void> Edit(ShotId shot, CompEffectId id, const QString& label,

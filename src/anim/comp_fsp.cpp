@@ -6,6 +6,7 @@
 
 #include "anim/sampler.h"
 #include "base/text.h"
+#include "fsp/olm_smoother_info.h"
 
 namespace snapper {
 namespace {
@@ -94,6 +95,13 @@ const FspEffectInfo* FspInfoOf(const CompEffect& effect) {
   return is_usable ? info : nullptr;
 }
 
+const FspEffectInfo* ParamInfoOf(const CompEffect& effect) {
+  assert(static_cast<int>(effect.kind) < kCompKindCount);
+  assert(FitsCompSlots(kSmootherSlotCount));
+  const bool is_smoother = effect.kind == CompKind::kLineSmoother;
+  return is_smoother ? &OlmSmootherInfo() : FspInfoOf(effect);
+}
+
 QString WhyNoFsp(const FspEffectInfo& info) {
   assert(!info.id.isEmpty());
   assert(info.params.size() <= kMaxParams);
@@ -121,7 +129,7 @@ std::optional<FspSlot> FspSlotOf(const FspEffectInfo& info, int slot) {
 std::optional<KnobSpec> FspKnobSpec(const CompEffect& effect, CompKnob knob) {
   assert(static_cast<int>(knob) < kCompKnobCount);
   const int slot = ParamSlotOf(knob);
-  const FspEffectInfo* info = FspInfoOf(effect);
+  const FspEffectInfo* info = ParamInfoOf(effect);
   const bool is_slot = slot >= 0 && info != nullptr && slot < info->slot_count;
   if (!is_slot) {
     return std::nullopt;
@@ -139,7 +147,7 @@ std::optional<KnobSpec> FspKnobSpec(const CompEffect& effect, CompKnob knob) {
 QString FspKnobName(const CompEffect& effect, CompKnob knob) {
   assert(static_cast<int>(knob) < kCompKnobCount);
   const int slot = ParamSlotOf(knob);
-  const FspEffectInfo* info = FspInfoOf(effect);
+  const FspEffectInfo* info = ParamInfoOf(effect);
   const bool is_slot = slot >= 0 && info != nullptr;
   if (!is_slot) {
     return QString();

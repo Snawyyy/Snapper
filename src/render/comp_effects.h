@@ -39,9 +39,6 @@ Mask Both(const Mask& a, const Mask& b);
 std::vector<float> DistanceToEdge(const Mask& shape, int width, int height,
                                   bool inside, float limit);
 
-// Corner rounding over stair steps between two flat colors, without
-// blur. With line_colors, only steps touching one of them change.
-QImage SmoothLines(const QImage& frame, const std::vector<QColor>& line_colors);
 // The swapped pixels only: each swap's from color (within tolerance,
 // feathered) becomes its to color, keeping alpha.
 QImage SwapColors(const QImage& frame, const std::vector<ColorSwap>& swaps,

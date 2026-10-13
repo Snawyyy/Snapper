@@ -177,9 +177,11 @@ QString CompPanel::Signature(const CompEffect* effect) const {
   for (const QColor& color : effect->target.colors) {
     signature += QStringLiteral("t") + ColorKey(color);
   }
-  // A plugin's rows, and the colors its swatches show.
+  // The rows (a switch may show or hide others, as the Line smoother's
+  // do), and the colors their swatches show.
   signature += QStringLiteral("p") + effect->plugin;
   for (const CompRow& row : CompManager::RowsOf(*effect)) {
+    signature += QStringLiteral("r%1").arg(static_cast<int>(row.knob));
     const bool is_color = row.kind == CompRowKind::kColor;
     if (is_color) {
       signature += QStringLiteral("c") +

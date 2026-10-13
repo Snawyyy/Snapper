@@ -15,6 +15,9 @@
 #include "render/comp_effects.h"
 #include "render/comp_masks.h"
 #include "render/comp_plugin.h"
+#include "render/comp_smoother.h"
+#include "render/comp_targets.h"
+#include "fsp/olm_smoother_info.h"
 
 namespace snapper {
 namespace {
@@ -23,27 +26,10 @@ namespace {
 constexpr double kTargetTolerance = 24.0;
 constexpr double kTargetFeather = 0.5;
 
-bool HasLayer(const CompEffect& effect) {
-  return effect.target.layer.IsValid();
-}
-
-// Kinds that read the target's outline.
-bool NeedsShape(const CompEffect& effect) {
-  return effect.kind == CompKind::kRimLight ||
-         effect.kind == CompKind::kTransmittedLight ||
-         (effect.kind == CompKind::kGradient &&
-          effect.shape == GradientShape::kFromEdge);
-}
-
-CompTargetKey KeyOf(const CompEffect& effect) {
-  assert(HasLayer(effect));
-  std::vector<QString> pieces = effect.target.pieces;
-  std::ranges::sort(pieces);
-  return CompTargetKey{effect.target.layer, pieces};
-}
-
 // The seed of a moving effect: new every rate frames, held at 0.
 int SeedOf(const CompEffect& effect, Frame local, double rate) {
+  assert(local.index() >= 0);
+  assert(rate >= 0.0);
   const int every = static_cast<int>(std::lround(rate));
   const int step = every > 0 ? local.index() / every : 0;
   return step * 131 + effect.id.value() * 7919;
@@ -53,6 +39,8 @@ int SeedOf(const CompEffect& effect, Frame local, double rate) {
 struct Drawn final {
   QImage picture;
   Mask mask;
+  // The picture is the frame redrawn (StandInOnto), not a layer over it.
+  bool stands_in = false;
 };
 
 class CompRun final {
@@ -91,8 +79,13 @@ class CompRun final {
     if (is_skipped) {
       return true;
     }
-    BlendOnto(drawn.picture, effect.blend,
-              KnobAt(effect, CompKnob::kAmount, local), drawn.mask, frame_);
+    const double amount = KnobAt(effect, CompKnob::kAmount, local);
+    const bool stands_in = drawn.stands_in;
+    if (stands_in) {
+      StandInOnto(drawn.picture, effect.blend, amount, drawn.mask, frame_);
+      return true;
+    }
+    BlendOnto(drawn.picture, effect.blend, amount, drawn.mask, frame_);
     return true;
   }
 
@@ -120,9 +113,9 @@ class CompRun final {
   // The target's own shape: empty for the whole frame; nothing when the
   // target layer is not drawn now.
   std::optional<Mask> ShapeOf(const CompEffect& effect) const {
-    const bool has_layer = HasLayer(effect);
+    const bool has_layer = HasCompLayer(effect);
     if (has_layer) {
-      const auto found = context_.pictures->targets.find(KeyOf(effect));
+      const auto found = context_.pictures->targets.find(CompKeyOf(effect));
       const bool is_drawn = found != context_.pictures->targets.end() &&
                             !found->second.isNull();
       if (!is_drawn) {
@@ -131,7 +124,7 @@ class CompRun final {
       return AlphaOf(found->second);
     }
     const bool wants_drawn =
-        NeedsShape(effect) && !context_.pictures->drawn.isNull();
+        NeedsCompShape(effect) && !context_.pictures->drawn.isNull();
     return wants_drawn ? AlphaOf(context_.pictures->drawn) : Mask();
   }
 
@@ -148,9 +141,9 @@ class CompRun final {
   }
 
   const QImage& TargetPicture(const CompEffect& effect) const {
-    const bool has_layer = HasLayer(effect);
+    const bool has_layer = HasCompLayer(effect);
     if (has_layer) {
-      return context_.pictures->targets.at(KeyOf(effect));
+      return context_.pictures->targets.at(CompKeyOf(effect));
     }
     return *frame_;
   }
@@ -175,7 +168,7 @@ class CompRun final {
                                  : Mask();
     switch (effect.kind) {
       case CompKind::kLineSmoother:
-        return {SmoothLines(*frame_, effect.target.colors), shape};
+        return DrawSmoother(effect, shape);
       case CompKind::kColorSwap:
         return {SwapColors(*frame_, effect.swaps, knob(CompKnob::kSize),
                            knob(CompKnob::kSoftness)),
@@ -201,7 +194,7 @@ class CompRun final {
         return DrawGradient(effect, shape, region);
       case CompKind::kMotionBlur: {
         const QImage source = Masked(TargetPicture(effect),
-                                     HasLayer(effect) ? Mask() : region);
+                                     HasCompLayer(effect) ? Mask() : region);
         return {SmearAlong(source, knob(CompKnob::kAngle),
                            knob(CompKnob::kSize) * scale,
                            knob(CompKnob::kSoftness),
@@ -218,9 +211,10 @@ class CompRun final {
       case CompKind::kSpeedLines: {
         const QPointF center =
             CompSpace(context_, effect).map(PointAAt(effect, local));
+        const int density =
+            static_cast<int>(std::lround(knob(CompKnob::kCount)));
         return {SpeedLines(frame_->size(), effect.style, center,
-                           knob(CompKnob::kAngle),
-                           static_cast<int>(std::lround(knob(CompKnob::kCount))),
+                           knob(CompKnob::kAngle), density,
                            std::max(0.5, knob(CompKnob::kSize) * scale),
                            knob(CompKnob::kSoftness), effect.color,
                            SeedOf(effect, local, knob(CompKnob::kRate))),
@@ -238,6 +232,22 @@ class CompRun final {
     return {QImage(frame_->size(), frame_->format()), Mask()};
   }
 
+  // The smoother redraws the frame in its own pixels, whatever the
+  // preview scale. Picked colors pick the lines it smooths; a layer
+  // keeps it to the layer and the pixels just outside its edge, which a
+  // smoothed edge changes too.
+  Drawn DrawSmoother(const CompEffect& effect, const Mask& shape) const {
+    assert(effect.kind == CompKind::kLineSmoother);
+    assert(!frame_->isNull());
+    SmootherParams params = SmootherParamsOf(
+        FspValuesAt(effect, OlmSmootherInfo(), context_.local));
+    params.line_colors = effect.target.colors;
+    const Mask reach =
+        shape.empty() ? Mask()
+                      : GrownByOne(shape, frame_->width(), frame_->height());
+    return {SmoothCel(*frame_, params), reach, true};
+  }
+
   // The plugin works on the target's own pixels, like motion blur: a
   // layer's picture as it shows, else the frame cut to the region. On a
   // layer what it draws past the layer (an outline) stays; on the frame
@@ -245,7 +255,7 @@ class CompRun final {
   Drawn DrawPlugin(const CompEffect& effect, const Mask& region) const {
     assert(effect.kind == CompKind::kFsp);
     assert(context_.scale > 0.0);
-    const bool has_layer = HasLayer(effect);
+    const bool has_layer = HasCompLayer(effect);
     const QImage source =
         Masked(TargetPicture(effect), has_layer ? Mask() : region);
     return {RunCompPlugin(effect, source, context_.local, context_.scale),
@@ -304,44 +314,6 @@ class CompRun final {
 };
 
 }  // namespace
-
-CompNeeds NeedsOf(const Shot& shot, Frame local, const CompShow& show) {
-  assert(local.index() >= 0);
-  assert(shot.comp.size() <= static_cast<size_t>(kMaxCompEffectsPerShot));
-  CompNeeds needs;
-  const bool is_off = show.is_off && !show.mask_of.IsValid();
-  if (is_off) {
-    return needs;
-  }
-  for (const CompEffect& effect : shot.comp) {
-    const bool is_run = effect.is_on || show.mask_of == effect.id;
-    if (!is_run) {
-      continue;
-    }
-    if (HasLayer(effect)) {
-      needs.targets.insert(KeyOf(effect));
-    } else if (NeedsShape(effect)) {
-      needs.needs_drawn = true;
-    }
-  }
-  return needs;
-}
-
-QTransform CompSpace(const CompContext& context, const CompEffect& effect) {
-  assert(context.project != nullptr && context.shot != nullptr);
-  assert(context.scale > 0.0);
-  const bool has_layer = HasLayer(effect);
-  const Layer* layer =
-      has_layer ? FindLayer(*context.shot, effect.target.layer) : nullptr;
-  const bool is_layer_space = layer != nullptr && context.links != nullptr;
-  if (is_layer_space) {
-    return context.links->LayerTransform(*layer, context.local) *
-           context.view;
-  }
-  const CanvasSize& canvas = context.project->canvas;
-  return QTransform::fromTranslate(canvas.width / 2.0, canvas.height / 2.0) *
-         QTransform::fromScale(context.scale, context.scale);
-}
 
 void ApplyComp(const CompContext& context, QImage* frame,
                CompReport* report) {

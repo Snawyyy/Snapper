@@ -10,6 +10,22 @@ namespace {
 
 using Rgb = std::array<float, 3>;
 
+// picture where it differs from frame, clear where it is the same.
+QImage ChangedOnly(const QImage& picture, const QImage& frame) {
+  assert(picture.size() == frame.size());
+  assert(picture.format() == frame.format());
+  QImage changed = picture.copy();
+  for (int y = 0; y < changed.height(); ++y) {
+    const auto* below = reinterpret_cast<const QRgb*>(frame.constScanLine(y));
+    auto* row = reinterpret_cast<QRgb*>(changed.scanLine(y));
+    for (int x = 0; x < changed.width(); ++x) {
+      const bool is_same = row[x] == below[x];
+      row[x] = is_same ? 0u : row[x];
+    }
+  }
+  return changed;
+}
+
 float HardLight(float below, float top) {
   const bool is_dark = top <= 0.5f;
   if (is_dark) {
@@ -201,6 +217,46 @@ void BlendOnto(const QImage& top, BlendMode mode, double opacity,
           std::clamp(static_cast<int>(std::lround(ao * 255.0f)), 0, 255);
       out[x] = qRgba(std::min(result[0], alpha), std::min(result[1], alpha),
                      std::min(result[2], alpha), alpha);
+    }
+  }
+}
+
+void StandInOnto(const QImage& picture, BlendMode mode, double opacity,
+                 const std::vector<std::uint8_t>& mask, QImage* frame) {
+  assert(frame != nullptr && frame->size() == picture.size());
+  assert(picture.format() == QImage::Format_ARGB32_Premultiplied &&
+         frame->format() == QImage::Format_ARGB32_Premultiplied);
+  const bool is_normal = mode == BlendMode::kNormal;
+  if (!is_normal) {
+    BlendOnto(ChangedOnly(picture, *frame), mode, opacity, mask, frame);
+    return;
+  }
+  const bool has_mask = !mask.empty();
+  const float strength = static_cast<float>(std::clamp(opacity, 0.0, 1.0));
+  const int width = picture.width();
+  for (int y = 0; y < picture.height(); ++y) {
+    const auto* in = reinterpret_cast<const QRgb*>(picture.constScanLine(y));
+    auto* out = reinterpret_cast<QRgb*>(frame->scanLine(y));
+    const size_t row = static_cast<size_t>(y) * static_cast<size_t>(width);
+    for (int x = 0; x < width; ++x) {
+      const float cover =
+          has_mask ? static_cast<float>(mask[row + static_cast<size_t>(x)]) /
+                         255.0f
+                   : 1.0f;
+      const float t = strength * cover;
+      const bool is_kept = t <= 0.0f || in[x] == out[x];
+      if (is_kept) {
+        continue;
+      }
+      const auto mix = [t](int from, int to) {
+        return static_cast<int>(
+            std::lround(static_cast<float>(from) +
+                        static_cast<float>(to - from) * t));
+      };
+      out[x] = qRgba(mix(qRed(out[x]), qRed(in[x])),
+                     mix(qGreen(out[x]), qGreen(in[x])),
+                     mix(qBlue(out[x]), qBlue(in[x])),
+                     mix(qAlpha(out[x]), qAlpha(in[x])));
     }
   }
 }

@@ -18,6 +18,13 @@ namespace snapper {
 // so exports with alpha stay clean.
 void BlendOnto(const QImage& top, BlendMode mode, double opacity,
                const std::vector<std::uint8_t>& mask, QImage* frame);
+// For a picture that stands in for frame (frame redrawn, as the Line
+// smoother gives it): in Normal, frame becomes picture by opacity times
+// mask, alpha too, so it can thin an edge or clear a keyed color, not
+// only add; other modes blend through BlendOnto only the pixels picture
+// changed.
+void StandInOnto(const QImage& picture, BlendMode mode, double opacity,
+                 const std::vector<std::uint8_t>& mask, QImage* frame);
 
 }  // namespace snapper
 

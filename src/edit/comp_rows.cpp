@@ -9,6 +9,7 @@
 #include "anim/comp_knobs.h"
 #include "base/text.h"
 #include "edit/comp_manager.h"
+#include "fsp/olm_smoother_info.h"
 
 namespace snapper {
 namespace {
@@ -24,10 +25,49 @@ int FloatDecimals(const KnobSpec& spec) {
   return span <= 2.0 ? 3 : span <= 200.0 ? 2 : 1;
 }
 
-// The panel row of one plugin knob.
+// The smoother leaves out what its switches make unused: the Color Key
+// without Use Color Key, the gamma settings while Gamma Correction is
+// Off, the Gamma Colors past their number.
+bool IsSmootherSlotShown(const CompEffect& effect, int slot) {
+  assert(effect.kind == CompKind::kLineSmoother);
+  assert(slot >= 0 && slot < kSmootherSlotCount);
+  // Switches and choices hold one value for the shot.
+  const auto value = [&effect](SmootherSlot which) {
+    return std::lround(
+        KnobAt(effect, ParamKnob(static_cast<int>(which)), Frame(0)));
+  };
+  const long gamma = value(SmootherSlot::kGamma);
+  const bool is_listed = gamma == kSmootherGammaListed;
+  const int first_color = SmootherGammaColorSlot(0);
+  const bool is_gamma_color = slot >= first_color;
+  if (is_gamma_color) {
+    return is_listed && slot - first_color < value(SmootherSlot::kGammaCount);
+  }
+  switch (static_cast<SmootherSlot>(slot)) {
+    case SmootherSlot::kColorKey:
+      return value(SmootherSlot::kUseColorKey) == 1;
+    case SmootherSlot::kGammaValue:
+      return gamma != kSmootherGammaOff;
+    case SmootherSlot::kGammaCount:
+      return is_listed;
+    default:
+      return true;
+  }
+}
+
+// True when the panel has a row for param of effect's slots.
+bool IsParamShown(const CompEffect& effect, const FspParam& param) {
+  assert(ParamInfoOf(effect) != nullptr);
+  assert(param.slot >= 0);
+  const bool is_smoother = effect.kind == CompKind::kLineSmoother;
+  return !param.is_hidden &&
+         (!is_smoother || IsSmootherSlotShown(effect, param.slot));
+}
+
+// The panel row of one plugin or smoother knob.
 CompRow PluginRow(const CompEffect& effect, const FspParam& param,
                   CompKnob knob) {
-  assert(effect.kind == CompKind::kFsp);
+  assert(ParamInfoOf(effect) != nullptr);
   assert(ParamSlotOf(knob) >= 0);
   CompRow row;
   row.knob = knob;
@@ -67,7 +107,7 @@ CompRow PluginRow(const CompEffect& effect, const FspParam& param,
 CompRow KindRow(const CompEffect& effect, CompKnob knob) {
   const auto spec = KnobSpecOf(effect, knob);
   assert(spec.has_value());
-  assert(ParamSlotOf(knob) < 0 || effect.kind == CompKind::kFsp);
+  assert(ParamSlotOf(knob) < 0 || ParamInfoOf(effect) != nullptr);
   CompRow row;
   row.knob = knob;
   row.kind = spec->is_angle ? CompRowKind::kDial : CompRowKind::kFader;
@@ -89,7 +129,7 @@ QString CompManager::KnobLabel(const CompEffect& effect, CompKnob knob) {
     return QString();
   }
   const bool is_plugin_slot = ParamSlotOf(knob) >= 0;
-  assert(!is_plugin_slot || effect.kind == CompKind::kFsp);
+  assert(!is_plugin_slot || ParamInfoOf(effect) != nullptr);
   return is_plugin_slot ? FspKnobName(effect, knob) : Tr(spec->label);
 }
 
@@ -103,8 +143,9 @@ bool CompManager::IsKnobShown(const CompEffect& effect, CompKnob knob) {
   if (is_unused) {
     return false;
   }
-  const bool is_plugin = effect.kind == CompKind::kFsp;
-  if (is_plugin) {
+  const bool has_slots = effect.kind == CompKind::kFsp ||
+                         effect.kind == CompKind::kLineSmoother;
+  if (has_slots) {
     return IsPluginKnobShown(effect, knob);
   }
   const bool is_lit_angle = knob == CompKnob::kAngle &&
@@ -141,24 +182,25 @@ bool CompManager::IsKnobShown(const CompEffect& effect, CompKnob knob) {
 
 bool CompManager::IsPluginKnobShown(const CompEffect& effect,
                                     CompKnob knob) {
-  assert(effect.kind == CompKind::kFsp);
+  assert(effect.kind == CompKind::kFsp ||
+         effect.kind == CompKind::kLineSmoother);
   assert(static_cast<int>(knob) < kCompKnobCount);
   const bool is_amount = knob == CompKnob::kAmount;
-  const FspEffectInfo* info = FspInfoOf(effect);
+  const FspEffectInfo* info = ParamInfoOf(effect);
   const int slot = ParamSlotOf(knob);
   const bool is_slot = info != nullptr && slot >= 0;
   if (!is_slot) {
     return is_amount && info != nullptr;
   }
   const auto found = FspSlotOf(*info, slot);
-  return found.has_value() && !found->param->is_hidden &&
+  return found.has_value() && IsParamShown(effect, *found->param) &&
          IsFspKeyable(found->param->type);
 }
 
 bool CompManager::IsKeyable(const CompEffect& effect, CompKnob knob) {
   assert(static_cast<int>(knob) < kCompKnobCount);
   const int slot = ParamSlotOf(knob);
-  const FspEffectInfo* info = FspInfoOf(effect);
+  const FspEffectInfo* info = ParamInfoOf(effect);
   const bool is_plugin_slot = slot >= 0 && info != nullptr;
   if (!is_plugin_slot) {
     return KnobSpecOf(effect, knob).has_value();
@@ -171,8 +213,9 @@ bool CompManager::IsKeyable(const CompEffect& effect, CompKnob knob) {
 std::vector<CompRow> CompManager::RowsOf(const CompEffect& effect) {
   assert(static_cast<int>(effect.kind) < kCompKindCount);
   std::vector<CompRow> rows;
-  const bool is_plugin = effect.kind == CompKind::kFsp;
-  if (!is_plugin) {
+  const bool has_slots = effect.kind == CompKind::kFsp ||
+                         effect.kind == CompKind::kLineSmoother;
+  if (!has_slots) {
     for (int i = 0; i < kCompFixedKnobCount; ++i) {
       const auto knob = static_cast<CompKnob>(i);
       const bool is_shown = IsKnobShown(effect, knob);
@@ -182,7 +225,7 @@ std::vector<CompRow> CompManager::RowsOf(const CompEffect& effect) {
     }
     return rows;
   }
-  const FspEffectInfo* info = FspInfoOf(effect);
+  const FspEffectInfo* info = ParamInfoOf(effect);
   const bool is_missing = info == nullptr;
   if (is_missing) {
     return rows;
@@ -191,8 +234,9 @@ std::vector<CompRow> CompManager::RowsOf(const CompEffect& effect) {
   rows.push_back(KindRow(effect, CompKnob::kAmount));
   for (const FspParam& param : info->params) {
     const int width = param.type == FspParamType::kPoint ? 2 : 1;
-    const bool is_shown = !param.is_hidden && param.slot >= 0 &&
-                          param.slot + width <= info->slot_count;
+    const bool is_shown = param.slot >= 0 &&
+                          param.slot + width <= info->slot_count &&
+                          IsParamShown(effect, param);
     for (int part = 0; is_shown && part < width; ++part) {
       rows.push_back(PluginRow(effect, param, ParamKnob(param.slot + part)));
     }

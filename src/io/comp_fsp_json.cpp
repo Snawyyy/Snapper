@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "fsp/fsp_effects.h"
+#include "fsp/olm_smoother_info.h"
 
 namespace snapper {
 namespace {
@@ -14,11 +15,16 @@ namespace {
 // A plugin declares at most this many parameters.
 constexpr size_t kMaxParams = 256;
 
-// The plugin effect's values can be read by name: nullptr when its
-// plugin is missing or too big for an effect (then the file's values
-// are kept as they are).
+// The effect's values can be read by name: the Line smoother's always,
+// a plugin's unless it is missing or too big for an effect (then the
+// file's values are kept as they are).
 const FspEffectInfo* UsableInfo(const CompEffect& effect) {
-  assert(effect.kind == CompKind::kFsp);
+  assert(HasParamsInFile(effect));
+  assert(FitsCompSlots(kSmootherSlotCount));
+  const bool is_smoother = effect.kind == CompKind::kLineSmoother;
+  if (is_smoother) {
+    return &OlmSmootherInfo();
+  }
   const bool has_plugin = !effect.plugin.isEmpty();
   if (!has_plugin) {
     return nullptr;
@@ -77,8 +83,15 @@ bool HasSlots(const FspParam& param, const FspEffectInfo& info) {
 
 }  // namespace
 
+bool HasParamsInFile(const CompEffect& effect) {
+  assert(static_cast<int>(effect.kind) >= 0);
+  assert(static_cast<int>(effect.kind) < kCompKindCount);
+  return effect.kind == CompKind::kFsp ||
+         effect.kind == CompKind::kLineSmoother;
+}
+
 QJsonObject FspParamsToJson(const CompEffect& effect) {
-  assert(effect.kind == CompKind::kFsp);
+  assert(HasParamsInFile(effect));
   const FspEffectInfo* info = UsableInfo(effect);
   const bool is_kept = info == nullptr;
   if (is_kept) {
@@ -114,7 +127,7 @@ QJsonObject FspParamsToJson(const CompEffect& effect) {
 
 void FspParamsFromJson(const QJsonValue& value, CompEffect* effect,
                        JsonIssues* issues) {
-  assert(effect != nullptr && effect->kind == CompKind::kFsp);
+  assert(effect != nullptr && HasParamsInFile(*effect));
   assert(issues != nullptr);
   const QJsonObject params = value.toObject();
   const FspEffectInfo* info = UsableInfo(*effect);

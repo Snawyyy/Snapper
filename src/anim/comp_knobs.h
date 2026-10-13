@@ -24,8 +24,9 @@ struct KnobSpec final {
 };
 
 // The spec of knob for effect's kind; nothing when it does not use it.
-// A plugin effect (kFsp) answers its plugin's parameters from kParam0
-// on (label empty; FspKnobName in anim/comp_fsp.h has its word).
+// A plugin effect (kFsp) and the Line smoother answer their parameters
+// from kParam0 on (label empty; FspKnobName in anim/comp_fsp.h has its
+// word).
 std::optional<KnobSpec> KnobSpecOf(const CompEffect& effect, CompKnob knob);
 // True for kinds placed by points on the stage (A, and B for most).
 bool HasPoints(const CompEffect& effect);

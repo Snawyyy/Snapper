@@ -9,9 +9,6 @@
 namespace snapper {
 namespace {
 
-// Two premultiplied pixels this close (summed channel steps) are one
-// flat color to the smoother.
-constexpr int kSameColor = 24;
 constexpr int kMaxSmearSamples = 16;
 
 size_t At(int x, int y, int width) {
@@ -19,13 +16,6 @@ size_t At(int x, int y, int width) {
   return static_cast<size_t>(y) * static_cast<size_t>(width) +
          static_cast<size_t>(x);
 }
-
-int Difference(QRgb a, QRgb b) {
-  return std::abs(qRed(a) - qRed(b)) + std::abs(qGreen(a) - qGreen(b)) +
-         std::abs(qBlue(a) - qBlue(b)) + std::abs(qAlpha(a) - qAlpha(b));
-}
-
-bool IsSame(QRgb a, QRgb b) { return Difference(a, b) < kSameColor; }
 
 // Distance in RGB from pixel (premultiplied) to color, unpremultiplied.
 double ColorDistance(QRgb pixel, const QColor& color) {
@@ -50,30 +40,6 @@ double KeyWeight(double distance, double tolerance, double feather) {
   }
   const double fade = std::max(1.0, tolerance * feather * 2.0);
   return std::clamp(1.0 - (distance - tolerance) / fade, 0.0, 1.0);
-}
-
-bool TouchesLine(QRgb a, QRgb b, const std::vector<QColor>& lines) {
-  const bool is_any = lines.empty();
-  if (is_any) {
-    return true;
-  }
-  for (const QColor& line : lines) {
-    const bool is_line =
-        ColorDistance(a, line) < 40.0 || ColorDistance(b, line) < 40.0;
-    if (is_line) {
-      return true;
-    }
-  }
-  return false;
-}
-
-QRgb Mix(QRgb a, QRgb b, double t) {
-  assert(t >= 0.0 && t <= 1.0);
-  const auto lerp = [t](int x, int y) {
-    return static_cast<int>(std::lround(x + (y - x) * t));
-  };
-  return qRgba(lerp(qRed(a), qRed(b)), lerp(qGreen(a), qGreen(b)),
-               lerp(qBlue(a), qBlue(b)), lerp(qAlpha(a), qAlpha(b)));
 }
 
 QImage Clear(QSize size) {
@@ -196,56 +162,6 @@ std::vector<float> DistanceToEdge(const Mask& shape, int width, int height,
     }
   }
   return distance;
-}
-
-QImage SmoothLines(const QImage& frame,
-                   const std::vector<QColor>& line_colors) {
-  assert(frame.format() == QImage::Format_ARGB32_Premultiplied);
-  assert(!frame.isNull());
-  const int width = frame.width();
-  const int height = frame.height();
-  QImage out = Clear(frame.size());
-  // The four corners: the two sides that meet there.
-  constexpr std::array<std::array<int, 4>, 4> kCorners = {{
-      {0, -1, -1, 0}, {0, -1, 1, 0}, {0, 1, -1, 0}, {0, 1, 1, 0}}};
-  for (int y = 1; y + 1 < height; ++y) {
-    const auto* up = reinterpret_cast<const QRgb*>(frame.constScanLine(y - 1));
-    const auto* row = reinterpret_cast<const QRgb*>(frame.constScanLine(y));
-    const auto* down =
-        reinterpret_cast<const QRgb*>(frame.constScanLine(y + 1));
-    auto* target = reinterpret_cast<QRgb*>(out.scanLine(y));
-    for (int x = 1; x + 1 < width; ++x) {
-      const QRgb self = row[x];
-      const auto pixel = [&](int dx, int dy) {
-        return dy < 0 ? up[x + dx] : dy > 0 ? down[x + dx] : row[x + dx];
-      };
-      double weight = 0.0;
-      QRgb toward = self;
-      for (const auto& corner : kCorners) {
-        // One side across (up or down), one along (left or right).
-        const QRgb across = pixel(corner[0], corner[1]);
-        const QRgb along = pixel(corner[2], corner[3]);
-        const QRgb across_back = pixel(-corner[0], -corner[1]);
-        const QRgb along_back = pixel(-corner[2], -corner[3]);
-        const QRgb diagonal = pixel(corner[2], corner[1]);
-        const bool is_step = IsSame(across, along) && IsSame(across, diagonal) &&
-                             !IsSame(across, self) &&
-                             IsSame(across_back, self) &&
-                             IsSame(along_back, self);
-        const bool is_wanted =
-            is_step && TouchesLine(self, across, line_colors);
-        if (is_wanted) {
-          weight += 0.25;
-          toward = across;
-        }
-      }
-      const bool is_changed = weight > 0.0;
-      if (is_changed) {
-        target[x] = Mix(self, toward, std::min(weight, 0.5));
-      }
-    }
-  }
-  return out;
 }
 
 QImage SwapColors(const QImage& frame, const std::vector<ColorSwap>& swaps,
