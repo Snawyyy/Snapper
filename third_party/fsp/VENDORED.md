@@ -105,3 +105,44 @@ an error. None of their pictures were looked at yet.
 - Never sends: smart render, frame setup, user changed param, update
   params UI, sequence data, other layers or other times. Plugins that
   need those (CameraShake and the like) wait until it does.
+
+## Line work group (Outline, Thin, LineExtraction, CellLineEraser, InkingLineBlur)
+
+### Outline
+
+Sources `Outline/` (`Outline.cpp`, `Outline.h`, `OutlineFilter.cpp`,
+`OutlineFilter.h`, `NF_Target.h`, `README.MD`) and from `_NFLib/fx/`:
+`debug_font`, `debug_font_1424.h`, `NF_AlphaHyperbolic`, `NF_Blend`,
+`NF_Blur`, `NF_ChannelBlur`, `NF_ChannelMinMax`, `NF_Draw`,
+`NF_DrawWorld`, `NF_MinMax`, `NF_Mult`, `NF_Noise`, `NF_Paint` (`.h`
+and `.cpp`). Two units: `NF_Blur`/`NF_ChannelBlur` and
+`NF_MinMax`/`NF_ChannelMinMax` share file-local names.
+
+```
+Outline/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+Outline/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+Outline/OutlineFilter.h:5: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+Outline/OutlineFilter.h:6: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+Outline/Outline.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+Outline/Outline.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+Outline/Outline.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+Outline/Outline.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+Outline/Outline.h:19: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+Outline/Outline.h:20: "..\_NFLib\fx\NF_ChannelMinmax.h" -> "../_NFLib/fx/NF_ChannelMinMax.h"
+Outline/Outline.h:21: "..\_NFLib\fx\NF_Blur.h" -> "../_NFLib/fx/NF_Blur.h"
+Outline/Outline.h:22: "..\_NFLib\fx\NF_ChannelBlur.h" -> "../_NFLib/fx/NF_ChannelBlur.h"
+Outline/Outline.h:23: "..\_NFLib\fx\debug_font.h" -> "../_NFLib/fx/debug_font.h"
+Outline/Outline.h:24: "..\_NFLib\fx\NF_Paint.h" -> "../_NFLib/fx/NF_Paint.h"
+Outline/Outline.h:25: "..\_NFLib\fx\NF_Noise.h" -> "../_NFLib/fx/NF_Noise.h"
+Outline/Outline.h:26: "..\_NFLib\fx\NF_Draw.h" -> "../_NFLib/fx/NF_Draw.h"
+Outline/Outline.h:27: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
+_NFLib/fx/NF_Blend.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+_NFLib/fx/NF_Draw.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+_NFLib/fx/NF_DrawWorld.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+_NFLib/fx/NF_Noise.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+_NFLib/fx/NF_Paint.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+```
+
+Checked by eye: a disc and a box on transparent; Outer 4 and Inner 2
+give a 6 pixel ring (3 at scale 0.5), the fill dropped unless Blend
+with original is on.
