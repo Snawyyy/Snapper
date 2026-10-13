@@ -12,6 +12,9 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <array>
+
+#include "base/frame.h"
 #include "ui/cast_panel.h"
 #include "ui/krita_menu.h"
 #include "ui/palette_panel.h"
@@ -41,14 +44,16 @@
 
 namespace snapper {
 
-// The window frame: menus, the Pose, Rig, Comp and Video tabs, the status
-// bar, and the panels docked around the stage. It shows manager state and
-// forwards input; it decides nothing itself.
+// The window frame: menus, the Video, Pose, Rig and Comp tabs, the status
+// bar, and the panels docked around the stage. It fits whatever screen it
+// opens on and comes back as it was left (size, place, docks, splits).
+// It shows manager state and forwards input; it decides nothing itself.
 class MainWindow final : public QMainWindow {
   Q_OBJECT
 
  public:
-  enum class Mode { kPose = 0, kRig = 1, kComp = 2, kVideo = 3 };
+  // The tabs in the order of the work.
+  enum class Mode { kVideo = 0, kPose = 1, kRig = 2, kComp = 3 };
 
   explicit MainWindow(const Managers& managers);
 
@@ -61,6 +66,10 @@ class MainWindow final : public QMainWindow {
   void SetMode(Mode mode) {
     top_bar_.tabs()->setCurrentIndex(static_cast<int>(mode));
   }
+  // Opens shot on the Pose tab with the playhead local frames into it
+  // (a shot clip opened from the reel). Nothing happens for a shot that
+  // is gone.
+  void OpenShot(ShotId shot, Frame local);
 
  protected:
   void closeEvent(QCloseEvent* event) override;
@@ -69,10 +78,17 @@ class MainWindow final : public QMainWindow {
   void BuildMenus();
   // The View menu's Sounds switch and the Help menu.
   void BuildViewAndHelp();
-  // Puts the Pose, Rig, Comp and Video pages in the stack.
+  // The View menu's tab keys, Ctrl+1 to Ctrl+4 in tab order.
+  void BuildTabKeys();
+  // Puts the Video, Pose, Rig and Comp pages in the stack.
   void BuildPages();
   // Puts the top bar in its fixed host and ties the tabs to the pages.
   void BuildModes();
+  // Fits the window to its screen, or puts it back as it was left, and
+  // shares the width golden between the stage and the docks.
+  void RestoreLayout();
+  // Remembers which posing panels were open, for the next start.
+  void SavePanels() const;
   // Pulls title, undo and redo state from the history.
   void Refresh();
   // Undo or redo in the shot being worked in; the newest change when no
@@ -152,9 +168,12 @@ class MainWindow final : public QMainWindow {
   QMenu help_menu_;
   QAction find_action_;
   QAction sheet_action_;
+  // Ctrl+1 to Ctrl+4: the tabs, so the way back to Video is one key.
+  QMenu tab_menu_;
+  std::array<QAction, 4> tab_actions_;
   CommandPalette palette_;
   ShortcutSheet sheet_;
-  // Whether the posing panels were open before the Video tab hid them.
+  // Whether the posing panels were open before another tab hid them.
   bool was_cast_open_ = true;
   bool was_inspector_open_ = true;
 };

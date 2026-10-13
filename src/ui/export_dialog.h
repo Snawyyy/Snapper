@@ -10,6 +10,7 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QVBoxLayout>
 
 #include "edit/export_manager.h"
 #include "ui/choice_row.h"
@@ -18,13 +19,17 @@
 namespace snapper {
 
 // Export to MP4, GIF, PNG frames, WebM or MOV: pick format, range, size
-// and file (a folder for PNG frames), then watch it render. Editing can go on while it runs; Cancel
-// stops it and leaves no file.
+// and file (a folder for PNG frames), then watch it render. Editing can
+// go on while it runs; Cancel stops it and leaves no file. Laid out as
+// plated sections (Picture, Frames, File) and sized to the screen.
 class ExportDialog final : public QDialog {
   Q_OBJECT
 
  public:
   ExportDialog(const Managers& managers, QWidget* parent);
+
+  // Shows the dialog in front, fitted to its screen when it was closed.
+  void Open();
 
   // The request the fields describe.
   ExportRequest Request() const;
@@ -43,7 +48,10 @@ class ExportDialog final : public QDialog {
   void PickFormat(int index);
 
   Managers managers_;
-  QFormLayout layout_;
+  QVBoxLayout layout_;
+  // The sections' forms; the dialog owns them through their sections.
+  QFormLayout* picture_form_ = nullptr;
+  QFormLayout* frames_form_ = nullptr;
   ChoiceRow format_;
   // What the format does with see-through shots (ExportManager).
   QLabel note_;

@@ -125,8 +125,8 @@ void ExportDialog::Refresh() {
   const bool is_running = managers_.exporter->IsRunning();
   Explain(&sound_only_, managers_.exporter->WhyNoSoundExport());
   const bool is_custom = range_.currentIndex() == kCustom;
-  layout_.setRowVisible(&from_, is_custom);
-  layout_.setRowVisible(&to_, is_custom);
+  frames_form_->setRowVisible(&from_, is_custom);
+  frames_form_->setRowVisible(&to_, is_custom);
   const int last =
       std::max(0, managers_.exporter->ExportLength().index() - 1);
   range_.setItemText(kWhole, managers_.exporter->IsReelExport()
@@ -139,11 +139,12 @@ void ExportDialog::Refresh() {
     to_.setMaximum(last);
   }
   Explain(&export_, is_running ? tr("Already exporting.") : WhyNotReady());
-  layout_.setRowVisible(&subtitles_, managers_.exporter->IsReelExport() &&
-                                         managers_.exporter->HasSubtitles());
+  picture_form_->setRowVisible(&subtitles_,
+                               managers_.exporter->IsReelExport() &&
+                                   managers_.exporter->HasSubtitles());
   const QString note = managers_.exporter->FormatNote(Request().format);
   note_.setText(note);
-  layout_.setRowVisible(&note_, !note.isEmpty());
+  picture_form_->setRowVisible(&note_, !note.isEmpty());
   cancel_.setText(is_running ? tr("Cancel export") : tr("Close"));
   for (QWidget* field : {static_cast<QWidget*>(&format_),
                          static_cast<QWidget*>(&range_),

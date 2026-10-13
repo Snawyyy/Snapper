@@ -11,10 +11,16 @@
 
 #include "ui/checkerboard.h"
 #include "ui/form_helpers.h"
+#include "ui/panel_kit.h"
+#include "ui/screen_fit.h"
 #include "ui/theme.h"
 
 namespace snapper {
 namespace {
+
+// The dialog's size in ems; FitDialog caps it to the screen and grows it
+// to what its tiles need.
+const QSizeF kDialogEms(30.0, 20.0);
 
 struct Preset final {
   const char* label;
@@ -107,11 +113,7 @@ NewProjectDialog::NewProjectDialog(QWidget* parent)
     SetScrubUnit(side, 2.0);
     side->setSuffix(tr(" px"));
   }
-  layout_.addRow(tr("Name"), &name_);
-  layout_.addRow(tr("Size"), &tiles_);
-  AddNumberRow(&layout_, tr("Width"), &width_, nullptr);
-  AddNumberRow(&layout_, tr("Height"), &height_, nullptr);
-  layout_.addRow(&buttons_);
+  BuildLayout();
   connect(&buttons_, &QDialogButtonBox::accepted, this, &QDialog::accept);
   connect(&buttons_, &QDialogButtonBox::rejected, this, &QDialog::reject);
   connect(&group_, &QButtonGroup::idClicked, this,
@@ -121,7 +123,27 @@ NewProjectDialog::NewProjectDialog(QWidget* parent)
     connect(side, &QSpinBox::valueChanged, this, &NewProjectDialog::Refresh);
   }
   PickPreset(0);
+  FitDialog(this, kDialogEms);
   assert(WhyNotReady().isEmpty());
+}
+
+void NewProjectDialog::BuildLayout() {
+  assert(layout_.count() == 0);
+  assert(tiles_layout_.count() > 0);
+  // Each section's body is owned by its section, the section by the
+  // dialog.
+  auto* project = MakeOwned<QWidget>();
+  SettingsForm(project)->addRow(tr("Name"), &name_);
+  auto* frame = MakeOwned<QWidget>();
+  QFormLayout* sizes = SettingsForm(frame);
+  sizes->addRow(&tiles_);
+  AddNumberRow(sizes, tr("Width"), &width_, nullptr);
+  AddNumberRow(sizes, tr("Height"), &height_, nullptr);
+  layout_.setSpacing(theme::kRowGap);
+  layout_.addWidget(PlatedSection(tr("Project"), project, this));
+  layout_.addWidget(PlatedSection(tr("Frame size"), frame, this));
+  layout_.addStretch(1);
+  layout_.addWidget(&buttons_);
 }
 
 CanvasSize NewProjectDialog::canvas() const {
