@@ -165,3 +165,41 @@ Thresh, Soft and Spill amt are set up hidden; After Effects shows them
 through user changed param when Mode is ColorKey, which this host never
 sends, so they keep their slots but stay hidden. F's GetParams reads
 Spill amt from the Soft slot; kept as written.
+
+### FloodFill
+
+Copied `FloodFill/` (`FloodFill.cpp`, `FloodFill.h`, `NF_Target.h`,
+`README.MD`) and the `_NFLib/fx` files its vcxproj names: `debug_font`,
+`NF_AlphaHyperbolic`, `NF_Blur`, `NF_Draw`, `NF_DrawWorld`, `NF_MinMax`,
+`NF_Mult`, `NF_Noise`, `NF_Paint` (`.cpp` and `.h` each) and
+`debug_font_1424.h`. Unit: `units/floodfill_unit.cpp`, every source in
+one (no clash).
+
+```
+FloodFill/FloodFill.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+FloodFill/FloodFill.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+FloodFill/FloodFill.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+FloodFill/FloodFill.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+FloodFill/FloodFill.h:19: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+FloodFill/FloodFill.h:20: "..\_NFLib\fx\NF_blur.h" -> "../_NFLib/fx/NF_Blur.h"
+FloodFill/FloodFill.h:21: "..\_NFLib\fx\debug_font.h" -> "../_NFLib/fx/debug_font.h"
+FloodFill/FloodFill.h:22: "..\_NFLib\fx\NF_Paint.h" -> "../_NFLib/fx/NF_Paint.h"
+FloodFill/FloodFill.h:23: "..\_NFLib\fx\NF_Noise.h" -> "../_NFLib/fx/NF_Noise.h"
+FloodFill/FloodFill.h:24: "..\_NFLib\fx\NF_Draw.h" -> "../_NFLib/fx/NF_Draw.h"
+FloodFill/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+FloodFill/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+_NFLib/fx/NF_Draw.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+_NFLib/fx/NF_DrawWorld.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+_NFLib/fx/NF_Noise.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+_NFLib/fx/NF_Paint.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+```
+
+FloodFill's ParamsSetup takes the default colors of its 16 slots from
+an 8 entry table (`def_color[i % 16]`). gcc took that overrun as proof
+the loop stops at 8 and dropped its end test, so setup ran off the
+stack; `CMakeLists.txt` now builds F's code with
+`-fno-aggressive-loop-optimizations`, and the loop runs as with MSVC.
+The defaults of color9 to color16 are whatever sits past the table
+(color9 changes from run to run), as in After Effects. Slots 2 to 16
+are set up hidden; After Effects shows them through user changed param
+when paintCount grows, which this host never sends.

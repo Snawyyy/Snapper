@@ -10,7 +10,8 @@
   PLUGIN(RimFill, rimfill) \
   PLUGIN(ColorSwitch, colorswitch) \
   PLUGIN(WhiteKeying, whitekeying) \
-  PLUGIN(AlphaFill, alphafill)
+  PLUGIN(AlphaFill, alphafill) \
+  PLUGIN(FloodFill, floodfill)
 
 #define FSP_DECLARE_PLUGIN(ID, PREFIX) \
   extern "C" PF_Err fsp_##PREFIX##_EffectMain( \
