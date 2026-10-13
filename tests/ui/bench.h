@@ -13,6 +13,7 @@
 #include "edit/group_manager.h"
 #include "edit/history_manager.h"
 #include "edit/key_manager.h"
+#include "edit/library_folder_manager.h"
 #include "edit/link_manager.h"
 #include "edit/object_manager.h"
 #include "edit/playback_manager.h"
@@ -67,6 +68,8 @@ struct Bench final {
   ReferenceManager references{&history};
   CompManager comp{&history};
   RecordManager record{&history, &document, &playback, &reel, dir.path()};
+  LibraryFolderManager library_folders{
+      QDir(dir.path()).filePath("library_folders.json")};
 
   Managers All() {
     Managers all{&history, &document, &library, &rig, &shots, &stage,
@@ -81,6 +84,7 @@ struct Bench final {
     all.references = &references;
     all.comp = &comp;
     all.record = &record;
+    all.library_folders = &library_folders;
     return all;
   }
 };

@@ -19,6 +19,7 @@
 #include "edit/playback_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/preset_manager.h"
+#include "edit/library_folder_manager.h"
 #include "edit/record_manager.h"
 #include "edit/reel_manager.h"
 #include "edit/reference_manager.h"
@@ -80,6 +81,7 @@ class AppContext final {
   ReferenceManager references_;
   CompManager comp_;
   RecordManager record_;
+  LibraryFolderManager library_folders_;
   MainWindow window_;
 };
 

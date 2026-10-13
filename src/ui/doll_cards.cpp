@@ -26,6 +26,12 @@ constexpr QSize kCardCell(92, 112);
 
 }  // namespace
 
+bool IsFolderCard(const QListWidgetItem* item) {
+  assert(item != nullptr);
+  assert(kFolderRole != Qt::UserRole);
+  return item->data(kFolderRole).isValid();
+}
+
 QStringList DollsOfDrop(const QMimeData* data) {
   assert(data != nullptr);
   assert(std::string_view(kDollMime).size() > 0);
@@ -141,8 +147,29 @@ void DollCards::AcceptFiles() {
   setDragDropMode(QAbstractItemView::DragDrop);
 }
 
+void DollCards::AcceptDollsOnFolders() {
+  assert(dragEnabled());
+  is_folder_target_ = true;
+  setAcceptDrops(true);
+  viewport()->setAcceptDrops(true);
+  setDragDropMode(QAbstractItemView::DragDrop);
+}
+
+const QListWidgetItem* DollCards::FolderAt(const QPoint& at) const {
+  assert(viewport() != nullptr);
+  assert(is_folder_target_);
+  const QListWidgetItem* item = itemAt(at);
+  const bool is_folder = item != nullptr && IsFolderCard(item);
+  return is_folder ? item : nullptr;
+}
+
 void DollCards::dragEnterEvent(QDragEnterEvent* event) {
   assert(event != nullptr);
+  if (is_folder_target_) {
+    const bool has_dolls = !DollsOfDrop(event->mimeData()).isEmpty();
+    event->setAccepted(has_dolls);
+    return;
+  }
   const bool is_files =
       is_file_target_ && !FilesOfDrop(event->mimeData()).isEmpty();
   if (is_files) {
@@ -154,6 +181,13 @@ void DollCards::dragEnterEvent(QDragEnterEvent* event) {
 
 void DollCards::dragMoveEvent(QDragMoveEvent* event) {
   assert(event != nullptr);
+  if (is_folder_target_) {
+    // Only a folder card takes dolls; the one under the pointer is shown.
+    const QListWidgetItem* folder = FolderAt(event->position().toPoint());
+    const bool is_over_folder = folder != nullptr;
+    event->setAccepted(is_over_folder);
+    return;
+  }
   const bool is_files =
       is_file_target_ && !FilesOfDrop(event->mimeData()).isEmpty();
   if (is_files) {
@@ -170,6 +204,16 @@ void DollCards::dragMoveEvent(QDragMoveEvent* event) {
 
 void DollCards::dropEvent(QDropEvent* event) {
   assert(event != nullptr);
+  if (is_folder_target_) {
+    const QListWidgetItem* folder = FolderAt(event->position().toPoint());
+    const QStringList dolls = DollsOfDrop(event->mimeData());
+    const bool is_usable = folder != nullptr && !dolls.isEmpty();
+    event->setAccepted(is_usable);
+    if (is_usable) {
+      emit DollsDropped(dolls, folder->data(kFolderRole).toString());
+    }
+    return;
+  }
   const QStringList files =
       is_file_target_ ? FilesOfDrop(event->mimeData()) : QStringList();
   const bool is_files = !files.isEmpty();

@@ -21,6 +21,7 @@
 namespace snapper {
 
 class FoldSection;
+class LibraryNavBar;
 
 // Who is in the picked shot, in three plated sections (panel_kit.h).
 // Library: import a doll, reload it after a Krita re-export (marked "new
@@ -51,8 +52,18 @@ class CastPanel final : public QWidget {
   void RefreshLibrary();
   // Rebuilds cards with a card per name, keeping the picked ones picked.
   void FillCards(DollCards* cards, const QStringList& names);
-  // The right click menu of the library card under at.
+  // The right click menu of the library card under at (ui/cast_folders.cpp).
   void ShowLibraryMenu(const QPoint& at);
+  // Library folders (ui/cast_folders.cpp): folder cards over the dolls of
+  // the open folder, what a click, a menu or a Delete does to them.
+  void AddFolderCards();
+  QStringList PickedFolders() const;
+  QStringList PickedLibraryDolls() const;
+  void OpenFolderCard(const QListWidgetItem* item);
+  void MoveDollsToFolder(const QStringList& dolls, const QString& folder);
+  void DeleteInLibrary();
+  void ShowFolderMenu(const QListWidgetItem* item, QMenu* menu);
+  void AddMoveMenu(const QStringList& dolls, QMenu* menu);
   // The Objects row: pictures dropped or chosen become library objects;
   // a card's right click menu shows its folder or takes it out of the
   // project.
@@ -91,6 +102,7 @@ class CastPanel final : public QWidget {
   QVBoxLayout layout_;
   // The Library section's title plate (it names unconverted dolls).
   QLabel* library_plate_ = nullptr;
+  LibraryNavBar* nav_ = nullptr;
   DollCards library_;
   QHBoxLayout library_buttons_;
   QPushButton import_;

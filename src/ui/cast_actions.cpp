@@ -15,6 +15,7 @@
 #include "edit/doll_library_manager.h"
 #include "edit/edit_scope.h"
 #include "edit/history_manager.h"
+#include "edit/library_folder_manager.h"
 #include "edit/object_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/stage_manager.h"
@@ -139,8 +140,13 @@ void CastPanel::RefreshLibrary() {
   assert(managers_.IsComplete());
   assert(managers_.library != nullptr);
   const bool has_objects = managers_.objects != nullptr;
-  FillCards(&library_, has_objects ? managers_.objects->Dolls()
-                                   : managers_.library->Available());
+  const QStringList all = has_objects ? managers_.objects->Dolls()
+                                      : managers_.library->Available();
+  const LibraryFolderManager* folders = managers_.library_folders;
+  const bool has_folders = folders != nullptr;
+  FillCards(&library_,
+            has_folders ? folders->DollsIn(folders->current(), all) : all);
+  AddFolderCards();
   if (has_objects) {
     FillCards(&objects_, managers_.objects->Objects());
   }
@@ -220,10 +226,9 @@ void CastPanel::RefreshButtons() {
   const bool is_in = !PickedDolls(true).isEmpty();
   const bool has_shot = managers_.selection->shot().IsValid();
   const bool has_layer = managers_.selection->layer().IsValid();
-  const QString picked_one = library_.selectedItems().isEmpty()
-                                 ? QString()
-                                 : library_.selectedItems().front()
-                                       ->data(kKeyRole).toString();
+  const QStringList picked_dolls = PickedLibraryDolls();
+  const QString picked_one =
+      picked_dolls.isEmpty() ? QString() : picked_dolls.front();
   Explain(&import_, out.isEmpty()
                         ? managers_.library->WhyNoImport(picked_one)
                         : managers_.library->WhyNoImport(out.front()));
@@ -253,6 +258,9 @@ QStringList CastPanel::PickedDolls(bool is_in_project) const {
   assert(library_.count() >= 0);
   QStringList dolls;
   for (const QListWidgetItem* item : library_.selectedItems()) {
+    if (IsFolderCard(item)) {
+      continue;
+    }
     const QString name = item->data(kKeyRole).toString();
     const bool is_wanted =
         (FindDoll(project, name) != nullptr) == is_in_project;
@@ -277,6 +285,10 @@ void CastPanel::Import() {
 void CastPanel::OpenClicked(const QListWidgetItem* item) {
   assert(item != nullptr);
   assert(managers_.library != nullptr);
+  const bool is_folder = IsFolderCard(item);
+  if (is_folder) {
+    return;
+  }
   // Shift and Ctrl clicks are for picking many, not for opening one.
   const bool is_plain =
       QGuiApplication::keyboardModifiers() == Qt::NoModifier;
@@ -305,19 +317,6 @@ void CastPanel::Reload() {
     stale_.remove(doll);
   }
   RefreshLibrary();
-}
-
-void CastPanel::ShowLibraryMenu(const QPoint& at) {
-  const QListWidgetItem* item = library_.itemAt(at);
-  if (item == nullptr) {
-    return;
-  }
-  const QString name = item->data(kKeyRole).toString();
-  assert(!name.isEmpty());
-  QMenu menu;
-  menu.addAction(tr("Open in Krita"), this,
-                 [this, name] { emit OpenInKritaRequested(name); });
-  menu.exec(library_.viewport()->mapToGlobal(at));
 }
 
 void CastPanel::AddObjects(const QStringList& paths) {
@@ -434,9 +433,14 @@ void CastPanel::TakeOut(const DollCards& cards) {
   assert(managers_.history != nullptr);
   QStringList names;
   for (const QListWidgetItem* item : cards.selectedItems()) {
-    names.append(item->data(kKeyRole).toString());
+    if (!IsFolderCard(item)) {
+      names.append(item->data(kKeyRole).toString());
+    }
   }
-  assert(!names.isEmpty());
+  const bool has_dolls = !names.isEmpty();
+  if (!has_dolls) {
+    return;
+  }
   // The library says which can go; what it refuses it explains.
   QStringList problems;
   {

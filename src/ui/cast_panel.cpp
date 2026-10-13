@@ -5,11 +5,13 @@
 
 #include "edit/doll_library_manager.h"
 #include "edit/history_manager.h"
+#include "edit/library_folder_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/stage_manager.h"
 #include "edit/document_manager.h"
 #include "ui/doll_drop.h"
 #include "ui/fold_section.h"
+#include "ui/library_nav_bar.h"
 #include "ui/panel_kit.h"
 #include "ui/pick_list.h"
 #include "ui/theme.h"
@@ -60,6 +62,12 @@ void CastPanel::BuildLayout() {
   auto* library_body = MakeOwned<QWidget>(this);
   auto* library_column = MakeOwned<QVBoxLayout>(library_body);
   library_column->setContentsMargins(0, 0, 0, 0);
+  const bool has_folders = managers_.library_folders != nullptr;
+  if (has_folders) {
+    nav_ = MakeOwned<LibraryNavBar>(managers_);
+    library_column->addWidget(nav_);
+    library_.AcceptDollsOnFolders();
+  }
   library_column->addWidget(&library_, 1);
   library_column->addLayout(&library_buttons_);
   QWidget* library = PlatedSection(tr("Library"), library_body, this);
@@ -105,7 +113,7 @@ void CastPanel::BuildLayout() {
   connect(PickList::Install(&layers_), &PickList::DeleteAsked, this,
           &CastPanel::RemoveLayers);
   connect(&library_, &DollCards::DeleteAsked, this,
-          [this] { TakeOut(library_); });
+          [this] { DeleteInLibrary(); });
   connect(&objects_, &DollCards::DeleteAsked, this,
           [this] { TakeOut(objects_); });
   assert(layout_.count() > 0);
@@ -141,6 +149,16 @@ void CastPanel::Wire() {
           &CastPanel::RefreshButtons);
   connect(&library_, &QListWidget::itemClicked, this,
           [this](const QListWidgetItem* item) { OpenClicked(item); });
+  const bool has_folders = managers_.library_folders != nullptr;
+  if (has_folders) {
+    connect(nav_, &LibraryNavBar::Problem, this, &CastPanel::Report);
+    connect(&library_, &QListWidget::itemActivated, this,
+            [this](const QListWidgetItem* item) { OpenFolderCard(item); });
+    connect(&library_, &DollCards::DollsDropped, this,
+            &CastPanel::MoveDollsToFolder);
+    connect(managers_.library_folders, &LibraryFolderManager::Changed, this,
+            [this] { RefreshLibrary(); });
+  }
   library_.setContextMenuPolicy(Qt::CustomContextMenu);
   connect(&library_, &QWidget::customContextMenuRequested, this,
           &CastPanel::ShowLibraryMenu);

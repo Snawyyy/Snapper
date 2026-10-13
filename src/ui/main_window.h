@@ -77,6 +77,7 @@ class MainWindow final : public QMainWindow {
   void BuildPages();
   // Puts the top bar in its fixed host and ties the tabs to the pages.
   void BuildModes();
+  void BuildHiddenFoldersAction();
   // Pulls title, undo and redo state from the history.
   void Refresh();
   // Undo or redo in the shot being worked in; the newest change when no
@@ -103,6 +104,8 @@ class MainWindow final : public QMainWindow {
   // off.
   UiSound sound_;
   QAction sounds_action_;
+  // Shows the library folders that are marked hidden.
+  QAction hidden_folders_action_;
   QAction undo_action_;
   QAction redo_action_;
   // The bar sits fixed across the top, above the docks, so hiding the

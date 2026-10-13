@@ -11,6 +11,7 @@
 #include <cassert>
 
 #include "edit/document_manager.h"
+#include "edit/library_folder_manager.h"
 #include "anim/master_timeline.h"
 #include "edit/export_manager.h"
 #include "edit/history_manager.h"
@@ -50,6 +51,7 @@ MainWindow::MainWindow(const Managers& managers)
                  .filePath(QStringLiteral("sounds")),
              managers.document->SettingsPath(), this),
       sounds_action_(tr("&Sounds")),
+      hidden_folders_action_(tr("Show &hidden folders")),
       undo_action_(tr("&Undo")),
       redo_action_(tr("&Redo")),
       top_bar_host_(tr("Top bar")),
@@ -359,6 +361,7 @@ void MainWindow::BuildViewAndHelp() {
           &PalettePanel::SetOpen);
   connect(&color_palette_, &PalettePanel::OpenChanged,
           &color_palette_action_, &QAction::setChecked);
+  BuildHiddenFoldersAction();
   connect(&sounds_action_, &QAction::toggled, &sound_, &UiSound::SetOn);
   connect(managers_.toasts, &ToastManager::Cheered, &sound_,
           [this] { sound_.Play(UiSound::Blip::kChime); });
@@ -372,6 +375,26 @@ void MainWindow::BuildViewAndHelp() {
           &CommandPalette::Open);
   connect(&sheet_action_, &QAction::triggered, &sheet_,
           &ShortcutSheet::Open);
+}
+
+void MainWindow::BuildHiddenFoldersAction() {
+  LibraryFolderManager* folders = managers_.library_folders;
+  assert(menuBar() != nullptr);
+  assert(view_menu_.actions().size() >= 0);
+  const bool has_folders = folders != nullptr;
+  if (!has_folders) {
+    return;
+  }
+  hidden_folders_action_.setCheckable(true);
+  hidden_folders_action_.setChecked(folders->show_hidden());
+  hidden_folders_action_.setToolTip(
+      tr("Show the library folders marked hidden, and the dolls in them."));
+  view_menu_.addAction(&hidden_folders_action_);
+  connect(&hidden_folders_action_, &QAction::toggled, folders,
+          &LibraryFolderManager::SetShowHidden);
+  connect(folders, &LibraryFolderManager::Changed, this, [this, folders] {
+    hidden_folders_action_.setChecked(folders->show_hidden());
+  });
 }
 
 void MainWindow::Refresh() {

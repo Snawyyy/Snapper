@@ -15,6 +15,7 @@ class KeyManager;
 class LinkManager;
 class MotionManager;
 class ObjectManager;
+class LibraryFolderManager;
 class PaletteManager;
 class PlaybackManager;
 class PokeManager;
@@ -77,6 +78,9 @@ struct Managers final {
   // Not in IsComplete either: the Video tab's Record button and the sound
   // track headers' arm buttons check it.
   RecordManager* record = nullptr;
+  // Not in IsComplete either: the Cast panel's library browser and the
+  // View menu's Show hidden folders check it.
+  LibraryFolderManager* library_folders = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&

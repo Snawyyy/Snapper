@@ -12,6 +12,13 @@ namespace snapper {
 // What dolls dragged out of the library carry: their names, one a line.
 inline constexpr char kDollMime[] = "application/x-snapper-doll";
 
+// A folder card keeps its path from the library's top in this role (a
+// doll card has nothing there); the doll's name is in Qt::UserRole as
+// ever.
+inline constexpr int kFolderRole = Qt::UserRole + 1;
+// Whether item is a folder card.
+bool IsFolderCard(const QListWidgetItem* item);
+
 // The dolls for a drop, or none when it carries none.
 QStringList DollsOfDrop(const QMimeData* data);
 
@@ -35,11 +42,16 @@ class DollCards final : public QListWidget {
   // Lets files be dropped on the row (the Objects row): FilesDropped
   // hands their paths on.
   void AcceptFiles();
+  // Lets dolls dragged out of this row be dropped on its folder cards:
+  // DollsDropped hands them on.
+  void AcceptDollsOnFolders();
 
  signals:
   void FilesDropped(const QStringList& paths);
   // Delete or Backspace with cards picked.
   void DeleteAsked();
+  // Dolls dropped on the folder card at folder (its path).
+  void DollsDropped(const QStringList& dolls, const QString& folder);
 
  protected:
   QStringList mimeTypes() const override;
@@ -53,6 +65,9 @@ class DollCards final : public QListWidget {
  private:
   QString empty_text_;
   bool is_file_target_ = false;
+  bool is_folder_target_ = false;
+  // The folder card under at, or nullptr.
+  const QListWidgetItem* FolderAt(const QPoint& at) const;
 };
 
 // The local files and folders a drop carries, or none.
