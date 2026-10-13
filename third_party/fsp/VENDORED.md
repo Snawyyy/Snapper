@@ -129,3 +129,19 @@ Colors 4 to 31 are set up hidden (`PF_PUI_INVISIBLE`); After Effects
 shows them through user changed param when ActiveParamCount grows, which
 this host never sends, so they keep a value slot but stay hidden. The
 three buttons (All turn off, Save, Load) only act in user changed param.
+
+### WhiteKeying
+
+Copied `WhiteKeying/` (`WhiteKeying.cpp`, `WhiteKeying.h`,
+`WhiteKeyingFilter.cpp`, `WhiteKeyingFilter.h`, `NF_Target.h`,
+`README.MD`). Unit: `units/whitekeying_unit.cpp`.
+
+```
+WhiteKeying/WhiteKeying.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+WhiteKeying/WhiteKeying.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+WhiteKeying/WhiteKeying.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+WhiteKeying/WhiteKeyingFilter.h:5: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+WhiteKeying/WhiteKeyingFilter.h:6: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+WhiteKeying/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+WhiteKeying/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+```
