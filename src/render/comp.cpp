@@ -11,13 +11,13 @@
 
 #include "anim/comp_fsp.h"
 #include "anim/comp_knobs.h"
+#include "fsp/olm_smoother_info.h"
 #include "render/blend.h"
 #include "render/comp_effects.h"
 #include "render/comp_masks.h"
 #include "render/comp_plugin.h"
 #include "render/comp_smoother.h"
 #include "render/comp_targets.h"
-#include "fsp/olm_smoother_info.h"
 
 namespace snapper {
 namespace {
