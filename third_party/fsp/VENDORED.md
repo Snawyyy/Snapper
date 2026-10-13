@@ -199,3 +199,22 @@ each lightness edge in the chosen color, stronger where the lightness
 jump is bigger and none between two colors of equal lightness (as its
 `(max + min) / 2` lightness says); Outer 4 and Inner 4 give 8 pixel
 lines, 4 at scale 0.5; Blend with original lays them over the picture.
+
+### CellLineEraser
+
+Sources `CellLineEraser/` (`CellLineEraser.cpp`, `CellLineEraser.h`,
+`CellLineEraserSub.cpp`, `NF_Target.h`, `README.MD`), no `_NFLib/fx`
+files. One unit.
+
+```
+CellLineEraser/CellLineEraser.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+CellLineEraser/CellLineEraser.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+CellLineEraser/CellLineEraser.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+CellLineEraser/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+CellLineEraser/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+```
+
+Checked by eye: red and blue cels on white with 3 pixel black lines
+and a red stroke; the target colors vanish and the cels grow into
+them, Make White Transparent clears the white. It has no pixel width
+parameter, so the preview scale does not change it.

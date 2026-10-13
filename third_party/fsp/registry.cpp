@@ -10,7 +10,8 @@
   PLUGIN(RimFill, rimfill) \
   PLUGIN(Outline, outline) \
   PLUGIN(Thin, thin) \
-  PLUGIN(LineExtraction, lineextraction)
+  PLUGIN(LineExtraction, lineextraction) \
+  PLUGIN(CellLineEraser, celllineeraser)
 
 #define FSP_DECLARE_PLUGIN(ID, PREFIX) \
   extern "C" PF_Err fsp_##PREFIX##_EffectMain( \
