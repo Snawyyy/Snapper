@@ -159,7 +159,14 @@ void ReelTimeline::wheelEvent(QWheelEvent* event) {
   const double notches =
       (turn.y() != 0 ? turn.y() : turn.x()) / kWheelUnit;
   const bool is_zoom = event->modifiers().testFlag(Qt::ControlModifier);
-  if (is_zoom) {
+  // Shift, or the wheel over the track names, scrolls the tracks.
+  const bool is_tracks = !is_zoom &&
+                         (event->modifiers().testFlag(Qt::ShiftModifier) ||
+                          event->position().x() < kHeaderWidth);
+  if (is_tracks) {
+    track_scroll_.setValue(track_scroll_.value() -
+                           static_cast<int>(notches * kTrackHeight / 2.0));
+  } else if (is_zoom) {
     // The frame under the mouse stays put.
     const double x = event->position().x();
     const double under = (x - kHeaderWidth) / zoom_ + scroll_;

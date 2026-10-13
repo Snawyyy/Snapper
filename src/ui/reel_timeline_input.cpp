@@ -9,6 +9,7 @@
 #include <cmath>
 #include <optional>
 #include <set>
+#include <variant>
 
 #include "anim/reel_timeline.h"
 #include "edit/history_manager.h"
@@ -16,7 +17,9 @@
 #include "edit/reel_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/drag_text.h"
+#include "ui/form_helpers.h"
 #include "ui/grab.h"
+#include "ui/pick_keys.h"
 #include "ui/reel_timeline.h"
 #include "ui/slot_picker.h"
 #include "ui/transition_picker.h"
@@ -86,15 +89,12 @@ std::vector<ClipId> ReelTimeline::Picked() const {
 void ReelTimeline::Pick(ClipId clip, Qt::KeyboardModifiers modifiers) {
   assert(clip.IsValid());
   assert(managers_.selection != nullptr);
-  const bool is_shift = modifiers.testFlag(Qt::ShiftModifier);
-  const bool is_ctrl = modifiers.testFlag(Qt::ControlModifier);
   const bool is_picked = managers_.selection->clips().contains(clip);
   // A plain click on a picked clip keeps the pick, so the pick drags.
-  const PickMode mode = is_ctrl    ? PickMode::kToggle
-                        : is_shift ? PickMode::kAdd
-                        : is_picked ? PickMode::kAdd
-                                    : PickMode::kReplace;
-  managers_.selection->PickClips({clip}, mode);
+  const std::optional<PickMode> mode = ClickMode(modifiers, is_picked);
+  if (mode.has_value()) {
+    managers_.selection->PickClips({clip}, *mode);
+  }
 }
 
 int ReelTimeline::SnapReach() const {
@@ -247,14 +247,23 @@ void ReelTimeline::mousePressEvent(QMouseEvent* event) {
   const ClipId clip = ClipAt(at);
   const bool is_on_clip = clip.IsValid();
   if (!is_on_clip) {
-    // Empty space starts a box; Shift adds, Ctrl takes out.
     const Qt::KeyboardModifiers mods = event->modifiers();
-    drag_ = Drag::kBox;
+    const int track = TrackAt(at.y());
+    // Alt marks a range on the track for New shot here.
+    const bool is_mark = mods.testFlag(Qt::AltModifier) && track >= 0 &&
+                         at.x() >= kHeaderWidth;
     press_ = at;
     box_to_ = at;
-    box_mode_ = mods.testFlag(Qt::ShiftModifier)     ? PickMode::kAdd
-                : mods.testFlag(Qt::ControlModifier) ? PickMode::kRemove
-                                                     : PickMode::kReplace;
+    if (is_mark) {
+      drag_ = Drag::kMark;
+      marked_track_ = track;
+      marked_ = Slot{FrameAt(at.x()), FrameAt(at.x())};
+      update();
+      return;
+    }
+    // Empty space starts a box; Shift adds, Ctrl takes out.
+    drag_ = Drag::kBox;
+    box_mode_ = BoxMode(mods);
     return;
   }
   is_plain_press_ = event->modifiers() == Qt::NoModifier;
@@ -306,6 +315,15 @@ void ReelTimeline::mouseMoveEvent(QMouseEvent* event) {
     update();
     return;
   }
+  const bool is_marking = drag_ == Drag::kMark;
+  if (is_marking) {
+    const Frame from = FrameAt(press_.x());
+    const Frame to = FrameAt(at.x());
+    marked_ = Slot{std::min(from, to), Frame(std::max(from, to).index() + 1)};
+    feedback_.Update(press_, at, FramesText(marked_.length().index()), false);
+    update();
+    return;
+  }
   const bool is_sound_drag = drag_ == Drag::kVolume ||
                              drag_ == Drag::kFadeIn ||
                              drag_ == Drag::kFadeOut || drag_ == Drag::kFader;
@@ -324,6 +342,14 @@ void ReelTimeline::mouseReleaseEvent(QMouseEvent* event) {
   const bool is_boxing = drag_ == Drag::kBox;
   if (is_boxing) {
     FinishBox();
+  }
+  // An Alt click without a drag marks nothing.
+  const bool is_short_mark =
+      drag_ == Drag::kMark && !IsPastDeadZone(press_, event->position());
+  if (is_short_mark) {
+    marked_ = Slot{};
+    marked_track_ = -1;
+    update();
   }
   const bool was_click =
       drag_ == Drag::kMove && !has_moved_ && is_plain_press_;
@@ -422,34 +448,84 @@ void ReelTimeline::mouseDoubleClickEvent(QMouseEvent* event) {
   if (is_subtitle_track) {
     return;
   }
-  const bool can_fit =
-      clip.IsValid() && managers_.reel->WhyNoFit(clip, FrameAt(at.x())).isEmpty();
-  if (can_fit) {
-    OfferFit(clip, track, FrameAt(at.x()), event->globalPosition().toPoint());
+  const auto* shot =
+      found != nullptr ? std::get_if<ShotSource>(&found->source) : nullptr;
+  if (shot != nullptr) {
+    // Opens the shot on the Pose tab at the frame under the click.
+    const Frame inside(found->in.index() + FrameAt(at.x()).index() -
+                       found->start.index());
+    emit OpenShotAsked(shot->shot, inside);
     return;
   }
-  FillGap(track, FrameAt(at.x()));
+  const bool is_on_clip = found != nullptr;
+  if (is_on_clip) {
+    FillGap(track, FrameAt(at.x()));
+    return;
+  }
+  OfferEmpty(track, FrameAt(at.x()), event->globalPosition().toPoint());
 }
 
-void ReelTimeline::OfferFit(ClipId clip, int track, Frame at, QPoint where) {
-  assert(clip.IsValid());
+void ReelTimeline::OfferEmpty(int track, Frame at, QPoint where) {
   assert(track >= 0);
+  assert(managers_.reel != nullptr);
   QMenu menu(this);
-  QAction* hold = menu.addAction(tr("Fit shot to gap"));
-  QAction* stretch = menu.addAction(tr("Fit shot to gap, stretched"));
-  stretch->setToolTip(tr("Moves every key in proportion, so the same "
-                         "action plays faster or slower."));
-  menu.addSeparator();
+  menu.setToolTipsVisible(true);
+  const Slot span = NewShotSpanAt(track, at);
+  QAction* new_shot = menu.addAction(
+      span.IsValid() ? tr("New shot here (%1)").arg(TimeText(span.length()))
+                     : tr("New shot here"));
+  Explain(new_shot,
+          managers_.reel->WhyNoNewShot(track, span.start, span.end));
+  const bool is_gap = SlotAt(managers_.history->current().reel, at).IsValid();
   QAction* fill = menu.addAction(tr("Pick what plays here..."));
+  Explain(fill, is_gap ? QString()
+                       : tr("Mark a cut on both sides of the gap first (M)."));
   const QAction* chosen = menu.exec(where);
-  const bool is_fit = chosen == hold || chosen == stretch;
-  if (is_fit) {
-    const EdgeMode mode =
-        chosen == stretch ? EdgeMode::kStretch : EdgeMode::kHold;
-    Report(ProblemOf(managers_.reel->FitShotToGap(clip, at, mode)));
+  if (chosen == new_shot) {
+    NewShotHere(track, at);
   } else if (chosen == fill) {
     FillGap(track, at);
   }
+}
+
+Slot ReelTimeline::NewShotSpanAt(int track, Frame at) const {
+  assert(track >= -1);
+  assert(managers_.reel != nullptr);
+  const bool is_in_mark = marked_.IsValid() && marked_track_ == track &&
+                          marked_.start <= at && at < marked_.end;
+  return is_in_mark ? marked_ : managers_.reel->NewShotSpan(track, at);
+}
+
+void ReelTimeline::NewShotHere(int track, Frame at) {
+  assert(track >= -1);
+  assert(managers_.selection != nullptr);
+  const Slot span = NewShotSpanAt(track, at);
+  const auto made = managers_.reel->AddNewShot(track, span.start, span.end);
+  Report(ProblemOf(made));
+  if (!made) {
+    return;
+  }
+  marked_ = Slot{};
+  marked_track_ = -1;
+  managers_.selection->PickClips({*made}, PickMode::kReplace);
+}
+
+void ReelTimeline::NewShotAtPlayhead() {
+  assert(managers_.playback != nullptr);
+  assert(managers_.reel != nullptr);
+  const bool has_mark = marked_.IsValid() && marked_track_ >= 0;
+  const Frame now = managers_.playback->FrameOn(Timeline::kReel);
+  const Slot span =
+      has_mark ? marked_ : managers_.reel->NewShotSpan(-1, now);
+  const auto made = managers_.reel->AddNewShot(
+      has_mark ? marked_track_ : -1, span.start, span.end);
+  Report(ProblemOf(made));
+  if (!made) {
+    return;
+  }
+  marked_ = Slot{};
+  marked_track_ = -1;
+  managers_.selection->PickClips({*made}, PickMode::kReplace);
 }
 
 void ReelTimeline::EditTransition(ClipId clip) {

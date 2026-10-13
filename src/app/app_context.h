@@ -18,6 +18,7 @@
 #include "edit/playback_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/preset_manager.h"
+#include "edit/record_manager.h"
 #include "edit/reel_manager.h"
 #include "edit/reference_manager.h"
 #include "edit/rig_manager.h"
@@ -76,6 +77,7 @@ class AppContext final {
   ObjectManager objects_;
   SoundManager sounds_;
   ReferenceManager references_;
+  RecordManager record_;
   MainWindow window_;
 };
 

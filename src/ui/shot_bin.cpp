@@ -8,6 +8,10 @@
 #include <utility>
 
 #include "edit/history_manager.h"
+#include "edit/shot_manager.h"
+#include "ui/pick_list.h"
+#include "ui/problem.h"
+#include "ui/toast_manager.h"
 
 namespace snapper {
 namespace {
@@ -36,11 +40,20 @@ ShotBin::ShotBin(const Managers& managers) : managers_(managers) {
   assert(managers_.IsComplete());
   setDragEnabled(true);
   setDragDropMode(QAbstractItemView::DragOnly);
-  setSelectionMode(QAbstractItemView::SingleSelection);
+  setSelectionMode(QAbstractItemView::ExtendedSelection);
   setIconSize(QSize(kThumbWidth, kThumbWidth));
   setMinimumWidth(kMinBinWidth);
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  setToolTip(tr("Drag a shot onto a track below."));
+  setToolTip(tr("Drag a shot onto a track below; double-click to open it "
+                "on the Pose tab. Delete removes the picked shots."));
+  // The one pick rule: Shift adds, Ctrl flips, Ctrl+A, Delete, Escape.
+  PickList* picks = PickList::Install(this);
+  connect(picks, &PickList::DeleteAsked, this, &ShotBin::RemovePicked);
+  connect(this, &QListWidget::itemDoubleClicked, this,
+          [this](const QListWidgetItem* item) {
+            assert(item != nullptr);
+            emit OpenShotAsked(ShotId(item->data(kShotRole).toInt()));
+          });
   // While hidden (on another tab) edits only mark the list stale, so
   // posing never waits on pictures nobody sees.
   connect(managers_.history, &HistoryManager::Changed, this, [this] {
@@ -67,6 +80,7 @@ void ShotBin::Refresh() {
   assert(managers_.history != nullptr);
   is_stale_ = false;
   const Project& project = managers_.history->current();
+  const std::vector<ShotId> was = Picked();
   const int row = currentRow();
   clear();
   for (const auto& shot : project.shots) {
@@ -76,9 +90,35 @@ void ShotBin::Refresh() {
     QListWidgetItem* item = this->item(count() - 1);
     item->setIcon(Thumbnail(shot));
     item->setData(kShotRole, shot->id.value());
+    // The pick outlives a refresh.
+    item->setSelected(std::ranges::find(was, shot->id) != was.end());
   }
-  setCurrentRow(std::min(row, count() - 1));
+  setCurrentRow(std::min(row, count() - 1), QItemSelectionModel::NoUpdate);
   assert(count() == static_cast<int>(project.shots.size()));
+}
+
+std::vector<ShotId> ShotBin::Picked() const {
+  assert(count() >= 0);
+  std::vector<ShotId> shots;
+  for (const QListWidgetItem* item : selectedItems()) {
+    shots.emplace_back(item->data(kShotRole).toInt());
+  }
+  assert(shots.size() <= static_cast<size_t>(count()));
+  return shots;
+}
+
+void ShotBin::RemovePicked() {
+  assert(managers_.shots != nullptr);
+  assert(managers_.toasts != nullptr);
+  const std::vector<ShotId> shots = Picked();
+  const bool has_pick = !shots.empty();
+  if (!has_pick) {
+    return;
+  }
+  managers_.toasts->Finish(ProblemOf(managers_.shots->RemoveAll(shots)),
+                           shots.size() == 1 ? tr("Removed 1 shot")
+                                             : tr("Removed %1 shots")
+                                                   .arg(shots.size()));
 }
 
 QStringList ShotBin::mimeTypes() const {
@@ -90,15 +130,18 @@ QStringList ShotBin::mimeTypes() const {
 QMimeData* ShotBin::mimeData(const QList<QListWidgetItem*>& items) const {
   assert(items.size() >= 0);
   assert(dragEnabled());
-  const bool is_one = items.size() == 1;
-  if (!is_one) {
+  const bool is_empty = items.isEmpty();
+  if (is_empty) {
     return nullptr;
   }
+  // One shot drags: the one grabbed when it is among them.
+  const QListWidgetItem* grabbed =
+      items.contains(currentItem()) ? currentItem() : items.front();
   // The base makes the mime data the drag then owns; it adds the shot.
   QMimeData* dragged = QListWidget::mimeData(items);
   assert(dragged != nullptr);
   dragged->setData(kShotMime,
-                   QByteArray::number(items.front()->data(kShotRole).toInt()));
+                   QByteArray::number(grabbed->data(kShotRole).toInt()));
   return dragged;
 }
 

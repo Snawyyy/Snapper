@@ -18,6 +18,7 @@
 #include "edit/poke_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/preset_manager.h"
+#include "edit/record_manager.h"
 #include "edit/reel_manager.h"
 #include "edit/reference_manager.h"
 #include "edit/rig_manager.h"
@@ -63,6 +64,7 @@ struct Bench final {
   ObjectManager objects{&history, &library, &stage, &links};
   SoundManager sounds{&history};
   ReferenceManager references{&history};
+  RecordManager record{&history, &document, &playback, &reel, dir.path()};
 
   Managers All() {
     Managers all{&history, &document, &library, &rig, &shots, &stage,
@@ -75,6 +77,7 @@ struct Bench final {
     all.objects = &objects;
     all.sounds = &sounds;
     all.references = &references;
+    all.record = &record;
     return all;
   }
 };

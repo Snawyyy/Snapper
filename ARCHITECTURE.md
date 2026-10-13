@@ -688,6 +688,41 @@ other shot plays the song where it sits (`MixShots`).
 `PlaybackManager::SoundOn` is what each timeline plays, and export
 mixes the same (`ExportManager::ExportSound` writes it as a WAV).
 
+Sound can be recorded straight onto the reel, to plan timing by
+mouthing a scene's noises. R in a sound track's header arms it
+(`RecordManager::ToggleArm`, not saved); Rec in the Video bar
+(`RecordButton`, greyed with the reason when there is no sound input)
+counts in `kCountInBeats` seconds, then records the default input
+(`AudioRecorder`, `media/audio_recorder.cpp`, 48 kHz mono 16-bit
+through `QAudioSource`) from the reel's playhead while the reel plays.
+Rec again, or the reel stopping, ends the take; Escape on the reel
+throws it away. Each take is written as a WAV (`WaveFile`) into
+"<project name> takes" beside the project file, or `takes` in the app
+data folder for a project never saved, and laid from where it started
+on the armed track (a free sound track when none is armed or it has no
+room) through `ReelManager::AddSounds`: one undo step per take.
+
+New shot here makes a blank shot sized to a stretch of the reel and
+lays it there, as one step (`ReelManager::AddNewShot`,
+`edit/reel_new_shot.cpp`). The stretch is a range marked with Alt and
+a drag over empty track space, else `NewShotSpan`: the gap between the
+markers around the click (cut back to the free space), else the free
+space between the clips around it, else `kNewShotFrames`. It is offered
+in an empty track's double-click menu, the track menu, and the "+"
+tile over the shot list (at the playhead). A double click on a shot
+clip (or a shot in the list, or Open in the Shot clip panel) emits
+`VideoPage::OpenShotAsked` with the frame of the shot under it; Fit
+shot to gap moved to the clip's menu.
+
+The Video tab's side panel shows only what the pick needs
+(`SidePanelsFor`): Text for text clips (and Subtitles when a cue is
+among them), the Sound clip panel (volume and fades as faders) for
+sound clips, the Shot clip panel (name, length through `ResizeShots`,
+the Edges mode, Open) for shot clips, Subtitles with nothing picked,
+and a hint otherwise. The reel's tracks scroll up and down (a scroll
+bar, Shift and the wheel, or the wheel over the track names) instead of
+growing the timeline; the Video bar wraps (`FlowLayout`).
+
 Text lives on the reel too. A text clip is a `Clip` whose source is a
 `TextSource`: its words, a `ReelTextLook` (a shot text layer's
 lettering, a box color, and its middle as a share of the frame, so a
@@ -807,6 +842,7 @@ are destroyed in reverse.
 | `ShotManager`          | Shots on the master track: order, length, look |
 | `ReelManager`          | The reel: clips, tracks, cuts, transitions, sound clips, volume, fades, Mute and Solo |
 | `SoundManager`         | The reel's sound files decoded and their waveforms; the mix; which clip a shot borrows its sound from |
+| `RecordManager`        | Recording sound onto the reel: the armed sound track, the count-in, the take from the playhead while the reel plays, its WAV beside the project, laid on as one step |
 | `StageManager`         | What is in a shot: actors, props, text, effects |
 | `LinkManager`          | Which things copy another's movement, how much |
 | `SelectionManager`     | What is picked: shots, layers, pieces, keys, clips |

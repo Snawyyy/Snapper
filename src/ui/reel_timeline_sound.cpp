@@ -1,5 +1,5 @@
 // ReelTimeline's sound: sound clips' waveforms, volume lines and fades,
-// and the sound tracks' headers (Mute, Solo, fader).
+// and the sound tracks' headers (Mute, Solo, arm, fader).
 
 #include <QFileInfo>
 #include <QMenu>
@@ -12,6 +12,7 @@
 #include <variant>
 
 #include "edit/history_manager.h"
+#include "edit/record_manager.h"
 #include "edit/reel_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/sound_manager.h"
@@ -43,6 +44,12 @@ QRectF ReelTimeline::SoloRect(int track) const {
   assert(track >= 0);
   assert(kHeaderWidth > 40.0);
   return QRectF(25.0, TrackTop(track) + 17.0, 18.0, 13.0);
+}
+
+QRectF ReelTimeline::ArmRect(int track) const {
+  assert(track >= 0);
+  assert(kHeaderWidth > 40.0);
+  return QRectF(kHeaderWidth - 19.0, TrackTop(track) + 2.0, 14.0, 13.0);
 }
 
 QRectF ReelTimeline::FaderRect(int track) const {
@@ -90,6 +97,11 @@ void ReelTimeline::PaintSoundHeader(QPainter* painter, int track) const {
   };
   button(MuteRect(track), tr("M"), row.is_muted, theme::kPick);
   button(SoloRect(track), tr("S"), row.is_solo, theme::kHandle);
+  const bool can_arm = managers_.record != nullptr;
+  if (can_arm) {
+    button(ArmRect(track), tr("R"),
+           managers_.record->armed_track() == track, theme::kPick);
+  }
   // The fader: a sunken slot filled to the track's volume.
   const QRectF slot = FaderRect(track);
   painter->fillRect(slot, theme::kShadow);
@@ -219,6 +231,13 @@ bool ReelTimeline::PressSoundHeader(QPointF at) {
     Report(ProblemOf(managers_.reel->SetTrackSolo(track, !row.is_solo)));
     return true;
   }
+  const bool is_arm =
+      managers_.record != nullptr && ArmRect(track).contains(at);
+  if (is_arm) {
+    Report(ProblemOf(managers_.record->ToggleArm(track)));
+    update();
+    return true;
+  }
   const bool is_fader = FaderRect(track).adjusted(-2, -4, 2, 4).contains(at);
   if (!is_fader) {
     return true;
@@ -334,6 +353,17 @@ void ReelTimeline::AddSoundTrackEntries(QMenu* menu, int track) {
   connect(solo, &QAction::triggered, this, [this, track, is_solo] {
     Report(ProblemOf(managers_.reel->SetTrackSolo(track, !is_solo)));
   });
+  const bool can_arm = managers_.record != nullptr;
+  if (can_arm) {
+    QAction* arm = menu->addAction(tr("Arm for recording"));
+    arm->setCheckable(true);
+    arm->setChecked(managers_.record->armed_track() == track);
+    arm->setToolTip(tr("Takes from Rec go onto this track."));
+    connect(arm, &QAction::triggered, this, [this, track] {
+      Report(ProblemOf(managers_.record->ToggleArm(track)));
+      update();
+    });
+  }
 }
 
 void ReelTimeline::PreferPicked() {

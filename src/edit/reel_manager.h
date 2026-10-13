@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/error.h"
+#include "anim/reel_timeline.h"
 #include "base/frame.h"
 #include "edit/reel_edits.h"
 #include "io/subtitle_file.h"
@@ -39,6 +40,8 @@ struct ShotResize final {
 constexpr int kTextClipFrames = 2 * kFramesPerSecond;
 constexpr int kCueFrames = 4 * kFramesPerSecond;
 constexpr int kHoldFrames = kFramesPerSecond / 4;
+// A new shot's length where nothing after it bounds the free space.
+constexpr int kNewShotFrames = 2 * kFramesPerSecond;
 
 // The usual places for text: bottom middle, top middle, the lower third
 // at the left, the middle.
@@ -73,6 +76,19 @@ class ReelManager final {
                           Frame in);
   // A whole shot onto track at start.
   Result<ClipId> AddShot(ShotId shot, int track, Frame start);
+  // New shot here (edit/reel_new_shot.cpp). A new blank shot exactly
+  // to - from frames long, laid on track over that stretch, as one step:
+  // for a gap between markers or a marked range. track -1 takes the
+  // lowest picture track with room there. Returns its clip.
+  Result<ClipId> AddNewShot(int track, Frame from, Frame to);
+  // Why AddNewShot can't act there; empty when it can.
+  QString WhyNoNewShot(int track, Frame from, Frame to) const;
+  // The stretch a new shot at at on track fills: the gap between the cut
+  // markers around at (cut back to the free space), else the free space
+  // between the clips around at, or kNewShotFrames from at when no clip
+  // follows. Invalid when at is on a clip. For track -1, the gap around
+  // at, or kNewShotFrames from at.
+  Slot NewShotSpan(int track, Frame at) const;
   // Moves every clip in clips by tracks rows and frames frames from
   // where the open drag started (HistoryManager::before), so a drag can
   // call it with its running total. Refused when any would leave the
