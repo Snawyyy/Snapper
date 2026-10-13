@@ -92,6 +92,8 @@ MainWindow::MainWindow(const Managers& managers)
   setAttribute(Qt::WA_Hover);
   BuildMenus();
   BuildPages();
+  connect(&cast_, &CastPanel::DollOpenAsked, &rig_panel_,
+          &RigPanel::OpenDoll);
   connect(&rig_panel_, &RigPanel::DollPicked, &rig_canvas_,
           &RigCanvas::SetDoll);
   connect(&rig_panel_, &RigPanel::PickChanged, &rig_canvas_,

@@ -110,15 +110,14 @@ void RigPanel::BuildLayout() {
                             "and sizes this piece, but never squashes it. "
                             "Good for heads."));
   layout_.setSpacing(theme::kRowGap);
-  // Doll: which one, its pieces, and saving its rig. The doll picker
-  // comes first so it stays the first picker among the children.
+  // Doll: its pieces, and saving its rig. Which doll is open is picked
+  // in the library (OpenDoll).
   // Fixed heights: the panel scrolls, so no list grows or shrinks as
   // the fields under it come and go.
   pieces_.setFixedHeight(200);
   auto* doll_body = MakeOwned<QWidget>(this);
   auto* doll_column = MakeOwned<QVBoxLayout>(doll_body);
   doll_column->setContentsMargins(0, 0, 0, 0);
-  doll_column->addWidget(&dolls_);
   doll_column->addWidget(&pieces_);
   doll_column->addWidget(&save_rig_);
   doll_section_ = PlatedSection(tr("Doll"), doll_body, this);
@@ -184,17 +183,25 @@ void RigPanel::BuildLayout() {
   assert(warp_form_->rowCount() == 4);
 }
 
+void RigPanel::OpenDoll(const QString& doll) {
+  assert(managers_.IsComplete());
+  assert(!doll.isEmpty());
+  const bool is_known = FindDoll(managers_.history->current(), doll) != nullptr;
+  const bool is_new = is_known && doll != doll_;
+  if (!is_new) {
+    return;
+  }
+  doll_ = doll;
+  piece_.clear();
+  picked_.clear();
+  emit DollPicked(doll_);
+  Refresh();
+}
+
 void RigPanel::Wire() {
   assert(managers_.IsComplete());
   assert(joint_form_ != nullptr && warp_form_ != nullptr);
   RigManager* rig = managers_.rig;
-  connect(&dolls_, &QComboBox::textActivated, this, [this](const QString& d) {
-    doll_ = d;
-    piece_.clear();
-    picked_.clear();
-    emit DollPicked(doll_);
-    Refresh();
-  });
   connect(&pieces_, &QListWidget::itemSelectionChanged, this, [this] {
     QStringList picked;
     for (const QListWidgetItem* item : pieces_.selectedItems()) {

@@ -139,6 +139,8 @@ void CastPanel::Wire() {
   connect(&down_, &QPushButton::clicked, this, [this] { Restack(-1); });
   connect(&library_, &QListWidget::itemSelectionChanged, this,
           &CastPanel::RefreshButtons);
+  connect(&library_, &QListWidget::itemClicked, this,
+          [this](const QListWidgetItem* item) { OpenClicked(item); });
   library_.setContextMenuPolicy(Qt::CustomContextMenu);
   connect(&library_, &QWidget::customContextMenuRequested, this,
           &CastPanel::ShowLibraryMenu);

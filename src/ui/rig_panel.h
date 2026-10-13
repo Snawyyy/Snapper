@@ -30,7 +30,7 @@ constexpr int kDefaultWarpCells = 3;
 
 // The rig's settings beside the rig canvas, as plated sections in the
 // Pose box style (panel_kit.h), each shown only when the pick needs it:
-// Doll (which doll, its pieces as a tree, saving the rig back to the
+// Doll (its pieces as a tree, saving the rig back to the
 // library), Look, Skins and IK chains with a doll; Joint (parent, rest
 // turn, draw order, drawing, mirroring) and Warp with a piece; Collider
 // while the piece is one. While a skin is being changed the Drawing
@@ -44,6 +44,9 @@ class RigPanel final : public QWidget {
 
   const QString& doll() const { return doll_; }
   const QString& piece() const { return piece_; }
+  // Opens doll for rigging (a click on its card in the library); refused
+  // quietly when the project has no such doll.
+  void OpenDoll(const QString& doll);
   void PickPiece(const QString& piece);
   // Picks pieces with focus shown in the fields, as the canvas does.
   void SetPick(const QStringList& picked, const QString& focus);
@@ -89,7 +92,6 @@ class RigPanel final : public QWidget {
   QStringList picked_;
   QVBoxLayout layout_;
   LiveEdit live_;
-  QComboBox dolls_;
   QListWidget pieces_;
   // The sections shown by what is picked, and the forms of two of them
   // (their widgets own them).

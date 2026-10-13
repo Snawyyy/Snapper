@@ -78,15 +78,7 @@ void RigPanel::Refresh() {
     doll_ = project.dolls.begin()->first;
     emit DollPicked(doll_);
   }
-  {
-    const QSignalBlocker quiet(dolls_);
-    dolls_.clear();
-    for (const auto& [name, doll] : project.dolls) {
-      dolls_.addItem(name);
-    }
-    dolls_.setCurrentText(doll_);
-  }
-  Explain(&save_rig_, doll_.isEmpty() ? tr("Import a doll first.")
+  Explain(&save_rig_, doll_.isEmpty() ? tr("Click a doll in the library.")
                                       : QString());
   skins_.SetDoll(doll_);
   look_.SetDoll(doll_);

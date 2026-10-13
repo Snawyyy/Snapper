@@ -41,6 +41,9 @@ class CastPanel final : public QWidget {
   void Problem(const QString& why);
   // The user asked to open a library doll in Krita (right click a card).
   void OpenInKritaRequested(const QString& doll);
+  // A plain click on a library card: open that doll in the Rig tab's
+  // panel (importing it into the project first when it is not in).
+  void DollOpenAsked(const QString& doll);
 
  private:
   void BuildLayout();
@@ -62,6 +65,8 @@ class CastPanel final : public QWidget {
   void RefreshButtons();
   void Import();
   void Reload();
+  // A plain click on a library card opens its doll in the rig.
+  void OpenClicked(const QListWidgetItem* item);
   void Place();
   void AddPicture();
   void AddBackground();

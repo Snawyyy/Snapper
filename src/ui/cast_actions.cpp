@@ -3,6 +3,7 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileDialog>
+#include <QGuiApplication>
 #include <QUrl>
 #include <QInputDialog>
 #include <QSignalBlocker>
@@ -270,6 +271,28 @@ void CastPanel::Import() {
   Report(Outcome(managers_.library->ImportAll(dolls)));
   for (const QString& doll : dolls) {
     stale_.remove(doll);
+  }
+}
+
+void CastPanel::OpenClicked(const QListWidgetItem* item) {
+  assert(item != nullptr);
+  assert(managers_.library != nullptr);
+  // Shift and Ctrl clicks are for picking many, not for opening one.
+  const bool is_plain =
+      QGuiApplication::keyboardModifiers() == Qt::NoModifier;
+  if (!is_plain) {
+    return;
+  }
+  const QString name = item->data(kKeyRole).toString();
+  const bool is_in = FindDoll(managers_.history->current(), name) != nullptr;
+  if (!is_in) {
+    Report(Outcome(managers_.library->ImportAll({name})));
+    stale_.remove(name);
+  }
+  const bool is_now_in =
+      FindDoll(managers_.history->current(), name) != nullptr;
+  if (is_now_in) {
+    emit DollOpenAsked(name);
   }
 }
 

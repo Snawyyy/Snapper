@@ -90,7 +90,7 @@ void RigUiTests::PanelPicksTheDollAndEditsAPiece() {
   RigPanel panel(bench.All());
   QCOMPARE(panel.doll(), QString("Bob"));
   panel.PickPiece("arm");
-  auto* parent = panel.findChildren<QComboBox*>()[1];
+  auto* parent = panel.findChildren<QComboBox*>()[0];
   QVERIFY(parent->isEnabled());
   const int body = parent->findText("body");
   QVERIFY(body > 0);
