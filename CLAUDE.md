@@ -122,8 +122,16 @@ left): videos, GIFs and pictures linked into a shot (shot menu or Alt +
 drop), drawn behind or over the layers on the Pose stage only, with a
 dashed row each on the timeline (drag the start, Alt slides the video),
 a References fold (opacity, tint, fit, speed, markers), Y and M
-(`ReferenceManager`, the renderer's `under` picture). No tests yet, the
-owner adds them later. Next in docs/features: Compositing.
+(`ReferenceManager`, the renderer's `under` picture). Then Compositing,
+first pass (2026-10-13, docs/features/compositing.md says what is
+left): a Comp tab with a per-shot stack of nine anime finishing effects
+(rim light, transmitted light, gradients, color swap, line smoother,
+motion blur, sparkle, speed lines, finish) that target a layer, pieces
+or picked colors, with 19 shared blend modes, keyed knobs, a shot
+Light, V, K and I, run by the one renderer after every layer
+(`CompManager`, `render/comp.cpp`, `render/blend.cpp`). No tests yet,
+the owner adds them later. Every planned feature in docs/features now
+has a first pass.
 
 Before that (2026-10-12, branch `inspector-physical`, cut from `ui-test`): the
 inspector as a hardware panel (pose box: dials, pad, faders; golden ratio,

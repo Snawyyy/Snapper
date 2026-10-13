@@ -31,6 +31,16 @@ void DrawBones(QPainter* painter) {
   painter->drawEllipse(QPointF(12.5, 3.5), 2, 2);
 }
 
+// A four-point sparkle: the finishing pass.
+void DrawSparkle(QPainter* painter) {
+  assert(painter != nullptr);
+  assert(painter->isActive());
+  painter->drawPolygon(QPolygonF({QPointF(8, 1.5), QPointF(9.5, 6.5),
+                                  QPointF(14.5, 8), QPointF(9.5, 9.5),
+                                  QPointF(8, 14.5), QPointF(6.5, 9.5),
+                                  QPointF(1.5, 8), QPointF(6.5, 6.5)}));
+}
+
 void DrawFilm(QPainter* painter) {
   assert(painter != nullptr);
   assert(painter->isActive());
@@ -44,7 +54,7 @@ void DrawFilm(QPainter* painter) {
 
 QIcon ModeIcon(int index, bool is_picked) {
   assert(index >= 0);
-  assert(index <= 2);
+  assert(index <= 3);
   QPixmap pixmap(kModeIconPx, kModeIconPx);
   pixmap.fill(Qt::transparent);
   QPainter painter(&pixmap);
@@ -53,10 +63,13 @@ QIcon ModeIcon(int index, bool is_picked) {
   painter.setBrush(Qt::NoBrush);
   const bool is_pose = index == 0;
   const bool is_rig = index == 1;
+  const bool is_comp = index == 2;
   if (is_pose) {
     DrawPuppet(&painter);
   } else if (is_rig) {
     DrawBones(&painter);
+  } else if (is_comp) {
+    DrawSparkle(&painter);
   } else {
     DrawFilm(&painter);
   }

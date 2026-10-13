@@ -8,6 +8,7 @@
 
 #include "base/frame.h"
 #include "base/id.h"
+#include "model/comp.h"
 #include "model/dot_group.h"
 #include "model/key.h"
 #include "model/layer.h"
@@ -85,6 +86,12 @@ struct Shot final {
   // Videos and pictures to animate over, shown on the Pose tab stage
   // only (never exported), first on top of the timeline.
   std::vector<Reference> references{};
+  // The Comp tab's finishing effects, bottom to top, run over the
+  // finished frame after every layer.
+  std::vector<CompEffect> comp{};
+  // The shot's Light: the direction (degrees, 0 up, clockwise) the
+  // light comes from, shared by every effect that picks "Shot light".
+  Channel<double> light{};
 
   bool operator==(const Shot&) const = default;
 };

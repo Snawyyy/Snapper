@@ -10,6 +10,7 @@
 
 #include "base/frame.h"
 #include "model/project.h"
+#include "render/comp.h"
 #include "render/image_cache.h"
 #include "render/video_frames.h"
 
@@ -66,13 +67,30 @@ class FrameRenderer final {
 
   ImageCache* cache() { return &cache_; }
 
+  // How the Comp tab's stage shows the comp (V and K); export and every
+  // other renderer keep the default, the whole comp.
+  void SetCompShow(const CompShow& show) { comp_show_ = show; }
+  // What each comp effect cost in the last frame, in milliseconds.
+  const std::map<CompEffectId, double>& comp_costs() const {
+    return comp_costs_;
+  }
+
  private:
+  // Draws layer onto frame through its own picture, keeping the comp's
+  // target pictures (and the drawn shape) as needs asks.
+  void PaintForComp(const Project& project, const Layer& layer, Frame local,
+                    double scale, const QTransform& view, LinkSolver* links,
+                    const CompNeeds& needs, CompPictures* pictures,
+                    QImage* frame);
+
   // Draws clip's source at source over out: a shot whole, a video
   // fitted to the canvas, text where its look places it.
   void DrawClip(const Project& project, const Clip& clip, Frame source,
                 double scale, VideoFrames* videos, QImage* out);
 
   ImageCache cache_;
+  CompShow comp_show_;
+  std::map<CompEffectId, double> comp_costs_;
 };
 
 }  // namespace snapper

@@ -3,6 +3,7 @@
 
 namespace snapper {
 
+class CompManager;
 class DialManager;
 class DocumentManager;
 class DrawManager;
@@ -70,6 +71,8 @@ struct Managers final {
   // Not in IsComplete either: the stage, the Pose timeline's reference
   // rows, the References box and the shot menu check it.
   ReferenceManager* references = nullptr;
+  // Not in IsComplete either: the Comp tab checks it.
+  CompManager* comp = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&

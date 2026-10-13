@@ -12,6 +12,7 @@
 #include "anim/master_timeline.h"
 #include "anim/reel_timeline.h"
 #include "anim/sampler.h"
+#include "render/comp.h"
 #include "render/effects.h"
 #include "render/layer_painter.h"
 #include "render/reel_text.h"
@@ -145,6 +146,11 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
   }
   const QTransform view = ViewTransform(project, shot, local, scale);
   LinkSolver links(project, shot, cache_.poses());
+  const CompNeeds needs = NeedsOf(shot, local, comp_show_);
+  CompPictures pictures;
+  if (needs.needs_drawn) {
+    pictures.drawn = Blank(project, scale, Qt::transparent);
+  }
   for (const Layer& layer : shot.layers) {
     const bool is_live = IsLayerLive(layer, local, shot.length);
     if (!is_live) {
@@ -168,10 +174,67 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
       }
       continue;
     }
+    const bool is_split = !needs.IsEmpty();
+    if (is_split) {
+      PaintForComp(project, layer, local, scale, view, &links, needs,
+                   &pictures, &frame);
+      continue;
+    }
     QPainter painter(&frame);
     PaintLayer(project, layer, local, view, &links, &cache_, &painter);
   }
+  const bool has_comp = !shot.comp.empty();
+  if (has_comp) {
+    const CompContext context{&project, &shot,     local,       scale,
+                              view,     &links,    &pictures,   comp_show_};
+    ApplyComp(context, &frame, &comp_costs_);
+  }
   return frame;
+}
+
+void FrameRenderer::PaintForComp(const Project& project, const Layer& layer,
+                                 Frame local,
+                                 double scale, const QTransform& view,
+                                 LinkSolver* links, const CompNeeds& needs,
+                                 CompPictures* pictures, QImage* frame) {
+  assert(pictures != nullptr && frame != nullptr);
+  assert(!needs.IsEmpty());
+  QImage own = Blank(project, scale, Qt::transparent);
+  {
+    QPainter painter(&own);
+    PaintLayer(project, layer, local, view, links, &cache_, &painter);
+  }
+  // What this layer covers is cut out of the targets below it, so an
+  // effect on a doll never shows through what stands in front of it.
+  for (auto& [key, picture] : pictures->targets) {
+    QPainter painter(&picture);
+    painter.setCompositionMode(QPainter::CompositionMode_DestinationOut);
+    painter.drawImage(0, 0, own);
+  }
+  for (const CompTargetKey& key : needs.targets) {
+    const bool is_this = key.layer == layer.id;
+    if (!is_this) {
+      continue;
+    }
+    const bool is_whole = key.pieces.empty();
+    if (is_whole) {
+      pictures->targets[key] = own;
+      continue;
+    }
+    const std::set<QString> only(key.pieces.begin(), key.pieces.end());
+    QImage pieces = Blank(project, scale, Qt::transparent);
+    QPainter painter(&pieces);
+    PaintLayer(project, layer, local, view, links, &cache_, &painter, &only);
+    painter.end();
+    pictures->targets[key] = pieces;
+  }
+  QPainter painter(frame);
+  painter.drawImage(0, 0, own);
+  const bool has_drawn = !pictures->drawn.isNull();
+  if (has_drawn) {
+    QPainter drawn(&pictures->drawn);
+    drawn.drawImage(0, 0, own);
+  }
 }
 
 QImage FrameRenderer::RenderLayers(

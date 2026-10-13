@@ -64,6 +64,7 @@ MainWindow::MainWindow(const Managers& managers)
       rig_split_(Qt::Horizontal),
       rig_canvas_(managers),
       rig_panel_(managers),
+      comp_page_(managers),
       video_page_(managers),
       cast_dock_(tr("Cast")),
       cast_(managers),
@@ -118,6 +119,7 @@ MainWindow::MainWindow(const Managers& managers)
   });
   connect(&rig_panel_, &RigPanel::Problem, this, show_problem);
   connect(&video_page_, &VideoPage::Problem, this, show_problem);
+  connect(&comp_page_, &CompPage::Problem, this, show_problem);
   cast_dock_.setObjectName(QStringLiteral("cast"));
   cast_dock_.setWidget(&cast_);
   addDockWidget(Qt::LeftDockWidgetArea, &cast_dock_);
@@ -161,10 +163,11 @@ void MainWindow::ShowMode(int index) {
   pages_.setCurrentIndex(index);
   managers_.playback->SetTimeline(is_video ? Timeline::kReel
                                            : Timeline::kShots);
-  // The cast shows outside the Video tab, the inspector only on Pose;
+  // The cast shows on the Pose and Rig tabs, the inspector only on Pose;
   // each comes back as it was left there.
   const auto has_cast = [](int mode) {
-    return mode != static_cast<int>(Mode::kVideo);
+    return mode == static_cast<int>(Mode::kPose) ||
+           mode == static_cast<int>(Mode::kRig);
   };
   const auto has_inspector = [](int mode) {
     return mode == static_cast<int>(Mode::kPose);
@@ -244,6 +247,7 @@ void MainWindow::BuildPages() {
   rig_split_.setStretchFactor(0, 3);
   rig_split_.setStretchFactor(1, 1);
   pages_.addWidget(&rig_split_);
+  pages_.addWidget(&comp_page_);
   pages_.addWidget(&video_page_);
   setCentralWidget(&pages_);
   assert(pages_.count() == static_cast<int>(Mode::kVideo) + 1);

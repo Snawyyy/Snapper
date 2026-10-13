@@ -37,7 +37,7 @@ QRectF ModeTabs::BarUnder(int index) const {
 }
 
 void ModeTabs::RefreshIcons() {
-  assert(count() <= 3);
+  assert(count() <= 4);
   assert(currentIndex() < count());
   for (int i = 0; i < count(); ++i) {
     const bool is_picked = i == currentIndex();

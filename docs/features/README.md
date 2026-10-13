@@ -31,7 +31,7 @@ In build order. Each file has a Needs line naming what must come first; Doll to 
 
 ### Finishing
 
-- [ ] [Compositing](compositing.md): a Comp tab with anime finishing effects, rim light included, that target a doll, pieces or palette colors.
+- [x] [Compositing](compositing.md): a Comp tab with anime finishing effects, rim light included, that target a doll, pieces or palette colors.
 
 ## Adding a new feature
 

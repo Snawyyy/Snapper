@@ -12,7 +12,7 @@
 
 namespace snapper {
 
-// The bar across the top: the Pose, Rig and Video tabs and the Undo
+// The bar across the top: the Pose, Rig, Comp and Video tabs and the Undo
 // and Redo buttons. It shows what the history manager says and forwards
 // clicks to it; the words and states come from bar_text.h. The keys stay
 // on the menu entries, so no button takes focus. The play controls live

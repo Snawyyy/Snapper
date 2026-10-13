@@ -26,13 +26,14 @@ TopBar::TopBar(const Managers& managers)
   layout_.setSpacing(2);
   tabs_.addTab(tr("Pose"));
   tabs_.addTab(tr("Rig"));
+  tabs_.addTab(tr("Comp"));
   tabs_.addTab(tr("Video"));
   tabs_.setObjectName(QStringLiteral("modes"));
   layout_.addWidget(&tabs_);
   layout_.addSpacing(kBarGap);
   BuildSteps();
   layout_.addStretch();
-  assert(tabs_.count() == 3);
+  assert(tabs_.count() == 4);
 }
 
 void TopBar::BuildSteps() {

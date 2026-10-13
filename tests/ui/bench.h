@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QTemporaryDir>
 
+#include "edit/comp_manager.h"
 #include "edit/dial_manager.h"
 #include "edit/doll_library_manager.h"
 #include "edit/document_manager.h"
@@ -63,6 +64,7 @@ struct Bench final {
   ObjectManager objects{&history, &library, &stage, &links};
   SoundManager sounds{&history};
   ReferenceManager references{&history};
+  CompManager comp{&history};
 
   Managers All() {
     Managers all{&history, &document, &library, &rig, &shots, &stage,
@@ -75,6 +77,7 @@ struct Bench final {
     all.objects = &objects;
     all.sounds = &sounds;
     all.references = &references;
+    all.comp = &comp;
     return all;
   }
 };

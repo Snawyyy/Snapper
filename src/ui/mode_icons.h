@@ -8,8 +8,8 @@ namespace snapper {
 
 // The small picture on each mode tab, drawn with a painter so the app
 // ships no image files: a puppet for Pose, two joined bones for Rig, a
-// film frame with a play mark for Video. index is the tab's place
-// (0 to 2). The picked tab's icon is tinted Teto red, the rest are
+// sparkle for Comp, a film frame with a play mark for Video. index is
+// the tab's place (0 to 3). The picked tab's icon is tinted Teto red, the rest are
 // plain text colour.
 QIcon ModeIcon(int index, bool is_picked);
 

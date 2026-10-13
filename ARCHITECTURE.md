@@ -531,6 +531,26 @@ An effect layer (flash, fill, invert, zoom punch, halftone, glitch,
 posterize) changes everything drawn below it, like an adjustment
 layer. Effects are drawn in screen space, after the camera.
 
+A shot also has a comp stack (`Shot::comp`, `model/comp.h`), the Comp
+tab's finishing effects, and a Light (`Shot::light`, a keyed angle).
+`FrameRenderer::RenderShot` runs the stack bottom first after every
+layer (`render/comp.cpp`), so every picture of the shot has it. Each
+effect works on a target: everything below, one layer, some pieces of
+a doll, narrowed by picked colors. When an effect needs a target's own
+pixels, `NeedsOf` says so and the layer pass paints each layer through
+its own picture (`PaintForComp`), keeping the target as it shows in
+the frame (cut where later layers cover it) and, for shape effects on
+everything, the drawn pixels on clear. The effect draws on a clear
+picture (`render/comp_effects.cpp`, `render/comp_light.cpp`) and
+`BlendOnto` (`render/blend.cpp`, the one blend function, W3C formulas,
+Normal over see-through pixels) lays it over the frame through the
+target's mask. Knobs are channels of doubles sampled by the one
+sampler with a per-kind default (`anim/comp_knobs.h`); points live in
+the target layer's space, or the canvas without the camera.
+`CompManager` owns every edit (one named undo step each) and the
+tab's view state: the picked effect, V and K (`CompShow`, passed only
+by the Comp stage's own renderer) and each effect's last cost.
+
 A shot may hold references (`Shot::references`, `model/reference.h`):
 videos, GIFs and pictures linked by path to animate over. They are not
 layers and have no keys, so posing, key copy and paste never touch

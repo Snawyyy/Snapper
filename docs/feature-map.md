@@ -57,6 +57,7 @@ it in the same commit.
 | Objects (props from PNG and GIF, Objects row, drop on stage, play mode, hold and drop) | Dolls (objects), Links (holding) | model/doll.h (ObjectClip), model/layer.h (ObjectPlay), model/shot.h (Hold), io/object_file.cpp, io/doll_json.cpp, io/layer_json.cpp, io/reconcile.cpp, anim/object_play.cpp, anim/links.cpp (HeldMove), render/stage_geometry.cpp (LayerParentToScreen), edit/object_manager.cpp, ui/cast_panel.cpp, ui/cast_actions.cpp, ui/doll_cards.cpp, ui/stage_view_drop.cpp, ui/hold_actions.cpp, ui/object_box.cpp | ObjectManager | none yet |
 | Transparent shot background (Transparent tile, checkerboard, Shift+V, Transparent start, alpha export: PNG frames, WebM, MOV) | Rendering | model/shot.h (is_transparent), model/project.h (new_shots_transparent), io/layer_json.cpp, io/project_file.cpp, render/frame_renderer.cpp (KeepDrawnOnly, RenderReel under), media/video_formats.cpp, media/video_encoder.cpp, media/video_streams.cpp, media/png_frames.cpp, media/wav_file.cpp, edit/shot_batch.cpp, edit/export_manager.cpp, edit/document_manager.cpp, ui/shot_box.cpp, ui/checkerboard.cpp, ui/stage_view_look.cpp (PaintBehind, SolidKey), ui/shot_strip_paint.cpp, ui/reel_timeline.cpp, ui/export_dialog.cpp, ui/export_dialog_actions.cpp, ui/new_project_dialog.cpp | ShotManager (SetTransparentAll), ExportManager | none yet |
 | Reference on the Pose tab (Add reference, Alt + drop, reference rows, opacity, in front, tint, fit, start and slide, speed, markers, Y, M, find file) | Shots | model/reference.h, model/shot.h (references), io/reference_json.cpp, io/layer_json.cpp, edit/reference_manager.cpp, edit/video_file_frames.cpp (PictureAtSeconds), render/reference_paint.cpp, render/frame_renderer.cpp (under), ui/stage_view_reference.cpp, ui/stage_view_drop.cpp, ui/timeline_references.cpp, ui/reference_box.cpp, ui/reference_keys.cpp, ui/shot_strip.cpp (menu), ui/inspector.cpp | ReferenceManager | none yet |
+| Compositing (Comp tab: effect stack, targets, picked colors, blend modes, keyed knobs, shot Light, V, K, I) | Shots | model/comp.h, model/shot.h (comp, light), anim/comp_knobs.cpp (KnobSpecOf, KnobAt, LightAt), io/comp_json.cpp, io/layer_json.cpp, render/comp.cpp (NeedsOf, ApplyComp, CompSpace), render/comp_effects.cpp, render/comp_light.cpp, render/blend.cpp (BlendOnto), render/frame_renderer.cpp (PaintForComp, SetCompShow), edit/comp_manager.cpp, edit/comp_edits.cpp, ui/comp_page.cpp, ui/comp_stack.cpp, ui/comp_stage.cpp, ui/comp_panel.cpp, ui/comp_timeline.cpp, ui/main_window.cpp (Mode::kComp), ui/top_bar.cpp | CompManager | none yet |
 
 ## Adding a new kind
 
@@ -131,6 +132,30 @@ EffectKind (model/layer.h):
 - ui/cast_panel.cpp and ui/layer_box.cpp list from the Count
 - render/layer_painter.cpp and render/stage_hit.cpp assert only
 - tests: render/render_tests, edit/stage_tests, io/project_file_tests
+
+CompKind (model/comp.h, a Comp tab effect):
+- model/comp.h: enum, `kCompKindCount`
+- anim/comp_knobs.cpp: `KnobSpecOf` switch (its knobs, labels, ranges)
+- io/comp_json.cpp: `kKindNames`
+- edit/comp_manager.cpp: `kKindNames`, `MadeOf` and `KindHelp`
+  switches, `StyleNames`, `IsKnobShown`, `UsesColor`
+- render/comp.cpp: the `Draw` switch (the look), `NeedsShape`
+- ui/comp_stack.cpp: `MarkColor` switch; the Add menu lists from the
+  Count
+- tests: none yet
+
+BlendMode (model/comp.h): `kBlendModeCount`; render/blend.cpp
+`Separable` switch (or `NonSeparable`); io/comp_json.cpp
+`kBlendNames`; edit/comp_manager.cpp `kBlendNames`; ui/comp_panel.cpp
+`kBlendGroups` (index ranges per group).
+
+CompKnob (model/comp.h): `kCompKnobCount`; io/comp_json.cpp
+`kKnobNames`; anim/comp_knobs.cpp per-kind switches; points (kAx to
+kBy) are compared in edit/comp_manager.cpp `IsKnobShown`.
+
+GradientShape (model/comp.h): `kGradientShapeCount`; io/comp_json.cpp
+`kShapeNames`; edit/comp_manager.cpp `kShapeNames`; render/comp_light.cpp
+`RampAt` switch and the four-corner and from-edge paths.
 
 TextMotion (model/reel.h, how a text clip comes in and goes out):
 - model/reel.h: enum, `kTextMotionCount`

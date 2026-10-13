@@ -16,6 +16,7 @@
 #include "ui/krita_menu.h"
 #include "ui/palette_panel.h"
 #include "ui/command_palette.h"
+#include "ui/comp_page.h"
 #include "ui/export_dialog.h"
 #include "ui/file_menu.h"
 #include "ui/inspector.h"
@@ -40,14 +41,14 @@
 
 namespace snapper {
 
-// The window frame: menus, the Pose, Rig and Video tabs, the status
+// The window frame: menus, the Pose, Rig, Comp and Video tabs, the status
 // bar, and the panels docked around the stage. It shows manager state and
 // forwards input; it decides nothing itself.
 class MainWindow final : public QMainWindow {
   Q_OBJECT
 
  public:
-  enum class Mode { kPose = 0, kRig = 1, kVideo = 2 };
+  enum class Mode { kPose = 0, kRig = 1, kComp = 2, kVideo = 3 };
 
   explicit MainWindow(const Managers& managers);
 
@@ -68,7 +69,7 @@ class MainWindow final : public QMainWindow {
   void BuildMenus();
   // The View menu's Sounds switch and the Help menu.
   void BuildViewAndHelp();
-  // Puts the Pose, Rig and Video pages in the stack.
+  // Puts the Pose, Rig, Comp and Video pages in the stack.
   void BuildPages();
   // Puts the top bar in its fixed host and ties the tabs to the pages.
   void BuildModes();
@@ -124,6 +125,7 @@ class MainWindow final : public QMainWindow {
   // before the scroll area that holds it.
   QScrollArea rig_scroll_;
   RigPanel rig_panel_;
+  CompPage comp_page_;
   VideoPage video_page_;
   QDockWidget cast_dock_;
   CastPanel cast_;
