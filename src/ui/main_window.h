@@ -48,7 +48,9 @@ class MainWindow final : public QMainWindow {
   Q_OBJECT
 
  public:
-  enum class Mode { kPose = 0, kRig = 1, kComp = 2, kVideo = 3 };
+  // In the order the work goes: build the doll, pose it, finish the shot,
+  // cut the reel.
+  enum class Mode { kRig = 0, kPose = 1, kComp = 2, kVideo = 3 };
 
   explicit MainWindow(const Managers& managers);
 

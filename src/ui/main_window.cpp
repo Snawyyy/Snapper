@@ -246,7 +246,7 @@ void MainWindow::BuildPages() {
   rig_split_.setCollapsible(1, false);
   rig_split_.setStretchFactor(0, 3);
   rig_split_.setStretchFactor(1, 1);
-  pages_.addWidget(&rig_split_);
+  pages_.insertWidget(static_cast<int>(Mode::kRig), &rig_split_);
   pages_.addWidget(&comp_page_);
   pages_.addWidget(&video_page_);
   setCentralWidget(&pages_);
@@ -263,9 +263,12 @@ void MainWindow::BuildModes() {
   top_bar_host_.toggleViewAction()->setVisible(false);
   top_bar_host_.addWidget(&top_bar_);
   addToolBar(Qt::TopToolBarArea, &top_bar_host_);
+  // The app opens on Pose; the page is already showing it.
+  top_bar_.tabs()->setCurrentIndex(static_cast<int>(Mode::kPose));
   connect(top_bar_.tabs(), &QTabBar::currentChanged, this,
           &MainWindow::ShowMode);
-  assert(top_bar_.tabs()->currentIndex() == 0);
+  assert(top_bar_.tabs()->currentIndex() == static_cast<int>(Mode::kPose));
+  assert(pages_.currentIndex() == static_cast<int>(Mode::kPose));
 }
 
 void MainWindow::BuildMenus() {
