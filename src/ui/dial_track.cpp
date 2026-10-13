@@ -84,9 +84,8 @@ void DialTrack::paintEvent(QPaintEvent* event) {
   // The sunken groove.
   painter.setPen(QPen(theme::kShadow, 1.0));
   painter.setBrush(theme::kField);
-  painter.drawRoundedRect(QRectF(QPointF(Left() - 3, kGrooveY - 3),
-                                 QPointF(Right() + 3, kGrooveY + 3)),
-                          3, 3);
+  painter.drawRect(QRectF(QPointF(Left() - 3, kGrooveY - 3),
+                          QPointF(Right() + 3, kGrooveY + 3)));
   QFont small = font();
   small.setPointSizeF(std::max(6.0, small.pointSizeF() - 2.0));
   painter.setFont(small);

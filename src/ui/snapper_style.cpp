@@ -58,6 +58,22 @@ void DrawBevel(QPainter* painter, const QRect& rect, const QColor& fill,
   }
 }
 
+// A square sunken frame with no fill: shadow on the top and left, light
+// on the bottom and right. Group boxes are drawn so, like the frames of
+// the panel kit.
+void DrawSunkenFrame(QPainter* painter, const QRect& rect) {
+  assert(painter != nullptr);
+  assert(rect.isValid());
+  painter->save();
+  painter->setPen(theme::kShadow);
+  painter->drawLine(rect.topLeft(), rect.topRight());
+  painter->drawLine(rect.topLeft(), rect.bottomLeft());
+  painter->setPen(theme::kFaceLight);
+  painter->drawLine(rect.bottomLeft(), rect.bottomRight());
+  painter->drawLine(rect.topRight(), rect.bottomRight());
+  painter->restore();
+}
+
 void DrawButton(const QStyleOption* option, QPainter* painter,
                 const QWidget* widget) {
   assert(option != nullptr);
@@ -116,6 +132,12 @@ void SnapperStyle::drawPrimitive(PrimitiveElement element,
       !option->state.testFlags(State_Sunken | State_On | State_MouseOver) &&
       option->state.testFlag(State_AutoRaise);
   if (is_flat_tool) {
+    return;
+  }
+  const bool is_group_frame =
+      element == PE_FrameGroupBox && option->rect.isValid();
+  if (is_group_frame) {
+    DrawSunkenFrame(painter, option->rect.adjusted(0, 0, -1, -1));
     return;
   }
   if (is_button) {

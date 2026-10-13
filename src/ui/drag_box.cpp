@@ -8,19 +8,12 @@
 #include "edit/history_manager.h"
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
+#include "ui/panel_kit.h"
 #include "ui/pose_controls.h"
 #include "ui/picked_dot.h"
 #include "ui/problem.h"
 
 namespace snapper {
-namespace {
-
-// The top row's width shares: the pad takes the golden ratio's long
-// part, its preview the short one (62 to 38).
-constexpr int kGoldenLong = 62;
-constexpr int kGoldenShort = 38;
-
-}  // namespace
 
 DragBox::DragBox(const Managers& managers)
     : QGroupBox(tr("Warp dots")), managers_(managers), outer_(this),
@@ -124,9 +117,8 @@ void DragBox::SetUpPadRow() {
                       "wobble."));
   // The pad and its preview, the pad taking the golden ratio's long part.
   blob_.setFixedHeight(pad_.sizeHint().height());
-  layout_.addRow(MakeCellRow({MakePlated(tr("Feel"), &pad_, this),
-                              MakePlated(tr("Preview"), &blob_, this)},
-                             {kGoldenLong, kGoldenShort}, this));
+  layout_.addRow(GoldenRow(MakePlated(tr("Feel"), &pad_, this),
+                           MakePlated(tr("Preview"), &blob_, this), this));
   connect(&pad_, &FeelPad::Grabbed, this, [this] {
     live_.Touch(RigManager::FeelLabel(
         std::max<size_t>(LookAtPick().dots.size(), 1)));

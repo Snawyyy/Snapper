@@ -67,7 +67,9 @@ void AddNumberPair(QFormLayout* form, const QString& label, QHBoxLayout* row,
                    const NumberPart& first, const NumberPart& second,
                    LiveEdit* live);
 
-// A form title above a group of rows, such as "Move" or "Warp".
+// A form title above a group of rows, such as "Move" or "Warp": a
+// raised title plate at the form's edge, hugging its text (see
+// MakeTitlePlate in panel_kit.h).
 void AddTitle(QFormLayout* form, QLabel* title, const QString& text);
 
 // Two fields side by side on one form row, such as x and y.

@@ -12,6 +12,7 @@
 #include "base/number_text.h"
 #include "ui/number_input.h"
 #include "ui/angle_dial.h"
+#include "ui/panel_kit.h"
 #include "ui/scrub_label.h"
 
 namespace snapper {
@@ -109,11 +110,11 @@ void AddNumberPair(QFormLayout* form, const QString& label, QHBoxLayout* row,
 void AddTitle(QFormLayout* form, QLabel* title, const QString& text) {
   assert(form != nullptr && title != nullptr);
   assert(!text.isEmpty());
-  QFont bold = title->font();
-  bold.setBold(true);
-  title->setFont(bold);
   title->setText(text);
+  MakeTitlePlate(title);
   form->addRow(title);
+  // Hugs its text at the form's edge instead of spanning the row.
+  form->setAlignment(title, Qt::AlignLeft | Qt::AlignVCenter);
 }
 
 void AddPair(QFormLayout* form, const QString& label, QHBoxLayout* row,

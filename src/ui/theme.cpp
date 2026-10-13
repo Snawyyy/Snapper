@@ -2,7 +2,9 @@
 
 #include <QApplication>
 #include <QFont>
+#include <QFontMetrics>
 #include <QPalette>
+#include <QWidget>
 
 #include <cassert>
 #include <memory>
@@ -44,6 +46,13 @@ QPalette DarkPalette() {
 }
 
 }  // namespace
+
+int Em(const QWidget* widget) {
+  assert(widget != nullptr);
+  const int em = QFontMetrics(widget->font()).height();
+  assert(em > 0);
+  return em;
+}
 
 void Apply(QApplication* application) {
   assert(application != nullptr);

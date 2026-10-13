@@ -17,9 +17,11 @@
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
 #include "ui/live_edit.h"
+#include "ui/panel_kit.h"
 #include "ui/playhead.h"
 #include "ui/pose_controls.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 
 namespace snapper {
 namespace {
@@ -28,12 +30,6 @@ namespace {
 constexpr int kPadSide = 96;
 // The Turn dial: big, as the control used most after Move.
 constexpr int kTurnDial = 72;
-// The top row's width shares: Move gets the golden ratio's long part,
-// Turn the short one (62 to 38).
-constexpr int kGoldenLong = 62;
-constexpr int kGoldenShort = 38;
-// Space between the panel's rows, on an 8 px rhythm.
-constexpr int kRowGap = 8;
 // Scale faders span 0 to this; past it the cap rests at the end.
 constexpr double kScaleShown = 3.0;
 // The camera's zoom fader spans up to this; the shake fader up to
@@ -117,12 +113,14 @@ PoseBox::PoseBox(const Managers& managers)
   // The two most used controls share the top row at one height, then
   // the sliders, then the rarely used turns; the fields stay as small
   // readouts you can still type in.
-  layout_.setVerticalSpacing(kRowGap);
-  layout_.addRow(MakeCellRow(
-      {MakePadCell(tr("Move"), &fields_[kX], &fields_[kY], &live_, this),
-       MakeDialCell(tr("Turn"), &fields_[kTurn], &live_, kTurnDial,
-                    kPadSide, this)},
-      {kGoldenLong, kGoldenShort}, this));
+  // Move takes the golden ratio's long part of the top row, Turn the
+  // short one.
+  layout_.setVerticalSpacing(theme::kRowGap);
+  layout_.addRow(GoldenRow(
+      MakePadCell(tr("Move"), &fields_[kX], &fields_[kY], &live_, this),
+      MakeDialCell(tr("Turn"), &fields_[kTurn], &live_, kTurnDial, kPadSide,
+                   this),
+      this));
   layout_.addRow(MakeFaderRow(tr("Scale x"), &fields_[kScaleX], &live_,
                               kScaleShown, 1.0, this));
   layout_.addRow(MakeFaderRow(tr("Scale y"), &fields_[kScaleY], &live_,
@@ -257,12 +255,12 @@ CameraBox::CameraBox(const Managers& managers)
     fields_[static_cast<size_t>(i)].setObjectName(
         QLatin1String(names[static_cast<size_t>(i)]));
   }
-  layout_.setVerticalSpacing(kRowGap);
-  layout_.addRow(MakeCellRow(
-      {MakePadCell(tr("Look at"), &fields_[kX], &fields_[kY], &live_, this),
-       MakeDialCell(tr("Turn"), &fields_[kTurn], &live_, kTurnDial,
-                    kPadSide, this)},
-      {kGoldenLong, kGoldenShort}, this));
+  layout_.setVerticalSpacing(theme::kRowGap);
+  layout_.addRow(GoldenRow(
+      MakePadCell(tr("Look at"), &fields_[kX], &fields_[kY], &live_, this),
+      MakeDialCell(tr("Turn"), &fields_[kTurn], &live_, kTurnDial, kPadSide,
+                   this),
+      this));
   layout_.addRow(MakeFaderRow(tr("Zoom"), &fields_[kZoom], &live_,
                               kZoomShown, 1.0, this));
   layout_.addRow(MakeFaderRow(tr("Shake"), &fields_[kShake], &live_,

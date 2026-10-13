@@ -2,6 +2,7 @@
 #define SNAPPER_UI_FOLD_SECTION_H_
 
 #include <QFormLayout>
+#include <QFrame>
 #include <QPointer>
 #include <QString>
 #include <QToolButton>
@@ -13,9 +14,12 @@ namespace snapper {
 
 class MotionManager;
 
-// A heading that folds the rows under it away. It opens and closes by
-// sliding over the Move time (at once in Off). Whether it is open is
-// kept in the settings file under key, so it stays as the user left it.
+// A heading that folds the rows under it away, in the panel kit's look:
+// a raised title plate with a square triangle (right when folded, down
+// when open) over a sunken frame whose rows sit kIndent in. It opens
+// and closes by sliding over the Move time (at once in Off). Whether it
+// is open is kept in the settings file under key, so it stays as the
+// user left it.
 class FoldSection final : public QWidget {
   Q_OBJECT
 
@@ -35,6 +39,7 @@ class FoldSection final : public QWidget {
   void Slide(int from, int to);
   void Finish();
   void Remember() const;
+  void ShowHeader();
 
   MotionManager* motion_;
   QString settings_path_;
@@ -42,7 +47,7 @@ class FoldSection final : public QWidget {
   QString title_;
   QVBoxLayout layout_;
   QToolButton header_;
-  QWidget body_;
+  QFrame body_;
   QFormLayout form_;
   QPointer<QVariantAnimation> animation_;
   bool is_open_ = false;

@@ -138,7 +138,7 @@ void StageView::PaintReferencesOver(const StageFrame& frame, QSize shown,
                              painter->fontMetrics().height() + 6.0));
     painter->setPen(Qt::NoPen);
     painter->setBrush(theme::kFaceDark);
-    painter->drawRoundedRect(chip, 4.0, 4.0);
+    painter->drawRect(chip);
     painter->setPen(theme::kText);
     painter->drawText(chip, Qt::AlignCenter, words);
   }

@@ -136,7 +136,9 @@ PalettePanel::PalettePanel(PaletteManager* palette, QString settings_path,
   auto* title_row = new QHBoxLayout(&title_);
   title_row->setContentsMargins(0, 0, 0, 0);
   title_text_.setText(tr("Palette"));
-  title_text_.setStyleSheet(QStringLiteral("font-weight: bold;"));
+  QFont bold = title_text_.font();
+  bold.setBold(true);
+  title_text_.setFont(bold);
   fold_.setAutoRaise(true);
   fold_.setToolTip(tr("Fold to the current color"));
   close_.setAutoRaise(true);
@@ -153,11 +155,15 @@ PalettePanel::PalettePanel(PaletteManager* palette, QString settings_path,
   tabs_.setExpanding(true);
   tabs_.setDrawBase(false);
   empty_.setWordWrap(true);
-  empty_.setStyleSheet(QStringLiteral("color: %1;")
-                           .arg(theme::kTextOff.name()));
+  QPalette dim = empty_.palette();
+  dim.setColor(QPalette::WindowText, theme::kTextOff);
+  empty_.setPalette(dim);
   auto* row = new QHBoxLayout(&current_row_);
   row->setContentsMargins(0, 0, 0, 0);
+  // A square sunken well filled with the current color.
   current_swatch_.setFixedSize(44, 22);
+  current_swatch_.setFrameStyle(QFrame::Panel | QFrame::Sunken);
+  current_swatch_.setAutoFillBackground(true);
   row->addWidget(&current_swatch_);
   row->addWidget(&current_hex_, 1);
   layout_.addWidget(&title_);
@@ -224,10 +230,9 @@ void PalettePanel::Refresh() {
   grid_.SetColors(colors, current);
   empty_.setText(why);
   empty_.setVisible(!is_folded_ && colors.empty());
-  current_swatch_.setStyleSheet(
-      QStringLiteral("background: %1; border: 1px solid %2; "
-                     "border-radius: 0px;")
-          .arg(current.name(), theme::kShadow.name()));
+  QPalette swatch = current_swatch_.palette();
+  swatch.setColor(QPalette::Window, current);
+  current_swatch_.setPalette(swatch);
   current_hex_.setText(current.name().toUpper());
   FitHeight();
 }

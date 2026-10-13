@@ -1193,6 +1193,42 @@ and saved poses for picked pieces or layers; the drag node and dot
 animation panels for a picked warp dot, and the Link box only while a
 pick follows something (`Inspector::Refresh`).
 
+Panel kit. Every panel is built from `ui/panel_kit.h` so all of them
+look like the Pose box: `MakePlate` (a centred raised plate, a control
+cell's name), `MakeTitlePlate` (bold, hugging its text at the left edge,
+a section's title), `Framed` (a sunken frame round a control and its
+readout bar), `StackIn` and `InSlot` (flush columns, controls centred in
+a fixed slot), `PlatedSection(title, body)` (a title plate over a sunken
+frame with the body `theme::kIndent` in), `SettingsGroup` (a title plate
+over a form indented by `kIndent`, no frame), `SettingsForm`, `GoldenRow`
+(two cells on the golden ratio, `kGoldenLong` to `kGoldenShort`),
+`GoldenSplit(total)`, `SharedRow`, `TileRow` and `EmptyHint` (a quiet line
+saying why a list is empty and what fills it). `theme.h` holds the
+spacing (`kIndent`, `kRowGap`, `kCellGap`) and `Em(widget)` for sizes in
+ems. `FoldSection` is a raised title plate with a square triangle over a
+sunken, indented frame; `AddTitle` makes a title plate; `SnapperStyle`
+draws group boxes as square sunken frames. No rounded corners and no
+style sheets: the look comes from frames and the style.
+`ui/flow_layout.h` wraps a button bar onto more lines when narrow.
+`ui/screen_fit.h` fits windows to any screen: `FitWindowToScreen` (85 %
+of the screen, fitted again on a screen it does not fit), `GoldenDocks`
+(the centre takes 0.618 of the width), `RememberLayout` (size, place and
+docks per settings key; a place off every screen is refused),
+`FitDialog(dialog, ems)` and `TabDocksWhenPortrait` (width / height under
+1.2 tabs Cast behind the Inspector); the pure parts (`FittedRect`,
+`GoldenDockWidths`, `IsPortrait`, `IsShownEnough`, `DialogSize`) take
+plain numbers. `KeepWideEnough` (`scroll_fit.h`) asks for at most 30 %
+of the screen's width.
+
+The pick keys live in one place, `ui/pick_keys.h`: `ClickMode(mods,
+is_picked)` gives the `PickMode` of a click (Ctrl flips and wins over
+Shift, Shift adds, a plain click on something picked keeps the pick so it
+can be dragged, and a release that did not drag narrows it), `BoxMode
+(mods)` that of a box (Shift adds, Ctrl removes). `PickList::Install`
+(`ui/pick_list.h`) makes any Qt item view follow them, with Ctrl+A,
+Escape and Delete (`DeleteAsked`); the view's own selection mode becomes
+NoSelection so only the filter writes the pick.
+
 ## Errors
 
 No exceptions. A call that can fail returns `Result<T>`

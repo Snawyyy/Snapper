@@ -4,6 +4,7 @@
 #include <QColor>
 
 class QApplication;
+class QWidget;
 
 namespace snapper {
 
@@ -29,6 +30,17 @@ inline constexpr QColor kHandle{0xf2, 0xc2, 0x30};
 // Collider outline dots in the rig: cool, apart from the yellow handles.
 inline constexpr QColor kCollider{0x2e, 0xc4, 0xd6};
 inline constexpr int kFontPoints = 9;
+
+// Spacing, on an 8 px rhythm. Settings sit kIndent in from their
+// title, which stands out at the panel's edge; rows of a panel are
+// kRowGap apart, cells that share a row kCellGap.
+inline constexpr int kIndent = 12;
+inline constexpr int kRowGap = 8;
+inline constexpr int kCellGap = 16;
+
+// One em of widget's font in pixels (its line height), so sizes given
+// in ems follow the font and the screen's scale.
+int Em(const QWidget* widget);
 
 // Sets the style, palette and font on the whole application.
 void Apply(QApplication* application);
