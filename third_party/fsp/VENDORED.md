@@ -175,3 +175,44 @@ Star/Star.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
 Star/Star.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
 Star/Star.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
 ```
+
+### Sputtering
+
+Files: `Sputtering/` (`Sputtering.cpp`, `Sputtering.h`, `SputMain.cpp`,
+`TargetWorld.cpp`, `TargetWorld.h`, `NF_Target.h`, `README.MD`; not the
+`Data48/` pictures or `Sample.png`); `_NFLib/fx/NF_SpatUtils` (`.cpp`
+and `.h`, which hold the built-in splat shapes). Units
+`sputtering_unit_1..2.cpp` (`NF_Blend.cpp` and `NF_SpatUtils.cpp` both
+specialise `PixelTraits`, with different members). The texture layer
+parameter gets the host's empty layer, so the built-in splats are used,
+as in After Effects with the layer set to None. Auto_Seed adds the frame
+number, always 0 here, so only Seed changes the pattern. The target and
+splat colors and Direction_Angle are added invisible and shown by F's
+UPDATE_PARAMS_UI, which the host never sends: they take values but are
+marked hidden. Spawn_Offset is not scaled down by F's code at preview
+scale (the splats are).
+
+```
+Sputtering/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+Sputtering/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+Sputtering/Sputtering.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+Sputtering/Sputtering.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+Sputtering/Sputtering.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+Sputtering/Sputtering.h:17: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+Sputtering/Sputtering.h:18: "..\_NFLib\fx\NF_SpatUtils.h" -> "../_NFLib/fx/NF_SpatUtils.h"
+Sputtering/Sputtering.h:22: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+Sputtering/Sputtering.h:23: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+Sputtering/Sputtering.h:24: "..\_NFLib\fx\NF_ChannelMinmax.h" -> "../_NFLib/fx/NF_ChannelMinMax.h"
+Sputtering/Sputtering.h:25: "..\_NFLib\fx\NF_Blur.h" -> "../_NFLib/fx/NF_Blur.h"
+Sputtering/Sputtering.h:26: "..\_NFLib\fx\NF_ChannelBlur.h" -> "../_NFLib/fx/NF_ChannelBlur.h"
+Sputtering/Sputtering.h:27: "..\_NFLib\fx\debug_font.h" -> "../_NFLib/fx/debug_font.h"
+Sputtering/Sputtering.h:28: "..\_NFLib\fx\NF_Paint.h" -> "../_NFLib/fx/NF_Paint.h"
+Sputtering/Sputtering.h:29: "..\_NFLib\fx\NF_Noise.h" -> "../_NFLib/fx/NF_Noise.h"
+Sputtering/Sputtering.h:30: "..\_NFLib\fx\NF_Draw.h" -> "../_NFLib/fx/NF_Draw.h"
+Sputtering/Sputtering.h:31: "..\_NFLib\fx\NF_DrawAALine.h" -> "../_NFLib/fx/NF_DrawAALine.h"
+Sputtering/Sputtering.h:36: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
+Sputtering/TargetWorld.h:24: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+_NFLib/fx/NF_SpatUtils.h:24: "..\NF_Utils.h" -> "../NF_Utils.h"
+```
+
+(Lines 22 to 31 of `Sputtering.h` sit in a comment; patched anyway.)
