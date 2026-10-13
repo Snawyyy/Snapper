@@ -12,16 +12,16 @@
   PLUGIN(Thin, thin) \
   PLUGIN(LineExtraction, lineextraction) \
   PLUGIN(CellLineEraser, celllineeraser) \
-  PLUGIN(InkingLineBlur, inkinglineblur)
+  PLUGIN(InkingLineBlur, inkinglineblur) \
   PLUGIN(ColorSwitch, colorswitch) \
   PLUGIN(WhiteKeying, whitekeying) \
   PLUGIN(AlphaFill, alphafill) \
   PLUGIN(FloodFill, floodfill) \
-  PLUGIN(SelectiveColorBlur, selectivecolorblur)
+  PLUGIN(SelectiveColorBlur, selectivecolorblur) \
   PLUGIN(SpeedLines, speedlines) \
   PLUGIN(BurstLines, burstlines) \
   PLUGIN(RadialLines, radiallines) \
-  PLUGIN(TouchLines, touchlines)
+  PLUGIN(TouchLines, touchlines) \
   PLUGIN(InnerFlare, innerflare) \
   PLUGIN(InnerFlareRot, innerflarerot) \
   PLUGIN(Star, star) \
