@@ -2,11 +2,11 @@
 #define SNAPPER_UI_COMP_PAGE_H_
 
 #include <QScrollArea>
-#include <QSplitter>
 #include <QString>
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "ui/grip_splitter.h"
 #include "ui/comp_panel.h"
 #include "ui/comp_stack.h"
 #include "ui/comp_stage.h"
@@ -58,8 +58,8 @@ class CompPage final : public QWidget {
   // Containers come before what they hold, so the held widgets leave
   // them before they go.
   QVBoxLayout layout_;
-  QSplitter split_;
-  QSplitter center_;
+  GripSplitter split_;
+  GripSplitter center_;
   QWidget bottom_;
   QVBoxLayout bottom_layout_;
   QScrollArea stack_scroll_;

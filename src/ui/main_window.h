@@ -6,12 +6,12 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QScrollArea>
-#include <QSplitter>
 #include <QStackedWidget>
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "ui/grip_splitter.h"
 #include "ui/cast_panel.h"
 #include "ui/krita_menu.h"
 #include "ui/palette_panel.h"
@@ -117,14 +117,14 @@ class MainWindow final : public QMainWindow {
   QWidget pose_page_;
   QVBoxLayout pose_layout_;
   ShotStrip strip_;
-  QSplitter pose_split_;
+  GripSplitter pose_split_;
   StageView stage_;
   // The timeline with the play controls above it.
   QWidget timeline_host_;
   QVBoxLayout timeline_layout_;
   TransportBar pose_transport_;
   TimelineView timeline_;
-  QSplitter rig_split_;
+  GripSplitter rig_split_;
   RigCanvas rig_canvas_;
   // Scrolls the rig settings, so a piece with more of them never
   // squeezes or clips the rest. Before the panel, so the panel is gone

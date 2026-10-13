@@ -2,7 +2,9 @@
 #define SNAPPER_UI_SNAPPER_STYLE_H_
 
 #include <QColor>
+#include <QPainter>
 #include <QProxyStyle>
+#include <QRect>
 
 namespace snapper {
 
@@ -41,6 +43,11 @@ ButtonLook LookOfButton(bool is_enabled, bool is_down, bool is_checked,
 // How wide a splitter handle or dock separator is, so it is easy to
 // catch; the line drawn in it stays thin until the pointer is over it.
 inline constexpr int kGripExtent = 10;
+
+// Paints the ridges of a grip into box, along its long side: dark and
+// raised at rest, yellow on a dark band when is_active (the pointer is
+// over it or it is being dragged).
+void DrawGripLine(QPainter* painter, const QRect& box, bool is_active);
 
 class SnapperStyle final : public QProxyStyle {
  public:

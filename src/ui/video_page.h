@@ -4,7 +4,6 @@
 #include <QElapsedTimer>
 #include <QPushButton>
 #include <QShortcut>
-#include <QSplitter>
 #include <QString>
 #include <QTabWidget>
 #include <QVBoxLayout>
@@ -16,6 +15,7 @@
 #include "base/frame.h"
 #include "model/reel.h"
 #include "model/shot.h"
+#include "ui/grip_splitter.h"
 #include "ui/flow_layout.h"
 #include "ui/managers.h"
 #include "ui/record_button.h"
@@ -96,8 +96,8 @@ class VideoPage final : public QWidget {
   // Containers come before what they hold, so the held widgets leave
   // them before they go.
   QVBoxLayout layout_;
-  QSplitter split_;
-  QSplitter top_;
+  GripSplitter split_;
+  GripSplitter top_;
   QWidget bin_column_;
   QVBoxLayout bin_layout_;
   QWidget bottom_;

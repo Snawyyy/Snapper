@@ -24,6 +24,9 @@ constexpr int kTabPadX = 18;
 constexpr int kTabPadY = 8;
 // A hovered tab rises this many pixels.
 constexpr int kTabLiftPx = 1;
+// Pixels between ridges on a grip, and the most drawn on one.
+constexpr int kRidgeGap = 4;
+constexpr int kMaxRidges = 2000;
 
 double HoverOf(const QStyleOption* option, const QWidget* widget) {
   assert(option != nullptr);
@@ -102,26 +105,47 @@ void DrawGrip(const QStyleOption* option, QPainter* painter,
               bool is_under_cursor) {
   assert(option != nullptr);
   assert(painter != nullptr);
-  const QRect box = option->rect;
+  const bool is_active =
+      is_under_cursor ||
+      option->state.testFlags(QStyle::State_MouseOver | QStyle::State_Sunken);
+  painter->fillRect(option->rect, option->palette.window());
+  DrawGripLine(painter, option->rect, is_active);
+}
+
+}  // namespace
+
+void DrawGripLine(QPainter* painter, const QRect& box, bool is_active) {
+  assert(painter != nullptr);
   const bool has_room = box.isValid();
   if (!has_room) {
     return;
   }
-  const bool is_active =
-      is_under_cursor ||
-      option->state.testFlags(QStyle::State_MouseOver | QStyle::State_Sunken);
-  painter->fillRect(box, option->palette.window());
-  const int line = is_active ? 4 : 1;
+  // Ridges across the strip, like a knurled edge: ||||||| along it.
   const bool is_bar = box.height() > box.width();
-  const QRect groove =
-      is_bar ? QRect(box.center().x() - line / 2, box.top(), line,
-                     box.height())
-             : QRect(box.left(), box.center().y() - line / 2, box.width(),
-                     line);
-  painter->fillRect(groove, is_active ? theme::kHandle : theme::kShadow);
+  const int along = is_bar ? box.height() : box.width();
+  const int across = is_bar ? box.width() : box.height();
+  const int ridge_length = std::max(2, across * 2 / 3);
+  const int start = (across - ridge_length) / 2;
+  if (is_active) {
+    const QRect band = is_bar ? QRect(box.left() + start, box.top(),
+                                      ridge_length, along)
+                              : QRect(box.left(), box.top() + start, along,
+                                      ridge_length);
+    painter->fillRect(band, theme::kFaceDark);
+  }
+  const int steps = std::min(along / kRidgeGap, kMaxRidges);
+  for (int i = 0; i < steps; ++i) {
+    const int at = i * kRidgeGap + kRidgeGap / 2;
+    const QRect dark = is_bar ? QRect(box.left() + start, box.top() + at,
+                                      ridge_length, 1)
+                              : QRect(box.left() + at, box.top() + start, 1,
+                                      ridge_length);
+    painter->fillRect(dark, is_active ? theme::kHandle : theme::kShadow);
+    const QRect light = is_bar ? dark.translated(0, 1) : dark.translated(1, 0);
+    painter->fillRect(light, is_active ? theme::kHandle.darker(130)
+                                       : theme::kFaceLight);
+  }
 }
-
-}  // namespace
 
 double SquashScale(double press) {
   assert(kSquash > 0.0 && kSquash < 0.5);
