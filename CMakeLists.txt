@@ -51,6 +51,10 @@ snapper_module(render
 # editing: they stay -O2 there (asserts stay on, so it still checks).
 target_compile_options(snapper_anim PRIVATE "$<$<CONFIG:Debug>:-O2>")
 target_compile_options(snapper_render PRIVATE "$<$<CONFIG:Debug>:-O2>")
+# Runs the Line smoother over a PNG, to look at it without the app.
+add_executable(smoother_render EXCLUDE_FROM_ALL tools/smoother_render.cpp)
+target_link_libraries(smoother_render PRIVATE snapper_render)
+snapper_warnings(smoother_render)
 snapper_module(edit
   MODULES io media render
   LIBS Qt6::Concurrent)
