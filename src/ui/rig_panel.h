@@ -28,11 +28,14 @@ namespace snapper {
 // An old warp grid shows 3 by 3 when its fields are first shown.
 constexpr int kDefaultWarpCells = 3;
 
-// The rig's settings beside the rig canvas: which doll, its pieces as a
-// tree, the picked piece's parent, draw order, default drawing and warp
-// grid, its IK chains, its skins, and saving the rig back to the
-// library. While a skin is being changed the Drawing picker sets the
-// picked pieces' drawing in that skin instead of the default.
+// The rig's settings beside the rig canvas, as plated sections in the
+// Pose box style (panel_kit.h), each shown only when the pick needs it:
+// Doll (which doll, its pieces as a tree, saving the rig back to the
+// library), Look, Skins and IK chains with a doll; Joint (parent, rest
+// turn, draw order, drawing, mirroring) and Warp with a piece; Collider
+// while the piece is one. While a skin is being changed the Drawing
+// picker sets the picked pieces' drawing in that skin instead of the
+// default. The piece list picks by the one pick rule (PickList).
 class RigPanel final : public QWidget {
   Q_OBJECT
 
@@ -88,13 +91,18 @@ class RigPanel final : public QWidget {
   LiveEdit live_;
   QComboBox dolls_;
   QListWidget pieces_;
-  QFormLayout form_;
+  // The sections shown by what is picked, and the forms of two of them
+  // (their widgets own them).
+  QWidget* doll_section_ = nullptr;
+  QWidget* joint_section_ = nullptr;
+  QWidget* warp_section_ = nullptr;
+  QWidget* chains_section_ = nullptr;
+  QFormLayout* joint_form_ = nullptr;
+  QFormLayout* warp_form_ = nullptr;
   QComboBox parent_;
   QSpinBox order_;
   QDoubleSpinBox rest_;
   QComboBox drawing_;
-  QLabel joint_title_;
-  QLabel warp_title_;
   QCheckBox warp_on_;
   QCheckBox keep_shape_;
   QHBoxLayout warp_row_;
@@ -102,7 +110,6 @@ class RigPanel final : public QWidget {
   QSpinBox warp_rows_;
   QComboBox detail_;
   QPushButton convert_;
-  QLabel chains_title_;
   QListWidget chains_;
   QHBoxLayout chain_buttons_;
   QPushButton add_chain_;

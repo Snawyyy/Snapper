@@ -66,7 +66,8 @@ void CastPanelTests::ImportThenPutOnStage() {
   QPushButton* place = Button(&panel, "Put on stage");
   QVERIFY(!import->isEnabled());
   QVERIFY(!import->toolTip().isEmpty());
-  List(&panel, 0)->setCurrentRow(0);
+  List(&panel, 0)->selectionModel()->select(
+      List(&panel, 0)->model()->index(0, 0), QItemSelectionModel::Select);
   QVERIFY(import->isEnabled());
   // A picked doll can be put on the stage even before it is imported:
   // putting it there imports it.
@@ -93,7 +94,8 @@ void CastPanelTests::LayersShowAndHide() {
   QVERIFY(layers->item(0)->text().startsWith("Two"));
   layers->item(0)->setCheckState(Qt::Unchecked);
   QVERIFY(!bench.history.current().shots[0]->layers[1].is_visible);
-  layers->item(1)->setSelected(true);
+  layers->selectionModel()->select(layers->model()->index(1, 0),
+                                   QItemSelectionModel::Select);
   QCOMPARE(bench.selection.layer(),
            bench.history.current().shots[0]->layers[0].id);
   Button(&panel, "Up")->click();

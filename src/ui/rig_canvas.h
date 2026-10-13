@@ -195,6 +195,10 @@ class RigCanvas final : public QWidget {
   QPointF box_from_;
   QPointF box_to_;
   PickMode box_mode_ = PickMode::kReplace;
+  // A joint press that flips it out or narrows the pick to it waits for
+  // a release that did not drag (pick_keys.h); empty when none waits.
+  QString later_joint_;
+  PickMode later_mode_ = PickMode::kReplace;
   Drag drag_ = Drag::kNone;
   // Set after a joint is double-clicked: the next click picks its
   // parent. The line follows the cursor meanwhile.

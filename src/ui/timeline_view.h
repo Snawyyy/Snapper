@@ -180,6 +180,9 @@ class TimelineView final : public QWidget {
   QPointF box_from_;
   QPointF box_to_;
   PickMode box_mode_ = PickMode::kReplace;
+  // A plain press on picked keys: the pick narrows to them on a release
+  // that did not drag (pick_keys.h); empty when none waits.
+  std::set<KeyRef> later_keys_;
   std::unique_ptr<EditScope> key_drag_;
   // True while a key drag lands its step, so it does not slide again.
   bool is_landing_drag_ = false;

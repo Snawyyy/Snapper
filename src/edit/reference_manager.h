@@ -7,10 +7,12 @@
 #include <QString>
 
 #include <map>
+#include <set>
 #include <vector>
 
 #include "base/error.h"
 #include "base/frame.h"
+#include "edit/selection_manager.h"
 #include "edit/video_file_frames.h"
 #include "model/reference.h"
 #include "model/shot.h"
@@ -35,7 +37,10 @@ class ReferenceManager final : public QObject {
   Q_OBJECT
 
  public:
-  explicit ReferenceManager(HistoryManager* history);
+  // With selection, the references and the stage's layers share one
+  // pick (PickMany).
+  explicit ReferenceManager(HistoryManager* history,
+                            SelectionManager* selection = nullptr);
 
   // Links the file at path into shot as a reference ("Add reference"),
   // fitted to the frame, behind everything at half opacity, starting on
@@ -74,10 +79,25 @@ class ReferenceManager final : public QObject {
   // True when the file is not where the reference links it.
   static bool IsMissing(const Reference& reference);
 
-  // The picked reference of shot, invalid for none. Picking one does not
-  // touch the stage's pick of layers.
+  // Removes every picked reference of shot as one undo step ("Remove 3
+  // references").
+  Result<void> RemovePicked(ShotId shot);
+
+  // The focused picked reference of shot (the one the panel shows),
+  // invalid for none.
   ReferenceId PickedIn(ShotId shot) const;
+  // Every picked reference of shot that still exists.
+  std::set<ReferenceId> PicksIn(ShotId shot) const;
+  bool IsPicked(ShotId shot, ReferenceId id) const;
+  // Picks id alone (an invalid id picks none).
   void Pick(ShotId shot, ReferenceId id);
+  // Picks ids of shot combined with the pick as mode says (pick_keys.h:
+  // Shift adds, Ctrl flips); focus becomes the focus when it stays
+  // picked. References and the stage's layers are one pick: picking a
+  // reference drops the picked layers and pieces, and picking those drops
+  // the picked references (when made with a selection).
+  void PickMany(ShotId shot, const std::set<ReferenceId>& ids, PickMode mode,
+                ReferenceId focus);
   // Y: every reference shown or hidden at once, over their own eyes.
   bool are_shown() const { return are_shown_; }
   void ToggleShown();
@@ -93,9 +113,14 @@ class ReferenceManager final : public QObject {
   void Changed();
 
  private:
+  // The stage picked something: the references let go.
+  void DropForStage();
+
   HistoryManager* history_;
+  SelectionManager* selection_ = nullptr;
   ShotId picked_shot_;
   ReferenceId picked_;
+  std::set<ReferenceId> picks_;
   bool are_shown_ = true;
   VideoFileFrames videos_;
   // Still pictures, read once each.

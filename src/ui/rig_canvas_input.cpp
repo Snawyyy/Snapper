@@ -13,6 +13,7 @@
 #include "render/stage_hit.h"
 #include "ui/drag_text.h"
 #include "ui/grab.h"
+#include "ui/pick_keys.h"
 #include "ui/problem.h"
 #include "ui/rig_canvas.h"
 
@@ -69,11 +70,10 @@ bool RigCanvas::PressHandle(QPointF point,
   }
   const bool is_dot = handle->kind == GrabKind::kColliderDot;
   if (is_dot) {
-    const bool is_shift = modifiers.testFlag(Qt::ShiftModifier);
-    const bool is_ctrl = modifiers.testFlag(Qt::ControlModifier);
-    PickDot(handle->key, is_shift  ? PickMode::kAdd
-                         : is_ctrl ? PickMode::kToggle
-                                   : PickMode::kReplace);
+    // A dot click does not drag, so a plain click narrows at once.
+    PickDot(handle->key,
+            ClickMode(modifiers, picked_dots_.contains(handle->key))
+                .value_or(PickMode::kReplace));
     return true;
   }
   press_ = point;
@@ -97,9 +97,16 @@ bool RigCanvas::PressHandle(QPointF point,
     StartRope(joint, point);
     return true;
   }
+  // The pick rule: what would take the joint out or narrow the pick
+  // waits for the release, so the press can still drag every pick.
   const bool is_in_pick = picked_.contains(joint);
-  if (!is_in_pick) {
-    ApplyPick({joint}, PickMode::kReplace, joint);
+  const auto mode = ClickMode(modifiers, is_in_pick);
+  const bool is_later =
+      !mode || (*mode == PickMode::kToggle && is_in_pick);
+  later_joint_ = is_later ? joint : QString();
+  later_mode_ = mode.value_or(PickMode::kReplace);
+  if (!is_later) {
+    ApplyPick({joint}, *mode, joint);
   }
   GrabPivot(joint, point);
   GrabGhost();
@@ -128,22 +135,20 @@ void RigCanvas::mousePressEvent(QMouseEvent* event) {
   }
   const auto hit = HitDollPiece(*doll, PoseMap(), World(),
                                 event->position(), &cache_);
-  const bool is_shift = event->modifiers().testFlag(Qt::ShiftModifier);
-  const bool is_ctrl = event->modifiers().testFlag(Qt::ControlModifier);
-  const PickMode mode = is_shift  ? PickMode::kAdd
-                        : is_ctrl ? PickMode::kToggle
-                                  : PickMode::kReplace;
   if (!hit) {
     // Empty space starts a pick box.
     is_boxing_ = true;
     box_from_ = event->position();
     box_to_ = box_from_;
-    box_mode_ = is_shift  ? PickMode::kAdd
-                : is_ctrl ? PickMode::kRemove
-                          : PickMode::kReplace;
+    box_mode_ = BoxMode(event->modifiers());
     return;
   }
-  ApplyPick({*hit}, mode, *hit);
+  // Pieces do not drag here, so a plain click on a picked one narrows
+  // the pick at once.
+  ApplyPick({*hit},
+            ClickMode(event->modifiers(), picked_.contains(*hit))
+                .value_or(PickMode::kReplace),
+            *hit);
 }
 
 void RigCanvas::ApplyPick(const std::set<QString>& pieces, PickMode mode,
@@ -326,6 +331,14 @@ void RigCanvas::mouseReleaseEvent(QMouseEvent* event) {
   if (is_boxing_) {
     FinishBox();
   }
+  const bool is_late_pick = !later_joint_.isEmpty() && !is_started_;
+  if (is_late_pick) {
+    if (scope_ != nullptr) {
+      scope_->Cancel();
+    }
+    ApplyPick({later_joint_}, later_mode_, later_joint_);
+  }
+  later_joint_.clear();
   feedback_.Settle();
   scope_.reset();
   shape_snap_.reset();
@@ -391,6 +404,7 @@ void RigCanvas::keyPressEvent(QKeyEvent* event) {
   if (is_cancel) {
     scope_->Cancel();
     scope_.reset();
+    later_joint_.clear();
     feedback_.Cancel();
     shape_snap_.reset();
     drag_ = Drag::kNone;

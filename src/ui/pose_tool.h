@@ -1,6 +1,7 @@
 #ifndef SNAPPER_UI_POSE_TOOL_H_
 #define SNAPPER_UI_POSE_TOOL_H_
 
+#include <Qt>
 #include <QElapsedTimer>
 #include <QPointF>
 #include <QRectF>
@@ -163,8 +164,11 @@ class PoseTool final {
     // only its own part.
     QPointF done;
     double scaled = 1.0;
-    // Ctrl-clicking a picked thing takes it out, unless it was dragged.
-    std::optional<Pick> toggle;
+    // A pick a release that did not drag applies with later_mode:
+    // Ctrl-clicking a picked thing takes it out, a plain click on a
+    // picked thing narrows the pick to it (pick_keys.h).
+    std::optional<Pick> later;
+    PickMode later_mode = PickMode::kReplace;
     // True once the mouse has left the dead zone.
     bool has_moved = false;
     // What the drag says at the last move; empty before the first.
@@ -211,7 +215,7 @@ class PoseTool final {
               const StageFrame& frame);
   int64_t NowMs() const { return clock_.elapsed(); }
   void WheelReach(int notches, bool is_fine, const StageFrame& frame);
-  void PressPick(const Pick& pick, bool is_shift, bool is_ctrl,
+  void PressPick(const Pick& pick, Qt::KeyboardModifiers mods,
                  const StageFrame& frame, QPointF point);
   // True once a drag may change things: the mouse has left the dead
   // zone (a pick box has none).

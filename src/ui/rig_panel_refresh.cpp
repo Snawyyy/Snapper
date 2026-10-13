@@ -50,7 +50,12 @@ void RigPanel::SetPick(const QStringList& picked, const QString& focus) {
   for (int i = 0; i < pieces_.count(); ++i) {
     QListWidgetItem* item = pieces_.item(i);
     const QString name = item->text().trimmed();
-    item->setSelected(picked.contains(name));
+    // Through the selection model: under PickList the list is
+    // NoSelection, where an item's own setSelected does nothing.
+    if (picked.contains(name)) {
+      pieces_.selectionModel()->select(pieces_.model()->index(i, 0),
+                                       QItemSelectionModel::Select);
+    }
     const bool is_focus = name == focus;
     if (is_focus) {
       pieces_.setCurrentItem(item, QItemSelectionModel::NoUpdate);
@@ -128,7 +133,7 @@ void RigPanel::ShowOrderAndRest(const Doll& doll, const RigPiece& focus) {
 }
 
 void RigPanel::RefreshPiece() {
-  assert(form_.rowCount() == 12);
+  assert(joint_form_ != nullptr);
   assert(managers_.IsComplete());
   const Doll* doll = doll_.isEmpty()
                          ? nullptr
@@ -205,41 +210,31 @@ void RigPanel::RefreshPiece() {
 }
 
 void RigPanel::ShowOnlyRelevant(bool has_doll, const RigPiece* rig) {
-  assert(form_.rowCount() == 12);
+  assert(joint_form_ != nullptr && warp_form_ != nullptr);
+  assert(warp_form_->rowCount() == 4);
   const bool has_piece = rig != nullptr;
   const bool has_warp = has_piece && rig->warp.IsOn();
   const bool is_grid = has_warp && !rig->warp.IsMesh();
-  // Rows of form_: the joint (0 to 6), then the warp (7 to 11).
-  for (int row = 0; row <= 8; ++row) {
-    form_.setRowVisible(row, has_piece);
-  }
-  // Detail makes and remakes a shape mesh; cells and Convert are for an
-  // old grid only.
-  form_.setRowVisible(9, has_piece && !is_grid);
-  form_.setRowVisible(10, is_grid);
-  form_.setRowVisible(11, is_grid);
-  collider_box_.setVisible(has_piece);
-  for (QWidget* button : {static_cast<QWidget*>(&copy_piece_),
-                          static_cast<QWidget*>(&copy_side_),
-                          static_cast<QWidget*>(&mirror_nodes_)}) {
-    button->setVisible(has_piece);
-  }
+  joint_section_->setVisible(has_piece);
+  warp_section_->setVisible(has_piece);
+  // Rows of the warp: Bend, Detail, Cells, Convert. Detail makes and
+  // remakes a shape mesh; cells and Convert are for an old grid only.
+  warp_form_->setRowVisible(1, has_piece && !is_grid);
+  warp_form_->setRowVisible(2, is_grid);
+  warp_form_->setRowVisible(3, is_grid);
+  // The Collider box shows itself while the piece is one (Show).
   for (QWidget* part : {static_cast<QWidget*>(&look_),
                         static_cast<QWidget*>(&skins_),
                         static_cast<QWidget*>(&pieces_),
-                        static_cast<QWidget*>(&chains_title_),
-                        static_cast<QWidget*>(&chains_),
-                        static_cast<QWidget*>(&add_chain_),
-                        static_cast<QWidget*>(&flip_chain_),
-                        static_cast<QWidget*>(&remove_chain_),
-                        static_cast<QWidget*>(&save_rig_)}) {
+                        static_cast<QWidget*>(&save_rig_),
+                        chains_section_}) {
     part->setVisible(has_doll);
   }
 }
 
 void RigPanel::ShowWarp(const RigPiece* rig) {
   assert(managers_.rig != nullptr);
-  assert(form_.rowCount() == 12);
+  assert(warp_form_ != nullptr);
   const QSignalBlocker quiet_columns(warp_columns_);
   const QSignalBlocker quiet_rows(warp_rows_);
   const QSignalBlocker quiet_detail(detail_);

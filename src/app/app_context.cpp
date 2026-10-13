@@ -33,7 +33,7 @@ AppContext::AppContext(const QString& data_folder)
       skins_(&history_),
       objects_(&history_, &library_, &stage_, &links_),
       sounds_(&history_),
-      references_(&history_),
+      references_(&history_, &selection_),
       comp_(&history_),
       record_(&history_, &document_, &playback_, &reel_, data_folder),
       window_(Managers{&history_, &document_, &library_, &rig_, &shots_,

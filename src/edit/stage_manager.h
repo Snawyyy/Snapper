@@ -5,11 +5,13 @@
 #include <QString>
 #include <QStringList>
 
+#include <optional>
 #include <vector>
 
 #include "base/error.h"
 #include "base/frame.h"
 #include "model/layer.h"
+#include "model/pose.h"
 #include "model/shot.h"
 
 namespace snapper {
@@ -29,6 +31,9 @@ class StageManager final {
   Result<LayerId> AddImage(ShotId shot, const QString& path);
   Result<LayerId> AddText(ShotId shot, const QString& text);
   Result<LayerId> AddEffect(ShotId shot, EffectKind kind);
+  // A picture as the bottom layer, scaled to fill the canvas (cropping
+  // what overhangs), for the whole shot ("Add background").
+  Result<LayerId> AddBackground(ShotId shot, const QString& path);
   // A copy just above the original.
   Result<LayerId> Duplicate(ShotId shot, LayerId layer);
   Result<void> Remove(ShotId shot, LayerId layer);
@@ -71,8 +76,12 @@ class StageManager final {
                             EffectKind kind, QColor color);
 
  private:
+  // A new layer on top, or at the bottom with is_bottom; pose, when
+  // given, is its own move from frame 0.
   Result<LayerId> AddLayer(ShotId shot, const QString& name,
-                           LayerContent content, const QString& label);
+                           LayerContent content, const QString& label,
+                           bool is_bottom = false,
+                           std::optional<PiecePose> pose = std::nullopt);
 
   HistoryManager* history_;
 };

@@ -21,7 +21,8 @@ QStringList DollsOfDrop(const QMimeData* data);
 QPixmap DollPicture(const QString& folder, int size);
 
 // The doll library as cards: a picture of each doll over its name and
-// a badge (NEW ART, IN SHOT), picked like any list and dragged out
+// a badge (NEW ART, IN SHOT), picked by the one pick rule (PickList:
+// Shift adds, Ctrl flips, Ctrl+A, Escape, Delete asks) and dragged out
 // onto the stage, which puts the dolls there.
 class DollCards final : public QListWidget {
   Q_OBJECT
@@ -37,6 +38,8 @@ class DollCards final : public QListWidget {
 
  signals:
   void FilesDropped(const QStringList& paths);
+  // Delete or Backspace with cards picked.
+  void DeleteAsked();
 
  protected:
   QStringList mimeTypes() const override;

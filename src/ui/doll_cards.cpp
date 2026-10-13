@@ -14,6 +14,7 @@
 #include <string_view>
 
 #include "io/doll_file.h"
+#include "ui/pick_list.h"
 
 namespace snapper {
 namespace {
@@ -89,10 +90,11 @@ DollCards::DollCards(QWidget* parent) : QListWidget(parent) {
   setResizeMode(QListView::Adjust);
   setMovement(QListView::Static);
   setWordWrap(true);
-  setSelectionMode(QAbstractItemView::ExtendedSelection);
   setDragEnabled(true);
   setDragDropMode(QAbstractItemView::DragOnly);
   setDefaultDropAction(Qt::CopyAction);
+  connect(PickList::Install(this), &PickList::DeleteAsked, this,
+          &DollCards::DeleteAsked);
   assert(dragEnabled());
 }
 
