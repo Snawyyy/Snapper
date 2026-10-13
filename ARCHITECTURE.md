@@ -551,6 +551,24 @@ the target layer's space, or the canvas without the camera.
 tab's view state: the picked effect, V and K (`CompShow`, passed only
 by the Comp stage's own renderer) and each effect's last cost.
 
+A shot has one draft (`Shot::draft`, `model/draft.h`): a raster sketch
+of its plan, made of cels; each cel is a canvas-sized PNG shown from
+its frame until the next cel. Pixels never enter the project: each
+edit saves a new file (in "<project> drafts" beside the project file,
+or the app data folder's "drafts" while unsaved), and the cel lists
+its path, so undo is a path swap. `DraftManager` owns every edit (one
+named step each) and the picked cels. Drawing a cel reuses draw mode:
+it hands `DrawManager` a `DrawJob` (the picture, the shot under it,
+the cels before and after as tinted onion skins, and a keep callback
+that Done calls), so the brush, eraser, fill, picker and stroke undo
+are the same code as for a piece. `FrameRenderer` draws the cel at the
+frame over the finished shot (after the comp, canvas space, no
+camera) only when `SetDraftShown(true)`: the Pose stage and the Video
+preview turn it on; export, thumbnails and the Comp stage keep it off.
+The Pose timeline's dashed Draft row (`ui/timeline_draft.cpp`, an
+event filter on the timeline) sits under the reference rows and shows
+the cels as keys.
+
 A shot may hold references (`Shot::references`, `model/reference.h`):
 videos, GIFs and pictures linked by path to animate over. They are not
 layers and have no keys, so posing, key copy and paste never touch
@@ -833,7 +851,8 @@ are destroyed in reverse.
 | `PoseManager`          | Pose edits, IK drags, copy, paste, mirror      |
 | `DialManager`          | Smart dials: make, stops, rest, swap, turn (keyed per doll layer) |
 | `SkinManager`          | Skins: make, rename, order, set drawings, Krita names; wear and step them (keyed per doll layer) |
-| `DrawManager`          | Draw mode: the drawing being made, its tools and stroke undo; Done saves it into the doll as one step |
+| `DrawManager`          | Draw mode: the drawing being made, its tools and stroke undo; Done saves it into the doll as one step, or hands a `DrawJob`'s picture (a draft cel) back to its keeper |
+| `DraftManager`         | Each shot's draft: draw a cel (a `DrawJob` for draw mode), save it as a PNG, move and delete cels, eye and opacity, one step each; the picked cels |
 | `ObjectManager`        | Objects: make them from pictures into the library, put them on the stage, how a GIF plays, hold, drop and hand-off |
 | `KeyManager`           | Keys on the timeline: move, space, ease, retime, bake a timing chart |
 | `TimingChartManager`   | The timing chart session: picked thing and frames to chart, ticks, live preview in one `EditScope`, Apply or Cancel |

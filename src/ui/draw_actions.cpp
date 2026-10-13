@@ -5,6 +5,7 @@
 
 #include <cassert>
 
+#include "edit/draft_manager.h"
 #include "ui/playhead.h"
 #include "ui/problem.h"
 #include "ui/toast_manager.h"
@@ -130,6 +131,25 @@ void AddDrawActions(QMenu* menu, const Managers& managers) {
                        : no_edit);
   QObject::connect(edit, &QAction::triggered, menu,
                    [managers] { RequestEditDrawing(managers); });
+  if (managers.draft == nullptr) {
+    return;
+  }
+  for (const bool is_over : {false, true}) {
+    QAction* action = menu->addAction(
+        is_over ? QObject::tr("Draw over draft cel")
+                : QObject::tr("Draw draft cel here"));
+    action->setShortcut(is_over ? QKeySequence(Qt::ALT | Qt::SHIFT | Qt::Key_N)
+                                : QKeySequence(Qt::ALT | Qt::Key_N));
+    const QString why_not = WhyNoDraftHere(managers, is_over);
+    action->setEnabled(why_not.isEmpty());
+    action->setToolTip(why_not.isEmpty()
+                           ? QObject::tr("Sketch the shot's plan on its "
+                                         "draft, over the whole frame.")
+                           : why_not);
+    QObject::connect(action, &QAction::triggered, menu, [managers, is_over] {
+      RequestDraft(managers, is_over);
+    });
+  }
 }
 
 void AddDrawKeys(QWidget* widget, const Managers& managers) {
@@ -151,6 +171,46 @@ void AddDrawKeys(QWidget* widget, const Managers& managers) {
                    [managers] { RequestEditDrawing(managers); });
   widget->addAction(draw);
   widget->addAction(edit);
+  if (managers.draft == nullptr) {
+    return;
+  }
+  auto* draft = new QAction(QObject::tr("Draw draft cel"), widget);
+  draft->setShortcut(QKeySequence(Qt::ALT | Qt::Key_N));
+  draft->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+  QObject::connect(draft, &QAction::triggered, widget,
+                   [managers] { RequestDraft(managers, false); });
+  auto* over = new QAction(QObject::tr("Draw over draft cel"), widget);
+  over->setShortcut(QKeySequence(Qt::ALT | Qt::SHIFT | Qt::Key_N));
+  over->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+  QObject::connect(over, &QAction::triggered, widget,
+                   [managers] { RequestDraft(managers, true); });
+  widget->addAction(draft);
+  widget->addAction(over);
+}
+
+QString WhyNoDraftHere(const Managers& managers, bool is_over) {
+  assert(managers.history != nullptr);
+  if (managers.draft == nullptr) {
+    return QObject::tr("Drafts aren't available here.");
+  }
+  const auto spot = SpotOf(managers);
+  if (!spot) {
+    return QObject::tr("Put the playhead in a shot first.");
+  }
+  return managers.draft->WhyNoDraw(spot->shot, spot->local, is_over);
+}
+
+void RequestDraft(const Managers& managers, bool is_over) {
+  assert(managers.toasts != nullptr);
+  const QString why_not = WhyNoDraftHere(managers, is_over);
+  if (!why_not.isEmpty()) {
+    managers.toasts->Problem(why_not);
+    return;
+  }
+  const auto spot = SpotOf(managers);
+  Report(managers, is_over
+                       ? managers.draft->DrawOver(spot->shot, spot->local)
+                       : managers.draft->DrawNew(spot->shot, spot->local));
 }
 
 }  // namespace snapper

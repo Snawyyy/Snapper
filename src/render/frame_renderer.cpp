@@ -13,6 +13,7 @@
 #include "anim/reel_timeline.h"
 #include "anim/sampler.h"
 #include "render/comp.h"
+#include "render/draft_paint.h"
 #include "render/effects.h"
 #include "render/layer_painter.h"
 #include "render/reel_text.h"
@@ -188,6 +189,9 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
     const CompContext context{&project, &shot,     local,       scale,
                               view,     &links,    &pictures,   comp_show_};
     ApplyComp(context, &frame, &comp_costs_);
+  }
+  if (is_draft_shown_) {
+    PaintDraft(shot.draft, local, &cache_, &frame);
   }
   return frame;
 }

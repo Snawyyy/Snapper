@@ -6,6 +6,7 @@ namespace snapper {
 class CompManager;
 class DialManager;
 class DocumentManager;
+class DraftManager;
 class DrawManager;
 class DollLibraryManager;
 class ExportManager;
@@ -73,6 +74,9 @@ struct Managers final {
   ReferenceManager* references = nullptr;
   // Not in IsComplete either: the Comp tab checks it.
   CompManager* comp = nullptr;
+  // Not in IsComplete either: the Draft row, the draft box and the
+  // draft keys check it.
+  DraftManager* draft = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&
