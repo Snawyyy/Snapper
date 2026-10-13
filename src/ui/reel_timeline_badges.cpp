@@ -98,7 +98,7 @@ void ReelTimeline::PaintJoints(QPainter* painter) const {
       const QRectF badge = BadgeRect(x, box.bottom());
       painter->setPen(QPen(has_mix ? theme::kText : theme::kTextOff, 1.0));
       painter->setBrush(theme::kFace);
-      painter->drawRoundedRect(badge, 3.0, 3.0);
+      painter->drawRect(badge);
       painter->drawText(badge, Qt::AlignCenter, GlyphOf(clip.out.kind));
     }
   }

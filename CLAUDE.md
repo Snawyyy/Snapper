@@ -233,3 +233,9 @@ back so conflicts are solved where the code was written.
   click resets either one (a press alone changes nothing).
 - Right click changes a node's mode; double click on empty space adds
   one; Delete removes the picked ones; Shift adds to the pick.
+- The pick rule, everywhere (`ui/pick_keys.h`): Ctrl flips one in or
+  out and wins over Shift; Shift adds; a plain click on something picked
+  keeps the pick for a drag; a box adds with Shift and removes with Ctrl.
+- Panels follow the Pose box: raised title plates over sunken frames,
+  settings indented under their title, golden ratio splits, square
+  corners, built from `ui/panel_kit.h`.

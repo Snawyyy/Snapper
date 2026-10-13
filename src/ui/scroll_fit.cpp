@@ -1,9 +1,11 @@
 #include "ui/scroll_fit.h"
 
 #include <QEvent>
+#include <QScreen>
 #include <QScrollArea>
 #include <QScrollBar>
 
+#include <algorithm>
 #include <cassert>
 
 namespace snapper {
@@ -23,7 +25,8 @@ class WidthFollower final : public QObject {
     }
     const int bar = area_->verticalScrollBar()->sizeHint().width();
     const int frame = 2 * area_->frameWidth();
-    area_->setMinimumWidth(inside->minimumSizeHint().width() + bar + frame);
+    const int needed = inside->minimumSizeHint().width() + bar + frame;
+    area_->setMinimumWidth(CappedWidth(needed, ScreenWidth()));
   }
 
  protected:
@@ -38,10 +41,29 @@ class WidthFollower final : public QObject {
   }
 
  private:
+  // The width of the screen the area is on (0 when it has none yet).
+  int ScreenWidth() const {
+    assert(area_ != nullptr);
+    const QScreen* screen = area_->screen();
+    const bool has_screen = screen != nullptr;
+    return has_screen ? screen->availableGeometry().width() : 0;
+  }
+
   QScrollArea* area_;
 };
 
 }  // namespace
+
+int CappedWidth(int needed, int screen_width) {
+  assert(needed >= 0);
+  assert(screen_width >= 0);
+  const bool has_screen = screen_width > 0;
+  if (!has_screen) {
+    return needed;
+  }
+  const int cap = static_cast<int>(screen_width * kWidestShare);
+  return std::min(needed, cap);
+}
 
 void KeepWideEnough(QScrollArea* area) {
   assert(area != nullptr);

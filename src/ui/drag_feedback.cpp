@@ -20,7 +20,6 @@ namespace {
 
 constexpr double kChipPadX = 6.0;
 constexpr double kChipPadY = 3.0;
-constexpr double kChipRadius = 4.0;
 constexpr int kGhostAlpha = 90;
 // The ghost picture is drawn at this fraction of full strength.
 constexpr double kGhostOpacity = 0.35;
@@ -207,7 +206,7 @@ void DragFeedback::PaintChip(QPainter* painter, const QRectF& bounds,
   border = flash_ > 0.0 ? theme::kHandle : border;
   painter->setPen(QPen(border, 1.0 + flash_));
   painter->setBrush(WithAlpha(theme::kShadow, kChipAlpha / 255.0));
-  painter->drawRoundedRect(chip, kChipRadius, kChipRadius);
+  painter->drawRect(chip);
   painter->setPen(theme::kText);
   painter->drawText(chip, Qt::AlignCenter, text);
   const bool is_flashing = flash_ > 0.0 && is_active_;

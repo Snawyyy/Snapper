@@ -5,9 +5,13 @@
 #include <cassert>
 
 #include "ui/motion.h"
+#include "ui/theme.h"
 
 namespace snapper {
 namespace {
+
+// The margin inside the folded frame, past the indent on the left.
+constexpr int kBodyMargin = 4;
 
 QString KeyOf(const QString& key) {
   assert(!key.isEmpty());
@@ -26,10 +30,18 @@ FoldSection::FoldSection(const QString& title, MotionManager* motion,
   assert(motion != nullptr);
   assert(!key.isEmpty());
   layout_.setContentsMargins(0, 0, 0, 0);
+  // The plate sits right on the frame it folds.
+  layout_.setSpacing(0);
   header_.setObjectName("fold_header");
-  header_.setAutoRaise(true);
-  header_.setToolButtonStyle(Qt::ToolButtonTextOnly);
+  header_.setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+  header_.setText(title_);
+  QFont bold = header_.font();
+  bold.setBold(true);
+  header_.setFont(bold);
   header_.setToolTip(tr("Show or hide this section."));
+  body_.setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+  form_.setContentsMargins(theme::kIndent, kBodyMargin, kBodyMargin,
+                           kBodyMargin);
   layout_.addWidget(&header_, 0, Qt::AlignLeft);
   layout_.addWidget(&body_);
   const bool is_saved = !settings_path_.isEmpty();
@@ -38,9 +50,16 @@ FoldSection::FoldSection(const QString& title, MotionManager* motion,
     is_open_ = settings.value(KeyOf(key_), is_open_).toBool();
   }
   body_.setVisible(is_open_);
-  header_.setText((is_open_ ? "v " : "> ") + title_);
+  ShowHeader();
   connect(&header_, &QToolButton::clicked, this,
           [this] { SetOpen(!is_open_); });
+}
+
+void FoldSection::ShowHeader() {
+  assert(!title_.isEmpty());
+  assert(header_.toolButtonStyle() == Qt::ToolButtonTextBesideIcon);
+  // The style draws the arrow as a square, solid triangle.
+  header_.setArrowType(is_open_ ? Qt::DownArrow : Qt::RightArrow);
 }
 
 void FoldSection::Remember() const {
@@ -61,7 +80,7 @@ void FoldSection::SetOpen(bool is_open) {
     return;
   }
   is_open_ = is_open;
-  header_.setText((is_open_ ? "v " : "> ") + title_);
+  ShowHeader();
   Remember();
   const int full = body_.sizeHint().height();
   body_.setVisible(true);
