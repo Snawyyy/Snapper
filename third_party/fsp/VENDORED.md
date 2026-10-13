@@ -203,3 +203,32 @@ The defaults of color9 to color16 are whatever sits past the table
 (color9 changes from run to run), as in After Effects. Slots 2 to 16
 are set up hidden; After Effects shows them through user changed param
 when paintCount grows, which this host never sends.
+
+### SelectiveColorBlur
+
+Copied `SelectiveColorBlur/` (`SelectiveColorBlur.cpp`,
+`SelectiveColorBlurSub.cpp`, `SelctColorCopy.cpp`,
+`SelctCombineInput.cpp`, `SelectiveColorBlur.h`, `NF_Target.h`,
+`README.MD`); its header includes `_NFLib/fx` headers carried for
+FloodFill, but its vcxproj compiles none of their sources. Units:
+`units/selectivecolorblur_unit_1.cpp` to `_4.cpp`, one per source (the
+blur and the color copy both define `PixelTraits`).
+
+```
+SelectiveColorBlur/SelectiveColorBlur.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+SelectiveColorBlur/SelectiveColorBlur.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+SelectiveColorBlur/SelectiveColorBlur.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+SelectiveColorBlur/SelectiveColorBlur.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+SelectiveColorBlur/SelectiveColorBlur.h:19: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+SelectiveColorBlur/SelectiveColorBlur.h:20: "..\_NFLib\fx\NF_blur.h" -> "../_NFLib/fx/NF_Blur.h"
+SelectiveColorBlur/SelectiveColorBlur.h:21: "..\_NFLib\fx\debug_font.h" -> "../_NFLib/fx/debug_font.h"
+SelectiveColorBlur/SelectiveColorBlur.h:22: "..\_NFLib\fx\NF_Paint.h" -> "../_NFLib/fx/NF_Paint.h"
+SelectiveColorBlur/SelectiveColorBlur.h:23: "..\_NFLib\fx\NF_Noise.h" -> "../_NFLib/fx/NF_Noise.h"
+SelectiveColorBlur/SelectiveColorBlur.h:24: "..\_NFLib\fx\NF_Draw.h" -> "../_NFLib/fx/NF_Draw.h"
+SelectiveColorBlur/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+SelectiveColorBlur/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+```
+
+The blur only mixes target pixels with target pixels: one flat target
+color looks unchanged; two target colors that touch (a base and its
+shadow) get a soft border while lines and other colors stay crisp.
