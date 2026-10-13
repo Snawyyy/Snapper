@@ -218,3 +218,39 @@ Checked by eye: red and blue cels on white with 3 pixel black lines
 and a red stroke; the target colors vanish and the cels grow into
 them, Make White Transparent clears the white. It has no pixel width
 parameter, so the preview scale does not change it.
+
+### InkingLineBlur
+
+Sources `InkingLineBlur/` (`InkingLineBlur.cpp`, `InkingLineBlur.h`,
+`InkingLineBlurFilter.cpp`, `InkingLineBlurFilter.h`,
+`NF_SelectPixels.cpp`, `NF_SelectPixels.h`, `NF_TargetPixels.cpp`,
+`NF_TargetPixels.h`, `NF_Target.h`, `README.MD`; not `ILB.png` or
+`ILB.zip`) and `_NFLib/fx/NF_AlphaHyperbolic`, `NF_Blend`, `NF_Blur`,
+`NF_MinMax`, `NF_Mult` (already here). `InkingLineBlurFilter.cpp` is
+not in its vcxproj and is not compiled. Three units:
+`NF_SelectPixels.cpp` and `NF_TargetPixels.cpp` share `ECTraits`,
+`SPInfo` and `SelectPixels_Template`.
+
+```
+InkingLineBlur/InkingLineBlurFilter.h:5: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+InkingLineBlur/InkingLineBlurFilter.h:6: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+InkingLineBlur/InkingLineBlur.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+InkingLineBlur/InkingLineBlur.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+InkingLineBlur/InkingLineBlur.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+InkingLineBlur/InkingLineBlur.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+InkingLineBlur/InkingLineBlur.h:19: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+InkingLineBlur/InkingLineBlur.h:20: "..\_NFLib\fx\NF_blur.h" -> "../_NFLib/fx/NF_Blur.h"
+InkingLineBlur/InkingLineBlur.h:21: "..\_NFLib\fx\NF_AlphaHyperbolic.h" -> "../_NFLib/fx/NF_AlphaHyperbolic.h"
+InkingLineBlur/InkingLineBlur.h:22: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
+InkingLineBlur/NF_SelectPixels.h:25: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+InkingLineBlur/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+InkingLineBlur/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+InkingLineBlur/NF_TargetPixels.h:25: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+```
+
+Checked by eye: red and blue cels on white with 3 pixel black lines;
+the line is grown (MinMax) and blurred and kept only on the target
+colors (All: every opaque pixel), never on the line itself, so with
+Blend with original the line bleeds into the red and blue cels and not
+into the white when only those two are targets; MinMax 4 grows the
+line by 4 to 5 pixels a side, 2 at scale 0.5.
