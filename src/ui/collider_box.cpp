@@ -8,6 +8,7 @@
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
 #include "ui/form_helpers.h"
+#include "ui/plated_box.h"
 #include "ui/problem.h"
 
 namespace snapper {
@@ -35,9 +36,10 @@ QString NoteFor(const QString& piece, bool has_others) {
 }  // namespace
 
 ColliderBox::ColliderBox(const Managers& managers)
-    : QGroupBox(tr("Collider")), managers_(managers), layout_(this) {
+    : managers_(managers) {
   assert(managers_.IsComplete());
   setObjectName("collider_box");
+  PlateBox(this, tr("Collider"), &layout_);
   note_.setWordWrap(true);
   layout_.addWidget(&note_);
   // The scroll area owns the body, which owns the column.

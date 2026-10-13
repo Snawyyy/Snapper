@@ -7,6 +7,7 @@
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
 #include "ui/form_helpers.h"
+#include "ui/plated_box.h"
 #include "ui/problem.h"
 
 namespace snapper {
@@ -34,9 +35,10 @@ QString LookHelp(DrawingLook look) {
 }  // namespace
 
 LookBox::LookBox(const Managers& managers)
-    : QGroupBox(tr("Look")), managers_(managers), layout_(this) {
+    : managers_(managers) {
   assert(managers_.IsComplete());
   assert(managers_.rig != nullptr);
+  PlateBox(this, tr("Look"), &layout_);
   for (int i = 0; i < kDrawingLookCount; ++i) {
     const auto look = static_cast<DrawingLook>(i);
     QPushButton& tile = tiles_[static_cast<size_t>(i)];

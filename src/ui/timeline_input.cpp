@@ -17,6 +17,7 @@
 #include "edit/playback_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/pick_keys.h"
 #include "ui/reference_keys.h"
 #include "ui/space_keys_action.h"
 #include "ui/timeline_layout.h"
@@ -82,9 +83,9 @@ void TimelineView::mousePressEvent(QMouseEvent* event) {
     return;
   }
   const TimelineRow& row = rows[static_cast<size_t>(index)];
-  const bool is_shift = event->modifiers().testFlag(Qt::ShiftModifier);
-  const bool is_ctrl = event->modifiers().testFlag(Qt::ControlModifier);
-  const bool is_plain = !is_shift && !is_ctrl;
+  const Qt::KeyboardModifiers mods = event->modifiers();
+  const bool is_plain =
+      !mods.testFlag(Qt::ShiftModifier) && !mods.testFlag(Qt::ControlModifier);
   const bool picks_row = row.layer.IsValid() && is_plain;
   if (picks_row) {
     managers_.selection->SelectLayer(row.layer);
@@ -95,24 +96,26 @@ void TimelineView::mousePressEvent(QMouseEvent* event) {
     is_boxing_ = true;
     box_from_ = at;
     box_to_ = at;
-    box_mode_ = is_shift  ? PickMode::kAdd
-                : is_ctrl ? PickMode::kRemove
-                          : PickMode::kReplace;
+    box_mode_ = BoxMode(mods);
     return;
   }
   const auto keys = RowKeysAt(project, row, *key);
   const auto& picked = managers_.selection->keys();
   const bool is_picked =
       std::includes(picked.begin(), picked.end(), keys.begin(), keys.end());
-  if (is_ctrl) {
+  // The pick rule: Ctrl flips the keys and does not drag; a plain press
+  // on picked keys keeps the pick for the drag and narrows on a release
+  // that did not drag.
+  const auto mode = ClickMode(mods, is_picked);
+  const bool is_flip = mode == PickMode::kToggle;
+  if (is_flip) {
     managers_.selection->PickKeys(keys, PickMode::kToggle);
     return;
   }
-  const bool keeps = is_picked && !is_shift;
-  if (!keeps) {
-    managers_.selection->PickKeys(
-        keys, is_shift ? PickMode::kAdd : PickMode::kReplace);
+  if (mode) {
+    managers_.selection->PickKeys(keys, *mode);
   }
+  later_keys_ = mode ? std::set<KeyRef>() : keys;
   drag_playhead_.Begin();
   Seek(*key);
   StartKeyDrag(*key, at);
@@ -152,7 +155,13 @@ void TimelineView::mouseReleaseEvent(QMouseEvent* event) {
   if (was_reference) {
     return;
   }
+  const bool narrows =
+      key_drag_ != nullptr && !is_started_ && !later_keys_.empty();
   EndKeyDrag();
+  if (narrows) {
+    managers_.selection->PickKeys(later_keys_, PickMode::kReplace);
+  }
+  later_keys_.clear();
   if (is_boxing_) {
     FinishBox();
   }

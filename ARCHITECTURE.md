@@ -1209,6 +1209,36 @@ can be dragged, and a release that did not drag narrows it), `BoxMode
 Escape and Delete (`DeleteAsked`); the view's own selection mode becomes
 NoSelection so only the filter writes the pick.
 
+Who follows the rule: the stage (`PoseTool`: pieces, layers and warp
+dots, Ctrl+box takes dots out), the rig canvas (pieces, joints, collider
+dots), the timeline keys and reference rows, the shot strip, and every
+list through `PickList` (the Cast panel's library and object cards and
+layer list, the rig panel's piece list). A press that would take out or
+narrow the pick waits for a release that did not drag (`PoseTool::Drag::
+later`, `RigCanvas::later_joint_`, `TimelineView::later_keys_`); where a
+drag moves only the thing grabbed (rig pieces, reference rows), a plain
+click narrows at once. No widget reads Shift or Ctrl for a pick itself.
+
+References are part of the one pick: `ReferenceManager` keeps a set of
+picked references per shot with a focus (`PickMany`, `PicksIn`,
+`PickedIn` for the focus). Made with the `SelectionManager` it drops the
+stage's picked layers and pieces when references get picked, and drops
+its own when the stage picks something. With references picked,
+`ReferenceKey` (shared by the stage and the timeline) makes Ctrl+A pick
+every reference row, Delete remove the picked ones as one undo step
+(`RemovePicked`) and Escape let them go.
+
+The Cast panel is three plated sections: Library (doll cards), Objects
+(object cards, Add pictures and Background, which puts a picture under
+every layer scaled to cover the canvas: `StageManager::AddBackground`)
+and Layers (a `FoldSection`, folded at first as the timeline rows show
+the same). Delete on cards takes the picked dolls out of the project as
+one undo step (the library refuses ones still on a layer and says why).
+The rig panel is plated sections too: Doll, Look, Skins and IK chains
+with a doll; Joint and Warp with a piece; Collider only while the piece
+is one. `PlateBox` (`ui/plated_box.h`) makes a box that shows and hides
+itself (Look, Skins, Collider) its own plated section.
+
 ## Errors
 
 No exceptions. A call that can fail returns `Result<T>`

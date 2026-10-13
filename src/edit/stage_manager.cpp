@@ -3,6 +3,7 @@
 #include <QFileInfo>
 #include <QImageReader>
 
+#include <algorithm>
 #include <cassert>
 #include <variant>
 
@@ -40,7 +41,8 @@ StageManager::StageManager(HistoryManager* history) : history_(history) {
 
 Result<LayerId> StageManager::AddLayer(ShotId shot, const QString& name,
                                        LayerContent content,
-                                       const QString& label) {
+                                       const QString& label, bool is_bottom,
+                                       std::optional<PiecePose> pose) {
   assert(history_ != nullptr);
   assert(!name.isEmpty() && !label.isEmpty());
   Project next = history_->current();
@@ -56,7 +58,14 @@ Result<LayerId> StageManager::AddLayer(ShotId shot, const QString& name,
     layer.id = id;
     layer.name = name;
     layer.content = std::move(content);
-    edited->layers.push_back(std::move(layer));
+    if (pose) {
+      layer.transform.keys.push_back(Key<PiecePose>{Frame(0), *pose});
+    }
+    if (is_bottom) {
+      edited->layers.insert(edited->layers.begin(), std::move(layer));
+    } else {
+      edited->layers.push_back(std::move(layer));
+    }
     return Result<void>();
   });
   auto applied = history_->Apply(label, std::move(added));
@@ -90,6 +99,32 @@ Result<LayerId> StageManager::AddImage(ShotId shot, const QString& path) {
   const QFileInfo info(path);
   return AddLayer(shot, info.completeBaseName(),
                   ImageLayer{info.absoluteFilePath()}, Tr("Add picture"));
+}
+
+Result<LayerId> StageManager::AddBackground(ShotId shot,
+                                            const QString& path) {
+  assert(history_ != nullptr);
+  assert(!path.isEmpty());
+  QImageReader reader(path);
+  const QSize size = reader.canRead() ? reader.size() : QSize();
+  const bool is_image = !size.isEmpty();
+  if (!is_image) {
+    return std::unexpected(
+        Error{Tr("%1 isn't a picture Snapper can read.").arg(path)});
+  }
+  // The picture sits centred on the canvas; the larger of the two
+  // scales covers it edge to edge.
+  const CanvasSize& canvas = history_->current().canvas;
+  const double cover =
+      std::max(static_cast<double>(canvas.width) / size.width(),
+               static_cast<double>(canvas.height) / size.height());
+  PiecePose pose;
+  pose.scale_x = cover;
+  pose.scale_y = cover;
+  const QFileInfo info(path);
+  return AddLayer(shot, Tr("Background"),
+                  ImageLayer{info.absoluteFilePath()}, Tr("Add background"),
+                  true, pose);
 }
 
 Result<LayerId> StageManager::AddText(ShotId shot, const QString& text) {

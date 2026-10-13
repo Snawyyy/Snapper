@@ -8,7 +8,10 @@
 #include "edit/skin_manager.h"
 #include "ui/form_helpers.h"
 #include "ui/live_edit.h"
+#include "ui/panel_kit.h"
+#include "ui/pick_list.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 #include "ui/toast_manager.h"
 
 namespace snapper {
@@ -18,7 +21,6 @@ RigPanel::RigPanel(const Managers& managers)
       layout_(this),
       live_(managers.history),
       convert_(tr("Convert to shape mesh")),
-      chains_title_(tr("IK chains")),
       add_chain_(tr("Add for piece")),
       flip_chain_(tr("Flip bend")),
       remove_chain_(tr("Remove")),
@@ -107,56 +109,84 @@ void RigPanel::BuildLayout() {
   keep_shape_.setToolTip(tr("Leaning or swivelling the doll still moves "
                             "and sizes this piece, but never squashes it. "
                             "Good for heads."));
-  AddTitle(&form_, &joint_title_, tr("Joint"));
-  form_.addRow(tr("Hangs from"), &parent_);
-  AddAngleRow(&form_, tr("Rest turn"), &rest_, &live_);
-  AddNumberRow(&form_, tr("Draw order"), &order_, &live_);
-  form_.addRow(tr("Drawing"), &drawing_);
-  form_.addRow(QString(), &keep_shape_);
+  layout_.setSpacing(theme::kRowGap);
+  // Doll: which one, its pieces, and saving its rig. The doll picker
+  // comes first so it stays the first picker among the children.
+  // Fixed heights: the panel scrolls, so no list grows or shrinks as
+  // the fields under it come and go.
+  pieces_.setFixedHeight(200);
+  auto* doll_body = MakeOwned<QWidget>(this);
+  auto* doll_column = MakeOwned<QVBoxLayout>(doll_body);
+  doll_column->setContentsMargins(0, 0, 0, 0);
+  doll_column->addWidget(&dolls_);
+  doll_column->addWidget(&pieces_);
+  doll_column->addWidget(&save_rig_);
+  doll_section_ = PlatedSection(tr("Doll"), doll_body, this);
+  // Joint: how the focused piece hangs and shows, and its mirroring.
+  auto* joint_body = MakeOwned<QWidget>(this);
+  auto* joint_column = MakeOwned<QVBoxLayout>(joint_body);
+  joint_column->setContentsMargins(0, 0, 0, 0);
+  auto* joint_host = MakeOwned<QWidget>(joint_body);
+  joint_form_ = SettingsForm(joint_host);
+  joint_form_->addRow(tr("Hangs from"), &parent_);
+  AddAngleRow(joint_form_, tr("Rest turn"), &rest_, &live_);
+  AddNumberRow(joint_form_, tr("Draw order"), &order_, &live_);
+  joint_form_->addRow(tr("Drawing"), &drawing_);
+  joint_form_->addRow(QString(), &keep_shape_);
   stays_crisp_.setObjectName("stays_crisp");
   stays_crisp_.setText(tr("Keep crisp"));
   stays_crisp_.setToolTip(tr("Draws this piece Crisp whatever the doll's "
                              "look: for a pixel-art screen and the like."));
-  form_.addRow(QString(), &stays_crisp_);
-  AddTitle(&form_, &warp_title_, tr("Warp"));
-  form_.addRow(QString(), &warp_on_);
-  form_.addRow(tr("Detail"), &detail_);
-  AddNumberPair(&form_, tr("Cells"), &warp_row_,
-                {tr("across"), &warp_columns_}, {tr("down"), &warp_rows_},
-                &live_);
-  form_.addRow(QString(), &convert_);
-  chain_buttons_.addWidget(&add_chain_);
-  chain_buttons_.addWidget(&flip_chain_);
-  chain_buttons_.addWidget(&remove_chain_);
-  layout_.addWidget(&dolls_);
-  // Fixed heights: the panel scrolls, so no list grows or shrinks as
-  // the fields under it come and go.
-  pieces_.setFixedHeight(200);
-  layout_.addWidget(&pieces_);
-  layout_.addWidget(&look_);
-  layout_.addWidget(&skins_);
-  layout_.addLayout(&form_);
-  layout_.addWidget(&collider_box_);
+  joint_form_->addRow(QString(), &stays_crisp_);
+  joint_column->addWidget(joint_host);
   mirror_buttons_.addWidget(&copy_piece_);
   mirror_buttons_.addWidget(&copy_side_);
   mirror_buttons_.addWidget(&mirror_nodes_);
   mirror_nodes_.setToolTip(tr("Copies this piece's drag and physics dots and "
                               "its collider to its other-side twin, "
                               "mirrored."));
-  layout_.addLayout(&mirror_buttons_);
-  layout_.addWidget(&chains_title_);
+  joint_column->addLayout(&mirror_buttons_);
+  joint_section_ = PlatedSection(tr("Joint"), joint_body, this);
+  // Warp: bending the focused piece's drawing.
+  auto* warp_host = MakeOwned<QWidget>(this);
+  warp_form_ = SettingsForm(warp_host);
+  warp_form_->addRow(QString(), &warp_on_);
+  warp_form_->addRow(tr("Detail"), &detail_);
+  AddNumberPair(warp_form_, tr("Cells"), &warp_row_,
+                {tr("across"), &warp_columns_}, {tr("down"), &warp_rows_},
+                &live_);
+  warp_form_->addRow(QString(), &convert_);
+  warp_section_ = PlatedSection(tr("Warp"), warp_host, this);
+  // IK chains of the doll.
+  chain_buttons_.addWidget(&add_chain_);
+  chain_buttons_.addWidget(&flip_chain_);
+  chain_buttons_.addWidget(&remove_chain_);
   chains_.setFixedHeight(90);
-  layout_.addWidget(&chains_);
-  layout_.addLayout(&chain_buttons_);
-  layout_.addWidget(&save_rig_);
+  auto* chains_body = MakeOwned<QWidget>(this);
+  auto* chains_column = MakeOwned<QVBoxLayout>(chains_body);
+  chains_column->setContentsMargins(0, 0, 0, 0);
+  chains_column->addWidget(&chains_);
+  chains_column->addLayout(&chain_buttons_);
+  chains_section_ = PlatedSection(tr("IK chains"), chains_body, this);
+  layout_.addWidget(doll_section_);
+  layout_.addWidget(&look_);
+  layout_.addWidget(&skins_);
+  layout_.addWidget(joint_section_);
+  layout_.addWidget(warp_section_);
+  layout_.addWidget(&collider_box_);
+  layout_.addWidget(chains_section_);
   layout_.addWidget(&hint_);
   layout_.addStretch(1);
-  assert(form_.rowCount() == 12);
+  // The piece list picks by the one pick rule; pieces are not deleted
+  // from here, so Delete asks nothing of it.
+  PickList::Install(&pieces_);
+  assert(joint_form_->rowCount() == 6);
+  assert(warp_form_->rowCount() == 4);
 }
 
 void RigPanel::Wire() {
   assert(managers_.IsComplete());
-  assert(form_.rowCount() == 12);
+  assert(joint_form_ != nullptr && warp_form_ != nullptr);
   RigManager* rig = managers_.rig;
   connect(&dolls_, &QComboBox::textActivated, this, [this](const QString& d) {
     doll_ = d;
@@ -165,8 +195,6 @@ void RigPanel::Wire() {
     emit DollPicked(doll_);
     Refresh();
   });
-  // Shift picks a run of pieces, Ctrl adds or drops one.
-  pieces_.setSelectionMode(QAbstractItemView::ExtendedSelection);
   connect(&pieces_, &QListWidget::itemSelectionChanged, this, [this] {
     QStringList picked;
     for (const QListWidgetItem* item : pieces_.selectedItems()) {

@@ -24,6 +24,7 @@
 #include "edit/shot_manager.h"
 #include "ui/drag_text.h"
 #include "ui/grab.h"
+#include "ui/pick_keys.h"
 #include "ui/shot_strip_layout.h"
 #include "ui/theme.h"
 #include "ui/toast_manager.h"
@@ -72,17 +73,16 @@ void ShotStrip::mousePressEvent(QMouseEvent* event) {
     if (!is_hit) {
       continue;
     }
-    const bool is_shift = event->modifiers().testFlag(Qt::ShiftModifier);
-    const bool is_ctrl = event->modifiers().testFlag(Qt::ControlModifier);
     const bool is_edge = block.rect.right() - at.x() <= kGrabReach;
     const bool is_picked = managers_.selection->shots().contains(block.shot);
-    const bool is_plain = !is_ctrl && !is_shift;
-    const bool is_fresh = is_plain && !is_picked;
-    if (!is_plain) {
-      managers_.selection->PickShots(
-          {block.shot}, is_ctrl ? PickMode::kToggle : PickMode::kAdd);
-    } else if (is_fresh) {
+    // The pick rule (pick_keys.h); a plain press on a picked shot keeps
+    // the pick and narrows to it on a release that did not drag.
+    const auto mode = ClickMode(event->modifiers(), is_picked);
+    const bool is_plain = !mode || *mode == PickMode::kReplace;
+    if (mode == PickMode::kReplace) {
       Pick(block.shot);
+    } else if (mode) {
+      managers_.selection->PickShots({block.shot}, *mode);
     }
     // Plain-dragging a shot reorders it; dragging any picked shot's edge
     // lengthens every picked shot by the same amount.

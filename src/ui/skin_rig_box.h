@@ -1,11 +1,11 @@
 #ifndef SNAPPER_UI_SKIN_RIG_BOX_H_
 #define SNAPPER_UI_SKIN_RIG_BOX_H_
 
-#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QWidget>
 
 #include "ui/managers.h"
 #include "ui/skin_tiles.h"
@@ -19,7 +19,8 @@ namespace snapper {
 // picker sets the picked pieces' drawing in it (or hides them) instead
 // of the doll's default; clicking it again stops. Right click a tile:
 // Rename, Duplicate, Move up, Move down, Delete.
-class SkinRigBox final : public QGroupBox {
+// A plated section of its own (plated_box.h).
+class SkinRigBox final : public QWidget {
   Q_OBJECT
 
  public:

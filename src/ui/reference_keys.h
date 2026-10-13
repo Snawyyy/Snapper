@@ -10,7 +10,9 @@ namespace snapper {
 
 // The Pose tab's reference keys, shared by the stage and the timeline:
 // Y shows or hides every reference; M with a reference picked marks the
-// moment of it under the playhead. True when the key was one of them and
+// moment of it under the playhead. With references picked, Ctrl+A picks
+// every reference, Delete removes the picked ones and Escape lets them
+// go. True when the key was one of them and
 // is dealt with; problem gets why it did nothing, or empty.
 bool ReferenceKey(const QKeyEvent& event, const Managers& managers,
                   QString* problem);

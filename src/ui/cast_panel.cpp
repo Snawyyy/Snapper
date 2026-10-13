@@ -7,7 +7,12 @@
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/stage_manager.h"
+#include "edit/document_manager.h"
 #include "ui/doll_drop.h"
+#include "ui/fold_section.h"
+#include "ui/panel_kit.h"
+#include "ui/pick_list.h"
+#include "ui/theme.h"
 #include "ui/toast_manager.h"
 #include "ui/toast_queue.h"
 
@@ -15,13 +20,11 @@ namespace snapper {
 CastPanel::CastPanel(const Managers& managers)
     : managers_(managers),
       layout_(this),
-      library_title_(tr("Doll library")),
       import_(tr("Import")),
       reload_(tr("Reload")),
       place_(tr("Put on stage")),
-      objects_title_(tr("Objects")),
       add_objects_(tr("Add pictures...")),
-      layers_title_(tr("Layers (top first)")),
+      background_(tr("Background...")),
       add_menu_(tr("Add")),
       copy_(tr("Copy")),
       remove_(tr("Delete")),
@@ -38,7 +41,7 @@ CastPanel::CastPanel(const Managers& managers)
 void CastPanel::BuildLayout() {
   assert(layout_.count() == 0);
   layout_.setContentsMargins(4, 4, 4, 4);
-  layout_.setSpacing(3);
+  layout_.setSpacing(theme::kRowGap);
   library_buttons_.addWidget(&import_);
   library_buttons_.addWidget(&reload_);
   library_buttons_.addWidget(&place_);
@@ -53,33 +56,58 @@ void CastPanel::BuildLayout() {
                           static_cast<QWidget*>(&down_)}) {
     layer_buttons_.addWidget(button);
   }
-  layout_.addWidget(&library_title_);
-  layout_.addWidget(&library_, 1);
-  layout_.addLayout(&library_buttons_);
-  layout_.addWidget(&layers_title_);
-  layout_.addWidget(&layers_, 2);
-  layout_.addLayout(&layer_buttons_);
-  // The Objects row sits between the dolls and the layers; it goes in
-  // last so the layer list stays the second list among the children.
+  // Library: the dolls, with their buttons under them.
+  auto* library_body = MakeOwned<QWidget>(this);
+  auto* library_column = MakeOwned<QVBoxLayout>(library_body);
+  library_column->setContentsMargins(0, 0, 0, 0);
+  library_column->addWidget(&library_, 1);
+  library_column->addLayout(&library_buttons_);
+  QWidget* library = PlatedSection(tr("Library"), library_body, this);
+  library_plate_ = library->findChild<QLabel*>(QStringLiteral("plate"));
+  assert(library_plate_ != nullptr);
+  // Layers: folded at first, as the timeline rows show the same. It is
+  // made before Objects so the layer list stays the second list among
+  // the children.
+  layers_fold_ = MakeOwned<FoldSection>(
+      tr("Layers (top first)"), managers_.motion,
+      managers_.document->SettingsPath(), QStringLiteral("cast_layers"),
+      this, false);
+  auto* layer_bar = MakeOwned<QWidget>(layers_fold_);
+  layer_bar->setLayout(&layer_buttons_);
+  layer_buttons_.setContentsMargins(0, 0, 0, 0);
+  layers_fold_->form()->addRow(&layers_);
+  layers_fold_->form()->addRow(layer_bar);
+  // Objects: props from pictures, and the Background quick add.
   object_buttons_.addWidget(&add_objects_);
+  object_buttons_.addWidget(&background_);
   object_buttons_.addStretch(1);
-  layout_.insertWidget(3, &objects_title_);
-  layout_.insertWidget(4, &objects_, 1);
-  layout_.insertLayout(5, &object_buttons_);
+  auto* objects_body = MakeOwned<QWidget>(this);
+  auto* objects_column = MakeOwned<QVBoxLayout>(objects_body);
+  objects_column->setContentsMargins(0, 0, 0, 0);
+  objects_column->addWidget(&objects_, 1);
+  objects_column->addLayout(&object_buttons_);
+  QWidget* objects = PlatedSection(tr("Objects"), objects_body, this);
+  layout_.addWidget(library, 1);
+  layout_.addWidget(objects, 1);
+  layout_.addWidget(layers_fold_, 0);
+  layout_.addStretch(0);
   objects_.SetEmptyText(
       tr("Drop PNG or GIF pictures here, or on the stage."));
   objects_.AcceptFiles();
   objects_.setToolTip(tr("Props made from pictures. Drag one onto the "
                          "stage; drop picture files here to add them."));
   add_objects_.setToolTip(tr("Make objects from PNG, GIF or WebP files."));
-  // Without the object manager (some test benches) the row stays hidden.
+  // Without the object manager (some test benches) only Background shows.
   const bool has_objects = managers_.objects != nullptr;
-  objects_title_.setVisible(has_objects);
   objects_.setVisible(has_objects);
   add_objects_.setVisible(has_objects);
-  // Shift picks a run, Ctrl adds or drops one, as in any list.
-  layers_.setSelectionMode(QAbstractItemView::ExtendedSelection);
-  library_.setSelectionMode(QAbstractItemView::ExtendedSelection);
+  // Every list picks by the one rule; Delete asks the panel.
+  connect(PickList::Install(&layers_), &PickList::DeleteAsked, this,
+          &CastPanel::RemoveLayers);
+  connect(&library_, &DollCards::DeleteAsked, this,
+          [this] { TakeOut(library_); });
+  connect(&objects_, &DollCards::DeleteAsked, this,
+          [this] { TakeOut(objects_); });
   assert(layout_.count() > 0);
 }
 
@@ -87,6 +115,7 @@ void CastPanel::Wire() {
   assert(managers_.IsComplete());
   assert(add_.menu() == &add_menu_);
   add_menu_.addAction(tr("Picture..."), this, &CastPanel::AddPicture);
+  add_menu_.addAction(tr("Background..."), this, &CastPanel::AddBackground);
   add_menu_.addAction(tr("Text..."), this, &CastPanel::AddText);
   QMenu* effects = add_menu_.addMenu(tr("Effect"));
   for (int kind = 0; kind < kEffectKindCount; ++kind) {
@@ -103,14 +132,9 @@ void CastPanel::Wire() {
     Report(ProblemOf(managers_.stage->DuplicateAll(
         managers_.selection->shot(), managers_.selection->PickedLayers())));
   });
-  connect(&remove_, &QPushButton::clicked, this, [this] {
-    const auto picked = managers_.selection->PickedLayers();
-    managers_.toasts->Finish(
-        ProblemOf(managers_.stage->RemoveAll(managers_.selection->shot(),
-                                             picked)),
-        CountText(tr("Deleted"), static_cast<int>(picked.size()),
-                  tr("layer"), tr("layers")));
-  });
+  connect(&remove_, &QPushButton::clicked, this, &CastPanel::RemoveLayers);
+  connect(&background_, &QPushButton::clicked, this,
+          &CastPanel::AddBackground);
   connect(&up_, &QPushButton::clicked, this, [this] { Restack(1); });
   connect(&down_, &QPushButton::clicked, this, [this] { Restack(-1); });
   connect(&library_, &QListWidget::itemSelectionChanged, this,

@@ -81,10 +81,26 @@ Result<Project> WithReference(Project project, ShotId shot, ReferenceId id,
 
 }  // namespace
 
-ReferenceManager::ReferenceManager(HistoryManager* history)
-    : history_(history) {
+ReferenceManager::ReferenceManager(HistoryManager* history,
+                                   SelectionManager* selection)
+    : history_(history), selection_(selection) {
   assert(history_ != nullptr);
   assert(are_shown_);
+  if (selection_ != nullptr) {
+    connect(selection_, &SelectionManager::Changed, this,
+            &ReferenceManager::DropForStage);
+  }
+}
+
+void ReferenceManager::DropForStage() {
+  assert(selection_ != nullptr);
+  assert(history_ != nullptr);
+  const bool drops = !selection_->picks().empty() && !picks_.empty();
+  if (drops) {
+    picks_.clear();
+    picked_ = ReferenceId();
+    emit Changed();
+  }
 }
 
 Result<ReferenceId> ReferenceManager::Add(ShotId shot,
@@ -145,11 +161,33 @@ Result<void> ReferenceManager::Remove(ShotId shot, ReferenceId id) {
         }
         return {};
       });
-  const bool was_picked = PickedIn(shot) == id;
+  const bool was_picked = IsPicked(shot, id);
   if (was_picked) {
-    Pick(shot, ReferenceId());
+    PickMany(shot, {id}, PickMode::kRemove, picked_);
   }
   return history_->Apply(Tr("Remove reference"), next);
+}
+
+Result<void> ReferenceManager::RemovePicked(ShotId shot) {
+  assert(history_ != nullptr);
+  assert(shot.value() >= 0);
+  const std::set<ReferenceId> gone = PicksIn(shot);
+  const bool has_picks = !gone.empty();
+  if (!has_picks) {
+    return std::unexpected(Error{Tr("Pick a reference first.")});
+  }
+  const auto next = WithShot(
+      history_->current(), shot, [&gone](Shot* edited) -> Result<void> {
+        std::erase_if(edited->references, [&gone](const Reference& one) {
+          return gone.contains(one.id);
+        });
+        return {};
+      });
+  PickMany(shot, {}, PickMode::kReplace, ReferenceId());
+  const QString label = gone.size() == 1
+                            ? Tr("Remove reference")
+                            : Tr("Remove %1 references").arg(gone.size());
+  return history_->Apply(label, next);
 }
 
 Result<void> ReferenceManager::Relink(ShotId shot, ReferenceId id,
@@ -388,16 +426,64 @@ ReferenceId ReferenceManager::PickedIn(ShotId shot) const {
   return is_here ? picked_ : ReferenceId();
 }
 
+std::set<ReferenceId> ReferenceManager::PicksIn(ShotId shot) const {
+  assert(shot.value() >= 0);
+  assert(picks_.size() < 100000);
+  std::set<ReferenceId> out;
+  const bool is_here = shot.IsValid() && shot == picked_shot_;
+  for (const ReferenceId id : is_here ? picks_ : std::set<ReferenceId>()) {
+    if (Find(shot, id) != nullptr) {
+      out.insert(id);
+    }
+  }
+  return out;
+}
+
+bool ReferenceManager::IsPicked(ShotId shot, ReferenceId id) const {
+  assert(shot.value() >= 0);
+  assert(id.value() >= 0);
+  return shot.IsValid() && shot == picked_shot_ && picks_.contains(id) &&
+         Find(shot, id) != nullptr;
+}
+
 void ReferenceManager::Pick(ShotId shot, ReferenceId id) {
   assert(shot.value() >= 0);
   assert(id.value() >= 0);
-  const bool is_change = shot != picked_shot_ || id != picked_;
-  if (!is_change) {
-    return;
-  }
+  PickMany(shot,
+           id.IsValid() ? std::set<ReferenceId>{id} : std::set<ReferenceId>(),
+           PickMode::kReplace, id);
+}
+
+void ReferenceManager::PickMany(ShotId shot,
+                                const std::set<ReferenceId>& ids,
+                                PickMode mode, ReferenceId focus) {
+  assert(shot.value() >= 0);
+  assert(focus.value() >= 0);
+  // Another shot's pick does not carry over.
+  const std::set<ReferenceId> before =
+      shot == picked_shot_ ? picks_ : std::set<ReferenceId>();
+  std::set<ReferenceId> after = Combine(before, ids, mode);
+  std::erase_if(after, [&](ReferenceId id) {
+    return !id.IsValid() || Find(shot, id) == nullptr;
+  });
+  const ReferenceId focused = after.contains(focus)     ? focus
+                              : after.contains(picked_) ? picked_
+                              : after.empty()           ? ReferenceId()
+                                                        : *after.begin();
+  const bool is_change =
+      shot != picked_shot_ || after != picks_ || focused != picked_;
   picked_shot_ = shot;
-  picked_ = id;
-  emit Changed();
+  picks_ = std::move(after);
+  picked_ = focused;
+  // One pick: picked references drop the stage's picked layers.
+  const bool drops_stage = selection_ != nullptr && !picks_.empty() &&
+                           !selection_->picks().empty();
+  if (drops_stage) {
+    selection_->PickThings({}, PickMode::kReplace, LayerId());
+  }
+  if (is_change) {
+    emit Changed();
+  }
 }
 
 void ReferenceManager::ToggleShown() {

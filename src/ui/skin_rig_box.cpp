@@ -9,21 +9,21 @@
 #include "edit/history_manager.h"
 #include "edit/skin_manager.h"
 #include "ui/form_helpers.h"
+#include "ui/plated_box.h"
 #include "ui/problem.h"
 #include "ui/toast_manager.h"
 
 namespace snapper {
 
 SkinRigBox::SkinRigBox(const Managers& managers)
-    : QGroupBox(tr("Skins")),
-      managers_(managers),
-      layout_(this),
+    : managers_(managers),
       tiles_(tr("Click to change this skin: pick pieces and set their "
                 "drawing below. Right click for more.")),
       add_(tr("+ Skin")),
       from_krita_(tr("From Krita names")) {
   assert(managers_.IsComplete());
   assert(managers_.skins != nullptr);
+  PlateBox(this, tr("Skins"), &layout_);
   add_.setToolTip(tr("A new skin: a copy of the one being changed, or one "
                      "that changes nothing yet."));
   hint_.setWordWrap(true);

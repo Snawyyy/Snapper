@@ -12,6 +12,7 @@
 #include <variant>
 
 #include "edit/doll_library_manager.h"
+#include "edit/edit_scope.h"
 #include "edit/history_manager.h"
 #include "edit/object_manager.h"
 #include "edit/selection_manager.h"
@@ -19,12 +20,24 @@
 #include "ui/cast_panel.h"
 #include "ui/doll_drop.h"
 #include "ui/form_helpers.h"
+#include "ui/toast_manager.h"
+#include "ui/toast_queue.h"
 
 namespace snapper {
 namespace {
 
 // Each list item keeps its doll name or layer id here.
 constexpr int kKeyRole = Qt::UserRole;
+
+// Marks row of list picked again after a rebuild. Through the selection
+// model: under PickList the view is NoSelection, where an item's own
+// setSelected does nothing.
+void KeepPicked(QListWidget* list, int row) {
+  assert(list != nullptr);
+  assert(row >= 0 && row < list->count());
+  list->selectionModel()->select(list->model()->index(row, 0),
+                                 QItemSelectionModel::Select);
+}
 
 QString LayerKind(const Layer& layer) {
   assert(layer.id.IsValid());
@@ -132,11 +145,11 @@ void CastPanel::RefreshLibrary() {
   }
   const QStringList& problems = managers_.library->conversion_problems();
   const bool has_problems = !problems.isEmpty();
-  library_title_.setText(has_problems
-                             ? tr("Doll library (%1 old doll(s) not "
-                                  "converted)").arg(problems.size())
-                             : tr("Doll library"));
-  library_title_.setToolTip(problems.join("\n"));
+  library_plate_->setText(has_problems
+                              ? tr("Library (%1 old doll(s) not "
+                                   "converted)").arg(problems.size())
+                              : tr("Library"));
+  library_plate_->setToolTip(problems.join("\n"));
   RefreshButtons();
 }
 
@@ -167,7 +180,9 @@ void CastPanel::FillCards(DollCards* cards, const QStringList& names) {
     item->setToolTip(is_stale ? tr("The art was re-exported from Krita: "
                                    "Reload takes it.")
                               : tr("Drag onto the stage to put it there."));
-    item->setSelected(picked.contains(name));
+    if (picked.contains(name)) {
+      KeepPicked(cards, cards->count() - 1);
+    }
   }
 }
 
@@ -189,7 +204,9 @@ void CastPanel::RefreshLayers() {
       const auto picked = managers_.selection->PickedLayers();
       const bool is_picked =
           std::find(picked.begin(), picked.end(), it->id) != picked.end();
-      item->setSelected(is_picked);
+      if (is_picked) {
+        KeepPicked(&layers_, layers_.count() - 1);
+      }
     }
   }
   RefreshButtons();
@@ -215,6 +232,12 @@ void CastPanel::RefreshButtons() {
                    : has_shot ? QString()
                               : tr("Add a shot first."));
   Explain(&add_, has_shot ? QString() : tr("Add a shot first."));
+  Explain(&background_,
+          has_shot ? QString() : tr("Add a shot first."));
+  if (has_shot) {
+    background_.setToolTip(tr("Put a picture under everything, filling "
+                              "the canvas."));
+  }
   const QString no_layer = has_layer ? QString() : tr("Pick a layer first.");
   for (QWidget* button : {static_cast<QWidget*>(&copy_),
                           static_cast<QWidget*>(&remove_),
@@ -353,6 +376,60 @@ void CastPanel::AddPicture() {
     Report(ProblemOf(
         managers_.stage->AddImage(managers_.selection->shot(), path)));
   }
+}
+
+void CastPanel::AddBackground() {
+  assert(managers_.stage != nullptr);
+  assert(managers_.selection != nullptr);
+  const QString path = QFileDialog::getOpenFileName(
+      this, tr("Add background"), QString(),
+      tr("Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"));
+  const bool is_chosen = !path.isEmpty();
+  if (is_chosen) {
+    Report(ProblemOf(
+        managers_.stage->AddBackground(managers_.selection->shot(), path)));
+  }
+}
+
+void CastPanel::RemoveLayers() {
+  assert(managers_.stage != nullptr);
+  assert(managers_.toasts != nullptr);
+  const auto picked = managers_.selection->PickedLayers();
+  const bool has_picks = !picked.empty();
+  if (!has_picks) {
+    return;
+  }
+  managers_.toasts->Finish(
+      ProblemOf(managers_.stage->RemoveAll(managers_.selection->shot(),
+                                           picked)),
+      CountText(tr("Deleted"), static_cast<int>(picked.size()), tr("layer"),
+                tr("layers")));
+}
+
+void CastPanel::TakeOut(const DollCards& cards) {
+  assert(managers_.library != nullptr);
+  assert(managers_.history != nullptr);
+  QStringList names;
+  for (const QListWidgetItem* item : cards.selectedItems()) {
+    names.append(item->data(kKeyRole).toString());
+  }
+  assert(!names.isEmpty());
+  // The library says which can go; what it refuses it explains.
+  QStringList problems;
+  {
+    const EditScope step(
+        managers_.history,
+        names.size() == 1 ? tr("Take %1 out of the project").arg(names[0])
+                          : tr("Take %1 dolls out of the project")
+                                .arg(names.size()));
+    for (const QString& name : names) {
+      const auto done = managers_.library->Remove(name);
+      if (!done) {
+        problems.append(done.error().message);
+      }
+    }
+  }
+  Report(problems.join(QStringLiteral(" ")));
 }
 
 void CastPanel::AddText() {

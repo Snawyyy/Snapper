@@ -20,11 +20,17 @@
 
 namespace snapper {
 
-// Who is in the picked shot. The top half is the doll library: import a
-// doll, reload it after a Krita re-export (marked "new art"), or put it
-// on the stage. The bottom half lists the shot's layers, top first:
-// pick one, tick to show or hide it, add pictures, text and effects,
-// copy, delete and restack.
+class FoldSection;
+
+// Who is in the picked shot, in three plated sections (panel_kit.h).
+// Library: import a doll, reload it after a Krita re-export (marked "new
+// art"), or put it on the stage. Objects: props made from pictures, and
+// Background, a picture as the bottom layer filling the canvas. Layers
+// (folded at first; the timeline rows show the same): the shot's layers,
+// top first: pick, tick to show or hide, add pictures, text and effects,
+// copy, delete and restack. Every list picks by the one pick rule
+// (PickList); Delete on cards takes unused dolls out of the project, on
+// layers deletes them.
 class CastPanel final : public QWidget {
   Q_OBJECT
 
@@ -58,7 +64,12 @@ class CastPanel final : public QWidget {
   void Reload();
   void Place();
   void AddPicture();
+  void AddBackground();
   void AddText();
+  void RemoveLayers();
+  // Delete on cards: takes the picked dolls nothing uses out of the
+  // project as one undo step.
+  void TakeOut(const DollCards& cards);
   void Restack(int step);
   void PickLayer();
   void ToggleShown(QListWidgetItem* item);
@@ -73,17 +84,18 @@ class CastPanel final : public QWidget {
   // doll's art changes.
   QHash<QString, QPixmap> pictures_;
   QVBoxLayout layout_;
-  QLabel library_title_;
+  // The Library section's title plate (it names unconverted dolls).
+  QLabel* library_plate_ = nullptr;
   DollCards library_;
   QHBoxLayout library_buttons_;
   QPushButton import_;
   QPushButton reload_;
   QPushButton place_;
-  QLabel objects_title_;
   DollCards objects_;
   QHBoxLayout object_buttons_;
   QPushButton add_objects_;
-  QLabel layers_title_;
+  QPushButton background_;
+  FoldSection* layers_fold_ = nullptr;
   QListWidget layers_;
   QHBoxLayout layer_buttons_;
   QToolButton add_;

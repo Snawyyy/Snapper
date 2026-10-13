@@ -12,6 +12,7 @@
 #include "render/stage_geometry.h"
 #include "render/stage_hit.h"
 #include "ui/drag_text.h"
+#include "ui/pick_keys.h"
 #include "ui/playhead.h"
 
 namespace snapper {
@@ -45,6 +46,9 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
   Cancel();
   problem_.clear();
   Observe();
+  Qt::KeyboardModifiers mods;
+  mods.setFlag(Qt::ShiftModifier, is_shift);
+  mods.setFlag(Qt::ControlModifier, is_ctrl);
   const bool is_handle = PressHandle(point, frame);
   const bool is_on_dot = drag_ != nullptr && drag_->kind == Kind::kWarp;
   // Shift and Ctrl add to, or take from, the picked dots; a plain press
@@ -55,9 +59,16 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
     managers_.selection->PickDot(std::nullopt);
   }
   if (is_on_dot) {
-    drag_->box_mode = is_shift  ? PickMode::kAdd
-                      : is_ctrl ? PickMode::kToggle
-                                : PickMode::kReplace;
+    // A click on a dot (a release without a drag) picks it by the pick
+    // rule; a plain click on the only picked dot drops it.
+    const WarpDot dot{drag_->layer, drag_->piece, drag_->point};
+    const auto& dots = managers_.selection->dots();
+    const bool is_picked = std::ranges::find(dots, dot) != dots.end();
+    const bool is_only = dots == std::vector<WarpDot>{dot};
+    const auto mode = ClickMode(mods, is_picked);
+    const bool drops = is_only && !keeps_dots;
+    drag_->later_mode = drops ? PickMode::kRemove
+                              : mode.value_or(PickMode::kReplace);
   }
   if (is_handle) {
     return;
@@ -74,8 +85,8 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
     // the group, not the limb.
     const Pick whole{hit->layer, QString()};
     const bool is_group = managers_.selection->picks().contains(whole);
-    PressPick(is_group ? whole : Pick{hit->layer, hit->piece}, is_shift,
-              is_ctrl, frame, point);
+    PressPick(is_group ? whole : Pick{hit->layer, hit->piece}, mods, frame,
+              point);
     return;
   }
   auto drag = std::make_unique<Drag>();
@@ -84,30 +95,28 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
   drag->press = point;
   drag->start = point;
   drag->corner = point;
-  drag->box_mode = is_shift  ? PickMode::kAdd
-                   : is_ctrl ? PickMode::kRemove
-                             : PickMode::kReplace;
+  drag->box_mode = BoxMode(mods);
   drag_ = std::move(drag);
   assert(IsDragging());
 }
 
-void PoseTool::PressPick(const Pick& pick, bool is_shift, bool is_ctrl,
+void PoseTool::PressPick(const Pick& pick, Qt::KeyboardModifiers mods,
                          const StageFrame& frame, QPointF point) {
   SelectionManager* selection = managers_.selection;
   assert(selection != nullptr);
   const bool is_picked = selection->picks().contains(pick);
+  const bool is_ctrl = mods.testFlag(Qt::ControlModifier);
   auto drag = std::make_unique<Drag>();
-  const bool is_flip_later = is_ctrl && is_picked;
-  if (is_flip_later) {
-    drag->toggle = pick;
+  // The pick rule (pick_keys.h). A press that would take out or narrow
+  // the pick waits for the release, so the press can still drag all of
+  // it; the rest applies now.
+  const auto mode = ClickMode(mods, is_picked);
+  const bool is_later = !mode || (*mode == PickMode::kToggle && is_picked);
+  if (is_later) {
+    drag->later = pick;
+    drag->later_mode = mode.value_or(PickMode::kReplace);
   } else {
-    const bool is_adding = is_shift || is_ctrl;
-    const bool is_kept = is_picked && !is_adding;
-    if (!is_kept) {
-      selection->PickThings({pick},
-                            is_adding ? PickMode::kAdd : PickMode::kReplace,
-                            pick.layer);
-    }
+    selection->PickThings({pick}, *mode, pick.layer);
   }
   const auto count = selection->picks().size();
   const QString what = count > 1 ? QObject::tr("%1 parts").arg(count)
@@ -216,9 +225,9 @@ bool PoseTool::LeftDeadZone(QPointF point) {
   const bool is_new = !drag_->has_moved &&
                       IsPastDeadZone(drag_->press, point);
   if (is_new) {
-    // A Ctrl-click that turned into a drag doesn't flip the pick, and a
-    // click on a warp dot that turned into a drag doesn't pick the dot.
-    drag_->toggle.reset();
+    // A click that turned into a drag doesn't flip or narrow the pick,
+    // and a click on a warp dot that turned into a drag doesn't pick it.
+    drag_->later.reset();
     drag_->has_moved = true;
   }
   return is_box || drag_->has_moved;
@@ -305,25 +314,20 @@ void PoseTool::Release() {
       managers_.selection->PickThings(caught, drag_->box_mode, focus);
     }
   }
-  const bool flips = drag_ != nullptr && drag_->toggle.has_value();
-  if (flips) {
-    const Pick pick = *drag_->toggle;
+  const bool is_late_pick = drag_ != nullptr && drag_->later.has_value();
+  if (is_late_pick) {
+    const Pick pick = *drag_->later;
     drag_->scope->Cancel();
-    managers_.selection->PickThings({pick}, PickMode::kToggle, pick.layer);
+    managers_.selection->PickThings({pick}, drag_->later_mode, pick.layer);
   }
   const bool is_dot_click = drag_ != nullptr &&
                             drag_->kind == Kind::kWarp && !drag_->has_moved;
   if (is_dot_click) {
-    // Clicking a dot picks it for the wheel; clicking it again drops it.
+    // Clicking a dot picks it for the wheel by the mode the press chose
+    // (kRemove when a plain click lands on the only picked dot).
     drag_->scope->Cancel();
     const WarpDot dot{drag_->layer, drag_->piece, drag_->point};
-    // A plain click on the only picked dot drops it.
-    const bool is_only = managers_.selection->dots() ==
-                         std::vector<WarpDot>{dot};
-    const bool is_again = is_only && drag_->box_mode == PickMode::kReplace;
-    managers_.selection->PickDots(
-        is_again ? std::set<WarpDot>() : std::set<WarpDot>{dot},
-        is_again ? PickMode::kReplace : drag_->box_mode);
+    managers_.selection->PickDots({dot}, drag_->later_mode);
   }
   drag_.reset();
 }

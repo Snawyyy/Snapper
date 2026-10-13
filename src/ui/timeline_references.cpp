@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <set>
 #include <vector>
 
 #include "edit/history_manager.h"
@@ -18,6 +19,7 @@
 #include "ui/doll_cards.h"
 #include "ui/form_helpers.h"
 #include "ui/paint_clip.h"
+#include "ui/pick_keys.h"
 #include "ui/problem.h"
 #include "ui/theme.h"
 #include "ui/timeline_layout.h"
@@ -100,14 +102,14 @@ void TimelineView::PaintReferences(QPainter* painter) const {
     return;
   }
   const ShotId shot = managers_.selection->shot();
-  const ReferenceId picked = managers_.references->PickedIn(shot);
+  const std::set<ReferenceId> picked = managers_.references->PicksIn(shot);
   const auto x_at = [this](double frame) {
     return kNameWidth + (frame - scroll_) * frame_width_;
   };
   double top = BandTop();
   painter->save();
   for (const Reference& reference : managers_.references->Of(shot)) {
-    const bool is_picked = reference.id == picked;
+    const bool is_picked = picked.contains(reference.id);
     const bool is_missing = ReferenceManager::IsMissing(reference);
     const QRectF name(0, top, kNameWidth, kRowHeight);
     painter->fillRect(name, is_picked ? theme::kPick.darker(160)
@@ -193,9 +195,16 @@ bool TimelineView::ReferencePress(const QMouseEvent& event) {
                                                     !reference.is_shown)));
     return true;
   }
-  managers_.references->Pick(shot, reference.id);
+  // The pick rule (pick_keys.h). A drag moves only the row it grabs, so
+  // a plain click on a picked row narrows the pick at once.
+  const auto mode = ClickMode(
+      event.modifiers(), managers_.references->IsPicked(shot, reference.id));
+  const PickMode applied = mode.value_or(PickMode::kReplace);
+  managers_.references->PickMany(shot, {reference.id}, applied,
+                                 reference.id);
   const bool is_on_frames = event.position().x() >= kNameWidth;
-  if (!is_on_frames) {
+  const bool drags = is_on_frames && applied == PickMode::kReplace;
+  if (!drags) {
     return true;
   }
   is_reference_slide_ = event.modifiers().testFlag(Qt::AltModifier);
@@ -279,7 +288,13 @@ bool TimelineView::ReferenceMenu(QPoint at, QPoint where) {
   const std::vector<Reference> references = managers_.references->Of(shot);
   const Reference& reference = references[static_cast<size_t>(index)];
   const ReferenceId id = reference.id;
-  managers_.references->Pick(shot, id);
+  // A right click on an unpicked row picks it; on a picked one it keeps
+  // the pick, so Remove takes all of it.
+  const bool was_picked = managers_.references->IsPicked(shot, id);
+  if (!was_picked) {
+    managers_.references->Pick(shot, id);
+  }
+  const auto count = managers_.references->PicksIn(shot).size();
   QMenu menu(this);
   menu.setToolTipsVisible(true);
   const bool is_missing = ReferenceManager::IsMissing(reference);
@@ -300,9 +315,10 @@ bool TimelineView::ReferenceMenu(QPoint at, QPoint where) {
     Report(ProblemOf(managers_.references->ClearMarks(shot, id)));
   });
   menu.addSeparator();
-  connect(menu.addAction(tr("Remove reference")), &QAction::triggered, this,
-          [this, shot, id] {
-            Report(ProblemOf(managers_.references->Remove(shot, id)));
+  connect(menu.addAction(count > 1 ? tr("Remove %1 references").arg(count)
+                                   : tr("Remove reference")),
+          &QAction::triggered, this, [this, shot] {
+            Report(ProblemOf(managers_.references->RemovePicked(shot)));
           });
   menu.exec(where);
   return true;

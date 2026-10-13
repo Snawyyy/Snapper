@@ -3,10 +3,10 @@
 
 #include <QButtonGroup>
 #include <QCheckBox>
-#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QWidget>
 
 #include <array>
 
@@ -18,8 +18,9 @@ namespace snapper {
 // The Rig tab's Look box for the doll being rigged: three tiles (Crisp,
 // Smooth, Smooth flat) pick how its drawings look when warped, turned
 // or scaled, and Hard edges cuts smooth edges out instead of blending
-// them. Each click is one undo step through RigManager.
-class LookBox final : public QGroupBox {
+// them. Each click is one undo step through RigManager. A plated
+// section of its own (plated_box.h).
+class LookBox final : public QWidget {
   Q_OBJECT
 
  public:

@@ -2,11 +2,11 @@
 #define SNAPPER_UI_COLLIDER_BOX_H_
 
 #include <QCheckBox>
-#include <QGroupBox>
 #include <QLabel>
 #include <QScrollArea>
 #include <QString>
 #include <QVBoxLayout>
+#include <QWidget>
 
 #include <memory>
 #include <vector>
@@ -19,8 +19,9 @@ namespace snapper {
 // the doll, ticked while the collider pushes its warp
 // dots (greyed, with the reason, for a piece with no warp grid). The
 // list scrolls past a few rows, so a big doll never pushes the panel off
-// the screen. Shown only while the focused piece is a collider.
-class ColliderBox final : public QGroupBox {
+// the screen. Shown only while the focused piece is a collider, as a
+// plated section of its own (plated_box.h).
+class ColliderBox final : public QWidget {
   Q_OBJECT
 
  public:
