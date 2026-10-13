@@ -7,11 +7,13 @@
 #include <array>
 #include <cassert>
 #include <set>
+#include <variant>
 #include <vector>
 
 #include "anim/reel_timeline.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
+#include "edit/record_manager.h"
 #include "edit/reel_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/form_helpers.h"
@@ -166,9 +168,48 @@ void ReelTimeline::ClipMenu(QPoint where) {
   QMenu menu(this);
   menu.setToolTipsVisible(true);
   AddCommands(&menu);
+  const QPoint local = mapFromGlobal(where);
+  const ClipId clip = ClipAt(local);
+  const Clip* found =
+      clip.IsValid() ? ClipOf(managers_.history->current().reel, clip)
+                     : nullptr;
+  const auto* shot =
+      found != nullptr ? std::get_if<ShotSource>(&found->source) : nullptr;
+  if (shot != nullptr) {
+    menu.addSeparator();
+    const Frame inside(found->in.index() + FrameAt(local.x()).index() -
+                       found->start.index());
+    const ShotId id = shot->shot;
+    QAction* open = menu.addAction(tr("Open shot on the Pose tab"));
+    open->setToolTip(tr("Double-click a shot clip does the same."));
+    connect(open, &QAction::triggered, this,
+            [this, id, inside] { emit OpenShotAsked(id, inside); });
+    AddFitEntries(&menu, clip, FrameAt(local.x()));
+  }
   menu.addSeparator();
   AddEdgeModes(&menu);
   menu.exec(where);
+}
+
+void ReelTimeline::AddFitEntries(QMenu* menu, ClipId clip, Frame at) {
+  assert(menu != nullptr);
+  assert(clip.IsValid());
+  const QString why_not = managers_.reel->WhyNoFit(clip, at);
+  QAction* hold = menu->addAction(tr("Fit shot to gap"));
+  QAction* stretch = menu->addAction(tr("Fit shot to gap, stretched"));
+  Explain(hold, why_not);
+  Explain(stretch, why_not);
+  if (why_not.isEmpty()) {
+    stretch->setToolTip(tr("Moves every key in proportion, so the same "
+                           "action plays faster or slower."));
+  }
+  connect(hold, &QAction::triggered, this, [this, clip, at] {
+    Report(ProblemOf(managers_.reel->FitShotToGap(clip, at, EdgeMode::kHold)));
+  });
+  connect(stretch, &QAction::triggered, this, [this, clip, at] {
+    Report(ProblemOf(
+        managers_.reel->FitShotToGap(clip, at, EdgeMode::kStretch)));
+  });
 }
 
 void ReelTimeline::AddEdgeModes(QMenu* menu) {
@@ -203,6 +244,19 @@ void ReelTimeline::TrackMenu(int track, QPoint where) {
   menu.setToolTipsVisible(true);
   AddCommands(&menu);
   menu.addSeparator();
+  const Frame at = FrameAt(mapFromGlobal(where).x());
+  const Slot span = NewShotSpanAt(track, at);
+  QAction* new_shot = menu.addAction(tr("New shot here"));
+  const QString why_no_shot =
+      managers_.reel->WhyNoNewShot(track, span.start, span.end);
+  Explain(new_shot, why_no_shot);
+  if (why_no_shot.isEmpty()) {
+    new_shot->setToolTip(tr("Makes a blank shot as long as the marked range "
+                            "or the gap here and lays it there."));
+  }
+  connect(new_shot, &QAction::triggered, this,
+          [this, track, at] { NewShotHere(track, at); });
+  menu.addSeparator();
   QAction* add = menu.addAction(tr("Add track on top"));
   Explain(add, managers_.reel->WhyNoAddTrack());
   connect(add, &QAction::triggered, this,
@@ -225,9 +279,23 @@ void ReelTimeline::TrackMenu(int track, QPoint where) {
 void ReelTimeline::CancelOrClear() {
   assert(managers_.selection != nullptr);
   assert(drag_ != Drag::kSeek || scope_ == nullptr);
+  // A take being counted in or recorded is thrown away first.
+  const bool is_taking =
+      managers_.record != nullptr &&
+      managers_.record->state() != RecordManager::State::kIdle;
+  if (is_taking) {
+    managers_.record->Cancel();
+    return;
+  }
   const bool is_editing = scope_ != nullptr;
   const bool is_boxing = drag_ == Drag::kBox;
-  if (is_editing) {
+  // A marked range (or one being marked) goes first.
+  const bool is_marked = drag_ == Drag::kMark || marked_.IsValid();
+  if (is_marked && !is_editing) {
+    marked_ = Slot{};
+    marked_track_ = -1;
+    feedback_.Cancel();
+  } else if (is_editing) {
     scope_->Cancel();
     scope_.reset();
     feedback_.Cancel();

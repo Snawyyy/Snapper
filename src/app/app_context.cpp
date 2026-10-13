@@ -35,12 +35,13 @@ AppContext::AppContext(const QString& data_folder)
       sounds_(&history_),
       references_(&history_),
       comp_(&history_),
+      record_(&history_, &document_, &playback_, &reel_, data_folder),
       window_(Managers{&history_, &document_, &library_, &rig_, &shots_,
                        &stage_, &selection_, &pose_, &keys_, &presets_,
                        &playback_, &exporter_, &links_, &reel_, &motion_,
                        &toasts_, &timing_, &poke_, &groups_, &settings_,
                        &palette_, &dials_, &draw_, &skins_, &objects_,
-                       &sounds_, &references_, &comp_}) {
+                       &sounds_, &references_, &comp_, &record_}) {
   assert(!data_folder.isEmpty());
   // Declared after playback, so the reel's sound is handed over here.
   playback_.SetSounds(&sounds_);

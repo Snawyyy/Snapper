@@ -3,6 +3,7 @@
 
 #include <QPointF>
 #include <QRectF>
+#include <QScrollBar>
 #include <QString>
 #include <QWidget>
 
@@ -13,6 +14,7 @@ class QMenu;
 #include <set>
 #include <vector>
 
+#include "anim/reel_timeline.h"
 #include "base/frame.h"
 #include "edit/change_watcher.h"
 #include "edit/edit_scope.h"
@@ -55,12 +57,18 @@ namespace snapper {
 // picked what the playhead is in), Delete removes, Shift+Delete
 // removes and closes the gap, Ctrl+C, Ctrl+X and Ctrl+V copy, cut and
 // paste at the playhead, Ctrl+D duplicates; right-click for the same
-// and for tracks. The wheel scrolls, Ctrl zooms. Shots here are
-// finished videos: what is inside them is edited on the Pose tab.
+// and for tracks. The wheel scrolls time, Ctrl zooms; Shift, or the
+// wheel over the track names, scrolls the tracks up and down (a scroll
+// bar at the right shows when they do not all fit). Shots here are
+// finished videos: what is inside them is edited on the Pose tab;
+// double-clicking a shot clip asks to open it there (OpenShotAsked).
+// Alt and a drag over empty track space marks a range; "New shot here"
+// (the empty track's double click menu, the track menu, the shot bin's
+// "+" tile) makes a shot sized to it, else to the gap there.
 // Sound tracks sit at the bottom: sound files drop there (or anywhere,
 // landing on the first free one), each clip shows its waveform, a
-// volume line to drag and fade handles; the header has Mute, Solo and
-// a fader.
+// volume line to drag and fade handles; the header has Mute, Solo, R
+// (arm for recording) and a fader.
 class ReelTimeline final : public QWidget {
   Q_OBJECT
 
@@ -89,6 +97,13 @@ class ReelTimeline final : public QWidget {
   // The pops, puffs and rewinds of the last step, for tests to look at.
   const ChangeEffects& effects() const { return effects_; }
   const PlayheadSettle& settle() const { return settle_; }
+  // The range marked with Alt and a drag on a picture track; invalid
+  // when none is.
+  Slot marked() const { return marked_; }
+  int marked_track() const { return marked_track_; }
+  // New shot here over the marked range, else the gap at the playhead,
+  // on the lowest picture track with room. Picks the new clip.
+  void NewShotAtPlayhead();
 
  signals:
   void Problem(const QString& why);
@@ -96,6 +111,9 @@ class ReelTimeline final : public QWidget {
   void EdgeModeChanged();
   // A text clip was double-clicked: its words want typing.
   void TextEditAsked(ClipId clip);
+  // A shot clip was double-clicked: open shot on the Pose tab at frame
+  // (counted in the shot) under the click.
+  void OpenShotAsked(ShotId shot, Frame frame);
 
  protected:
   void paintEvent(QPaintEvent* event) override;
@@ -107,6 +125,7 @@ class ReelTimeline final : public QWidget {
   void contextMenuEvent(QContextMenuEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
   void wheelEvent(QWheelEvent* event) override;
+  void resizeEvent(QResizeEvent* event) override;
   void dragEnterEvent(QDragEnterEvent* event) override;
   void dragMoveEvent(QDragMoveEvent* event) override;
   void dragLeaveEvent(QDragLeaveEvent* event) override;
@@ -122,6 +141,7 @@ class ReelTimeline final : public QWidget {
     kTrimStart,
     kTrimEnd,
     kBox,
+    kMark,
     kVolume,
     kFadeIn,
     kFadeOut,
@@ -164,6 +184,8 @@ class ReelTimeline final : public QWidget {
   QRectF MuteRect(int track) const;
   QRectF SoloRect(int track) const;
   QRectF FaderRect(int track) const;
+  // R: arms the sound track for recording.
+  QRectF ArmRect(int track) const;
   // Where a sound clip's volume line is drawn in box.
   static double VolumeY(const QRectF& box, double gain);
   // The volume line or a fade handle of a sound clip under at, or kNone.
@@ -238,11 +260,24 @@ class ReelTimeline final : public QWidget {
   void FillGap(int track, Frame at);
   // Asks how clip hands over to the next one, then sets it.
   void EditTransition(ClipId clip);
-  // A double click on shot clip inside a gap: offers to fit the shot to
-  // the gap (held or stretched) or to pick what plays there.
-  void OfferFit(ClipId clip, int track, Frame at, QPoint where);
   // The edge mode entries of a menu: Hold and Stretch.
   void AddEdgeModes(QMenu* menu);
+  // A double click on empty picture track space: New shot here (sized
+  // to the marked range when at is in it, else to the gap) and, inside
+  // a gap between markers, what plays there.
+  void OfferEmpty(int track, Frame at, QPoint where);
+  // New shot here on track at at, sized as OfferEmpty says; picks it.
+  void NewShotHere(int track, Frame at);
+  // The stretch New shot here at at on track fills.
+  Slot NewShotSpanAt(int track, Frame at) const;
+  // Fit shot to gap entries for clip at at, when it can be fitted.
+  void AddFitEntries(QMenu* menu, ClipId clip, Frame at);
+  // The tracks' full height and the pixels scrolled off the top; the
+  // scroll bar shows only when the tracks do not fit.
+  double TracksHeight() const;
+  void FitScrollBar();
+  // The marked range, a band over its track and the ruler.
+  void PaintMarked(QPainter* painter) const;
   void ClipMenu(QPoint where);
   void TrackMenu(int track, QPoint where);
   void SeekTo(double x);
@@ -293,6 +328,11 @@ class ReelTimeline final : public QWidget {
   int drop_track_ = -1;
   Frame drop_frame_;
   Frame drop_length_;
+  // Alt and a drag over empty space marks a range for New shot here.
+  Slot marked_;
+  int marked_track_ = -1;
+  // Tracks scrolled up and down; its value is the pixels off the top.
+  QScrollBar track_scroll_;
 };
 
 }  // namespace snapper

@@ -13,6 +13,7 @@
 #include "anim/reel_timeline.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
+#include "edit/record_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/shot_timing.h"
 #include "edit/sound_manager.h"
@@ -47,11 +48,18 @@ ReelTimeline::ReelTimeline(const Managers& managers)
       settle_(managers.motion, managers.playback->FrameOn(Timeline::kReel),
               this),
       drag_playhead_(managers.playback),
-      zoom_(kDefaultZoom) {
+      zoom_(kDefaultZoom),
+      track_scroll_(Qt::Vertical, this) {
   assert(managers_.IsComplete());
   setFocusPolicy(Qt::ClickFocus);
   setMouseTracking(true);
   setAcceptDrops(true);
+  // The ruler and two tracks always show; more scroll.
+  setMinimumHeight(static_cast<int>(kRulerHeight + 2 * kTrackHeight));
+  track_scroll_.setSingleStep(static_cast<int>(kTrackHeight / 2));
+  track_scroll_.setFocusPolicy(Qt::NoFocus);
+  connect(&track_scroll_, &QScrollBar::valueChanged, this,
+          [this] { update(); });
   connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
   connect(&feedback_, &DragFeedback::Changed, this, [this] { update(); });
   connect(&effects_, &ChangeEffects::Changed, this, [this] { update(); });
@@ -61,23 +69,54 @@ ReelTimeline::ReelTimeline(const Managers& managers)
     settle_.MoveTo(managers_.playback->FrameOn(Timeline::kReel),
                    managers_.playback->IsPlaying());
   });
-  const auto update_me = [this] {
-    const int tracks =
-        static_cast<int>(managers_.history->current().reel.tracks.size());
-    setMinimumHeight(static_cast<int>(kRulerHeight + tracks * kTrackHeight));
-    update();
-  };
-  connect(managers_.history, &HistoryManager::Changed, this, update_me);
+  const auto update_me = [this] { update(); };
+  // Only a change of tracks moves the scroll range; frames just repaint.
+  connect(managers_.history, &HistoryManager::Changed, this,
+          &ReelTimeline::FitScrollBar);
   connect(managers_.selection, &SelectionManager::Changed, this, update_me);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
           update_me);
   // Waveforms show as their files finish loading.
   if (managers_.sounds != nullptr) {
-    connect(managers_.sounds, &SoundManager::SoundsChanged, this,
-            [this] { update(); });
+    connect(managers_.sounds, &SoundManager::SoundsChanged, this, update_me);
   }
-  update_me();
+  // The armed track's R lights up.
+  if (managers_.record != nullptr) {
+    connect(managers_.record, &RecordManager::StateChanged, this, update_me);
+  }
+  FitScrollBar();
   assert(acceptDrops());
+}
+
+double ReelTimeline::TracksHeight() const {
+  assert(managers_.history != nullptr);
+  const int count =
+      static_cast<int>(managers_.history->current().reel.tracks.size());
+  assert(count <= kMaxAllTracks);
+  return count * kTrackHeight;
+}
+
+void ReelTimeline::FitScrollBar() {
+  assert(kRulerHeight > 0.0);
+  assert(kTrackHeight > 0.0);
+  const double room = std::max(0.0, height() - kRulerHeight);
+  const int over = static_cast<int>(std::ceil(TracksHeight() - room));
+  const bool is_over = over > 0;
+  track_scroll_.setRange(0, std::max(over, 0));
+  track_scroll_.setPageStep(static_cast<int>(room));
+  const int bar = track_scroll_.sizeHint().width();
+  track_scroll_.setGeometry(width() - bar, static_cast<int>(kRulerHeight),
+                            bar, std::max(0, height() -
+                                                 static_cast<int>(kRulerHeight)));
+  track_scroll_.setVisible(is_over);
+  update();
+}
+
+void ReelTimeline::resizeEvent(QResizeEvent* event) {
+  assert(event != nullptr);
+  assert(height() >= 0);
+  QWidget::resizeEvent(event);
+  FitScrollBar();
 }
 
 double ReelTimeline::XOf(Frame frame) const {
@@ -99,7 +138,8 @@ double ReelTimeline::TrackTop(int track) const {
       static_cast<int>(managers_.history->current().reel.tracks.size());
   assert(track < count);
   // The top track is drawn on top, as it shows on top.
-  return kRulerHeight + (count - 1 - track) * kTrackHeight;
+  return kRulerHeight + (count - 1 - track) * kTrackHeight -
+         track_scroll_.value();
 }
 
 int ReelTimeline::TrackAt(double y) const {
@@ -107,8 +147,8 @@ int ReelTimeline::TrackAt(double y) const {
   const int count =
       static_cast<int>(managers_.history->current().reel.tracks.size());
   assert(count <= kMaxAllTracks);
-  const int row = static_cast<int>(std::floor((y - kRulerHeight) /
-                                              kTrackHeight));
+  const int row = static_cast<int>(std::floor(
+      (y + track_scroll_.value() - kRulerHeight) / kTrackHeight));
   const bool is_on_tracks = y >= kRulerHeight && row >= 0 && row < count;
   return is_on_tracks ? count - 1 - row : -1;
 }
@@ -156,6 +196,7 @@ void ReelTimeline::paintEvent(QPaintEvent* event) {
   PaintJoints(&painter);
   PaintDrop(&painter);
   PaintRuler(&painter);
+  PaintMarked(&painter);
   PaintMarkers(&painter);
   PaintPlayhead(&painter);
   PaintBox(&painter);
@@ -402,6 +443,40 @@ void ReelTimeline::PaintPlayhead(QPainter* painter) const {
     painter->setPen(QPen(theme::kPick, 1.0));
     painter->drawLine(QPointF(x, 0), QPointF(x, height()));
   }
+}
+
+void ReelTimeline::PaintMarked(QPainter* painter) const {
+  assert(painter != nullptr);
+  assert(marked_track_ >= -1);
+  const int count =
+      static_cast<int>(managers_.history->current().reel.tracks.size());
+  const bool is_shown = marked_.IsValid() && marked_track_ >= 0 &&
+                        marked_track_ < count;
+  if (!is_shown) {
+    return;
+  }
+  const double left = std::max(XOf(marked_.start), kHeaderWidth);
+  const double right = XOf(marked_.end);
+  if (right <= left) {
+    return;
+  }
+  QColor band = theme::kHandle;
+  band.setAlpha(60);
+  painter->save();
+  painter->setClipRect(QRectF(kHeaderWidth, 0, width(), height()));
+  painter->fillRect(QRectF(left, kRulerHeight - 5.0, right - left, 5.0),
+                    theme::kHandle);
+  const double top = TrackTop(marked_track_);
+  const bool is_visible = top + kTrackHeight > kRulerHeight;
+  if (is_visible) {
+    const QRectF row(left, std::max(top, kRulerHeight), right - left,
+                     top + kTrackHeight - std::max(top, kRulerHeight));
+    painter->fillRect(row, band);
+    painter->setPen(QPen(theme::kHandle, 1.0, Qt::DashLine));
+    painter->setBrush(Qt::NoBrush);
+    painter->drawRect(row.adjusted(0.5, 0.5, -0.5, -0.5));
+  }
+  painter->restore();
 }
 
 void ReelTimeline::PaintBox(QPainter* painter) const {

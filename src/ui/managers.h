@@ -20,6 +20,7 @@ class PlaybackManager;
 class PokeManager;
 class PoseManager;
 class PresetManager;
+class RecordManager;
 class ReelManager;
 class ReferenceManager;
 class RigManager;
@@ -73,6 +74,9 @@ struct Managers final {
   ReferenceManager* references = nullptr;
   // Not in IsComplete either: the Comp tab checks it.
   CompManager* comp = nullptr;
+  // Not in IsComplete either: the Video tab's Record button and the sound
+  // track headers' arm buttons check it.
+  RecordManager* record = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&

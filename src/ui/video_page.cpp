@@ -3,10 +3,10 @@
 #include <QApplication>
 #include <QFileDialog>
 #include <QKeyEvent>
-#include <QSignalBlocker>
+#include <QTabBar>
 
 #include <cassert>
-#include <set>
+#include <variant>
 
 #include "anim/reel_timeline.h"
 #include "edit/history_manager.h"
@@ -15,63 +15,136 @@
 #include "edit/selection_manager.h"
 #include "edit/sound_manager.h"
 #include "ui/form_helpers.h"
+#include "ui/panel_kit.h"
+#include "ui/theme.h"
 
 namespace snapper {
-namespace {
 
-constexpr int kBarGap = 14;
-
-}  // namespace
+SidePanels SidePanelsFor(const Reel& reel, const std::set<ClipId>& picked) {
+  assert(picked.size() < 1000000);
+  assert(reel.tracks.size() < 100000);
+  SidePanels panels;
+  const bool is_none = picked.empty();
+  if (is_none) {
+    panels.subtitles = true;
+    return panels;
+  }
+  int texts = 0;
+  int cues = 0;
+  int sounds = 0;
+  int shots = 0;
+  const int subtitle_track = SubtitleTrack(reel);
+  for (const ClipId id : picked) {
+    const Clip* clip = ClipOf(reel, id);
+    if (clip == nullptr) {
+      continue;
+    }
+    const bool is_text = IsTextClip(*clip);
+    texts += is_text ? 1 : 0;
+    cues += is_text && FindClip(reel, id).track == subtitle_track ? 1 : 0;
+    sounds += IsSoundClip(*clip) ? 1 : 0;
+    shots += std::holds_alternative<ShotSource>(clip->source) ? 1 : 0;
+  }
+  const int count = static_cast<int>(picked.size());
+  panels.text = texts == count;
+  panels.subtitles = panels.text && cues > 0;
+  panels.sound = sounds == count;
+  panels.shot = shots == count;
+  return panels;
+}
 
 VideoPage::VideoPage(const Managers& managers)
     : managers_(managers),
       layout_(this),
       split_(Qt::Vertical),
       top_(Qt::Horizontal),
+      bin_layout_(&bin_column_),
       bottom_layout_(&bottom_),
       bar_layout_(&bar_),
       bin_(managers),
+      new_shot_(tr("+ New shot here")),
       preview_(managers),
       text_panel_(managers),
       subtitle_panel_(managers),
+      sound_panel_(managers),
+      shot_panel_(managers),
+      hint_layout_(&hint_page_),
       import_(tr("Import...")),
       add_text_(tr("T+")),
       tap_key_(QKeySequence(Qt::Key_L), this),
       split_button_(tr("Split at playhead")),
       mark_(tr("Mark cut")),
       add_track_(tr("Add track")),
-      edge_mode_(tr("Edges: Hold")),
       transport_(managers),
       timeline_(managers) {
   assert(managers_.IsComplete());
   layout_.setContentsMargins(0, 0, 0, 0);
-  side_.addTab(&text_panel_, tr("Text"));
-  side_.addTab(&subtitle_panel_, tr("Subtitles"));
-  top_.addWidget(&bin_);
+  bin_layout_.setContentsMargins(0, 0, 0, 0);
+  bin_layout_.setSpacing(theme::kRowGap / 2);
+  new_shot_.setObjectName("new_shot_here");
+  new_shot_.setFocusPolicy(Qt::NoFocus);
+  new_shot_.setMinimumHeight(2 * theme::Em(&new_shot_));
+  bin_layout_.addWidget(&new_shot_);
+  bin_layout_.addWidget(&bin_, 1);
+  BuildSide();
+  top_.addWidget(&bin_column_);
   top_.addWidget(&preview_);
   top_.addWidget(&side_);
-  top_.setStretchFactor(0, 1);
-  top_.setStretchFactor(1, 4);
-  top_.setStretchFactor(2, 1);
-  bar_layout_.setContentsMargins(4, 2, 4, 2);
-  bar_layout_.addWidget(&transport_);
-  bar_layout_.addSpacing(kBarGap);
-  bar_layout_.addWidget(&import_);
-  bar_layout_.addWidget(&add_text_);
-  bar_layout_.addWidget(&split_button_);
-  bar_layout_.addWidget(&mark_);
-  bar_layout_.addWidget(&add_track_);
-  bar_layout_.addWidget(&edge_mode_);
-  bar_layout_.addStretch(1);
+  // The preview takes the golden ratio's long part; the two lists share
+  // the short one.
+  top_.setStretchFactor(0, kGoldenShort / 2);
+  top_.setStretchFactor(1, kGoldenLong);
+  top_.setStretchFactor(2, kGoldenShort / 2);
+  BuildBar();
   bottom_layout_.setContentsMargins(0, 0, 0, 0);
   bottom_layout_.setSpacing(0);
   bottom_layout_.addWidget(&bar_);
   bottom_layout_.addWidget(&timeline_, 1);
   split_.addWidget(&top_);
   split_.addWidget(&bottom_);
-  split_.setStretchFactor(0, 3);
-  split_.setStretchFactor(1, 2);
+  split_.setStretchFactor(0, kGoldenLong);
+  split_.setStretchFactor(1, kGoldenShort);
   layout_.addWidget(&split_);
+  connect(&new_shot_, &QPushButton::clicked, &timeline_,
+          &ReelTimeline::NewShotAtPlayhead);
+  connect(&bin_, &ShotBin::OpenShotAsked, this,
+          [this](ShotId shot) { emit OpenShotAsked(shot, Frame(0)); });
+  connect(&timeline_, &ReelTimeline::OpenShotAsked, this,
+          &VideoPage::OpenShotAsked);
+  connect(&shot_panel_, &ShotClipPanel::OpenShotAsked, this,
+          &VideoPage::OpenShotAsked);
+  connect(&shot_panel_, &ShotClipPanel::Problem, this, &VideoPage::Problem);
+  connect(&sound_panel_, &SoundClipPanel::Problem, this, &VideoPage::Problem);
+  connect(&shot_panel_, &ShotClipPanel::EdgeModeChanged, this,
+          [this] { Refresh(); });
+  connect(&timeline_, &ReelTimeline::EdgeModeChanged, this,
+          [this] { Refresh(); });
+  connect(&timeline_, &ReelTimeline::Problem, this, &VideoPage::Problem);
+  WireText();
+  const auto refresh = [this] { Refresh(); };
+  connect(managers_.history, &HistoryManager::Changed, this, refresh);
+  connect(managers_.selection, &SelectionManager::Changed, this, refresh);
+  connect(managers_.playback, &PlaybackManager::FrameChanged, this, refresh);
+  Refresh();
+  assert(layout_.count() == 1);
+}
+
+void VideoPage::BuildBar() {
+  assert(managers_.reel != nullptr);
+  assert(bar_layout_.count() == 0);
+  bar_layout_.setContentsMargins(4, 2, 4, 2);
+  bar_layout_.addWidget(&transport_);
+  const bool can_record = managers_.record != nullptr;
+  if (can_record) {
+    record_ = std::make_unique<RecordButton>(managers_);
+    bar_layout_.addWidget(record_.get());
+    connect(record_.get(), &RecordButton::Problem, this, &VideoPage::Problem);
+  }
+  bar_layout_.addWidget(&import_);
+  bar_layout_.addWidget(&add_text_);
+  bar_layout_.addWidget(&split_button_);
+  bar_layout_.addWidget(&mark_);
+  bar_layout_.addWidget(&add_track_);
   import_.setToolTip(tr("Puts video files on the bottom picture track, "
                         "and sound files on a sound track at the "
                         "playhead."));
@@ -95,28 +168,21 @@ VideoPage::VideoPage(const Managers& managers)
   });
   connect(&add_track_, &QPushButton::clicked, this,
           [this] { Report(ProblemOf(managers_.reel->AddTrack())); });
-  edge_mode_.setObjectName("edge_mode");
-  edge_mode_.setCheckable(true);
-  edge_mode_.setFocusPolicy(Qt::NoFocus);
-  edge_mode_.setToolTip(
-      tr("What dragging a shot clip's edge does to the shot's keys. Hold: "
-         "new frames hold the last pose. Stretch: every key moves in "
-         "proportion, so the action plays faster or slower."));
-  connect(&edge_mode_, &QPushButton::toggled, this, [this](bool is_down) {
-    managers_.reel->SetEdgeMode(is_down ? EdgeMode::kStretch
-                                        : EdgeMode::kHold);
-    Refresh();
-  });
-  connect(&timeline_, &ReelTimeline::EdgeModeChanged, this,
-          [this] { Refresh(); });
-  connect(&timeline_, &ReelTimeline::Problem, this, &VideoPage::Problem);
-  WireText();
-  const auto refresh = [this] { Refresh(); };
-  connect(managers_.history, &HistoryManager::Changed, this, refresh);
-  connect(managers_.selection, &SelectionManager::Changed, this, refresh);
-  connect(managers_.playback, &PlaybackManager::FrameChanged, this, refresh);
-  Refresh();
-  assert(layout_.count() == 1);
+}
+
+void VideoPage::BuildSide() {
+  assert(side_.count() == 0);
+  assert(hint_layout_.count() == 0);
+  hint_layout_.addWidget(
+      EmptyHint(tr("Pick a text, sound or shot clip on the reel to change "
+                   "it here."),
+                &hint_page_));
+  hint_layout_.addStretch(1);
+  side_.addTab(&text_panel_, tr("Text"));
+  side_.addTab(&subtitle_panel_, tr("Subtitles"));
+  side_.addTab(&sound_panel_, tr("Sound clip"));
+  side_.addTab(&shot_panel_, tr("Shot clip"));
+  side_.addTab(&hint_page_, tr("Nothing picked"));
 }
 
 void VideoPage::ImportVideos(const QStringList& paths) {
@@ -256,21 +322,57 @@ bool VideoPage::eventFilter(QObject* watched, QEvent* event) {
   return QWidget::eventFilter(watched, event);
 }
 
+void VideoPage::ShowSide() {
+  assert(managers_.selection != nullptr);
+  assert(side_.count() == 5);
+  const SidePanels panels = SidePanelsFor(managers_.history->current().reel,
+                                          managers_.selection->clips());
+  const bool shows[] = {panels.text, panels.subtitles, panels.sound,
+                        panels.shot, panels.IsEmpty()};
+  int shown = 0;
+  for (int tab = 0; tab < side_.count(); ++tab) {
+    side_.setTabVisible(tab, shows[tab]);
+    shown += shows[tab] ? 1 : 0;
+  }
+  // One panel needs no tab to pick it.
+  side_.tabBar()->setVisible(shown > 1);
+  const bool is_current_hidden = !shows[side_.currentIndex()];
+  if (is_current_hidden) {
+    for (int tab = 0; tab < side_.count(); ++tab) {
+      if (shows[tab]) {
+        side_.setCurrentIndex(tab);
+        break;
+      }
+    }
+  }
+  if (panels.sound) {
+    sound_panel_.Refresh();
+  }
+  if (panels.shot) {
+    shot_panel_.Refresh();
+  }
+}
+
 void VideoPage::Refresh() {
   assert(managers_.reel != nullptr);
   assert(managers_.selection != nullptr);
   const auto& picked = managers_.selection->clips();
-  Explain(&add_text_, managers_.reel->WhyNoAddText(
-                          managers_.playback->FrameOn(Timeline::kReel)));
+  const Frame now = managers_.playback->FrameOn(Timeline::kReel);
+  Explain(&add_text_, managers_.reel->WhyNoAddText(now));
   Explain(&split_button_,
           managers_.reel->WhyNoSplit(
-              std::vector<ClipId>(picked.begin(), picked.end()),
-              managers_.playback->FrameOn(Timeline::kReel)));
+              std::vector<ClipId>(picked.begin(), picked.end()), now));
   Explain(&add_track_, managers_.reel->WhyNoAddTrack());
-  const bool is_stretch = managers_.reel->edge_mode() == EdgeMode::kStretch;
-  const QSignalBlocker quiet(&edge_mode_);
-  edge_mode_.setChecked(is_stretch);
-  edge_mode_.setText(is_stretch ? tr("Edges: Stretch") : tr("Edges: Hold"));
+  const Slot span = managers_.reel->NewShotSpan(-1, now);
+  const bool has_mark = timeline_.marked().IsValid();
+  const Slot target = has_mark ? timeline_.marked() : span;
+  Explain(&new_shot_,
+          managers_.reel->WhyNoNewShot(has_mark ? timeline_.marked_track() : -1,
+                                       target.start, target.end),
+          tr("Makes a blank shot as long as the range marked on the reel "
+             "(Alt and drag), else the gap at the playhead, and lays it "
+             "there. Also in a gap's double-click menu."));
+  ShowSide();
 }
 
 }  // namespace snapper

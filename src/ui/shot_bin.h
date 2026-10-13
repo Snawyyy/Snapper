@@ -8,6 +8,7 @@
 
 #include <map>
 #include <memory>
+#include <vector>
 
 #include "model/shot.h"
 #include "ui/shot_thumbs.h"
@@ -22,7 +23,9 @@ inline constexpr char kShotMime[] = "application/x-snapper-shot";
 ShotId ShotOfDrop(const QMimeData* data);
 
 // Every shot, with a picture of its first frame and its length, ready to
-// drag onto the reel as a finished video.
+// drag onto the reel as a finished video. Picks by the one pick rule
+// (PickList); Delete removes the picked shots, a double click asks to
+// open one on the Pose tab.
 class ShotBin final : public QListWidget {
   Q_OBJECT
 
@@ -30,6 +33,10 @@ class ShotBin final : public QListWidget {
   explicit ShotBin(const Managers& managers);
   // Lists the shots as they are now.
   void Refresh();
+  std::vector<ShotId> Picked() const;
+
+ signals:
+  void OpenShotAsked(ShotId shot);
 
  protected:
   void showEvent(QShowEvent* event) override;
@@ -38,6 +45,7 @@ class ShotBin final : public QListWidget {
 
  private:
   QIcon Thumbnail(const std::shared_ptr<const Shot>& shot);
+  void RemovePicked();
 
   Managers managers_;
   ShotThumbs thumbs_;
