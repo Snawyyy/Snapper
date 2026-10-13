@@ -130,3 +130,28 @@ InnerFlare/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
 InnerFlare/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
 _NFLib/fx/NF_Blend.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
 ```
+
+### InnerFlareRot
+
+Files: `InnerFlareRot/` (`InnerFlareRot.cpp`, `InnerFlareRot.h`,
+`AlphaCopyDD.cpp`, `AlphaCopyDD.h`, `AlphaCopyR.cpp`, `AlphaCopyR.h`,
+`NF_Target.h`, `README.MD`); `_NFLib/fx/` `NF_ChannelBlur`,
+`NF_ChannelMinMax` (`.cpp` and `.h`). Units `innerflarerot_unit_1..4.cpp`
+(the AlphaCopy sources share `AlpheCopyInfo`; the Channel blur and
+minmax share `BlurInfo` and `LineBuf` with the plain ones). Its README
+names an `offset` parameter the code no longer has. `NF_ChannelBlur.cpp`
+reports each blur pass through `OutputDebugStringA`, so every render
+with blur prints `BoxBlurH8: err=0` lines on stderr.
+
+```
+InnerFlareRot/InnerFlareRot.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+InnerFlareRot/InnerFlareRot.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+InnerFlareRot/InnerFlareRot.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+InnerFlareRot/InnerFlareRot.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+InnerFlareRot/InnerFlareRot.h:19: "..\_NFLib\fx\NF_ChannelMinmax.h" -> "../_NFLib/fx/NF_ChannelMinMax.h"
+InnerFlareRot/InnerFlareRot.h:20: "..\_NFLib\fx\NF_Channelblur.h" -> "../_NFLib/fx/NF_ChannelBlur.h"
+InnerFlareRot/InnerFlareRot.h:25: "..\_NFLib\fx\NF_AlphaHyperbolic.h" -> "../_NFLib/fx/NF_AlphaHyperbolic.h"
+InnerFlareRot/InnerFlareRot.h:26: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
+InnerFlareRot/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+InnerFlareRot/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+```
