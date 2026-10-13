@@ -107,7 +107,8 @@ void DrawBar::Refresh() {
   size_.setText(tr("Brush %1 px").arg(draw->brush_size()));
   const QSignalBlocker quiet(onion_);
   onion_.setChecked(draw->is_onion());
-  assert(!title_.text().isNull());
+  // No title while no drawing is open, so the text may be null.
+  assert(onion_.isChecked() == draw->is_onion());
 }
 
 void DrawBar::Ask(bool is_asking) {

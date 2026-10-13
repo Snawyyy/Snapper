@@ -39,7 +39,12 @@ double HoverOf(const QStyleOption* option, const QWidget* widget) {
 void DrawBevel(QPainter* painter, const QRect& rect, const QColor& fill,
                bool is_sunk) {
   assert(painter != nullptr);
-  assert(rect.isValid());
+  assert(fill.isValid());
+  // A squeezed widget (a combo box in a narrow panel) leaves no room.
+  const bool has_room = rect.isValid();
+  if (!has_room) {
+    return;
+  }
   painter->fillRect(rect, fill);
   const QColor top_left = is_sunk ? theme::kShadow : theme::kFaceLight;
   const QColor bottom_right = is_sunk ? theme::kFaceLight : theme::kShadow;
