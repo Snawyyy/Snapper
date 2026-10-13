@@ -21,7 +21,7 @@ source of truth.
 |----------|---------------------------------------------------|---------------|
 | `base`   | Ids, frame time, errors, `Tr` for messages        | Qt Core       |
 | `model`  | Plain data: dolls, project, shots, keys, reel     | base          |
-| `fsp`    | F's Plugins: the plugin list, their parameters, running one over a picture | base |
+| `fsp`    | F's Plugins: the plugin list, their parameters, running one over a picture; the Line smoother's parameter table | base |
 | `anim`   | Pure math: sampling keys, pose, IK, warp, presets | model, fsp    |
 | `io`     | Reading and writing doll and project files        | model, fsp    |
 | `media`  | FFmpeg and audio: decode, play, encode, read video | base         |
@@ -539,7 +539,8 @@ layer. Effects are drawn in screen space, after the camera.
 A shot also has a comp stack (`Shot::comp`, `model/comp.h`). The Comp tab works on the reel: its playhead is the reel's (the mode switch puts the playback on `Timeline::kReel` for Video and Comp), its stage draws `RenderReel`, and `ShotAtReel` (`anim/reel_timeline.h`) names the shot on top at the playhead, which `CompPage` then picks. The Comp
 tab's finishing effects, and a Light (`Shot::light`, a keyed angle).
 `FrameRenderer::RenderShot` runs the stack bottom first after every
-layer (`render/comp.cpp`), so every picture of the shot has it. Each
+layer (`render/comp.cpp`; what a target needs and its point space in
+`render/comp_targets.cpp`), so every picture of the shot has it. Each
 effect works on a target: everything below, one layer, some pieces of
 a doll, narrowed by picked colors. When an effect needs a target's own
 pixels, `NeedsOf` says so and the layer pass paints each layer through
@@ -572,6 +573,27 @@ The renderer hands the plugin the target's picture as motion blur takes
 it and lays the answer through the same blend and mask
 (`render/comp_plugin.cpp`); a refusal skips the effect and the panel
 says so.
+
+The Line smoother (`CompKind::kLineSmoother`) is a rebuild of OLM
+Smoother v2 (OLM Digital's After Effects plugin) from its manual, not
+its code. Its parameters (Smoothness, Extra Smooth, Smooth Range, the
+color key, Smoother Version, Gamma Correction and its colors) are a
+table shaped like a plugin's (`fsp/olm_smoother_info.h`), so they use
+the same value slots, rows, keys and file names as a plugin
+(`ParamInfoOf` in `anim/comp_fsp.h`); a file without them loads with
+the defaults. `render/comp_smoother.cpp` keys the color, moves the
+frame into linear light (v2) and the gamma, and mixes each pixel with
+the neighbours `render/comp_smoother_runs.cpp` names: an MLAA search
+that reads each run of a stair step as part of a line through the
+middles of the steps and gives a pixel the share of the color across
+the edge the line covers; ends that turn back or into long sides
+(corners, line caps) are left sharp. It works on the frame's own
+pixels at any preview scale; picked colors name the lines it smooths,
+a layer target keeps it to the layer grown by one pixel. Its answer
+stands in for the frame (`StandInOnto` in `render/blend.cpp`): in
+Normal the frame becomes it by Strength, alpha included, so it can
+thin an edge or clear the keyed color; other modes blend only the
+changed pixels.
 
 A shot may hold references (`Shot::references`, `model/reference.h`):
 videos, GIFs and pictures linked by path to animate over. They are not

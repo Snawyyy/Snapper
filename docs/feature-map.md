@@ -64,7 +64,7 @@ it in the same commit.
 | Transparent shot background (Transparent tile, checkerboard, Shift+V, Transparent start, alpha export: PNG frames, WebM, MOV) | Rendering | model/shot.h (is_transparent), model/project.h (new_shots_transparent), io/layer_json.cpp, io/project_file.cpp, render/frame_renderer.cpp (KeepDrawnOnly, RenderReel under), media/video_formats.cpp, media/video_encoder.cpp, media/video_streams.cpp, media/png_frames.cpp, media/wav_file.cpp, edit/shot_batch.cpp, edit/export_manager.cpp, edit/document_manager.cpp, ui/shot_box.cpp, ui/checkerboard.cpp, ui/stage_view_look.cpp (PaintBehind, SolidKey), ui/shot_strip_paint.cpp, ui/reel_timeline.cpp, ui/export_dialog.cpp, ui/export_dialog_actions.cpp, ui/new_project_dialog.cpp | ShotManager (SetTransparentAll), ExportManager | none yet |
 | Reference on the Pose tab (Add reference, Alt + drop, reference rows, opacity, in front, tint, fit, start and slide, speed, markers, Y, M, find file) | Shots | model/reference.h, model/shot.h (references), io/reference_json.cpp, io/layer_json.cpp, edit/reference_manager.cpp, edit/video_file_frames.cpp (PictureAtSeconds), render/reference_paint.cpp, render/frame_renderer.cpp (under), ui/stage_view_reference.cpp, ui/stage_view_drop.cpp, ui/timeline_references.cpp, ui/reference_box.cpp, ui/reference_keys.cpp, ui/shot_strip.cpp (menu), ui/inspector.cpp | ReferenceManager | none yet |
 | Library folders (nested folders in the doll library, Back/Forward/Up and address bar, hidden folders, Move to folder, View > Show hidden folders) | Cast panel | edit/library_folder_manager.cpp, edit/library_folder_edits.cpp, edit/library_folder_paths.h, ui/library_nav_bar.cpp, ui/library_folder_prompts.cpp, ui/cast_folders.cpp, ui/cast_actions.cpp (RefreshLibrary), ui/doll_cards.cpp (IsFolderCard, drops on folders), ui/main_window.cpp (BuildHiddenFoldersAction), app/app_context.cpp | LibraryFolderManager | none yet (owner tests by eye) |
-| Compositing (Comp tab: effect stack, targets, picked colors, blend modes, keyed knobs, shot Light, V, K, I) | Shots | model/comp.h, model/shot.h (comp, light), anim/comp_knobs.cpp (KnobSpecOf, KnobAt, LightAt), anim/comp_fsp.cpp (F's Plugins effects: slot specs, names, FspValuesAt), anim/reel_timeline.cpp (ShotAtReel: the shot Comp edits at the reel playhead), io/comp_json.cpp, io/comp_fsp_json.cpp (plugin values by parameter name, missing plugins kept), io/layer_json.cpp, render/comp.cpp (NeedsOf, ApplyComp, CompSpace, CompReport), render/comp_plugin.cpp (RunCompPlugin), render/comp_masks.cpp, render/comp_effects.cpp, render/comp_light.cpp, render/blend.cpp (BlendOnto), render/frame_renderer.cpp (PaintForComp, SetCompShow), edit/comp_manager.cpp, edit/comp_edits.cpp, edit/comp_rows.cpp (RowsOf, IsKnobShown, KnobLabel, IsKeyable), edit/comp_plugins.cpp (EffectName, AddPlugin, SetKnobColor), edit/comp_view.cpp (pick, V, K, NoteCosts, WhyNotRun), ui/comp_page.cpp, ui/comp_stack.cpp (Add menu, F's Plugins submenu), ui/comp_stage.cpp, ui/comp_panel.cpp, ui/comp_panel_knobs.cpp (rows from RowsOf), ui/comp_timeline.cpp, ui/main_window.cpp (Mode::kComp), ui/top_bar.cpp | CompManager | tests/ui/comp_reel_tests.cpp (the reel playhead part only) |
+| Compositing (Comp tab: effect stack, targets, picked colors, blend modes, keyed knobs, shot Light, V, K, I) | Shots | model/comp.h, model/shot.h (comp, light), anim/comp_knobs.cpp (KnobSpecOf, KnobAt, LightAt), anim/comp_fsp.cpp (F's Plugins effects: slot specs, names, FspValuesAt), anim/reel_timeline.cpp (ShotAtReel: the shot Comp edits at the reel playhead), io/comp_json.cpp, io/comp_fsp_json.cpp (plugin values by parameter name, missing plugins kept), io/layer_json.cpp, render/comp.cpp (ApplyComp, CompReport), render/comp_targets.cpp (NeedsOf, CompSpace), render/comp_plugin.cpp (RunCompPlugin), render/comp_masks.cpp, render/comp_effects.cpp, render/comp_light.cpp, render/comp_smoother.cpp and render/comp_smoother_runs.cpp (Line smoother, OLM Smoother v2 rebuild), fsp/olm_smoother_info.cpp (its parameters), render/blend.cpp (BlendOnto, StandInOnto), render/frame_renderer.cpp (PaintForComp, SetCompShow), edit/comp_manager.cpp, edit/comp_edits.cpp, edit/comp_rows.cpp (RowsOf, IsKnobShown, KnobLabel, IsKeyable), edit/comp_plugins.cpp (EffectName, AddPlugin, SetKnobColor), edit/comp_view.cpp (pick, V, K, NoteCosts, WhyNotRun), ui/comp_page.cpp, ui/comp_stack.cpp (Add menu, F's Plugins submenu), ui/comp_stage.cpp, ui/comp_panel.cpp, ui/comp_panel_knobs.cpp (rows from RowsOf), ui/comp_timeline.cpp, ui/main_window.cpp (Mode::kComp), ui/top_bar.cpp | CompManager | tests/ui/comp_reel_tests.cpp (the reel playhead part only) |
 
 ## Adding a new kind
 
@@ -147,14 +147,30 @@ CompKind (model/comp.h, a Comp tab effect):
 - edit/comp_manager.cpp: `kKindNames`, `MadeOf` and `KindHelp`
   switches, `StyleNames`, `UsesColor`
 - edit/comp_rows.cpp: `IsKnobShown` (per-kind rules), `RowsOf`
-- render/comp.cpp: the `Draw` switch (the look), `NeedsShape`
+- render/comp.cpp: the `Draw` switch (the look);
+  render/comp_targets.cpp `NeedsCompShape`
 - ui/comp_stack.cpp: `MarkColor` switch; the Add menu lists from the
   Count (skipping kFsp, whose plugins get their own submenu)
 - kFsp also compares in anim/comp_fsp.cpp `FspInfoOf`,
   edit/comp_plugins.cpp `EffectName`/`EffectHelp`, edit/comp_view.cpp
-  `WhyNotRun`, io/comp_json.cpp (plugin and params), render/comp.cpp
-  `Run` (a missing plugin draws nothing)
+  `WhyNotRun`, io/comp_json.cpp (plugin), render/comp.cpp `Run` (a
+  missing plugin draws nothing)
+- a kind with value slots (kFsp, kLineSmoother) also compares in
+  anim/comp_fsp.cpp `ParamInfoOf` (its parameter table),
+  edit/comp_rows.cpp `IsKnobShown`/`RowsOf`/`IsPluginKnobShown` and
+  io/comp_fsp_json.cpp `HasParamsInFile`/`UsableInfo` (saved as
+  "params")
 - tests: none yet
+
+The Line smoother (kLineSmoother) is a rebuild of OLM Smoother v2 from
+its manual: its parameter table is fsp/olm_smoother_info.cpp (shaped
+like a plugin's, not in `AllFspEffects`), the pixel work
+render/comp_smoother.cpp (light spaces, color key, the mix) and
+render/comp_smoother_runs.cpp (the MLAA edge search), run by
+render/comp.cpp `DrawSmoother` and laid down by render/blend.cpp
+`StandInOnto`; which rows show is edit/comp_rows.cpp
+`IsSmootherSlotShown`. tools/smoother_render.cpp (target
+smoother_render, not built by default) runs it on a PNG.
 
 A new F's plugin needs nothing here: it appears from `AllFspEffects()`
 (src/fsp) with its own parameters.
@@ -168,7 +184,8 @@ CompKnob (model/comp.h): a fixed knob goes before `kParam0` and raises
 `kCompFixedKnobCount`; io/comp_json.cpp `kKnobNames`;
 anim/comp_knobs.cpp per-kind switches; points (kAx to kBy) are
 compared in edit/comp_rows.cpp `IsKnobShown`. `kParam0` on are a
-plugin's slots (`ParamKnob`, `ParamSlotOf`, `kCompParamSlots`).
+plugin's (or the Line smoother's) slots (`ParamKnob`, `ParamSlotOf`,
+`kCompParamSlots`).
 
 GradientShape (model/comp.h): `kGradientShapeCount`; io/comp_json.cpp
 `kShapeNames`; edit/comp_manager.cpp `kShapeNames`; render/comp_light.cpp
