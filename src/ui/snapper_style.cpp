@@ -2,8 +2,10 @@
 
 #include <QAbstractItemView>
 #include <QComboBox>
+#include <QCursor>
 #include <QFrame>
 #include <QPainter>
+#include <QSplitterHandle>
 #include <QStyleOption>
 #include <QWidget>
 
@@ -93,6 +95,32 @@ void DrawButton(const QStyleOption* option, QPainter* painter,
             look.is_sunk);
 }
 
+// A splitter handle or dock separator: a thin groove in a wide grab area
+// that turns into a yellow draggable handle under the pointer.
+// Dock separators come with no hover state, so is_under_cursor says it.
+void DrawGrip(const QStyleOption* option, QPainter* painter,
+              bool is_under_cursor) {
+  assert(option != nullptr);
+  assert(painter != nullptr);
+  const QRect box = option->rect;
+  const bool has_room = box.isValid();
+  if (!has_room) {
+    return;
+  }
+  const bool is_active =
+      is_under_cursor ||
+      option->state.testFlags(QStyle::State_MouseOver | QStyle::State_Sunken);
+  painter->fillRect(box, option->palette.window());
+  const int line = is_active ? 4 : 1;
+  const bool is_bar = box.height() > box.width();
+  const QRect groove =
+      is_bar ? QRect(box.center().x() - line / 2, box.top(), line,
+                     box.height())
+             : QRect(box.left(), box.center().y() - line / 2, box.width(),
+                     line);
+  painter->fillRect(groove, is_active ? theme::kHandle : theme::kShadow);
+}
+
 }  // namespace
 
 double SquashScale(double press) {
@@ -139,6 +167,13 @@ void SnapperStyle::drawPrimitive(PrimitiveElement element,
   if (is_flat_tool) {
     return;
   }
+  if (element == PE_IndicatorDockWidgetResizeHandle) {
+    const bool is_under_cursor =
+        widget != nullptr &&
+        option->rect.contains(widget->mapFromGlobal(QCursor::pos()));
+    DrawGrip(option, painter, is_under_cursor);
+    return;
+  }
   const bool is_group_frame =
       element == PE_FrameGroupBox && option->rect.isValid();
   if (is_group_frame) {
@@ -158,6 +193,10 @@ void SnapperStyle::drawControl(ControlElement element,
   assert(option != nullptr);
   assert(painter != nullptr);
   const auto* tab = qstyleoption_cast<const QStyleOptionTab*>(option);
+  if (element == CE_Splitter) {
+    DrawGrip(option, painter, false);
+    return;
+  }
   const bool is_tab_shape = element == CE_TabBarTabShape && tab != nullptr;
   const bool is_tab_label = element == CE_TabBarTabLabel && tab != nullptr;
   if (is_tab_shape) {
@@ -229,10 +268,27 @@ void SnapperStyle::drawComplexControl(ComplexControl control,
   drawControl(CE_ComboBoxLabel, &text, painter, widget);
 }
 
+int SnapperStyle::pixelMetric(PixelMetric metric, const QStyleOption* option,
+                              const QWidget* widget) const {
+  assert(kGripExtent > 0);
+  assert(kGripExtent < 100);
+  const bool is_grip = metric == PM_SplitterWidth ||
+                       metric == PM_DockWidgetSeparatorExtent;
+  if (is_grip) {
+    return kGripExtent;
+  }
+  return QProxyStyle::pixelMetric(metric, option, widget);
+}
+
 void SnapperStyle::polish(QWidget* widget) {
   assert(widget != nullptr);
   assert(baseStyle() != nullptr);
   QProxyStyle::polish(widget);
+  // The handle lights up under the pointer only when it gets hover events.
+  const bool is_handle = qobject_cast<QSplitterHandle*>(widget) != nullptr;
+  if (is_handle) {
+    widget->setAttribute(Qt::WA_Hover);
+  }
   auto* combo = qobject_cast<QComboBox*>(widget);
   const bool is_combo = combo != nullptr;
   if (!is_combo) {

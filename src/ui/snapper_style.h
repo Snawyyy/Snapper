@@ -38,6 +38,10 @@ ButtonLook LookOfButton(bool is_enabled, bool is_down, bool is_checked,
 // that brighten under the pointer and sink when pressed, chunky tabs,
 // and sunken dropdowns. Every widget gets it from the application, so no widget
 // carries a stylesheet.
+// How wide a splitter handle or dock separator is, so it is easy to
+// catch; the line drawn in it stays thin until the pointer is over it.
+inline constexpr int kGripExtent = 10;
+
 class SnapperStyle final : public QProxyStyle {
  public:
   SnapperStyle();
@@ -55,6 +59,9 @@ class SnapperStyle final : public QProxyStyle {
   // A dropdown takes the full width it is given and opens a sunken list.
   void polish(QWidget* widget) override;
   using QProxyStyle::polish;
+  // Splitter handles and dock separators grab big: kGripExtent wide.
+  int pixelMetric(PixelMetric metric, const QStyleOption* option,
+                  const QWidget* widget) const override;
   QSize sizeFromContents(ContentsType type, const QStyleOption* option,
                          const QSize& size,
                          const QWidget* widget) const override;

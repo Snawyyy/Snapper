@@ -89,6 +89,7 @@ MainWindow::MainWindow(const Managers& managers)
       palette_(menuBar(), this),
       sheet_(menuBar(), this) {
   assert(managers_.IsComplete());
+  setAttribute(Qt::WA_Hover);
   BuildMenus();
   BuildPages();
   connect(&rig_panel_, &RigPanel::DollPicked, &rig_canvas_,
@@ -208,6 +209,21 @@ void MainWindow::FollowPlayhead() {
     managers_.selection->SelectShot(
         project.shots[static_cast<size_t>(moment.shot)]->id);
   }
+}
+
+bool MainWindow::event(QEvent* event) {
+  assert(event != nullptr);
+  assert(centralWidget() != nullptr || event->type() != QEvent::Show);
+  const QEvent::Type type = event->type();
+  const bool is_pointer_moving =
+      type == QEvent::HoverMove || type == QEvent::HoverEnter ||
+      type == QEvent::HoverLeave || type == QEvent::MouseMove ||
+      type == QEvent::Leave;
+  const bool result = QMainWindow::event(event);
+  if (is_pointer_moving) {
+    update();
+  }
+  return result;
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {

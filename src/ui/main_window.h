@@ -67,6 +67,9 @@ class MainWindow final : public QMainWindow {
 
  protected:
   void closeEvent(QCloseEvent* event) override;
+  // Repaints the dock separators as the pointer crosses them, so the one
+  // under it lights up.
+  bool event(QEvent* event) override;
 
  private:
   void BuildMenus();
