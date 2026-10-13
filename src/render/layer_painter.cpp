@@ -58,8 +58,11 @@ struct Painter final {
   ImageCache* cache;
   QPainter* painter;
   const std::set<QString>* only_pieces = nullptr;
+  bool cuts_others = false;
 
   void operator()(const DollLayer& layer) const;
+  void DrawPiece(const Doll& doll, const PlacedPiece& piece,
+                 const QImage& image) const;
   // The piece's joint circle, if on, just under the piece: as wide as
   // image (the drawing it shows) is across the joint.
   void PaintJointCircle(const Doll& doll, const PlacedPiece& piece,
@@ -84,47 +87,61 @@ void Painter::operator()(const DollLayer& layer) const {
     const QImage& image = cache->Get(piece.drawing);
     const bool is_chosen =
         only_pieces == nullptr || only_pieces->contains(piece.name);
-    const bool is_drawable =
-        is_chosen && !image.isNull() && piece.opacity > 0.0;
+    const bool is_cutter = !is_chosen && cuts_others;
+    const bool is_drawable = (is_chosen || is_cutter) && !image.isNull() &&
+                             piece.opacity > 0.0;
     if (!is_drawable) {
       continue;
     }
+    painter->setCompositionMode(
+        is_cutter ? QPainter::CompositionMode_DestinationOut
+                  : QPainter::CompositionMode_SourceOver);
     painter->setOpacity(layer_opacity * piece.opacity);
     PaintJointCircle(*doll, piece, image);
-    const QTransform on_screen = piece.transform * world;
-    const WarpLook look = LookOf(*doll, piece.name, *cache);
-    // A smooth look is blended by the painter too, unless it cuts out.
-    painter->setRenderHint(QPainter::SmoothPixmapTransform,
-                           look.is_blended && !look.is_hard);
-    const bool is_warped = !piece.warp_points.empty();
-    if (is_warped) {
-      const WarpedImage& warped = cache->Warped(
-          piece.drawing, piece.grid, piece.warp_points,
-          DetailFor(on_screen, look.is_blended ? kSmoothDetail : kFullDetail),
-          look);
-      // A small bend is drawn stretched back to the drawing's size.
-      painter->setTransform(QTransform::fromScale(1.0 / warped.detail,
-                                                  1.0 / warped.detail) *
-                            QTransform::fromTranslate(warped.origin.x(),
-                                                      warped.origin.y()) *
-                            on_screen);
-      painter->drawImage(0, 0, warped.image);
-    } else {
-      // A smooth piece draws its upscaled copy over the same rectangle,
-      // so it sits on exactly the same spot.
-      const QImage& shown =
-          look.is_blended
-              ? cache->Upscaled(
-                    piece.drawing,
-                    UpscaleTimes(image.size(),
-                                 std::sqrt(std::abs(on_screen.determinant()))))
-              : image;
-      painter->setTransform(on_screen);
-      painter->drawImage(QRectF(QPointF(), QSizeF(piece.size)), shown);
-    }
+    DrawPiece(*doll, piece, image);
   }
+  painter->setCompositionMode(QPainter::CompositionMode_SourceOver);
   painter->setRenderHint(QPainter::SmoothPixmapTransform, false);
   painter->setOpacity(layer_opacity);
+}
+
+// Draws one piece through its warp or its upscaled copy, as its rig's
+// look asks.
+void Painter::DrawPiece(const Doll& doll, const PlacedPiece& piece,
+                        const QImage& image) const {
+  assert(cache != nullptr && painter != nullptr);
+  assert(!image.isNull());
+  const QTransform on_screen = piece.transform * world;
+  const WarpLook look = LookOf(doll, piece.name, *cache);
+  // A smooth look is blended by the painter too, unless it cuts out.
+  painter->setRenderHint(QPainter::SmoothPixmapTransform,
+                         look.is_blended && !look.is_hard);
+  const bool is_warped = !piece.warp_points.empty();
+  if (is_warped) {
+    const WarpedImage& warped = cache->Warped(
+        piece.drawing, piece.grid, piece.warp_points,
+        DetailFor(on_screen, look.is_blended ? kSmoothDetail : kFullDetail),
+        look);
+    // A small bend is drawn stretched back to the drawing's size.
+    painter->setTransform(QTransform::fromScale(1.0 / warped.detail,
+                                                1.0 / warped.detail) *
+                          QTransform::fromTranslate(warped.origin.x(),
+                                                    warped.origin.y()) *
+                          on_screen);
+    painter->drawImage(0, 0, warped.image);
+  } else {
+    // A smooth piece draws its upscaled copy over the same rectangle,
+    // so it sits on exactly the same spot.
+    const QImage& shown =
+        look.is_blended
+            ? cache->Upscaled(
+                  piece.drawing,
+                  UpscaleTimes(image.size(),
+                               std::sqrt(std::abs(on_screen.determinant()))))
+            : image;
+    painter->setTransform(on_screen);
+    painter->drawImage(QRectF(QPointF(), QSizeF(piece.size)), shown);
+  }
 }
 
 void Painter::PaintJointCircle(const Doll& doll, const PlacedPiece& piece,
@@ -138,7 +155,8 @@ void Painter::PaintJointCircle(const Doll& doll, const PlacedPiece& piece,
   }
   // Measured, never stored: a swapped drawing gets its own width.
   const double radius = JointRadius(*cache->limbs()->Of(image), rig->pivot);
-  if (radius <= 0.0) {
+  const bool is_empty = radius <= 0.0;
+  if (is_empty) {
     return;
   }
   const QColor color = rig->joint_circle.color.isValid()
@@ -246,7 +264,8 @@ Layer RestLayer(const QString& doll) {
 
 void PaintLayer(const Project& project, const Layer& layer, Frame frame,
                 const QTransform& view, LinkSolver* links, ImageCache* cache,
-                QPainter* painter, const std::set<QString>* only_pieces) {
+                QPainter* painter, const std::set<QString>* only_pieces,
+                bool cuts_others) {
   assert(cache != nullptr);
   assert(painter != nullptr && painter->isActive());
   const PiecePose pose = Sample(layer.transform, frame, PiecePose());
@@ -259,7 +278,7 @@ void PaintLayer(const Project& project, const Layer& layer, Frame frame,
                                 : LayerTransform(layer, frame)) *
                            view;
   std::visit(Painter{project, layer, frame, world, links, cache, painter,
-                     only_pieces},
+                     only_pieces, cuts_others},
              layer.content);
   painter->restore();
 }

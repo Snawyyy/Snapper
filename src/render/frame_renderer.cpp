@@ -149,7 +149,8 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
   LinkSolver links(project, shot, cache_.poses());
   const CompNeeds needs = NeedsOf(shot, local, comp_show_);
   CompPictures pictures;
-  if (needs.needs_drawn) {
+  const bool needs_drawn = needs.needs_drawn;
+  if (needs_drawn) {
     pictures.drawn = Blank(project, scale, Qt::transparent);
   }
   for (const Layer& layer : shot.layers) {
@@ -220,7 +221,8 @@ void FrameRenderer::PaintForComp(const Project& project, const Layer& layer,
       continue;
     }
     QImage& picture = pictures->targets[key];
-    if (picture.isNull()) {
+    const bool is_new = picture.isNull();
+    if (is_new) {
       picture = Blank(project, scale, Qt::transparent);
     }
     QPainter painter(&picture);
@@ -230,7 +232,10 @@ void FrameRenderer::PaintForComp(const Project& project, const Layer& layer,
       continue;
     }
     const std::set<QString> only(part->pieces.begin(), part->pieces.end());
-    PaintLayer(project, layer, local, view, links, &cache_, &painter, &only);
+    // The doll's other pieces cut what is behind them out of the part,
+    // so a limb behind another stays behind it under the effect.
+    PaintLayer(project, layer, local, view, links, &cache_, &painter, &only,
+               true);
   }
   QPainter painter(frame);
   painter.drawImage(0, 0, own);

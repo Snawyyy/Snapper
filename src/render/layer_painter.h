@@ -37,11 +37,14 @@ Layer RestLayer(const QString& doll);
 // maps shot space to the output, moved by its shot's links (links may
 // be nullptr for a layer outside any shot). Effect layers are not drawn
 // here: they change what is already drawn. With only_pieces, a doll
-// draws just the pieces so named (the others keep their place, unseen).
+// draws just the pieces so named (the others keep their place, unseen);
+// with cuts_others the unnamed pieces are drawn too, but erasing what is
+// under them, so the named pieces keep only what shows in the doll.
 void PaintLayer(const Project& project, const Layer& layer, Frame frame,
                 const QTransform& view, LinkSolver* links, ImageCache* cache,
                 QPainter* painter,
-                const std::set<QString>* only_pieces = nullptr);
+                const std::set<QString>* only_pieces = nullptr,
+                bool cuts_others = false);
 
 }  // namespace snapper
 
