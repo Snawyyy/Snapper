@@ -13,6 +13,11 @@
   PLUGIN(LineExtraction, lineextraction) \
   PLUGIN(CellLineEraser, celllineeraser) \
   PLUGIN(InkingLineBlur, inkinglineblur)
+  PLUGIN(ColorSwitch, colorswitch) \
+  PLUGIN(WhiteKeying, whitekeying) \
+  PLUGIN(AlphaFill, alphafill) \
+  PLUGIN(FloodFill, floodfill) \
+  PLUGIN(SelectiveColorBlur, selectivecolorblur)
 
 #define FSP_DECLARE_PLUGIN(ID, PREFIX) \
   extern "C" PF_Err fsp_##PREFIX##_EffectMain( \

@@ -137,6 +137,88 @@ Outline/Outline.h:25: "..\_NFLib\fx\NF_Noise.h" -> "../_NFLib/fx/NF_Noise.h"
 Outline/Outline.h:26: "..\_NFLib\fx\NF_Draw.h" -> "../_NFLib/fx/NF_Draw.h"
 Outline/Outline.h:27: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
 _NFLib/fx/NF_Blend.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+## Color and keying group (ColorSwitch, WhiteKeying, AlphaFill, FloodFill, SelectiveColorBlur)
+
+### ColorSwitch
+
+Copied `ColorSwitch/` (`ColorSwitch.cpp`, `ColoeSwitchSub.cpp`,
+`ColorSwitchParams.cpp`, `ColorSwitch.h`, `NF_Target.h`, `README.MD`)
+and, for its preset buttons, `_NFLib/NF_Settings.h`, `_NFLib/json.hpp`,
+`_NFLib/tinyfiledialogs.h`. Unit: `units/colorswitch_unit.cpp`.
+
+```
+ColorSwitch/ColorSwitch.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+ColorSwitch/ColorSwitch.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+ColorSwitch/ColorSwitch.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+ColorSwitch/ColorSwitch.h:17: "..\_NFLib\\NF_Settings.h" -> "../_NFLib//NF_Settings.h"
+ColorSwitch/ColorSwitch.h:19: "..\_NFLib\json.hpp" -> "../_NFLib/json.hpp"
+ColorSwitch/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+ColorSwitch/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+```
+
+Colors 4 to 31 are set up hidden (`PF_PUI_INVISIBLE`); After Effects
+shows them through user changed param when ActiveParamCount grows, which
+this host never sends, so they keep a value slot but stay hidden. The
+three buttons (All turn off, Save, Load) only act in user changed param.
+
+### WhiteKeying
+
+Copied `WhiteKeying/` (`WhiteKeying.cpp`, `WhiteKeying.h`,
+`WhiteKeyingFilter.cpp`, `WhiteKeyingFilter.h`, `NF_Target.h`,
+`README.MD`). Unit: `units/whitekeying_unit.cpp`.
+
+```
+WhiteKeying/WhiteKeying.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+WhiteKeying/WhiteKeying.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+WhiteKeying/WhiteKeying.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+WhiteKeying/WhiteKeyingFilter.h:5: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+WhiteKeying/WhiteKeyingFilter.h:6: "..\_NFLib\NF_Utils.h" -> "../_NFLib/NF_Utils.h"
+WhiteKeying/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+WhiteKeying/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+```
+
+### AlphaFill
+
+Copied `AlphaFill/` (`AlphaFill.cpp`, `AlphaFillFilter.cpp`,
+`ChromaKey.cpp`, `AlphaFill.h`, `NF_Target.h`, `README.MD`). Units:
+`units/alphafill_unit_1.cpp` to `_3.cpp`, one per source (the filter
+and the key both define `ChannelTypeHelper` and `GetMaxChannel`).
+
+```
+AlphaFill/AlphaFill.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+AlphaFill/AlphaFill.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+AlphaFill/AlphaFill.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+AlphaFill/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+AlphaFill/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+```
+
+Thresh, Soft and Spill amt are set up hidden; After Effects shows them
+through user changed param when Mode is ColorKey, which this host never
+sends, so they keep their slots but stay hidden. F's GetParams reads
+Spill amt from the Soft slot; kept as written.
+
+### FloodFill
+
+Copied `FloodFill/` (`FloodFill.cpp`, `FloodFill.h`, `NF_Target.h`,
+`README.MD`) and the `_NFLib/fx` files its vcxproj names: `debug_font`,
+`NF_AlphaHyperbolic`, `NF_Blur`, `NF_Draw`, `NF_DrawWorld`, `NF_MinMax`,
+`NF_Mult`, `NF_Noise`, `NF_Paint` (`.cpp` and `.h` each) and
+`debug_font_1424.h`. Unit: `units/floodfill_unit.cpp`, every source in
+one (no clash).
+
+```
+FloodFill/FloodFill.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+FloodFill/FloodFill.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+FloodFill/FloodFill.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+FloodFill/FloodFill.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+FloodFill/FloodFill.h:19: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+FloodFill/FloodFill.h:20: "..\_NFLib\fx\NF_blur.h" -> "../_NFLib/fx/NF_Blur.h"
+FloodFill/FloodFill.h:21: "..\_NFLib\fx\debug_font.h" -> "../_NFLib/fx/debug_font.h"
+FloodFill/FloodFill.h:22: "..\_NFLib\fx\NF_Paint.h" -> "../_NFLib/fx/NF_Paint.h"
+FloodFill/FloodFill.h:23: "..\_NFLib\fx\NF_Noise.h" -> "../_NFLib/fx/NF_Noise.h"
+FloodFill/FloodFill.h:24: "..\_NFLib\fx\NF_Draw.h" -> "../_NFLib/fx/NF_Draw.h"
+FloodFill/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+FloodFill/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
 _NFLib/fx/NF_Draw.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
 _NFLib/fx/NF_DrawWorld.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
 _NFLib/fx/NF_Noise.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
@@ -254,3 +336,41 @@ colors (All: every opaque pixel), never on the line itself, so with
 Blend with original the line bleeds into the red and blue cels and not
 into the white when only those two are targets; MinMax 4 grows the
 line by 4 to 5 pixels a side, 2 at scale 0.5.
+FloodFill's ParamsSetup takes the default colors of its 16 slots from
+an 8 entry table (`def_color[i % 16]`). gcc took that overrun as proof
+the loop stops at 8 and dropped its end test, so setup ran off the
+stack; `CMakeLists.txt` now builds F's code with
+`-fno-aggressive-loop-optimizations`, and the loop runs as with MSVC.
+The defaults of color9 to color16 are whatever sits past the table
+(color9 changes from run to run), as in After Effects. Slots 2 to 16
+are set up hidden; After Effects shows them through user changed param
+when paintCount grows, which this host never sends.
+
+### SelectiveColorBlur
+
+Copied `SelectiveColorBlur/` (`SelectiveColorBlur.cpp`,
+`SelectiveColorBlurSub.cpp`, `SelctColorCopy.cpp`,
+`SelctCombineInput.cpp`, `SelectiveColorBlur.h`, `NF_Target.h`,
+`README.MD`); its header includes `_NFLib/fx` headers carried for
+FloodFill, but its vcxproj compiles none of their sources. Units:
+`units/selectivecolorblur_unit_1.cpp` to `_4.cpp`, one per source (the
+blur and the color copy both define `PixelTraits`).
+
+```
+SelectiveColorBlur/SelectiveColorBlur.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+SelectiveColorBlur/SelectiveColorBlur.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+SelectiveColorBlur/SelectiveColorBlur.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+SelectiveColorBlur/SelectiveColorBlur.h:18: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+SelectiveColorBlur/SelectiveColorBlur.h:19: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+SelectiveColorBlur/SelectiveColorBlur.h:20: "..\_NFLib\fx\NF_blur.h" -> "../_NFLib/fx/NF_Blur.h"
+SelectiveColorBlur/SelectiveColorBlur.h:21: "..\_NFLib\fx\debug_font.h" -> "../_NFLib/fx/debug_font.h"
+SelectiveColorBlur/SelectiveColorBlur.h:22: "..\_NFLib\fx\NF_Paint.h" -> "../_NFLib/fx/NF_Paint.h"
+SelectiveColorBlur/SelectiveColorBlur.h:23: "..\_NFLib\fx\NF_Noise.h" -> "../_NFLib/fx/NF_Noise.h"
+SelectiveColorBlur/SelectiveColorBlur.h:24: "..\_NFLib\fx\NF_Draw.h" -> "../_NFLib/fx/NF_Draw.h"
+SelectiveColorBlur/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+SelectiveColorBlur/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+```
+
+The blur only mixes target pixels with target pixels: one flat target
+color looks unchanged; two target colors that touch (a base and its
+shadow) get a soft border while lines and other colors stay crisp.

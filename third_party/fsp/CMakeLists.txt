@@ -22,5 +22,10 @@ target_include_directories(fsp_vendor
           ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(fsp_vendor PRIVATE
   -w -fpermissive -fexceptions "$<$<CONFIG:Debug>:-O2>")
+# Some of F's loops read past a small table (FloodFill's eight default
+# colors for sixteen slots). MSVC reads a neighbour and goes on; gcc
+# takes the overrun as proof the loop ends early and drops its end test.
+target_compile_options(fsp_vendor PRIVATE
+  "$<$<CXX_COMPILER_ID:GNU>:-fno-aggressive-loop-optimizations>")
 target_link_libraries(fsp_vendor PRIVATE Threads::Threads)
 set_target_properties(fsp_vendor PROPERTIES POSITION_INDEPENDENT_CODE ON)
