@@ -70,6 +70,10 @@ class FrameRenderer final {
   // How the Comp tab's stage shows the comp (V and K); export and every
   // other renderer keep the default, the whole comp.
   void SetCompShow(const CompShow& show) { comp_show_ = show; }
+  // Whether each shot's draft is drawn over it (render/draft_paint.h):
+  // the Pose stage and the Video preview turn it on; export and every
+  // other renderer keep it off.
+  void SetDraftShown(bool is_shown) { is_draft_shown_ = is_shown; }
   // What each comp effect cost in the last frame, in milliseconds.
   const std::map<CompEffectId, double>& comp_costs() const {
     return comp_costs_;
@@ -90,6 +94,7 @@ class FrameRenderer final {
 
   ImageCache cache_;
   CompShow comp_show_;
+  bool is_draft_shown_ = false;
   std::map<CompEffectId, double> comp_costs_;
 };
 

@@ -8,6 +8,7 @@
 #include <QString>
 #include <QTransform>
 
+#include <functional>
 #include <vector>
 
 #include "base/error.h"
@@ -30,8 +31,29 @@ inline constexpr int kDrawToolCount = 4;
 // The most strokes draw mode can undo.
 inline constexpr int kMaxDrawUndo = 64;
 
+// What draw mode draws on: a drawing of a doll piece, or a cel of a
+// shot's draft (handed in by DraftManager as a DrawJob).
+enum class DrawTarget { kPiece, kDraft };
+
+// A picture another manager hands draw mode to draw on (a draft cel):
+// the pixels to start from, what holding R shows, what lies dimmed
+// under it and the onion skins, all in the picture's own pixels, and
+// how Done keeps it.
+struct DrawJob final {
+  DrawTarget target = DrawTarget::kDraft;
+  // "Draft: Shot 2, frame 12", for the title bar.
+  QString title;
+  QImage image;
+  QImage reference;
+  QImage under;
+  std::vector<QImage> onions;
+  // Done: keeps the drawing as one undo step, or says why not.
+  std::function<Result<void>(const QImage&)> keep;
+};
+
 // Draw mode: drawing a new drawing for a doll piece, or a new version
-// of one made in Snapper, without leaving Snapper. It holds the drawing
+// of one made in Snapper, without leaving Snapper; or drawing any
+// picture a DrawJob hands in (a draft cel) with the same tools. It holds the drawing
 // being made (the piece's size, the same for all its drawings), the
 // tool, the brush size and the strokes to undo, all outside the
 // project's history: Done saves the drawing as a PNG in the doll
@@ -55,8 +77,19 @@ class DrawManager final : public QObject {
   // Snapper gets a new version in its place on Done; a Krita drawing is
   // copied into a new one, as Krita's next export would overwrite it.
   Result<void> BeginEdit(const TrackRef& track, Frame frame);
+  // Starts on job's picture; Done hands the drawing to job.keep.
+  Result<void> BeginJob(DrawJob job);
 
   bool is_drawing() const { return is_drawing_; }
+  DrawTarget target() const { return target_; }
+  // A piece's drawing is saved under a name; a job's picture is not.
+  bool is_named() const { return target_ == DrawTarget::kPiece; }
+  // What lies dimmed under a job's picture (null for a piece, whose
+  // doll the canvas draws itself).
+  const QImage& under() const { return under_; }
+  // What the onion shows under the drawing at 30 %: the original for a
+  // piece, the cels before and after for a draft.
+  const std::vector<QImage>& onions() const { return onions_; }
   QString doll() const { return doll_; }
   QString piece() const { return track_.piece; }
   // "Drawing: mouth 2 (mouth)", for the title bar.
@@ -107,7 +140,8 @@ class DrawManager final : public QObject {
   void Redo();
 
   // Saves the drawing as name and leaves draw mode: one undo step,
-  // "New drawing mouth 2" ("Edit drawing" for a new version).
+  // "New drawing mouth 2" ("Edit drawing" for a new version). A job's
+  // picture goes to its keep instead, name unused.
   Result<void> Done(const QString& name);
   // Leaves draw mode keeping nothing.
   void Cancel();
@@ -122,6 +156,8 @@ class DrawManager final : public QObject {
  private:
   Result<void> Start(const TrackRef& track, Frame frame, int from,
                      int replaces);
+  // Enters draw mode on the picture set up by Start or BeginJob.
+  void Open();
   // Puts before (the drawing before a change) on the undo list.
   void Remember(const QImage& before);
   void End();
@@ -135,6 +171,10 @@ class DrawManager final : public QObject {
   PlaybackManager* playback_;
   PaletteManager* palette_;
   bool is_drawing_ = false;
+  DrawTarget target_ = DrawTarget::kPiece;
+  QImage under_;
+  std::vector<QImage> onions_;
+  std::function<Result<void>(const QImage&)> keep_;
   QString doll_;
   TrackRef track_;
   Frame frame_;

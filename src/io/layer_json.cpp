@@ -9,6 +9,7 @@
 
 #include "io/dot_group_json.h"
 #include "io/comp_json.h"
+#include "io/draft_json.h"
 #include "io/reference_json.h"
 #include "model/doll.h"
 #include "model/smart_dial.h"
@@ -352,6 +353,9 @@ QJsonObject ShotToJson(const Shot& shot) {
   if (has_light) {
     object.insert("light", ChannelToJson(shot.light));
   }
+  if (shot.draft != Draft()) {
+    object.insert("draft", DraftToJson(shot.draft));
+  }
   return object;
 }
 
@@ -382,6 +386,7 @@ Shot ShotFromJson(const QJsonObject& object, JsonIssues* issues) {
   shot.references = ReferencesFromJson(object.value("references"), issues);
   shot.comp = CompFromJson(object.value("comp"), issues);
   shot.light = ChannelFromJson(object.value("light"), 0.0, issues);
+  shot.draft = DraftFromJson(object.value("draft"), issues);
   assert(static_cast<int>(shot.layers.size()) <= kMaxLayersPerShot);
   return shot;
 }

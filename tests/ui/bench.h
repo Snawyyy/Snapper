@@ -5,6 +5,7 @@
 #include <QTemporaryDir>
 
 #include "edit/comp_manager.h"
+#include "edit/draft_manager.h"
 #include "edit/dial_manager.h"
 #include "edit/doll_library_manager.h"
 #include "edit/document_manager.h"
@@ -67,6 +68,7 @@ struct Bench final {
   ReferenceManager references{&history};
   CompManager comp{&history};
   RecordManager record{&history, &document, &playback, &reel, dir.path()};
+  DraftManager draft{&history, &document, &draw};
 
   Managers All() {
     Managers all{&history, &document, &library, &rig, &shots, &stage,
@@ -81,6 +83,7 @@ struct Bench final {
     all.references = &references;
     all.comp = &comp;
     all.record = &record;
+    all.draft = &draft;
     return all;
   }
 };

@@ -5,6 +5,7 @@
 #include <QtClassHelperMacros>
 
 #include "edit/comp_manager.h"
+#include "edit/draft_manager.h"
 #include "edit/dial_manager.h"
 #include "edit/doll_library_manager.h"
 #include "edit/document_manager.h"
@@ -80,6 +81,7 @@ class AppContext final {
   ReferenceManager references_;
   CompManager comp_;
   RecordManager record_;
+  DraftManager draft_;
   MainWindow window_;
 };
 
