@@ -7,7 +7,8 @@
 #include <cassert>
 
 #define FSP_PLUGINS(PLUGIN) \
-  PLUGIN(RimFill, rimfill)
+  PLUGIN(RimFill, rimfill) \
+  PLUGIN(ColorSwitch, colorswitch)
 
 #define FSP_DECLARE_PLUGIN(ID, PREFIX) \
   extern "C" PF_Err fsp_##PREFIX##_EffectMain( \

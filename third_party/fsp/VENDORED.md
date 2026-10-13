@@ -105,3 +105,27 @@ an error. None of their pictures were looked at yet.
 - Never sends: smart render, frame setup, user changed param, update
   params UI, sequence data, other layers or other times. Plugins that
   need those (CameraShake and the like) wait until it does.
+
+## Color and keying group (ColorSwitch, WhiteKeying, AlphaFill, FloodFill, SelectiveColorBlur)
+
+### ColorSwitch
+
+Copied `ColorSwitch/` (`ColorSwitch.cpp`, `ColoeSwitchSub.cpp`,
+`ColorSwitchParams.cpp`, `ColorSwitch.h`, `NF_Target.h`, `README.MD`)
+and, for its preset buttons, `_NFLib/NF_Settings.h`, `_NFLib/json.hpp`,
+`_NFLib/tinyfiledialogs.h`. Unit: `units/colorswitch_unit.cpp`.
+
+```
+ColorSwitch/ColorSwitch.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+ColorSwitch/ColorSwitch.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+ColorSwitch/ColorSwitch.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+ColorSwitch/ColorSwitch.h:17: "..\_NFLib\\NF_Settings.h" -> "../_NFLib//NF_Settings.h"
+ColorSwitch/ColorSwitch.h:19: "..\_NFLib\json.hpp" -> "../_NFLib/json.hpp"
+ColorSwitch/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+ColorSwitch/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+```
+
+Colors 4 to 31 are set up hidden (`PF_PUI_INVISIBLE`); After Effects
+shows them through user changed param when ActiveParamCount grows, which
+this host never sends, so they keep a value slot but stay hidden. The
+three buttons (All turn off, Save, Load) only act in user changed param.
