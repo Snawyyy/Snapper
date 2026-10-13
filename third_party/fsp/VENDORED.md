@@ -105,3 +105,38 @@ an error. None of their pictures were looked at yet.
 - Never sends: smart render, frame setup, user changed param, update
   params UI, sequence data, other layers or other times. Plugins that
   need those (CameraShake and the like) wait until it does.
+
+## Action lines and bursts (SpeedLines, BurstLines, RadialLines, TouchLines, MuzzleFlash)
+
+### SpeedLines
+
+Copied `SpeedLines/` (`A_Noise.cpp`, `SpeedLines.cpp`,
+`SpeedLinesFilter.cpp`, `SpeedLines.h`, `NF_Target.h`, `README.MD`) and
+`_NFLib/fx/NF_Blend`, `NF_Blur`, `NF_DrawAALine`, `NF_Mult` (`.cpp`,
+`.h`). `A_Noise.cpp` defines `GetMaxChannel` like `NF_Blend.cpp`, so it
+has its own unit (`units/speedlines_unit_2.cpp`).
+
+```
+SpeedLines/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+SpeedLines/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+SpeedLines/SpeedLines.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+SpeedLines/SpeedLines.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+SpeedLines/SpeedLines.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+SpeedLines/SpeedLines.h:19: "..\_NFLib\fx\NF_ChannelMinmax.h" -> "../_NFLib/fx/NF_ChannelMinMax.h"
+SpeedLines/SpeedLines.h:20: "..\_NFLib\fx\NF_ChannelBlur.h" -> "../_NFLib/fx/NF_ChannelBlur.h"
+SpeedLines/SpeedLines.h:21: "..\_NFLib\fx\debug_font.h" -> "../_NFLib/fx/debug_font.h"
+SpeedLines/SpeedLines.h:22: "..\_NFLib\fx\NF_Paint.h" -> "../_NFLib/fx/NF_Paint.h"
+SpeedLines/SpeedLines.h:23: "..\_NFLib\fx\NF_Noise.h" -> "../_NFLib/fx/NF_Noise.h"
+SpeedLines/SpeedLines.h:25: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+SpeedLines/SpeedLines.h:26: "..\_NFLib\fx\NF_Blur.h" -> "../_NFLib/fx/NF_Blur.h"
+SpeedLines/SpeedLines.h:27: "..\_NFLib\fx\NF_DrawAALine.h" -> "../_NFLib/fx/NF_DrawAALine.h"
+SpeedLines/SpeedLines.h:28: "..\_NFLib\fx\NF_Blend.h" -> "../_NFLib/fx/NF_Blend.h"
+_NFLib/fx/NF_Blend.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+_NFLib/fx/NF_DrawAALine.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+```
+
+(Lines 19 to 23 of `SpeedLines.h` sit in a comment.) Checked by eye:
+parallel lines on a clear layer, seed moves them, angle, blur, noise
+and three colors work. The line count follows the picture's longer
+side (the plugin's own rule), so a half scale preview has fewer lines
+of half the width.
