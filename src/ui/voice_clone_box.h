@@ -57,6 +57,9 @@ class VoiceCloneBox final : public QWidget {
   void UseNewSample(const QString& path);
   void Adopt(const QString& path);
   void ToggleCapture();
+  // Asks for the sample's words; is_auto only fills an empty field.
+  void Listen(bool is_auto);
+  void TakeWords(const QString& sample_path, const QString& words);
   void SaveVoice();
   void RenameVoice();
   void DeleteVoice();
@@ -77,6 +80,10 @@ class VoiceCloneBox final : public QWidget {
   QPushButton record_;
   QPushButton play_;
   QPushButton save_;
+  QPushButton transcribe_;
+  // The words being written down were asked for by a new sample, not
+  // the button, so they must not replace anything typed meanwhile.
+  bool is_auto_listen_ = false;
   WaveScreen screen_;
   LedMeter meter_;
   QLabel* hint_ = nullptr;

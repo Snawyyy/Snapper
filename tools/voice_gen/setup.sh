@@ -11,4 +11,5 @@ fi
 VIRTUAL_ENV="$home/venv" uv pip install -U qwen-tts soundfile || exit 1
 venv/bin/hf download Qwen/Qwen3-TTS-12Hz-1.7B-Base || exit 1
 venv/bin/hf download Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign || exit 1
+venv/bin/hf download openai/whisper-large-v3-turbo || exit 1
 echo "Voice gen is ready: $home"

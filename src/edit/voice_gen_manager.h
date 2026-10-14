@@ -30,7 +30,8 @@ class VoiceGenManager final : public QObject {
   Q_OBJECT
 
  public:
-  enum class State { kIdle, kLoading, kSpeaking };
+  // kListening: transcribing a sample.
+  enum class State { kIdle, kLoading, kSpeaking, kListening };
 
   VoiceGenManager(DocumentManager* document, PlaybackManager* playback,
                   ReelManager* reel, VoiceLibrary* voices,
@@ -61,7 +62,15 @@ class VoiceGenManager final : public QObject {
   const QString& last_take() const { return last_take_; }
   double last_seconds() const { return last_seconds_; }
   QString last_voice_name() const;
-  bool IsLastDesigned() const { return take_job_.is_design; }
+  bool IsLastDesigned() const {
+    return take_job_.kind == VoiceKind::kDesign;
+  }
+
+  // Why the sample can't be transcribed now; empty when it can.
+  QString WhyNoTranscribe(const QString& sample_path) const;
+  // Writes down what is said in the sample (Whisper, in the same
+  // worker); the words arrive as Transcribed.
+  Result<void> Transcribe(const QString& sample_path);
 
   // Why the last line can't be added to the reel; empty when it can.
   QString WhyNoAdd() const;
@@ -95,13 +104,17 @@ class VoiceGenManager final : public QObject {
   void CaptureSeconds(double seconds);
   // A sample from the PC's sound was saved as a WAV file.
   void SampleCaptured(const QString& path);
+  // The words heard in the sample at sample_path.
+  void Transcribed(const QString& sample_path, const QString& words);
   void Problem(const QString& why);
 
  private:
+  // Why the worker can't take a job: not installed, or busy.
+  QString WhyNoWorker() const;
   QString WhyNoSpeak(const QString& text) const;
   Result<void> Start(const VoiceJob& job);
   void SetState(State state);
-  void TakeDone(double seconds);
+  void TakeDone(double seconds, const QString& text);
   void FinishCapture();
   QString TempPath(const QString& stem) const;
   QString VoicesFolder() const;

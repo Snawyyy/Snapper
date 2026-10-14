@@ -11,11 +11,14 @@
 
 namespace snapper {
 
-// One line for the voice worker to speak. A clone job reads sample (and
-// words, what the sample says); a design job reads describe. The worker
-// writes the speech to out as a WAV file.
+enum class VoiceKind { kClone, kDesign, kTranscribe };
+
+// One job for the voice worker. A clone job reads sample (and words,
+// what the sample says); a design job reads describe; both write the
+// speech to out as a WAV file. A transcribe job reads only sample and
+// answers with the words heard in it.
 struct VoiceJob final {
-  bool is_design = false;
+  VoiceKind kind = VoiceKind::kClone;
   QString text;
   QString language;
   QString sample;
@@ -53,7 +56,8 @@ class VoiceWorker final : public QObject {
   // The worker is loading a model for the job (its first of that kind).
   void Loading();
   void Speaking();
-  void Done(double seconds);
+  // A line spoken (seconds long), or a sample transcribed (text).
+  void Done(double seconds, const QString& text);
   void Failed(const QString& why);
 
  private:

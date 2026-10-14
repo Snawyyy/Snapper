@@ -1,6 +1,7 @@
 #include "ui/voice_clone_box.h"
 
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <QStyle>
 
@@ -35,6 +36,7 @@ VoiceCloneBox::VoiceCloneBox(const Managers& managers, AudioPreview* preview)
       record_(tr("Rec PC audio")),
       play_(tr("Play")),
       save_(tr("Save voice...")),
+      transcribe_(tr("Transcribe")),
       screen_(preview, tr("NO SAMPLE"), nullptr),
       meter_(nullptr) {
   assert(managers_.voices != nullptr && managers_.voice_gen != nullptr);
@@ -54,6 +56,10 @@ VoiceCloneBox::VoiceCloneBox(const Managers& managers, AudioPreview* preview)
   connect(&play_, &QPushButton::clicked, this,
           [this] { preview_->Toggle(sample_path_); });
   connect(&save_, &QPushButton::clicked, this, &VoiceCloneBox::SaveVoice);
+  connect(&transcribe_, &QPushButton::clicked, this,
+          [this] { Listen(false); });
+  connect(managers_.voice_gen, &VoiceGenManager::Transcribed, this,
+          &VoiceCloneBox::TakeWords);
   connect(preview_, &AudioPreview::Changed, this, &VoiceCloneBox::Refresh);
   VoiceGenManager* gen = managers_.voice_gen;
   connect(gen, &VoiceGenManager::StateChanged, this,
@@ -110,9 +116,12 @@ QWidget* VoiceCloneBox::BuildSampleBody() {
                       "sample to clone."));
   hint_ = EmptyHint(tr("3 to 15 seconds of clear speech works best."), body);
   column->addWidget(hint_);
-  column->addWidget(MakeOwned<QLabel>(tr("Words in the sample"), body));
+  transcribe_.setIcon(style()->standardIcon(QStyle::SP_FileDialogDetailedView));
+  column->addWidget(GoldenRow(
+      MakeOwned<QLabel>(tr("Words in the sample"), body), &transcribe_,
+      body));
   words_.setPlaceholderText(
-      tr("Type what the sample says for a closer clone (optional)"));
+      tr("What the sample says. Fresh samples fill this in by themselves."));
   words_.setFixedHeight(theme::Em(this) * 4);
   words_.setToolTip(tr("What is said in the sample, as written. With it the "
                        "clone is closer; without it only the sound of the "
@@ -187,6 +196,39 @@ void VoiceCloneBox::UseNewSample(const QString& path) {
   }
   Refill(QString());
   Adopt(path);
+  // A new sample gets its words written down by itself; a failure just
+  // leaves the field for typing, so it is not reported.
+  const bool needs_words = words().isEmpty() && sample_path_ == path &&
+                           managers_.voice_gen->WhyNoTranscribe(path).isEmpty();
+  if (needs_words) {
+    Listen(true);
+  }
+}
+
+void VoiceCloneBox::Listen(bool is_auto) {
+  assert(managers_.voice_gen != nullptr);
+  assert(!sample_path_.isEmpty() || !is_auto);
+  is_auto_listen_ = is_auto;
+  Report(ProblemOf(managers_.voice_gen->Transcribe(sample_path_)));
+}
+
+void VoiceCloneBox::TakeWords(const QString& sample_path,
+                              const QString& words) {
+  assert(sample_path.size() < 100000);
+  assert(words.size() < 1000000);
+  const bool is_this_sample = sample_path == sample_path_ ||
+                              QFileInfo(sample_path_).absoluteFilePath() ==
+                                  sample_path;
+  const bool would_clobber = is_auto_listen_ && !this->words().isEmpty();
+  const bool is_heard = !words.isEmpty();
+  const bool can_take = is_this_sample && !would_clobber && is_heard;
+  if (can_take) {
+    words_.setPlainText(words);
+  }
+  const bool is_silent = is_this_sample && !is_heard;
+  if (is_silent) {
+    Report(tr("No words were heard in the sample."));
+  }
 }
 
 void VoiceCloneBox::Adopt(const QString& path) {
@@ -305,6 +347,12 @@ void VoiceCloneBox::Refresh() {
   play_.setIcon(style()->standardIcon(
       is_playing ? QStyle::SP_MediaStop : QStyle::SP_MediaPlay));
   Explain(&play_, has_sample ? QString() : no_sample);
+  const bool is_listening =
+      gen.state() == VoiceGenManager::State::kListening;
+  transcribe_.setText(is_listening ? tr("Listening...") : tr("Transcribe"));
+  Explain(&transcribe_, gen.WhyNoTranscribe(sample_path_),
+          tr("Writes down what the sample says, so you don't have to. "
+             "Check it: the clone follows these words."));
   Explain(&save_, has_sample ? QString() : no_sample,
           tr("Keeps the sample and its words as a voice to pick again "
              "later, in any project."));

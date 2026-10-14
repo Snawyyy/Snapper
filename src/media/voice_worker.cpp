@@ -21,13 +21,19 @@ constexpr int kMaxAnswersPerRead = 1000;
 
 QByteArray JobLine(int id, const VoiceJob& job) {
   assert(id > 0);
-  assert(!job.out.isEmpty());
+  assert(!job.sample.isEmpty() || job.kind == VoiceKind::kDesign);
+  const bool is_transcribe = job.kind == VoiceKind::kTranscribe;
+  if (is_transcribe) {
+    const QJsonObject json{
+        {"id", id}, {"kind", "transcribe"}, {"sample", job.sample}};
+    return QJsonDocument(json).toJson(QJsonDocument::Compact) + '\n';
+  }
+  const bool is_design = job.kind == VoiceKind::kDesign;
   QJsonObject json{{"id", id},
-                   {"kind", job.is_design ? "design" : "clone"},
+                   {"kind", is_design ? "design" : "clone"},
                    {"text", job.text},
                    {"language", job.language},
                    {"out", job.out}};
-  const bool is_design = job.is_design;
   if (is_design) {
     json.insert("describe", job.describe);
   } else {
@@ -64,7 +70,7 @@ bool VoiceWorker::IsInstalled() const {
 }
 
 Result<void> VoiceWorker::Submit(const VoiceJob& job) {
-  assert(!job.out.isEmpty());
+  assert(!job.out.isEmpty() || job.kind == VoiceKind::kTranscribe);
   assert(kStartWaitMs > 0);
   const bool is_busy = IsBusy();
   if (is_busy) {
@@ -148,7 +154,8 @@ void VoiceWorker::Answer(const QByteArray& line) {
     emit Speaking();
   }
   if (is_done) {
-    emit Done(json.value("seconds").toDouble());
+    emit Done(json.value("seconds").toDouble(),
+              json.value("text").toString());
   }
   if (is_error) {
     emit Failed(json.value("why").toString());

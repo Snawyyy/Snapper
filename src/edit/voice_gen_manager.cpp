@@ -45,10 +45,15 @@ VoiceGenManager::VoiceGenManager(DocumentManager* document,
   assert(document_ != nullptr && playback_ != nullptr);
   assert(reel_ != nullptr && voices_ != nullptr);
   assert(temp_.isValid());
-  connect(&worker_, &VoiceWorker::Loading, this,
-          [this] { SetState(State::kLoading); });
-  connect(&worker_, &VoiceWorker::Speaking, this,
-          [this] { SetState(State::kSpeaking); });
+  // A transcription stays Listening while its model loads and runs.
+  connect(&worker_, &VoiceWorker::Loading, this, [this] {
+    const bool is_speech = pending_job_.kind != VoiceKind::kTranscribe;
+    SetState(is_speech ? State::kLoading : State::kListening);
+  });
+  connect(&worker_, &VoiceWorker::Speaking, this, [this] {
+    const bool is_speech = pending_job_.kind != VoiceKind::kTranscribe;
+    SetState(is_speech ? State::kSpeaking : State::kListening);
+  });
   connect(&worker_, &VoiceWorker::Done, this, &VoiceGenManager::TakeDone);
   connect(&worker_, &VoiceWorker::Failed, this, [this](const QString& why) {
     SetState(State::kIdle);
@@ -69,20 +74,60 @@ VoiceGenManager::~VoiceGenManager() {
   recorder_.Stop();
 }
 
-QString VoiceGenManager::WhyNoSpeak(const QString& text) const {
+QString VoiceGenManager::WhyNoWorker() const {
   assert(voices_ != nullptr);
-  assert(state_ == State::kIdle || state_ == State::kLoading ||
-         state_ == State::kSpeaking);
+  assert(temp_.isValid());
   const bool is_installed = worker_.IsInstalled();
   if (!is_installed) {
     return Tr("Voice gen is not installed: run tools/voice_gen/setup.sh.");
   }
-  const bool is_busy = IsBusy();
-  if (is_busy) {
-    return Tr("Already speaking.");
+  const bool is_listening = state_ == State::kListening;
+  if (is_listening) {
+    return Tr("Still writing down the sample's words.");
+  }
+  return IsBusy() ? Tr("Already speaking.") : QString();
+}
+
+QString VoiceGenManager::WhyNoSpeak(const QString& text) const {
+  assert(voices_ != nullptr);
+  assert(text.size() < 1000000);
+  const QString why_not = WhyNoWorker();
+  const bool is_blocked = !why_not.isEmpty();
+  if (is_blocked) {
+    return why_not;
   }
   const bool is_blank = text.trimmed().isEmpty();
   return is_blank ? Tr("Type a line to say.") : QString();
+}
+
+QString VoiceGenManager::WhyNoTranscribe(const QString& sample_path) const {
+  assert(voices_ != nullptr);
+  assert(sample_path.size() < 100000);
+  const bool has_sample = QFileInfo(sample_path).isFile();
+  if (!has_sample) {
+    return Tr("Open or record a sample first.");
+  }
+  return WhyNoWorker();
+}
+
+Result<void> VoiceGenManager::Transcribe(const QString& sample_path) {
+  assert(voices_ != nullptr);
+  assert(temp_.isValid());
+  const QString why_not = WhyNoTranscribe(sample_path);
+  const bool is_blocked = !why_not.isEmpty();
+  if (is_blocked) {
+    return std::unexpected(Error{why_not});
+  }
+  VoiceJob job;
+  job.kind = VoiceKind::kTranscribe;
+  job.sample = QFileInfo(sample_path).absoluteFilePath();
+  pending_job_ = job;
+  const auto sent = worker_.Submit(pending_job_);
+  const bool is_sent = sent.has_value();
+  if (is_sent) {
+    SetState(State::kListening);
+  }
+  return sent;
 }
 
 QString VoiceGenManager::WhyNoSpeakClone(const QString& sample_path,
@@ -141,7 +186,7 @@ Result<void> VoiceGenManager::SpeakDesign(const QString& describe,
     return std::unexpected(Error{why_not});
   }
   VoiceJob job;
-  job.is_design = true;
+  job.kind = VoiceKind::kDesign;
   job.text = text.trimmed();
   job.language = language;
   job.describe = describe.trimmed();
@@ -163,9 +208,15 @@ Result<void> VoiceGenManager::Start(const VoiceJob& job) {
   return {};
 }
 
-void VoiceGenManager::TakeDone(double seconds) {
+void VoiceGenManager::TakeDone(double seconds, const QString& text) {
   assert(seconds >= 0.0);
-  assert(!pending_job_.out.isEmpty());
+  assert(text.size() < 1000000);
+  const bool is_transcript = pending_job_.kind == VoiceKind::kTranscribe;
+  if (is_transcript) {
+    SetState(State::kIdle);
+    emit Transcribed(pending_job_.sample, text.trimmed());
+    return;
+  }
   const bool has_file = QFileInfo(pending_job_.out).isFile();
   SetState(State::kIdle);
   if (!has_file) {
@@ -188,7 +239,7 @@ void VoiceGenManager::Cancel() {
 void VoiceGenManager::SetState(State state) {
   assert(temp_.isValid());
   assert(state == State::kIdle || state == State::kLoading ||
-         state == State::kSpeaking);
+         state == State::kSpeaking || state == State::kListening);
   const bool is_new = state != state_;
   state_ = state;
   if (is_new) {
@@ -205,7 +256,7 @@ QString VoiceGenManager::TempPath(const QString& stem) const {
 QString VoiceGenManager::last_voice_name() const {
   assert(voices_ != nullptr);
   assert(temp_.isValid());
-  const bool is_designed = take_job_.is_design;
+  const bool is_designed = take_job_.kind == VoiceKind::kDesign;
   if (is_designed) {
     return Tr("Designed voice");
   }
@@ -263,7 +314,8 @@ Result<ClipId> VoiceGenManager::AddToReel() {
 QString VoiceGenManager::WhyNoSaveDesigned() const {
   assert(temp_.isValid());
   assert(voices_ != nullptr);
-  const bool has_designed = WhyNoAdd().isEmpty() && take_job_.is_design;
+  const bool has_designed =
+      WhyNoAdd().isEmpty() && take_job_.kind == VoiceKind::kDesign;
   return has_designed ? QString() : Tr("Generate a line first.");
 }
 

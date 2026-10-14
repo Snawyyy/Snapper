@@ -307,8 +307,9 @@ void VoicePanel::ShowGenerate() {
   const bool is_busy = gen.IsBusy();
   generate_.SetBusy(is_busy);
   if (is_busy) {
-    generate_.setText(state == State::kLoading ? tr("Loading voice...")
-                                               : tr("Speaking..."));
+    generate_.setText(state == State::kLoading     ? tr("Loading voice...")
+                      : state == State::kListening ? tr("Listening...")
+                                                   : tr("Speaking..."));
     generate_.setEnabled(true);
     generate_.setToolTip(tr("Click to stop. The voice model has to load "
                             "again for the next line."));

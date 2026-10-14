@@ -9,10 +9,12 @@ JSON lines on stdout:
    "out": "/path/out.wav"}
   {"id": 2, "kind": "design", "text": "...", "language": "English",
    "describe": "a cheerful young boy", "out": "/path/out.wav"}
+  {"id": 3, "kind": "transcribe", "sample": "/path/sample.wav"}
 
   {"id": 1, "state": "loading"}   the model is loading (first job only)
   {"id": 1, "state": "speaking"}
   {"id": 1, "state": "done", "seconds": 2.4}
+  {"id": 3, "state": "done", "text": "what the sample says"}
   {"id": 1, "state": "error", "why": "..."}
 
 An empty "words" clones from the sound of the sample alone, which is
@@ -25,6 +27,7 @@ import sys
 kModels = {
     "clone": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "design": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "transcribe": "openai/whisper-large-v3-turbo",
 }
 
 # The libraries print progress; only answers may reach Snapper.
@@ -47,14 +50,26 @@ class Speaker:
         if kind not in self.models:
             Say({"id": job_id, "state": "loading"})
             import torch
-            from qwen_tts import Qwen3TTSModel
-            self.models[kind] = Qwen3TTSModel.from_pretrained(
-                kModels[kind], device_map="cuda:0", dtype=torch.bfloat16)
+            if kind == "transcribe":
+                from transformers import pipeline
+                self.models[kind] = pipeline(
+                    "automatic-speech-recognition", model=kModels[kind],
+                    torch_dtype=torch.float16, device="cuda:0")
+            else:
+                from qwen_tts import Qwen3TTSModel
+                self.models[kind] = Qwen3TTSModel.from_pretrained(
+                    kModels[kind], device_map="cuda:0", dtype=torch.bfloat16)
         return self.models[kind]
+
+    def Transcribe(self, job):
+        listener = self.Model("transcribe", job["id"])
+        Say({"id": job["id"], "state": "speaking"})
+        heard = listener(job["sample"], return_timestamps=True)
+        return heard["text"].strip()
 
     def Run(self, job):
         kind = job.get("kind")
-        if kind not in kModels:
+        if kind not in kModels or kind == "transcribe":
             raise ValueError(f"unknown job kind {kind!r}")
         model = self.Model(kind, job["id"])
         Say({"id": job["id"], "state": "speaking"})
@@ -84,8 +99,12 @@ def main():
         try:
             job = json.loads(line)
             job_id = job.get("id")
-            seconds = speaker.Run(job)
-            Say({"id": job_id, "state": "done", "seconds": seconds})
+            if job.get("kind") == "transcribe":
+                text = speaker.Transcribe(job)
+                Say({"id": job_id, "state": "done", "text": text})
+            else:
+                seconds = speaker.Run(job)
+                Say({"id": job_id, "state": "done", "seconds": seconds})
         except Exception as problem:  # Snapper shows why, the worker lives on.
             Say({"id": job_id, "state": "error", "why": str(problem)})
 
