@@ -5,7 +5,7 @@
 #include <QtClassHelperMacros>
 
 #include "edit/comp_manager.h"
-#include "edit/draft_manager.h"
+#include "edit/storyboard_manager.h"
 #include "edit/dial_manager.h"
 #include "edit/doll_library_manager.h"
 #include "edit/document_manager.h"
@@ -87,7 +87,7 @@ class AppContext final {
   LibraryFolderManager library_folders_;
   VoiceLibrary voices_;
   VoiceGenManager voice_gen_;
-  DraftManager draft_;
+  StoryboardManager storyboard_;
   MainWindow window_;
 };
 

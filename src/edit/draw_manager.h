@@ -32,16 +32,16 @@ inline constexpr int kDrawToolCount = 4;
 inline constexpr int kMaxDrawUndo = 64;
 
 // What draw mode draws on: a drawing of a doll piece, or a cel of a
-// shot's draft (handed in by DraftManager as a DrawJob).
-enum class DrawTarget { kPiece, kDraft };
+// storyboard layer (handed in by StoryboardManager as a DrawJob).
+enum class DrawTarget { kPiece, kStoryboard };
 
-// A picture another manager hands draw mode to draw on (a draft cel):
+// A picture another manager hands draw mode to draw on (a storyboard cel):
 // the pixels to start from, what holding R shows, what lies dimmed
 // under it and the onion skins, all in the picture's own pixels, and
 // how Done keeps it.
 struct DrawJob final {
-  DrawTarget target = DrawTarget::kDraft;
-  // "Draft: Shot 2, frame 12", for the title bar.
+  DrawTarget target = DrawTarget::kStoryboard;
+  // "Storyboard: Shot 2, frame 12", for the title bar.
   QString title;
   QImage image;
   QImage reference;
@@ -53,13 +53,14 @@ struct DrawJob final {
 
 // Draw mode: drawing a new drawing for a doll piece, or a new version
 // of one made in Snapper, without leaving Snapper; or drawing any
-// picture a DrawJob hands in (a draft cel) with the same tools. It holds the drawing
-// being made (the piece's size, the same for all its drawings), the
-// tool, the brush size and the strokes to undo, all outside the
-// project's history: Done saves the drawing as a PNG in the doll
-// folder's "snapper" folder, lists it in the doll's rig and shows it
-// on the piece at the frame drawing began, as one undo step; Cancel
-// leaves everything as it was. Playback pauses while drawing.
+// picture a DrawJob hands in (a storyboard cel) with the same tools. It
+// holds the drawing being made (the piece's size, the same for all its
+// drawings), the tool, the brush size and the strokes to undo, all
+// outside the project's history: Done saves the drawing as a PNG in the
+// doll folder's "snapper" folder, lists it in the doll's rig and shows
+// it on the piece at the frame drawing began, as one undo step (a job's
+// picture goes to its keeper instead); Cancel leaves everything as it
+// was. Playback pauses while drawing.
 class DrawManager final : public QObject {
   Q_OBJECT
 
@@ -88,7 +89,7 @@ class DrawManager final : public QObject {
   // doll the canvas draws itself).
   const QImage& under() const { return under_; }
   // What the onion shows under the drawing at 30 %: the original for a
-  // piece, the cels before and after for a draft.
+  // piece, the cels before and after for a storyboard.
   const std::vector<QImage>& onions() const { return onions_; }
   QString doll() const { return doll_; }
   QString piece() const { return track_.piece; }

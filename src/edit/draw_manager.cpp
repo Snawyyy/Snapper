@@ -199,36 +199,6 @@ Result<void> DrawManager::Start(const TrackRef& track, Frame frame, int from,
   return {};
 }
 
-Result<void> DrawManager::BeginJob(DrawJob job) {
-  assert(history_ != nullptr);
-  assert(job.target != DrawTarget::kPiece);
-  if (is_drawing_) {
-    return std::unexpected(
-        Error{Tr("Already drawing: press Done or Cancel first.")});
-  }
-  const bool is_usable = !job.image.isNull() && job.keep != nullptr;
-  if (!is_usable) {
-    return std::unexpected(Error{Tr("There is nothing to draw on.")});
-  }
-  if (playback_->IsPlaying()) {
-    playback_->Pause();
-  }
-  target_ = job.target;
-  image_ = job.image.convertToFormat(QImage::Format_ARGB32);
-  reference_ = job.reference.isNull() ? image_ : job.reference;
-  under_ = job.under;
-  onions_ = std::move(job.onions);
-  keep_ = std::move(job.keep);
-  title_ = job.title;
-  default_name_.clear();
-  doll_.clear();
-  track_ = TrackRef();
-  replaces_ = -1;
-  rest_place_ = QTransform();
-  Open();
-  return {};
-}
-
 void DrawManager::Open() {
   assert(!is_drawing_);
   assert(!image_.isNull());
