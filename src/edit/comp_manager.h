@@ -156,13 +156,32 @@ class CompManager final : public QObject {
   void SetRecentEntries(std::vector<CompEntry> entries);
   // Ctrl+C: keeps a copy of the effect, for any shot.
   Result<void> Copy(ShotId shot, CompEffectId id);
-  // The copied effect's name; empty with nothing copied.
+  // Ctrl+C on the timeline: keeps a copy of every clip, with where each
+  // sits on the reel (edit/comp_cut.cpp).
+  Result<void> CopyClips(const std::set<CompClipRef>& clips);
+  // The copied effect's name ("3 effects" for many); empty with nothing
+  // copied.
   QString CopiedName() const;
   QString WhyNoPaste(ShotId shot) const;
-  // Ctrl+V: the copy at index (kOnTop on top), working on target with
-  // its own picked colors; it is picked.
+  // The copies at index (kOnTop on top), working on target with their
+  // own picked colors and timing; the last one is picked.
   Result<CompEffectId> Paste(ShotId shot, const CompTarget& target,
                              int index = kOnTop);
+  // Ctrl+V on the Comp tab: the copies as clips of the shot at the reel
+  // frame, the first one starting there and the rest as far after it as
+  // they were. A copy keeps its target in its own shot and takes
+  // elsewhere in another one. The pasted clips are picked.
+  QString WhyNoPasteAt(Frame reel) const;
+  Result<void> PasteAt(Frame reel, const CompTarget& elsewhere);
+  // S: cuts every clip the reel frame is inside in two there, as one
+  // undo step; the right halves are picked.
+  QString WhyNoSplit(const std::set<CompClipRef>& clips, Frame reel) const;
+  Result<void> SplitAll(const std::set<CompClipRef>& clips, Frame reel);
+  // Ctrl+X: copies the clips, then removes them, as one undo step.
+  Result<void> CutAll(const std::set<CompClipRef>& clips);
+  // Ctrl+D: a copy of each just above it, as one undo step; the copies
+  // are picked.
+  Result<void> DuplicateAll(const std::set<CompClipRef>& clips);
   Result<void> Remove(ShotId shot, CompEffectId id);
   // A copy just above it, picked.
   Result<CompEffectId> Duplicate(ShotId shot, CompEffectId id);
@@ -309,6 +328,22 @@ class CompManager final : public QObject {
                     const QColor& recent = QColor());
   Result<CompEffectId> Insert(ShotId shot, CompEffect effect, int index,
                               const QString& label);
+  // A clip's frames: of its shot, and the reel frame the first one
+  // shows on.
+  struct ClipFrames final {
+    CompSpan local{};
+    int reel_first = 0;
+  };
+  // nullopt when the effect or its shot's clip on the reel is gone.
+  std::optional<ClipFrames> FramesOf(const CompClipRef& clip) const;
+
+  // A copied effect as it was, and its clip's frames then (none when
+  // its shot was off the reel).
+  struct Copied final {
+    CompEffect effect{};
+    ShotId shot{};
+    std::optional<ClipFrames> frames{};
+  };
 
   HistoryManager* history_;
   std::map<ShotId, CompEffectId> picked_;
@@ -318,7 +353,7 @@ class CompManager final : public QObject {
   bool is_mask_shown_ = false;
   std::map<CompEffectId, double> costs_;
   std::set<CompEffectId> failed_;
-  std::optional<CompEffect> copied_;
+  std::vector<Copied> copied_;
   std::vector<CompEntry> recent_entries_;
 };
 

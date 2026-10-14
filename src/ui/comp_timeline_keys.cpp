@@ -1,15 +1,19 @@
 // CompTimeline: keys, the right click menu, and what they do to the
 // picked clips, each one undo step.
 
+#include <QAction>
 #include <QContextMenuEvent>
 #include <QKeyEvent>
 #include <QMenu>
 
 #include <cassert>
 #include <map>
+#include <set>
+#include <vector>
 
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
+#include "edit/selection_manager.h"
 #include "ui/comp_timeline.h"
 #include "ui/form_helpers.h"
 #include "ui/problem.h"
@@ -59,6 +63,11 @@ void CompTimeline::RemovePicked() {
   assert(managers_.comp != nullptr);
   assert(managers_.history != nullptr);
   const std::set<CompClipRef> picks = managers_.comp->ClipPicks();
+  const bool is_none = picks.empty();
+  if (is_none) {
+    Report(tr("Pick an effect first."));
+    return;
+  }
   EditScope scope(managers_.history,
                   picks.size() == 1 ? tr("Remove effect")
                                     : tr("Remove %1 effects")
@@ -66,6 +75,53 @@ void CompTimeline::RemovePicked() {
   for (const CompClipRef& ref : picks) {
     Report(ProblemOf(managers_.comp->Remove(ref.shot, ref.id)));
   }
+}
+
+Frame CompTimeline::Playhead() const {
+  assert(managers_.playback != nullptr);
+  assert(managers_.comp != nullptr);
+  return managers_.playback->FrameOn(Timeline::kReel);
+}
+
+void CompTimeline::SplitPicked() {
+  assert(managers_.comp != nullptr);
+  assert(managers_.playback != nullptr);
+  Report(ProblemOf(
+      managers_.comp->SplitAll(managers_.comp->ClipPicks(), Playhead())));
+}
+
+bool CompTimeline::CopyPicked() {
+  assert(managers_.comp != nullptr);
+  assert(managers_.history != nullptr);
+  const Result<void> copied =
+      managers_.comp->CopyClips(managers_.comp->ClipPicks());
+  Report(ProblemOf(copied));
+  return copied.has_value();
+}
+
+void CompTimeline::CutPicked() {
+  assert(managers_.comp != nullptr);
+  assert(managers_.history != nullptr);
+  Report(ProblemOf(managers_.comp->CutAll(managers_.comp->ClipPicks())));
+}
+
+void CompTimeline::PasteAtPlayhead() {
+  assert(managers_.comp != nullptr);
+  assert(managers_.selection != nullptr);
+  // A copy pasted into another shot works on the stage pick there, or
+  // on the screen when that pick draws nothing.
+  const auto target = managers_.comp->TargetFor(
+      managers_.selection->shot(), managers_.selection->layer(),
+      managers_.selection->pieces());
+  Report(ProblemOf(managers_.comp->PasteAt(
+      Playhead(), target.value_or(CompTarget{}))));
+}
+
+void CompTimeline::DuplicatePicked() {
+  assert(managers_.comp != nullptr);
+  assert(managers_.history != nullptr);
+  Report(
+      ProblemOf(managers_.comp->DuplicateAll(managers_.comp->ClipPicks())));
 }
 
 void CompTimeline::keyPressEvent(QKeyEvent* event) {
@@ -118,44 +174,88 @@ void CompTimeline::contextMenuEvent(QContextMenuEvent* event) {
   if (is_unpicked) {
     managers_.comp->PickClips({bar->ref}, PickMode::kReplace, bar->ref);
   }
-  const size_t count = managers_.comp->ClipPicks().size();
+  QMenu menu;
+  FillMenu(&menu);
+  const QAction* chosen = menu.exec(event->globalPos());
+  const bool is_chosen = chosen != nullptr;
+  if (is_chosen) {
+    RunMenu(static_cast<MenuCommand>(chosen->data().toInt()));
+  }
+}
+
+void CompTimeline::FillMenu(QMenu* menu) const {
+  assert(menu != nullptr);
+  assert(managers_.comp != nullptr);
+  const CompManager* comp = managers_.comp;
+  const std::set<CompClipRef> picks = comp->ClipPicks();
+  const size_t count = picks.size();
   const QString why_none =
       count == 0 ? tr("Pick an effect clip first.") : QString();
-  QMenu menu;
-  QAction* fit = menu.addAction(tr("Fit to shot"));
-  QAction* nudge_back = menu.addAction(tr("Nudge back\tAlt+Left"));
-  QAction* nudge_on = menu.addAction(tr("Nudge on\tAlt+Right"));
-  menu.addSeparator();
-  QAction* remove = menu.addAction(
-      count > 1 ? tr("Remove %1 effects\tDelete").arg(count)
-                : tr("Remove\tDelete"));
-  menu.addSeparator();
-  QAction* all = menu.addAction(tr("Pick all\tCtrl+A"));
-  QAction* fit_view = menu.addAction(tr("Show the whole reel"));
-  for (QAction* action : {fit, nudge_back, nudge_on, remove}) {
-    Explain(action, why_none);
+  const QString copied = comp->CopiedName();
+  struct Entry final {
+    MenuCommand command;
+    QString name;
+    QString why_not;
+  };
+  const std::vector<Entry> entries = {
+      {MenuCommand::kSplit, tr("Split at playhead\tS"),
+       comp->WhyNoSplit(picks, Playhead())},
+      {MenuCommand::kCopy, tr("Copy\tCtrl+C"), why_none},
+      {MenuCommand::kCut, tr("Cut\tCtrl+X"), why_none},
+      {MenuCommand::kPaste,
+       copied.isEmpty() ? tr("Paste at playhead\tCtrl+V")
+                        : tr("Paste %1 at playhead\tCtrl+V").arg(copied),
+       comp->WhyNoPasteAt(Playhead())},
+      {MenuCommand::kDuplicate, tr("Duplicate\tCtrl+D"), why_none},
+      {MenuCommand::kNone, QString(), QString()},
+      {MenuCommand::kFit, tr("Fit to shot"), why_none},
+      {MenuCommand::kNudgeBack, tr("Nudge back\tAlt+Left"), why_none},
+      {MenuCommand::kNudgeOn, tr("Nudge on\tAlt+Right"), why_none},
+      {MenuCommand::kNone, QString(), QString()},
+      {MenuCommand::kRemove,
+       count > 1 ? tr("Remove %1 effects\tDelete").arg(count)
+                 : tr("Remove\tDelete"),
+       why_none},
+      {MenuCommand::kNone, QString(), QString()},
+      {MenuCommand::kAll, tr("Pick all\tCtrl+A"), QString()},
+      {MenuCommand::kWholeReel, tr("Show the whole reel"), QString()},
+  };
+  for (const Entry& entry : entries) {
+    const bool is_line = entry.command == MenuCommand::kNone;
+    if (is_line) {
+      menu->addSeparator();
+      continue;
+    }
+    QAction* action = menu->addAction(entry.name);
+    action->setData(static_cast<int>(entry.command));
+    Explain(action, entry.why_not);
   }
-  const QAction* chosen = menu.exec(event->globalPos());
-  const bool is_fit = chosen == fit;
-  const bool is_back = chosen == nudge_back;
-  const bool is_on_nudge = chosen == nudge_on;
-  const bool is_remove = chosen == remove;
-  const bool is_all = chosen == all;
-  const bool is_fit_view = chosen == fit_view;
-  const bool is_nudge = is_back || is_on_nudge;
-  if (is_fit) {
-    FitPicked();
-  } else if (is_nudge) {
-    Nudge(is_back ? -1 : 1);
-  } else if (is_remove) {
-    RemovePicked();
-  } else if (is_all) {
-    managers_.comp->PickClips(managers_.comp->AllClips(),
-                              PickMode::kReplace, CompClipRef());
-  } else if (is_fit_view) {
-    shown_ = 0.0;
-    first_ = 0.0;
-    update();
+}
+
+void CompTimeline::RunMenu(MenuCommand command) {
+  assert(command != MenuCommand::kNone);
+  assert(managers_.comp != nullptr);
+  switch (command) {
+    case MenuCommand::kSplit: SplitPicked(); break;
+    case MenuCommand::kCopy: CopyPicked(); break;
+    case MenuCommand::kCut: CutPicked(); break;
+    case MenuCommand::kPaste: PasteAtPlayhead(); break;
+    case MenuCommand::kDuplicate: DuplicatePicked(); break;
+    case MenuCommand::kFit: FitPicked(); break;
+    case MenuCommand::kNudgeBack: Nudge(-1); break;
+    case MenuCommand::kNudgeOn: Nudge(1); break;
+    case MenuCommand::kRemove: RemovePicked(); break;
+    case MenuCommand::kAll:
+      managers_.comp->PickClips(managers_.comp->AllClips(),
+                                PickMode::kReplace, CompClipRef());
+      break;
+    case MenuCommand::kWholeReel:
+      shown_ = 0.0;
+      first_ = 0.0;
+      update();
+      break;
+    case MenuCommand::kNone:
+      break;
   }
 }
 

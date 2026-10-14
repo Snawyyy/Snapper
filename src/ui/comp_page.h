@@ -22,11 +22,12 @@ namespace snapper {
 // The Comp tab: every effect on the left, the stage in the middle with
 // the play controls and the Comp timeline under it, the effects on
 // what is picked on the stage on the right. Its keys work while it
-// shows: A searches the effects, Ctrl+C and Ctrl+V copy and paste the
-// picked effect, V held turns every effect off, K held shows what the picked one
-// touches, I picks the color under the cursor as a target color,
-// Delete removes, Ctrl+D duplicates, Shift+= and Shift+- step the
-// blend mode.
+// shows: A searches the effects, S splits the picked clips at the
+// playhead, Ctrl+C, Ctrl+X and Ctrl+V copy, cut and paste them (at the
+// playhead), V held turns every effect off, K held shows what the
+// picked one touches, I picks the color under the cursor as a target
+// color, Delete removes, Ctrl+D duplicates, Shift+= and Shift+- step
+// the blend mode.
 class CompPage final : public QWidget {
   Q_OBJECT
 
@@ -43,13 +44,17 @@ class CompPage final : public QWidget {
 
  private:
   void Report(const QString& problem) {
-    if (!problem.isEmpty()) {
+    const bool has_problem = !problem.isEmpty();
+    if (has_problem) {
       emit Problem(problem);
     }
   }
   // True when key is one of the page's; is_press false for a release.
   bool IsPageKey(const QKeyEvent& key) const;
   void PressKey(const QKeyEvent& key);
+  // The clip keys (S, Ctrl+C, X, V and D, Delete) on the timeline's
+  // picked clips; false when key is not one.
+  bool PressClipKey(const QKeyEvent& key);
   void ReleaseKey(const QKeyEvent& key);
   // Picks the shot on top at the reel playhead, as the effects belong to
   // it; the page works on the Video tab's reel, not on the Pose strip.

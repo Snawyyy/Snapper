@@ -17,6 +17,7 @@
 #include "model/project.h"
 #include "ui/managers.h"
 
+class QMenu;
 class QPainter;
 
 namespace snapper {
@@ -37,8 +38,11 @@ namespace snapper {
 // snap; Ctrl drags free); Escape cancels and each drag is one undo
 // step. Alt+Left and Alt+Right nudge the picked clips a frame (Shift:
 // ten). A double click fits a clip to its shot again; right click
-// offers the same with duplicate and remove. Ctrl+wheel zooms round the
-// cursor (Ctrl+= and Ctrl+- round the playhead), the wheel scrolls. A
+// offers the same with the Video tab's clip edits: S splits the picked
+// clips at the playhead, Ctrl+X cuts, Ctrl+C copies, Ctrl+V pastes at
+// the playhead, Ctrl+D duplicates, Delete removes. Ctrl+wheel zooms
+// round the cursor (Ctrl+= and Ctrl+- round the playhead), the wheel
+// scrolls. A
 // clip may run past its shot's cut: an effect on the screen then goes
 // on over whatever the reel shows; one on a doll stops at the cut (that
 // part is hatched). A click on the
@@ -52,6 +56,15 @@ class CompTimeline final : public QWidget {
   QSize sizeHint() const override { return QSize(600, 120); }
   // Delete: removes every picked clip, as one undo step.
   void RemovePicked();
+  // The Video tab's clip edits on the picked clips, at the reel
+  // playhead (ui/comp_timeline_keys.cpp): S, Ctrl+C, Ctrl+X, Ctrl+V and
+  // Ctrl+D.
+  void SplitPicked();
+  // True when something was copied.
+  bool CopyPicked();
+  void CutPicked();
+  void PasteAtPlayhead();
+  void DuplicatePicked();
 
  signals:
   void Problem(const QString& why);
@@ -85,6 +98,21 @@ class CompTimeline final : public QWidget {
     int offset = 0;
   };
   enum class Grab { kNone, kMove, kStart, kEnd, kBox, kScrub };
+  // The right click menu's entries; kNone is a separator.
+  enum class MenuCommand {
+    kNone,
+    kSplit,
+    kCopy,
+    kCut,
+    kPaste,
+    kDuplicate,
+    kFit,
+    kNudgeBack,
+    kNudgeOn,
+    kRemove,
+    kAll,
+    kWholeReel,
+  };
 
   // The names column (wide enough for "(arm_l) Rim light"), the ruler
   // and one row.
@@ -137,6 +165,9 @@ class CompTimeline final : public QWidget {
   // Moves every picked clip by delta frames as one undo step.
   void Nudge(int delta);
   void FitPicked();
+  void FillMenu(QMenu* menu) const;
+  void RunMenu(MenuCommand command);
+  Frame Playhead() const;
   void Report(const QString& problem);
 
   Managers managers_;
