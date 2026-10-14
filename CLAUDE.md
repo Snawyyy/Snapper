@@ -58,6 +58,16 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
+Also 2026-10-14, side branches cut from `joint-end-snap`, not pushed,
+built, no tests, not seen by eye: `frame-size` (File > Frame size...
+changes the frame after the project is made, content stays centered;
+storyboard cels stretch and reel text follows the new shape, owner to
+say if that should stay put) and `drawing-place` (a re-export that
+grows a piece's box now carries its pivot, colliders, mesh and IK tip
+along via `box_corner` in rig.json; the owner's "smaller drawing moves
+down" was not reproduced, ask for the doll and a Krita screenshot if it
+still happens). Merge them into one line of work when the owner says.
+
 Last done (2026-10-14, branch `keyed-draw-order`, cut from
 `joint-end-snap`, not pushed): draw order is keyed. `PoseField::kOrder`
 in `PoseManager` (typed number, wheel steps, `StepOrder`; one undo step
