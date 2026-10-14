@@ -58,7 +58,32 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-14, branch `voice-gen`, cut from `timeline-consistency`,
+Last done (2026-10-14, branch `storyboard`, cut from `voice-gen`, not
+pushed): the storyboard layer, finished from the WIP draft layer
+(`wip/ux-wp3-draft-layer`, merged in, then reworked). A storyboard is a
+kind of layer in the shot's stack (`StoryboardLayer`, `model/storyboard.h`):
+raster cels, each starting at a shot frame and holding to the next, laid
+over the canvas at its place in the stack, hidden by the layer's eye,
+ordered in the Cast layer list (Add > Storyboard). Drawing reuses draw
+mode through a `DrawJob`: Alt+N a blank frame at the playhead (the frame
+before shows as a faint red onion, D toggles), Alt+Shift+N draws over the
+frame showing; both are Edit menu entries, so the keys sheet and Find a
+command list them. With no storyboard layer, Done makes one. A dashed row
+per storyboard layer on the Pose timeline (pick, drag to retime, Delete,
+double click, right click), a Storyboard box in the inspector (opacity,
+In export for an animatic, draw buttons); shown on the Pose stage and the
+Video preview, exported only with In export. Every edit is one named undo
+step ("Draw storyboard frame"). Frame pictures are PNGs in "<project>
+storyboard" beside the file, saved relative in the project file, and Save
+As copies them along (`StoryboardManager`, `edit/storyboard_edits.cpp`,
+`io/storyboard_paths.cpp`, `DocumentManager::CarryStoryboard`). Tested:
+`storyboard_tests` (15 passed), `storyboard_render_tests`,
+`storyboard_menu_tests`; the rest of ctest is as before (lint, the
+palette-assert ui tests, scrub, video_page, and the gcc 13 test
+compiles fail as they did). The app was not launched (owner's rule).
+Next: owner tries the storyboard and Voice by eye.
+
+Before that (2026-10-14, branch `voice-gen`, cut from `timeline-consistency`,
 not pushed): a Voice tab in the Video tab's side panel, always shown:
 clone a voice from a sample (file, or what the PC plays through `parec`)
 or design one from a description, say a line, listen, and Add to timeline
