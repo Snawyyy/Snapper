@@ -183,6 +183,14 @@ Result<void> PoseManager::SwapDrawing(const TrackRef& track, Frame frame,
                                       int drawing) {
   assert(history_ != nullptr);
   assert(frame.index() >= 0);
+  return SwapDrawing(track, std::set<Frame>{frame}, drawing);
+}
+
+Result<void> PoseManager::SwapDrawing(const TrackRef& track,
+                                      const std::set<Frame>& frames,
+                                      int drawing) {
+  assert(history_ != nullptr);
+  assert(!frames.empty());
   const bool is_piece = track.kind == TrackKind::kPiece;
   const ArtPiece* art =
       is_piece ? PieceOf(history_->current(), track).second : nullptr;
@@ -192,13 +200,18 @@ Result<void> PoseManager::SwapDrawing(const TrackRef& track, Frame frame,
   if (!is_valid) {
     return std::unexpected(Error{Tr("That piece has no such drawing.")});
   }
-  return history_->Apply(
-      Tr("Swap %1").arg(track.piece),
-      KeyedAt(history_->current(), track, frame, PiecePose(),
-              [drawing](PiecePose* value) {
-                value->drawing = drawing;
-                return Result<void>();
-              }));
+  Result<Project> next = history_->current();
+  for (const Frame frame : frames) {
+    next = KeyedAt(*next, track, frame, PiecePose(),
+                   [drawing](PiecePose* value) {
+                     value->drawing = drawing;
+                     return Result<void>();
+                   });
+    if (!next) {
+      break;
+    }
+  }
+  return history_->Apply(Tr("Swap %1").arg(track.piece), std::move(next));
 }
 
 Result<void> PoseManager::Pull(const TrackRef& track, Frame frame,

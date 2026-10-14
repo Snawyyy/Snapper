@@ -190,6 +190,17 @@ void SelectionManager::PickKeys(const std::set<KeyRef>& keys, PickMode mode) {
   }
 }
 
+std::set<Frame> SelectionManager::EditFrames(Frame at) const {
+  assert(history_ != nullptr);
+  assert(at.index() >= 0);
+  std::set<Frame> frames;
+  for (const KeyRef& key : keys_) {
+    frames.insert(key.frame);
+  }
+  const bool is_on_pick = frames.contains(at);
+  return is_on_pick ? frames : std::set<Frame>{at};
+}
+
 void SelectionManager::ClearKeys() {
   assert(history_ != nullptr);
   assert(keys_.size() < 1000000);

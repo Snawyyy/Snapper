@@ -49,6 +49,9 @@ class PoseManager final {
   // Piece tracks: show drawing (index into the piece's drawings; -1 for
   // the rig's default).
   Result<void> SwapDrawing(const TrackRef& track, Frame frame, int drawing);
+  // The same on every frame of frames, as one undo step.
+  Result<void> SwapDrawing(const TrackRef& track,
+                           const std::set<Frame>& frames, int drawing);
   // Piece tracks: pull one warp grid point by `by` (drawing pixels),
   // dragging its neighbours along as far as the rig's rubber reach for
   // that point says. It pulls from where the open drag started, so a

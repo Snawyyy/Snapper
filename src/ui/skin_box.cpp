@@ -83,9 +83,11 @@ void SkinBox::Put(const QString& skin, bool is_stacked) {
   const bool is_here =
       spot.has_value() && spot->shot == managers_.selection->shot();
   if (is_here) {
+    // With picked keys under the playhead, every picked frame wears it.
     emit Problem(ProblemOf(managers_.skins->Wear(
         spot->shot, managers_.selection->PickedLayers(),
-        managers_.selection->layer(), spot->local, skin, is_stacked)));
+        managers_.selection->layer(), spot->local, skin, is_stacked,
+        managers_.selection->EditFrames(spot->local))));
   }
   Refresh();
 }

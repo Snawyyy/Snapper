@@ -3,6 +3,7 @@
 
 #include <QString>
 
+#include <set>
 #include <vector>
 
 #include "base/error.h"
@@ -53,9 +54,11 @@ class SkinManager final {
   // Puts skin on layers at frame, or takes it off when focus wears it
   // already. Without is_stacking it replaces what they wear; with it,
   // it is added. Layers whose doll has no such skin are left alone.
+  // also lists more frames to do the same on (what focus wears at frame
+  // decides putting on or taking off), all as one undo step.
   Result<void> Wear(ShotId shot, const std::vector<LayerId>& layers,
                     LayerId focus, Frame frame, const QString& skin,
-                    bool is_stacking);
+                    bool is_stacking, const std::set<Frame>& also = {});
   // Wears the previous (-1) or next (+1) skin of focus's doll alone on
   // layers at frame; past either end wears none.
   Result<void> Step(ShotId shot, const std::vector<LayerId>& layers,

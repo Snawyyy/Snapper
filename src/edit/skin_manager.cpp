@@ -294,7 +294,8 @@ Result<int> SkinManager::MakeFromKritaNames(const QString& doll) {
 Result<void> SkinManager::Wear(ShotId shot,
                                const std::vector<LayerId>& layers,
                                LayerId focus, Frame frame,
-                               const QString& skin, bool is_stacking) {
+                               const QString& skin, bool is_stacking,
+                               const std::set<Frame>& also) {
   assert(history_ != nullptr);
   assert(frame.index() >= 0);
   const std::vector<QString> worn = WornAt(shot, focus, frame);
@@ -309,11 +310,18 @@ Result<void> SkinManager::Wear(ShotId shot,
       continue;
     }
     has_skin = true;
-    next = KeyedWorn(*next, shot, layer, frame, [&](SkinSet* now) {
-      *now = is_off ? WithWorn(*now, skin, false)
-             : is_stacking ? WithWorn(*now, skin, true)
-                           : SkinSet{{skin}};
-    });
+    std::set<Frame> frames = also;
+    frames.insert(frame);
+    for (const Frame at : frames) {
+      next = KeyedWorn(*next, shot, layer, at, [&](SkinSet* now) {
+        *now = is_off ? WithWorn(*now, skin, false)
+               : is_stacking ? WithWorn(*now, skin, true)
+                             : SkinSet{{skin}};
+      });
+      if (!next) {
+        break;
+      }
+    }
     if (!next) {
       break;
     }

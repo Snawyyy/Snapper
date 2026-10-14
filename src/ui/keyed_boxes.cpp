@@ -235,8 +235,9 @@ void PoseBox::SwapDrawing(int index) {
     RequestDraw(managers_, DrawStartAt(index - drawing_count_ - 1));
     return;
   }
-  emit Problem(ProblemOf(
-      managers_.pose->SwapDrawing(*track, spot->local, index - 1)));
+  // With picked keys under the playhead, every picked frame swaps.
+  emit Problem(ProblemOf(managers_.pose->SwapDrawing(
+      *track, managers_.selection->EditFrames(spot->local), index - 1)));
   assert(managers_.pose != nullptr);
 }
 
