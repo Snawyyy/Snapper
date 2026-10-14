@@ -125,6 +125,40 @@ Result<ReconcileReport> DollLibraryManager::Reload(const QString& name) {
   return report;
 }
 
+QStringList DollLibraryManager::OutdatedDolls() const {
+  assert(history_ != nullptr);
+  const Project& project = history_->current();
+  assert(project.dolls.size() <= static_cast<size_t>(kMaxProjectDolls));
+  QStringList names;
+  for (const auto& [name, doll] : project.dolls) {
+    const auto art = ReadArt(FolderOf(name));
+    const bool has_folder = art.has_value();
+    if (!has_folder) {
+      continue;
+    }
+    Doll fresh = *doll;
+    fresh.art = *art;
+    AddOwnDrawings(&fresh);
+    const bool is_outdated = fresh.art != doll->art;
+    if (is_outdated) {
+      names.append(name);
+    }
+  }
+  return names;
+}
+
+Result<std::map<QString, ReconcileReport>>
+DollLibraryManager::ReloadOutdated() {
+  assert(history_ != nullptr);
+  assert(!history_->IsScopeOpen());
+  const QStringList names = OutdatedDolls();
+  const bool is_current = names.isEmpty();
+  if (is_current) {
+    return std::map<QString, ReconcileReport>();
+  }
+  return ReloadAll(names);
+}
+
 Result<std::map<QString, ReconcileReport>> DollLibraryManager::ImportAll(
     const QStringList& names) {
   assert(history_ != nullptr);

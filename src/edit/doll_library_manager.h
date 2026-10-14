@@ -42,6 +42,12 @@ class DollLibraryManager final : public QObject {
   // Takes the newest art from the library for a project doll, keeping
   // its rig (matched by piece name).
   Result<ReconcileReport> Reload(const QString& name);
+  // The project's dolls whose folder art is not what the project holds:
+  // redrawn in Krita while the project was closed.
+  QStringList OutdatedDolls() const;
+  // Reloads every outdated doll as one undo step; run when a project
+  // opens, so it never points at drawings that are gone.
+  Result<std::map<QString, ReconcileReport>> ReloadOutdated();
   // Imports or reloads several dolls as one step; what each changed
   // in its rig, by name. Stops at the first that fails.
   Result<std::map<QString, ReconcileReport>> ImportAll(

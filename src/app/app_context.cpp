@@ -45,6 +45,10 @@ AppContext::AppContext(const QString& data_folder)
                        &sounds_, &references_, &comp_, &record_,
                        &library_folders_}) {
   assert(!data_folder.isEmpty());
+  // A doll redrawn in Krita while a project was closed is reloaded when
+  // it opens, so the project never points at drawings that are gone.
+  QObject::connect(&document_, &DocumentManager::PathChanged, &library_,
+                   [this] { static_cast<void>(library_.ReloadOutdated()); });
   // Declared after playback, so the reel's sound is handed over here.
   playback_.SetSounds(&sounds_);
   assert(!history_.IsDirty());

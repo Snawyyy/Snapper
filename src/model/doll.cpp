@@ -139,9 +139,16 @@ int ShownDrawingIndex(const Doll& doll, const QString& piece, int drawing) {
     const bool has_rig_default = rig != nullptr && rig->default_drawing >= 0;
     index = has_rig_default ? rig->default_drawing : art->default_drawing;
   }
-  const bool is_in_range =
-      index >= 0 && index < static_cast<int>(art->drawings.size());
-  return is_in_range ? index : -1;
+  const int count = static_cast<int>(art->drawings.size());
+  const bool is_in_range = index >= 0 && index < count;
+  if (is_in_range) {
+    return index;
+  }
+  // A drawing gone from the doll (redrawn with fewer in Krita) shows the
+  // piece's own default rather than leaving the piece out.
+  const bool is_art_default_in_range =
+      art->default_drawing >= 0 && art->default_drawing < count;
+  return is_art_default_in_range ? art->default_drawing : 0;
 }
 
 QString DrawingPath(const Doll& doll, const QString& piece, int drawing) {
