@@ -22,6 +22,9 @@ class HistoryManager;
 // One number of a pose, as the Pose box shows it.
 enum class PoseField {
   kTurn, kX, kY, kScaleX, kScaleY, kSkew, kOpacity, kLean, kSwivel,
+  // Places in front (above 0) or behind (below 0) of its place in the
+  // draw order; it holds from key to key, never blends.
+  kOrder,
 };
 
 struct PoseDelta final {
@@ -34,6 +37,8 @@ struct PoseDelta final {
   // Doll lean and swivel in degrees; only layer tracks turn.
   double lean = 0.0;
   double swivel = 0.0;
+  // Draw order places, whole numbers (see PoseField::kOrder).
+  double order = 0.0;
 };
 
 // Posing at a frame: each call keys the value it changes at that frame
@@ -78,6 +83,15 @@ class PoseManager final {
   Result<void> SetField(const std::vector<TrackRef>& tracks,
                         const std::vector<Frame>& frames, PoseField field,
                         double value);
+  // Moves every track's draw order by `by` places at every one of
+  // frames, as one step named for what moved ("Draw order head"). A
+  // limb moves within its doll; a doll's own track moves it past
+  // layers.
+  Result<void> StepOrder(const std::vector<TrackRef>& tracks,
+                         const std::vector<Frame>& frames, int by);
+  // The undo name of a draw order change on tracks: "Draw order head"
+  // for one piece or layer, "Draw order" for several.
+  QString OrderName(const std::vector<TrackRef>& tracks) const;
   Result<void> SetCamera(ShotId shot, Frame frame, CameraPose camera);
   // Effect amount tracks, 0 to 1.
   Result<void> SetAmount(const TrackRef& track, Frame frame, double amount);
@@ -109,6 +123,12 @@ class PoseManager final {
   QString WhyNoPaste() const;
 
  private:
+  // Shift under an undo name of its own.
+  Result<void> ShiftAs(const QString& name,
+                       const std::vector<TrackRef>& tracks,
+                       const std::vector<Frame>& frames,
+                       const PoseDelta& delta);
+
   HistoryManager* history_;
   // The copied pose, by piece name. Not part of the project: copying
   // is not an edit.

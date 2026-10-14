@@ -11,9 +11,20 @@
 #include "edit/history_manager.h"
 #include "edit/pose_edits.h"
 #include "edit/pose_manager.h"
+#include "model/doll.h"
 
 namespace snapper {
 namespace {
+
+// A draw order stays within as many places as a doll has pieces, as the
+// project file keeps it.
+int ClampedOrder(double places) {
+  assert(std::isfinite(places));
+  assert(kMaxDollPieces > 0);
+  return static_cast<int>(std::clamp(std::lround(places),
+                                     static_cast<long>(-kMaxDollPieces),
+                                     static_cast<long>(kMaxDollPieces)));
+}
 
 // Sets one number of pose, kept in range as Shift keeps it; lean and
 // swivel only turn layers.
@@ -35,6 +46,7 @@ void SetPoseField(PiecePose* pose, PoseField field, double value,
     case PoseField::kSwivel:
       pose->swivel = is_layer ? value : pose->swivel;
       break;
+    case PoseField::kOrder: pose->order = ClampedOrder(value); break;
   }
 }
 
@@ -52,12 +64,21 @@ Result<void> PoseManager::Shift(const std::vector<TrackRef>& tracks,
                                 const PoseDelta& delta) {
   assert(history_ != nullptr);
   assert(frames.size() < 1000000);
+  return ShiftAs(Tr("Pose"), tracks, frames, delta);
+}
+
+Result<void> PoseManager::ShiftAs(const QString& name,
+                                  const std::vector<TrackRef>& tracks,
+                                  const std::vector<Frame>& frames,
+                                  const PoseDelta& delta) {
+  assert(history_ != nullptr);
+  assert(!name.isEmpty());
   const bool is_finite =
       std::isfinite(delta.rotation) && std::isfinite(delta.offset.x()) &&
       std::isfinite(delta.offset.y()) && std::isfinite(delta.scale_x) &&
       std::isfinite(delta.scale_y) && std::isfinite(delta.skew) &&
       std::isfinite(delta.opacity) && std::isfinite(delta.lean) &&
-      std::isfinite(delta.swivel);
+      std::isfinite(delta.swivel) && std::isfinite(delta.order);
   const bool is_usable = is_finite && !tracks.empty() && !frames.empty();
   if (!is_usable) {
     return std::unexpected(Error{Tr("Pick something to change first.")});
@@ -80,6 +101,8 @@ Result<void> PoseManager::Shift(const std::vector<TrackRef>& tracks,
                                    pose->opacity + delta.opacity, 0.0, 1.0);
                                pose->lean += is_layer ? delta.lean : 0.0;
                                pose->swivel += is_layer ? delta.swivel : 0.0;
+                               pose->order = ClampedOrder(pose->order +
+                                                          delta.order);
                                return Result<void>();
                              });
       if (!shifted) {
@@ -88,7 +111,35 @@ Result<void> PoseManager::Shift(const std::vector<TrackRef>& tracks,
       next = std::move(*shifted);
     }
   }
-  return history_->Apply(Tr("Pose"), std::move(next));
+  return history_->Apply(name, std::move(next));
+}
+
+Result<void> PoseManager::StepOrder(const std::vector<TrackRef>& tracks,
+                                    const std::vector<Frame>& frames,
+                                    int by) {
+  assert(history_ != nullptr);
+  assert(by >= -kMaxDollPieces && by <= kMaxDollPieces);
+  PoseDelta delta;
+  delta.order = by;
+  return ShiftAs(OrderName(tracks), tracks, frames, delta);
+}
+
+QString PoseManager::OrderName(const std::vector<TrackRef>& tracks) const {
+  assert(history_ != nullptr);
+  assert(tracks.size() < 100000);
+  const bool is_one = tracks.size() == 1;
+  if (!is_one) {
+    return Tr("Draw order");
+  }
+  const TrackRef& track = tracks.front();
+  const Shot* shot = FindShot(history_->current(), track.shot);
+  const Layer* layer = shot != nullptr ? FindLayer(*shot, track.layer)
+                                       : nullptr;
+  const bool is_piece = track.kind == TrackKind::kPiece;
+  const QString name = is_piece ? track.piece
+                                : (layer != nullptr ? layer->name : QString());
+  const bool is_named = !name.isEmpty();
+  return is_named ? Tr("Draw order %1").arg(name) : Tr("Draw order");
 }
 
 Result<void> PoseManager::SetField(const std::vector<TrackRef>& tracks,
@@ -116,7 +167,9 @@ Result<void> PoseManager::SetField(const std::vector<TrackRef>& tracks,
       next = std::move(*set);
     }
   }
-  return history_->Apply(Tr("Pose"), std::move(next));
+  const bool is_order = field == PoseField::kOrder;
+  return history_->Apply(is_order ? OrderName(tracks) : Tr("Pose"),
+                         std::move(next));
 }
 
 }  // namespace snapper
