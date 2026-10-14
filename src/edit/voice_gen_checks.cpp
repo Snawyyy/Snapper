@@ -55,8 +55,12 @@ QString VoiceGenManager::WhyNoEngine(VoiceEngine engine) const {
   if (is_installed) {
     return QString();
   }
-  return Tr("%1 is not installed: run tools/voice_gen/setup.sh.")
-      .arg(VoiceEngineName(engine));
+  const bool is_chatterbox = engine == VoiceEngine::kChatterbox;
+  return is_chatterbox
+             ? Tr("Chatterbox is not installed: run "
+                  "tools/voice_gen/setup.sh.")
+             : Tr("Voice gen is not installed: run "
+                  "tools/voice_gen/setup.sh.");
 }
 
 QString VoiceGenManager::WhyNoEmotion(VoiceEngine engine) const {
@@ -64,27 +68,15 @@ QString VoiceGenManager::WhyNoEmotion(VoiceEngine engine) const {
   assert(voices_ != nullptr);
   const bool is_qwen = engine == VoiceEngine::kQwen;
   return is_qwen ? Tr("Qwen copies the mood of the sample. Pick Chatterbox "
-                      "or IndexTTS to set the emotion here.")
+                      "to set the emotion here.")
                  : QString();
 }
 
 QString VoiceGenManager::WhyNoSpeakClone(const QString& sample_path,
                                          const QString& text,
-                                         VoiceEngine engine,
-                                         const QString& language) const {
+                                         VoiceEngine engine) const {
   assert(voices_ != nullptr);
   assert(temp_.isValid());
-  const bool is_index = engine == VoiceEngine::kIndex;
-  const bool is_index_language =
-      language == QStringLiteral("Auto") ||
-      language == QStringLiteral("English") ||
-      language == QStringLiteral("Chinese") ||
-      language == QStringLiteral("Japanese") ||
-      language == QStringLiteral("Spanish");
-  const bool is_unspoken = is_index && !is_index_language;
-  if (is_unspoken) {
-    return Tr("IndexTTS speaks English, Chinese, Japanese and Spanish.");
-  }
   const QString no_engine = WhyNoEngine(engine);
   const bool has_no_engine = !no_engine.isEmpty();
   if (has_no_engine) {

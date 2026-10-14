@@ -13,12 +13,10 @@ namespace snapper {
 
 enum class VoiceKind { kClone, kDesign, kTranscribe };
 // Who clones: Qwen3-TTS (follows the sample's words closely, copies its
-// mood), Chatterbox (needs no words, takes one emotion for the line) or
-// IndexTTS (needs no words, takes a {feeling} after each sentence).
-// Designs are Qwen's only.
-enum class VoiceEngine { kQwen, kChatterbox, kIndex };
-inline constexpr int kVoiceEngineCount = 3;
-// How strongly to feel, from flat to wild; plain speech is the default.
+// mood) or Chatterbox (needs no words, takes an emotion). Designs are
+// Qwen's only.
+enum class VoiceEngine { kQwen, kChatterbox };
+// Chatterbox's emotion, from flat to wild; plain speech is the default.
 inline constexpr double kMinEmotion = 0.25;
 inline constexpr double kMaxEmotion = 2.0;
 inline constexpr double kPlainEmotion = 0.5;

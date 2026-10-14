@@ -40,11 +40,9 @@ QByteArray JobLine(int id, const VoiceJob& job) {
     json.insert("sample", job.sample);
     json.insert("words", job.words);
   }
-  // Qwen copies the sample's mood; the others take an emotion.
-  const bool has_emotion = job.engine != VoiceEngine::kQwen;
-  if (has_emotion) {
-    const bool is_chatterbox = job.engine == VoiceEngine::kChatterbox;
-    json.insert("engine", is_chatterbox ? "chatterbox" : "index");
+  const bool is_chatterbox = job.engine == VoiceEngine::kChatterbox;
+  if (is_chatterbox) {
+    json.insert("engine", "chatterbox");
     json.insert("emotion", job.emotion);
   }
   return QJsonDocument(json).toJson(QJsonDocument::Compact) + '\n';

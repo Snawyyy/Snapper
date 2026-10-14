@@ -328,7 +328,7 @@ void VoicePanel::ShowGenerate() {
   const QString why_not =
       IsDesign() ? gen.WhyNoSpeakDesign(describe_.toPlainText(), text)
                  : gen.WhyNoSpeakClone(clone_.sample_path(), text,
-                                       engine_box_.engine(), Language());
+                                       engine_box_.engine());
   Explain(&generate_, why_not,
           tr("Says the line in this voice (Ctrl+Enter in the line). The "
              "first line takes a while, as the voice model loads."));
