@@ -64,9 +64,11 @@ tab rebuilt. Left, every effect under a search field with hover help,
 double click adds to the stage pick; right, the pick's effects (the
 screen's when nothing is picked) as After Effects folds, shot Light
 under them; stage clicks pick with a red outline. Applies to tiles
-gone. Built, not seen by eye, no tests run (owner's rule). Open: drag
-to reorder folds (right click Move up or down for now), drag an effect
-from the list onto the stage.
+gone. Then copy and paste (Ctrl+C, Ctrl+V, menus), drag to reorder
+plates, drag from the library onto the list or a doll on the stage,
+and a polish pass (plate click opens, arrow at right, bigger on
+square, color marks, groups, no-match hint, new effect scrolls in).
+Built, not seen by eye, no tests run (owner's rule).
 
 Before that (2026-10-13, branch `ccr-33af7348-m78soh`, pushed, not
 merged to main): the UX polish pass, from
