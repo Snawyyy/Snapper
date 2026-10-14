@@ -69,16 +69,15 @@ CMake copies the script beside the binary). `VoiceGenManager`,
 Then: the panel restyled (mode tiles, numbered steps, phosphor wave
 screens to click and listen, LED meter, big red Generate; owner liked
 it), Whisper writes a fresh sample's words by itself (Transcribe
-button too), the three voices of `../TTS` copied into the library, and
-Chatterbox as a second clone model with an emotion fader (own Python,
-`chatterbox_venv`; one engine on the card at a time, the worker drops
-models and retries when the card is full). The worker's jobs were run
-by hand and work; the app was not launched (owner's rule). Separate
+button too), the three voices of `../TTS` copied into the library.
+Chatterbox and IndexTTS-2.5 were added as clone models, then reverted
+on the owner's word (Qwen sounds better); the Clone and Design switch
+is plain buttons now. The worker's jobs were run by hand and work; the
+app was not launched (owner's rule). Separate
 branch `preview-speed` (worktree): Full, Half, Quarter preview quality,
 a frame cache and frames drawn ahead; built, never run. Known: the app
 crashes on close in `PalettePanel`'s destructor (older than this work).
-Next: owner tries Voice and preview-speed by eye; maybe IndexTTS2 for
-emotion on any voice; fix the close crash.
+Next: owner tries Voice and preview-speed by eye; fix the close crash.
 
 Before that (2026-10-14, branch `timeline-consistency`, not pushed): the
 Pose, Video and Comp timelines now share their view and chrome
