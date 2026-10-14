@@ -35,10 +35,14 @@ void PaintKey(QPainter* painter, QPointF at) {
 CompTimeline::CompTimeline(const Managers& managers)
     : managers_(managers),
       scale_(this, kNameWidth, kDefaultFrameWidth),
+      step_mode_(managers.playback, this),
       settle_(managers.motion, managers.playback->FrameOn(Timeline::kReel),
               this) {
   assert(managers_.IsComplete());
   assert(managers_.comp != nullptr);
+  step_mode_.setObjectName("step_mode");
+  step_mode_.setGeometry(
+      StepModeSwitch::CornerRect(static_cast<int>(kNameWidth)));
   setFocusPolicy(Qt::ClickFocus);
   setMouseTracking(true);
   setMinimumHeight(static_cast<int>(kRuler + 3 * kRow));

@@ -17,6 +17,7 @@
 #include "model/project.h"
 #include "ui/managers.h"
 #include "ui/playhead_settle.h"
+#include "ui/step_mode_switch.h"
 #include "ui/timeline_layout.h"
 #include "ui/timeline_scale.h"
 
@@ -178,6 +179,9 @@ class CompTimeline final : public QWidget {
   // Zoom and scroll, shared with the Pose and Video timelines; it starts
   // showing the whole reel.
   TimelineScale scale_;
+  // Scrub or animation stepping, in the ruler's corner as on the other
+  // timelines.
+  StepModeSwitch step_mode_;
   // The playhead overshoots a little as it lands on a frame.
   PlayheadSettle settle_;
   Grab grab_ = Grab::kNone;

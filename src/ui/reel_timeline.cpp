@@ -44,8 +44,12 @@ ReelTimeline::ReelTimeline(const Managers& managers)
               this),
       drag_playhead_(managers.playback),
       scale_(this, kHeaderWidth, kDefaultZoom),
+      step_mode_(managers.playback, this),
       track_scroll_(Qt::Vertical, this) {
   assert(managers_.IsComplete());
+  step_mode_.setObjectName("step_mode");
+  step_mode_.setGeometry(
+      StepModeSwitch::CornerRect(static_cast<int>(kHeaderWidth)));
   setFocusPolicy(Qt::ClickFocus);
   setMouseTracking(true);
   setAcceptDrops(true);

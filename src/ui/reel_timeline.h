@@ -28,6 +28,7 @@ class QMenu;
 #include "ui/managers.h"
 #include "ui/playhead_settle.h"
 #include "ui/problem.h"
+#include "ui/step_mode_switch.h"
 #include "ui/timeline_layout.h"
 #include "ui/timeline_scale.h"
 
@@ -312,6 +313,9 @@ class ReelTimeline final : public QWidget {
   DragPlayhead drag_playhead_;
   // Zoom and scroll, shared with the Pose and Comp timelines.
   TimelineScale scale_;
+  // Scrub or animation stepping, in the ruler's corner as on the other
+  // timelines.
+  StepModeSwitch step_mode_;
   Drag drag_ = Drag::kNone;
   ClipId dragged_;
   // The sound track whose fader drags.
