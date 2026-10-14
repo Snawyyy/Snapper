@@ -81,6 +81,7 @@ MainWindow::MainWindow(const Managers& managers)
       timing_dialog_(managers, this),
       timing_action_(tr("Define &timing chart...")),
       settings_actions_(managers),
+      storyboard_menu_(managers, &stage_),
       space_keys_(this, managers),
       export_action_(tr("&Export...")),
       play_menu_(tr("&Play")),
@@ -169,6 +170,7 @@ void MainWindow::ShowMode(int index) {
   const bool is_on_reel = index == static_cast<int>(Mode::kVideo) ||
                           index == static_cast<int>(Mode::kComp);
   pages_.setCurrentIndex(index);
+  storyboard_menu_.Refresh();
   managers_.playback->SetTimeline(is_on_reel ? Timeline::kReel
                                              : Timeline::kShots);
   // The cast shows on the Pose and Rig tabs, the inspector only on Pose;
@@ -297,6 +299,8 @@ void MainWindow::BuildMenus() {
   connect(&timing_action_, &QAction::triggered, this,
           [this] { RequestTimingChart(managers_); });
   edit_menu_.addActions(settings_actions_.actions());
+  edit_menu_.addSeparator();
+  edit_menu_.addActions(storyboard_menu_.actions());
   // Disabled actions still show why on hover.
   edit_menu_.setToolTipsVisible(true);
   view_menu_.setToolTipsVisible(true);

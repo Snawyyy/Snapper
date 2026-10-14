@@ -22,9 +22,6 @@ void RequestStoryboard(const Managers& managers, bool is_over);
 // menu (the stage's right click), greyed with the reason when they
 // can't act.
 void AddStoryboardActions(QMenu* menu, const Managers& managers);
-// Alt+N (a new blank frame at the playhead) and Alt+Shift+N (draw over
-// the frame showing) while widget or a child of it has focus.
-void AddStoryboardKeys(QWidget* widget, const Managers& managers);
 
 }  // namespace snapper
 

@@ -153,7 +153,6 @@ void AddDrawKeys(QWidget* widget, const Managers& managers) {
                    [managers] { RequestEditDrawing(managers); });
   widget->addAction(draw);
   widget->addAction(edit);
-  AddStoryboardKeys(widget, managers);
 }
 
 }  // namespace snapper

@@ -97,18 +97,4 @@ void AddStoryboardActions(QMenu* menu, const Managers& managers) {
   }
 }
 
-void AddStoryboardKeys(QWidget* widget, const Managers& managers) {
-  assert(widget != nullptr);
-  assert(managers.history != nullptr);
-  const bool is_available = IsAvailable(managers);
-  if (!is_available) {
-    return;
-  }
-  for (const bool is_over : {false, true}) {
-    auto action = MakeAction(widget, managers, is_over);
-    action->setShortcutContext(Qt::WidgetWithChildrenShortcut);
-    widget->addAction(action.release());
-  }
-}
-
 }  // namespace snapper

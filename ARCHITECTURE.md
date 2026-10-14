@@ -651,8 +651,15 @@ camera and no layer transform, by `FrameRenderer::PaintBoardLayer`
 tick is on (the animatic); export, thumbnails and the Comp stage leave
 it out otherwise. Pixels never enter the project: each edit saves a new
 file ("<project> storyboard" beside the project file, or "storyboard"
-in the app data folder while unsaved, `edit/sidecar_folder.h`), and the
-cel lists its path, so undo is a path swap. The pure edits (put, remove
+in the app data folder while unsaved, `edit/storyboard_folder.cpp` on
+the rule of `edit/sidecar_folder.h`), and the cel lists its path, so
+undo is a path swap. In memory a path is absolute; the project file
+writes one below the file's folder relative to it and reads it back
+absolute (`io/storyboard_paths.cpp`, called by `WriteProject` and
+`ReadProject`), so a project and its folder can move together. Save As
+copies the pictures the history uses beside the new file and points
+every project in the history at the copies, with no undo step
+(`DocumentManager::CarryStoryboard`, `HistoryManager::MapProjects`). The pure edits (put, remove
 and move cels, the layer an action means, fresh names) are
 `edit/storyboard_edits.cpp`; `StoryboardManager` decides when to make
 one, as one named undo step each ("Draw storyboard frame", "Edit
@@ -669,7 +676,9 @@ a dashed row per storyboard layer under the reference rows, with the
 cels as keys (the eye is `ui/timeline_eye.cpp`, shared with the
 reference rows); `StoryboardBox` in the inspector holds the opacity
 fader, In export and the draw buttons; Alt+N and Alt+Shift+N start a
-frame (`ui/storyboard_actions.cpp`). Animation-mode stepping stops at
+frame (Edit menu entries, `ui/storyboard_menu.cpp`, so the keys sheet and
+Find a command list them; the stage's right click has the same two,
+`ui/storyboard_actions.cpp`). Animation-mode stepping stops at
 each cel start (`PoseChanges`).
 
 A shot may hold references (`Shot::references`, `model/reference.h`):

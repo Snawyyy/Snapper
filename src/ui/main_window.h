@@ -28,6 +28,7 @@
 #include "ui/rig_panel.h"
 #include "ui/shortcut_sheet.h"
 #include "ui/settings_actions.h"
+#include "ui/storyboard_menu.h"
 #include "ui/shot_strip.h"
 #include "ui/success_burst.h"
 #include "ui/space_keys_action.h"
@@ -150,6 +151,8 @@ class MainWindow final : public QMainWindow {
   QAction timing_action_;
   // Ctrl+Shift+C and V: copy and paste a part's settings, not its pose.
   SettingsActions settings_actions_;
+  // Alt+N and Alt+Shift+N: a new storyboard frame, or draw over one.
+  StoryboardMenu storyboard_menu_;
   // The 1 to 4 keys that space the picked keys.
   SpaceKeysShortcuts space_keys_;
   QAction export_action_;

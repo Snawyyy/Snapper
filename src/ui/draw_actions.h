@@ -32,8 +32,7 @@ DrawStart DrawStartAt(int at);
 // with the reason when they can't act.
 void AddDrawActions(QMenu* menu, const Managers& managers);
 // N (new drawing, a copy of the one showing) and Shift+N (edit the one
-// showing) while widget or a child of it has focus, and Alt+N and
-// Alt+Shift+N for the storyboard (ui/storyboard_actions.h).
+// showing) while widget or a child of it has focus.
 void AddDrawKeys(QWidget* widget, const Managers& managers);
 
 }  // namespace snapper

@@ -56,8 +56,6 @@ TimelineStoryboard::TimelineStoryboard(const Managers& managers,
     return;
   }
   view_->installEventFilter(this);
-  // Alt+N and Alt+Shift+N draw at the playhead from the timeline too.
-  AddStoryboardKeys(view_, managers_);
   connect(managers_.storyboard, &StoryboardManager::Changed, view_,
           [this] { view_->update(); });
 }
