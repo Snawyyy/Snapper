@@ -23,6 +23,7 @@ it in the same commit.
 | Rig canvas rope, pivot snap | Dolls | ui/rig_canvas_hang.cpp, ui/rig_canvas_snap.cpp, ui/rig_canvas_input.cpp | RigManager | ui/rig_ui_tests |
 | Mirror dot setup | Dolls | anim/mirror.cpp, edit/rig_mirror.cpp | RigManager | edit/rig_dots_tests |
 | Poses, copy, paste, saved poses, editing many picked frames | Dolls | model/pose.h, edit/pose_shift.cpp (Shift, SetField on many frames), edit/selection_manager.cpp (EditFrames: the picked keys' frames), ui/keyed_boxes.cpp (typed sets, drags add), edit/pose_clipboard.cpp, edit/saved_poses.cpp, io/pose_file.cpp | PoseManager, PresetManager | edit/posing_tests, anim/pose_memo_tests, edit/preset_tests |
+| Keyed draw order (a limb's order, a doll's place among layers, the Order field, Ctrl+] and Ctrl+[) | Dolls | model/pose.h (PiecePose::order), anim/sampler.cpp (holds), anim/doll_pose.cpp (PlaceDoll), anim/layer_order.cpp (LayersInDrawOrder: the one draw and pick order of a shot's layers), render/frame_renderer.cpp and render/stage_hit.cpp (walk it), edit/pose_shift.cpp (SetField, StepOrder, OrderName), ui/keyed_boxes.cpp (Order field), ui/reset_on_double_click.cpp, ui/order_menu.cpp (Edit menu keys) | PoseManager | none yet (owner tests by eye) |
 | Keys, easing, sampling | Time | model/key.h, anim/sampler.cpp, edit/key_manager.cpp | KeyManager | anim/sampler_tests, edit/key_tests |
 | Timeline rows and view | Time | edit/timeline_rows.cpp, ui/timeline_view.cpp, ui/timeline_view_keys.cpp, ui/timeline_paint.cpp, ui/timeline_chips.cpp, ui/key_chip_bar.cpp, ui/step_mode_switch.cpp | KeyManager, SelectionManager | edit/timeline_tests, ui/timeline_view_tests |
 | Timeline view shared by Pose, Video and Comp (zoom, scroll, fit, wheel, Ctrl+= Ctrl+- Ctrl+0, follow a playing playhead, ruler in frames, playhead tag, Scrub/Animation switch in the corner, Alt+Left/Right nudge, Show all) | Time | ui/timeline_scale.cpp (TimelineScale), ui/timeline_ruler.cpp (PaintFrameRuler, PaintTimelinePlayhead), ui/timeline_keys.cpp (ViewKey, NudgeOf), ui/step_mode_switch.cpp (CornerRect), ui/timeline_view.cpp and ui/timeline_view_keys.cpp, ui/reel_timeline.cpp and ui/reel_timeline_commands.cpp, ui/comp_timeline.cpp and ui/comp_timeline_keys.cpp | PlaybackManager (mode, playing), KeyManager::Shift, ReelManager::MoveAll, CompManager::SetTiming | none yet (owner tests by eye) |
@@ -229,6 +230,9 @@ and ui/kind_tiles.cpp. ui/drag_box.cpp and ui/drag_box_show.cpp
 compare to `kStill` only.
 
 Other enums with switch sites:
+- PoseField (edit/pose_manager.h): `SetPoseField` switch in
+  edit/pose_shift.cpp; ui/keyed_boxes.cpp runs its fields in this order
+  (`PoseBox::Field`, its names array and the `was` and `shown` arrays).
 - Ease (model/key.h): anim/sampler.cpp, io/json_values.cpp
   (`kEaseNames`), ui/timeline_input.cpp, anim/timing_chart.cpp.
 - TrackKind (edit/track_ref.h): switches in edit/timeline_rows.cpp,

@@ -58,7 +58,18 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-14, branch `joint-end-snap`, cut from `storyboard`,
+Last done (2026-10-14, branch `keyed-draw-order`, cut from
+`joint-end-snap`, not pushed): draw order is keyed. `PoseField::kOrder`
+in `PoseManager` (typed number, wheel steps, `StepOrder`; one undo step
+named "Draw order head"); a limb's order adds to the rig's, a layer's
+own order (a doll) draws it N places in front or behind of its place in
+the shot's stack past any kind of layer (`LayersInDrawOrder`,
+`anim/layer_order.h`; the renderer and `HitTest` both walk it); an Order
+field in the Pose box (double click resets); Edit menu entries Ctrl+]
+and Ctrl+[ step the pick one place. Built, not run, no tests per owner.
+Next: owner tries it by eye.
+
+Before that (2026-10-14, branch `joint-end-snap`, cut from `storyboard`,
 not pushed): joint snap fixes on the owner's word. An end snap now puts
 the joint (and its circle's center) on the limb's end, where its middle
 line leaves the drawing, not one radius in; a joint circle there takes

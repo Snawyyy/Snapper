@@ -939,6 +939,22 @@ instead of running the springs from frame 0. It holds one shot by identity and e
 an edit makes new shot or doll pointers. Preview may render at a
 smaller scale; effects scale their sizes with it so they look the same.
 
+Draw order is keyed (`PiecePose::order`, `PoseField::kOrder`). A key
+holds from key to key: `Lerp` copies it from the earlier key, never
+blends it. On a piece it is added to the rig's order in `PlaceDoll`; on a
+layer's own move (a doll's track) it moves the whole layer N places in
+front (above 0) or behind (below 0) of its place in the shot's stack,
+past any kind of layer, stopping at the front or back, ties keeping
+stack order. That is `LayersInDrawOrder` (`anim/layer_order.h`, counts
+only layers showing at the frame): `RenderShot`, `RenderLayers`,
+`RenderArea` and `HitTest` all walk it, so the reel, export, stage and
+a click agree. `PoseManager::SetField` (typed number),
+`PoseManager::Shift` (wheel steps) and `PoseManager::StepOrder` (Ctrl+]
+and Ctrl+[, Edit menu entries in `ui/order_menu.cpp`) key it as one step
+named by `PoseManager::OrderName` ("Draw order head"); the Pose box has
+an Order field (`PoseBox::SetUpOrder`, double click resets through
+`ui/reset_on_double_click.h`).
+
 The stage is a pasteboard: `RenderArea` draws every layer of a shot but
 effects over any area, reaching past the canvas, with the camera but
 not its shake. `StageView` (`ui/stage_view_outside.cpp`) draws it at
