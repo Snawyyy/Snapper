@@ -96,16 +96,14 @@ int TimelineView::ReferenceRowAt(double y) const {
 
 void TimelineView::PaintReferences(QPainter* painter) const {
   assert(painter != nullptr);
-  assert(frame_width_ > 0.0);
+  assert(FrameWidth() > 0.0);
   const bool has_manager = managers_.references != nullptr;
   if (!has_manager) {
     return;
   }
   const ShotId shot = managers_.selection->shot();
   const std::set<ReferenceId> picked = managers_.references->PicksIn(shot);
-  const auto x_at = [this](double frame) {
-    return kNameWidth + (frame - scroll_) * frame_width_;
-  };
+  const auto x_at = [this](double frame) { return scale_.XOf(frame); };
   double top = BandTop();
   painter->save();
   for (const Reference& reference : managers_.references->Of(shot)) {
@@ -128,8 +126,9 @@ void TimelineView::PaintReferences(QPainter* painter) const {
                                               width() - kNameWidth,
                                               kRowHeight));
       const double from = x_at(reference.start.index());
-      const double to = reference.IsStill() ? width()
-                                            : x_at(ReferenceEndFrame(reference));
+      const double to = reference.IsStill()
+                            ? width()
+                            : x_at(ReferenceEndFrame(reference));
       const QRectF bar(from, top + 4.0, std::max(to - from, 2.0),
                        kRowHeight - 8.0);
       painter->setOpacity(reference.is_shown ? 1.0 : 0.4);
@@ -155,7 +154,7 @@ void TimelineView::PaintReferences(QPainter* painter) const {
 
 void TimelineView::PaintReferenceMarks(QPainter* painter) const {
   assert(painter != nullptr);
-  assert(frame_width_ > 0.0);
+  assert(FrameWidth() > 0.0);
   const bool has_manager = managers_.references != nullptr;
   if (!has_manager) {
     return;
@@ -169,8 +168,7 @@ void TimelineView::PaintReferenceMarks(QPainter* painter) const {
     for (const double mark : is_seen ? reference.marks
                                      : std::vector<double>()) {
       const double x =
-          kNameWidth +
-          (ReferenceFrameOf(reference, mark) + 0.5 - scroll_) * frame_width_;
+          scale_.XOf(ReferenceFrameOf(reference, mark) + 0.5);
       painter->drawLine(QPointF(x, RowsTop()), QPointF(x, height()));
     }
   }
@@ -221,7 +219,7 @@ bool TimelineView::ReferencePress(const QMouseEvent& event) {
 
 bool TimelineView::ReferenceDragTo(QPointF at) {
   assert(std::isfinite(at.x()));
-  assert(frame_width_ > 0.0);
+  assert(FrameWidth() > 0.0);
   const bool is_dragging = reference_drag_ != nullptr;
   if (!is_dragging) {
     return false;
@@ -229,7 +227,7 @@ bool TimelineView::ReferenceDragTo(QPointF at) {
   const ShotId shot = managers_.selection->shot();
   const int frames =
       static_cast<int>(std::lround((at.x() - reference_press_x_) /
-                                   frame_width_));
+                                   FrameWidth()));
   const Reference* reference =
       managers_.references->Find(shot, reference_dragged_);
   const bool is_there = reference != nullptr;

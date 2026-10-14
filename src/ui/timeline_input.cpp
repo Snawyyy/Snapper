@@ -1,10 +1,9 @@
-// TimelineView's input: picking, sliding, menus, keys and the wheel.
+// TimelineView's mouse and menus: picking, sliding and what they offer.
+// Keys and the wheel are in timeline_view_keys.cpp.
 
 #include <QContextMenuEvent>
-#include <QKeyEvent>
 #include <QMenu>
 #include <QMouseEvent>
-#include <QWheelEvent>
 
 #include <algorithm>
 #include <array>
@@ -18,7 +17,6 @@
 #include "edit/pose_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/pick_keys.h"
-#include "ui/reference_keys.h"
 #include "ui/space_keys_action.h"
 #include "ui/timeline_layout.h"
 #include "ui/timeline_view.h"
@@ -41,8 +39,6 @@ constexpr std::array<EaseChoice, kEaseCount> kEases = {{
     {"Ease out", Ease::kEaseOut},
     {"Ease in and out", Ease::kEaseInOut},
 }};
-
-constexpr int kWheelUnit = 120;
 
 }  // namespace
 
@@ -246,6 +242,7 @@ void TimelineView::contextMenuEvent(QContextMenuEvent* event) {
   const auto frame = FrameAt(event->pos().x());
   const bool is_usable = index >= 0 && frame.has_value();
   if (!is_usable) {
+    ViewMenu(event->globalPos());
     return;
   }
   const TimelineRow& row = rows[static_cast<size_t>(index)];
@@ -290,6 +287,8 @@ void TimelineView::KeyMenu(const TimelineRow& row, Frame frame,
           });
   menu.addSeparator();
   AddTimingChartAction(&menu, managers_);
+  menu.addSeparator();
+  AddShowAll(&menu);
   menu.exec(where);
 }
 
@@ -318,6 +317,8 @@ void TimelineView::EmptyMenu(const TimelineRow& row, Frame frame,
           this, [this, row, frame] {
             Report(ProblemOf(managers_.keys->Retime(row.tracks, frame, -1)));
           });
+  menu.addSeparator();
+  AddShowAll(&menu);
   menu.exec(where);
 }
 
@@ -329,70 +330,6 @@ void TimelineView::DeletePicked() {
       ProblemOf(managers_.keys->Remove(picked)),
       CountText(tr("Deleted"), static_cast<int>(picked.size()), tr("key"),
                 tr("keys")));
-}
-
-void TimelineView::keyPressEvent(QKeyEvent* event) {
-  assert(event != nullptr);
-  assert(managers_.keys != nullptr);
-  const auto& picked = managers_.selection->keys();
-  const bool is_delete = event->key() == Qt::Key_Delete ||
-                         event->key() == Qt::Key_Backspace;
-  const bool is_copy = event->matches(QKeySequence::Copy);
-  const bool is_escape = event->key() == Qt::Key_Escape;
-  const bool was_dragging =
-      is_escape && (CancelReferenceDrag() || CancelKeyDrag());
-  if (was_dragging) {
-    return;
-  }
-  QString reference_problem;
-  const bool was_reference_key =
-      ReferenceKey(*event, managers_, &reference_problem);
-  if (was_reference_key) {
-    Report(reference_problem);
-    return;
-  }
-  const bool is_all = event->matches(QKeySequence::SelectAll);
-  if (is_all) {
-    const Project& project = managers_.history->current();
-    std::set<KeyRef> all;
-    for (const TimelineRow& row :
-         TimelineRows(project, managers_.selection->shot())) {
-      for (const Frame key : row.keys) {
-        all.merge(RowKeysAt(project, row, key));
-      }
-    }
-    managers_.selection->PickKeys(all, PickMode::kReplace);
-    return;
-  }
-  const bool is_paste = event->matches(QKeySequence::Paste);
-  const auto here = PlayheadHere();
-  const bool can_paste_here = is_paste && here.has_value();
-  if (is_delete) {
-    DeletePicked();
-  } else if (is_copy) {
-    Report(ProblemOf(managers_.keys->Copy(picked)));
-  } else if (can_paste_here) {
-    Report(ProblemOf(managers_.keys->Paste(managers_.selection->shot(), *here,
-                                 managers_.selection->layer())));
-  } else {
-    QWidget::keyPressEvent(event);
-  }
-}
-
-void TimelineView::wheelEvent(QWheelEvent* event) {
-  assert(event != nullptr);
-  assert(frame_width_ > 0.0);
-  const double notches = event->angleDelta().y() / double(kWheelUnit);
-  const bool is_zoom = event->modifiers().testFlag(Qt::ControlModifier);
-  if (is_zoom) {
-    frame_width_ = std::clamp(frame_width_ * std::pow(1.25, notches),
-                              kMinFrameWidth, kMaxFrameWidth);
-  } else {
-    scroll_ = std::max(0.0, scroll_ - notches * kScrollFrames);
-  }
-  event->accept();
-  ShowChips();
-  update();
 }
 
 void TimelineView::Seek(Frame local) {

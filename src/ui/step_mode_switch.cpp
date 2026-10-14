@@ -5,9 +5,11 @@
 #include <QPixmap>
 #include <QPolygonF>
 
+#include <algorithm>
 #include <cassert>
 
 #include "ui/theme.h"
+#include "ui/timeline_layout.h"
 
 namespace snapper {
 namespace {
@@ -93,6 +95,13 @@ StepModeSwitch::StepModeSwitch(PlaybackManager* playback, QWidget* parent)
           &StepModeSwitch::Show);
   Show();
   assert(group_.buttons().size() == 2);
+}
+
+QRect StepModeSwitch::CornerRect(int names_width) {
+  assert(names_width > 2);
+  assert(kRulerHeight > 2);
+  return QRect(1, 1, std::min(names_width, kNameWidth) - 2,
+               kRulerHeight - 2);
 }
 
 void StepModeSwitch::Show() {

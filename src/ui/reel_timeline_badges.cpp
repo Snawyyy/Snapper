@@ -72,7 +72,7 @@ ClipId ReelTimeline::BadgeAt(QPointF at) const {
 
 void ReelTimeline::PaintJoints(QPainter* painter) const {
   assert(painter != nullptr);
-  assert(zoom_ > 0.0);
+  assert(zoom() > 0.0);
   const Reel& reel = managers_.history->current().reel;
   painter->save();
   painter->setClipRect(QRectF(kHeaderWidth, kRulerHeight, width(), height()));

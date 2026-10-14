@@ -28,6 +28,8 @@ class QMenu;
 #include "ui/managers.h"
 #include "ui/playhead_settle.h"
 #include "ui/problem.h"
+#include "ui/timeline_layout.h"
+#include "ui/timeline_scale.h"
 
 namespace snapper {
 
@@ -91,7 +93,7 @@ class ReelTimeline final : public QWidget {
   double XOf(Frame frame) const;
   double TrackTop(int track) const;
   // Pixels per frame.
-  double zoom() const { return zoom_; }
+  double zoom() const { return scale_.pixels_per_frame(); }
   void SetZoom(double pixels_per_frame);
   // The chip, ghost and snap flash of the drag, for tests to look at.
   const DragFeedback& feedback() const { return feedback_; }
@@ -161,10 +163,10 @@ class ReelTimeline final : public QWidget {
   };
 
   static constexpr double kHeaderWidth = 48.0;
-  static constexpr double kRulerHeight = 24.0;
+  // The ruler is the same height on every timeline.
+  static constexpr double kRulerHeight = snapper::kRulerHeight;
   static constexpr double kTrackHeight = 46.0;
 
-  void PaintRuler(QPainter* painter) const;
   void PaintTracks(QPainter* painter) const;
   void PaintClip(QPainter* painter, const Clip& clip) const;
   void PaintPictureBody(QPainter* painter, const Clip& clip,
@@ -221,8 +223,6 @@ class ReelTimeline final : public QWidget {
   // Each cut between touching clips: a mark to double-click, and the
   // span its transition mixes over.
   void PaintJoints(QPainter* painter) const;
-  // Seconds between ruler numbers at the current zoom.
-  int LabelStep() const;
 
   // The clip under at, or an invalid id.
   ClipId ClipAt(QPointF at) const;
@@ -280,9 +280,13 @@ class ReelTimeline final : public QWidget {
   // scroll bar shows only when the tracks do not fit.
   double TracksHeight() const;
   void FitScrollBar();
+  // The reel's length is what the scale fits and scrolls within.
+  void SyncScale();
   // The marked range, a band over its track and the ruler.
   void PaintMarked(QPainter* painter) const;
   void ClipMenu(QPoint where);
+  // "Show all" (Ctrl+0) at the end of a menu.
+  void AddShowAll(QMenu* menu);
   void TrackMenu(int track, QPoint where);
   void SeekTo(double x);
   // How many frames of snapping reach the zoom gives.
@@ -306,9 +310,8 @@ class ReelTimeline final : public QWidget {
   PlayheadSettle settle_;
   // The playhead before a drag: the drag carries it, Escape returns it.
   DragPlayhead drag_playhead_;
-  double zoom_;
-  // Frames scrolled off the left.
-  double scroll_ = 0.0;
+  // Zoom and scroll, shared with the Pose and Comp timelines.
+  TimelineScale scale_;
   Drag drag_ = Drag::kNone;
   ClipId dragged_;
   // The sound track whose fader drags.

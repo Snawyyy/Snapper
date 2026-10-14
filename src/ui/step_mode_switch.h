@@ -3,6 +3,7 @@
 
 #include <QButtonGroup>
 #include <QHBoxLayout>
+#include <QRect>
 #include <QToolButton>
 #include <QWidget>
 
@@ -18,6 +19,10 @@ class StepModeSwitch final : public QWidget {
 
  public:
   StepModeSwitch(PlaybackManager* playback, QWidget* parent);
+
+  // Where it sits on every timeline (Pose, Video, Comp): the ruler's
+  // top-left corner, as wide as the names column, at most kNameWidth.
+  static QRect CornerRect(int names_width);
 
  private:
   void Show();

@@ -15,13 +15,6 @@
 #include "ui/problem.h"
 
 namespace snapper {
-namespace {
-
-// The fewest frames a zoom shows, and one wheel step's zoom.
-constexpr double kFewestFrames = 12.0;
-constexpr double kZoomStep = 1.25;
-
-}  // namespace
 
 void CompTimeline::Report(const QString& problem) {
   assert(managers_.comp != nullptr);
@@ -179,35 +172,16 @@ void CompTimeline::mouseDoubleClickEvent(QMouseEvent* event) {
   }
 }
 
-void CompTimeline::ZoomBy(double factor, double x) {
-  assert(factor > 0.0);
-  assert(std::isfinite(x));
-  const double at = std::clamp(x, kNameWidth, static_cast<double>(width()));
-  // The frame under x stays put.
-  const double under = first_ + (at - kNameWidth) / PixelsPerFrame();
-  const double shown = std::clamp(
-      FramesShown() / factor,
-      std::min(kFewestFrames, static_cast<double>(Length())),
-      static_cast<double>(Length()));
-  shown_ = shown >= Length() ? 0.0 : shown;
-  first_ = under - (at - kNameWidth) / PixelsPerFrame();
-  ClampView();
-  update();
-}
-
 void CompTimeline::wheelEvent(QWheelEvent* event) {
   assert(event != nullptr);
   assert(Length() > 0);
-  // Some mice turn a held key's wheel into a sideways one.
-  const QPoint turn = event->angleDelta();
-  const double steps = (turn.y() != 0 ? turn.y() : turn.x()) / 120.0;
-  const bool is_zoom = event->modifiers().testFlag(Qt::ControlModifier);
-  if (is_zoom) {
-    ZoomBy(std::pow(kZoomStep, steps), event->position().x());
-  } else {
-    first_ -= steps * FramesShown() / 10.0;
+  const WheelUse use = scale_.Wheel(*event);
+  // The Comp rows do not scroll: Shift's wheel is left to a parent.
+  const bool is_rows = use == WheelUse::kRows;
+  if (is_rows) {
+    event->ignore();
+    return;
   }
-  ClampView();
   update();
   event->accept();
 }

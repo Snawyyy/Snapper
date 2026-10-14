@@ -20,13 +20,14 @@
 #include "ui/playhead.h"
 #include "ui/theme.h"
 #include "ui/timeline_layout.h"
+#include "ui/timeline_ruler.h"
 
 namespace snapper {
 
 TimelineView::TimelineView(const Managers& managers)
     : managers_(managers), step_mode_(managers.playback, this),
       chips_(managers, this),
-      frame_width_(kDefaultFrameWidth),
+      scale_(this, kNameWidth, kDefaultFrameWidth),
       hover_(managers.motion, this),
       feedback_(managers.motion, this),
       watcher_(managers.history, this),
@@ -36,7 +37,7 @@ TimelineView::TimelineView(const Managers& managers)
       drag_playhead_(managers.playback) {
   assert(managers_.IsComplete());
   step_mode_.setObjectName("step_mode");
-  step_mode_.setGeometry(1, 1, kNameWidth - 2, kRulerHeight - 2);
+  step_mode_.setGeometry(StepModeSwitch::CornerRect(kNameWidth));
   setFocusPolicy(Qt::StrongFocus);
   setMouseTracking(true);
   connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
@@ -52,6 +53,7 @@ TimelineView::TimelineView(const Managers& managers)
   setMinimumHeight(kRulerHeight + kWaveHeight + 3 * kRowHeight);
   connect(&chips_, &KeyChipBar::Problem, this, &TimelineView::Problem);
   const auto update_me = [this] {
+    SyncScale();
     ShowChips();
     update();
   };
@@ -63,16 +65,28 @@ TimelineView::TimelineView(const Managers& managers)
           update_me);
   // The wave shows the reel's sound once it loads, and follows the clip
   // the shot borrows it from.
-  if (managers_.sounds != nullptr) {
+  const bool has_sounds = managers_.sounds != nullptr;
+  if (has_sounds) {
     connect(managers_.sounds, &SoundManager::SoundsChanged, this,
             update_me);
   }
-  if (managers_.references != nullptr) {
+  const bool has_references = managers_.references != nullptr;
+  if (has_references) {
     connect(managers_.references, &ReferenceManager::Changed, this,
             update_me);
     setAcceptDrops(true);
   }
-  assert(frame_width_ > 0.0);
+  SyncScale();
+  assert(FrameWidth() > 0.0);
+}
+
+void TimelineView::SyncScale() {
+  assert(managers_.history != nullptr);
+  assert(managers_.selection != nullptr);
+  const Shot* shot =
+      FindShot(managers_.history->current(), managers_.selection->shot());
+  const bool has_shot = shot != nullptr;
+  scale_.SetLength(has_shot ? shot->length.index() : 1);
 }
 
 void TimelineView::ShowStep(const Project& before, bool is_travel) {
@@ -88,20 +102,19 @@ void TimelineView::ShowStep(const Project& before, bool is_travel) {
 }
 
 std::optional<Frame> TimelineView::FrameAt(double x) const {
-  assert(frame_width_ > 0.0);
+  assert(FrameWidth() > 0.0);
   assert(std::isfinite(x));
   const bool is_frames = x >= kNameWidth;
   if (!is_frames) {
     return std::nullopt;
   }
-  const double index = (x - kNameWidth) / frame_width_ + scroll_;
-  return Frame(static_cast<int>(std::floor(index)));
+  return Frame(scale_.FrameAt(x));
 }
 
 double TimelineView::XOf(Frame frame) const {
-  assert(frame_width_ > 0.0);
+  assert(FrameWidth() > 0.0);
   assert(frame.index() >= 0);
-  return kNameWidth + (frame.index() - scroll_) * frame_width_;
+  return scale_.XOf(frame.index());
 }
 
 void TimelineView::paintEvent(QPaintEvent* event) {
@@ -133,59 +146,27 @@ void TimelineView::paintEvent(QPaintEvent* event) {
   feedback_.Paint(&painter, QRectF(rect()));
 }
 
-int TimelineView::LabelStep() const {
-  assert(frame_width_ > 0.0);
-  assert(kMinLabelGap > 0.0);
-  // The smallest step that keeps numbers apart, on counts animators
-  // think in.
-  for (const int step : kLabelSteps) {
-    const bool is_roomy = step * frame_width_ >= kMinLabelGap;
-    if (is_roomy) {
-      return step;
-    }
-  }
-  return kLabelSteps.back();
-}
-
 void TimelineView::PaintRuler(QPainter* painter) const {
   assert(painter != nullptr);
   const Shot* shot =
       FindShot(managers_.history->current(), managers_.selection->shot());
   assert(shot != nullptr);
-  painter->fillRect(QRectF(0, 0, width(), kRulerHeight), theme::kFace);
-  // Beyond the shot's end is dimmed: keys there never play.
+  // Beyond the shot's end is dimmed: keys there never play. The ruler
+  // dims its own band; numbers sit over the frame's middle, where the
+  // keys are.
   const double end = std::max<double>(XOf(shot->length), kNameWidth);
-  painter->fillRect(QRectF(end, 0, width() - end, height()),
+  painter->fillRect(QRectF(end, kRulerHeight, width() - end,
+                           height() - kRulerHeight),
                     theme::kFaceDark);
-  const PaintClip keep_in(painter, FrameArea(0.0));
-  const int first = std::max(0, FrameAt(kNameWidth)->index());
-  const int last = FrameAt(width())->index();
-  const int step = LabelStep();
-  for (int f = first; f <= last; ++f) {
-    const double x = XOf(Frame(f));
-    const bool is_second = f % kFramesPerSecond == 0;
-    const bool is_two = f % 2 == 0;
-    painter->setPen(is_second ? theme::kText : theme::kTextOff);
-    const double tick = is_second ? kRulerHeight : (is_two ? 6.0 : 3.0);
-    painter->drawLine(QPointF(x, kRulerHeight - tick),
-                      QPointF(x, kRulerHeight));
-    const bool has_label = f % step == 0;
-    if (has_label) {
-      // Numbers sit over the frame's middle, where its keys are.
-      painter->drawText(QRectF(x + frame_width_ / 2.0 - kMinLabelGap / 2.0,
-                               0, kMinLabelGap, kRulerHeight - 4),
-                        Qt::AlignHCenter | Qt::AlignVCenter,
-                        QString::number(f));
-    }
-  }
+  PaintFrameRuler(painter, scale_, width(), true);
 }
 
 void TimelineView::PaintGrid(QPainter* painter) const {
   assert(painter != nullptr);
-  assert(frame_width_ > 0.0);
+  assert(FrameWidth() > 0.0);
   const int first = std::max(0, FrameAt(kNameWidth)->index());
   const int last = FrameAt(width())->index();
-  const int step = LabelStep();
+  const int step = FrameStepFor(FrameWidth(), kMinLabelGap);
   const double top = kRulerHeight + kWaveHeight;
   const PaintClip keep_in(painter, FrameArea(top));
   for (int f = first; f <= last; ++f) {
@@ -194,7 +175,7 @@ void TimelineView::PaintGrid(QPainter* painter) const {
     // Every frame faintly when there is room, numbered frames a little
     // more, seconds most.
     const bool is_drawn =
-        is_second || is_labelled || frame_width_ >= kMinGridWidth;
+        is_second || is_labelled || FrameWidth() >= kMinGridWidth;
     if (!is_drawn) {
       continue;
     }
@@ -220,6 +201,7 @@ const Clip* TimelineView::SoundClip() const {
 
 void TimelineView::PickSoundClip(QPoint where) {
   assert(managers_.history != nullptr);
+  assert(managers_.selection != nullptr);
   const ShotId shot = managers_.selection->shot();
   const bool can_borrow = managers_.sounds != nullptr && shot.IsValid();
   if (!can_borrow) {
@@ -264,7 +246,8 @@ void TimelineView::PaintWave(QPainter* painter) const {
                         ? tr("From clip at %1").arg(TimeText(clip->start))
                     : has_wave ? tr("Song")
                                : tr("No song"));
-  if (clip != nullptr) {
+  const bool has_clip = clip != nullptr;
+  if (has_clip) {
     // Frames the clip leaves out are silent: shaded, so it is clear why.
     const double from = std::max<double>(XOf(clip->in), kNameWidth);
     const double to = std::max<double>(
@@ -281,12 +264,11 @@ void TimelineView::PaintWave(QPainter* painter) const {
     return;
   }
   const double start = SecondsAtFrame(ShotStart(project, index));
-  const double per_pixel = 1.0 / (frame_width_ * kFramesPerSecond);
+  const double per_pixel = 1.0 / (FrameWidth() * kFramesPerSecond);
   const double middle = band.center().y();
   painter->setPen(theme::kPick.darker(130));
   for (int x = kNameWidth; x < width(); ++x) {
-    const double at = start + (scroll_ + (x - kNameWidth) / frame_width_) /
-                                  kFramesPerSecond;
+    const double at = start + scale_.FrameAtX(x) / kFramesPerSecond;
     const double half =
         PeakBetween(*song, at, at + per_pixel) * (kWaveHeight / 2.0 - 1.0);
     painter->drawLine(QPointF(x, middle - half), QPointF(x, middle + half));
@@ -295,24 +277,15 @@ void TimelineView::PaintWave(QPainter* painter) const {
 
 void TimelineView::PaintPlayhead(QPainter* painter) const {
   assert(painter != nullptr);
-  assert(frame_width_ > 0.0);
+  assert(FrameWidth() > 0.0);
   const auto here = PlayheadHere();
   if (!here) {
     return;
   }
+  // On the frame's middle, where its keys are.
   const double x =
-      XOf(*here) + frame_width_ / 2.0 + settle_.offset() * frame_width_;
-  const PaintClip keep_in(painter, FrameArea(0.0));
-  painter->setPen(QPen(theme::kPick, 2.0));
-  painter->drawLine(QPointF(x, 0), QPointF(x, height()));
-  // The frame the playhead is on, in a tag on the ruler.
-  const QString number = QString::number(here->index());
-  const double tag_width =
-      painter->fontMetrics().horizontalAdvance(number) + 8.0;
-  const QRectF tag(x - tag_width / 2.0, 0, tag_width, kRulerHeight);
-  painter->fillRect(tag, theme::kPick);
-  painter->setPen(theme::kText);
-  painter->drawText(tag, Qt::AlignCenter, number);
+      XOf(*here) + FrameWidth() / 2.0 + settle_.offset() * FrameWidth();
+  PaintTimelinePlayhead(painter, x, here->index(), FrameArea(0.0));
 }
 
 std::optional<Frame> TimelineView::PlayheadHere() const {
@@ -337,10 +310,10 @@ std::optional<Frame> TimelineView::KeyNear(const TimelineRow& row,
   assert(std::isfinite(x));
   assert(row.keys.size() == row.is_eased.size());
   // Wide frames let a click anywhere in the frame's half reach its key.
-  const double reach = std::max(frame_width_ / 2.0, kGrabReach);
+  const double reach = std::max(FrameWidth() / 2.0, kGrabReach);
   std::vector<QPointF> spots;
   for (const Frame key : row.keys) {
-    spots.emplace_back(XOf(key) + frame_width_ / 2.0, 0.0);
+    spots.emplace_back(XOf(key) + FrameWidth() / 2.0, 0.0);
   }
   const int nearest = NearestGrab(spots, QPointF(x, 0.0), reach);
   const bool is_hit = nearest >= 0;

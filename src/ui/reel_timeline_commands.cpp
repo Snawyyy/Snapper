@@ -18,6 +18,7 @@
 #include "edit/selection_manager.h"
 #include "ui/form_helpers.h"
 #include "ui/reel_timeline.h"
+#include "ui/timeline_keys.h"
 #include "ui/toast_manager.h"
 #include "ui/toast_queue.h"
 
@@ -188,7 +189,19 @@ void ReelTimeline::ClipMenu(QPoint where) {
   }
   menu.addSeparator();
   AddEdgeModes(&menu);
+  menu.addSeparator();
+  AddShowAll(&menu);
   menu.exec(where);
+}
+
+void ReelTimeline::AddShowAll(QMenu* menu) {
+  assert(menu != nullptr);
+  assert(zoom() > 0.0);
+  QAction* show_all = menu->addAction(tr("Show all\tCtrl+0"));
+  connect(show_all, &QAction::triggered, this, [this] {
+    scale_.FitAll();
+    update();
+  });
 }
 
 void ReelTimeline::AddFitEntries(QMenu* menu, ClipId clip, Frame at) {
@@ -273,6 +286,8 @@ void ReelTimeline::TrackMenu(int track, QPoint where) {
                              tr("Removed track %1").arg(name));
   });
   AddSoundTrackEntries(&menu, track);
+  menu.addSeparator();
+  AddShowAll(&menu);
   menu.exec(where);
 }
 
@@ -310,6 +325,12 @@ void ReelTimeline::CancelOrClear() {
 void ReelTimeline::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
   assert(managers_.reel != nullptr);
+  const Frame now = managers_.playback->FrameOn(Timeline::kReel);
+  const bool was_view_key = ViewKey(*event, &scale_, now.index());
+  if (was_view_key) {
+    update();
+    return;
+  }
   const bool is_escape = event->key() == Qt::Key_Escape;
   const bool is_all = event->matches(QKeySequence::SelectAll);
   const Command command = CommandFor(*event);

@@ -29,6 +29,9 @@
 #include "ui/playhead_settle.h"
 #include "ui/problem.h"
 #include "ui/step_mode_switch.h"
+#include "ui/timeline_scale.h"
+
+class QMenu;
 
 namespace snapper {
 
@@ -41,8 +44,13 @@ namespace snapper {
 //
 // Click a key to pick it (Shift adds), drag to slide; double-click
 // empty space to key the pose as it is; right-click for ease, spacing
-// picked keys evenly (on 2s, on 3s...), copy, paste and holds; Delete
-// removes; the wheel scrolls, Ctrl zooms.
+// picked keys evenly (on 2s, on 3s...), copy, paste, holds and Show all;
+// Delete removes; Alt+Left and Alt+Right nudge the picked keys a frame
+// (Shift: ten). View, ruler, playhead and following are the Video and
+// Comp tabs' too (TimelineScale, timeline_ruler.h): the wheel scrolls
+// time, Ctrl+wheel zooms round the cursor, Ctrl+= and Ctrl+- zoom round
+// the playhead, Ctrl+0 shows the whole shot, and a playing playhead
+// pages the view along until it is scrolled by hand.
 class TimelineView final : public QWidget {
   Q_OBJECT
 
@@ -106,8 +114,10 @@ class TimelineView final : public QWidget {
   QRectF FrameArea(double top) const;
   // Faint lines down the rows at each frame's start.
   void PaintGrid(QPainter* painter) const;
-  // Frames between ruler numbers at the current zoom.
-  int LabelStep() const;
+  // Pixels one frame is wide at the current zoom.
+  double FrameWidth() const { return scale_.pixels_per_frame(); }
+  // The picked shot's length is what the scale fits and scrolls within.
+  void SyncScale();
   void PaintWave(QPainter* painter) const;
   // The reel clip the picked shot borrows its sound from; nullptr when
   // it plays the song.
@@ -142,6 +152,13 @@ class TimelineView final : public QWidget {
   // The playhead's frame in this shot, or nothing when it is elsewhere.
   std::optional<Frame> PlayheadHere() const;
   void Seek(Frame local);
+  // Ctrl+=, Ctrl+- and Ctrl+0, as on the other timelines. True when the
+  // key was one of them.
+  bool ViewKeyPress(const QKeyEvent& event);
+  // "Show all" (Ctrl+0), in a menu of its own and at the end of the
+  // others.
+  void AddShowAll(QMenu* menu);
+  void ViewMenu(QPoint where);
   // Opens the one undo step of a key drag that starts at at.
   void StartKeyDrag(Frame key, QPointF at);
   // The mouse moved to frame at at during a key drag: slides the picked
@@ -170,8 +187,8 @@ class TimelineView final : public QWidget {
   StepModeSwitch step_mode_;
   // Floats above the picked keys.
   KeyChipBar chips_;
-  double frame_width_;
-  double scroll_ = 0.0;
+  // Zoom and scroll, shared with the Video and Comp timelines.
+  TimelineScale scale_;
   bool is_scrubbing_ = false;
   void FinishBox();
 

@@ -36,7 +36,7 @@ QRectF Shrunk(const QRectF& box, double scale) {
 
 QPointF ReelTimeline::SlideShift(const Clip& clip, int track) const {
   assert(track >= 0);
-  assert(zoom_ > 0.0);
+  assert(zoom() > 0.0);
   const auto slide = effects_.SlideOf(track, clip.id.value(), clip.start);
   const bool is_sliding = slide.has_value();
   if (!is_sliding) {
@@ -49,7 +49,7 @@ QPointF ReelTimeline::SlideShift(const Clip& clip, int track) const {
       slide->from_lane >= 0 && slide->from_lane < tracks;
   const double rise =
       has_old_track ? TrackTop(slide->from_lane) - TrackTop(track) : 0.0;
-  return QPointF((slide->from.index() - clip.start.index()) * zoom_ * left,
+  return QPointF((slide->from.index() - clip.start.index()) * zoom() * left,
                  rise * left);
 }
 
@@ -97,7 +97,7 @@ void ReelTimeline::PaintClipFx(QPainter* painter, const Clip& clip) const {
 
 void ReelTimeline::PaintPuffs(QPainter* painter) const {
   assert(painter != nullptr);
-  assert(zoom_ > 0.0);
+  assert(zoom() > 0.0);
   const int tracks =
       static_cast<int>(managers_.history->current().reel.tracks.size());
   for (const ChangeEffect& puff : effects_.Puffs()) {

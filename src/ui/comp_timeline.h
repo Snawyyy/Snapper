@@ -16,6 +16,9 @@
 #include "edit/edit_scope.h"
 #include "model/project.h"
 #include "ui/managers.h"
+#include "ui/playhead_settle.h"
+#include "ui/timeline_layout.h"
+#include "ui/timeline_scale.h"
 
 class QMenu;
 class QPainter;
@@ -34,15 +37,20 @@ namespace snapper {
 // dragged from empty space picks what it touches, Ctrl+A picks all,
 // Escape drops the pick. Dragging a clip moves every picked clip with
 // their keys, dragging an end trims it, both snap to shot cuts, other
-// effect clips, reel markers and the playhead (a yellow line shows the
-// snap; Ctrl drags free); Escape cancels and each drag is one undo
-// step. Alt+Left and Alt+Right nudge the picked clips a frame (Shift:
-// ten). A double click fits a clip to its shot again; right click
-// offers the same with the Video tab's clip edits: S splits the picked
-// clips at the playhead, Ctrl+X cuts, Ctrl+C copies, Ctrl+V pastes at
-// the playhead, Ctrl+D duplicates, Delete removes. Ctrl+wheel zooms
-// round the cursor (Ctrl+= and Ctrl+- round the playhead), the wheel
-// scrolls. A
+// effect clips, reel markers and the playhead (Ctrl drags free); a chip
+// beside the cursor says how many frames the drag went, a faint ghost
+// marks where it began, a flash shows a snap and letting go pops
+// (DragFeedback, as on the other tabs); Escape cancels and each drag is
+// one undo step. Alt+Left and Alt+Right nudge the picked clips a frame
+// (Shift: ten). A double click fits a clip to its shot again; right
+// click offers the same with the Video tab's clip edits: S splits the
+// picked clips at the playhead, Ctrl+X cuts, Ctrl+C copies, Ctrl+V
+// pastes at the playhead, Ctrl+D duplicates, Delete removes. View,
+// ruler, playhead and following are the Pose and Video tabs' too
+// (TimelineScale, timeline_ruler.h): the wheel scrolls time,
+// Ctrl+wheel zooms round the cursor, Ctrl+= and Ctrl+- zoom round the
+// playhead, Ctrl+0 (or Show all in the menu) shows the whole reel,
+// which is also how it starts. A
 // clip may run past its shot's cut: an effect on the screen then goes
 // on over whatever the reel shows; one on a doll stops at the cut (that
 // part is hatched). A click on the
@@ -117,7 +125,7 @@ class CompTimeline final : public QWidget {
   // The names column (wide enough for "(arm_l) Rim light"), the ruler
   // and one row.
   static constexpr double kNameWidth = 180.0;
-  static constexpr double kRuler = 18.0;
+  static constexpr double kRuler = kRulerHeight;
   static constexpr double kRow = 18.0;
 
   // x of a reel frame, and the reel frame at x (unclamped when free),
@@ -125,13 +133,9 @@ class CompTimeline final : public QWidget {
   double XOf(int frame) const;
   int FrameAt(double x) const;
   int FreeFrameAt(double x) const;
-  double FramesShown() const;
-  double PixelsPerFrame() const;
+  double PixelsPerFrame() const { return scale_.pixels_per_frame(); }
   int Length() const;
   void SeekTo(double x);
-  void ClampView();
-  // Shows factor times fewer frames, keeping the frame under x put.
-  void ZoomBy(double factor, double x);
   // Painting (ui/comp_timeline.cpp).
   void PaintRuler(QPainter* painter) const;
   void PaintShots(QPainter* painter, double y) const;
@@ -171,10 +175,11 @@ class CompTimeline final : public QWidget {
   void Report(const QString& problem);
 
   Managers managers_;
-  // The view: frames shown across (0 for the whole reel) and the first
-  // one at the left.
-  double shown_ = 0.0;
-  double first_ = 0.0;
+  // Zoom and scroll, shared with the Pose and Video timelines; it starts
+  // showing the whole reel.
+  TimelineScale scale_;
+  // The playhead overshoots a little as it lands on a frame.
+  PlayheadSettle settle_;
   Grab grab_ = Grab::kNone;
   CompClipRef grabbed_{};
   int press_frame_ = 0;

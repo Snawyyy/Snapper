@@ -21,7 +21,7 @@ void TimelineView::resizeEvent(QResizeEvent* event) {
 
 void TimelineView::ShowChips() {
   assert(managers_.selection != nullptr);
-  assert(frame_width_ > 0.0);
+  assert(FrameWidth() > 0.0);
   chips_.Refresh();
   const bool has_keys = !managers_.selection->keys().empty();
   const auto rows =
@@ -39,7 +39,7 @@ void TimelineView::ShowChips() {
   double top = RowsTop();
   for (const TimelineRow& row : rows) {
     for (const Frame frame : row.keys) {
-      const double x = XOf(frame) + frame_width_ / 2.0;
+      const double x = XOf(frame) + FrameWidth() / 2.0;
       const bool is_seen = IsKeyPicked(row, frame) && x >= area.left() &&
                            x <= area.right();
       if (is_seen) {

@@ -135,13 +135,13 @@ void ReelTimeline::PaintSoundBody(QPainter* painter, const Clip& clip,
   const double half = box.height() / 2.0 - 3.0;
   const double left = std::max(box.left(), kHeaderWidth);
   const double right = std::min(box.right(), static_cast<double>(width()));
-  const double per_pixel = 1.0 / (zoom_ * kFramesPerSecond);
-  const double fade_in = clip.fade_in.index() * zoom_;
-  const double fade_out = clip.fade_out.index() * zoom_;
+  const double per_pixel = 1.0 / (zoom() * kFramesPerSecond);
+  const double fade_in = clip.fade_in.index() * zoom();
+  const double fade_out = clip.fade_out.index() * zoom();
   const bool has_wave = sounds != nullptr && !is_missing;
   painter->setPen(wave);
   for (double x = left; has_wave && x < right; x += 1.0) {
-    const double into = (x - box.left()) / zoom_;
+    const double into = (x - box.left()) / zoom();
     const double seconds = (clip.in.index() + into) / kFramesPerSecond;
     // The wave shows the volume line and fades, so a duck shows.
     const double fade =
@@ -190,8 +190,8 @@ ReelTimeline::Drag ReelTimeline::SoundDragFor(ClipId clip,
     return Drag::kNone;
   }
   const QRectF box = ClipRect(clip);
-  const double fade_in = found->fade_in.index() * zoom_;
-  const double fade_out = found->fade_out.index() * zoom_;
+  const double fade_in = found->fade_in.index() * zoom();
+  const double fade_out = found->fade_out.index() * zoom();
   // Handles look small and grab big.
   const QRectF in_handle(box.left() + fade_in - kFadeHandle / 2.0,
                          box.top() - 2.0, kFadeHandle * 2.0,
@@ -324,7 +324,7 @@ void ReelTimeline::FollowSound(QPointF at) {
   const bool is_in = drag_ == Drag::kFadeIn;
   const double inward = is_in ? at.x() - box.left() : box.right() - at.x();
   const Frame frames(static_cast<int>(std::lround(std::max(inward, 0.0) /
-                                                  zoom_)));
+                                                  zoom())));
   Report(ProblemOf(is_in ? managers_.reel->SetFadeIn(dragged_, frames)
                          : managers_.reel->SetFadeOut(dragged_, frames)));
   feedback_.Update(press_, at, FramesText(frames.index()), false);

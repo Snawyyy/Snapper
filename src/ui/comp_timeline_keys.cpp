@@ -17,6 +17,7 @@
 #include "ui/comp_timeline.h"
 #include "ui/form_helpers.h"
 #include "ui/problem.h"
+#include "ui/timeline_keys.h"
 
 namespace snapper {
 
@@ -132,13 +133,11 @@ void CompTimeline::keyPressEvent(QKeyEvent* event) {
   const bool is_escape = key == Qt::Key_Escape;
   const bool is_all =
       key == Qt::Key_A && mods.testFlag(Qt::ControlModifier);
-  const bool is_nudge = mods.testFlag(Qt::AltModifier) &&
-                        (key == Qt::Key_Left || key == Qt::Key_Right);
-  const bool is_control = mods.testFlag(Qt::ControlModifier);
-  const bool is_zoom_in = is_control && (key == Qt::Key_Equal ||
-                                         key == Qt::Key_Plus);
-  const bool is_zoom_out = is_control && key == Qt::Key_Minus;
-  const bool is_zoom = is_zoom_in || is_zoom_out;
+  const int nudge = NudgeOf(*event);
+  const bool is_nudge = nudge != 0;
+  // Zoom keys act as they are looked at; the view repaints below.
+  const bool was_view_key = ViewKey(*event, &scale_, Playhead().index());
+  const bool is_unhandled = !was_view_key;
   const bool is_dragging = drag_ != nullptr;
   const bool is_cancel = is_escape && is_dragging;
   if (is_cancel) {
@@ -150,14 +149,9 @@ void CompTimeline::keyPressEvent(QKeyEvent* event) {
   } else if (is_all) {
     managers_.comp->PickClips(managers_.comp->AllClips(),
                               PickMode::kReplace, CompClipRef());
-  } else if (is_zoom) {
-    const double playhead = XOf(managers_.playback->FrameOn(
-        Timeline::kReel).index());
-    ZoomBy(is_zoom_in ? 1.5 : 1.0 / 1.5, playhead);
   } else if (is_nudge) {
-    const int step = mods.testFlag(Qt::ShiftModifier) ? 10 : 1;
-    Nudge(key == Qt::Key_Left ? -step : step);
-  } else {
+    Nudge(nudge);
+  } else if (is_unhandled) {
     QWidget::keyPressEvent(event);
     return;
   }
@@ -218,7 +212,7 @@ void CompTimeline::FillMenu(QMenu* menu) const {
        why_none},
       {MenuCommand::kNone, QString(), QString()},
       {MenuCommand::kAll, tr("Pick all\tCtrl+A"), QString()},
-      {MenuCommand::kWholeReel, tr("Show the whole reel"), QString()},
+      {MenuCommand::kWholeReel, tr("Show all\tCtrl+0"), QString()},
   };
   for (const Entry& entry : entries) {
     const bool is_line = entry.command == MenuCommand::kNone;
@@ -250,8 +244,7 @@ void CompTimeline::RunMenu(MenuCommand command) {
                                 PickMode::kReplace, CompClipRef());
       break;
     case MenuCommand::kWholeReel:
-      shown_ = 0.0;
-      first_ = 0.0;
+      scale_.FitAll();
       update();
       break;
     case MenuCommand::kNone:

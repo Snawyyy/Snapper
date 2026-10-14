@@ -13,6 +13,7 @@
 #include "edit/selection_manager.h"
 #include "ui/comp_drag.h"
 #include "ui/theme.h"
+#include "ui/timeline_ruler.h"
 
 namespace snapper {
 namespace {
@@ -31,23 +32,35 @@ void PaintKey(QPainter* painter, QPointF at) {
 
 }  // namespace
 
-CompTimeline::CompTimeline(const Managers& managers) : managers_(managers) {
+CompTimeline::CompTimeline(const Managers& managers)
+    : managers_(managers),
+      scale_(this, kNameWidth, kDefaultFrameWidth),
+      settle_(managers.motion, managers.playback->FrameOn(Timeline::kReel),
+              this) {
   assert(managers_.IsComplete());
   assert(managers_.comp != nullptr);
   setFocusPolicy(Qt::ClickFocus);
   setMouseTracking(true);
   setMinimumHeight(static_cast<int>(kRuler + 3 * kRow));
+  scale_.SetLength(Length());
+  scale_.FitAll();
   const auto repaint = [this] { update(); };
   connect(managers_.history, &HistoryManager::Changed, this, [this] {
     const size_t rows = Bars().size();
     setMinimumHeight(static_cast<int>(
         kRuler + (static_cast<double>(rows) + kFixedRows) * kRow + 4));
-    ClampView();
+    scale_.SetLength(Length());
     update();
   });
   connect(managers_.comp, &CompManager::Changed, this, repaint);
   connect(managers_.selection, &SelectionManager::Changed, this, repaint);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this, repaint);
+  // The playhead overshoots a little as it lands on a frame.
+  connect(&settle_, &PlayheadSettle::Changed, this, repaint);
+  connect(managers_.playback, &PlaybackManager::FrameChanged, this, [this] {
+    settle_.MoveTo(managers_.playback->FrameOn(Timeline::kReel),
+                   managers_.playback->IsPlaying());
+  });
 }
 
 int CompTimeline::Length() const {
@@ -57,39 +70,16 @@ int CompTimeline::Length() const {
   return std::max(1, length.index());
 }
 
-double CompTimeline::FramesShown() const {
-  assert(shown_ >= 0.0);
-  assert(Length() > 0);
-  const bool is_zoomed = shown_ > 0.0;
-  return is_zoomed ? std::min(shown_, static_cast<double>(Length()))
-                   : static_cast<double>(Length());
-}
-
-double CompTimeline::PixelsPerFrame() const {
-  const double span = std::max(1.0, width() - kNameWidth - 8.0);
-  assert(span > 0.0);
-  assert(FramesShown() > 0.0);
-  return span / FramesShown();
-}
-
-void CompTimeline::ClampView() {
-  assert(Length() > 0);
-  assert(shown_ >= 0.0);
-  const double most_first = std::max(0.0, Length() - FramesShown());
-  first_ = std::clamp(first_, 0.0, most_first);
-}
-
 double CompTimeline::XOf(int frame) const {
   assert(PixelsPerFrame() > 0.0);
-  assert(first_ >= 0.0);
-  return kNameWidth + (frame - first_) * PixelsPerFrame();
+  assert(frame >= -kMaxFrame);
+  return scale_.XOf(frame);
 }
 
 int CompTimeline::FreeFrameAt(double x) const {
   assert(std::isfinite(x));
   assert(PixelsPerFrame() > 0.0);
-  return static_cast<int>(
-      std::floor(first_ + (x - kNameWidth) / PixelsPerFrame()));
+  return scale_.FrameAt(x);
 }
 
 int CompTimeline::FrameAt(double x) const {
@@ -107,23 +97,7 @@ void CompTimeline::SeekTo(double x) {
 void CompTimeline::PaintRuler(QPainter* painter) const {
   assert(painter != nullptr);
   assert(PixelsPerFrame() > 0.0);
-  painter->setPen(QColor(0x80, 0x80, 0x86));
-  // A label every 60 pixels or more, on a round step.
-  int every = 1;
-  for (const int step : {1, 2, 5, 10, 12, 24, 48, 120, 240, 480, 1200}) {
-    every = step;
-    const bool is_wide = step * PixelsPerFrame() >= 60.0;
-    if (is_wide) {
-      break;
-    }
-  }
-  const int from = static_cast<int>(first_) / every * every;
-  const int to = static_cast<int>(first_ + FramesShown()) + every;
-  for (int frame = from; frame <= to; frame += every) {
-    const double x = XOf(frame);
-    painter->drawLine(QPointF(x, kRuler - 5), QPointF(x, kRuler));
-    painter->drawText(QPointF(x + 2, kRuler - 6), QString::number(frame));
-  }
+  PaintFrameRuler(painter, scale_, width(), false);
   for (const Frame& marker : managers_.history->current().reel.markers) {
     const double x = XOf(marker.index());
     painter->fillRect(QRectF(x - 1, kRuler - 6, 3, 6), theme::kHandle);
@@ -174,12 +148,14 @@ void CompTimeline::paintEvent(QPaintEvent* event) {
     PaintLight(&painter);
   }
   PaintDrag(&painter);
-  const double x =
-      XOf(managers_.playback->FrameOn(Timeline::kReel).index());
-  painter.setPen(QPen(theme::kPick, 2.0));
-  painter.drawLine(QPointF(x, 0), QPointF(x, height()));
+  const Frame now = managers_.playback->FrameOn(Timeline::kReel);
+  PaintTimelinePlayhead(
+      &painter, XOf(now.index()) + settle_.offset() * PixelsPerFrame(),
+      now.index(), QRectF(kNameWidth, 0, width() - kNameWidth, height()));
   painter.restore();
-  // The names column over what scrolled under it.
+  // The ruler's corner (the Scrub and Animation switch sits over it) and
+  // the names column over what scrolled under it.
+  painter.fillRect(QRectF(0, 0, kNameWidth, kRuler), theme::kFace);
   painter.fillRect(QRectF(0, kRuler, kNameWidth, height()), kRowColor);
   painter.setPen(kText);
   painter.drawText(QRectF(4, kRuler, kNameWidth - 8, kRow),

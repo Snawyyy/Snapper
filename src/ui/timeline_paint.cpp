@@ -92,11 +92,11 @@ void TimelineView::PaintKeys(QPainter* painter, const TimelineRow& row,
     }
     const int lane = row.layer.value();
     const double slide = effects_.SlideOffsetOf(lane, 0, row.keys[i]);
-    const double x = XOf(row.keys[i]) + frame_width_ / 2.0 +
-                     slide * frame_width_;
+    const double x = XOf(row.keys[i]) + FrameWidth() / 2.0 +
+                     slide * FrameWidth();
     const bool has_next = i + 1 < row.keys.size();
-    const double next = has_next ? XOf(row.keys[i + 1]) + frame_width_ / 2.0
-                                 : x + frame_width_;
+    const double next = has_next ? XOf(row.keys[i + 1]) + FrameWidth() / 2.0
+                                 : x + FrameWidth();
     // A hold is a bar; an ease or slide is a thin line.
     const bool is_eased = row.is_eased[i] && has_next;
     painter->fillRect(QRectF(x, middle - (is_eased ? 1.0 : 4.0), next - x,
@@ -133,7 +133,7 @@ void TimelineView::PaintPuffs(QPainter* painter, const TimelineRow& row,
     fill.setAlphaF(static_cast<float>(PuffOpacity(puff.t)));
     painter->setPen(Qt::NoPen);
     painter->setBrush(fill);
-    const double x = XOf(puff.frame) + frame_width_ / 2.0;
+    const double x = XOf(puff.frame) + FrameWidth() / 2.0;
     painter->drawPolygon(Diamond(QPointF(x, middle), PuffScale(puff.t)));
   }
 }

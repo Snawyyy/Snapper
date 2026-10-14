@@ -98,9 +98,9 @@ void ReelTimeline::Pick(ClipId clip, Qt::KeyboardModifiers modifiers) {
 }
 
 int ReelTimeline::SnapReach() const {
-  assert(zoom_ > 0.0);
+  assert(zoom() > 0.0);
   const int reach =
-      std::max(0, static_cast<int>(std::lround(kSnapPixels / zoom_)));
+      std::max(0, static_cast<int>(std::lround(kSnapPixels / zoom())));
   assert(reach >= 0);
   return reach;
 }
@@ -150,7 +150,7 @@ void ReelTimeline::Follow(QPointF at, Qt::KeyboardModifiers modifiers) {
   if (is_move) {
     const std::vector<ClipId> picked = Picked();
     const int raw =
-        static_cast<int>(std::lround((at.x() - press_.x()) / zoom_));
+        static_cast<int>(std::lround((at.x() - press_.x()) / zoom()));
     const int frames =
         SnapDelta(start, std::set<ClipId>(picked.begin(), picked.end()), raw,
                   reach, playhead);
@@ -166,7 +166,7 @@ void ReelTimeline::Follow(QPointF at, Qt::KeyboardModifiers modifiers) {
     }
     return;
   }
-  const Frame raw = FrameAt(at.x() + zoom_ / 2.0);
+  const Frame raw = FrameAt(at.x() + zoom() / 2.0);
   const Frame edge = SnapFrame(start, raw, reach, {dragged_}, playhead);
   // Edges push or pull the clips after them; Shift leaves them put.
   const bool is_ripple = !modifiers.testFlag(Qt::ShiftModifier);

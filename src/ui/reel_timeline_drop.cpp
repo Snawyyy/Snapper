@@ -24,8 +24,6 @@
 namespace snapper {
 namespace {
 
-constexpr double kWheelUnit = 120.0;
-constexpr double kScrollPixels = 80.0;
 // A video file's length is known only once it is read, so its drop
 // outline shows two seconds.
 constexpr int kFileDropFrames = 2 * kFramesPerSecond;
@@ -154,26 +152,19 @@ void ReelTimeline::dropEvent(QDropEvent* event) {
 
 void ReelTimeline::wheelEvent(QWheelEvent* event) {
   assert(event != nullptr);
-  assert(zoom_ > 0.0);
-  const QPoint turn = event->angleDelta();
-  const double notches =
-      (turn.y() != 0 ? turn.y() : turn.x()) / kWheelUnit;
+  assert(zoom() > 0.0);
+  // The wheel over the track names scrolls the tracks, as Shift does
+  // anywhere; elsewhere it is the shared rule: plain scrolls time, Ctrl
+  // zooms round the cursor.
+  const bool is_over_names = event->position().x() < kHeaderWidth;
   const bool is_zoom = event->modifiers().testFlag(Qt::ControlModifier);
-  // Shift, or the wheel over the track names, scrolls the tracks.
-  const bool is_tracks = !is_zoom &&
-                         (event->modifiers().testFlag(Qt::ShiftModifier) ||
-                          event->position().x() < kHeaderWidth);
+  const WheelUse use = is_over_names && !is_zoom ? WheelUse::kRows
+                                                 : scale_.Wheel(*event);
+  const bool is_tracks = use == WheelUse::kRows;
   if (is_tracks) {
+    const double notches = TimelineScale::Notches(*event);
     track_scroll_.setValue(track_scroll_.value() -
                            static_cast<int>(notches * kTrackHeight / 2.0));
-  } else if (is_zoom) {
-    // The frame under the mouse stays put.
-    const double x = event->position().x();
-    const double under = (x - kHeaderWidth) / zoom_ + scroll_;
-    SetZoom(zoom_ * std::pow(1.25, notches));
-    scroll_ = std::max(0.0, under - (x - kHeaderWidth) / zoom_);
-  } else {
-    scroll_ = std::max(0.0, scroll_ - notches * kScrollPixels / zoom_);
   }
   event->accept();
   update();
