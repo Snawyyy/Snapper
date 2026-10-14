@@ -9,6 +9,7 @@
 #include <cassert>
 
 #include "edit/history_manager.h"
+#include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/comp_drag.h"
 #include "ui/comp_panel.h"
@@ -88,15 +89,18 @@ CompEffects::CompEffects(const Managers& managers)
   connect(managers_.history, &HistoryManager::Changed, this, refresh);
   connect(managers_.comp, &CompManager::Changed, this, refresh);
   connect(managers_.selection, &SelectionManager::Changed, this, refresh);
+  // The screen effects listed are those running at the playhead.
+  connect(managers_.playback, &PlaybackManager::FrameChanged, this, refresh);
   Refresh();
 }
 
-std::vector<CompEffect> CompEffects::Shown() const {
+std::vector<CompClipRef> CompEffects::Shown() const {
   assert(managers_.comp != nullptr);
   assert(managers_.selection != nullptr);
-  return managers_.comp->ShownFor(managers_.selection->shot(),
-                                  managers_.selection->layer(),
-                                  managers_.selection->pieces());
+  return managers_.comp->ShownFor(
+      managers_.selection->shot(), managers_.selection->layer(),
+      managers_.selection->pieces(),
+      managers_.playback->FrameOn(Timeline::kReel));
 }
 
 CompTarget CompEffects::PickedTarget() const {
@@ -110,7 +114,7 @@ CompTarget CompEffects::PickedTarget() const {
   return picked;
 }
 
-QString CompEffects::Signature(const std::vector<CompEffect>& shown) const {
+QString CompEffects::Signature(const std::vector<CompClipRef>& shown) const {
   assert(managers_.selection != nullptr);
   assert(shown.size() <= static_cast<size_t>(kMaxCompEffectsPerShot));
   QString signature = QStringLiteral("%1/%2")
@@ -119,8 +123,9 @@ QString CompEffects::Signature(const std::vector<CompEffect>& shown) const {
   for (const QString& piece : managers_.selection->pieces()) {
     signature += QStringLiteral("/") + piece;
   }
-  for (const CompEffect& effect : shown) {
-    signature += QStringLiteral("e%1").arg(effect.id.value());
+  for (const CompClipRef& ref : shown) {
+    signature +=
+        QStringLiteral("e%1.%2").arg(ref.shot.value()).arg(ref.id.value());
   }
   return signature;
 }
@@ -129,7 +134,7 @@ void CompEffects::Refresh() {
   assert(managers_.comp != nullptr);
   assert(managers_.selection != nullptr);
   const ShotId shot = managers_.selection->shot();
-  const std::vector<CompEffect> shown = Shown();
+  const std::vector<CompClipRef> shown = Shown();
   const QString where = managers_.comp->TargetText(shot, PickedTarget());
   const bool has_any = !shown.empty();
   title_.setText(has_any ? tr("%1  (%2)").arg(where).arg(shown.size())
@@ -140,24 +145,18 @@ void CompEffects::Refresh() {
     ShowPlates();
     return;
   }
-  std::set<int> had;
+  std::set<CompClipRef> had;
   for (const Plate& plate : plates_) {
-    had.insert(plate.id.value());
+    had.insert(plate.ref);
   }
   signature_ = signature;
   Rebuild(shown);
-  // Keys act on the picked effect, so it must be one in view.
-  const bool is_picked_shown =
-      CompEffectIndex(shown, managers_.comp->PickedIn(shot)) >= 0;
-  if (!is_picked_shown) {
-    managers_.comp->Pick(shot, CompEffectId());
-  }
   ShowPlates();
   // One new effect, just added or pasted, comes into view.
   QFrame* fresh = nullptr;
   int fresh_count = 0;
   for (const Plate& plate : plates_) {
-    const bool is_fresh = !had.contains(plate.id.value());
+    const bool is_fresh = !had.contains(plate.ref);
     fresh_count += is_fresh ? 1 : 0;
     fresh = is_fresh ? plate.body : fresh;
   }
@@ -167,7 +166,7 @@ void CompEffects::Refresh() {
   }
 }
 
-void CompEffects::Rebuild(const std::vector<CompEffect>& shown) {
+void CompEffects::Rebuild(const std::vector<CompClipRef>& shown) {
   assert(folds_ != nullptr);
   assert(shown.size() <= static_cast<size_t>(kMaxCompEffectsPerShot));
   plates_.clear();
@@ -187,15 +186,19 @@ void CompEffects::Rebuild(const std::vector<CompEffect>& shown) {
            "here or onto a doll on the stage."),
         folds_));
   }
-  for (const CompEffect& effect : shown) {
-    AddFold(effect, column);
+  for (const CompClipRef& ref : shown) {
+    const CompEffect* effect = managers_.comp->Find(ref.shot, ref.id);
+    const bool is_there = effect != nullptr;
+    if (is_there) {
+      AddFold(ref, *effect, column);
+    }
   }
 }
 
 QFrame* CompEffects::NewPlate(const CompEffect& effect, Plate* plate) {
   assert(plate != nullptr);
   assert(folds_ != nullptr);
-  const ShotId shot = managers_.selection->shot();
+  const ShotId shot = plate->ref.shot;
   auto* frame = MakeOwned<PlateFrame>(folds_);
   frame->setToolTip(QStringLiteral("%1\n%2").arg(
       CompManager::EffectHelp(effect),
@@ -231,51 +234,50 @@ QFrame* CompEffects::NewPlate(const CompEffect& effect, Plate* plate) {
   return frame;
 }
 
-void CompEffects::AddFold(const CompEffect& effect, QVBoxLayout* into) {
+void CompEffects::AddFold(const CompClipRef& ref, const CompEffect& effect,
+                          QVBoxLayout* into) {
   assert(into != nullptr);
-  assert(effect.id.IsValid());
-  const CompEffectId id = effect.id;
+  assert(effect.id == ref.id);
   Plate plate;
-  plate.id = id;
+  plate.ref = ref;
   plate.plate = NewPlate(effect, &plate);
   plate.plate->setContextMenuPolicy(Qt::CustomContextMenu);
   into->addWidget(plate.plate);
-  plate.body = NewBody(id);
+  plate.body = NewBody(ref);
   into->addWidget(plate.body);
-  const std::pair<int, int> key{managers_.selection->shot().value(),
-                                id.value()};
+  const std::pair<int, int> key{ref.shot.value(), ref.id.value()};
   const bool is_open = !closed_.contains(key);
   plate.body->setVisible(is_open);
   plate.arrow->setArrowType(is_open ? Qt::DownArrow : Qt::LeftArrow);
   plates_.push_back(plate);
-  connect(plate.arrow, &QToolButton::clicked, this, [this, id] {
+  connect(plate.arrow, &QToolButton::clicked, this, [this, ref] {
     for (const Plate& one : plates_) {
-      const bool is_it = one.id == id;
+      const bool is_it = one.ref == ref;
       if (is_it) {
         Toggle(one);
       }
     }
   });
-  connect(plate.eye, &QAbstractButton::clicked, this, [this, id](bool is_on) {
-    Report(ProblemOf(
-        managers_.comp->SetOn(managers_.selection->shot(), id, is_on)));
-  });
+  connect(plate.eye, &QAbstractButton::clicked, this,
+          [this, ref](bool is_on) {
+            Report(ProblemOf(managers_.comp->SetOn(ref.shot, ref.id, is_on)));
+          });
   QFrame* frame = plate.plate;
   connect(frame, &QWidget::customContextMenuRequested, this,
-          [this, id, frame](const QPoint& at) {
-            OpenMenu(id, frame->mapToGlobal(at));
+          [this, ref, frame](const QPoint& at) {
+            OpenMenu(ref, frame->mapToGlobal(at));
           });
 }
 
-QFrame* CompEffects::NewBody(CompEffectId id) {
-  assert(id.IsValid());
+QFrame* CompEffects::NewBody(const CompClipRef& ref) {
+  assert(ref.id.IsValid());
   assert(folds_ != nullptr);
   auto* body = MakeOwned<QFrame>(folds_);
   body->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
   auto* inside = MakeOwned<QVBoxLayout>(body);
   inside->setContentsMargins(theme::kIndent, kBodyMargin, kBodyMargin,
                              kBodyMargin);
-  auto* panel = MakeOwned<CompPanel>(managers_, id, body);
+  auto* panel = MakeOwned<CompPanel>(managers_, ref.shot, ref.id, body);
   inside->addWidget(panel);
   connect(panel, &CompPanel::Problem, this, &CompEffects::Problem);
   return body;
@@ -284,8 +286,8 @@ QFrame* CompEffects::NewBody(CompEffectId id) {
 void CompEffects::Toggle(const Plate& plate) {
   assert(plate.body != nullptr);
   assert(plate.arrow != nullptr);
-  const std::pair<int, int> key{managers_.selection->shot().value(),
-                                plate.id.value()};
+  const std::pair<int, int> key{plate.ref.shot.value(),
+                                plate.ref.id.value()};
   const bool was_open = plate.body->isVisible();
   plate.body->setVisible(!was_open);
   plate.arrow->setArrowType(was_open ? Qt::LeftArrow : Qt::DownArrow);
@@ -299,22 +301,22 @@ void CompEffects::Toggle(const Plate& plate) {
 void CompEffects::ShowPlates() {
   assert(managers_.comp != nullptr);
   assert(plates_.size() <= static_cast<size_t>(kMaxCompEffectsPerShot));
-  const ShotId shot = managers_.selection->shot();
-  const CompEffectId picked = managers_.comp->PickedIn(shot);
+  const CompClipRef focus = managers_.comp->Focus();
   for (const Plate& plate : plates_) {
-    const CompEffect* effect = managers_.comp->Find(shot, plate.id);
+    const CompEffect* effect =
+        managers_.comp->Find(plate.ref.shot, plate.ref.id);
     const bool is_gone = effect == nullptr;
     if (is_gone) {
       continue;
     }
     plate.eye->setChecked(effect->is_on);
-    static_cast<PlateFrame*>(plate.plate)->SetPicked(plate.id == picked);
+    static_cast<PlateFrame*>(plate.plate)->SetPicked(plate.ref == focus);
     QPalette quiet = plate.name->palette();
     quiet.setColor(QPalette::WindowText,
                    effect->is_on ? palette().color(QPalette::WindowText)
                                  : theme::kTextOff);
     plate.name->setPalette(quiet);
-    plate.slow->setVisible(managers_.comp->IsSlow(plate.id));
+    plate.slow->setVisible(managers_.comp->IsSlow(plate.ref.id));
   }
 }
 

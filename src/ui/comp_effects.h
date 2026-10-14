@@ -61,7 +61,7 @@ class CompEffects final : public QWidget {
  private:
   // The plate widgets kept to show the pick, eye and cost in place.
   struct Plate final {
-    CompEffectId id{};
+    CompClipRef ref{};
     // A PlateFrame (ui/comp_effects.cpp): red edged while picked.
     QFrame* plate = nullptr;
     QFrame* body = nullptr;
@@ -79,15 +79,16 @@ class CompEffects final : public QWidget {
   }
   void Refresh();
   // Rebuilds the folds for the effects listed now.
-  void Rebuild(const std::vector<CompEffect>& shown);
-  void AddFold(const CompEffect& effect, QVBoxLayout* into);
+  void Rebuild(const std::vector<CompClipRef>& shown);
+  void AddFold(const CompClipRef& ref, const CompEffect& effect,
+               QVBoxLayout* into);
   QFrame* NewPlate(const CompEffect& effect, Plate* plate);
   // The sunken body under a plate, holding the effect's controls.
-  QFrame* NewBody(CompEffectId id);
+  QFrame* NewBody(const CompClipRef& ref);
   void Toggle(const Plate& plate);
   // Shows the pick, eyes and slow marks without rebuilding.
   void ShowPlates();
-  void OpenMenu(CompEffectId id, const QPoint& at);
+  void OpenMenu(const CompClipRef& ref, const QPoint& at);
   // Drags (ui/comp_effects_drop.cpp).
   void StartDrag(const Plate& plate);
   // The gap between listed effects at y (0 to the count).
@@ -95,13 +96,15 @@ class CompEffects final : public QWidget {
   // The index in the whole stack that the gap stands for.
   int StackIndexOf(int gap) const;
   void ShowDropLine(int gap);
-  void MoveToGap(CompEffectId id, int gap);
+  // Only within its own shot: effects of different shots keep their
+  // own order.
+  void MoveToGap(const CompClipRef& ref, int gap);
   void PasteAt(int index);
   const Plate* PlateOf(const QObject* widget) const;
   CompTarget PickedTarget() const;
-  std::vector<CompEffect> Shown() const;
+  std::vector<CompClipRef> Shown() const;
   // What the folds are built for; a change rebuilds them.
-  QString Signature(const std::vector<CompEffect>& shown) const;
+  QString Signature(const std::vector<CompClipRef>& shown) const;
 
   Managers managers_;
   QVBoxLayout layout_;
@@ -116,10 +119,10 @@ class CompEffects final : public QWidget {
   std::set<std::pair<int, int>> closed_;
   QString signature_;
   // The plate pressed, for a click or a drag.
-  CompEffectId pressed_{};
+  CompClipRef pressed_{};
   QPointF press_at_;
   // A plate dropped while its own drag runs, moved once the drag ends.
-  CompEffectId moving_{};
+  CompClipRef moving_{};
   int moving_gap_ = -1;
 };
 

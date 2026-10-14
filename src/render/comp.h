@@ -19,8 +19,10 @@ namespace snapper {
 struct CompShow final {
   // V held: every effect off.
   bool is_off = false;
-  // K held: what this effect touches, white over black.
+  // K held: what this effect touches, white over black; mask_shot is
+  // its shot (ids repeat between shots), any shot when invalid.
   CompEffectId mask_of{};
+  ShotId mask_shot{};
 
   bool operator==(const CompShow&) const = default;
 };
@@ -55,7 +57,9 @@ struct CompNeeds final {
 
   bool IsEmpty() const { return targets.empty() && !needs_drawn; }
 };
-CompNeeds NeedsOf(const Shot& shot, Frame local, const CompShow& show);
+// counts_screen false leaves the screen effects' needs out.
+CompNeeds NeedsOf(const Shot& shot, Frame local, const CompShow& show,
+                  bool counts_screen = true);
 
 struct CompContext final {
   const Project* project = nullptr;
@@ -67,11 +71,12 @@ struct CompContext final {
   LinkSolver* links = nullptr;
   const CompPictures* pictures = nullptr;
   CompShow show;
-  // A spill: the reel shows another picture at this frame, past the
-  // shot's ends, and only the shot's screen effects that run on into it
-  // are drawn, timed by the shot frame at (below 0 or past the shot).
-  bool is_spill = false;
-  int at = 0;
+  // On the reel the screen effects run over the whole reel picture
+  // (render/comp_reel.cpp), so the shot's own pass skips them.
+  bool skips_screen = false;
+  // The reel's pass runs just this screen effect, already known to be
+  // running; nullptr runs the shot's stack.
+  const CompEffect* only = nullptr;
 };
 
 // The space an effect's points live in, to output pixels: a layer

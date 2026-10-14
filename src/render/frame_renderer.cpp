@@ -15,12 +15,11 @@
 #include "render/comp.h"
 #include "render/effects.h"
 #include "render/layer_painter.h"
-#include "render/reel_text.h"
 
 namespace snapper {
-namespace {
 
-QImage Blank(const Project& project, double scale, QColor color) {
+QImage FrameRenderer::Blank(const Project& project, double scale,
+                            QColor color) {
   assert(scale > 0.0);
   assert(IsValidCanvas(project.canvas));
   const QSize size(
@@ -32,6 +31,8 @@ QImage Blank(const Project& project, double scale, QColor color) {
   return image;
 }
 
+namespace {
+
 // Cuts frame back to where before had something drawn, keeping soft
 // edges soft (both premultiplied).
 void KeepDrawnOnly(const QImage& before, QImage* frame) {
@@ -40,67 +41,6 @@ void KeepDrawnOnly(const QImage& before, QImage* frame) {
   QPainter painter(frame);
   painter.setCompositionMode(QPainter::CompositionMode_DestinationIn);
   painter.drawImage(0, 0, before);
-}
-
-// Mixes the next clip in over a transition; mix runs 0 to 1.
-QImage Combine(TransitionKind kind, double mix, const QImage& from,
-               const QImage& to) {
-  assert(from.size() == to.size());
-  assert(mix >= 0.0 && mix <= 1.0);
-  QImage out = from.copy();
-  QPainter painter(&out);
-  const double width = out.width();
-  const double height = out.height();
-  switch (kind) {
-    case TransitionKind::kCut:
-      painter.drawImage(0, 0, to);
-      break;
-    case TransitionKind::kCrossfade:
-      painter.setOpacity(mix);
-      painter.drawImage(0, 0, to);
-      break;
-    case TransitionKind::kFlash: {
-      // Up to white over the first half, down into the next shot over
-      // the second.
-      const bool is_rising = mix < 0.5;
-      if (!is_rising) {
-        painter.drawImage(0, 0, to);
-      }
-      painter.setOpacity(is_rising ? mix * 2.0 : (1.0 - mix) * 2.0);
-      painter.fillRect(out.rect(), Qt::white);
-      break;
-    }
-    case TransitionKind::kSwipeLeft:
-    case TransitionKind::kSwipeRight:
-    case TransitionKind::kSwipeUp:
-    case TransitionKind::kSwipeDown: {
-      // The next shot pushes this one off the screen.
-      const QPointF way =
-          kind == TransitionKind::kSwipeLeft    ? QPointF(-width, 0)
-          : kind == TransitionKind::kSwipeRight ? QPointF(width, 0)
-          : kind == TransitionKind::kSwipeUp    ? QPointF(0, -height)
-                                                : QPointF(0, height);
-      out.fill(Qt::black);
-      painter.drawImage(way * mix, from);
-      painter.drawImage(way * (mix - 1.0), to);
-      break;
-    }
-  }
-  return out;
-}
-
-// Draws picture as large as fits in frame, centred, keeping its shape.
-void DrawFitted(const QImage& picture, QImage* frame) {
-  assert(frame != nullptr);
-  assert(!picture.isNull());
-  const QSizeF fitted =
-      QSizeF(picture.size()).scaled(frame->size(), Qt::KeepAspectRatio);
-  const QRectF target(QPointF((frame->width() - fitted.width()) / 2.0,
-                              (frame->height() - fitted.height()) / 2.0),
-                      fitted);
-  QPainter painter(frame);
-  painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
-  painter.drawImage(target, picture);
 }
 
 // ViewTransform, with or without the camera's shake.
@@ -121,6 +61,25 @@ QTransform ViewOf(const Project& project, const Shot& shot, Frame local,
   return view * QTransform::fromScale(scale, scale);
 }
 
+// An effect layer over what is drawn so far.
+void RunEffectLayer(const Shot& shot, const Layer& layer,
+                    const EffectLayer& effect, Frame local, double scale,
+                    QImage* frame) {
+  assert(frame != nullptr);
+  assert(scale > 0.0);
+  const double opacity = Sample(layer.transform, local, PiecePose()).opacity;
+  // On a see-through shot an effect acts only where something is
+  // drawn; a zoom punch moves what is drawn, so it is left alone.
+  const bool is_masked =
+      shot.is_transparent && effect.kind != EffectKind::kZoomPunch;
+  const QImage before = is_masked ? frame->copy() : QImage();
+  ApplyEffect(effect.kind, Sample(effect.amount, local, 1.0) * opacity,
+              effect.color, scale, local.index(), frame);
+  if (is_masked) {
+    KeepDrawnOnly(before, frame);
+  }
+}
+
 }  // namespace
 
 QTransform FrameRenderer::ViewTransform(const Project& project,
@@ -133,7 +92,8 @@ QTransform FrameRenderer::ViewTransform(const Project& project,
 
 QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
                                  Frame local, double scale,
-                                 const QImage* under) {
+                                 const QImage* under, bool runs_screen,
+                                 QImage* drawn) {
   assert(scale > 0.0);
   assert(shot.layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
   QImage frame = Blank(project, scale,
@@ -146,7 +106,9 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
   }
   const QTransform view = ViewTransform(project, shot, local, scale);
   LinkSolver links(project, shot, cache_.poses());
-  const CompNeeds needs = NeedsOf(shot, local, comp_show_);
+  CompNeeds needs = NeedsOf(shot, local, comp_show_, runs_screen);
+  const bool wants_drawn = drawn != nullptr;
+  needs.needs_drawn = needs.needs_drawn || wants_drawn;
   CompPictures pictures;
   const bool needs_drawn = needs.needs_drawn;
   if (needs_drawn) {
@@ -160,19 +122,7 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
     const auto* effect = std::get_if<EffectLayer>(&layer.content);
     const bool is_effect = effect != nullptr;
     if (is_effect) {
-      const double opacity =
-          Sample(layer.transform, local, PiecePose()).opacity;
-      // On a see-through shot an effect acts only where something is
-      // drawn; a zoom punch moves what is drawn, so it is left alone.
-      const bool is_masked = shot.is_transparent &&
-                             effect->kind != EffectKind::kZoomPunch;
-      const QImage before = is_masked ? frame.copy() : QImage();
-      ApplyEffect(effect->kind,
-                  Sample(effect->amount, local, 1.0) * opacity,
-                  effect->color, scale, local.index(), &frame);
-      if (is_masked) {
-        KeepDrawnOnly(before, &frame);
-      }
+      RunEffectLayer(shot, layer, *effect, local, scale, &frame);
       continue;
     }
     const bool is_split = !needs.IsEmpty();
@@ -184,10 +134,14 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
     QPainter painter(&frame);
     PaintLayer(project, layer, local, view, &links, &cache_, &painter);
   }
+  if (wants_drawn) {
+    *drawn = pictures.drawn;
+  }
   const bool has_comp = !shot.comp.empty();
   if (has_comp) {
-    const CompContext context{&project, &shot,     local,       scale,
-                              view,     &links,    &pictures,   comp_show_};
+    CompContext context{&project, &shot,     local,       scale,
+                        view,     &links,    &pictures,   comp_show_};
+    context.skips_screen = !runs_screen;
     ApplyComp(context, &frame, &comp_report_);
   }
   return frame;
@@ -307,65 +261,6 @@ QImage FrameRenderer::RenderFrame(const Project& project, Frame master,
   }
   const Shot& shot = *project.shots[static_cast<size_t>(moment.shot)];
   return RenderShot(project, shot, moment.local, scale, under);
-}
-
-void FrameRenderer::DrawClip(const Project& project, const Clip& clip,
-                             Frame source, double scale, VideoFrames* videos,
-                             QImage* out) {
-  assert(out != nullptr);
-  assert(scale > 0.0);
-  const auto* video = std::get_if<VideoSource>(&clip.source);
-  const bool is_video = video != nullptr;
-  if (is_video) {
-    const QImage picture = videos != nullptr
-                               ? videos->Picture(video->path, source)
-                               : QImage();
-    const bool has_picture = !picture.isNull();
-    if (has_picture) {
-      DrawFitted(picture, out);
-    }
-    return;
-  }
-  const bool is_text = IsTextClip(clip);
-  if (is_text) {
-    QPainter painter(out);
-    PaintReelText(project, clip, source.index() - clip.in.index(), scale,
-                  &painter);
-    return;
-  }
-  const Shot* shot =
-      FindShot(project, std::get<ShotSource>(clip.source).shot);
-  // A clip can outlive its shot; like the timeline, it shows nothing.
-  const bool is_shot_gone = shot == nullptr;
-  if (is_shot_gone) {
-    return;
-  }
-  QPainter painter(out);
-  painter.drawImage(0, 0, RenderShot(project, *shot, source, scale));
-}
-
-QImage FrameRenderer::RenderReel(const Project& project, Frame frame,
-                                 double scale, VideoFrames* videos,
-                                 QColor under) {
-  assert(scale > 0.0);
-  assert(frame.index() >= 0);
-  QImage out = Blank(project, scale, under);
-  for (const ReelPiece& piece : ReelAt(project, frame)) {
-    // Text clips draw their own appear and leave; they never mix.
-    const bool is_mixing = piece.next != nullptr && !IsTextClip(*piece.clip);
-    if (!is_mixing) {
-      DrawClip(project, *piece.clip, piece.source, scale, videos, &out);
-      continue;
-    }
-    // Both sides are drawn over what lies below, then mixed.
-    QImage from = out.copy();
-    DrawClip(project, *piece.clip, piece.source, scale, videos, &from);
-    QImage to = out.copy();
-    DrawClip(project, *piece.next, piece.next_source, scale, videos, &to);
-    out = Combine(piece.kind, piece.mix, from, to);
-  }
-  ApplySpills(project, frame, scale, &out);
-  return out;
 }
 
 }  // namespace snapper

@@ -23,6 +23,13 @@ std::set<CompClipRef> CompManager::AllClips() const {
   return clips;
 }
 
+CompClipRef CompManager::Focus() const {
+  assert(history_ != nullptr);
+  assert(focus_.id.value() >= 0);
+  const bool is_there = Find(focus_.shot, focus_.id) != nullptr;
+  return is_there ? focus_ : CompClipRef();
+}
+
 std::set<CompClipRef> CompManager::ClipPicks() const {
   assert(history_ != nullptr);
   assert(clip_picks_.size() < 100000);
@@ -43,14 +50,14 @@ void CompManager::PickClips(const std::set<CompClipRef>& clips,
   const std::set<CompClipRef> next = Combine(ClipPicks(), clips, mode);
   const bool is_focus_picked = next.contains(focus);
   const bool is_same = next == clip_picks_ &&
-                       (!is_focus_picked ||
-                        PickedIn(focus.shot) == focus.id);
+                       (!is_focus_picked || focus_ == focus);
   if (is_same) {
     return;
   }
   clip_picks_ = next;
   if (is_focus_picked) {
     picked_[focus.shot] = focus.id;
+    focus_ = focus;
   }
   emit Changed();
 }

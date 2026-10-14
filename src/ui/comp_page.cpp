@@ -133,9 +133,11 @@ bool CompPage::IsPageKey(const QKeyEvent& key) const {
 void CompPage::PressKey(const QKeyEvent& key) {
   assert(managers_.comp != nullptr);
   CompManager* comp = managers_.comp;
-  const ShotId shot = managers_.selection->shot();
-  const CompEffectId picked = comp->PickedIn(shot);
-  const bool has_pick = picked.IsValid();
+  const CompClipRef focus = comp->Focus();
+  const bool has_pick = focus.id.IsValid();
+  // Keys act on the focused effect, of whichever shot it is.
+  const ShotId shot = has_pick ? focus.shot : managers_.selection->shot();
+  const CompEffectId picked = focus.id;
   const bool is_control = key.modifiers().testFlag(Qt::ControlModifier);
   const bool is_paste = is_control && key.key() == Qt::Key_V;
   if (is_paste) {

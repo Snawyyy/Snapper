@@ -12,6 +12,7 @@
 #include <numbers>
 
 #include "anim/comp_knobs.h"
+#include "anim/comp_reel.h"
 #include "anim/reel_timeline.h"
 #include "edit/comp_manager.h"
 #include "edit/history_manager.h"
@@ -187,8 +188,16 @@ QColor CompStage::ColorUnderCursor() {
 
 const CompEffect* CompStage::Picked() const {
   assert(managers_.comp != nullptr);
-  const ShotId shot = managers_.selection->shot();
-  return managers_.comp->Find(shot, managers_.comp->PickedIn(shot));
+  const CompClipRef focus = managers_.comp->Focus();
+  return managers_.comp->Find(focus.shot, focus.id);
+}
+
+Frame CompStage::FocusLocal() const {
+  assert(managers_.comp != nullptr);
+  assert(managers_.playback != nullptr);
+  return EffectFrameAt(managers_.history->current(),
+                       managers_.comp->Focus().shot,
+                       managers_.playback->FrameOn(Timeline::kReel));
 }
 
 QPointF CompStage::ArrowCenter() const { return FrameRect().center(); }
@@ -199,8 +208,8 @@ std::optional<QPointF> CompStage::HandleAt(Handle handle) {
   if (!has_effect) {
     return std::nullopt;
   }
-  const ShotId shot = managers_.selection->shot();
-  const Frame local = Local();
+  const ShotId shot = managers_.comp->Focus().shot;
+  const Frame local = FocusLocal();
   if (handle == Handle::kArrow) {
     const bool has_arrow = ArrowKnob(*effect).has_value();
     if (!has_arrow) {
@@ -243,8 +252,8 @@ void CompStage::DragTo(QPointF point, bool is_snapped) {
   if (!has_effect) {
     return;
   }
-  const ShotId shot = managers_.selection->shot();
-  const Frame local = Local();
+  const ShotId shot = managers_.comp->Focus().shot;
+  const Frame local = FocusLocal();
   if (dragging_ == Handle::kArrow) {
     double angle = AngleOf(ArrowCenter(), point);
     if (is_snapped) {

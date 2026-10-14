@@ -47,12 +47,14 @@ void CompManager::Pick(ShotId shot, CompEffectId id) {
   const std::set<CompClipRef> alone =
       id.IsValid() ? std::set<CompClipRef>{{shot, id}}
                    : std::set<CompClipRef>();
-  const bool is_same = PickedIn(shot) == id && clip_picks_ == alone;
+  const bool is_same = PickedIn(shot) == id && clip_picks_ == alone &&
+                       focus_ == CompClipRef{shot, id};
   if (is_same) {
     return;
   }
   picked_[shot] = id;
   clip_picks_ = alone;
+  focus_ = CompClipRef{shot, id};
   emit Changed();
 }
 
@@ -82,7 +84,10 @@ CompShow CompManager::ShowFor(ShotId shot) const {
   assert(history_ != nullptr);
   CompShow show;
   show.is_off = are_effects_off_;
-  show.mask_of = is_mask_shown_ ? PickedIn(shot) : CompEffectId();
+  const CompClipRef focus = Focus();
+  show.mask_of = is_mask_shown_ ? focus.id : CompEffectId();
+  show.mask_shot = is_mask_shown_ ? focus.shot : ShotId();
+  assert(shot.value() >= 0);
   assert(!show.mask_of.IsValid() || is_mask_shown_);
   return show;
 }

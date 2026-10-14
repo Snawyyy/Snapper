@@ -100,8 +100,10 @@ class CompStage final : public QWidget {
   void PaintPicks(QPainter* painter);
   // The layer under point, or none.
   LayerId LayerUnder(QPointF point);
-  // The picked effect of the shot being worked in, or nullptr.
+  // The focused effect, of any shot, or nullptr.
   const CompEffect* Picked() const;
+  // The frame of the focused effect's shot at the reel playhead.
+  Frame FocusLocal() const;
   Frame Local() const;
 
   Managers managers_;

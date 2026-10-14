@@ -6,6 +6,7 @@
 #include <utility>
 #include <variant>
 
+#include "anim/comp_reel.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
@@ -22,17 +23,7 @@ constexpr double kSnap = 6.0;
 const Clip* CompTimeline::ClipOf(ShotId shot) const {
   assert(managers_.history != nullptr);
   assert(shot.value() >= 0);
-  const Clip* first = nullptr;
-  for (const ReelTrack& track : managers_.history->current().reel.tracks) {
-    for (const Clip& clip : track.clips) {
-      const auto* source = std::get_if<ShotSource>(&clip.source);
-      const bool is_earlier =
-          source != nullptr && source->shot == shot &&
-          (first == nullptr || clip.start.index() < first->start.index());
-      first = is_earlier ? &clip : first;
-    }
-  }
-  return first;
+  return FirstClipOf(managers_.history->current(), shot);
 }
 
 std::vector<CompTimeline::Bar> CompTimeline::Bars() const {

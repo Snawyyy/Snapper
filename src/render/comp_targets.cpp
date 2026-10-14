@@ -28,7 +28,8 @@ CompTargetKey CompKeyOf(const CompEffect& effect) {
   return CompTargetKey{effect.target.layer, pieces};
 }
 
-CompNeeds NeedsOf(const Shot& shot, Frame local, const CompShow& show) {
+CompNeeds NeedsOf(const Shot& shot, Frame local, const CompShow& show,
+                  bool counts_screen) {
   assert(local.index() >= 0);
   assert(shot.comp.size() <= static_cast<size_t>(kMaxCompEffectsPerShot));
   CompNeeds needs;
@@ -47,7 +48,8 @@ CompNeeds NeedsOf(const Shot& shot, Frame local, const CompShow& show) {
       needs.targets.insert(CompKeyOf(effect));
       continue;
     }
-    needs.needs_drawn = needs.needs_drawn || NeedsCompShape(effect);
+    needs.needs_drawn =
+        needs.needs_drawn || (counts_screen && NeedsCompShape(effect));
   }
   return needs;
 }

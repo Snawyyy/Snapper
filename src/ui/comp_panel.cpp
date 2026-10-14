@@ -6,7 +6,7 @@
 #include <array>
 #include <cassert>
 
-#include "anim/reel_timeline.h"
+#include "anim/comp_reel.h"
 #include "edit/comp_manager.h"
 #include "edit/history_manager.h"
 #include "edit/palette_manager.h"
@@ -31,12 +31,13 @@ QString ColorKey(const QColor& color) {
 
 }  // namespace
 
-CompPanel::CompPanel(const Managers& managers, CompEffectId effect,
-                     QWidget* parent)
+CompPanel::CompPanel(const Managers& managers, ShotId shot,
+                     CompEffectId effect, QWidget* parent)
     : QWidget(parent),
       managers_(managers),
       live_(managers.history),
       layout_(this),
+      shot_(shot),
       effect_(effect),
       pick_colors_(tr("Pick")),
       clear_colors_(tr("Clear")) {
@@ -109,12 +110,13 @@ void CompPanel::BuildFixed() {
   layout_.addWidget(dynamic_);
 }
 
-ShotId CompPanel::Shot() const { return managers_.selection->shot(); }
+ShotId CompPanel::Shot() const { return shot_; }
 
 Frame CompPanel::Local() const {
-  const Frame playhead = managers_.playback->FrameOn(Timeline::kReel);
-  const ReelShot at = ShotAtReel(managers_.history->current(), playhead);
-  return at.IsValid() ? at.local : Frame(0);
+  assert(managers_.playback != nullptr);
+  assert(managers_.history != nullptr);
+  return EffectFrameAt(managers_.history->current(), shot_,
+                       managers_.playback->FrameOn(Timeline::kReel));
 }
 
 const CompEffect* CompPanel::Effect() const {
@@ -461,7 +463,8 @@ void CompPanel::TakeColor(const QColor& color,
                           Qt::KeyboardModifiers modifiers) {
   const bool is_aimed = aim_ != Aim::kNone && isVisible() &&
                         color.isValid() &&
-                        managers_.comp->PickedIn(Shot()) == effect_;
+                        managers_.comp->Focus() ==
+                            CompClipRef{shot_, effect_};
   const CompEffect* effect = Effect();
   if (!is_aimed || effect == nullptr) {
     return;

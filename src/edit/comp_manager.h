@@ -237,12 +237,14 @@ class CompManager final : public QObject {
   // nothing.
   Result<CompTarget> TargetFor(ShotId shot, LayerId layer,
                                const std::set<QString>& pieces) const;
-  // The effects the Comp tab lists for that pick, in the order they
-  // run (the bottom of the stack first, as After Effects lists them):
-  // with no layer the screen's; with a layer every effect on it, or
-  // with pieces the layer-wide ones and those on any of the pieces.
-  std::vector<CompEffect> ShownFor(ShotId shot, LayerId layer,
-                                   const std::set<QString>& pieces) const;
+  // The effects the Comp tab lists for that pick of shot, at the reel
+  // frame: with no layer the screen effects running there, of any shot,
+  // and every screen effect of shot; with a layer every effect on it,
+  // or with pieces the layer-wide ones and those on any of the pieces.
+  // Shots by where their clip starts, each in the order they run.
+  std::vector<CompClipRef> ShownFor(ShotId shot, LayerId layer,
+                                    const std::set<QString>& pieces,
+                                    Frame reel) const;
   // A palette or stage pick: alone, Shift adds it, Ctrl flips it.
   Result<void> PickTargetColor(ShotId shot, CompEffectId id, QColor color,
                                Qt::KeyboardModifiers modifiers);
@@ -263,6 +265,9 @@ class CompManager final : public QObject {
   CompEffectId PickedIn(ShotId shot) const;
   // Picks one effect, alone among the timeline's picked clips.
   void Pick(ShotId shot, CompEffectId id);
+  // The effect keys and handles act on: the one last picked, of any
+  // shot; invalid for none or when it is gone.
+  CompClipRef Focus() const;
   // The effect clips picked on the Comp timeline, of any shots; those
   // gone from the project are left out (edit/comp_clip_picks.cpp).
   std::set<CompClipRef> ClipPicks() const;
@@ -308,6 +313,7 @@ class CompManager final : public QObject {
   HistoryManager* history_;
   std::map<ShotId, CompEffectId> picked_;
   std::set<CompClipRef> clip_picks_;
+  CompClipRef focus_{};
   bool are_effects_off_ = false;
   bool is_mask_shown_ = false;
   std::map<CompEffectId, double> costs_;

@@ -3,8 +3,10 @@
 
 #include <algorithm>
 #include <cassert>
+#include <utility>
 #include <variant>
 
+#include "anim/comp_reel.h"
 #include "base/text.h"
 #include "edit/comp_manager.h"
 #include "edit/history_manager.h"
@@ -114,15 +116,47 @@ Result<CompTarget> CompManager::TargetFor(
   return target;
 }
 
-std::vector<CompEffect> CompManager::ShownFor(
-    ShotId shot, LayerId layer, const std::set<QString>& pieces) const {
+std::vector<CompClipRef> CompManager::ShownFor(
+    ShotId shot, LayerId layer, const std::set<QString>& pieces,
+    Frame reel) const {
   assert(history_ != nullptr);
   assert(pieces.size() <= kMaxPicked);
-  std::vector<CompEffect> shown;
-  for (const CompEffect& effect : Of(shot)) {
-    const bool is_shown = IsShown(effect, layer, pieces);
-    if (is_shown) {
-      shown.push_back(effect);
+  const Project& project = history_->current();
+  std::vector<CompClipRef> shown;
+  const bool is_screen_pick = !layer.IsValid();
+  if (!is_screen_pick) {
+    for (const CompEffect& effect : Of(shot)) {
+      const bool is_shown = IsShown(effect, layer, pieces);
+      if (is_shown) {
+        shown.push_back(CompClipRef{shot, effect.id});
+      }
+    }
+    return shown;
+  }
+  std::vector<std::pair<const Clip*, const Shot*>> shots;
+  for (const auto& one : project.shots) {
+    const Clip* clip = FirstClipOf(project, one->id);
+    const bool is_listed = clip != nullptr || one->id == shot;
+    if (is_listed) {
+      shots.emplace_back(clip, one.get());
+    }
+  }
+  std::ranges::stable_sort(shots, [](const auto& a, const auto& b) {
+    const int a_at = a.first != nullptr ? a.first->start.index() : -1;
+    const int b_at = b.first != nullptr ? b.first->start.index() : -1;
+    return a_at < b_at;
+  });
+  for (const auto& [clip, one] : shots) {
+    for (const CompEffect& effect : one->comp) {
+      const bool is_screen = !effect.target.layer.IsValid();
+      const ReelSpan span =
+          clip != nullptr ? EffectOnReel(*clip, effect) : ReelSpan{};
+      const bool is_running =
+          reel.index() >= span.first && reel.index() < span.end;
+      const bool is_shown = is_screen && (one->id == shot || is_running);
+      if (is_shown) {
+        shown.push_back(CompClipRef{one->id, effect.id});
+      }
     }
   }
   return shown;

@@ -8,6 +8,7 @@
 #include <QMenu>
 #include <QMouseEvent>
 
+#include <algorithm>
 #include <cassert>
 
 #include "edit/selection_manager.h"
@@ -45,24 +46,24 @@ bool CompEffects::eventFilter(QObject* watched, QEvent* event) {
   const bool is_press = type == QEvent::MouseButtonPress &&
                         mouse->button() == Qt::LeftButton;
   if (is_press) {
-    pressed_ = plate->id;
+    pressed_ = plate->ref;
     press_at_ = mouse->globalPosition();
     return true;
   }
-  const bool is_held = pressed_ == plate->id;
+  const bool is_held = pressed_ == plate->ref;
   const bool is_drag =
       is_held && type == QEvent::MouseMove &&
       (mouse->globalPosition() - press_at_).manhattanLength() >=
           QApplication::startDragDistance();
   if (is_drag) {
-    pressed_ = CompEffectId();
+    pressed_ = CompClipRef();
     StartDrag(*plate);
     return true;
   }
   const bool is_click = is_held && type == QEvent::MouseButtonRelease;
   if (is_click) {
-    pressed_ = CompEffectId();
-    managers_.comp->Pick(managers_.selection->shot(), plate->id);
+    pressed_ = CompClipRef();
+    managers_.comp->Pick(plate->ref.shot, plate->ref.id);
     Toggle(*plate);
     return true;
   }
@@ -71,24 +72,24 @@ bool CompEffects::eventFilter(QObject* watched, QEvent* event) {
 
 void CompEffects::StartDrag(const Plate& plate) {
   assert(plate.plate != nullptr);
-  assert(plate.id.IsValid());
-  const CompEffectId id = plate.id;
-  managers_.comp->Pick(managers_.selection->shot(), id);
+  assert(plate.ref.id.IsValid());
+  const CompClipRef ref = plate.ref;
+  managers_.comp->Pick(ref.shot, ref.id);
   auto* drag = MakeOwned<QDrag>(this);
-  drag->setMimeData(EffectMime(id).release());
+  drag->setMimeData(EffectMime(ref.id).release());
   drag->setPixmap(plate.plate->grab());
   drag->setHotSpot(plate.plate->mapFromGlobal(press_at_).toPoint());
-  moving_ = CompEffectId();
+  moving_ = ref;
   moving_gap_ = -1;
   // Escape cancels; the move waits until the drag is over, as it
   // rebuilds the plate this drag started from.
   drag->exec(Qt::MoveAction);
   drop_line_.hide();
-  const bool has_move = moving_.IsValid() && moving_gap_ >= 0;
+  const bool has_move = moving_.id.IsValid() && moving_gap_ >= 0;
   if (has_move) {
     MoveToGap(moving_, moving_gap_);
   }
-  moving_ = CompEffectId();
+  moving_ = CompClipRef();
   moving_gap_ = -1;
 }
 
@@ -108,16 +109,17 @@ int CompEffects::GapAt(double y) const {
 int CompEffects::StackIndexOf(int gap) const {
   assert(gap >= 0);
   assert(managers_.comp != nullptr);
-  const std::vector<CompEffect> shown = Shown();
-  const std::vector<CompEffect> stack =
-      managers_.comp->Of(managers_.selection->shot());
+  const ShotId shot = managers_.selection->shot();
+  const std::vector<CompClipRef> shown = Shown();
+  const std::vector<CompEffect> stack = managers_.comp->Of(shot);
   const int count = static_cast<int>(shown.size());
-  const bool is_before = gap < count;
+  const bool is_before =
+      gap < count && shown[static_cast<size_t>(gap)].shot == shot;
   if (is_before) {
     return CompEffectIndex(stack, shown[static_cast<size_t>(gap)].id);
   }
-  const bool is_empty = shown.empty();
-  return is_empty ? kOnTop : CompEffectIndex(stack, shown.back().id) + 1;
+  // Next to another shot's effect: on top of this shot's own.
+  return kOnTop;
 }
 
 void CompEffects::ShowDropLine(int gap) {
@@ -141,22 +143,30 @@ void CompEffects::ShowDropLine(int gap) {
   drop_line_.show();
 }
 
-void CompEffects::MoveToGap(CompEffectId id, int gap) {
-  assert(id.IsValid());
+void CompEffects::MoveToGap(const CompClipRef& ref, int gap) {
+  assert(ref.id.IsValid());
   assert(gap >= 0);
-  const ShotId shot = managers_.selection->shot();
-  const std::vector<CompEffect> shown = Shown();
-  const int from = CompEffectIndex(shown, id);
+  const std::vector<CompClipRef> shown = Shown();
+  const auto found = std::ranges::find(shown, ref);
+  const int from = found == shown.end()
+                       ? -1
+                       : static_cast<int>(found - shown.begin());
   const bool is_still = from < 0 || gap == from || gap == from + 1 ||
                         gap > static_cast<int>(shown.size());
   if (is_still) {
     return;
   }
-  // It takes its listed neighbour's place in the whole stack.
-  const CompEffect& near =
+  // It takes its listed neighbour's place in its shot's stack.
+  const CompClipRef& near =
       shown[static_cast<size_t>(gap > from ? gap - 1 : gap)];
-  const int to = CompEffectIndex(managers_.comp->Of(shot), near.id);
-  Report(ProblemOf(managers_.comp->Move(shot, id, to)));
+  const bool is_same_shot = near.shot == ref.shot;
+  if (!is_same_shot) {
+    Report(tr("Effects of different shots keep their own order; move "
+              "the clip on the timeline instead."));
+    return;
+  }
+  const int to = CompEffectIndex(managers_.comp->Of(ref.shot), near.id);
+  Report(ProblemOf(managers_.comp->Move(ref.shot, ref.id, to)));
 }
 
 void CompEffects::dragEnterEvent(QDragEnterEvent* event) {
@@ -192,7 +202,7 @@ void CompEffects::dropEvent(QDropEvent* event) {
   const auto moved = EffectOf(event->mimeData());
   const bool is_move = moved.has_value() && event->source() == this;
   if (is_move) {
-    moving_ = *moved;
+    // StartDrag knows which shot's effect it is.
     moving_gap_ = gap;
     event->acceptProposedAction();
     return;
@@ -233,14 +243,18 @@ void CompEffects::Paste() {
   PasteAt(StackIndexOf(static_cast<int>(Shown().size())));
 }
 
-void CompEffects::OpenMenu(CompEffectId id, const QPoint& at) {
-  assert(id.IsValid());
+void CompEffects::OpenMenu(const CompClipRef& ref, const QPoint& at) {
+  assert(ref.id.IsValid());
   assert(managers_.comp != nullptr);
   CompManager* comp = managers_.comp;
-  const ShotId shot = managers_.selection->shot();
+  const ShotId shot = ref.shot;
+  const CompEffectId id = ref.id;
   comp->Pick(shot, id);
-  const std::vector<CompEffect> shown = Shown();
-  const int index = CompEffectIndex(shown, id);
+  const std::vector<CompClipRef> shown = Shown();
+  const auto found = std::ranges::find(shown, ref);
+  const int index = found == shown.end()
+                        ? -1
+                        : static_cast<int>(found - shown.begin());
   const int last = static_cast<int>(shown.size()) - 1;
   const QString copied = comp->CopiedName();
   QMenu menu;
@@ -254,7 +268,7 @@ void CompEffects::OpenMenu(CompEffectId id, const QPoint& at) {
   QAction* down = menu.addAction(tr("Move down"));
   menu.addSeparator();
   QAction* remove = menu.addAction(tr("Remove\tDelete"));
-  Explain(paste, comp->WhyNoPaste(shot));
+  Explain(paste, comp->WhyNoPaste(managers_.selection->shot()));
   Explain(duplicate, comp->WhyNoAdd(shot));
   Explain(up, index <= 0 ? tr("It already runs first.") : QString());
   Explain(down, index >= last ? tr("It already runs last.") : QString());
@@ -267,11 +281,12 @@ void CompEffects::OpenMenu(CompEffectId id, const QPoint& at) {
   if (is_copy) {
     Report(ProblemOf(comp->Copy(shot, id)));
   } else if (is_paste) {
-    PasteAt(CompEffectIndex(comp->Of(shot), id) + 1);
+    const bool is_own_shot = shot == managers_.selection->shot();
+    PasteAt(is_own_shot ? CompEffectIndex(comp->Of(shot), id) + 1 : kOnTop);
   } else if (is_duplicate) {
     Report(ProblemOf(comp->Duplicate(shot, id)));
   } else if (is_move) {
-    MoveToGap(id, chosen == up ? index - 1 : index + 2);
+    MoveToGap(ref, chosen == up ? index - 1 : index + 2);
   } else if (is_remove) {
     Report(ProblemOf(comp->Remove(shot, id)));
   }

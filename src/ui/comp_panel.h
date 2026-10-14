@@ -33,7 +33,8 @@ class CompPanel final : public QWidget {
   Q_OBJECT
 
  public:
-  CompPanel(const Managers& managers, CompEffectId effect, QWidget* parent);
+  CompPanel(const Managers& managers, ShotId shot, CompEffectId effect,
+            QWidget* parent);
 
  signals:
   void Problem(const QString& why);
@@ -96,6 +97,7 @@ class CompPanel final : public QWidget {
   Managers managers_;
   LiveEdit live_;
   QVBoxLayout layout_;
+  ShotId shot_;
   CompEffectId effect_;
   // Why the effect draws nothing (a missing plugin, or one that refused
   // to run); hidden while it runs.

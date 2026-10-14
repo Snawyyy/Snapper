@@ -42,9 +42,11 @@ class FrameRenderer final {
                     VideoFrames* videos, QColor under = Qt::black);
   // One shot on its own, at a frame of its own. A see-through shot
   // (Shot::is_transparent) leaves its empty area clear. under as in
-  // RenderFrame.
+  // RenderFrame. The reel runs screen effects itself (runs_screen
+  // false) and may ask for drawn: every layer's pixels on clear.
   QImage RenderShot(const Project& project, const Shot& shot, Frame local,
-                    double scale, const QImage* under = nullptr);
+                    double scale, const QImage* under = nullptr,
+                    bool runs_screen = true, QImage* drawn = nullptr);
 
   // Only some layers of a shot on a clear picture, with no effects: a
   // layer that maps to an empty set is drawn whole, one that maps to
@@ -67,6 +69,9 @@ class FrameRenderer final {
 
   ImageCache* cache() { return &cache_; }
 
+  // A frame-sized picture at scale filled with color.
+  static QImage Blank(const Project& project, double scale, QColor color);
+
   // How the Comp tab's stage shows the comp (V and K); export and every
   // other renderer keep the default, the whole comp.
   void SetCompShow(const CompShow& show) { comp_show_ = show; }
@@ -82,17 +87,20 @@ class FrameRenderer final {
                     const CompNeeds& needs, CompPictures* pictures,
                     QImage* frame);
 
-  // The screen effects of shots whose timing runs past their clip, over
-  // the reel picture at frame (render/comp_spill.cpp).
-  void ApplySpills(const Project& project, Frame frame, double scale,
-                   QImage* out);
-  void SpillClip(const Project& project, const Clip& clip, Frame frame,
-                 double scale, QImage* out);
+  // Every screen effect running at frame, over the finished reel
+  // picture; drawn is the shots' layers on clear, for the effects that
+  // need their shape (render/comp_reel.cpp).
+  void ApplyReelComp(const Project& project, Frame frame, double scale,
+                     const QImage& drawn, QImage* out);
+  // True when a screen effect running at frame needs the shapes.
+  static bool NeedsReelShape(const Project& project, Frame frame);
 
   // Draws clip's source at source over out: a shot whole, a video
-  // fitted to the canvas, text where its look places it.
+  // fitted to the canvas, text where its look places it. drawn, when
+  // given, gets a shot's layers added.
   void DrawClip(const Project& project, const Clip& clip, Frame source,
-                double scale, VideoFrames* videos, QImage* out);
+                double scale, VideoFrames* videos, QImage* out,
+                QImage* drawn);
 
   ImageCache cache_;
   CompShow comp_show_;
