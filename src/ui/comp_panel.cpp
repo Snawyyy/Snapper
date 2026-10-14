@@ -115,7 +115,8 @@ void CompPanel::BuildFixed() {
     const CompEffect* effect = Picked();
     if (effect != nullptr) {
       Report(ProblemOf(managers_.comp->TargetPieces(
-          Shot(), effect->id, managers_.selection->picks())));
+          Shot(), effect->id, managers_.selection->layer(),
+          managers_.selection->pieces())));
     }
   });
   target_text_.setWordWrap(true);
@@ -215,17 +216,16 @@ void CompPanel::Refresh() {
                                      : TargetTile::kEverything;
   const QString why_layer =
       managers_.comp->WhyNoTargetLayer(shot, managers_.selection->layer());
-  const QString why_pieces =
-      managers_.comp->WhyNoTargetPieces(shot, managers_.selection->picks());
+  const QString why_pieces = managers_.comp->WhyNoTargetPieces(
+      shot, managers_.selection->layer(), managers_.selection->pieces());
   Explain(&tiles_[0], why_none,
           tr("Everything below: the whole frame, in screen space."));
   Explain(&tiles_[1], has_effect ? why_layer : why_none,
           tr("A layer: the picked layer only; the effect follows it. "
              "Click a doll on the stage to pick it."));
   Explain(&tiles_[2], has_effect ? why_pieces : why_none,
-          tr("Picked pieces: all the picked pieces, of any number of dolls. "
-             "Click a piece on the stage (Ctrl flips one, Shift adds), or "
-             "drag a box, then click here to apply."));
+          tr("Picked pieces: those pieces of the doll only. Click a piece "
+             "on the stage, Shift adds."));
   for (size_t i = 0; i < tiles_.size(); ++i) {
     tiles_[i].setChecked(has_effect && static_cast<int>(tile) ==
                                            static_cast<int>(i));

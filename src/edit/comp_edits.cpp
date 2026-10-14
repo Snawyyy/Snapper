@@ -424,6 +424,100 @@ Result<void> CompManager::RemoveSwap(ShotId shot, CompEffectId id, int swap) {
               });
 }
 
+TargetTile CompManager::TileOf(const CompEffect& effect) {
+  const bool has_layer = effect.target.layer.IsValid();
+  const bool has_pieces = has_layer && !effect.target.pieces.empty();
+  return has_pieces  ? TargetTile::kPieces
+         : has_layer ? TargetTile::kLayer
+                     : TargetTile::kEverything;
+}
+
+QString CompManager::TargetText(ShotId shot, const CompEffect& effect) const {
+  assert(history_ != nullptr);
+  const Shot* found = FindShot(history_->current(), shot);
+  QString text = Tr("Everything below");
+  const bool has_layer = effect.target.layer.IsValid();
+  if (has_layer) {
+    const Layer* layer =
+        found != nullptr ? FindLayer(*found, effect.target.layer) : nullptr;
+    text = layer != nullptr ? layer->name : Tr("A removed layer");
+    const size_t pieces = effect.target.pieces.size();
+    if (pieces == 1) {
+      text += QStringLiteral(": ") + effect.target.pieces.front();
+    } else if (pieces > 1) {
+      text += Tr(": %1 pieces").arg(pieces);
+    }
+  }
+  const size_t colors = effect.target.colors.size();
+  if (colors > 0) {
+    text += colors == 1 ? Tr(", 1 color")
+                        : Tr(", %1 colors").arg(colors);
+  }
+  return text;
+}
+
+QString CompManager::WhyNoTargetLayer(ShotId shot, LayerId layer) const {
+  assert(history_ != nullptr);
+  const Shot* found = FindShot(history_->current(), shot);
+  const Layer* picked =
+      found != nullptr && layer.IsValid() ? FindLayer(*found, layer) : nullptr;
+  if (picked == nullptr) {
+    return Tr("Pick a doll, picture or text on the Pose tab first.");
+  }
+  const bool is_effect = std::holds_alternative<EffectLayer>(picked->content);
+  return is_effect ? Tr("An effect layer draws nothing to work on.")
+                   : QString();
+}
+
+QString CompManager::WhyNoTargetPieces(ShotId shot, LayerId layer,
+                                       const std::set<QString>& pieces) const {
+  const QString why = WhyNoTargetLayer(shot, layer);
+  if (!why.isEmpty()) {
+    return why;
+  }
+  return pieces.empty()
+             ? Tr("Pick pieces of a doll on the Pose tab first.")
+             : QString();
+}
+
+Result<void> CompManager::TargetEverything(ShotId shot, CompEffectId id) {
+  return Edit(shot, id, Tr("Applies to everything"),
+              [](CompEffect* effect) -> Result<void> {
+                effect->target.layer = LayerId();
+                effect->target.pieces.clear();
+                return {};
+              });
+}
+
+Result<void> CompManager::TargetLayer(ShotId shot, CompEffectId id,
+                                      LayerId layer) {
+  const QString why = WhyNoTargetLayer(shot, layer);
+  if (!why.isEmpty()) {
+    return std::unexpected(Error{why});
+  }
+  return Edit(shot, id, Tr("Applies to a layer"),
+              [layer](CompEffect* effect) -> Result<void> {
+                effect->target.layer = layer;
+                effect->target.pieces.clear();
+                return {};
+              });
+}
+
+Result<void> CompManager::TargetPieces(ShotId shot, CompEffectId id,
+                                       LayerId layer,
+                                       const std::set<QString>& pieces) {
+  const QString why = WhyNoTargetPieces(shot, layer, pieces);
+  if (!why.isEmpty()) {
+    return std::unexpected(Error{why});
+  }
+  return Edit(shot, id, Tr("Applies to picked pieces"),
+              [&](CompEffect* effect) -> Result<void> {
+                effect->target.layer = layer;
+                effect->target.pieces.assign(pieces.begin(), pieces.end());
+                return {};
+              });
+}
+
 Result<void> CompManager::PickTargetColor(ShotId shot, CompEffectId id,
                                           QColor color,
                                           Qt::KeyboardModifiers modifiers) {

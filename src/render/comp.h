@@ -25,10 +25,11 @@ struct CompShow final {
   bool operator==(const CompShow&) const = default;
 };
 
-// The layers, or pieces of them, whose own joined picture an effect
-// needs: the parts sorted by layer, each one's pieces sorted.
+// A target layer, or some pieces of it, whose own picture an effect
+// needs.
 struct CompTargetKey final {
-  std::vector<CompTargetPart> parts;
+  LayerId layer;
+  std::vector<QString> pieces;
 
   auto operator<=>(const CompTargetKey&) const = default;
 };
@@ -63,7 +64,7 @@ struct CompContext final {
   CompShow show;
 };
 
-// The space an effect's points live in, to output pixels: a lone layer
+// The space an effect's points live in, to output pixels: a layer
 // target's own space (so they move with it), else the canvas without
 // the camera (canvas pixels from the middle).
 QTransform CompSpace(const CompContext& context, const CompEffect& effect);

@@ -65,9 +65,7 @@ double AngleOf(QPointF from, QPointF to) {
 }  // namespace
 
 CompStage::CompStage(const Managers& managers)
-    : managers_(managers),
-      camera_(this),
-      pick_(managers, renderer_.cache()) {
+    : managers_(managers), camera_(this) {
   assert(managers_.IsComplete());
   assert(managers_.comp != nullptr);
   setFocusPolicy(Qt::ClickFocus);
@@ -276,9 +274,28 @@ void CompStage::DragTo(QPointF point, bool is_snapped) {
       managers_.comp->SetPoint(shot, effect->id, is_b, local, moved)));
 }
 
-CompStageSpot CompStage::Spot() const {
-  return CompStageSpot{FrameRect().topLeft(), Scale(),
-                       Locating(managers_).at};
+void CompStage::PickUnder(QPointF point, bool is_adding) {
+  const Here here = Locating(managers_);
+  const Project& project = managers_.history->current();
+  const Shot* shot = FindShot(project, here.at.shot);
+  const bool is_on_shot = here.at.IsValid() && shot != nullptr;
+  if (!is_on_shot) {
+    return;
+  }
+  const auto hit = HitTest(project, *shot, here.at.local,
+                           point - FrameRect().topLeft(), Scale(),
+                           renderer_.cache());
+  if (!hit) {
+    return;
+  }
+  const bool is_new_layer = hit->layer != managers_.selection->layer();
+  if (is_new_layer || !is_adding) {
+    managers_.selection->SelectLayer(hit->layer);
+  }
+  const bool has_piece = !hit->piece.isEmpty();
+  if (has_piece) {
+    managers_.selection->SelectPieces({hit->piece}, is_adding);
+  }
 }
 
 void CompStage::paintEvent(QPaintEvent* event) {
@@ -294,7 +311,6 @@ void CompStage::paintEvent(QPaintEvent* event) {
     painter.fillRect(frame, Qt::black);
   }
   painter.setRenderHint(QPainter::Antialiasing);
-  pick_.Paint(&painter, Spot());
   const auto arrow = HandleAt(Handle::kArrow);
   if (arrow) {
     painter.setPen(QPen(theme::kHandle, 2.0));
@@ -364,7 +380,8 @@ void CompStage::mousePressEvent(QMouseEvent* event) {
   const Handle handle = HandleUnder(event->position());
   const bool is_handle = handle != Handle::kNone;
   if (!is_handle) {
-    pick_.Press(event->position(), event->modifiers(), Spot());
+    PickUnder(event->position(),
+              event->modifiers().testFlag(Qt::ShiftModifier));
     return;
   }
   const CompEffect* effect = Picked();
@@ -389,12 +406,6 @@ void CompStage::mouseMoveEvent(QMouseEvent* event) {
   }
   const bool is_dragging = dragging_ != Handle::kNone && drag_ != nullptr;
   if (!is_dragging) {
-    const bool is_boxing = pick_.IsBoxing();
-    if (is_boxing) {
-      pick_.Move(event->position());
-      update();
-      return;
-    }
     const bool is_over = HandleUnder(event->position()) != Handle::kNone;
     setCursor(is_over ? Qt::OpenHandCursor : Qt::ArrowCursor);
     return;
@@ -409,26 +420,15 @@ void CompStage::mouseReleaseEvent(QMouseEvent* event) {
   if (was_camera) {
     return;
   }
-  const bool was_handle = dragging_ != Handle::kNone;
   dragging_ = Handle::kNone;
   drag_.reset();
   setCursor(Qt::ArrowCursor);
-  if (!was_handle) {
-    pick_.Release(event->position(), Spot());
-    update();
-  }
 }
 
 void CompStage::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
-  const bool is_escape = event->key() == Qt::Key_Escape;
-  const bool is_box_cancel = is_escape && pick_.IsBoxing();
-  if (is_box_cancel) {
-    pick_.Cancel();
-    update();
-    return;
-  }
-  const bool is_cancel = is_escape && drag_ != nullptr;
+  const bool is_cancel =
+      event->key() == Qt::Key_Escape && drag_ != nullptr;
   if (is_cancel) {
     drag_->Cancel();
     drag_.reset();

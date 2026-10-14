@@ -5,11 +5,9 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <optional>
 #include <utility>
 
 #include "io/comp_fsp_json.h"
-#include "model/shot.h"
 
 namespace snapper {
 namespace {
@@ -33,32 +31,19 @@ constexpr std::array<const char*, kCompFixedKnobCount> kKnobNames = {
     "amount", "size", "angle", "softness", "count",
     "rate",   "ax",   "ay",    "bx",       "by"};
 
-QJsonObject PartToJson(const CompTargetPart& part) {
-  assert(part.layer.IsValid());
-  assert(part.pieces.size() <= static_cast<size_t>(kMaxPieceTracks));
-  QJsonObject object{{"layer", part.layer.value()}};
-  const bool has_pieces = !part.pieces.empty();
+QJsonObject TargetToJson(const CompTarget& target) {
+  QJsonObject object;
+  const bool has_layer = target.layer.IsValid();
+  if (has_layer) {
+    object.insert("layer", target.layer.value());
+  }
+  const bool has_pieces = !target.pieces.empty();
   if (has_pieces) {
     QJsonArray pieces;
-    for (const QString& piece : part.pieces) {
+    for (const QString& piece : target.pieces) {
       pieces.append(piece);
     }
     object.insert("pieces", pieces);
-  }
-  return object;
-}
-
-QJsonObject TargetToJson(const CompTarget& target) {
-  assert(target.parts.size() <= static_cast<size_t>(kMaxLayersPerShot));
-  assert(target.colors.size() <= static_cast<size_t>(kMaxCompColors));
-  QJsonObject object;
-  const bool has_parts = !target.parts.empty();
-  if (has_parts) {
-    QJsonArray layers;
-    for (const CompTargetPart& part : target.parts) {
-      layers.append(PartToJson(part));
-    }
-    object.insert("layers", layers);
   }
   const bool has_colors = !target.colors.empty();
   if (has_colors) {
@@ -67,45 +52,14 @@ QJsonObject TargetToJson(const CompTarget& target) {
   return object;
 }
 
-// One layer and its pieces; a missing or zero layer is no part.
-std::optional<CompTargetPart> PartFromJson(const QJsonObject& object,
-                                           JsonIssues* issues) {
+CompTarget TargetFromJson(const QJsonObject& object, JsonIssues* issues) {
   assert(issues != nullptr);
-  assert(kMaxPieceTracks > 0);
-  CompTargetPart part;
-  part.layer = LayerId(std::max(object.value("layer").toInt(0), 0));
-  const bool has_layer = part.layer.IsValid();
-  if (!has_layer) {
-    return std::nullopt;
-  }
+  CompTarget target;
+  target.layer = LayerId(std::max(object.value("layer").toInt(0), 0));
   const QJsonArray pieces =
       Bounded(object.value("pieces"), kMaxPieceTracks, "pieces", issues);
   for (const QJsonValue& piece : pieces) {
-    part.pieces.push_back(piece.toString());
-  }
-  return part;
-}
-
-// The saved form is a list of layers; files from before several dolls
-// could share a target hold one "layer" and its "pieces" instead.
-CompTarget TargetFromJson(const QJsonObject& object, JsonIssues* issues) {
-  assert(issues != nullptr);
-  assert(kMaxLayersPerShot > 0);
-  CompTarget target;
-  const QJsonArray layers =
-      Bounded(object.value("layers"), kMaxLayersPerShot, "layers", issues);
-  for (const QJsonValue& layer : layers) {
-    const auto part = PartFromJson(layer.toObject(), issues);
-    if (part) {
-      target.parts.push_back(*part);
-    }
-  }
-  const bool is_old = layers.isEmpty() && object.contains("layer");
-  if (is_old) {
-    const auto part = PartFromJson(object, issues);
-    if (part) {
-      target.parts.push_back(*part);
-    }
+    target.pieces.push_back(piece.toString());
   }
   target.colors =
       ColorsFromJson(object.value("colors"), kMaxCompColors, issues);
