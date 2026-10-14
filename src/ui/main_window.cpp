@@ -82,6 +82,7 @@ MainWindow::MainWindow(const Managers& managers)
       timing_action_(tr("Define &timing chart...")),
       settings_actions_(managers),
       storyboard_menu_(managers, &stage_),
+      order_menu_(managers, &stage_),
       space_keys_(this, managers),
       export_action_(tr("&Export...")),
       play_menu_(tr("&Play")),
@@ -171,6 +172,7 @@ void MainWindow::ShowMode(int index) {
                           index == static_cast<int>(Mode::kComp);
   pages_.setCurrentIndex(index);
   storyboard_menu_.Refresh();
+  order_menu_.Refresh();
   managers_.playback->SetTimeline(is_on_reel ? Timeline::kReel
                                              : Timeline::kShots);
   // The cast shows on the Pose and Rig tabs, the inspector only on Pose;
@@ -301,6 +303,7 @@ void MainWindow::BuildMenus() {
   edit_menu_.addActions(settings_actions_.actions());
   edit_menu_.addSeparator();
   edit_menu_.addActions(storyboard_menu_.actions());
+  edit_menu_.addActions(order_menu_.actions());
   // Disabled actions still show why on hover.
   edit_menu_.setToolTipsVisible(true);
   view_menu_.setToolTipsVisible(true);

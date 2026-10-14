@@ -28,6 +28,7 @@
 #include "ui/rig_panel.h"
 #include "ui/shortcut_sheet.h"
 #include "ui/settings_actions.h"
+#include "ui/order_menu.h"
 #include "ui/storyboard_menu.h"
 #include "ui/shot_strip.h"
 #include "ui/success_burst.h"
@@ -153,6 +154,8 @@ class MainWindow final : public QMainWindow {
   SettingsActions settings_actions_;
   // Alt+N and Alt+Shift+N: a new storyboard frame, or draw over one.
   StoryboardMenu storyboard_menu_;
+  // Ctrl+] and Ctrl+[: the pick's draw order one place forward or back.
+  OrderMenu order_menu_;
   // The 1 to 4 keys that space the picked keys.
   SpaceKeysShortcuts space_keys_;
   QAction export_action_;
