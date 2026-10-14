@@ -39,7 +39,12 @@ struct CompEntry final {
   CompKind kind = CompKind::kRimLight;
   QString plugin{};
   bool is_scene_gradient = false;
+
+  bool operator==(const CompEntry&) const = default;
 };
+
+// How many recently used library entries are kept.
+inline constexpr int kMaxRecentEntries = 6;
 
 // An index that means the top of a stack.
 inline constexpr int kOnTop = -1;
@@ -130,9 +135,16 @@ class CompManager final : public QObject {
   Result<CompEffectId> AddSceneGradient(ShotId shot,
                                         const CompTarget& target = {},
                                         int index = kOnTop);
-  // Adds a library entry the way its own Add does (edit/comp_clip.cpp).
+  // Adds a library entry the way its own Add does (edit/comp_clip.cpp)
+  // and puts it first in the recently used.
   Result<CompEffectId> AddEntry(ShotId shot, const CompEntry& entry,
                                 const CompTarget& target, int index);
+  // The library entries added last, newest first; the library keeps
+  // them in the settings file between runs.
+  const std::vector<CompEntry>& recent_entries() const {
+    return recent_entries_;
+  }
+  void SetRecentEntries(std::vector<CompEntry> entries);
   // Ctrl+C: keeps a copy of the effect, for any shot.
   Result<void> Copy(ShotId shot, CompEffectId id);
   // The copied effect's name; empty with nothing copied.
@@ -269,6 +281,7 @@ class CompManager final : public QObject {
   std::map<CompEffectId, double> costs_;
   std::set<CompEffectId> failed_;
   std::optional<CompEffect> copied_;
+  std::vector<CompEntry> recent_entries_;
 };
 
 }  // namespace snapper

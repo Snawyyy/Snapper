@@ -10,14 +10,17 @@
 #include <QWidget>
 
 #include <optional>
+#include <utility>
+#include <vector>
 
 #include "edit/comp_manager.h"
 #include "ui/managers.h"
 
 namespace snapper {
 
-// The Comp tab's left side: every effect Snapper has, its own kinds
-// with the Scene gradient, then F's Plugins, each with its color mark,
+// The Comp tab's left side: the recently used effects, then every
+// effect Snapper has, its own kinds with the Scene gradient, then F's
+// Plugins, each with its color mark,
 // under a search field. Hovering one shows what it does; a double click
 // or Enter adds it on what is picked on the stage (the screen when
 // nothing is); dragging drops it between the listed effects or onto a
@@ -46,6 +49,12 @@ class CompLibrary final : public QWidget {
     }
   }
   void Fill();
+  // Lists the entries again, as the recently used changed.
+  void Refill();
+  void LoadRecent();
+  void SaveRecent();
+  // The words an entry is listed with: its name, then what it does.
+  static std::pair<QString, QString> WordsOf(const CompEntry& entry);
   void AddItem(const QString& name, const QString& help,
                const CompEntry& entry, const QString& why_not);
   void AddHeader(const QString& name, const QString& help);
@@ -67,6 +76,8 @@ class CompLibrary final : public QWidget {
   // Says when the search matches nothing.
   QLabel* none_ = nullptr;
   QListWidgetItem* pressed_ = nullptr;
+  // The recently used as last listed.
+  std::vector<CompEntry> listed_recent_;
   QPoint press_at_;
 };
 

@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <utility>
+#include <vector>
 
 #include "base/text.h"
 #include "edit/comp_manager.h"
@@ -17,12 +18,35 @@ Result<CompEffectId> CompManager::AddEntry(ShotId shot,
   assert(static_cast<int>(entry.kind) < kCompKindCount);
   assert(target.layer.IsValid() || target.pieces.empty());
   const bool is_scene = entry.is_scene_gradient;
-  if (is_scene) {
-    return AddSceneGradient(shot, target, index);
-  }
   const bool is_plugin = entry.kind == CompKind::kFsp;
-  return is_plugin ? AddPlugin(shot, entry.plugin, target, index)
-                   : Add(shot, entry.kind, target, index);
+  const Result<CompEffectId> added =
+      is_scene    ? AddSceneGradient(shot, target, index)
+      : is_plugin ? AddPlugin(shot, entry.plugin, target, index)
+                  : Add(shot, entry.kind, target, index);
+  const bool is_added = added.has_value();
+  if (is_added) {
+    std::vector<CompEntry> recent = recent_entries_;
+    std::erase(recent, entry);
+    recent.insert(recent.begin(), entry);
+    SetRecentEntries(std::move(recent));
+  }
+  return added;
+}
+
+void CompManager::SetRecentEntries(std::vector<CompEntry> entries) {
+  assert(history_ != nullptr);
+  assert(kMaxRecentEntries > 0);
+  const auto most = static_cast<size_t>(kMaxRecentEntries);
+  const bool is_long = entries.size() > most;
+  if (is_long) {
+    entries.resize(most);
+  }
+  const bool is_same = entries == recent_entries_;
+  if (is_same) {
+    return;
+  }
+  recent_entries_ = std::move(entries);
+  emit Changed();
 }
 
 Result<void> CompManager::Copy(ShotId shot, CompEffectId id) {

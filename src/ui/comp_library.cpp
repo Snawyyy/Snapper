@@ -4,10 +4,12 @@
 #include <QDrag>
 #include <QKeyEvent>
 #include <QMouseEvent>
+#include <QSettings>
 
 #include <cassert>
 #include <vector>
 
+#include "edit/document_manager.h"
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
 #include "fsp/fsp_effects.h"
@@ -54,12 +56,20 @@ CompLibrary::CompLibrary(const Managers& managers)
   body_layout_.addWidget(none_);
   body_layout_.addWidget(&list_, 1);
   layout_.addWidget(PlatedSection(tr("Effects"), &body_, this), 1);
+  LoadRecent();
   Fill();
   connect(&search_, &QLineEdit::textChanged, this, &CompLibrary::Filter);
   connect(&search_, &QLineEdit::returnPressed, this,
           [this] { AddPicked(list_.currentItem()); });
   connect(&list_, &QListWidget::itemActivated, this,
           &CompLibrary::AddPicked);
+  connect(managers_.comp, &CompManager::Changed, this, [this] {
+    const bool is_new = managers_.comp->recent_entries() != listed_recent_;
+    if (is_new) {
+      SaveRecent();
+      Refill();
+    }
+  });
   const auto where = [this] { ShowWhere(); };
   connect(managers_.history, &HistoryManager::Changed, this, where);
   connect(managers_.selection, &SelectionManager::Changed, this, where);
@@ -93,35 +103,111 @@ void CompLibrary::AddItem(const QString& name, const QString& help,
                          : Qt::NoItemFlags);
 }
 
+std::pair<QString, QString> CompLibrary::WordsOf(const CompEntry& entry) {
+  assert(static_cast<int>(entry.kind) >= 0);
+  assert(static_cast<int>(entry.kind) < kCompKindCount);
+  const bool is_scene = entry.is_scene_gradient;
+  if (is_scene) {
+    return {tr("Scene gradient"),
+            tr("A gradient ready in one click: warm at the top to cool at "
+               "the bottom, in Overlay. A sunset tint, a dark vignette, a "
+               "top-down light.")};
+  }
+  const bool is_plugin = entry.kind == CompKind::kFsp;
+  if (!is_plugin) {
+    return {CompManager::KindName(entry.kind),
+            CompManager::KindHelp(entry.kind)};
+  }
+  const FspEffectInfo* info =
+      entry.plugin.isEmpty() ? nullptr : FindFspEffect(entry.plugin);
+  const bool has_name = info != nullptr && !info->name.isEmpty();
+  return {has_name ? info->name : entry.plugin,
+          CompManager::PluginHelp(entry.plugin)};
+}
+
 void CompLibrary::Fill() {
   assert(list_.count() == 0);
   const std::vector<FspEffectInfo>& plugins = AllFspEffects();
   assert(plugins.size() <= kMaxPlugins);
-  AddHeader(tr("Snapper"), tr("Snapper's own finishing effects."));
+  listed_recent_ = managers_.comp->recent_entries();
+  const bool has_recent = !listed_recent_.empty();
+  if (has_recent) {
+    AddHeader(tr("Recently used"), tr("The effects you added last."));
+  }
+  std::vector<CompEntry> entries = listed_recent_;
+  const size_t own_at = entries.size();
   for (int i = 0; i < kCompKindCount; ++i) {
     const auto kind = static_cast<CompKind>(i);
     // Plugins are listed by their own names below.
     const bool is_plugin = kind == CompKind::kFsp;
     if (!is_plugin) {
-      AddItem(CompManager::KindName(kind), CompManager::KindHelp(kind),
-              CompEntry{kind, QString(), false}, QString());
+      entries.push_back(CompEntry{kind, QString(), false});
     }
   }
-  AddItem(tr("Scene gradient"),
-          tr("A gradient ready in one click: warm at the top to cool at "
-             "the bottom, in Overlay. A sunset tint, a dark vignette, a "
-             "top-down light."),
-          CompEntry{CompKind::kGradient, QString(), true}, QString());
-  const bool has_plugins = !plugins.empty();
-  if (has_plugins) {
-    AddHeader(tr("F's Plugins"), CompManager::KindHelp(CompKind::kFsp));
-  }
+  entries.push_back(CompEntry{CompKind::kGradient, QString(), true});
+  const size_t plugins_at = entries.size();
   for (const FspEffectInfo& info : plugins) {
-    AddItem(info.name.isEmpty() ? info.id : info.name,
-            CompManager::PluginHelp(info.id),
-            CompEntry{CompKind::kFsp, info.id, false},
-            CompManager::WhyNoPlugin(info.id));
+    entries.push_back(CompEntry{CompKind::kFsp, info.id, false});
   }
+  for (size_t i = 0; i < entries.size(); ++i) {
+    const bool is_own_start = i == own_at;
+    const bool is_plugins_start = i == plugins_at && !plugins.empty();
+    if (is_own_start) {
+      AddHeader(tr("Snapper"), tr("Snapper's own finishing effects."));
+    } else if (is_plugins_start) {
+      AddHeader(tr("F's Plugins"), CompManager::KindHelp(CompKind::kFsp));
+    }
+    const CompEntry& entry = entries[i];
+    const auto [name, help] = WordsOf(entry);
+    const bool is_plugin = entry.kind == CompKind::kFsp;
+    AddItem(name.isEmpty() ? tr("Missing plugin") : name, help, entry,
+            is_plugin ? CompManager::WhyNoPlugin(entry.plugin) : QString());
+  }
+}
+
+void CompLibrary::Refill() {
+  assert(managers_.comp != nullptr);
+  assert(list_.count() < kMaxItems);
+  pressed_ = nullptr;
+  list_.clear();
+  Fill();
+  Filter(search_.text());
+}
+
+void CompLibrary::LoadRecent() {
+  assert(managers_.comp != nullptr);
+  assert(managers_.document != nullptr);
+  const QSettings settings(managers_.document->SettingsPath(),
+                           QSettings::IniFormat);
+  std::vector<CompEntry> entries;
+  for (const QString& saved :
+       settings.value(QStringLiteral("comp/recent")).toStringList()) {
+    const QStringList parts = saved.split(QLatin1Char(','));
+    bool is_number = false;
+    const int kind = parts.value(0).toInt(&is_number);
+    const bool is_entry = parts.size() == 3 && is_number && kind >= 0 &&
+                          kind < kCompKindCount;
+    if (is_entry) {
+      entries.push_back(CompEntry{static_cast<CompKind>(kind), parts[2],
+                                  parts[1] == QStringLiteral("1")});
+    }
+  }
+  managers_.comp->SetRecentEntries(std::move(entries));
+}
+
+void CompLibrary::SaveRecent() {
+  assert(managers_.comp != nullptr);
+  assert(managers_.document != nullptr);
+  QStringList saved;
+  for (const CompEntry& entry : managers_.comp->recent_entries()) {
+    saved.push_back(QStringLiteral("%1,%2,%3")
+                        .arg(static_cast<int>(entry.kind))
+                        .arg(entry.is_scene_gradient ? 1 : 0)
+                        .arg(entry.plugin));
+  }
+  QSettings settings(managers_.document->SettingsPath(),
+                     QSettings::IniFormat);
+  settings.setValue(QStringLiteral("comp/recent"), saved);
 }
 
 std::optional<CompEntry> CompLibrary::EntryAt(
