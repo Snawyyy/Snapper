@@ -16,7 +16,6 @@ namespace {
 
 constexpr const char* kEngineKey = "voice/engine";
 constexpr const char* kEmotionKey = "voice/emotion";
-constexpr int kChatterboxIndex = 1;
 
 }  // namespace
 
@@ -26,16 +25,23 @@ VoiceEngineBox::VoiceEngineBox(const Managers& managers)
   assert(managers_.document != nullptr);
   column_.setContentsMargins(0, 0, 0, 0);
   column_.setSpacing(4);
-  engine_.addItem(tr("Qwen3"));
-  engine_.addItem(tr("Chatterbox"));
-  // The two models share the row's width, like tiles.
+  for (int engine = 0; engine < kVoiceEngineCount; ++engine) {
+    engine_.addItem(VoiceEngineName(static_cast<VoiceEngine>(engine)));
+  }
+  // The models share the row's width, like tiles.
   for (QToolButton* choice : engine_.findChildren<QToolButton*>()) {
     choice->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
   }
   engine_.setToolTip(tr("Qwen3 follows the sample closely and copies its "
-                        "mood. Chatterbox needs no words and lets you set "
-                        "the emotion."));
+                        "mood. Chatterbox needs no words and takes one "
+                        "emotion for the line. IndexTTS takes a feeling "
+                        "for each sentence: {mad}, {confused}..."));
   column_.addWidget(MakeNamedRow(tr("Model"), &engine_, this));
+  feelings_hint_ = EmptyHint(
+      tr("Put a feeling after each sentence: Who are you? {confused} "
+         "Get out! {mad}"),
+      this);
+  column_.addWidget(feelings_hint_);
   emotion_.setRange(kMinEmotion, kMaxEmotion);
   emotion_.setSingleStep(0.05);
   emotion_.setDecimals(2);
@@ -44,11 +50,9 @@ VoiceEngineBox::VoiceEngineBox(const Managers& managers)
   column_.addWidget(emotion_row_);
   const QSettings settings(managers_.document->SettingsPath(),
                            QSettings::IniFormat);
-  engine_.setCurrentIndex(
-      settings.value(QString::fromLatin1(kEngineKey), 0).toInt() ==
-              kChatterboxIndex
-          ? kChatterboxIndex
-          : 0);
+  const int saved = settings.value(QString::fromLatin1(kEngineKey), 0).toInt();
+  const bool is_known = saved >= 0 && saved < kVoiceEngineCount;
+  engine_.setCurrentIndex(is_known ? saved : 0);
   emotion_.setValue(
       settings.value(QString::fromLatin1(kEmotionKey), kPlainEmotion)
           .toDouble());
@@ -63,15 +67,15 @@ VoiceEngineBox::VoiceEngineBox(const Managers& managers)
 }
 
 VoiceEngine VoiceEngineBox::engine() const {
-  assert(engine_.count() == 2);
-  assert(kChatterboxIndex == 1);
-  return engine_.currentIndex() == kChatterboxIndex ? VoiceEngine::kChatterbox
-                                                    : VoiceEngine::kQwen;
+  assert(engine_.count() == kVoiceEngineCount);
+  assert(engine_.currentIndex() < kVoiceEngineCount);
+  const int picked = engine_.currentIndex();
+  return picked >= 0 ? static_cast<VoiceEngine>(picked) : VoiceEngine::kQwen;
 }
 
 void VoiceEngineBox::Remember() const {
   assert(managers_.document != nullptr);
-  assert(engine_.count() == 2);
+  assert(engine_.count() == kVoiceEngineCount);
   QSettings settings(managers_.document->SettingsPath(),
                      QSettings::IniFormat);
   settings.setValue(QString::fromLatin1(kEngineKey), engine_.currentIndex());
@@ -85,6 +89,7 @@ void VoiceEngineBox::Refresh() {
   const VoiceEngine picked = engine();
   const QString no_engine = gen.WhyNoEngine(picked);
   const QString no_emotion = gen.WhyNoEmotion(picked);
+  feelings_hint_->setVisible(picked == VoiceEngine::kIndex);
   Explain(emotion_row_, no_emotion.isEmpty() ? no_engine : no_emotion,
           tr("How much feeling: low is flat, %1 is plain speech, high is "
              "wild. Strong feeling also slows the pace a little.")

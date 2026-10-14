@@ -2,6 +2,7 @@
 #define SNAPPER_UI_VOICE_ENGINE_BOX_H_
 
 #include <QDoubleSpinBox>
+#include <QLabel>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -11,8 +12,9 @@
 
 namespace snapper {
 
-// The Voice panel's clone settings: which model clones (Qwen3 or
-// Chatterbox) and, for Chatterbox, the emotion from flat to wild on a
+// The Voice panel's clone settings: which model clones (Qwen3, Chatterbox
+// or IndexTTS, whose {feeling} marks a hint explains) and, for the last
+// two, how strongly to feel, from flat to wild on a
 // fader (double click puts it back to plain). Both are remembered. The
 // fader is greyed with VoiceGenManager's reason when the model can't
 // take an emotion, and a model not installed says so.
@@ -38,6 +40,8 @@ class VoiceEngineBox final : public QWidget {
   ChoiceRow engine_;
   QDoubleSpinBox emotion_;
   QWidget* emotion_row_ = nullptr;
+  // How to mark feelings; shown for IndexTTS only.
+  QLabel* feelings_hint_ = nullptr;
 };
 
 }  // namespace snapper

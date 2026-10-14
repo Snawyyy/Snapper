@@ -27,9 +27,21 @@ QString VoicePython(const QString& data_folder, VoiceEngine engine) {
   assert(!data_folder.isEmpty());
   assert(kScriptName != nullptr);
   const bool is_chatterbox = engine == VoiceEngine::kChatterbox;
+  const bool is_index = engine == VoiceEngine::kIndex;
   return QDir(data_folder).filePath(
       is_chatterbox ? QStringLiteral("voice_gen/chatterbox_venv/bin/python")
+      : is_index    ? QStringLiteral("voice_gen/index-tts/.venv/bin/python")
                     : QStringLiteral("voice_gen/venv/bin/python"));
+}
+
+QString VoiceEngineName(VoiceEngine engine) {
+  assert(static_cast<int>(engine) >= 0);
+  assert(static_cast<int>(engine) < kVoiceEngineCount);
+  const bool is_chatterbox = engine == VoiceEngine::kChatterbox;
+  const bool is_index = engine == VoiceEngine::kIndex;
+  return is_chatterbox ? Tr("Chatterbox")
+         : is_index    ? Tr("IndexTTS")
+                       : Tr("Qwen3");
 }
 
 VoiceGenManager::VoiceGenManager(DocumentManager* document,
@@ -103,7 +115,8 @@ Result<void> VoiceGenManager::SpeakClone(const QString& sample_path,
                                          VoiceEngine engine, double emotion) {
   assert(voices_ != nullptr);
   assert(emotion >= kMinEmotion && emotion <= kMaxEmotion);
-  const QString why_not = WhyNoSpeakClone(sample_path, text, engine);
+  const QString why_not =
+      WhyNoSpeakClone(sample_path, text, engine, language);
   const bool is_blocked = !why_not.isEmpty();
   if (is_blocked) {
     return std::unexpected(Error{why_not});

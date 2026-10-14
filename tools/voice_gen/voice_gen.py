@@ -1,4 +1,5 @@
-"""Snapper's voice worker: speaks lines with Qwen3-TTS or Chatterbox.
+"""Snapper's voice worker: speaks lines with Qwen3-TTS, Chatterbox or
+IndexTTS-2.5.
 
 Snapper starts this once and keeps it running, so a model loads only on
 its first job. Each engine has its own Python (their libraries clash),
@@ -12,6 +13,10 @@ stdout:
   {"id": 2, "kind": "clone", "engine": "chatterbox", "emotion": 0.5,
    "text": "...", "language": "English", "sample": "/path/sample.wav",
    "out": "/path/out.wav"}
+  {"id": 5, "kind": "clone", "engine": "index", "emotion": 0.5,
+   "text": "Hi, who are you? {confused} This is private property! {mad}",
+   "language": "English", "sample": "/path/sample.wav",
+   "out": "/path/out.wav"}
   {"id": 3, "kind": "design", "text": "...", "language": "English",
    "describe": "a cheerful young boy", "out": "/path/out.wav"}
   {"id": 4, "kind": "transcribe", "sample": "/path/sample.wav"}
@@ -23,9 +28,11 @@ stdout:
   {"id": 1, "state": "error", "why": "..."}
 
 Qwen with an empty "words" clones from the sound of the sample alone,
-which is less close; Chatterbox never needs the words. "emotion" is
-Chatterbox's exaggeration, 0.25 (flat) to 2 (wild), 0.5 plain. Anything
-the libraries print goes to stderr, never stdout.
+which is less close; Chatterbox and IndexTTS never need the words.
+"emotion" is how strongly to feel, 0.25 (flat) to 2 (wild), 0.5 plain.
+IndexTTS reads a {feeling} after each sentence as the feeling of the
+text since the last one; the other engines drop the braces unsaid.
+Anything the libraries print goes to stderr, never stdout.
 """
 
 import json
@@ -48,6 +55,12 @@ kChatterboxLanguages = {
     "Italian": "it",
 }
 
+# The languages IndexTTS speaks, as its language codes; Auto is English.
+kIndexLanguages = {"Auto": "en", "English": "en", "Chinese": "zh",
+                   "Japanese": "ja", "Spanish": "es"}
+# Silence between two feelings of one line, in seconds.
+kFeelingGap = 0.15
+
 # The libraries print progress; only answers may reach Snapper.
 kAnswers = sys.stdout
 sys.stdout = sys.stderr
@@ -56,6 +69,31 @@ sys.stdout = sys.stderr
 def Say(answer):
     kAnswers.write(json.dumps(answer) + "\n")
     kAnswers.flush()
+
+
+def Feelings(text):
+    """Splits a line at its {feeling} marks: a list of (words, feeling),
+    feeling None for words with no mark after them."""
+    import re
+    parts = []
+    # A mark with no words before it (the line starts with one) is for
+    # the words after it.
+    ahead = None
+    for words, feeling in re.findall(r"([^{}]*)(?:\{([^{}]*)\})?", text):
+        words = words.strip().strip('"').strip()
+        feeling = feeling.strip() or None
+        if words:
+            parts.append((words, feeling or ahead))
+            ahead = None
+        elif feeling:
+            ahead = feeling
+    return parts
+
+
+def Plain(text):
+    """The line with its {feeling} marks taken out, for the engines that
+    would say them."""
+    return " ".join(words for words, _ in Feelings(text))
 
 
 def Load(name):
@@ -75,6 +113,14 @@ def Load(name):
         model.s3gen.inference = functools.partial(
             model.s3gen.inference, n_cfm_timesteps=kChatterboxSteps)
         return model
+    if name == "index":
+        # This Python lives in index-tts/.venv; the models beside it.
+        import pathlib
+        home = pathlib.Path(sys.executable).parents[2]
+        from indextts.infer_v2_5 import IndexTTS2
+        return IndexTTS2(cfg_path=str(home / "checkpoints/config.yaml"),
+                         model_dir=str(home / "checkpoints"), use_bf16=True,
+                         use_qwen_emo=True)
     from qwen_tts import Qwen3TTSModel
     return Qwen3TTSModel.from_pretrained(
         kModels[name], device_map="cuda:0", dtype=torch.bfloat16)
@@ -128,6 +174,35 @@ class Speaker:
                              **extra)
         return wav.squeeze(0).cpu().numpy(), model.sr
 
+    def Index(self, job):
+        """Returns the waveform and its rate: each part of the line in its
+        own feeling, short gaps between them."""
+        import numpy
+        language = job.get("language") or "Auto"
+        if language not in kIndexLanguages:
+            raise ValueError(f"IndexTTS does not speak {language}; it "
+                             "speaks English, Chinese, Japanese and Spanish.")
+        model = self.Model("index", job["id"])
+        Say({"id": job["id"], "state": "speaking"})
+        # The fader's plain 0.5 is IndexTTS's suggested 0.6.
+        alpha = min(1.0, max(0.1, float(job.get("emotion", 0.5)) * 1.2))
+        pieces = []
+        rate = 22050
+        for words, feeling in Feelings(job["text"]):
+            felt = {"use_emo_text": True, "emo_text": feeling,
+                    "emo_alpha": alpha} if feeling else {}
+            rate, wav = model.infer(
+                spk_audio_prompt=job["sample"], text=words, output_path=None,
+                lang=kIndexLanguages[language], **felt)
+            pieces.append(numpy.asarray(wav, dtype=numpy.float32).reshape(-1))
+            pieces.append(numpy.zeros(int(rate * kFeelingGap), numpy.float32))
+        if not pieces:
+            raise ValueError("The line has no words to say.")
+        wav = numpy.concatenate(pieces[:-1])
+        loudest = float(numpy.abs(wav).max()) or 1.0
+        # IndexTTS hands back whole numbers; the file wants -1 to 1.
+        return (wav / 32768.0 if loudest > 1.0 else wav), rate
+
     def Qwen(self, job):
         """Returns the waveform and its rate."""
         kind = job["kind"]
@@ -150,8 +225,11 @@ class Speaker:
         kind = job.get("kind")
         if kind not in ("clone", "design"):
             raise ValueError(f"unknown job kind {kind!r}")
-        is_chatterbox = kind == "clone" and job.get("engine") == "chatterbox"
-        speak = self.Chatterbox if is_chatterbox else self.Qwen
+        engine = job.get("engine") if kind == "clone" else "qwen"
+        if engine != "index":
+            job = dict(job, text=Plain(job["text"]))
+        speak = {"chatterbox": self.Chatterbox,
+                 "index": self.Index}.get(engine, self.Qwen)
         try:
             wav, rate = speak(job)
         except Exception as problem:

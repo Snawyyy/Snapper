@@ -20,6 +20,8 @@ class VoiceLibrary;
 // Where setup.sh puts the Python of engine, under the data folder; each
 // engine has its own, as their libraries clash.
 QString VoicePython(const QString& data_folder, VoiceEngine engine);
+// The engine's name as the panel shows it.
+QString VoiceEngineName(VoiceEngine engine);
 
 // Speaking lines in a cloned or designed voice, for the Voice panel on
 // the Video tab. The speaking is done by tools/voice_gen/voice_gen.py in
@@ -47,7 +49,7 @@ class VoiceGenManager final : public QObject {
 
   // Why a line can't be spoken now; empty when it can.
   QString WhyNoSpeakClone(const QString& sample_path, const QString& text,
-                          VoiceEngine engine) const;
+                          VoiceEngine engine, const QString& language) const;
   // Why engine can't be used: its Python is not installed.
   QString WhyNoEngine(VoiceEngine engine) const;
   // Why the emotion can't be set with engine (Qwen copies the sample's).

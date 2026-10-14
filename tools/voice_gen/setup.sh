@@ -1,8 +1,9 @@
 #!/bin/sh
-# Installs the voice worker's two Pythons and their models where Snapper
-# looks for them: Qwen3-TTS and Whisper in venv (about 11 GB), Chatterbox
-# in chatterbox_venv (about 4 GB; its libraries clash with Qwen's, so it
-# has its own). Needs uv and an NVIDIA GPU. Run again to update.
+# Installs the voice worker's three Pythons and their models where
+# Snapper looks for them: Qwen3-TTS and Whisper in venv (about 11 GB),
+# Chatterbox in chatterbox_venv (about 4 GB) and IndexTTS-2.5 in
+# index-tts (about 13 GB); their libraries clash, so each has its own.
+# Needs uv, git and an NVIDIA GPU. Run again to update.
 home="${XDG_DATA_HOME:-$HOME/.local/share}/Snapper/Snapper/voice_gen"
 mkdir -p "$home" || exit 1
 cd "$home" || exit 1
@@ -20,4 +21,12 @@ fi
 VIRTUAL_ENV="$home/chatterbox_venv" \
   uv pip install -U chatterbox-tts soundfile "setuptools<81" || exit 1
 venv/bin/hf download ResembleAI/chatterbox || exit 1
+# IndexTTS-2.5 (about 13 GB with its Python): cloned with its own lock
+# file, the models beside it in checkpoints, where the worker looks.
+if [ ! -d index-tts ]; then
+  git clone https://github.com/index-tts/index-tts.git || exit 1
+fi
+(cd index-tts && git pull --ff-only && uv sync --extra webui) || exit 1
+index-tts/.venv/bin/hf download IndexTeam/IndexTTS-2.5 \
+  --local-dir=index-tts/checkpoints || exit 1
 echo "Voice gen is ready: $home"
