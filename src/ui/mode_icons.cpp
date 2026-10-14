@@ -76,4 +76,23 @@ QIcon ModeIcon(int index, bool is_picked) {
   return QIcon(pixmap);
 }
 
+QIcon EyedropperIcon(bool is_on) {
+  assert(kModeIconPx == 16);
+  QPixmap pixmap(kModeIconPx, kModeIconPx);
+  pixmap.fill(Qt::transparent);
+  QPainter painter(&pixmap);
+  assert(painter.isActive());
+  painter.setRenderHint(QPainter::Antialiasing);
+  const QColor ink = is_on ? theme::kPick : theme::kText;
+  painter.setPen(QPen(ink, 1.4, Qt::SolidLine, Qt::RoundCap));
+  // The bulb up right, the glass down to the tip at the bottom left.
+  painter.setBrush(ink);
+  painter.drawEllipse(QPointF(12, 4), 2.5, 2.5);
+  painter.setBrush(Qt::NoBrush);
+  painter.drawLine(QPointF(8.5, 7.5), QPointF(3, 13));
+  painter.drawLine(QPointF(7, 5.5), QPointF(10.5, 9));
+  painter.drawPoint(QPointF(2, 14));
+  return QIcon(pixmap);
+}
+
 }  // namespace snapper

@@ -12,6 +12,7 @@
 
 #include "edit/palette_manager.h"
 #include "ui/fold_section.h"
+#include "ui/mode_icons.h"
 #include "ui/panel_kit.h"
 #include "ui/theme.h"
 
@@ -46,6 +47,8 @@ PalettePanel::PalettePanel(PaletteManager* palette, MotionManager* motion,
   BuildSections(motion);
   auto* row = MakeOwned<QHBoxLayout>(&current_row_);
   row->setContentsMargins(0, 0, 0, 0);
+  // The eyedropper sits bottom left, next to the color it fills in.
+  row->addWidget(&pick_);
   // A square sunken well filled with the current color.
   current_swatch_.setFixedSize(44, 22);
   current_swatch_.setFrameStyle(QFrame::Panel | QFrame::Sunken);
@@ -60,6 +63,9 @@ PalettePanel::PalettePanel(PaletteManager* palette, MotionManager* motion,
   connect(&fold_, &QToolButton::clicked, this,
           [this] { SetFolded(!is_folded_); });
   connect(&close_, &QToolButton::clicked, this, [this] { SetOpen(false); });
+  connect(&pick_, &QToolButton::toggled, this, [this](bool is_on) {
+    pick_.setIcon(EyedropperIcon(is_on));
+  });
   connect(&pick_, &QToolButton::clicked, this, [this](bool is_on) {
     if (is_on) {
       StartEyedropper();
@@ -82,7 +88,9 @@ void PalettePanel::BuildTitle() {
   title_text_.setFont(bold);
   pick_.setAutoRaise(true);
   pick_.setCheckable(true);
-  pick_.setText(tr("Pick"));
+  pick_.setIcon(EyedropperIcon(false));
+  pick_.setIconSize(QSize(kModeIconPx, kModeIconPx));
+  pick_.setFixedSize(26, 22);
   pick_.setToolTip(tr("Eyedropper: click anywhere in the window to pick "
                       "the color there. Escape or a right click cancels."));
   fold_.setAutoRaise(true);
@@ -91,7 +99,6 @@ void PalettePanel::BuildTitle() {
   close_.setText(QStringLiteral("x"));
   close_.setToolTip(tr("Close the palette"));
   title_row->addWidget(&title_text_, 1);
-  title_row->addWidget(&pick_);
   title_row->addWidget(&fold_);
   title_row->addWidget(&close_);
   layout_.addWidget(&title_);
