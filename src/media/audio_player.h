@@ -59,6 +59,8 @@ class AudioPlayer final : public QObject {
   std::unique_ptr<QAudioSink> sink_;
   QElapsedTimer silent_clock_;
   double start_ = 0.0;
+  // What the sink had played when start_ was last set by a jump.
+  qint64 sink_base_usecs_ = 0;
   bool is_playing_ = false;
 };
 

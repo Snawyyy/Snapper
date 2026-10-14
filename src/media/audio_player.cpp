@@ -91,6 +91,16 @@ void AudioPlayer::SetClip(std::shared_ptr<const AudioClip> clip) {
 
 void AudioPlayer::Play(double from_seconds) {
   assert(std::isfinite(from_seconds));
+  // Scrubbing while playing jumps the open sink instead of remaking it:
+  // a sink made and dropped on every mouse move crashes PipeWire.
+  const bool is_sink_open = sink_ != nullptr && source_ != nullptr &&
+                            sink_->state() != QAudio::StoppedState;
+  if (is_sink_open) {
+    start_ = std::max(from_seconds, 0.0);
+    sink_base_usecs_ = sink_->processedUSecs();
+    source_->Seek(start_);
+    return;
+  }
   Stop();
   start_ = std::max(from_seconds, 0.0);
   is_playing_ = true;
@@ -101,6 +111,7 @@ void AudioPlayer::Play(double from_seconds) {
     source_->Seek(start_);
     sink_ = std::make_unique<QAudioSink>(QMediaDevices::defaultAudioOutput(),
                                          ClipFormat());
+    sink_base_usecs_ = 0;
     sink_->start(source_.get());
   }
   assert(is_playing_);
@@ -129,7 +140,9 @@ double AudioPlayer::Position() const {
   const bool is_sounding = sink_ != nullptr &&
                            sink_->state() != QAudio::StoppedState;
   const double played =
-      is_sounding ? static_cast<double>(sink_->processedUSecs()) / 1e6
+      is_sounding
+          ? static_cast<double>(sink_->processedUSecs() - sink_base_usecs_) /
+                1e6
                   : static_cast<double>(silent_clock_.nsecsElapsed()) / 1e9;
   return start_ + played;
 }
