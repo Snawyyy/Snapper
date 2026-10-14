@@ -3,137 +3,71 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QColorDialog>
-#include <QContextMenuEvent>
+#include <QFormLayout>
 #include <QHBoxLayout>
 #include <QMenu>
-#include <QMouseEvent>
-#include <QPainter>
-#include <QSettings>
 
-#include <algorithm>
+#include <array>
 #include <cassert>
 
 #include "edit/palette_manager.h"
+#include "ui/fold_section.h"
+#include "ui/panel_kit.h"
 #include "ui/theme.h"
 
 namespace snapper {
 namespace {
 
-constexpr int kSwatch = 22;
-constexpr int kGap = 3;
-constexpr int kPanelWidth = 8 * (kSwatch + kGap) + kGap + 16;
-constexpr char kPlaceKey[] = "palette/place";
-constexpr char kSizeKey[] = "palette/size";
-// The resize corner, and the smallest the panel gets.
-constexpr int kGrip = 14;
-constexpr int kMinWidth = 3 * (kSwatch + kGap) + kGap + 16;
-constexpr int kMinHeight = 60;
+// A quiet small title over one of the doll's grids.
+QLabel* GridTitle(const QString& text, QWidget* parent) {
+  assert(!text.isEmpty());
+  assert(parent != nullptr);
+  auto* title = MakeOwned<QLabel>(text, parent);
+  QPalette dim = title->palette();
+  dim.setColor(QPalette::WindowText, theme::kTextOff);
+  title->setPalette(dim);
+  return title;
+}
 
 }  // namespace
 
-SwatchGrid::SwatchGrid() {
-  setMouseTracking(true);
-  setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-}
-
-void SwatchGrid::SetColors(std::vector<QColor> colors, const QColor& current) {
-  colors_ = std::move(colors);
-  current_ = current;
-  updateGeometry();
-  update();
-}
-
-int SwatchGrid::Columns() const {
-  return std::max(1, (width() - kGap) / (kSwatch + kGap));
-}
-
-int SwatchGrid::heightForWidth(int width) const {
-  const int columns = std::max(1, (width - kGap) / (kSwatch + kGap));
-  const int count = static_cast<int>(colors_.size());
-  const int rows = std::max(1, (count + columns - 1) / columns);
-  return rows * (kSwatch + kGap) + kGap;
-}
-
-QSize SwatchGrid::sizeHint() const {
-  return QSize(kPanelWidth - 16, heightForWidth(kPanelWidth - 16));
-}
-
-QColor SwatchGrid::ColorAt(QPoint point) const {
-  const int column = (point.x() - kGap) / (kSwatch + kGap);
-  const int row = (point.y() - kGap) / (kSwatch + kGap);
-  const bool is_inside = point.x() >= kGap && point.y() >= kGap &&
-                         column < Columns();
-  const int index = row * Columns() + column;
-  if (!is_inside || index >= static_cast<int>(colors_.size())) {
-    return {};
-  }
-  return colors_[static_cast<size_t>(index)];
-}
-
-void SwatchGrid::paintEvent(QPaintEvent* event) {
-  assert(event != nullptr);
-  QPainter painter(this);
-  painter.setRenderHint(QPainter::Antialiasing);
-  const int columns = Columns();
-  for (size_t i = 0; i < colors_.size(); ++i) {
-    const int index = static_cast<int>(i);
-    const QRect box(kGap + (index % columns) * (kSwatch + kGap),
-                    kGap + (index / columns) * (kSwatch + kGap), kSwatch,
-                    kSwatch);
-    const QColor& color = colors_[i];
-    const bool is_current = color == current_;
-    const bool is_hovered = color == hovered_;
-    painter.setPen(is_current   ? QPen(theme::kPick, 2.0)
-                   : is_hovered ? QPen(theme::kHandle, 1.5)
-                                : QPen(theme::kShadow, 1.0));
-    painter.setBrush(color);
-    painter.drawRect(QRectF(box).adjusted(0.5, 0.5, -0.5, -0.5));
-  }
-}
-
-void SwatchGrid::mouseMoveEvent(QMouseEvent* event) {
-  assert(event != nullptr);
-  const QColor color = ColorAt(event->position().toPoint());
-  if (color != hovered_) {
-    hovered_ = color;
-    update();
-    emit Hovered(color);
-  }
-}
-
-void SwatchGrid::mousePressEvent(QMouseEvent* event) {
-  assert(event != nullptr);
-  // The panel takes the press: a click picks, a drag moves the panel.
-  event->ignore();
-}
-
-void SwatchGrid::leaveEvent(QEvent* event) {
-  QWidget::leaveEvent(event);
-  hovered_ = QColor();
-  update();
-  emit Hovered(QColor());
-}
-
-void SwatchGrid::contextMenuEvent(QContextMenuEvent* event) {
-  assert(event != nullptr);
-  emit MenuAsked(ColorAt(event->pos()), event->globalPos());
-}
-
-PalettePanel::PalettePanel(PaletteManager* palette, QString settings_path,
-                           QWidget* window)
+PalettePanel::PalettePanel(PaletteManager* palette, MotionManager* motion,
+                           QString settings_path, QWidget* window)
     : QWidget(window),
       palette_(palette),
       settings_path_(std::move(settings_path)),
       layout_(this) {
   assert(palette_ != nullptr);
   assert(window != nullptr);
-  setAttribute(Qt::WA_StyledBackground);
-  setMinimumWidth(kMinWidth);
-  resize(kPanelWidth, height());
-  setMouseTracking(true);
+  SetUpFrame();
   layout_.setContentsMargins(8, 6, 8, 8);
   layout_.setSpacing(4);
-  auto* title_row = new QHBoxLayout(&title_);
+  BuildTitle();
+  BuildSections(motion);
+  auto* row = MakeOwned<QHBoxLayout>(&current_row_);
+  row->setContentsMargins(0, 0, 0, 0);
+  // A square sunken well filled with the current color.
+  current_swatch_.setFixedSize(44, 22);
+  current_swatch_.setFrameStyle(QFrame::Panel | QFrame::Sunken);
+  current_swatch_.setAutoFillBackground(true);
+  row->addWidget(&current_swatch_);
+  row->addWidget(&current_hex_, 1);
+  layout_.addWidget(&current_row_);
+  connect(palette_, &PaletteManager::Changed, this, &PalettePanel::Refresh);
+  // Draw mode opens and closes the palette through the manager.
+  connect(palette_, &PaletteManager::ShownChanged, this,
+          &PalettePanel::SetOpen);
+  connect(&fold_, &QToolButton::clicked, this,
+          [this] { SetFolded(!is_folded_); });
+  connect(&close_, &QToolButton::clicked, this, [this] { SetOpen(false); });
+  SetFolded(false);
+  hide();
+}
+
+void PalettePanel::BuildTitle() {
+  assert(layout_.count() == 0);
+  assert(title_.layout() == nullptr);
+  auto* title_row = MakeOwned<QHBoxLayout>(&title_);
   title_row->setContentsMargins(0, 0, 0, 0);
   title_text_.setText(tr("Palette"));
   QFont bold = title_text_.font();
@@ -147,46 +81,59 @@ PalettePanel::PalettePanel(PaletteManager* palette, QString settings_path,
   title_row->addWidget(&title_text_, 1);
   title_row->addWidget(&fold_);
   title_row->addWidget(&close_);
-  setCursor(Qt::SizeAllCursor);
-  for (const QString& name :
-       {tr("Piece"), tr("Doll"), tr("Recent"), tr("Added")}) {
-    tabs_.addTab(name);
-  }
-  tabs_.setExpanding(true);
-  tabs_.setDrawBase(false);
-  empty_.setWordWrap(true);
-  QPalette dim = empty_.palette();
-  dim.setColor(QPalette::WindowText, theme::kTextOff);
-  empty_.setPalette(dim);
-  auto* row = new QHBoxLayout(&current_row_);
-  row->setContentsMargins(0, 0, 0, 0);
-  // A square sunken well filled with the current color.
-  current_swatch_.setFixedSize(44, 22);
-  current_swatch_.setFrameStyle(QFrame::Panel | QFrame::Sunken);
-  current_swatch_.setAutoFillBackground(true);
-  row->addWidget(&current_swatch_);
-  row->addWidget(&current_hex_, 1);
   layout_.addWidget(&title_);
-  layout_.addWidget(&tabs_);
-  layout_.addWidget(&empty_);
-  layout_.addWidget(&grid_);
-  layout_.addWidget(&current_row_);
-  connect(&tabs_, &QTabBar::currentChanged, this, &PalettePanel::Refresh);
-  connect(palette_, &PaletteManager::Changed, this, &PalettePanel::Refresh);
-  // Draw mode opens and closes the palette through the manager.
-  connect(palette_, &PaletteManager::ShownChanged, this,
-          &PalettePanel::SetOpen);
-  connect(&grid_, &SwatchGrid::Hovered, palette_, &PaletteManager::Hover);
-  connect(&grid_, &SwatchGrid::MenuAsked, this, &PalettePanel::ShowMenu);
-  connect(&fold_, &QToolButton::clicked, this,
-          [this] { SetFolded(!is_folded_); });
-  connect(&close_, &QToolButton::clicked, this, [this] { SetOpen(false); });
-  SetFolded(false);
-  hide();
+}
+
+void PalettePanel::BuildSections(MotionManager* motion) {
+  assert(motion != nullptr);
+  assert(wheel_fold_ == nullptr);
+  wheel_fold_ = MakeOwned<FoldSection>(tr("Color wheel"), motion,
+                                       settings_path_,
+                                       QStringLiteral("palette_wheel"), this,
+                                       true);
+  wheel_ = MakeOwned<ColorWheel>(wheel_fold_);
+  wheel_fold_->form()->addRow(wheel_);
+  recent_fold_ = MakeOwned<FoldSection>(tr("Recent"), motion, settings_path_,
+                                        QStringLiteral("palette_recent"),
+                                        this, true);
+  recent_ = MakeOwned<SwatchGrid>(recent_fold_);
+  recent_empty_ = EmptyHint(tr("Colors you pick show up here."),
+                            recent_fold_);
+  recent_fold_->form()->addRow(recent_);
+  recent_fold_->form()->addRow(recent_empty_);
+  doll_fold_ = MakeOwned<FoldSection>(tr("Doll"), motion, settings_path_,
+                                      QStringLiteral("palette_doll"), this,
+                                      true);
+  QFormLayout* form = doll_fold_->form();
+  piece_title_ = GridTitle(tr("This piece"), doll_fold_);
+  piece_ = MakeOwned<SwatchGrid>(doll_fold_);
+  doll_title_ = GridTitle(tr("Whole doll"), doll_fold_);
+  doll_ = MakeOwned<SwatchGrid>(doll_fold_);
+  added_title_ = GridTitle(tr("Added (right click to add)"), doll_fold_);
+  added_ = MakeOwned<SwatchGrid>(doll_fold_);
+  for (QWidget* widget : std::array<QWidget*, 6>{
+           piece_title_, piece_, doll_title_, doll_, added_title_, added_}) {
+    form->addRow(widget);
+  }
+  for (FoldSection* fold : {wheel_fold_, recent_fold_, doll_fold_}) {
+    layout_.addWidget(fold);
+  }
+  connect(wheel_, &ColorWheel::Picked, palette_, &PaletteManager::Pick);
+  for (SwatchGrid* grid : {recent_, piece_, doll_, added_}) {
+    const bool is_added = grid == added_;
+    connect(grid, &SwatchGrid::Hovered, palette_, &PaletteManager::Hover);
+    connect(grid, &SwatchGrid::MenuAsked, this,
+            [this, is_added](const QColor& color, const QPoint& global) {
+              ShowMenu(color, global, is_added);
+            });
+  }
 }
 
 void PalettePanel::SetOpen(bool is_open) {
-  if (is_open == isVisible()) {
+  assert(palette_ != nullptr);
+  assert(width() >= 0);
+  const bool is_same = is_open == isVisible();
+  if (is_same) {
     return;
   }
   if (is_open) {
@@ -202,34 +149,30 @@ void PalettePanel::SetOpen(bool is_open) {
   emit OpenChanged(is_open);
 }
 
+void PalettePanel::ShowGrid(SwatchGrid* grid, QLabel* title,
+                            std::vector<QColor> colors, bool is_shown) {
+  assert(grid != nullptr);
+  assert(title != nullptr);
+  grid->SetColors(std::move(colors), palette_->current());
+  grid->setVisible(is_shown);
+  title->setVisible(is_shown);
+}
+
 void PalettePanel::Refresh() {
   assert(palette_ != nullptr);
-  std::vector<QColor> colors;
-  QString why;
-  switch (tab()) {
-    case Tab::kPiece:
-      colors = palette_->PieceColors();
-      why = tr("Pick a piece to see its colors.");
-      break;
-    case Tab::kDoll:
-      colors = palette_->DollColors();
-      why = tr("Pick a doll to see its colors.");
-      break;
-    case Tab::kRecent:
-      colors = palette_->RecentColors();
-      why = tr("Colors you pick show up here.");
-      break;
-    case Tab::kAdded:
-      colors = palette_->AddedColors();
-      why = palette_->DollName().isEmpty()
-                ? tr("Pick a doll; added colors are kept with it.")
-                : tr("Right click to add a color.");
-      break;
-  }
+  assert(wheel_ != nullptr);
   const QColor current = palette_->current();
-  grid_.SetColors(colors, current);
-  empty_.setText(why);
-  empty_.setVisible(!is_folded_ && colors.empty());
+  wheel_->SetColor(current);
+  const std::vector<QColor> recent = palette_->RecentColors();
+  recent_->SetColors(recent, current);
+  recent_empty_->setVisible(recent.empty());
+  const bool shows_doll = !is_folded_ && palette_->ShowsDoll();
+  doll_fold_->setVisible(shows_doll);
+  const std::vector<QColor> piece = palette_->PieceColors();
+  ShowGrid(piece_, piece_title_, piece, !piece.empty());
+  ShowGrid(doll_, doll_title_, palette_->DollColors(), true);
+  ShowGrid(added_, added_title_, palette_->AddedColors(), true);
+  doll_fold_->SetTitle(tr("Doll: %1").arg(palette_->DollName()));
   QPalette swatch = current_swatch_.palette();
   swatch.setColor(QPalette::Window, current);
   current_swatch_.setPalette(swatch);
@@ -238,14 +181,20 @@ void PalettePanel::Refresh() {
 }
 
 void PalettePanel::SetFolded(bool is_folded) {
+  assert(wheel_fold_ != nullptr);
+  assert(recent_fold_ != nullptr);
   is_folded_ = is_folded;
   fold_.setText(is_folded_ ? QStringLiteral("+") : QStringLiteral("-"));
-  tabs_.setVisible(!is_folded_);
-  grid_.setVisible(!is_folded_);
+  wheel_fold_->setVisible(!is_folded_);
+  recent_fold_->setVisible(!is_folded_);
   Refresh();
 }
 
-void PalettePanel::ShowMenu(const QColor& color, const QPoint& global) {
+void PalettePanel::ShowMenu(const QColor& color, const QPoint& global,
+                            bool is_added) {
+  assert(palette_ != nullptr);
+  assert(width() >= 0);
+  assert(palette_ != nullptr);
   QMenu menu;
   menu.setToolTipsVisible(true);
   QAction* add = menu.addAction(tr("Add color..."), this,
@@ -253,14 +202,15 @@ void PalettePanel::ShowMenu(const QColor& color, const QPoint& global) {
   const QString why = palette_->WhyNoAdd();
   add->setEnabled(why.isEmpty());
   add->setToolTip(why);
-  const bool is_added = tab() == Tab::kAdded && color.isValid();
-  if (is_added) {
+  const bool can_remove = is_added && color.isValid();
+  if (can_remove) {
     // The color came from the Added list, so removing it cannot miss.
     menu.addAction(tr("Remove added color"), this, [this, color] {
       static_cast<void>(palette_->RemoveColor(color));
     });
   }
-  if (color.isValid()) {
+  const bool has_color = color.isValid();
+  if (has_color) {
     menu.addAction(tr("Copy hex"), this, [color] {
       QApplication::clipboard()->setText(color.name().toUpper());
     });
@@ -269,147 +219,34 @@ void PalettePanel::ShowMenu(const QColor& color, const QPoint& global) {
 }
 
 void PalettePanel::AddColor() {
+  assert(palette_ != nullptr);
+  assert(width() >= 0);
+  assert(palette_ != nullptr);
   const QColor color =
       QColorDialog::getColor(palette_->current(), this, tr("Add color"));
-  if (!color.isValid()) {
+  const bool is_chosen = color.isValid();
+  if (!is_chosen) {
     return;
   }
   const auto added = palette_->AddColor(color);
-  if (added) {
-    tabs_.setCurrentIndex(static_cast<int>(Tab::kAdded));
+  const bool is_added = added.has_value();
+  if (is_added) {
+    doll_fold_->SetOpen(true);
     palette_->Pick(color);
   }
 }
 
-void PalettePanel::FitHeight() {
-  const int needed = layout_.hasHeightForWidth()
-                         ? layout_.totalHeightForWidth(width())
-                         : layout_.totalSizeHint().height();
-  const int asked = is_folded_ ? 0 : asked_height_;
-  resize(width(), std::max({needed, asked, kMinHeight}));
-}
-
-bool PalettePanel::IsOnGrip(QPoint at) const {
-  return at.x() >= width() - kGrip && at.y() >= height() - kGrip;
-}
-
-void PalettePanel::KeepPlace() {
-  QSettings settings(settings_path_, QSettings::IniFormat);
-  settings.setValue(kPlaceKey, pos());
-  settings.setValue(kSizeKey, QSize(width(), asked_height_));
-}
-
-void PalettePanel::RestorePlace() {
-  const QWidget* window = parentWidget();
-  assert(window != nullptr);
-  const QSettings settings(settings_path_, QSettings::IniFormat);
-  const QSize kept =
-      settings.value(kSizeKey, QSize(kPanelWidth, 0)).toSize();
-  const int most_wide = std::max(kMinWidth, window->width() - 20);
-  resize(std::clamp(kept.width(), kMinWidth, most_wide), height());
-  asked_height_ = std::clamp(kept.height(), 0,
-                             std::max(0, window->height() - 20));
-  const QPoint fallback(window->width() - width() - 24, 80);
-  QPoint place = settings.value(kPlaceKey, fallback).toPoint();
-  // Kept on screen when the window got smaller since.
-  place.setX(std::clamp(place.x(), 0, std::max(0, window->width() - 60)));
-  place.setY(std::clamp(place.y(), 0, std::max(0, window->height() - 40)));
-  move(place);
-  FitHeight();
-}
-
-void PalettePanel::mousePressEvent(QMouseEvent* event) {
-  assert(event != nullptr);
-  if (event->button() != Qt::LeftButton) {
-    return;
-  }
-  const QPoint at = event->position().toPoint();
-  raise();
-  if (IsOnGrip(at)) {
-    is_resizing_ = true;
-    resize_from_ = size();
-    resize_at_ = event->globalPosition().toPoint();
-    return;
-  }
-  is_pressed_ = true;
-  is_moving_ = false;
-  grab_ = at;
-  press_keys_ = event->modifiers();
-}
-
-void PalettePanel::mouseMoveEvent(QMouseEvent* event) {
-  assert(event != nullptr);
-  const QWidget* window = parentWidget();
-  assert(window != nullptr);
-  const QPoint at = event->position().toPoint();
-  if (is_resizing_) {
-    const QPoint by = event->globalPosition().toPoint() - resize_at_;
-    const int wide = std::clamp(resize_from_.width() + by.x(), kMinWidth,
-                                std::max(kMinWidth, window->width() - x()));
-    asked_height_ = std::clamp(resize_from_.height() + by.y(), kMinHeight,
-                               std::max(kMinHeight, window->height() - y()));
-    resize(wide, height());
-    FitHeight();
-    return;
-  }
-  if (!is_pressed_) {
-    setCursor(IsOnGrip(at) ? Qt::SizeFDiagCursor : Qt::SizeAllCursor);
-    return;
-  }
-  const bool is_far = (at - grab_).manhattanLength() >=
-                      QApplication::startDragDistance();
-  is_moving_ = is_moving_ || is_far;
-  if (!is_moving_) {
-    return;
-  }
-  QPoint place = mapToParent(at - grab_);
-  place.setX(std::clamp(place.x(), 0, std::max(0, window->width() - 60)));
-  place.setY(std::clamp(place.y(), 0, std::max(0, window->height() - 40)));
-  move(place);
-}
-
-void PalettePanel::mouseReleaseEvent(QMouseEvent* event) {
-  assert(event != nullptr);
-  if (event->button() != Qt::LeftButton) {
-    return;
-  }
-  if (is_resizing_) {
-    is_resizing_ = false;
-    KeepPlace();
-    return;
-  }
-  const bool was_click = is_pressed_ && !is_moving_;
-  const bool was_move = is_pressed_ && is_moving_;
-  is_pressed_ = false;
-  is_moving_ = false;
-  if (was_move) {
-    KeepPlace();
-    return;
-  }
-  const bool is_on_grid =
-      was_click && grid_.isVisible() && grid_.geometry().contains(grab_);
-  if (is_on_grid) {
-    const QColor color = grid_.ColorAt(grid_.mapFrom(this, grab_));
-    if (color.isValid()) {
-      palette_->Pick(color, press_keys_);
+QColor PalettePanel::SwatchAt(QPoint at) const {
+  assert(recent_ != nullptr);
+  assert(added_ != nullptr);
+  for (const SwatchGrid* grid : {recent_, piece_, doll_, added_}) {
+    const QPoint local = grid->mapFrom(this, at);
+    const bool is_on = grid->isVisible() && grid->rect().contains(local);
+    if (is_on) {
+      return grid->ColorAt(local);
     }
   }
-}
-
-void PalettePanel::paintEvent(QPaintEvent* event) {
-  assert(event != nullptr);
-  QPainter painter(this);
-  painter.setPen(QPen(theme::kShadow, 1.0));
-  painter.setBrush(theme::kFace);
-  painter.drawRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5));
-  // The resize corner: three short lines.
-  painter.setPen(QPen(theme::kTextOff, 1.0));
-  const QPointF corner(width() - 3.0, height() - 3.0);
-  for (int line = 1; line <= 3; ++line) {
-    const double reach = 3.0 * line;
-    painter.drawLine(corner - QPointF(reach, 0.0),
-                     corner - QPointF(0.0, reach));
-  }
+  return QColor();
 }
 
 }  // namespace snapper

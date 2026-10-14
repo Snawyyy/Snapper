@@ -55,6 +55,13 @@ FoldSection::FoldSection(const QString& title, MotionManager* motion,
           [this] { SetOpen(!is_open_); });
 }
 
+void FoldSection::SetTitle(const QString& title) {
+  assert(!title.isEmpty());
+  assert(header_.toolButtonStyle() == Qt::ToolButtonTextBesideIcon);
+  title_ = title;
+  header_.setText(title_);
+}
+
 void FoldSection::ShowHeader() {
   assert(!title_.isEmpty());
   assert(header_.toolButtonStyle() == Qt::ToolButtonTextBesideIcon);

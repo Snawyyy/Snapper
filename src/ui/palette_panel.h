@@ -5,67 +5,37 @@
 #include <QLabel>
 #include <QPoint>
 #include <QString>
-#include <QTabBar>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QWidget>
 
 #include <vector>
 
+#include "ui/color_wheel.h"
+#include "ui/swatch_grid.h"
+
 namespace snapper {
 
+class FoldSection;
+class MotionManager;
 class PaletteManager;
-
-// A grid of color swatches. Reports the swatch under the cursor and a
-// right click; decides nothing. A left press goes on to the panel, which
-// picks the swatch on release unless the press became a drag of the
-// panel.
-class SwatchGrid final : public QWidget {
-  Q_OBJECT
-
- public:
-  SwatchGrid();
-
-  void SetColors(std::vector<QColor> colors, const QColor& current);
-  QSize sizeHint() const override;
-  bool hasHeightForWidth() const override { return true; }
-  int heightForWidth(int width) const override;
-  // The color at point; invalid when no swatch is there.
-  QColor ColorAt(QPoint point) const;
-
- signals:
-  void Hovered(const QColor& color);
-  void MenuAsked(const QColor& color, const QPoint& global);
-
- protected:
-  void paintEvent(QPaintEvent* event) override;
-  void mouseMoveEvent(QMouseEvent* event) override;
-  void mousePressEvent(QMouseEvent* event) override;
-  void leaveEvent(QEvent* event) override;
-  void contextMenuEvent(QContextMenuEvent* event) override;
-
- private:
-  int Columns() const;
-
-  std::vector<QColor> colors_;
-  QColor current_;
-  QColor hovered_;
-};
 
 // The floating palette: one small square-cornered panel over the
 // window, moved by dragging it anywhere, resized by its bottom right
 // corner, foldable to the current color, opened where and as big as it
-// was last left.
-// Tabs show the picked piece's colors, the doll's, the recent and the
-// hand-added ones (see PaletteManager). Hovering a swatch makes the
-// stage flash where the color is used.
+// was last left. Under the title: a color wheel, the recent colors and
+// the doll's colors (the picked piece's, the whole doll's and the
+// hand-added ones), each a fold that stays as it was left. The doll's
+// show only when they fit what the palette is open for
+// (PaletteManager::ShowsDoll). Hovering a swatch makes the stage flash
+// where the color is used.
 class PalettePanel final : public QWidget {
   Q_OBJECT
 
  public:
-  // settings_path keeps where the panel was left.
-  PalettePanel(PaletteManager* palette, QString settings_path,
-               QWidget* window);
+  // settings_path keeps where the panel was left and its folds.
+  PalettePanel(PaletteManager* palette, MotionManager* motion,
+               QString settings_path, QWidget* window);
 
   // Opens or closes it, where it was last left.
   void SetOpen(bool is_open);
@@ -74,17 +44,22 @@ class PalettePanel final : public QWidget {
   void OpenChanged(bool is_open);
 
  protected:
+  bool event(QEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;
   void paintEvent(QPaintEvent* event) override;
 
  private:
-  enum class Tab { kPiece = 0, kDoll = 1, kRecent = 2, kAdded = 3 };
-
+  // Size, cursor and mouse tracking (ui/palette_panel_frame.cpp).
+  void SetUpFrame();
+  void BuildTitle();
+  void BuildSections(MotionManager* motion);
   void Refresh();
+  void ShowGrid(SwatchGrid* grid, QLabel* title, std::vector<QColor> colors,
+                bool is_shown);
   void SetFolded(bool is_folded);
-  void ShowMenu(const QColor& color, const QPoint& global);
+  void ShowMenu(const QColor& color, const QPoint& global, bool is_added);
   void AddColor();
   void KeepPlace();
   void RestorePlace();
@@ -93,7 +68,9 @@ class PalettePanel final : public QWidget {
   void FitHeight();
   // True when at (panel pixels) is on the resize corner.
   bool IsOnGrip(QPoint at) const;
-  Tab tab() const { return static_cast<Tab>(tabs_.currentIndex()); }
+  // The swatch under at (panel pixels) in any shown grid; invalid for
+  // none.
+  QColor SwatchAt(QPoint at) const;
 
   PaletteManager* palette_;
   QString settings_path_;
@@ -102,9 +79,19 @@ class PalettePanel final : public QWidget {
   QLabel title_text_;
   QToolButton fold_;
   QToolButton close_;
-  QTabBar tabs_;
-  QLabel empty_;
-  SwatchGrid grid_;
+  // The folds; the panel's children, kept to show and hide.
+  FoldSection* wheel_fold_ = nullptr;
+  FoldSection* recent_fold_ = nullptr;
+  FoldSection* doll_fold_ = nullptr;
+  ColorWheel* wheel_ = nullptr;
+  SwatchGrid* recent_ = nullptr;
+  QLabel* recent_empty_ = nullptr;
+  QLabel* piece_title_ = nullptr;
+  SwatchGrid* piece_ = nullptr;
+  QLabel* doll_title_ = nullptr;
+  SwatchGrid* doll_ = nullptr;
+  QLabel* added_title_ = nullptr;
+  SwatchGrid* added_ = nullptr;
   QWidget current_row_;
   QLabel current_swatch_;
   QLabel current_hex_;

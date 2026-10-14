@@ -33,6 +33,7 @@ class FoldSection final : public QWidget {
   // The rows of the folded part.
   QFormLayout* form() { return &form_; }
   bool is_open() const { return is_open_; }
+  void SetTitle(const QString& title);
   void SetOpen(bool is_open);
 
  private:

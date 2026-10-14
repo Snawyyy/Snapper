@@ -198,6 +198,10 @@ Result<void> DrawManager::Start(const TrackRef& track, Frame frame, int from,
   is_peeking_ = false;
   is_drawing_ = true;
   did_open_palette_ = palette_ != nullptr && !palette_->is_shown();
+  const bool has_palette = palette_ != nullptr;
+  if (has_palette) {
+    palette_->SetUse(PaletteUse::kDoll);
+  }
   if (did_open_palette_) {
     palette_->SetShown(true);
   }
@@ -363,6 +367,10 @@ void DrawManager::End() {
   reference_ = QImage();
   undo_.clear();
   redo_.clear();
+  const bool has_palette = palette_ != nullptr;
+  if (has_palette) {
+    palette_->SetUse(PaletteUse::kAuto);
+  }
   if (did_open_palette_ && palette_ != nullptr) {
     palette_->SetShown(false);
   }

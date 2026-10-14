@@ -450,6 +450,7 @@ void CompPanel::AimAt(Aim aim, int index) {
   }
   const bool can_show_palette = is_aimed && managers_.palette != nullptr;
   if (can_show_palette) {
+    managers_.palette->SetUse(PaletteUse::kFree);
     managers_.palette->SetShown(true);
   }
   signature_.clear();

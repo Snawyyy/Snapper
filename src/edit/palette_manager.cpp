@@ -214,8 +214,28 @@ void PaletteManager::SetShown(bool is_shown) {
   is_shown_ = is_shown;
   if (!is_shown_) {
     Hover(QColor());
+    use_ = PaletteUse::kAuto;
   }
   emit ShownChanged(is_shown_);
+}
+
+void PaletteManager::SetUse(PaletteUse use) {
+  assert(history_ != nullptr);
+  assert(static_cast<int>(use) >= 0 && static_cast<int>(use) <= 2);
+  const bool is_same = use_ == use;
+  if (is_same) {
+    return;
+  }
+  use_ = use;
+  emit Changed();
+}
+
+bool PaletteManager::ShowsDoll() const {
+  assert(history_ != nullptr);
+  assert(selection_ != nullptr);
+  const bool has_doll = !DollName().isEmpty();
+  const bool is_free = use_ == PaletteUse::kFree;
+  return has_doll && !is_free;
 }
 
 Project PaletteManager::WithRecent(Project project, const QColor& color) {

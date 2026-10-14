@@ -18,6 +18,12 @@ namespace snapper {
 class HistoryManager;
 class SelectionManager;
 
+// What the palette is open for, which decides the sections it shows:
+// the color wheel and Recent always, the doll's colors only for doll
+// work (drawing on a piece, joint circles). kAuto shows the doll's
+// while a doll is picked.
+enum class PaletteUse { kAuto, kFree, kDoll };
+
 // The floating palette's colors, shared by every feature that asks for
 // a color: the picked piece's colors, the whole doll's, the project's
 // recent ones and the doll's hand-added ones. It reads colors and never
@@ -62,7 +68,12 @@ class PaletteManager final : public QObject {
   void Hover(const QColor& color);
   // Whether the panel is open; the stage takes I only while it is.
   bool is_shown() const { return is_shown_; }
+  // Closing it puts its use back to kAuto.
   void SetShown(bool is_shown);
+  // A feature about to ask for a color says what for.
+  void SetUse(PaletteUse use);
+  // True when the doll's colors are worth showing now.
+  bool ShowsDoll() const;
 
   // project with color first in its recent colors (moved up when it is
   // there already), for the edit that uses the color.
@@ -88,6 +99,7 @@ class PaletteManager final : public QObject {
   QColor current_ = Qt::black;
   QColor hovered_;
   bool is_shown_ = false;
+  PaletteUse use_ = PaletteUse::kAuto;
   struct Cached final {
     QDateTime stamp;
     std::vector<ColorCount> colors;

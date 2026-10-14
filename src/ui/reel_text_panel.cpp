@@ -272,6 +272,7 @@ void ReelTextPanel::AimColor(ColorPart part) {
   aimed_ = aimed_ == part ? ColorPart::kNone : part;
   const bool is_aimed = aimed_ != ColorPart::kNone;
   if (is_aimed) {
+    palette->SetUse(PaletteUse::kFree);
     palette->SetShown(true);
   }
   Refresh();
