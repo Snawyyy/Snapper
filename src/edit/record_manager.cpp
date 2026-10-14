@@ -13,6 +13,7 @@
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/reel_manager.h"
+#include "edit/sidecar_folder.h"
 #include "media/wav_file.h"
 
 namespace snapper {
@@ -101,7 +102,8 @@ Result<void> RecordManager::Toggle() {
     return {};
   }
   const QString why_not = WhyNoRecord();
-  if (!why_not.isEmpty()) {
+  const bool is_blocked = !why_not.isEmpty();
+  if (is_blocked) {
     return std::unexpected(Error{why_not});
   }
   is_steering_ = true;
@@ -202,7 +204,8 @@ Result<ClipId> RecordManager::Finish() {
       IsSoundTrackOf(history_->current().reel, armed_track_);
   auto made = reel_->AddSounds({path}, is_armed ? armed_track_ : -1,
                                take_start_);
-  if (!made && is_armed) {
+  const bool needs_free_track = !made && is_armed;
+  if (needs_free_track) {
     // The armed track has no room there: the take goes on a free one.
     made = reel_->AddSounds({path}, -1, take_start_);
   }
@@ -218,12 +221,9 @@ QString RecordManager::TakeFolder() const {
   assert(document_ != nullptr);
   assert(!data_folder_.isEmpty() || document_->HasPath());
   const bool is_saved = document_->HasPath();
-  if (!is_saved) {
-    return QDir(data_folder_).filePath(QStringLiteral("takes"));
-  }
-  const QFileInfo project(document_->path());
-  return project.dir().filePath(
-      Tr("%1 takes").arg(project.completeBaseName()));
+  return SidecarFolder(is_saved ? document_->path() : QString(),
+                       data_folder_, Tr("%1 takes"),
+                       QStringLiteral("takes"));
 }
 
 QString RecordManager::FreshTakePath() const {
