@@ -100,6 +100,11 @@ class ReelManager final {
   Result<void> TrimStart(ClipId clip, Frame start);
   // Drags the clip's right edge to end, keeping its start.
   Result<void> TrimEnd(ClipId clip, Frame end);
+  // Drags the clip's start or end edge to edge, from where the open
+  // drag started (HistoryManager::before), keeping the clip's start:
+  // the clips after it on its track move by as much as it grew or
+  // shrank, so no gap opens and nothing is covered.
+  Result<void> RippleTrim(ClipId clip, bool is_start, Frame edge);
   // Cuts the clip in two at reel frame at, strictly inside it. Returns
   // the new right half.
   Result<ClipId> Split(ClipId clip, Frame at);

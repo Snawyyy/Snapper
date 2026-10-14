@@ -2,7 +2,7 @@
 
 Status: built, first pass (2026-10-12); owner tests by eye. Asked for by the owner for the Video tab.
 
-First pass: dragging either edge of a full shot clip changes the shot itself (`ReelManager::ResizeShots`, `edit/reel_resize.cpp`); Alt trims instead, and on a partial clip Alt resizes. The left edge adds or takes frames at the shot's start and moves every key, link, hold and layer span with it (`ShiftShotFront`, `edit/shot_timing.cpp`). The Edges button in the reel bar (and the clip's right click menu) switches Hold and Stretch (`StretchShot`). Every full clip of the shot follows, Shift ripples later clips, a clip in the way stops the drag and Ctrl turns snapping off. The chip shows "72 f, 3.0 s  +24" and what stopped it. Many picked shot clips resize together, as one undo step named "Resize shot Intro"; Escape cancels; the playhead stays put. A clip showing its shot's end says "3 keys hidden" when keys sit past the end. Double clicking a shot clip inside a gap offers Fit shot to gap, held or stretched.
+First pass: dragging either edge of a full shot clip changes the shot itself (`ReelManager::ResizeShots`, `edit/reel_resize.cpp`); Alt trims instead, and on a partial clip Alt resizes. The left edge adds or takes frames at the shot's start and moves every key, link, hold and layer span with it (`ShiftShotFront`, `edit/shot_timing.cpp`). The Edges button in the reel bar (and the clip's right click menu) switches Hold and Stretch (`StretchShot`). Every full clip of the shot follows, later clips ripple (Shift keeps them put), a clip in the way stops the drag and Ctrl turns snapping off. The chip shows "72 f, 3.0 s  +24" and what stopped it. Many picked shot clips resize together, as one undo step named "Resize shot Intro"; Escape cancels; the playhead stays put. A clip showing its shot's end says "3 keys hidden" when keys sit past the end. Double clicking a shot clip inside a gap offers Fit shot to gap, held or stretched.
 
 Not built yet: the fit offer on a drop from the shot strip; greyed hidden keys on the Pose tab timeline; a separate right click menu for a clip edge (the edge mode is on the clip menu) and saving the edge mode.
 
@@ -33,7 +33,7 @@ On the reel a shot clip is a link to a shot, and trimming its edges only changes
 
 - Every other full clip of the shot follows the new length, since they all show the whole shot.
 - Partial clips keep their in point and length; a clip that now runs past the shot's new end shows its tail hatched, as today.
-- Clips after the resized one on the same track do not move by default. Holding Shift ripples them, as Shift+Delete ripple deletes today: they move by the change so touching cuts stay touching, and transitions on those cuts stay.
+- Clips after the resized or trimmed one on the same track move by the change, so touching cuts stay touching and transitions on those cuts stay. Holding Shift keeps them put.
 - If the clip cannot grow because the next clip on the track is in the way, it stops at that clip and the chip says why; the ripple drag goes past it.
 
 ## Fitting a shot to a gap
@@ -62,7 +62,7 @@ On the reel a shot clip is a link to a shot, and trimming its edges only changes
 | Key | Where | Does |
 | --- | --- | --- |
 | Alt + edge drag | Shot clip | The other action: trim only on a full clip, resize the shot on a partial clip |
-| Shift + edge drag | Shot clip | Ripple: later clips on the track move by the change |
+| Edge drag | Any clip | Ripple: later clips on the track move by the change; Shift keeps them put |
 | Ctrl + edge drag | Shot clip | No snapping |
 
 ## Open questions

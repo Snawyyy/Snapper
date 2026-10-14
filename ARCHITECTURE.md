@@ -700,7 +700,7 @@ the same frames more or fewer, by the edge mode (Hold, or Stretch with
 `StretchShot`); a start edge adds frames at the front and moves every
 key, link, hold and layer span (`ShiftShotFront`, `edit/shot_timing.h`).
 Every full clip of a resized shot follows, dragged edges move, partial
-clips keep their in and length, Shift ripples later clips, and a clip
+clips keep their in and length, later clips ripple (Shift keeps them put; plain trims ripple the same way, `RippleTrim`), and a clip
 in the way stops the drag at the most that fits. Keys past a shot's end
 are kept, hidden (`HiddenKeyFrames`, a badge on the clip).
 `FitShotToGap` lays a shot clip over the gap between two markers with

@@ -83,6 +83,48 @@ Result<void> ReelManager::TrimEnd(ClipId clip, Frame end) {
                }));
 }
 
+Result<void> ReelManager::RippleTrim(ClipId clip, bool is_start,
+                                     Frame edge) {
+  assert(history_ != nullptr);
+  assert(edge.index() >= 0);
+  Project next = history_->before();
+  const ClipSpot spot = FindClip(next.reel, clip);
+  const bool is_present = spot.IsValid();
+  if (!is_present) {
+    return std::unexpected(Error{Tr("That clip no longer exists.")});
+  }
+  ReelTrack& track = TrackOf(&next, spot.track);
+  Clip& trimmed = track.clips[static_cast<size_t>(spot.index)];
+  const Frame old_end = trimmed.end();
+  const int shift = edge.index() - trimmed.start.index();
+  // Text has no source to run out of: its in stays 0.
+  const int in = !is_start || IsTextClip(trimmed)
+                     ? trimmed.in.index()
+                     : trimmed.in.index() + shift;
+  const int length = is_start ? trimmed.length.index() - shift : shift;
+  const int left = SourceLength(next, trimmed).index() - in;
+  // Shortening always works; lengthening stops at the source.
+  const bool is_valid =
+      in >= 0 && length >= 1 &&
+      (length <= trimmed.length.index() || length <= left ||
+       IsTextClip(trimmed));
+  if (!is_valid) {
+    return std::unexpected(
+        Error{Tr("The clip has nothing more to show there.")});
+  }
+  const int delta = length - trimmed.length.index();
+  trimmed.in = Frame(in);
+  trimmed.length = Frame(length);
+  FitFades(&trimmed);
+  for (Clip& later : track.clips) {
+    const bool is_after = !(later.start < old_end);
+    if (is_after) {
+      later.start = Frame(later.start.index() + delta);
+    }
+  }
+  return history_->Apply(Tr("Trim clip"), std::move(next));
+}
+
 Result<ClipId> ReelManager::Split(ClipId clip, Frame at) {
   assert(history_ != nullptr);
   assert(at.index() >= 0);

@@ -39,9 +39,10 @@ namespace snapper {
 // it there. Click a clip to pick it (Shift adds, Ctrl flips), drag a
 // box over empty space to pick what it touches, Ctrl+A picks all and
 // Escape or a click on empty space clears. Drag a clip to move it,
-// along or to another track; drag its ends to trim it. The ends of a
-// shot clip showing its whole shot change the shot's own length instead
-// (Alt flips trim and resize, Shift ripples, ReelManager::ResizeShots);
+// along or to another track; drag its ends to trim it, which pushes or
+// pulls the clips after it on its track (Shift leaves them put). The
+// ends of a shot clip showing its whole shot change the shot's own
+// length instead (Alt flips trim and resize, ReelManager::ResizeShots);
 // double-clicking a shot clip inside a gap offers to fit the shot to it.
 // Ctrl turns snapping off. Drags snap to
 // other clips' cuts, cut markers and the playhead, and flash when they
@@ -234,11 +235,14 @@ class ReelTimeline final : public QWidget {
   // As a clip or its end is grabbed: leaves a faint copy of the clips
   // that drag, drawn by PaintClip, where they sit now.
   void GrabGhost();
-  // Ctrl turns snapping off; Shift ripples a shot resize.
+  // Ctrl turns snapping off; Shift stops an edge drag moving the clips
+  // after it.
   void Follow(QPointF at, Qt::KeyboardModifiers modifiers);
   // A shot clip end drag that changes the shot's length; the chip says
   // the new length, the change and what stopped it.
   void FollowResize(Frame raw, Frame edge, QPointF at, bool is_ripple);
+  // A trim that moves the clips after the dragged one with it.
+  void FollowRippleTrim(Frame raw, Frame edge, QPointF at);
   // Moves the playhead to the frame the dragged clip edge lands on.
   void CarryPlayhead(Frame landing);
   // Shows a trim: how many frames the edge went from its start, and a

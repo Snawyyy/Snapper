@@ -48,7 +48,7 @@ Copy the shape the files above use, so nothing is missed:
 
 Every plan uses the same meaning for each modifier, taken from what Snapper already does:
 
-- Shift: fine steps while dragging or turning the wheel (faders, dials, the pad, stage drags, nudges by 10), and adds to the pick on a click. On the reel, where frames are already whole, Shift on a drag ripples, as Shift+Delete does.
+- Shift: fine steps while dragging or turning the wheel (faders, dials, the pad, stage drags, nudges by 10), and adds to the pick on a click. On the reel, edge drags ripple by default and Shift keeps later clips put.
 - Ctrl: turns snapping off while dragging (stops, shape snaps, guides, cut markers). On a click it flips the pick; with the wheel it zooms.
 - Alt: the drag's other action (the rig rope today; trim only, slide a video under its row, move a cue edge with its neighbour). Held alone in draw mode it is the color picker.
 
@@ -91,7 +91,7 @@ Every proposed key is free in Snapper today (checked against the keys bound in t
 | Ctrl+Enter | Editing text | Finish the edit | Text and subtitles |
 | Alt + drag | Cue edge | Move it together with the next cue's start | Text and subtitles |
 | Alt + edge drag | Shot clip | The other action: trim only on a full clip, resize the shot on a partial clip | Resizing shots |
-| Shift + edge drag | Shot clip | Ripple: later clips on the track move by the change | Resizing shots |
+| Edge drag | Any clip | Ripple: later clips on the track move by the change; Shift keeps them put | Resizing shots |
 | Ctrl + edge drag | Shot clip | No snapping | Resizing shots |
 | Alt + drop | Pose tab | Add the dropped file as a reference | Reference |
 | Y | Pose tab | Show or hide every reference | Reference |

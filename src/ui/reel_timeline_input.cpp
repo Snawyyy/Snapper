@@ -168,18 +168,39 @@ void ReelTimeline::Follow(QPointF at, Qt::KeyboardModifiers modifiers) {
   }
   const Frame raw = FrameAt(at.x() + zoom_ / 2.0);
   const Frame edge = SnapFrame(start, raw, reach, {dragged_}, playhead);
+  // Edges push or pull the clips after them; Shift leaves them put.
+  const bool is_ripple = !modifiers.testFlag(Qt::ShiftModifier);
   if (is_resize_) {
-    FollowResize(raw, edge, at, modifiers.testFlag(Qt::ShiftModifier));
+    FollowResize(raw, edge, at, is_ripple);
     return;
   }
   const bool is_start = drag_ == Drag::kTrimStart;
   ReelManager& reel = *managers_.reel;
+  const bool is_ripple_trim = is_ripple && !is_roll_;
+  if (is_ripple_trim) {
+    FollowRippleTrim(raw, edge, at);
+    return;
+  }
   Report(ProblemOf(is_roll_ ? (is_start ? reel.RollCueStart(dragged_, edge)
                                         : reel.RollCueEdge(dragged_, edge))
                    : is_start ? reel.TrimStart(dragged_, edge)
                               : reel.TrimEnd(dragged_, edge)));
   ShowTrim(raw, edge, at);
   CarryPlayhead(edge);
+}
+
+void ReelTimeline::FollowRippleTrim(Frame raw, Frame edge, QPointF at) {
+  assert(drag_ == Drag::kTrimStart || drag_ == Drag::kTrimEnd);
+  assert(managers_.reel != nullptr);
+  const bool is_start = drag_ == Drag::kTrimStart;
+  Report(ProblemOf(managers_.reel->RippleTrim(dragged_, is_start, edge)));
+  ShowTrim(raw, edge, at);
+  const Clip* clip = ClipOf(managers_.history->current().reel, dragged_);
+  const bool has_clip = clip != nullptr;
+  if (has_clip) {
+    // A start trim keeps the clip's start: its new first frame is there.
+    CarryPlayhead(is_start ? clip->start : edge);
+  }
 }
 
 void ReelTimeline::FollowResize(Frame raw, Frame edge, QPointF at,
