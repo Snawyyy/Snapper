@@ -1,16 +1,18 @@
 #include "ui/comp_library.h"
 
 #include <QApplication>
+#include <QDrag>
 #include <QKeyEvent>
+#include <QMouseEvent>
 
 #include <cassert>
 #include <vector>
 
-#include "edit/comp_manager.h"
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
 #include "fsp/fsp_effects.h"
 #include "model/comp.h"
+#include "ui/comp_drag.h"
 #include "ui/form_helpers.h"
 #include "ui/panel_kit.h"
 #include "ui/problem.h"
@@ -18,14 +20,16 @@
 namespace snapper {
 namespace {
 
-// What an entry adds: a CompKind, or one of these.
-constexpr int kSceneGradient = -1;
-constexpr int kHeader = -2;
+// Item data: the entry's kind, its plugin, whether it is the Scene
+// gradient or a header, and the words the search also looks in.
 constexpr int kKindRole = Qt::UserRole;
 constexpr int kPluginRole = Qt::UserRole + 1;
-constexpr int kHelpRole = Qt::UserRole + 2;
+constexpr int kSceneRole = Qt::UserRole + 2;
+constexpr int kHeaderRole = Qt::UserRole + 3;
+constexpr int kHelpRole = Qt::UserRole + 4;
 // F's Plugins carries about 50; more is a broken list.
 constexpr size_t kMaxPlugins = 512;
+constexpr int kMaxItems = 1024;
 
 }  // namespace
 
@@ -35,21 +39,25 @@ CompLibrary::CompLibrary(const Managers& managers)
   assert(managers_.comp != nullptr);
   layout_.setContentsMargins(0, 0, 0, 0);
   body_layout_.setContentsMargins(0, 0, 0, 0);
-  search_.setPlaceholderText(tr("Search effects"));
+  search_.setPlaceholderText(tr("Search effects (A)"));
   search_.setClearButtonEnabled(true);
   search_.installEventFilter(this);
   where_.setWordWrap(true);
   list_.setMouseTracking(true);
   list_.setFrameShape(QFrame::NoFrame);
+  list_.setIconSize(QSize(12, 12));
+  list_.viewport()->installEventFilter(this);
+  none_ = EmptyHint(tr("No effect matches."), &body_);
+  none_->hide();
   body_layout_.addWidget(&search_);
   body_layout_.addWidget(&where_);
+  body_layout_.addWidget(none_);
   body_layout_.addWidget(&list_, 1);
   layout_.addWidget(PlatedSection(tr("Effects"), &body_, this), 1);
   Fill();
   connect(&search_, &QLineEdit::textChanged, this, &CompLibrary::Filter);
-  connect(&search_, &QLineEdit::returnPressed, this, [this] {
-    AddPicked(list_.currentItem());
-  });
+  connect(&search_, &QLineEdit::returnPressed, this,
+          [this] { AddPicked(list_.currentItem()); });
   connect(&list_, &QListWidget::itemActivated, this,
           &CompLibrary::AddPicked);
   const auto where = [this] { ShowWhere(); };
@@ -58,25 +66,29 @@ CompLibrary::CompLibrary(const Managers& managers)
   ShowWhere();
 }
 
-void CompLibrary::AddEntry(const QString& name, const QString& help,
-                           int kind, const QString& plugin,
-                           const QString& why_not) {
+void CompLibrary::AddHeader(const QString& name, const QString& help) {
   assert(!name.isEmpty());
-  assert(kind >= kHeader && kind < kCompKindCount);
+  assert(list_.count() < kMaxItems);
   auto* item = MakeOwned<QListWidgetItem>(name, &list_);
-  item->setData(kKindRole, kind);
-  item->setData(kPluginRole, plugin);
+  item->setData(kHeaderRole, true);
+  item->setToolTip(help);
+  QFont bold = item->font();
+  bold.setBold(true);
+  item->setFont(bold);
+  item->setFlags(Qt::NoItemFlags);
+}
+
+void CompLibrary::AddItem(const QString& name, const QString& help,
+                          const CompEntry& entry, const QString& why_not) {
+  assert(!name.isEmpty());
+  assert(list_.count() < kMaxItems);
+  auto* item = MakeOwned<QListWidgetItem>(MarkIcon(entry.kind), name, &list_);
+  item->setData(kKindRole, static_cast<int>(entry.kind));
+  item->setData(kPluginRole, entry.plugin);
+  item->setData(kSceneRole, entry.is_scene_gradient);
   item->setData(kHelpRole, help);
-  const bool is_header = kind == kHeader;
-  const bool can_add = why_not.isEmpty() && !is_header;
-  item->setToolTip(why_not.isEmpty() ? help : why_not);
-  if (is_header) {
-    QFont bold = item->font();
-    bold.setBold(true);
-    item->setFont(bold);
-    item->setFlags(Qt::NoItemFlags);
-    return;
-  }
+  const bool can_add = why_not.isEmpty();
+  item->setToolTip(can_add ? help : why_not);
   item->setFlags(can_add ? Qt::ItemIsEnabled | Qt::ItemIsSelectable
                          : Qt::NoItemFlags);
 }
@@ -85,64 +97,82 @@ void CompLibrary::Fill() {
   assert(list_.count() == 0);
   const std::vector<FspEffectInfo>& plugins = AllFspEffects();
   assert(plugins.size() <= kMaxPlugins);
+  AddHeader(tr("Snapper"), tr("Snapper's own finishing effects."));
   for (int i = 0; i < kCompKindCount; ++i) {
     const auto kind = static_cast<CompKind>(i);
     // Plugins are listed by their own names below.
     const bool is_plugin = kind == CompKind::kFsp;
     if (!is_plugin) {
-      AddEntry(CompManager::KindName(kind), CompManager::KindHelp(kind), i,
-               QString(), QString());
+      AddItem(CompManager::KindName(kind), CompManager::KindHelp(kind),
+              CompEntry{kind, QString(), false}, QString());
     }
   }
-  AddEntry(tr("Scene gradient"),
-           tr("A gradient over the whole shot in one click: a sunset "
-              "tint, a dark vignette, a top-down light. Always on the "
-              "screen."),
-           kSceneGradient, QString(), QString());
+  AddItem(tr("Scene gradient"),
+          tr("A gradient ready in one click: warm at the top to cool at "
+             "the bottom, in Overlay. A sunset tint, a dark vignette, a "
+             "top-down light."),
+          CompEntry{CompKind::kGradient, QString(), true}, QString());
   const bool has_plugins = !plugins.empty();
   if (has_plugins) {
-    AddEntry(tr("F's Plugins"), CompManager::KindHelp(CompKind::kFsp),
-             kHeader, QString(), QString());
+    AddHeader(tr("F's Plugins"), CompManager::KindHelp(CompKind::kFsp));
   }
-  const int fsp = static_cast<int>(CompKind::kFsp);
   for (const FspEffectInfo& info : plugins) {
-    AddEntry(info.name.isEmpty() ? info.id : info.name,
-             CompManager::PluginHelp(info.id),
-             fsp, info.id, CompManager::WhyNoPlugin(info.id));
+    AddItem(info.name.isEmpty() ? info.id : info.name,
+            CompManager::PluginHelp(info.id),
+            CompEntry{CompKind::kFsp, info.id, false},
+            CompManager::WhyNoPlugin(info.id));
   }
 }
 
+std::optional<CompEntry> CompLibrary::EntryAt(
+    const QListWidgetItem* item) const {
+  const bool is_entry = item != nullptr && !item->isHidden() &&
+                        !item->data(kHeaderRole).toBool() &&
+                        item->flags().testFlag(Qt::ItemIsEnabled);
+  if (!is_entry) {
+    return std::nullopt;
+  }
+  const int kind = item->data(kKindRole).toInt();
+  assert(kind >= 0 && kind < kCompKindCount);
+  assert(list_.count() > 0);
+  return CompEntry{static_cast<CompKind>(kind),
+                   item->data(kPluginRole).toString(),
+                   item->data(kSceneRole).toBool()};
+}
+
 void CompLibrary::Filter(const QString& text) {
-  assert(list_.count() >= 0);
+  assert(list_.count() < kMaxItems);
   assert(text.size() < 100000);
   const QString needle = text.trimmed();
   QListWidgetItem* header = nullptr;
-  bool has_plugin_shown = false;
+  bool has_group_shown = false;
   QListWidgetItem* first = nullptr;
   for (int row = 0; row < list_.count(); ++row) {
     QListWidgetItem* item = list_.item(row);
-    const bool is_header = item->data(kKindRole).toInt() == kHeader;
+    const bool is_header = item->data(kHeaderRole).toBool();
     if (is_header) {
+      // A header shows while its group has a match.
+      const bool has_last = header != nullptr;
+      if (has_last) {
+        header->setHidden(!has_group_shown);
+      }
       header = item;
+      has_group_shown = false;
       continue;
     }
     const bool is_match =
         item->text().contains(needle, Qt::CaseInsensitive) ||
         item->data(kHelpRole).toString().contains(needle, Qt::CaseInsensitive);
     item->setHidden(!is_match);
-    const bool is_plugin = item->data(kKindRole).toInt() ==
-                           static_cast<int>(CompKind::kFsp);
-    has_plugin_shown = has_plugin_shown || (is_match && is_plugin);
-    const bool is_first = is_match && first == nullptr &&
-                          item->flags().testFlag(Qt::ItemIsEnabled);
-    if (is_first) {
-      first = item;
-    }
+    has_group_shown = has_group_shown || is_match;
+    const bool is_first = first == nullptr && EntryAt(item).has_value();
+    first = is_first ? item : first;
   }
-  const bool has_header = header != nullptr;
-  if (has_header) {
-    header->setHidden(!has_plugin_shown);
+  const bool has_last = header != nullptr;
+  if (has_last) {
+    header->setHidden(!has_group_shown);
   }
+  none_->setVisible(first == nullptr && !needle.isEmpty());
   // Enter in the search adds the best match.
   list_.setCurrentItem(first);
 }
@@ -158,45 +188,44 @@ void CompLibrary::ShowWhere() {
                           : !target           ? target.error().message
                                               : QString();
   where_.setText(why_not.isEmpty()
-                     ? tr("Double click adds to: %1")
+                     ? tr("Adds to %1. Click the stage to pick something "
+                          "else.")
                            .arg(managers_.comp->TargetText(shot, *target))
                      : why_not);
   where_.setEnabled(why_not.isEmpty());
 }
 
 void CompLibrary::AddPicked(const QListWidgetItem* item) {
-  const bool is_entry = item != nullptr && !item->isHidden() &&
-                        item->flags().testFlag(Qt::ItemIsEnabled);
+  const auto entry = EntryAt(item);
+  const bool is_entry = entry.has_value();
   if (!is_entry) {
     return;
   }
-  const int kind = item->data(kKindRole).toInt();
-  assert(kind >= kHeader && kind < kCompKindCount);
   assert(managers_.comp != nullptr);
+  assert(managers_.selection != nullptr);
   CompManager* comp = managers_.comp;
   const ShotId shot = managers_.selection->shot();
-  const bool is_scene = kind == kSceneGradient;
-  if (is_scene) {
-    const auto added = comp->AddSceneGradient(shot);
-    Report(ProblemOf(added));
-    // It is on the screen: show the screen's list, where it went.
-    const bool is_added = added.has_value();
-    if (is_added) {
-      managers_.selection->Clear();
-    }
-    return;
-  }
   const auto target = comp->TargetFor(shot, managers_.selection->layer(),
                                       managers_.selection->pieces());
   if (!target) {
     Report(target.error().message);
     return;
   }
-  const bool is_plugin = kind == static_cast<int>(CompKind::kFsp);
-  Report(ProblemOf(
-      is_plugin
-          ? comp->AddPlugin(shot, item->data(kPluginRole).toString(), *target)
-          : comp->Add(shot, static_cast<CompKind>(kind), *target)));
+  Report(ProblemOf(comp->AddEntry(shot, *entry, *target, kOnTop)));
+}
+
+void CompLibrary::StartDrag(const QListWidgetItem* item) {
+  const auto entry = EntryAt(item);
+  const bool is_entry = entry.has_value();
+  if (!is_entry) {
+    return;
+  }
+  assert(item != nullptr);
+  assert(list_.viewport() != nullptr);
+  auto* drag = MakeOwned<QDrag>(this);
+  drag->setMimeData(EntryMime(*entry).release());
+  drag->setPixmap(list_.viewport()->grab(list_.visualItemRect(item)));
+  drag->exec(Qt::CopyAction);
 }
 
 void CompLibrary::FocusSearch() {
@@ -209,8 +238,29 @@ void CompLibrary::FocusSearch() {
 bool CompLibrary::eventFilter(QObject* watched, QEvent* event) {
   assert(event != nullptr);
   assert(watched != nullptr);
-  const bool is_search_key =
-      watched == &search_ && event->type() == QEvent::KeyPress;
+  const QEvent::Type type = event->type();
+  const bool is_list = watched == list_.viewport();
+  if (is_list) {
+    const auto* mouse = static_cast<const QMouseEvent*>(event);
+    const bool is_press = type == QEvent::MouseButtonPress &&
+                          mouse->button() == Qt::LeftButton;
+    const bool is_drag =
+        type == QEvent::MouseMove && pressed_ != nullptr &&
+        mouse->buttons().testFlag(Qt::LeftButton) &&
+        (mouse->position().toPoint() - press_at_).manhattanLength() >=
+            QApplication::startDragDistance();
+    if (is_press) {
+      pressed_ = list_.itemAt(mouse->position().toPoint());
+      press_at_ = mouse->position().toPoint();
+    } else if (is_drag) {
+      const QListWidgetItem* item = pressed_;
+      pressed_ = nullptr;
+      StartDrag(item);
+      return true;
+    }
+    return QWidget::eventFilter(watched, event);
+  }
+  const bool is_search_key = watched == &search_ && type == QEvent::KeyPress;
   if (!is_search_key) {
     return QWidget::eventFilter(watched, event);
   }

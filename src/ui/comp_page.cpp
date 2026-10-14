@@ -83,6 +83,9 @@ CompPage::CompPage(const Managers& managers)
   connect(&library_, &CompLibrary::Problem, this, report);
   connect(&stage_, &CompStage::Problem, this, report);
   connect(&effects_, &CompEffects::Problem, this, report);
+  connect(&effects_, &CompEffects::Reveal, this, [this](QWidget* fold) {
+    effects_scroll_.ensureWidgetVisible(fold, 0, 40);
+  });
   const auto follow = [this] { FollowPlayhead(); };
   connect(managers_.playback, &PlaybackManager::FrameChanged, this, follow);
   connect(managers_.history, &HistoryManager::Changed, this, follow);
@@ -118,9 +121,11 @@ bool CompPage::IsPageKey(const QKeyEvent& key) const {
                    key.key() == Qt::Key_K || key.key() == Qt::Key_I);
   const bool is_delete =
       key.key() == Qt::Key_Delete || key.key() == Qt::Key_Backspace;
-  const bool is_duplicate = key.key() == Qt::Key_D &&
-                            key.modifiers().testFlag(Qt::ControlModifier);
-  return is_letter || is_delete || is_duplicate || IsStepUp(key) ||
+  const bool is_control = key.modifiers().testFlag(Qt::ControlModifier);
+  const bool is_clip = is_control && (key.key() == Qt::Key_D ||
+                                      key.key() == Qt::Key_C ||
+                                      key.key() == Qt::Key_V);
+  return is_letter || is_delete || is_clip || IsStepUp(key) ||
          IsStepDown(key);
 }
 
@@ -130,6 +135,12 @@ void CompPage::PressKey(const QKeyEvent& key) {
   const ShotId shot = managers_.selection->shot();
   const CompEffectId picked = comp->PickedIn(shot);
   const bool has_pick = picked.IsValid();
+  const bool is_control = key.modifiers().testFlag(Qt::ControlModifier);
+  const bool is_paste = is_control && key.key() == Qt::Key_V;
+  if (is_paste) {
+    effects_.Paste();
+    return;
+  }
   switch (key.key()) {
     case Qt::Key_A:
       library_.FocusSearch();
@@ -163,6 +174,16 @@ void CompPage::PressKey(const QKeyEvent& key) {
   }
   if (!has_pick) {
     Report(tr("Pick an effect first."));
+    return;
+  }
+  const bool is_copy = key.key() == Qt::Key_C;
+  if (is_copy) {
+    const auto copied = comp->Copy(shot, picked);
+    Report(ProblemOf(copied));
+    const bool is_copied = copied.has_value();
+    if (is_copied) {
+      stage_.ShowChip(tr("Copied %1").arg(comp->CopiedName()));
+    }
     return;
   }
   const bool is_duplicate = key.key() == Qt::Key_D;

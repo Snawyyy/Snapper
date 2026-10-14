@@ -21,6 +21,10 @@
 #include "ui/managers.h"
 #include "ui/view_camera.h"
 
+class QDragEnterEvent;
+class QDragLeaveEvent;
+class QDragMoveEvent;
+class QDropEvent;
 class QPainter;
 
 namespace snapper {
@@ -57,6 +61,12 @@ class CompStage final : public QWidget {
   void mouseReleaseEvent(QMouseEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
   void resizeEvent(QResizeEvent* event) override;
+  // A library effect dropped on a doll goes on it; on nothing, on the
+  // screen (ui/comp_stage_picks.cpp).
+  void dragEnterEvent(QDragEnterEvent* event) override;
+  void dragMoveEvent(QDragMoveEvent* event) override;
+  void dragLeaveEvent(QDragLeaveEvent* event) override;
+  void dropEvent(QDropEvent* event) override;
 
  private:
   enum class Handle { kNone, kA, kB, kArrow };
@@ -85,8 +95,11 @@ class CompStage final : public QWidget {
   // A click picks the layer (and piece) under it, so a new effect goes
   // on it; a click on nothing picks the screen.
   void PickUnder(QPointF point, bool is_adding);
-  // The Teto red outline of every pick (ui/comp_stage_picks.cpp).
+  // The Teto red outline of every pick, and a dashed one round the doll
+  // a dragged effect would land on (ui/comp_stage_picks.cpp).
   void PaintPicks(QPainter* painter);
+  // The layer under point, or none.
+  LayerId LayerUnder(QPointF point);
   // The picked effect of the shot being worked in, or nullptr.
   const CompEffect* Picked() const;
   Frame Local() const;
@@ -99,6 +112,8 @@ class CompStage final : public QWidget {
   double kept_scale_ = 0.0;
   Handle dragging_ = Handle::kNone;
   std::unique_ptr<EditScope> drag_;
+  // The doll under a dragged effect.
+  LayerId drop_layer_{};
   QString chip_;
   QTimer chip_timer_;
 };

@@ -1,16 +1,19 @@
 #include "ui/comp_effects.h"
 
-#include <QFrame>
+#include <QContextMenuEvent>
 #include <QHBoxLayout>
 #include <QMenu>
+#include <QPainter>
+#include <QTimer>
 
 #include <cassert>
 
-#include "edit/comp_manager.h"
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/comp_drag.h"
 #include "ui/comp_panel.h"
 #include "ui/form_helpers.h"
+#include "ui/on_switch.h"
 #include "ui/panel_kit.h"
 #include "ui/problem.h"
 #include "ui/theme.h"
@@ -20,28 +23,50 @@ namespace {
 
 // The margin inside an open fold, past the indent on the left.
 constexpr int kBodyMargin = 4;
+constexpr int kMark = 12;
 
-// A flat button on an effect's plate.
-QToolButton* PlateButton(const QString& tip, QWidget* plate) {
-  assert(plate != nullptr);
-  assert(!tip.isEmpty());
-  auto* button = MakeOwned<QToolButton>(plate);
-  button->setAutoRaise(true);
-  button->setFocusPolicy(Qt::NoFocus);
-  button->setToolTip(tip);
-  QFont bold = button->font();
-  bold.setBold(true);
-  button->setFont(bold);
-  return button;
-}
+// An effect's raised plate, with a Teto red edge while it is picked.
+class PlateFrame final : public QFrame {
+ public:
+  explicit PlateFrame(QWidget* parent) : QFrame(parent) {
+    assert(parent != nullptr);
+    setFrameStyle(QFrame::StyledPanel | QFrame::Raised);
+    setCursor(Qt::PointingHandCursor);
+    assert(frameStyle() != 0);
+  }
+
+  void SetPicked(bool is_picked) {
+    const bool is_same = is_picked_ == is_picked;
+    if (!is_same) {
+      is_picked_ = is_picked;
+      update();
+    }
+  }
+
+ protected:
+  void paintEvent(QPaintEvent* event) override {
+    assert(event != nullptr);
+    QFrame::paintEvent(event);
+    if (is_picked_) {
+      QPainter painter(this);
+      painter.setPen(QPen(theme::kPick, 2.0));
+      painter.setBrush(Qt::NoBrush);
+      painter.drawRect(QRectF(rect()).adjusted(1, 1, -1, -1));
+    }
+  }
+
+ private:
+  bool is_picked_ = false;
+};
 
 }  // namespace
 
 CompEffects::CompEffects(const Managers& managers)
     : managers_(managers), layout_(this), light_layout_(&light_body_),
-      light_(managers) {
+      light_(managers), drop_line_(this) {
   assert(managers_.IsComplete());
   assert(managers_.comp != nullptr);
+  setAcceptDrops(true);
   layout_.setContentsMargins(0, 0, 0, 0);
   layout_.setSpacing(theme::kRowGap);
   title_.setText(tr("Screen"));
@@ -53,6 +78,11 @@ CompEffects::CompEffects(const Managers& managers)
   light_layout_.addWidget(&light_);
   layout_.addWidget(PlatedSection(tr("Shot light"), &light_body_, this));
   layout_.addStretch();
+  drop_line_.setAutoFillBackground(true);
+  QPalette red = drop_line_.palette();
+  red.setColor(QPalette::Window, theme::kPick);
+  drop_line_.setPalette(red);
+  drop_line_.hide();
   connect(&light_, &CompLight::Problem, this, &CompEffects::Problem);
   const auto refresh = [this] { Refresh(); };
   connect(managers_.history, &HistoryManager::Changed, this, refresh);
@@ -67,6 +97,17 @@ std::vector<CompEffect> CompEffects::Shown() const {
   return managers_.comp->ShownFor(managers_.selection->shot(),
                                   managers_.selection->layer(),
                                   managers_.selection->pieces());
+}
+
+CompTarget CompEffects::PickedTarget() const {
+  assert(managers_.selection != nullptr);
+  assert(managers_.comp != nullptr);
+  CompTarget picked;
+  picked.layer = managers_.selection->layer();
+  for (const QString& piece : managers_.selection->pieces()) {
+    picked.pieces.push_back(piece);
+  }
+  return picked;
 }
 
 QString CompEffects::Signature(const std::vector<CompEffect>& shown) const {
@@ -88,26 +129,49 @@ void CompEffects::Refresh() {
   assert(managers_.comp != nullptr);
   assert(managers_.selection != nullptr);
   const ShotId shot = managers_.selection->shot();
-  CompTarget picked;
-  picked.layer = managers_.selection->layer();
-  for (const QString& piece : managers_.selection->pieces()) {
-    picked.pieces.push_back(piece);
-  }
-  title_.setText(managers_.comp->TargetText(shot, picked));
   const std::vector<CompEffect> shown = Shown();
+  const QString where = managers_.comp->TargetText(shot, PickedTarget());
+  const bool has_any = !shown.empty();
+  title_.setText(has_any ? tr("%1  (%2)").arg(where).arg(shown.size())
+                         : where);
   const QString signature = Signature(shown);
   const bool is_new = signature != signature_;
-  if (is_new) {
-    signature_ = signature;
-    Rebuild(shown);
+  if (!is_new) {
+    ShowPlates();
+    return;
+  }
+  std::set<int> had;
+  for (const Plate& plate : plates_) {
+    had.insert(plate.id.value());
+  }
+  signature_ = signature;
+  Rebuild(shown);
+  // Keys act on the picked effect, so it must be one in view.
+  const bool is_picked_shown =
+      CompEffectIndex(shown, managers_.comp->PickedIn(shot)) >= 0;
+  if (!is_picked_shown) {
+    managers_.comp->Pick(shot, CompEffectId());
   }
   ShowPlates();
+  // One new effect, just added or pasted, comes into view.
+  QFrame* fresh = nullptr;
+  int fresh_count = 0;
+  for (const Plate& plate : plates_) {
+    const bool is_fresh = !had.contains(plate.id.value());
+    fresh_count += is_fresh ? 1 : 0;
+    fresh = is_fresh ? plate.body : fresh;
+  }
+  const bool is_one_new = fresh_count == 1;
+  if (is_one_new) {
+    QTimer::singleShot(0, fresh, [this, fresh] { emit Reveal(fresh); });
+  }
 }
 
 void CompEffects::Rebuild(const std::vector<CompEffect>& shown) {
   assert(folds_ != nullptr);
   assert(shown.size() <= static_cast<size_t>(kMaxCompEffectsPerShot));
   plates_.clear();
+  plates_.reserve(shown.size());
   const int at = layout_.indexOf(folds_);
   folds_->hide();
   folds_->deleteLater();
@@ -119,7 +183,8 @@ void CompEffects::Rebuild(const std::vector<CompEffect>& shown) {
   const bool is_empty = shown.empty();
   if (is_empty) {
     column->addWidget(EmptyHint(
-        tr("No effects here. Double click one on the left to add it."),
+        tr("No effects here yet. Double click one on the left, or drag it "
+           "here or onto a doll on the stage."),
         folds_));
   }
   for (const CompEffect& effect : shown) {
@@ -127,65 +192,79 @@ void CompEffects::Rebuild(const std::vector<CompEffect>& shown) {
   }
 }
 
+QFrame* CompEffects::NewPlate(const CompEffect& effect, Plate* plate) {
+  assert(plate != nullptr);
+  assert(folds_ != nullptr);
+  const ShotId shot = managers_.selection->shot();
+  auto* frame = MakeOwned<PlateFrame>(folds_);
+  frame->setToolTip(QStringLiteral("%1\n%2").arg(
+      CompManager::EffectHelp(effect),
+      tr("Works on %1. Click to pick and open or close it, drag to "
+         "reorder, right click for more.")
+          .arg(managers_.comp->TargetText(shot, effect.target))));
+  auto* row = MakeOwned<QHBoxLayout>(frame);
+  row->setContentsMargins(4, 2, 2, 2);
+  row->setSpacing(6);
+  auto* mark = MakeOwned<QLabel>(frame);
+  mark->setPixmap(MarkIcon(effect.kind).pixmap(kMark, kMark));
+  plate->eye = MakeOwned<OnSwitch>(frame);
+  plate->eye->setToolTip(tr("Turn the effect on or off."));
+  plate->name = MakeOwned<QLabel>(CompManager::EffectName(effect), frame);
+  QFont bold = plate->name->font();
+  bold.setBold(true);
+  plate->name->setFont(bold);
+  plate->name->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+  plate->slow = MakeOwned<QLabel>(tr("slow"), frame);
+  plate->slow->setStyleSheet(QStringLiteral("QLabel { color: #f2c230; }"));
+  plate->slow->setToolTip(tr("It took longer than a frame at 24 fps."));
+  plate->arrow = MakeOwned<QToolButton>(frame);
+  plate->arrow->setAutoRaise(true);
+  plate->arrow->setFocusPolicy(Qt::NoFocus);
+  plate->arrow->setToolTip(tr("Show or hide its settings."));
+  row->addWidget(mark);
+  row->addWidget(plate->eye);
+  row->addWidget(plate->name, 1);
+  row->addWidget(plate->slow);
+  row->addWidget(plate->arrow);
+  frame->installEventFilter(this);
+  plate->name->installEventFilter(this);
+  return frame;
+}
+
 void CompEffects::AddFold(const CompEffect& effect, QVBoxLayout* into) {
   assert(into != nullptr);
   assert(effect.id.IsValid());
-  const ShotId shot = managers_.selection->shot();
   const CompEffectId id = effect.id;
-  const std::pair<int, int> key{shot.value(), id.value()};
-  auto* plate = MakeOwned<QFrame>(folds_);
-  plate->setFrameStyle(QFrame::StyledPanel | QFrame::Raised);
-  plate->setContextMenuPolicy(Qt::CustomContextMenu);
-  plate->setToolTip(QStringLiteral("%1\n%2").arg(
-      CompManager::EffectHelp(effect),
-      tr("Works on: %1. Right click to move, duplicate or remove.")
-          .arg(managers_.comp->TargetText(shot, effect.target))));
-  auto* row = MakeOwned<QHBoxLayout>(plate);
-  row->setContentsMargins(2, 2, 4, 2);
-  QToolButton* arrow = PlateButton(tr("Show or hide its settings."), plate);
-  auto* eye = MakeOwned<QCheckBox>(plate);
-  eye->setFocusPolicy(Qt::NoFocus);
-  eye->setToolTip(tr("Turn the effect on or off."));
-  QToolButton* name = PlateButton(tr("Pick it, for K, I and Delete."), plate);
-  name->setText(CompManager::EffectName(effect));
-  name->setCheckable(true);
-  name->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-  auto* slow = MakeOwned<QLabel>(tr("slow"), plate);
-  slow->setStyleSheet(QStringLiteral("QLabel { color: #f2c230; }"));
-  slow->setToolTip(tr("It took longer than a frame at 24 fps."));
-  row->addWidget(arrow);
-  row->addWidget(eye);
-  row->addWidget(name, 1);
-  row->addWidget(slow);
-  into->addWidget(plate);
-  QFrame* body = NewBody(id);
-  into->addWidget(body);
+  Plate plate;
+  plate.id = id;
+  plate.plate = NewPlate(effect, &plate);
+  plate.plate->setContextMenuPolicy(Qt::CustomContextMenu);
+  into->addWidget(plate.plate);
+  plate.body = NewBody(id);
+  into->addWidget(plate.body);
+  const std::pair<int, int> key{managers_.selection->shot().value(),
+                                id.value()};
   const bool is_open = !closed_.contains(key);
-  body->setVisible(is_open);
-  arrow->setArrowType(is_open ? Qt::DownArrow : Qt::RightArrow);
-  connect(arrow, &QToolButton::clicked, this, [this, key, arrow, body] {
-    const bool was_open = body->isVisible();
-    body->setVisible(!was_open);
-    arrow->setArrowType(was_open ? Qt::RightArrow : Qt::DownArrow);
-    if (was_open) {
-      closed_.insert(key);
-    } else {
-      closed_.erase(key);
+  plate.body->setVisible(is_open);
+  plate.arrow->setArrowType(is_open ? Qt::DownArrow : Qt::LeftArrow);
+  plates_.push_back(plate);
+  connect(plate.arrow, &QToolButton::clicked, this, [this, id] {
+    for (const Plate& one : plates_) {
+      const bool is_it = one.id == id;
+      if (is_it) {
+        Toggle(one);
+      }
     }
   });
-  connect(eye, &QCheckBox::clicked, this, [this, id](bool is_on) {
+  connect(plate.eye, &QAbstractButton::clicked, this, [this, id](bool is_on) {
     Report(ProblemOf(
         managers_.comp->SetOn(managers_.selection->shot(), id, is_on)));
   });
-  connect(name, &QToolButton::clicked, this, [this, id] {
-    managers_.comp->Pick(managers_.selection->shot(), id);
-    ShowPlates();
-  });
-  connect(plate, &QWidget::customContextMenuRequested, this,
-          [this, id, plate](const QPoint& at) {
-            OpenMenu(id, plate->mapToGlobal(at));
+  QFrame* frame = plate.plate;
+  connect(frame, &QWidget::customContextMenuRequested, this,
+          [this, id, frame](const QPoint& at) {
+            OpenMenu(id, frame->mapToGlobal(at));
           });
-  plates_.push_back(Plate{id, eye, name, slow});
 }
 
 QFrame* CompEffects::NewBody(CompEffectId id) {
@@ -202,6 +281,21 @@ QFrame* CompEffects::NewBody(CompEffectId id) {
   return body;
 }
 
+void CompEffects::Toggle(const Plate& plate) {
+  assert(plate.body != nullptr);
+  assert(plate.arrow != nullptr);
+  const std::pair<int, int> key{managers_.selection->shot().value(),
+                                plate.id.value()};
+  const bool was_open = plate.body->isVisible();
+  plate.body->setVisible(!was_open);
+  plate.arrow->setArrowType(was_open ? Qt::LeftArrow : Qt::DownArrow);
+  if (was_open) {
+    closed_.insert(key);
+  } else {
+    closed_.erase(key);
+  }
+}
+
 void CompEffects::ShowPlates() {
   assert(managers_.comp != nullptr);
   assert(plates_.size() <= static_cast<size_t>(kMaxCompEffectsPerShot));
@@ -214,59 +308,14 @@ void CompEffects::ShowPlates() {
       continue;
     }
     plate.eye->setChecked(effect->is_on);
-    plate.name->setChecked(plate.id == picked);
+    static_cast<PlateFrame*>(plate.plate)->SetPicked(plate.id == picked);
+    QPalette quiet = plate.name->palette();
+    quiet.setColor(QPalette::WindowText,
+                   effect->is_on ? palette().color(QPalette::WindowText)
+                                 : theme::kTextOff);
+    plate.name->setPalette(quiet);
     plate.slow->setVisible(managers_.comp->IsSlow(plate.id));
   }
-}
-
-void CompEffects::OpenMenu(CompEffectId id, const QPoint& at) {
-  assert(id.IsValid());
-  assert(managers_.comp != nullptr);
-  const ShotId shot = managers_.selection->shot();
-  managers_.comp->Pick(shot, id);
-  const std::vector<CompEffect> shown = Shown();
-  const int index = CompEffectIndex(shown, id);
-  const int last = static_cast<int>(shown.size()) - 1;
-  QMenu menu;
-  QAction* up = menu.addAction(tr("Move up"));
-  QAction* down = menu.addAction(tr("Move down"));
-  menu.addSeparator();
-  QAction* duplicate = menu.addAction(tr("Duplicate\tCtrl+D"));
-  QAction* remove = menu.addAction(tr("Remove\tDelete"));
-  Explain(up, index <= 0 ? tr("It already runs first.") : QString());
-  Explain(down, index >= last ? tr("It already runs last.") : QString());
-  Explain(duplicate, managers_.comp->WhyNoAdd(shot));
-  const QAction* chosen = menu.exec(at);
-  const bool is_up = chosen == up;
-  const bool is_down = chosen == down;
-  const bool is_duplicate = chosen == duplicate;
-  const bool is_remove = chosen == remove;
-  const bool is_move = is_up || is_down;
-  if (is_move) {
-    Step(id, is_up ? -1 : 1);
-  } else if (is_duplicate) {
-    Report(ProblemOf(managers_.comp->Duplicate(shot, id)));
-  } else if (is_remove) {
-    Report(ProblemOf(managers_.comp->Remove(shot, id)));
-  }
-}
-
-void CompEffects::Step(CompEffectId id, int direction) {
-  assert(direction == -1 || direction == 1);
-  assert(id.IsValid());
-  const ShotId shot = managers_.selection->shot();
-  const std::vector<CompEffect> shown = Shown();
-  const int index = CompEffectIndex(shown, id);
-  const int next = index + direction;
-  const bool is_inside =
-      index >= 0 && next >= 0 && next < static_cast<int>(shown.size());
-  if (!is_inside) {
-    return;
-  }
-  // It takes its listed neighbour's place in the whole stack.
-  const int to = CompEffectIndex(managers_.comp->Of(shot),
-                                 shown[static_cast<size_t>(next)].id);
-  Report(ProblemOf(managers_.comp->Move(shot, id, to)));
 }
 
 }  // namespace snapper

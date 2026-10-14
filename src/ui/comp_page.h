@@ -22,7 +22,8 @@ namespace snapper {
 // The Comp tab: every effect on the left, the stage in the middle with
 // the play controls and the Comp timeline under it, the effects on
 // what is picked on the stage on the right. Its keys work while it
-// shows: A searches the effects, V held turns every effect off, K held shows what the picked one
+// shows: A searches the effects, Ctrl+C and Ctrl+V copy and paste the
+// picked effect, V held turns every effect off, K held shows what the picked one
 // touches, I picks the color under the cursor as a target color,
 // Delete removes, Ctrl+D duplicates, Shift+= and Shift+- step the
 // blend mode.

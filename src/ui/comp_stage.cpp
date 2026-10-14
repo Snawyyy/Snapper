@@ -70,6 +70,7 @@ CompStage::CompStage(const Managers& managers)
   assert(managers_.comp != nullptr);
   setFocusPolicy(Qt::ClickFocus);
   setMouseTracking(true);
+  setAcceptDrops(true);
   setMinimumSize(240, 160);
   chip_timer_.setSingleShot(true);
   connect(&chip_timer_, &QTimer::timeout, this, [this] {

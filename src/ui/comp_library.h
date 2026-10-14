@@ -4,18 +4,24 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QPoint>
 #include <QString>
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <optional>
+
+#include "edit/comp_manager.h"
 #include "ui/managers.h"
 
 namespace snapper {
 
-// The Comp tab's left side: every effect Snapper has, its own kinds,
-// the Scene gradient and F's Plugins, under a search field. Hovering
-// one shows what it does; a double click or Enter adds it on top of the
-// stack, on what is picked on the stage (the screen when nothing is).
+// The Comp tab's left side: every effect Snapper has, its own kinds
+// with the Scene gradient, then F's Plugins, each with its color mark,
+// under a search field. Hovering one shows what it does; a double click
+// or Enter adds it on what is picked on the stage (the screen when
+// nothing is); dragging drops it between the listed effects or onto a
+// doll on the stage.
 class CompLibrary final : public QWidget {
   Q_OBJECT
 
@@ -40,8 +46,12 @@ class CompLibrary final : public QWidget {
     }
   }
   void Fill();
-  void AddEntry(const QString& name, const QString& help, int kind,
-                const QString& plugin, const QString& why_not);
+  void AddItem(const QString& name, const QString& help,
+               const CompEntry& entry, const QString& why_not);
+  void AddHeader(const QString& name, const QString& help);
+  // The entry an item adds; nothing for a header or a greyed one.
+  std::optional<CompEntry> EntryAt(const QListWidgetItem* item) const;
+  void StartDrag(const QListWidgetItem* item);
   // Hides the entries the search does not match.
   void Filter(const QString& text);
   void AddPicked(const QListWidgetItem* item);
@@ -54,6 +64,10 @@ class CompLibrary final : public QWidget {
   QLineEdit search_;
   QLabel where_;
   QListWidget list_;
+  // Says when the search matches nothing.
+  QLabel* none_ = nullptr;
+  QListWidgetItem* pressed_ = nullptr;
+  QPoint press_at_;
 };
 
 }  // namespace snapper

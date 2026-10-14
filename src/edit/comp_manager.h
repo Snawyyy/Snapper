@@ -10,6 +10,7 @@
 
 #include <functional>
 #include <map>
+#include <optional>
 #include <set>
 #include <vector>
 
@@ -31,6 +32,17 @@ enum class CompRowKind {
   kChoice,  // A plugin's popup: the choice's number from 1, not keyed.
   kColor,   // A plugin's color: 0xRRGGBB, not keyed.
 };
+
+// One entry of the Comp tab's effect library: a kind, a plugin by id
+// (kFsp) or the Scene gradient.
+struct CompEntry final {
+  CompKind kind = CompKind::kRimLight;
+  QString plugin{};
+  bool is_scene_gradient = false;
+};
+
+// An index that means the top of a stack.
+inline constexpr int kOnTop = -1;
 
 // One control of an effect's panel, in the order shown.
 struct CompRow final {
@@ -99,20 +111,37 @@ class CompManager final : public QObject {
 
   // Why Add can't act; empty when it can.
   QString WhyNoAdd(ShotId shot) const;
-  // Adds a kind's effect on top of the stack with its own defaults,
-  // working on target (the screen when empty); it is picked.
+  // Adds a kind's effect at index in the stack (0 bottom, kOnTop on
+  // top) with its own defaults, working on target (the screen when
+  // empty); it is picked.
   Result<CompEffectId> Add(ShotId shot, CompKind kind,
-                           const CompTarget& target = {});
+                           const CompTarget& target = {},
+                           int index = kOnTop);
   // Why the plugin with id can't be an effect (not in this Snapper, too
   // many values); empty when it can. Shot fullness is WhyNoAdd's.
   static QString WhyNoPlugin(const QString& id);
   // Adds an F's Plugins effect (kFsp) with the plugin's own defaults,
   // like Add.
   Result<CompEffectId> AddPlugin(ShotId shot, const QString& id,
-                                 const CompTarget& target = {});
-  // A gradient over the whole shot in one click: screen space, Overlay,
-  // warm at the top to cool at the bottom.
-  Result<CompEffectId> AddSceneGradient(ShotId shot);
+                                 const CompTarget& target = {},
+                                 int index = kOnTop);
+  // A gradient preset in one click: Overlay, warm at the top to cool at
+  // the bottom, on target like Add.
+  Result<CompEffectId> AddSceneGradient(ShotId shot,
+                                        const CompTarget& target = {},
+                                        int index = kOnTop);
+  // Adds a library entry the way its own Add does (edit/comp_clip.cpp).
+  Result<CompEffectId> AddEntry(ShotId shot, const CompEntry& entry,
+                                const CompTarget& target, int index);
+  // Ctrl+C: keeps a copy of the effect, for any shot.
+  Result<void> Copy(ShotId shot, CompEffectId id);
+  // The copied effect's name; empty with nothing copied.
+  QString CopiedName() const;
+  QString WhyNoPaste(ShotId shot) const;
+  // Ctrl+V: the copy at index (kOnTop on top), working on target with
+  // its own picked colors; it is picked.
+  Result<CompEffectId> Paste(ShotId shot, const CompTarget& target,
+                             int index = kOnTop);
   Result<void> Remove(ShotId shot, CompEffectId id);
   // A copy just above it, picked.
   Result<CompEffectId> Duplicate(ShotId shot, CompEffectId id);
@@ -239,6 +268,7 @@ class CompManager final : public QObject {
   bool is_mask_shown_ = false;
   std::map<CompEffectId, double> costs_;
   std::set<CompEffectId> failed_;
+  std::optional<CompEffect> copied_;
 };
 
 }  // namespace snapper

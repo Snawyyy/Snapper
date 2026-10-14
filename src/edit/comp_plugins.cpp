@@ -112,7 +112,8 @@ QString CompManager::WhyNoPlugin(const QString& id) {
 }
 
 Result<CompEffectId> CompManager::AddPlugin(ShotId shot, const QString& id,
-                                            const CompTarget& target) {
+                                            const CompTarget& target,
+                                            int index) {
   assert(history_ != nullptr);
   assert(target.layer.IsValid() || target.pieces.empty());
   const QString why = WhyNoPlugin(id);
@@ -128,8 +129,7 @@ Result<CompEffectId> CompManager::AddPlugin(ShotId shot, const QString& id,
   // No keys: every value is the plugin's own default until changed.
   assert(FspInfoOf(effect) != nullptr);
   const QString label = Tr("Add %1").arg(EffectName(effect));
-  const int top = static_cast<int>(Of(shot).size());
-  return Insert(shot, std::move(effect), top, label);
+  return Insert(shot, std::move(effect), index, label);
 }
 
 QColor CompManager::KnobColor(const CompEffect& effect, CompKnob knob,

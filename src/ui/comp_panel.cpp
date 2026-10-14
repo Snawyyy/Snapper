@@ -13,6 +13,7 @@
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/form_helpers.h"
+#include "ui/panel_kit.h"
 #include "ui/problem.h"
 
 namespace snapper {
@@ -37,8 +38,8 @@ CompPanel::CompPanel(const Managers& managers, CompEffectId effect,
       live_(managers.history),
       layout_(this),
       effect_(effect),
-      pick_colors_(tr("Pick colors")),
-      clear_colors_(tr("Clear colors")) {
+      pick_colors_(tr("Pick")),
+      clear_colors_(tr("Clear")) {
   assert(managers_.IsComplete());
   assert(effect_.IsValid());
   BuildFixed();
@@ -74,7 +75,11 @@ void CompPanel::BuildFixed() {
   }
   blend_.setToolTip(tr("How the effect mixes with what is below. "
                        "Shift+= and Shift+- step through the modes."));
-  layout_.addWidget(&blend_);
+  auto* form = MakeOwned<QFormLayout>();
+  form->setSpacing(4);
+  form->addRow(tr("Blend"), &blend_);
+  form->addRow(tr("Colors"), &colors_row_);
+  layout_.addLayout(form);
   connect(&blend_, &QComboBox::activated, this, [this](int index) {
     const CompEffect* effect = Effect();
     if (effect == nullptr) {
@@ -86,13 +91,12 @@ void CompPanel::BuildFixed() {
   pick_colors_.setCheckable(true);
   pick_colors_.setFocusPolicy(Qt::NoFocus);
   pick_colors_.setToolTip(
-      tr("Click, then pick colors in the floating palette (Shift adds, "
-         "Ctrl flips), or press I over the stage."));
+      tr("Work only on some colors: click, then pick them in the floating "
+         "palette (Shift adds, Ctrl flips), or press I over the stage."));
   clear_colors_.setFocusPolicy(Qt::NoFocus);
   colors_row_.addWidget(&pick_colors_);
   colors_row_.addWidget(&clear_colors_);
   colors_row_.addStretch();
-  layout_.addLayout(&colors_row_);
   connect(&pick_colors_, &QPushButton::clicked, this,
           [this] { AimAt(Aim::kTarget, 0); });
   connect(&clear_colors_, &QPushButton::clicked, this, [this] {

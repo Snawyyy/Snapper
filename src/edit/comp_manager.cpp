@@ -193,8 +193,9 @@ Result<CompEffectId> CompManager::Insert(ShotId shot, CompEffect effect,
       history_->current(), shot, [&](Shot* edited) -> Result<void> {
         effect.id = NextCompEffectId(edited->comp);
         made = effect.id;
-        const int at = std::clamp(index, 0,
-                                  static_cast<int>(edited->comp.size()));
+        const int size = static_cast<int>(edited->comp.size());
+        const bool is_top = index < 0;
+        const int at = is_top ? size : std::min(index, size);
         edited->comp.insert(edited->comp.begin() + at, std::move(effect));
         return {};
       });
@@ -208,19 +209,22 @@ Result<CompEffectId> CompManager::Insert(ShotId shot, CompEffect effect,
 }
 
 Result<CompEffectId> CompManager::Add(ShotId shot, CompKind kind,
-                                      const CompTarget& target) {
+                                      const CompTarget& target, int index) {
   assert(static_cast<int>(kind) < kCompKindCount);
   assert(target.layer.IsValid() || target.pieces.empty());
-  const int top = static_cast<int>(Of(shot).size());
   CompEffect effect = MadeOf(kind);
   effect.target = target;
-  return Insert(shot, std::move(effect), top,
+  return Insert(shot, std::move(effect), index,
                 Tr("Add %1").arg(KindName(kind)));
 }
 
-Result<CompEffectId> CompManager::AddSceneGradient(ShotId shot) {
+Result<CompEffectId> CompManager::AddSceneGradient(ShotId shot,
+                                                   const CompTarget& target,
+                                                   int index) {
   assert(history_ != nullptr);
+  assert(target.layer.IsValid() || target.pieces.empty());
   CompEffect effect = MadeOf(CompKind::kGradient);
+  effect.target = target;
   effect.blend = BlendMode::kOverlay;
   effect.stops = {GradientStop{0.0, QColor(255, 170, 90)},
                   GradientStop{1.0, QColor(60, 80, 180)}};
@@ -230,8 +234,7 @@ Result<CompEffectId> CompManager::AddSceneGradient(ShotId shot) {
          Key<double>{Frame(0), -half, Ease::kStep});
   SetKey(&effect.knobs[static_cast<size_t>(CompKnob::kBy)],
          Key<double>{Frame(0), half, Ease::kStep});
-  const int top = static_cast<int>(Of(shot).size());
-  return Insert(shot, std::move(effect), top, Tr("Add Scene gradient"));
+  return Insert(shot, std::move(effect), index, Tr("Add Scene gradient"));
 }
 
 Result<void> CompManager::Remove(ShotId shot, CompEffectId id) {
