@@ -82,6 +82,7 @@ CompPage::CompPage(const Managers& managers)
   const auto report = [this](const QString& why) { Report(why); };
   connect(&library_, &CompLibrary::Problem, this, report);
   connect(&stage_, &CompStage::Problem, this, report);
+  connect(&timeline_, &CompTimeline::Problem, this, report);
   connect(&effects_, &CompEffects::Problem, this, report);
   connect(&effects_, &CompEffects::Reveal, this, [this](QWidget* fold) {
     effects_scroll_.ensureWidgetVisible(fold, 0, 40);
@@ -198,6 +199,11 @@ void CompPage::PressKey(const QKeyEvent& key) {
     if (effect != nullptr) {
       stage_.ShowChip(CompManager::BlendName(effect->blend));
     }
+    return;
+  }
+  const bool has_clips = !comp->ClipPicks().empty();
+  if (has_clips) {
+    timeline_.RemovePicked();
     return;
   }
   Report(ProblemOf(comp->Remove(shot, picked)));

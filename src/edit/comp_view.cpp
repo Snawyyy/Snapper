@@ -44,11 +44,15 @@ CompEffectId CompManager::PickedIn(ShotId shot) const {
 void CompManager::Pick(ShotId shot, CompEffectId id) {
   assert(shot.value() >= 0);
   assert(id.value() >= 0);
-  const bool is_same = PickedIn(shot) == id;
+  const std::set<CompClipRef> alone =
+      id.IsValid() ? std::set<CompClipRef>{{shot, id}}
+                   : std::set<CompClipRef>();
+  const bool is_same = PickedIn(shot) == id && clip_picks_ == alone;
   if (is_same) {
     return;
   }
   picked_[shot] = id;
+  clip_picks_ = alone;
   emit Changed();
 }
 

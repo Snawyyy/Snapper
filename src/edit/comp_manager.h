@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "base/error.h"
+#include "edit/selection_manager.h"
 #include "base/frame.h"
 #include "model/comp.h"
 #include "model/shot.h"
@@ -45,6 +46,14 @@ struct CompEntry final {
 
 // How many recently used library entries are kept.
 inline constexpr int kMaxRecentEntries = 6;
+
+// One effect clip on the Comp timeline: an effect of a shot.
+struct CompClipRef final {
+  ShotId shot{};
+  CompEffectId id{};
+
+  auto operator<=>(const CompClipRef&) const = default;
+};
 
 // An index that means the top of a stack.
 inline constexpr int kOnTop = -1;
@@ -252,7 +261,17 @@ class CompManager final : public QObject {
 
   // The picked effect of shot; invalid for none.
   CompEffectId PickedIn(ShotId shot) const;
+  // Picks one effect, alone among the timeline's picked clips.
   void Pick(ShotId shot, CompEffectId id);
+  // The effect clips picked on the Comp timeline, of any shots; those
+  // gone from the project are left out (edit/comp_clip_picks.cpp).
+  std::set<CompClipRef> ClipPicks() const;
+  // Combines clips into the pick as mode says (the shared pick rule);
+  // focus, when picked after, becomes its shot's picked effect.
+  void PickClips(const std::set<CompClipRef>& clips, PickMode mode,
+                 CompClipRef focus);
+  // Every effect clip of every shot.
+  std::set<CompClipRef> AllClips() const;
   // V held: every effect off on the Comp stage.
   bool are_effects_off() const { return are_effects_off_; }
   void SetEffectsOff(bool is_off);
@@ -288,6 +307,7 @@ class CompManager final : public QObject {
 
   HistoryManager* history_;
   std::map<ShotId, CompEffectId> picked_;
+  std::set<CompClipRef> clip_picks_;
   bool are_effects_off_ = false;
   bool is_mask_shown_ = false;
   std::map<CompEffectId, double> costs_;
