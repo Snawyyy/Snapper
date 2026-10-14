@@ -552,11 +552,8 @@ Shift adds, a box from empty space). When an effect needs a target's own
 pixels, `NeedsOf` says so and the layer pass paints each layer through
 its own picture (`PaintForComp`), keeping the target as it shows in
 the frame (each layer's part joined into one picture, cut where later
-layers cover it, and where the doll's own other pieces in front cover
-the picked pieces: `PaintLayer`'s `cuts_others`) and, for shape effects on
-everything, the drawn pixels on clear. A plugin's picture keeps only the pixels
-it changed (`RunCompPlugin`), so what it left alone is not drawn twice.
-The effect draws on a clear
+layers cover it) and, for shape effects on
+everything, the drawn pixels on clear. The effect draws on a clear
 picture (`render/comp_effects.cpp`, `render/comp_light.cpp`) and
 `BlendOnto` (`render/blend.cpp`, the one blend function, W3C formulas,
 Normal over see-through pixels) lays it over the frame through the
