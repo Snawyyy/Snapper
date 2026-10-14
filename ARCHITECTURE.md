@@ -635,23 +635,42 @@ Normal the frame becomes it by Strength, alpha included, so it can
 thin an edge or clear the keyed color; other modes blend only the
 changed pixels.
 
-A shot has one draft (`Shot::draft`, `model/draft.h`): a raster sketch
-of its plan, made of cels; each cel is a canvas-sized PNG shown from
-its frame until the next cel. Pixels never enter the project: each
-edit saves a new file (in "<project> drafts" beside the project file,
-or the app data folder's "drafts" while unsaved), and the cel lists
-its path, so undo is a path swap. `DraftManager` owns every edit (one
-named step each) and the picked cels. Drawing a cel reuses draw mode:
-it hands `DrawManager` a `DrawJob` (the picture, the shot under it,
-the cels before and after as tinted onion skins, and a keep callback
-that Done calls), so the brush, eraser, fill, picker and stroke undo
-are the same code as for a piece. `FrameRenderer` draws the cel at the
-frame over the finished shot (after the comp, canvas space, no
-camera) only when `SetDraftShown(true)`: the Pose stage and the Video
-preview turn it on; export, thumbnails and the Comp stage keep it off.
-The Pose timeline's dashed Draft row (`ui/timeline_draft.cpp`, an
-event filter on the timeline) sits under the reference rows and shows
-the cels as keys.
+A storyboard is a kind of layer (`StoryboardLayer`, `model/storyboard.h`,
+the fifth alternative of `LayerContent`): a raster sketch of a shot's
+plan made of cels, so the storyboard moves through the shot. Each cel
+is a canvas-sized PNG that starts at a shot frame and holds until the
+next cel. Being a layer, it takes its place in the stack, is ordered by
+the Cast panel's layer list and hidden by the layer's eye
+(`Layer::is_visible`); `StageManager::AddStoryboard` adds one,
+`IsStagePicture` (`model/layer.h`) is false for it like for an effect
+(no stage pick, no Comp target). It is laid over the canvas, with no
+camera and no layer transform, by `FrameRenderer::PaintBoardLayer`
+(`render/storyboard_paint.cpp`) at its place in the stack, at its own
+`opacity`. A renderer draws it only after `SetStoryboardShown(true)`
+(the Pose stage and the Video preview) or when the layer's `is_exported`
+tick is on (the animatic); export, thumbnails and the Comp stage leave
+it out otherwise. Pixels never enter the project: each edit saves a new
+file ("<project> storyboard" beside the project file, or "storyboard"
+in the app data folder while unsaved, `edit/sidecar_folder.h`), and the
+cel lists its path, so undo is a path swap. The pure edits (put, remove
+and move cels, the layer an action means, fresh names) are
+`edit/storyboard_edits.cpp`; `StoryboardManager` decides when to make
+one, as one named undo step each ("Draw storyboard frame", "Edit
+storyboard frame", "Move storyboard frame", "Delete storyboard frame",
+opacity, export), and holds the picked cels. Drawing a cel reuses draw
+mode: it hands `DrawManager` a `DrawJob` (the picture, the shot under
+it without the layer, the cel before as a red tinted onion skin, shown
+from the start, and a keep callback that Done calls), so the brush,
+eraser, fill, picker, onion key D and stroke undo are the same code as
+for a piece. With no storyboard layer yet, Done makes one in the same
+step. `ui/timeline_storyboard.cpp` (an event filter on the Pose
+timeline, `timeline_storyboard_input.cpp` for its mouse and keys) draws
+a dashed row per storyboard layer under the reference rows, with the
+cels as keys (the eye is `ui/timeline_eye.cpp`, shared with the
+reference rows); `StoryboardBox` in the inspector holds the opacity
+fader, In export and the draw buttons; Alt+N and Alt+Shift+N start a
+frame (`ui/storyboard_actions.cpp`). Animation-mode stepping stops at
+each cel start (`PoseChanges`).
 
 A shot may hold references (`Shot::references`, `model/reference.h`):
 videos, GIFs and pictures linked by path to animate over. They are not
@@ -1002,8 +1021,8 @@ are destroyed in reverse.
 | `PoseManager`          | Pose edits, IK drags, copy, paste, mirror      |
 | `DialManager`          | Smart dials: make, stops, rest, swap, turn (keyed per doll layer) |
 | `SkinManager`          | Skins: make, rename, order, set drawings, Krita names; wear and step them (keyed per doll layer) |
-| `DrawManager`          | Draw mode: the drawing being made, its tools and stroke undo; Done saves it into the doll as one step, or hands a `DrawJob`'s picture (a draft cel) back to its keeper |
-| `DraftManager`         | Each shot's draft: draw a cel (a `DrawJob` for draw mode), save it as a PNG, move and delete cels, eye and opacity, one step each; the picked cels |
+| `DrawManager`          | Draw mode: the drawing being made, its tools and stroke undo; Done saves it into the doll as one step, or hands a `DrawJob`'s picture (a storyboard cel) back to its keeper |
+| `StoryboardManager`    | Storyboard layers: draw a cel (a `DrawJob` for draw mode), save it as a PNG, move and delete cels, opacity and the export tick, one step each; the picked cels |
 | `ObjectManager`        | Objects: make them from pictures into the library, put them on the stage, how a GIF plays, hold, drop and hand-off |
 | `KeyManager`           | Keys on the timeline: move, space, ease, retime, bake a timing chart |
 | `TimingChartManager`   | The timing chart session: picked thing and frames to chart, ticks, live preview in one `EditScope`, Apply or Cancel |
