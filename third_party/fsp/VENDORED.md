@@ -29,7 +29,9 @@ Adobe `Util/*.cpp` helpers (the shim replaces them).
 
 ## Patches
 
-Only include lines, made by
+One code patch: `_NFLib/NF_AE.h` `downScale(A_long)` keeps a positive
+width at 1 or more (a blur of 3 at scale 0.1 rounded to 0, which turned
+the effect off in small previews). Otherwise only include lines, made by
 `python3 patch_includes.py <F's src folder> <files>`: backslashes become
 slashes and each name gets the case of the real file.
 

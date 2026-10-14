@@ -1729,7 +1729,10 @@ public:
 	//--------------------------------------------------------------------
 	A_long downScale(A_long v)
 	{
+		const A_long full = v;
 		v = (A_long)((PF_FpLong)v * (PF_FpLong)in_data->downsample_x.num / (PF_FpLong)in_data->downsample_x.den+0.5f);
+		// Snapper: a positive width never rounds to 0 in a small preview
+		if (full > 0 && v < 1) v = 1;
 		return v;
 	}
 

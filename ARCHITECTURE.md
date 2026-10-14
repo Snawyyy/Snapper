@@ -583,7 +583,11 @@ placeholder that keeps the saved values as they were and draws nothing.
 The renderer hands the plugin the target's picture as motion blur takes
 it and lays the answer through the same blend and mask
 (`render/comp_plugin.cpp`); a refusal skips the effect and the panel
-says so.
+says so. SelectiveColorBlur matches its target colors exactly, so
+before it runs every pixel within `kCompColorReach` (the color key's
+reach) of an enabled target is snapped to that color, alpha kept
+(`render/comp_color_snap.cpp`); warped in-between frames then blur as
+much as key frames.
 
 The Line smoother (`CompKind::kLineSmoother`) is a rebuild of OLM
 Smoother v2 (OLM Digital's After Effects plugin) from its manual, not
