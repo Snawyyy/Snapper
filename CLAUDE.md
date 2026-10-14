@@ -58,7 +58,17 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-14, branch `storyboard`, cut from `voice-gen`, not
+Last done (2026-10-14, branch `joint-end-snap`, cut from `storyboard`,
+not pushed): joint snap fixes on the owner's word. An end snap now puts
+the joint (and its circle's center) on the limb's end, where its middle
+line leaves the drawing, not one radius in; a joint circle there takes
+the limb's width near the end. While a joint is dragged, the limb's
+middle line (dashed), the line across and a ring at the spot show,
+faint for the nearest spot until it catches. A joint circle draws under
+both pieces it joins. Shape measuring moved to `anim/limb_mask.cpp`.
+Built, ctest as before, not seen by eye. Next: owner tries it.
+
+Before that (2026-10-14, branch `storyboard`, cut from `voice-gen`, not
 pushed): the storyboard layer, finished from the WIP draft layer
 (`wip/ux-wp3-draft-layer`, merged in, then reworked). A storyboard is a
 kind of layer in the shot's stack (`StoryboardLayer`, `model/storyboard.h`):
