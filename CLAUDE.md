@@ -68,7 +68,13 @@ gone. Then copy and paste (Ctrl+C, Ctrl+V, menus), drag to reorder
 plates, drag from the library onto the list or a doll on the stage,
 and a polish pass (plate click opens, arrow at right, bigger on
 square, color marks, groups, no-match hint, new effect scrolls in).
-Built, not seen by eye, no tests run (owner's rule).
+Then (same branch): palette rebuilt (color wheel, Recent, Doll folds by
+use, eyedropper Pick), recently used effects, the agent's draw order
+fix, effects as clips on the Comp timeline (every shot's, named by
+target, picking, box, snapping, group drags, nudge, zoom), screen
+effects run over the reel picture by their clip's extent (past cuts,
+rim light keeps working), side list by playhead, Pose stage draws no
+effects. Built, not seen by eye, no tests run (owner's rule).
 
 Before that (2026-10-13, branch `ccr-33af7348-m78soh`, pushed, not
 merged to main): the UX polish pass, from
