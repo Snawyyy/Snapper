@@ -22,6 +22,7 @@
 #include "ui/playhead.h"
 #include "ui/pose_controls.h"
 #include "ui/problem.h"
+#include "ui/reset_on_double_click.h"
 #include "ui/theme.h"
 
 namespace snapper {
@@ -39,6 +40,13 @@ constexpr double kZoomShown = 4.0;
 constexpr double kShakeShown = 60.0;
 // Skew's whole range, both ways.
 constexpr double kSkewShown = 85.0;
+
+QString OrderHelp() {
+  return QObject::tr(
+      "How many places in front (above 0) or behind (below 0) of its "
+      "usual place this is drawn. Keyed at the playhead and held until "
+      "the next key. Ctrl+] and Ctrl+[ step it; double click resets.");
+}
 
 // The pose a track shows at frame.
 PiecePose PoseAt(const Project& project, const TrackRef& track,
@@ -74,7 +82,8 @@ void PoseBox::ShowPose(const Project& project,
     const PiecePose p = PoseAt(project, track, frame);
     const std::array<double, kCount> shown = {
         p.rotation, p.offset.x(), p.offset.y(), p.scale_x, p.scale_y,
-        p.skew,     p.opacity,    p.lean,       p.swivel};
+        p.skew,     p.opacity,    p.lean,       p.swivel,
+        static_cast<double>(p.order)};
     for (size_t i = 0; i < shown.size(); ++i) {
       spread[i].push_back(shown[i]);
     }
@@ -88,6 +97,7 @@ void PoseBox::ShowPose(const Project& project,
   ShowNumber(&fields_[kOpacity], focus.opacity, spread[kOpacity]);
   ShowNumber(&fields_[kLean], focus.lean, spread[kLean]);
   ShowNumber(&fields_[kSwivel], focus.swivel, spread[kSwivel]);
+  ShowNumber(&fields_[kOrder], focus.order, spread[kOrder]);
 }
 
 PoseBox::PoseBox(const Managers& managers)
@@ -103,10 +113,11 @@ PoseBox::PoseBox(const Managers& managers)
   SetUpNumber(&fields_[kOpacity], Number::kFraction);
   SetUpNumber(&fields_[kLean], Number::kDegrees);
   SetUpNumber(&fields_[kSwivel], Number::kDegrees);
+  SetUpNumber(&fields_[kOrder], Number::kPlaces);
   // Named so tests and screen readers find a field by what it is.
   const std::array<const char*, kCount> names = {
       "turn", "x",       "y",    "scale_x", "scale_y",
-      "skew", "opacity", "lean", "swivel"};
+      "skew", "opacity", "lean", "swivel", "order"};
   for (int i = 0; i < kCount; ++i) {
     fields_[static_cast<size_t>(i)].setObjectName(
         QLatin1String(names[static_cast<size_t>(i)]));
@@ -135,8 +146,12 @@ PoseBox::PoseBox(const Managers& managers)
        MakeMiniDial(tr("Swivel"), &fields_[kSwivel], &live_, this)},
       {}, this);
   layout_.addRow(turns_row_);
-  for (QDoubleSpinBox& field : fields_) {
-    MakeLive(&field, &live_, tr("Pose"), this, [this] { Commit(); });
+  layout_.addRow(MakeCellRow(
+      {MakeSpinCell(tr("Order"), &fields_[kOrder], &live_, this)}, {}, this));
+  SetUpOrder();
+  for (int i = 0; i < kOrder; ++i) {
+    MakeLive(&fields_[static_cast<size_t>(i)], &live_, tr("Pose"), this,
+             [this] { Commit(); });
   }
   layout_.addRow(tr("Drawing"), &drawing_);
   assert(layout_.rowCount() >= 6);
@@ -145,13 +160,27 @@ PoseBox::PoseBox(const Managers& managers)
   Refresh();
 }
 
+void PoseBox::SetUpOrder() {
+  QDoubleSpinBox& order = fields_[kOrder];
+  order.setToolTip(OrderHelp());
+  ResetOnDoubleClick::Install(&order, 0.0, &live_);
+  MakeLiveNamed(&order, &live_, this,
+                [this] {
+                  return managers_.pose->OrderName(
+                      managers_.selection->PickedTracks());
+                },
+                [this] { Commit(); });
+}
+
 void PoseBox::Refresh() {
   assert(managers_.history != nullptr);
   const auto spot = SpotOf(managers_);
   const auto track =
       spot ? PickedTrack(managers_, spot->shot) : std::nullopt;
-  Explain(this, track ? QString()
-                      : tr("Pick a piece or layer on the stage first."));
+  const QString why_not =
+      track ? QString() : tr("Pick a piece or layer on the stage first.");
+  Explain(this, why_not);
+  Explain(&fields_[kOrder], why_not, OrderHelp());
   if (!track) {
     return;
   }
@@ -215,7 +244,8 @@ void PoseBox::Commit() {
   const std::array<double, kCount> was = {
       shown.rotation, shown.offset.x(), shown.offset.y(),
       shown.scale_x,  shown.scale_y,    shown.skew,
-      shown.opacity,  shown.lean,       shown.swivel};
+      shown.opacity,  shown.lean,       shown.swivel,
+      static_cast<double>(shown.order)};
   std::array<double, kCount> change{};
   for (size_t i = 0; i < change.size(); ++i) {
     change[i] = fields_[i].value() - was[i];
@@ -236,6 +266,7 @@ void PoseBox::Commit() {
   delta.opacity = change[kOpacity];
   delta.lean = change[kLean];
   delta.swivel = change[kSwivel];
+  delta.order = change[kOrder];
   emit Problem(ProblemOf(managers_.pose->Shift(
       managers_.selection->PickedTracks(), frames, delta)));
   assert(managers_.history != nullptr);

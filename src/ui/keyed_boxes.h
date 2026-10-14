@@ -34,11 +34,13 @@ class PoseBox final : public QGroupBox {
  private:
   enum Field {
     kTurn, kX, kY, kScaleX, kScaleY, kSkew, kOpacity, kLean, kSwivel,
-    kCount
+    kOrder, kCount
   };
   // The fields run in PoseField's order.
 
   void Commit();
+  // The Order field: tooltip, double click reset, its own undo name.
+  void SetUpOrder();
   void SwapDrawing(int index);
   void ShowPose(const Project& project, const std::vector<TrackRef>& tracks,
                 Frame frame, const PiecePose& focus);

@@ -34,6 +34,7 @@ enum class Number {
   kFraction,  // Opacity, strength: 0 to 1, step 0.05.
   kZoom,      // Camera zoom: 0.05 to 10, step 0.05.
   kCells,     // Warp reach: 0 to kMaxWarpCells cells, step 0.5.
+  kPlaces,    // Draw order places: whole numbers either way, step 1.
 };
 
 // Sets box up as kind; prefix labels one half of a pair ("x ", "y ").

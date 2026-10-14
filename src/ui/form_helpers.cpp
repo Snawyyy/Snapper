@@ -46,6 +46,8 @@ void SetUpNumber(QDoubleSpinBox* box, Number kind, const QString& prefix) {
         return {0.05, 10, 0.05, 2, "", 0.01};
       case Number::kCells:
         return {0, kMaxWarpCells, 0.5, 1, " cells", 0.02};
+      case Number::kPlaces:
+        return {-kMaxDollPieces, kMaxDollPieces, 1, 0, "", 0.2};
     }
     return {0, 1, 0.05, 2, "", 0.01};
   }();
