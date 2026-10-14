@@ -37,7 +37,8 @@ CompNeeds NeedsOf(const Shot& shot, Frame local, const CompShow& show) {
     return needs;
   }
   for (const CompEffect& effect : shot.comp) {
-    const bool is_run = effect.is_on || show.mask_of == effect.id;
+    const bool is_run = (effect.is_on || show.mask_of == effect.id) &&
+                        IsLiveAt(effect, local.index(), shot.length.index());
     if (!is_run) {
       continue;
     }

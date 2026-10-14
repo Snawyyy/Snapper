@@ -99,6 +99,11 @@ QJsonObject EffectToJson(const CompEffect& effect) {
     }
   }
   object.insert("knobs", knobs);
+  const bool is_timed = effect.length != kWholeShot;
+  if (is_timed) {
+    object.insert("start", effect.start);
+    object.insert("length", effect.length);
+  }
   const bool is_plugin = effect.kind == CompKind::kFsp;
   if (is_plugin) {
     object.insert("plugin", effect.plugin);
@@ -118,6 +123,10 @@ CompEffect EffectFromJson(const QJsonObject& object, JsonIssues* issues) {
   effect.kind = static_cast<CompKind>(
       EnumFromJson(object.value("kind"), kKindNames, issues));
   effect.is_on = object.value("on").toBool(true);
+  // Old files have no timing: the whole shot.
+  effect.start = object.value("start").toInt(0);
+  effect.length = std::max(kWholeShot,
+                           object.value("length").toInt(kWholeShot));
   effect.blend = static_cast<BlendMode>(
       EnumFromJson(object.value("blend"), kBlendNames, issues));
   effect.target = TargetFromJson(object.value("target").toObject(), issues);

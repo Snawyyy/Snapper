@@ -67,6 +67,11 @@ struct CompContext final {
   LinkSolver* links = nullptr;
   const CompPictures* pictures = nullptr;
   CompShow show;
+  // A spill: the reel shows another picture at this frame, past the
+  // shot's ends, and only the shot's screen effects that run on into it
+  // are drawn, timed by the shot frame at (below 0 or past the shot).
+  bool is_spill = false;
+  int at = 0;
 };
 
 // The space an effect's points live in, to output pixels: a layer

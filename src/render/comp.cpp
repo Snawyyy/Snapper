@@ -353,7 +353,14 @@ void ApplyComp(const CompContext& context, QImage* frame,
   if (keys_colors) {
     run.KeepBase();
   }
+  const int at = context.is_spill ? context.at : context.local.index();
   for (const CompEffect& effect : shot.comp) {
+    const bool is_in_time =
+        IsLiveAt(effect, at, shot.length.index()) &&
+        (!context.is_spill || !effect.target.layer.IsValid());
+    if (!is_in_time) {
+      continue;
+    }
     const bool is_shown_mask = context.show.mask_of == effect.id;
     const bool is_run = (effect.is_on && !context.show.is_off) || is_shown_mask;
     if (!is_run) {

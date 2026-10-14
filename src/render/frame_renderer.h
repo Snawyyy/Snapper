@@ -82,6 +82,13 @@ class FrameRenderer final {
                     const CompNeeds& needs, CompPictures* pictures,
                     QImage* frame);
 
+  // The screen effects of shots whose timing runs past their clip, over
+  // the reel picture at frame (render/comp_spill.cpp).
+  void ApplySpills(const Project& project, Frame frame, double scale,
+                   QImage* out);
+  void SpillClip(const Project& project, const Clip& clip, Frame frame,
+                 double scale, QImage* out);
+
   // Draws clip's source at source over out: a shot whole, a video
   // fitted to the canvas, text where its look places it.
   void DrawClip(const Project& project, const Clip& clip, Frame source,

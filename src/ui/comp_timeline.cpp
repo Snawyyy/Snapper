@@ -1,6 +1,5 @@
 #include "ui/comp_timeline.h"
 
-#include <QMouseEvent>
 #include <QPainter>
 
 #include <algorithm>
@@ -13,6 +12,7 @@
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/comp_drag.h"
 #include "ui/theme.h"
 
 namespace snapper {
@@ -24,32 +24,13 @@ constexpr double kRow = 18.0;
 // The ruler, the row of shot clips and the shot light.
 constexpr int kFixedRows = 2;
 
-// The clip of shot that the effects are drawn over: the one showing on
-// top at the playhead when it is the shot's, else the shot's first.
-const Clip* ClipOfShot(const Project& project, ShotId shot, Frame playhead) {
-  assert(playhead.index() >= 0);
-  assert(shot.value() >= 0);
-  const ReelShot here = ShotAtReel(project, playhead);
-  const bool is_here = here.IsValid() && here.shot == shot;
-  if (is_here) {
-    return here.clip;
-  }
-  for (const ReelTrack& track : project.reel.tracks) {
-    for (const Clip& clip : track.clips) {
-      const auto* source = std::get_if<ShotSource>(&clip.source);
-      if (source != nullptr && source->shot == shot) {
-        return &clip;
-      }
-    }
-  }
-  return nullptr;
-}
-
 }  // namespace
 
 CompTimeline::CompTimeline(const Managers& managers) : managers_(managers) {
   assert(managers_.IsComplete());
   assert(managers_.comp != nullptr);
+  setFocusPolicy(Qt::ClickFocus);
+  setMouseTracking(true);
   setMinimumHeight(static_cast<int>(kRuler + 3 * kRow));
   const auto repaint = [this] { update(); };
   connect(managers_.history, &HistoryManager::Changed, this, [this] {
@@ -64,29 +45,41 @@ CompTimeline::CompTimeline(const Managers& managers) : managers_(managers) {
 }
 
 int CompTimeline::Length() const {
+  assert(managers_.history != nullptr);
   const Frame length = ReelLength(managers_.history->current());
+  assert(length.index() >= 0);
   return std::max(1, length.index());
 }
 
 double CompTimeline::XOf(int frame) const {
   const double span = std::max(1.0, width() - kNameWidth - 8.0);
+  assert(span > 0.0);
+  assert(Length() > 0);
   return kNameWidth + span * frame / Length();
 }
 
-int CompTimeline::FrameAt(double x) const {
+int CompTimeline::FreeFrameAt(double x) const {
   const double span = std::max(1.0, width() - kNameWidth - 8.0);
-  const int frame =
-      static_cast<int>(std::floor((x - kNameWidth) / span * Length()));
-  return std::clamp(frame, 0, Length() - 1);
+  assert(span > 0.0);
+  assert(std::isfinite(x));
+  return static_cast<int>(std::floor((x - kNameWidth) / span * Length()));
+}
+
+int CompTimeline::FrameAt(double x) const {
+  assert(std::isfinite(x));
+  assert(Length() > 0);
+  return std::clamp(FreeFrameAt(x), 0, Length() - 1);
 }
 
 void CompTimeline::SeekTo(double x) {
   assert(std::isfinite(x));
+  assert(managers_.playback != nullptr);
   managers_.playback->Seek(Frame(FrameAt(x)));
 }
 
 void CompTimeline::PaintShots(QPainter* painter, double y) const {
   assert(painter != nullptr);
+  assert(y >= 0.0);
   const Project& project = managers_.history->current();
   const ShotId picked = managers_.selection->shot();
   painter->fillRect(QRectF(0, y, width(), kRow), QColor(0x2e, 0x2e, 0x32));
@@ -96,7 +89,8 @@ void CompTimeline::PaintShots(QPainter* painter, double y) const {
   for (const ReelTrack& track : project.reel.tracks) {
     for (const Clip& clip : track.clips) {
       const auto* source = std::get_if<ShotSource>(&clip.source);
-      if (source == nullptr) {
+      const bool is_shot = source != nullptr;
+      if (!is_shot) {
         continue;
       }
       const Shot* shot = FindShot(project, source->shot);
@@ -117,9 +111,9 @@ void CompTimeline::PaintShots(QPainter* painter, double y) const {
 
 void CompTimeline::paintEvent(QPaintEvent* event) {
   assert(event != nullptr);
+  assert(managers_.playback != nullptr);
   QPainter painter(this);
   painter.fillRect(rect(), QColor(0x24, 0x24, 0x27));
-  const Project& project = managers_.history->current();
   const int length = Length();
   painter.setPen(QColor(0x80, 0x80, 0x86));
   const int every = std::max(1, length / 12);
@@ -129,95 +123,90 @@ void CompTimeline::paintEvent(QPaintEvent* event) {
     painter.drawText(QPointF(x + 2, kRuler - 6), QString::number(frame));
   }
   PaintShots(&painter, kRuler);
-  const ShotId shot_id = managers_.selection->shot();
-  const Shot* shot = FindShot(project, shot_id);
-  const Frame playhead = managers_.playback->FrameOn(Timeline::kReel);
-  const Clip* clip = shot != nullptr
-                         ? ClipOfShot(project, shot_id, playhead)
-                         : nullptr;
-  if (clip != nullptr) {
-    PaintEffects(&painter, *shot, *clip, kRuler + kRow);
+  const bool has_clip = ShotClip() != nullptr;
+  if (has_clip) {
+    PaintBars(&painter);
+    PaintLight(&painter);
   }
+  const Frame playhead = managers_.playback->FrameOn(Timeline::kReel);
   const double x = XOf(playhead.index());
   painter.setPen(QPen(theme::kPick, 2.0));
   painter.drawLine(QPointF(x, 0), QPointF(x, height()));
 }
 
-void CompTimeline::PaintEffects(QPainter* painter, const Shot& shot,
-                                const Clip& clip, double top) const {
+void CompTimeline::PaintBars(QPainter* painter) const {
   assert(painter != nullptr);
-  std::vector<CompEffect> rows = shot.comp;
-  std::ranges::reverse(rows);
-  const CompEffectId picked = managers_.comp->PickedIn(shot.id);
-  // A shot frame f shows at reel frame start + f - in, while the clip
-  // shows it.
-  const int shown = ShownLength(managers_.history->current(), clip).index();
-  const auto reel_x = [&](int frame, bool* is_shown) {
-    const int into = frame - clip.in.index();
-    *is_shown = into >= 0 && into < shown;
-    return XOf(clip.start.index() + into);
-  };
-  double y = top;
-  const auto row_of = [&](const QString& name, const std::set<int>& keys,
-                          bool is_picked) {
+  const ShotId shot = managers_.selection->shot();
+  const CompEffectId picked = managers_.comp->PickedIn(shot);
+  const Clip* clip = ShotClip();
+  assert(clip != nullptr);
+  const QRectF own(XOf(clip->start.index()), 0,
+                   XOf(clip->end().index()) - XOf(clip->start.index()),
+                   height());
+  for (const Bar& bar : Bars()) {
+    const CompEffect* effect = managers_.comp->Find(shot, bar.id);
+    assert(effect != nullptr);
+    const bool is_picked = bar.id == picked;
+    const double y = bar.box.top() - 1;
     painter->fillRect(QRectF(0, y, width(), kRow),
                       is_picked ? QColor(0x3a, 0x2a, 0x30)
                                 : QColor(0x2e, 0x2e, 0x32));
-    painter->setPen(QColor(0xe6, 0xe6, 0xe6));
+    painter->setPen(effect->is_on ? QColor(0xe6, 0xe6, 0xe6) : theme::kTextOff);
     painter->drawText(QRectF(4, y, kNameWidth - 8, kRow),
-                      Qt::AlignLeft | Qt::AlignVCenter, name);
+                      Qt::AlignLeft | Qt::AlignVCenter,
+                      CompManager::EffectName(*effect));
+    QColor fill = KindMark(effect->kind).darker(effect->is_on ? 170 : 260);
+    painter->setPen(is_picked ? QPen(theme::kPick, 2.0) : QPen(Qt::black));
+    painter->setBrush(fill);
+    painter->drawRect(bar.box);
+    // On a doll it stops at the cut: what lies past it is hatched.
+    const bool is_cut = bar.is_on_doll;
+    if (is_cut) {
+      painter->save();
+      painter->setClipRegion(QRegion(bar.box.toAlignedRect()) -
+                             QRegion(own.toAlignedRect()));
+      painter->fillRect(bar.box, QBrush(QColor(0, 0, 0, 160),
+                                        Qt::BDiagPattern));
+      painter->restore();
+    }
     painter->setPen(Qt::black);
     painter->setBrush(theme::kHandle);
-    for (const int frame : keys) {
-      bool is_shown = false;
-      const QPointF at(reel_x(frame, &is_shown), y + kRow / 2.0);
-      if (!is_shown) {
-        continue;
-      }
+    for (const int frame : CompManager::KeyFrames(*effect)) {
+      const double x =
+          XOf(clip->start.index() + frame - clip->in.index());
+      const QPointF at(x, bar.box.center().y());
       painter->drawPolygon(
           QPolygonF({at + QPointF(0, -5), at + QPointF(5, 0),
                      at + QPointF(0, 5), at + QPointF(-5, 0)}));
     }
-    y += kRow;
-  };
-  for (const CompEffect& effect : rows) {
-    row_of(CompManager::EffectName(effect), CompManager::KeyFrames(effect),
-           effect.id == picked);
-  }
-  std::set<int> light;
-  const bool is_light_keyed = shot.light.keys.size() > 1;
-  if (is_light_keyed) {
-    for (const auto& key : shot.light.keys) {
-      light.insert(key.frame.index());
-    }
-  }
-  row_of(tr("Shot light"), light, false);
-}
-
-void CompTimeline::mousePressEvent(QMouseEvent* event) {
-  assert(event != nullptr);
-  const double y = event->position().y();
-  const int row = static_cast<int>(std::floor((y - kRuler) / kRow)) -
-                  (kFixedRows - 1);
-  const ShotId shot = managers_.selection->shot();
-  std::vector<CompEffect> rows = managers_.comp->Of(shot);
-  std::ranges::reverse(rows);
-  const bool is_effect_row =
-      y >= kRuler && row >= 0 && row < static_cast<int>(rows.size());
-  if (is_effect_row) {
-    managers_.comp->Pick(shot, rows[static_cast<size_t>(row)].id);
-  }
-  const bool is_on_frames = event->position().x() >= kNameWidth;
-  if (is_on_frames) {
-    SeekTo(event->position().x());
   }
 }
 
-void CompTimeline::mouseMoveEvent(QMouseEvent* event) {
-  assert(event != nullptr);
-  const bool is_held = event->buttons().testFlag(Qt::LeftButton);
-  if (is_held) {
-    SeekTo(event->position().x());
+void CompTimeline::PaintLight(QPainter* painter) const {
+  assert(painter != nullptr);
+  const Shot* shot =
+      FindShot(managers_.history->current(), managers_.selection->shot());
+  const Clip* clip = ShotClip();
+  assert(clip != nullptr);
+  const double y =
+      kRuler + kRow * (1 + static_cast<double>(Bars().size()));
+  painter->fillRect(QRectF(0, y, width(), kRow), QColor(0x2e, 0x2e, 0x32));
+  painter->setPen(QColor(0xe6, 0xe6, 0xe6));
+  painter->drawText(QRectF(4, y, kNameWidth - 8, kRow),
+                    Qt::AlignLeft | Qt::AlignVCenter, tr("Shot light"));
+  const bool is_keyed = shot != nullptr && shot->light.keys.size() > 1;
+  if (!is_keyed) {
+    return;
+  }
+  painter->setPen(Qt::black);
+  painter->setBrush(theme::kHandle);
+  for (const auto& key : shot->light.keys) {
+    const QPointF at(
+        XOf(clip->start.index() + key.frame.index() - clip->in.index()),
+        y + kRow / 2.0);
+    painter->drawPolygon(QPolygonF({at + QPointF(0, -5), at + QPointF(5, 0),
+                                    at + QPointF(0, 5),
+                                    at + QPointF(-5, 0)}));
   }
 }
 

@@ -44,4 +44,21 @@ int CompEffectIndex(const std::vector<CompEffect>& comp, CompEffectId id) {
   return -1;
 }
 
+CompSpan SpanOf(const CompEffect& effect, int shot_length) {
+  assert(shot_length >= 0);
+  assert(effect.length == kWholeShot || effect.length >= 0);
+  const bool is_whole = effect.length == kWholeShot;
+  if (is_whole) {
+    return CompSpan{0, shot_length};
+  }
+  return CompSpan{effect.start, effect.start + effect.length};
+}
+
+bool IsLiveAt(const CompEffect& effect, int local, int shot_length) {
+  assert(shot_length >= 0);
+  assert(effect.length == kWholeShot || effect.length >= 0);
+  const CompSpan span = SpanOf(effect, shot_length);
+  return local >= span.first && local < span.end;
+}
+
 }  // namespace snapper

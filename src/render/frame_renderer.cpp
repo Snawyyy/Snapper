@@ -364,6 +364,7 @@ QImage FrameRenderer::RenderReel(const Project& project, Frame frame,
     DrawClip(project, *piece.next, piece.next_source, scale, videos, &to);
     out = Combine(piece.kind, piece.mix, from, to);
   }
+  ApplySpills(project, frame, scale, &out);
   return out;
 }
 

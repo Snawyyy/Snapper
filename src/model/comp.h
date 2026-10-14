@@ -18,6 +18,8 @@ struct CompEffectTag;
 using CompEffectId = Id<CompEffectTag>;
 
 constexpr int kMaxCompEffectsPerShot = 32;
+// An effect's length that follows its shot, first frame to last.
+constexpr int kWholeShot = -1;
 // Picked target colors and color swap pairs of one effect.
 constexpr int kMaxCompColors = 16;
 constexpr int kMaxGradientStops = 8;
@@ -155,6 +157,12 @@ struct CompEffect final {
   CompKind kind = CompKind::kRimLight;
   // The eye on its row.
   bool is_on = true;
+  // When it runs, in its shot's frames: from start for length frames,
+  // or the whole shot (kWholeShot, the default, follows the shot). Past
+  // the shot's ends a screen effect goes on over whatever the reel
+  // shows there; start may be below 0 for that.
+  int start = 0;
+  int length = kWholeShot;
   BlendMode blend = BlendMode::kNormal;
   CompTarget target{};
   QColor color = Qt::white;
@@ -182,6 +190,16 @@ struct CompEffect final {
 
   bool operator==(const CompEffect&) const = default;
 };
+
+// The frames of its shot an effect runs on, first and one past last;
+// shot_length is the shot's own.
+struct CompSpan final {
+  int first = 0;
+  int end = 0;
+};
+CompSpan SpanOf(const CompEffect& effect, int shot_length);
+// True when the effect runs on its shot's frame local.
+bool IsLiveAt(const CompEffect& effect, int local, int shot_length);
 
 const CompEffect* FindCompEffect(const std::vector<CompEffect>& comp,
                                  CompEffectId id);

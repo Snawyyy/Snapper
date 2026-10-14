@@ -165,6 +165,15 @@ class CompManager final : public QObject {
   // Shift+= and Shift+-: the next or previous mode, wrapping.
   Result<void> StepBlend(ShotId shot, CompEffectId id, int delta);
 
+  // Times the effect from start for length frames of its shot
+  // (edit/comp_timing.cpp); kWholeShot follows the shot again. With
+  // carries_keys its keys move by as much as the start did, as when its
+  // clip is dragged whole.
+  Result<void> SetTiming(ShotId shot, CompEffectId id, int start, int length,
+                         bool carries_keys);
+  // Why the effect's timing can't be changed; empty when it can.
+  QString WhyNoTiming(ShotId shot, CompEffectId id) const;
+
   // Sets knob at frame (see the class comment), clamped to its range.
   Result<void> SetKnob(ShotId shot, CompEffectId id, CompKnob knob,
                        Frame frame, double value);

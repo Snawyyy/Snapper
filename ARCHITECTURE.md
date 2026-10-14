@@ -546,7 +546,11 @@ a doll, narrowed by picked colors. The tab sets the target from the
 stage pick when an effect is added (`CompLibrary` on the left), and
 lists the pick's effects as folds (`CompEffects` on the right);
 `CompManager::TargetFor` and `ShownFor` (`edit/comp_pick.cpp`) say
-what a pick means. When an effect needs a target's own
+what a pick means. Each effect runs from `start` for `length` frames
+of its shot (`kWholeShot` by default); `ApplyComp` skips it outside
+that span, and on the reel `FrameRenderer::ApplySpills`
+(`render/comp_spill.cpp`) draws screen effects whose span runs past
+their clip over the finished reel picture. When an effect needs a target's own
 pixels, `NeedsOf` says so and the layer pass paints each layer through
 its own picture (`PaintForComp`), keeping the target as it shows in
 the frame (cut where later layers and the doll's own pieces above the
