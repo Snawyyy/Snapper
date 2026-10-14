@@ -40,6 +40,11 @@ StageView::StageView(const Managers& managers)
       watcher_(managers.history, this),
       flash_(managers.motion, this) {
   assert(managers_.IsComplete());
+  // The Pose stage is for posing: the Comp effects show on the Comp and
+  // Video tabs, and drawing them here would only slow posing down.
+  CompShow no_comp;
+  no_comp.is_off = true;
+  renderer_.SetCompShow(no_comp);
   setFocusPolicy(Qt::StrongFocus);
   setAcceptDrops(true);
   setMouseTracking(true);
