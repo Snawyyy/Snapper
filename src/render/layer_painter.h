@@ -33,15 +33,30 @@ void PaintLettering(const QPainterPath& path, const TextLayer& text,
 // outside any shot (the rig canvas, draw mode).
 Layer RestLayer(const QString& doll);
 
+// What a doll drawn for some of its pieces does with the others. Pieces
+// below the lowest named one are never drawn: nothing named is under
+// them to cover.
+enum class PieceSplit {
+  // The others keep their place, unseen.
+  kOnly,
+  // The others above erase what they cover: the named pieces as they
+  // show in the doll.
+  kShown,
+  // The others above are drawn and the named ones erase what they
+  // cover: what stands in front of the named pieces.
+  kCover,
+};
+
 // Draws one picture layer (doll, image or text) through view, which
 // maps shot space to the output, moved by its shot's links (links may
 // be nullptr for a layer outside any shot). Effect layers are not drawn
 // here: they change what is already drawn. With only_pieces, a doll
-// draws just the pieces so named (the others keep their place, unseen).
+// draws just the pieces so named, the others treated as split says.
 void PaintLayer(const Project& project, const Layer& layer, Frame frame,
                 const QTransform& view, LinkSolver* links, ImageCache* cache,
                 QPainter* painter,
-                const std::set<QString>* only_pieces = nullptr);
+                const std::set<QString>* only_pieces = nullptr,
+                PieceSplit split = PieceSplit::kOnly);
 
 }  // namespace snapper
 

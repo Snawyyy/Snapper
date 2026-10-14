@@ -56,6 +56,26 @@ Mask GrownByOne(const Mask& mask, int width, int height) {
   return grown;
 }
 
+Mask Uncovered(const Mask& mask, const QImage& cover) {
+  assert(!cover.isNull());
+  const int width = cover.width();
+  const size_t count =
+      static_cast<size_t>(width) * static_cast<size_t>(cover.height());
+  const bool is_whole = mask.empty();
+  assert(is_whole || mask.size() == count);
+  Mask out = is_whole ? Mask(count, 255) : mask;
+  for (int y = 0; y < cover.height(); ++y) {
+    const auto* row = reinterpret_cast<const QRgb*>(cover.constScanLine(y));
+    const size_t start = static_cast<size_t>(y) * static_cast<size_t>(width);
+    for (int x = 0; x < width; ++x) {
+      std::uint8_t& kept = out[start + static_cast<size_t>(x)];
+      kept = static_cast<std::uint8_t>(
+          (kept * (255 - qAlpha(row[x])) + 127) / 255);
+    }
+  }
+  return out;
+}
+
 void ShowMask(const Mask& region, QImage* frame) {
   assert(frame != nullptr);
   frame->fill(Qt::black);
