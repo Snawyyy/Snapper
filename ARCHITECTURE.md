@@ -844,10 +844,6 @@ sound clips, the Shot clip panel (name, length through `ResizeShots`,
 the Edges mode, Open) for shot clips, Subtitles with nothing picked,
 and a hint otherwise, plus the always shown Voice tab (`VoicePanel`:
 `ui/voice_panel.cpp`, `ui/voice_clone_box.cpp` for the Clone half,
-`ui/voice_engine_box.cpp` the clone model, Qwen3 or Chatterbox, and
-Chatterbox's emotion fader, each engine in its own Python, one at a time
-on the card; `VoiceGenManager`'s reasons live in
-`edit/voice_gen_checks.cpp`,
 `ui/audio_preview.cpp` to listen; its look:
 `ui/wave_screen.cpp` a sound on a phosphor
 screen, click to listen from there, `ui/led_meter.cpp` the recording

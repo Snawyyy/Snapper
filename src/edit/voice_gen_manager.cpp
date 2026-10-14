@@ -21,16 +21,14 @@ namespace {
 
 constexpr const char* kScriptName = "voice_gen.py";
 
-}  // namespace
-
-QString VoicePython(const QString& data_folder, VoiceEngine engine) {
+QString PythonIn(const QString& data_folder) {
   assert(!data_folder.isEmpty());
   assert(kScriptName != nullptr);
-  const bool is_chatterbox = engine == VoiceEngine::kChatterbox;
   return QDir(data_folder).filePath(
-      is_chatterbox ? QStringLiteral("voice_gen/chatterbox_venv/bin/python")
-                    : QStringLiteral("voice_gen/venv/bin/python"));
+      QStringLiteral("voice_gen/venv/bin/python"));
 }
+
+}  // namespace
 
 VoiceGenManager::VoiceGenManager(DocumentManager* document,
                                  PlaybackManager* playback,
@@ -41,7 +39,7 @@ VoiceGenManager::VoiceGenManager(DocumentManager* document,
       reel_(reel),
       voices_(voices),
       data_folder_(data_folder),
-      worker_(VoicePython(data_folder, VoiceEngine::kQwen),
+      worker_(PythonIn(data_folder),
               QDir(QCoreApplication::applicationDirPath())
                   .filePath(QString::fromLatin1(kScriptName))) {
   assert(document_ != nullptr && playback_ != nullptr);
@@ -76,6 +74,42 @@ VoiceGenManager::~VoiceGenManager() {
   recorder_.Stop();
 }
 
+QString VoiceGenManager::WhyNoWorker() const {
+  assert(voices_ != nullptr);
+  assert(temp_.isValid());
+  const bool is_installed = worker_.IsInstalled();
+  if (!is_installed) {
+    return Tr("Voice gen is not installed: run tools/voice_gen/setup.sh.");
+  }
+  const bool is_listening = state_ == State::kListening;
+  if (is_listening) {
+    return Tr("Still writing down the sample's words.");
+  }
+  return IsBusy() ? Tr("Already speaking.") : QString();
+}
+
+QString VoiceGenManager::WhyNoSpeak(const QString& text) const {
+  assert(voices_ != nullptr);
+  assert(text.size() < 1000000);
+  const QString why_not = WhyNoWorker();
+  const bool is_blocked = !why_not.isEmpty();
+  if (is_blocked) {
+    return why_not;
+  }
+  const bool is_blank = text.trimmed().isEmpty();
+  return is_blank ? Tr("Type a line to say.") : QString();
+}
+
+QString VoiceGenManager::WhyNoTranscribe(const QString& sample_path) const {
+  assert(voices_ != nullptr);
+  assert(sample_path.size() < 100000);
+  const bool has_sample = QFileInfo(sample_path).isFile();
+  if (!has_sample) {
+    return Tr("Open or record a sample first.");
+  }
+  return WhyNoWorker();
+}
+
 Result<void> VoiceGenManager::Transcribe(const QString& sample_path) {
   assert(voices_ != nullptr);
   assert(temp_.isValid());
@@ -96,14 +130,39 @@ Result<void> VoiceGenManager::Transcribe(const QString& sample_path) {
   return sent;
 }
 
+QString VoiceGenManager::WhyNoSpeakClone(const QString& sample_path,
+                                         const QString& text) const {
+  assert(voices_ != nullptr);
+  assert(temp_.isValid());
+  const QString why_not = WhyNoSpeak(text);
+  const bool is_blocked = !why_not.isEmpty();
+  if (is_blocked) {
+    return why_not;
+  }
+  const bool has_sample = QFileInfo(sample_path).isFile();
+  return has_sample ? QString() : Tr("Pick a voice or a sample first.");
+}
+
+QString VoiceGenManager::WhyNoSpeakDesign(const QString& describe,
+                                          const QString& text) const {
+  assert(voices_ != nullptr);
+  assert(temp_.isValid());
+  const QString why_not = WhyNoSpeak(text);
+  const bool is_blocked = !why_not.isEmpty();
+  if (is_blocked) {
+    return why_not;
+  }
+  const bool has_description = !describe.trimmed().isEmpty();
+  return has_description ? QString() : Tr("Describe the voice first.");
+}
+
 Result<void> VoiceGenManager::SpeakClone(const QString& sample_path,
                                          const QString& words,
                                          const QString& text,
-                                         const QString& language,
-                                         VoiceEngine engine, double emotion) {
+                                         const QString& language) {
   assert(voices_ != nullptr);
-  assert(emotion >= kMinEmotion && emotion <= kMaxEmotion);
-  const QString why_not = WhyNoSpeakClone(sample_path, text, engine);
+  assert(temp_.isValid());
+  const QString why_not = WhyNoSpeakClone(sample_path, text);
   const bool is_blocked = !why_not.isEmpty();
   if (is_blocked) {
     return std::unexpected(Error{why_not});
@@ -113,8 +172,6 @@ Result<void> VoiceGenManager::SpeakClone(const QString& sample_path,
   job.language = language;
   job.sample = QFileInfo(sample_path).absoluteFilePath();
   job.words = words.trimmed();
-  job.engine = engine;
-  job.emotion = emotion;
   return Start(job);
 }
 
@@ -141,8 +198,6 @@ Result<void> VoiceGenManager::Start(const VoiceJob& job) {
   assert(temp_.isValid());
   pending_job_ = job;
   pending_job_.out = TempPath(QStringLiteral("line"));
-  // Another engine's worker goes first, so one model set fills the card.
-  worker_.SetPython(VoicePython(data_folder_, job.engine));
   const bool is_warm = worker_.IsRunning();
   const auto sent = worker_.Submit(pending_job_);
   if (!sent) {
@@ -214,6 +269,13 @@ QString VoiceGenManager::last_voice_name() const {
   return Tr("Sample");
 }
 
+QString VoiceGenManager::WhyNoAdd() const {
+  assert(temp_.isValid());
+  assert(reel_ != nullptr);
+  const bool has_take = !last_take_.isEmpty() && QFileInfo(last_take_).isFile();
+  return has_take ? QString() : Tr("Generate a line first.");
+}
+
 QString VoiceGenManager::VoicesFolder() const {
   assert(document_ != nullptr);
   assert(!data_folder_.isEmpty());
@@ -249,6 +311,14 @@ Result<ClipId> VoiceGenManager::AddToReel() {
   return made->front();
 }
 
+QString VoiceGenManager::WhyNoSaveDesigned() const {
+  assert(temp_.isValid());
+  assert(voices_ != nullptr);
+  const bool has_designed =
+      WhyNoAdd().isEmpty() && take_job_.kind == VoiceKind::kDesign;
+  return has_designed ? QString() : Tr("Generate a line first.");
+}
+
 Result<void> VoiceGenManager::SaveDesigned(const QString& name,
                                            bool replace) {
   assert(voices_ != nullptr);
@@ -260,6 +330,12 @@ Result<void> VoiceGenManager::SaveDesigned(const QString& name,
   }
   return voices_->Save(name, last_take_, take_job_.text, take_job_.language,
                        take_job_.describe, replace);
+}
+
+QString VoiceGenManager::WhyNoCapture() const {
+  assert(temp_.isValid());
+  assert(kMaxSampleSeconds > 0);
+  return IsCapturing() ? QString() : DesktopRecorder::WhyNoDesktop();
 }
 
 Result<void> VoiceGenManager::ToggleCapture() {

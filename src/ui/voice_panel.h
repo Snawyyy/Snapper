@@ -14,7 +14,6 @@
 #include "ui/hero_button.h"
 #include "ui/managers.h"
 #include "ui/voice_clone_box.h"
-#include "ui/voice_engine_box.h"
 #include "ui/wave_screen.h"
 
 namespace snapper {
@@ -70,7 +69,6 @@ class VoicePanel final : public QScrollArea {
   QPushButton design_mode_;
   QLabel mode_caption_;
   VoiceCloneBox clone_;
-  VoiceEngineBox engine_box_;
   QWidget* design_page_ = nullptr;
   QWidget* line_section_ = nullptr;
   QWidget* result_section_ = nullptr;

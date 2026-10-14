@@ -37,11 +37,6 @@ QWidget* MakePlated(const QString& title, QWidget* control, QWidget* parent,
 // empty for equal shares).
 QWidget* MakeCellRow(const std::vector<QWidget*>& cells,
                      const std::vector<int>& shares, QWidget* parent);
-// The width of a fader row's name, so other rows can line up with it.
-inline constexpr int kFaderNameWidth = 60;
-// A name kFaderNameWidth wide and field taking the rest, lined up with
-// the fader rows above or under it.
-QWidget* MakeNamedRow(const QString& label, QWidget* field, QWidget* parent);
 // Name, fader and readout in a row. The groove spans the field's
 // minimum to shown_high; neutral is where double click returns.
 QWidget* MakeFaderRow(const QString& label, QDoubleSpinBox* box,
