@@ -23,7 +23,7 @@ namespace {
 constexpr double kGridZoom = 8.0;
 constexpr double kDollDim = 0.35;
 constexpr double kOnion = 0.3;
-// The shot under a draft cel shows clearer than a dimmed doll.
+// The shot under a storyboard frame shows clearer than a dimmed doll.
 constexpr double kUnderDim = 0.6;
 
 }  // namespace
@@ -45,7 +45,7 @@ void DrawCanvas::paintEvent(QPaintEvent* event) {
 void DrawCanvas::PaintDoll(QPainter* painter) {
   assert(painter != nullptr);
   assert(managers_.history != nullptr);
-  // A draft cel lies over the shot as it is at that frame.
+  // A storyboard frame lies over the shot as it is at that frame.
   if (!managers_.draw->is_named()) {
     painter->save();
     painter->setOpacity(kUnderDim);

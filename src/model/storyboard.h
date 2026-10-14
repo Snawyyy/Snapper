@@ -47,10 +47,9 @@ struct StoryboardLayer final {
 const StoryboardCel* CelAt(const StoryboardLayer& board, Frame frame);
 // The cel that starts exactly at frame, or nullptr.
 const StoryboardCel* CelStartingAt(const StoryboardLayer& board, Frame frame);
-// The last cel starting before frame and the first one starting after
-// it: the onion skins of a cel drawn at frame.
+// The last cel starting before frame: the onion skin of a cel drawn at
+// frame, to trace from.
 const StoryboardCel* CelBefore(const StoryboardLayer& board, Frame frame);
-const StoryboardCel* CelAfter(const StoryboardLayer& board, Frame frame);
 // Puts the cels in frame order.
 void SortCels(StoryboardLayer* board);
 

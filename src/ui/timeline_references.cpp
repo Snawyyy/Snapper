@@ -22,6 +22,7 @@
 #include "ui/pick_keys.h"
 #include "ui/problem.h"
 #include "ui/theme.h"
+#include "ui/timeline_eye.h"
 #include "ui/timeline_layout.h"
 #include "ui/timeline_view.h"
 
@@ -33,34 +34,7 @@ constexpr QColor kReferenceFill{90, 140, 255, 50};
 constexpr QColor kReferenceLine{120, 170, 255};
 // Its markers, faint down the doll rows to key against.
 constexpr QColor kMarkAcross{255, 220, 80, 70};
-// The eye at the right of the row's name.
-constexpr double kEyeSize = 14.0;
-
 double BandTop() { return kRulerHeight + kWaveHeight; }
-
-QRectF EyeRect(double top) {
-  assert(top >= 0.0);
-  assert(kNameWidth > kEyeSize);
-  return QRectF(kNameWidth - kEyeSize - 6.0,
-                top + (kRowHeight - kEyeSize) / 2.0, kEyeSize, kEyeSize);
-}
-
-// The eye: open with a pupil when shown, a line when hidden.
-void PaintEye(const QRectF& box, bool is_open, QPainter* painter) {
-  assert(painter != nullptr);
-  assert(!box.isEmpty());
-  painter->setPen(QPen(is_open ? theme::kText : theme::kTextOff, 1.2));
-  painter->setBrush(Qt::NoBrush);
-  const QRectF lid = box.adjusted(0.0, 3.0, 0.0, -3.0);
-  if (is_open) {
-    painter->drawEllipse(lid);
-    painter->setBrush(theme::kText);
-    painter->drawEllipse(box.center(), 2.0, 2.0);
-    return;
-  }
-  painter->drawLine(QPointF(lid.left(), lid.center().y()),
-                    QPointF(lid.right(), lid.center().y()));
-}
 
 }  // namespace
 
@@ -78,7 +52,7 @@ int TimelineView::ReferenceRows() const {
 
 double TimelineView::RowsTop() const {
   const double top =
-      BandTop() + ReferenceRows() * kRowHeight + draft_.Height();
+      BandTop() + ReferenceRows() * kRowHeight + storyboard_.Height();
   assert(top >= BandTop());
   return top;
 }
@@ -187,8 +161,7 @@ bool TimelineView::ReferencePress(const QMouseEvent& event) {
   const std::vector<Reference> references = managers_.references->Of(shot);
   const Reference& reference = references[static_cast<size_t>(index)];
   const double top = BandTop() + index * kRowHeight;
-  const bool is_eye = EyeRect(top).adjusted(-4, -4, 4, 4).contains(
-      event.position());
+  const bool is_eye = EyeGrabRect(top).contains(event.position());
   if (is_eye) {
     Report(ProblemOf(managers_.references->SetShown(shot, reference.id,
                                                     !reference.is_shown)));

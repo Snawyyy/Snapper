@@ -15,11 +15,12 @@
 
 namespace snapper {
 
-// The picked shot's draft, in the panel kit's look: its eye, its
-// opacity fader, drawing a new cel at the playhead or over the one
-// showing, and deleting the picked cels. Each button is greyed with the
-// reason when it can't act. Self-contained, for a panel to slot in;
-// every change goes through the StoryboardManager.
+// The picked storyboard layer, in the panel kit's look: its opacity
+// fader, the In export tick, drawing a new frame at the playhead or
+// over the one showing, and deleting the picked frames. The layer's eye
+// and its draw order are the layer list's and the timeline row's. Each
+// control is greyed with the reason when it can't act. Every change
+// goes through the StoryboardManager.
 class StoryboardBox final : public QGroupBox {
   Q_OBJECT
 
@@ -27,15 +28,19 @@ class StoryboardBox final : public QGroupBox {
   explicit StoryboardBox(const Managers& managers);
   void Refresh();
 
+ signals:
+  void Problem(const QString& why);
+
  private:
   ShotId Shot() const;
-  void Report(const QString& problem) const;
+  // The storyboard layer the box edits, invalid when none is picked.
+  LayerId Layer() const;
 
   Managers managers_;
   LiveEdit live_;
   QVBoxLayout layout_;
   QWidget form_host_;
-  QCheckBox shown_;
+  QCheckBox exported_;
   QDoubleSpinBox opacity_;
   QPushButton draw_new_;
   QPushButton draw_over_;

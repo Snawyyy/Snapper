@@ -1,31 +1,28 @@
-// The Pose timeline's Draft row (see timeline_storyboard.h).
+// The Pose timeline's storyboard rows: layout and paint (see
+// timeline_storyboard.h; the mouse and keys are in
+// timeline_storyboard_input.cpp).
 
 #include "ui/timeline_storyboard.h"
 
-#include <QContextMenuEvent>
-#include <QKeyEvent>
-#include <QMenu>
-#include <QMouseEvent>
 #include <QPainter>
 #include <QPolygonF>
 
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <vector>
 
 #include "anim/master_timeline.h"
-#include "edit/storyboard_manager.h"
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/reference_manager.h"
-#include "ui/draw_actions.h"
-#include "ui/form_helpers.h"
+#include "edit/selection_manager.h"
+#include "edit/storyboard_edits.h"
+#include "edit/storyboard_manager.h"
 #include "ui/grab.h"
 #include "ui/paint_clip.h"
-#include "ui/pick_keys.h"
-#include "ui/problem.h"
+#include "ui/storyboard_actions.h"
 #include "ui/theme.h"
+#include "ui/timeline_eye.h"
 #include "ui/timeline_layout.h"
 #include "ui/timeline_view.h"
 #include "ui/toast_manager.h"
@@ -33,18 +30,10 @@
 namespace snapper {
 namespace {
 
-// The draft row is dashed and grey-green, so it never reads as a doll's
-// key row or a reference bar.
-constexpr QColor kDraftFill{140, 200, 150, 30};
-constexpr QColor kDraftLine{150, 210, 160};
-constexpr double kEyeSize = 14.0;
-
-QRectF EyeRect(double top) {
-  assert(top >= 0.0);
-  assert(kNameWidth > kEyeSize);
-  return QRectF(kNameWidth - kEyeSize - 6.0,
-                top + (kRowHeight - kEyeSize) / 2.0, kEyeSize, kEyeSize);
-}
+// A storyboard row is dashed and grey-green, so it never reads as a
+// doll's key row or a reference bar.
+constexpr QColor kBoardFill{140, 200, 150, 30};
+constexpr QColor kBoardLine{150, 210, 160};
 
 QPolygonF Diamond(QPointF center) {
   assert(std::isfinite(center.x()));
@@ -57,38 +46,66 @@ QPolygonF Diamond(QPointF center) {
 
 }  // namespace
 
-TimelineStoryboard::TimelineStoryboard(const Managers& managers, TimelineView* view)
+TimelineStoryboard::TimelineStoryboard(const Managers& managers,
+                                       TimelineView* view)
     : QObject(view), managers_(managers), view_(view) {
   assert(view_ != nullptr);
   assert(managers_.history != nullptr);
-  if (managers_.storyboard == nullptr) {
+  const bool is_available = managers_.storyboard != nullptr;
+  if (!is_available) {
     return;
   }
   view_->installEventFilter(this);
+  // Alt+N and Alt+Shift+N draw at the playhead from the timeline too.
+  AddStoryboardKeys(view_, managers_);
   connect(managers_.storyboard, &StoryboardManager::Changed, view_,
           [this] { view_->update(); });
 }
 
 TimelineStoryboard::~TimelineStoryboard() {
+  assert(view_ != nullptr);
+  assert(drag_ == nullptr || is_pressed_);
   // A drag cut short by closing lands nothing.
-  if (drag_ != nullptr) {
+  const bool is_dragging = drag_ != nullptr;
+  if (is_dragging) {
     drag_->Cancel();
   }
 }
 
 ShotId TimelineStoryboard::Shot() const {
   assert(managers_.selection != nullptr);
+  assert(managers_.history != nullptr);
   return managers_.selection->shot();
 }
 
-double TimelineStoryboard::Height() const {
+std::vector<LayerId> TimelineStoryboard::Rows() const {
   assert(managers_.history != nullptr);
-  const bool has_row = managers_.storyboard != nullptr &&
-                       managers_.storyboard->Of(Shot()) != nullptr;
-  return has_row ? kRowHeight : 0.0;
+  assert(managers_.selection != nullptr);
+  std::vector<LayerId> rows;
+  const bool is_available = managers_.storyboard != nullptr;
+  const ::snapper::Shot* shot =
+      is_available ? FindShot(managers_.history->current(), Shot()) : nullptr;
+  const bool has_shot = shot != nullptr;
+  if (!has_shot) {
+    return rows;
+  }
+  for (auto it = shot->layers.rbegin(); it != shot->layers.rend(); ++it) {
+    const bool is_board = BoardOf(*it) != nullptr;
+    if (is_board) {
+      rows.push_back(it->id);
+    }
+  }
+  return rows;
+}
+
+double TimelineStoryboard::Height() const {
+  assert(kRowHeight > 0);
+  assert(view_ != nullptr);
+  return static_cast<double>(Rows().size()) * kRowHeight;
 }
 
 double TimelineStoryboard::Top() const {
+  assert(managers_.selection != nullptr);
   const size_t references = managers_.references != nullptr
                                 ? managers_.references->Of(Shot()).size()
                                 : 0;
@@ -97,89 +114,122 @@ double TimelineStoryboard::Top() const {
          static_cast<double>(references) * kRowHeight;
 }
 
-bool TimelineStoryboard::IsInRow(QPointF point) const {
+int TimelineStoryboard::RowAt(QPointF point) const {
   assert(std::isfinite(point.y()));
+  assert(kRowHeight > 0);
   const double top = Top();
-  return Height() > 0.0 && point.y() >= top && point.y() < top + kRowHeight;
+  const int count = static_cast<int>(Rows().size());
+  const bool is_in_band =
+      point.y() >= top && point.y() < top + count * kRowHeight;
+  if (!is_in_band) {
+    return -1;
+  }
+  return static_cast<int>(std::floor((point.y() - top) / kRowHeight));
+}
+
+LayerId TimelineStoryboard::LayerAt(QPointF point) const {
+  assert(std::isfinite(point.x()));
+  assert(std::isfinite(point.y()));
+  const int row = RowAt(point);
+  const std::vector<LayerId> rows = Rows();
+  const bool is_row = row >= 0 && row < static_cast<int>(rows.size());
+  return is_row ? rows[static_cast<size_t>(row)] : LayerId();
 }
 
 double TimelineStoryboard::FrameWidth() const {
+  assert(view_ != nullptr);
   const double width = view_->XOf(Frame(1)) - view_->XOf(Frame(0));
   assert(width > 0.0);
   return width;
 }
 
-std::optional<Frame> TimelineStoryboard::CelNear(double x) const {
+std::optional<Frame> TimelineStoryboard::CelNear(LayerId layer,
+                                                 double x) const {
   assert(std::isfinite(x));
-  const Draft* draft = managers_.storyboard->Of(Shot());
-  if (draft == nullptr) {
+  assert(managers_.storyboard != nullptr);
+  const StoryboardLayer* board = managers_.storyboard->Of(Shot(), layer);
+  const bool has_board = board != nullptr;
+  if (!has_board) {
     return std::nullopt;
   }
   const double half = FrameWidth() / 2.0;
   std::vector<QPointF> spots;
-  for (const StoryboardCel& cel : draft->cels) {
+  for (const StoryboardCel& cel : board->cels) {
     spots.emplace_back(view_->XOf(cel.at) + half, 0.0);
   }
   const int nearest =
       NearestGrab(spots, QPointF(x, 0.0), std::max(half, kGrabReach));
-  return nearest >= 0
-             ? std::optional<Frame>(draft->cels[static_cast<size_t>(nearest)].at)
-             : std::nullopt;
+  const bool is_hit = nearest >= 0;
+  return is_hit ? std::optional<Frame>(
+                      board->cels[static_cast<size_t>(nearest)].at)
+                : std::nullopt;
 }
 
 void TimelineStoryboard::Paint(QPainter* painter) const {
   assert(painter != nullptr);
-  const Draft* draft =
-      managers_.storyboard != nullptr ? managers_.storyboard->Of(Shot()) : nullptr;
-  const ::snapper::Shot* shot = FindShot(managers_.history->current(), Shot());
-  if (draft == nullptr || shot == nullptr) {
+  assert(managers_.history != nullptr);
+  const std::vector<LayerId> rows = Rows();
+  const ::snapper::Shot* shot =
+      FindShot(managers_.history->current(), Shot());
+  const bool has_rows = !rows.empty() && shot != nullptr;
+  if (!has_rows) {
     return;
   }
-  const double top = Top();
+  double top = Top();
+  for (const LayerId id : rows) {
+    const Layer* layer = FindLayer(*shot, id);
+    const bool is_layer = layer != nullptr;
+    if (is_layer) {
+      PaintRow(painter, *layer, top, shot->length);
+    }
+    top += kRowHeight;
+  }
+}
+
+void TimelineStoryboard::PaintRow(QPainter* painter, const Layer& layer,
+                                  double top, Frame shot_length) const {
+  assert(painter != nullptr);
+  const StoryboardLayer* board = BoardOf(layer);
+  assert(board != nullptr);
+  const bool is_shown = layer.is_visible;
+  const QColor ink = is_shown ? theme::kText : theme::kTextOff;
   const double width = view_->width();
   const QRectF name(0, top, kNameWidth, kRowHeight);
   painter->save();
   painter->fillRect(name, theme::kFace);
-  painter->setPen(draft->is_shown ? theme::kText : theme::kTextOff);
-  painter->drawText(name.adjusted(6, 0, -(kEyeSize + 10.0), 0),
-                    Qt::AlignVCenter | Qt::AlignLeft, tr("Draft"));
-  // The eye: open with a pupil when shown, a line when hidden.
-  const QRectF eye = EyeRect(top);
-  const QRectF lid = eye.adjusted(0.0, 3.0, 0.0, -3.0);
-  painter->setBrush(Qt::NoBrush);
-  painter->setPen(QPen(draft->is_shown ? theme::kText : theme::kTextOff, 1.2));
-  if (draft->is_shown) {
-    painter->drawEllipse(lid);
-    painter->setBrush(theme::kText);
-    painter->drawEllipse(eye.center(), 2.0, 2.0);
-  } else {
-    painter->drawLine(QPointF(lid.left(), lid.center().y()),
-                      QPointF(lid.right(), lid.center().y()));
-  }
+  painter->setPen(ink);
+  painter->drawText(
+      name.adjusted(6, 0, -(kEyeSize + 10.0), 0),
+      Qt::AlignVCenter | Qt::AlignLeft,
+      painter->fontMetrics().elidedText(
+          layer.name, Qt::ElideRight,
+          static_cast<int>(kNameWidth - kEyeSize - 16.0)));
+  PaintEye(EyeRect(top), is_shown, painter);
   {
     const PaintClip keep_in(
         painter, QRectF(kNameWidth, top, width - kNameWidth, kRowHeight));
-    painter->setOpacity(draft->is_shown ? 1.0 : 0.4);
+    painter->setOpacity(is_shown ? 1.0 : 0.4);
     const double from = view_->XOf(Frame(0));
-    const double to = view_->XOf(shot->length);
-    painter->setBrush(kDraftFill);
-    painter->setPen(QPen(kDraftLine, 1.0, Qt::DashLine));
+    const double to = view_->XOf(shot_length);
+    painter->setBrush(kBoardFill);
+    painter->setPen(QPen(kBoardLine, 1.0, Qt::DashLine));
     painter->drawRect(QRectF(from, top + 3.0, std::max(to - from, 2.0),
                              kRowHeight - 6.0));
     const double middle = top + kRowHeight / 2.0;
     const double half = FrameWidth() / 2.0;
-    const std::set<Frame> picked = managers_.storyboard->Picked(Shot());
-    for (size_t i = 0; i < draft->cels.size(); ++i) {
-      const StoryboardCel& cel = draft->cels[i];
-      const bool is_last = i + 1 == draft->cels.size();
+    const std::set<Frame> picked =
+        managers_.storyboard->Picked(Shot(), layer.id);
+    for (size_t i = 0; i < board->cels.size(); ++i) {
+      const StoryboardCel& cel = board->cels[i];
+      const bool is_last = i + 1 == board->cels.size();
       const double x = view_->XOf(cel.at) + half;
-      const double end =
-          is_last ? std::max(to, x) : view_->XOf(draft->cels[i + 1].at) + half;
-      painter->setPen(QPen(kDraftLine, 2.0));
+      const double next = view_->XOf(board->cels[is_last ? i : i + 1].at);
+      const double end = is_last ? std::max(to, x) : next + half;
+      painter->setPen(QPen(kBoardLine, 2.0));
       painter->drawLine(QPointF(x, middle), QPointF(end, middle));
       const bool is_picked = picked.contains(cel.at);
       painter->setPen(QPen(is_picked ? theme::kText : theme::kShadow, 1.0));
-      painter->setBrush(is_picked ? theme::kPick : kDraftLine);
+      painter->setBrush(is_picked ? theme::kPick : kBoardLine);
       painter->drawPolygon(Diamond(QPointF(x, middle)));
     }
     painter->setOpacity(1.0);
@@ -190,218 +240,13 @@ void TimelineStoryboard::Paint(QPainter* painter) const {
   painter->restore();
 }
 
-bool TimelineStoryboard::eventFilter(QObject* watched, QEvent* event) {
-  assert(event != nullptr);
-  const bool is_view = watched == view_ && managers_.storyboard != nullptr;
-  if (!is_view) {
-    return QObject::eventFilter(watched, event);
-  }
-  switch (event->type()) {
-    case QEvent::MouseButtonPress:
-      return Press(*static_cast<QMouseEvent*>(event));
-    case QEvent::MouseMove:
-      return MoveTo(*static_cast<QMouseEvent*>(event));
-    case QEvent::MouseButtonRelease:
-      return Release(*static_cast<QMouseEvent*>(event));
-    case QEvent::MouseButtonDblClick:
-      return DoubleClick(*static_cast<QMouseEvent*>(event));
-    case QEvent::ContextMenu:
-      return Menu(*static_cast<QContextMenuEvent*>(event));
-    case QEvent::KeyPress:
-      return Key(*static_cast<QKeyEvent*>(event));
-    case QEvent::ShortcutOverride: {
-      // Delete and Escape reach the row first while it has cels picked
-      // or a drag running.
-      const auto* key = static_cast<QKeyEvent*>(event);
-      const bool is_ours =
-          (key->key() == Qt::Key_Delete || key->key() == Qt::Key_Backspace ||
-           key->key() == Qt::Key_Escape) &&
-          (drag_ != nullptr || !managers_.storyboard->Picked(Shot()).empty());
-      if (is_ours) {
-        event->accept();
-        return true;
-      }
-      return false;
-    }
-    default:
-      return QObject::eventFilter(watched, event);
-  }
-}
-
-bool TimelineStoryboard::Press(const QMouseEvent& event) {
-  assert(managers_.storyboard != nullptr);
-  assert(drag_ == nullptr);
-  if (!IsInRow(event.position())) {
-    // A press anywhere else on the timeline leaves the cels.
-    managers_.storyboard->ClearPick();
-    return false;
-  }
-  // Right click opens the row's menu (a ContextMenu event of its own).
-  if (event.button() != Qt::LeftButton) {
-    return true;
-  }
-  const ShotId shot = Shot();
-  const bool is_eye = EyeRect(Top()).adjusted(-4, -4, 4, 4).contains(
-      event.position());
-  if (is_eye) {
-    const Draft* draft = managers_.storyboard->Of(shot);
-    Report(ProblemOf(managers_.storyboard->SetShown(shot, !draft->is_shown)));
-    return true;
-  }
-  const auto cel = CelNear(event.position().x());
-  if (!cel) {
-    managers_.storyboard->ClearPick();
-    return true;
-  }
-  const bool is_picked = managers_.storyboard->Picked(shot).contains(*cel);
-  const auto mode = ClickMode(event.modifiers(), is_picked);
-  is_narrowing_ = !mode.has_value();
-  if (mode) {
-    managers_.storyboard->Pick(shot, {*cel}, *mode);
-  }
-  const std::set<Frame> picked = managers_.storyboard->Picked(shot);
-  is_pressed_ = picked.contains(*cel);
-  press_ = event.position();
-  press_frame_ = *cel;
-  origin_ = picked;
-  return true;
-}
-
-bool TimelineStoryboard::MoveTo(const QMouseEvent& event) {
-  assert(managers_.storyboard != nullptr);
-  if (!is_pressed_) {
-    return false;
-  }
-  const bool is_dragging =
-      drag_ != nullptr || IsPastDeadZone(press_, event.position());
-  if (!is_dragging) {
-    return true;
-  }
-  if (drag_ == nullptr) {
-    drag_ = std::make_unique<EditScope>(
-        managers_.history, origin_.size() == 1 ? tr("Move draft cel")
-                                               : tr("Move draft cels"));
-    view_->setCursor(Qt::SizeHorCursor);
-  }
-  const auto frame = view_->FrameAt(std::max<double>(event.position().x(),
-                                                     kNameWidth));
-  const int offset = frame ? frame->index() - press_frame_.index() : 0;
-  // A spot the cels can't land on leaves them where they last could.
-  (void)managers_.storyboard->MoveCels(Shot(), origin_, offset);
-  view_->update();
-  return true;
-}
-
-bool TimelineStoryboard::Release(const QMouseEvent& event) {
-  assert(managers_.storyboard != nullptr);
-  if (!is_pressed_) {
-    return false;
-  }
-  is_pressed_ = false;
-  const bool was_drag = drag_ != nullptr;
-  if (was_drag) {
-    drag_.reset();
-    view_->unsetCursor();
-  } else if (is_narrowing_) {
-    managers_.storyboard->Pick(Shot(), {press_frame_},
-                          *ClickMode(event.modifiers(), false));
-  }
-  is_narrowing_ = false;
-  view_->update();
-  return true;
-}
-
-bool TimelineStoryboard::DoubleClick(const QMouseEvent& event) {
-  assert(managers_.storyboard != nullptr);
-  if (!IsInRow(event.position()) || event.position().x() < kNameWidth) {
-    return IsInRow(event.position());
-  }
-  const auto frame = view_->FrameAt(event.position().x());
-  const Draft* draft = managers_.storyboard->Of(Shot());
-  if (!frame || draft == nullptr) {
-    return true;
-  }
-  Seek(*frame);
-  // On a cel's own frame it draws over it; elsewhere a new cel starts.
-  RequestStoryboard(managers_, CelStartingAt(*draft, *frame) != nullptr);
-  return true;
-}
-
-bool TimelineStoryboard::Menu(const QContextMenuEvent& event) {
-  assert(managers_.storyboard != nullptr);
-  if (!IsInRow(event.pos())) {
-    return false;
-  }
-  const ShotId shot = Shot();
-  const auto frame = view_->FrameAt(std::max(event.pos().x(), kNameWidth));
-  const auto cel = CelNear(event.pos().x());
-  if (cel && !managers_.storyboard->Picked(shot).contains(*cel)) {
-    managers_.storyboard->Pick(shot, {*cel}, PickMode::kReplace);
-  }
-  QMenu menu(view_);
-  menu.setToolTipsVisible(true);
-  if (frame) {
-    Seek(*frame);
-  }
-  for (const bool is_over : {false, true}) {
-    QAction* draw = menu.addAction(is_over ? tr("Draw over this cel")
-                                           : tr("Draw a new cel here"));
-    Explain(draw, WhyNoStoryboardHere(managers_, is_over));
-    connect(draw, &QAction::triggered, view_,
-            [this, is_over] { RequestStoryboard(managers_, is_over); });
-  }
-  menu.addSeparator();
-  const Draft* draft = managers_.storyboard->Of(shot);
-  QAction* eye = menu.addAction(draft->is_shown ? tr("Hide draft")
-                                                : tr("Show draft"));
-  const bool is_shown = draft->is_shown;
-  connect(eye, &QAction::triggered, view_, [this, shot, is_shown] {
-    Report(ProblemOf(managers_.storyboard->SetShown(shot, !is_shown)));
-  });
-  QAction* remove = menu.addAction(tr("Delete picked cels"));
-  remove->setShortcut(QKeySequence(Qt::Key_Delete));
-  Explain(remove, managers_.storyboard->WhyNoDelete(shot));
-  connect(remove, &QAction::triggered, view_, [this, shot] {
-    Report(ProblemOf(
-        managers_.storyboard->DeleteCels(shot, managers_.storyboard->Picked(shot))));
-  });
-  menu.exec(event.globalPos());
-  return true;
-}
-
-bool TimelineStoryboard::Key(const QKeyEvent& event) {
-  assert(managers_.storyboard != nullptr);
-  const ShotId shot = Shot();
-  if (event.key() == Qt::Key_Escape && drag_ != nullptr) {
-    drag_->Cancel();
-    drag_.reset();
-    is_pressed_ = false;
-    view_->unsetCursor();
-    managers_.storyboard->Pick(shot, origin_, PickMode::kReplace);
-    return true;
-  }
-  const std::set<Frame> picked = managers_.storyboard->Picked(shot);
-  if (picked.empty()) {
-    return false;
-  }
-  const bool is_delete =
-      event.key() == Qt::Key_Delete || event.key() == Qt::Key_Backspace;
-  if (is_delete) {
-    Report(ProblemOf(managers_.storyboard->DeleteCels(shot, picked)));
-    return true;
-  }
-  if (event.key() == Qt::Key_Escape) {
-    managers_.storyboard->ClearPick();
-    return true;
-  }
-  return false;
-}
-
 void TimelineStoryboard::Seek(Frame frame) {
   assert(managers_.playback != nullptr);
+  assert(frame.index() >= 0);
   const Project& project = managers_.history->current();
   const int index = ShotIndex(project, Shot());
-  if (index < 0) {
+  const bool has_shot = index >= 0;
+  if (!has_shot) {
     return;
   }
   const ::snapper::Shot& shot = *project.shots[static_cast<size_t>(index)];
@@ -410,9 +255,17 @@ void TimelineStoryboard::Seek(Frame frame) {
   managers_.playback->Seek(Frame(ShotStart(project, index).index() + inside));
 }
 
+void TimelineStoryboard::Aim(LayerId layer) {
+  assert(managers_.storyboard != nullptr);
+  assert(layer.IsValid());
+  managers_.storyboard->Pick(Shot(), layer, {}, PickMode::kReplace);
+}
+
 void TimelineStoryboard::Report(const QString& problem) const {
   assert(managers_.toasts != nullptr);
-  if (!problem.isEmpty()) {
+  assert(problem.size() < 100000);
+  const bool has_problem = !problem.isEmpty();
+  if (has_problem) {
     managers_.toasts->Problem(problem);
   }
 }

@@ -43,15 +43,6 @@ const StoryboardCel* CelBefore(const StoryboardLayer& board, Frame frame) {
   return before;
 }
 
-const StoryboardCel* CelAfter(const StoryboardLayer& board, Frame frame) {
-  assert(board.cels.size() <= static_cast<size_t>(kMaxStoryboardCels));
-  assert(frame.index() > -1000000000);
-  const auto found = std::ranges::find_if(
-      board.cels,
-      [frame](const StoryboardCel& cel) { return cel.at > frame; });
-  return found == board.cels.end() ? nullptr : &*found;
-}
-
 void SortCels(StoryboardLayer* board) {
   assert(board != nullptr);
   assert(board->cels.size() <= static_cast<size_t>(kMaxStoryboardCels));

@@ -10,6 +10,7 @@
 #include "edit/project_edits.h"
 #include "edit/reference_manager.h"
 #include "edit/selection_manager.h"
+#include "edit/storyboard_manager.h"
 #include "ui/follow.h"
 #include "edit/group_manager.h"
 #include "ui/form_helpers.h"
@@ -65,6 +66,17 @@ Inspector::Inspector(const Managers& managers)
             &Inspector::Problem);
     // Picking a reference row shows its settings.
     connect(managers_.references, &ReferenceManager::Changed, this,
+            &Inspector::Refresh);
+  }
+  const bool has_storyboard =
+      managers_.storyboard != nullptr && managers_.draw != nullptr;
+  if (has_storyboard) {
+    storyboard_ = std::make_unique<StoryboardBox>(managers_);
+    AddFolded(storyboard_.get(), "storyboard");
+    connect(storyboard_.get(), &StoryboardBox::Problem, this,
+            &Inspector::Problem);
+    // Picking frames on the timeline shows the box without a stage pick.
+    connect(managers_.storyboard, &StoryboardManager::Changed, this,
             &Inspector::Refresh);
   }
   AddFolded(&skins_, "skins");
@@ -166,6 +178,7 @@ void Inspector::Refresh() {
                        managers_.groups->GroupsOf(selection.shot()),
                        selection.picks())
                        .empty();
+  const bool has_storyboard_box = storyboard_ != nullptr;
   PickExtras extras;
   extras.has_dot = has_pick && selection.dot().has_value();
   extras.is_linked = has_pick && link_.IsLinked();
@@ -173,6 +186,9 @@ void Inspector::Refresh() {
   extras.has_reference =
       managers_.references != nullptr &&
       managers_.references->PickedIn(selection.shot()).IsValid();
+  extras.has_storyboard =
+      has_storyboard_box &&
+      managers_.storyboard->PickedBoard(selection.shot()).IsValid();
   const InspectorShow show =
       ShowFor(project, selection.shot(), selection.picks(), extras);
   hint_.setVisible(!has_shot);
@@ -195,6 +211,9 @@ void Inspector::Refresh() {
   }
   if (references_ != nullptr) {
     Show(references_.get(), show.references);
+  }
+  if (storyboard_ != nullptr) {
+    Show(storyboard_.get(), show.storyboard);
   }
   Show(&link_, show.link);
   Show(&layer_, show.layer);

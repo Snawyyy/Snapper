@@ -29,7 +29,7 @@
 #include "ui/playhead_settle.h"
 #include "ui/problem.h"
 #include "ui/step_mode_switch.h"
-#include "ui/timeline_draft.h"
+#include "ui/timeline_storyboard.h"
 #include "ui/timeline_scale.h"
 
 class QMenu;
@@ -238,8 +238,9 @@ class TimelineView final : public QWidget {
   double reference_press_x_ = 0.0;
   Frame reference_start_;
   double reference_skip_ = 0.0;
-  // The Draft row (ui/timeline_draft.cpp), under the reference rows.
-  TimelineDraft draft_{managers_, this};
+  // The storyboard rows (ui/timeline_storyboard.cpp), under the
+  // reference rows.
+  TimelineStoryboard storyboard_{managers_, this};
 };
 
 }  // namespace snapper

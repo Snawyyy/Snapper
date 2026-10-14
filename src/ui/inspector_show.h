@@ -31,6 +31,9 @@ struct InspectorShow final {
   bool skins = false;
   // References: only while one of the shot's references is picked.
   bool references = false;
+  // The storyboard box: while a storyboard layer or some of its frames
+  // are picked.
+  bool storyboard = false;
   // Dot groups: on a doll that has dots worth grouping (drag nodes or
   // motions on a picked piece, picked dots, or groups already there).
   bool groups = false;
@@ -52,6 +55,8 @@ struct PickExtras final {
   bool has_groups = false;
   // One of the shot's references is picked.
   bool has_reference = false;
+  // A storyboard layer, or frames of one, are picked.
+  bool has_storyboard = false;
 };
 
 InspectorShow ShowFor(const Project& project, ShotId shot,

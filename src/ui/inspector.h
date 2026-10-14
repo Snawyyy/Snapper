@@ -25,6 +25,7 @@
 #include "ui/poses_box.h"
 #include "ui/reference_box.h"
 #include "ui/skin_box.h"
+#include "ui/storyboard_box.h"
 
 namespace snapper {
 
@@ -84,6 +85,8 @@ class Inspector final : public QScrollArea {
   std::unique_ptr<ObjectBox> object_;
   // Null without the reference manager.
   std::unique_ptr<ReferenceBox> references_;
+  // Null without the storyboard manager.
+  std::unique_ptr<StoryboardBox> storyboard_;
 };
 
 }  // namespace snapper

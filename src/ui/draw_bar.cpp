@@ -103,14 +103,14 @@ void DrawBar::Refresh() {
   assert(draw != nullptr);
   title_.setText(draw->Title());
   size_.setText(tr("Brush %1 px").arg(draw->brush_size()));
-  // A draft cel has no name; its onion is the cels around it.
+  // A storyboard frame has no name; its onion is the frame before.
   name_.setVisible(draw->is_named());
   onion_.setToolTip(draw->is_named()
                         ? tr("Show the original under yours at 30 % (D). "
                              "Hold R to see only the original.")
-                        : tr("Show the cel before (red) and after (green) "
-                             "at 30 % (D). Hold R to see the cel as it "
-                             "was."));
+                        : tr("Show the frame before (red) faint under "
+                             "yours, to trace from (D). Hold R to see "
+                             "this frame as it was."));
   const QSignalBlocker quiet(onion_);
   onion_.setChecked(draw->is_onion());
   // No title while no drawing is open, so the text may be null.

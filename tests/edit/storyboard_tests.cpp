@@ -109,8 +109,6 @@ void StoryboardTests::FindsTheCelShowingAtAFrame() {
   QCOMPARE(CelBefore(board, Frame(10))->path, QString("a.png"));
   QVERIFY(CelBefore(board, Frame(0)) == nullptr);
   QCOMPARE(CelBefore(board, Frame(15))->path, QString("b.png"));
-  QCOMPARE(CelAfter(board, Frame(10))->path, QString("c.png"));
-  QVERIFY(CelAfter(board, Frame(20)) == nullptr);
   StoryboardLayer late;
   late.cels = {{Frame(5), "x.png"}};
   QVERIFY(CelAt(late, Frame(4)) == nullptr);
