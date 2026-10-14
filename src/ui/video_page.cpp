@@ -3,10 +3,9 @@
 #include <QApplication>
 #include <QFileDialog>
 #include <QKeyEvent>
-#include <QTabBar>
 
 #include <cassert>
-#include <variant>
+#include <vector>
 
 #include "anim/reel_timeline.h"
 #include "edit/document_manager.h"
@@ -20,39 +19,6 @@
 #include "ui/theme.h"
 
 namespace snapper {
-
-SidePanels SidePanelsFor(const Reel& reel, const std::set<ClipId>& picked) {
-  assert(picked.size() < 1000000);
-  assert(reel.tracks.size() < 100000);
-  SidePanels panels;
-  const bool is_none = picked.empty();
-  if (is_none) {
-    panels.subtitles = true;
-    return panels;
-  }
-  int texts = 0;
-  int cues = 0;
-  int sounds = 0;
-  int shots = 0;
-  const int subtitle_track = SubtitleTrack(reel);
-  for (const ClipId id : picked) {
-    const Clip* clip = ClipOf(reel, id);
-    if (clip == nullptr) {
-      continue;
-    }
-    const bool is_text = IsTextClip(*clip);
-    texts += is_text ? 1 : 0;
-    cues += is_text && FindClip(reel, id).track == subtitle_track ? 1 : 0;
-    sounds += IsSoundClip(*clip) ? 1 : 0;
-    shots += std::holds_alternative<ShotSource>(clip->source) ? 1 : 0;
-  }
-  const int count = static_cast<int>(picked.size());
-  panels.text = texts == count;
-  panels.subtitles = panels.text && cues > 0;
-  panels.sound = sounds == count;
-  panels.shot = shots == count;
-  return panels;
-}
 
 VideoPage::VideoPage(const Managers& managers)
     : managers_(managers),
@@ -172,21 +138,6 @@ void VideoPage::BuildBar() {
           [this] { Report(ProblemOf(managers_.reel->AddTrack())); });
 }
 
-void VideoPage::BuildSide() {
-  assert(side_.count() == 0);
-  assert(hint_layout_.count() == 0);
-  hint_layout_.addWidget(
-      EmptyHint(tr("Pick a text, sound or shot clip on the reel to change "
-                   "it here."),
-                &hint_page_));
-  hint_layout_.addStretch(1);
-  side_.addTab(&text_panel_, tr("Text"));
-  side_.addTab(&subtitle_panel_, tr("Subtitles"));
-  side_.addTab(&sound_panel_, tr("Sound clip"));
-  side_.addTab(&shot_panel_, tr("Shot clip"));
-  side_.addTab(&hint_page_, tr("Nothing picked"));
-}
-
 void VideoPage::ImportVideos(const QStringList& paths) {
   assert(managers_.reel != nullptr);
   assert(paths.size() < 100000);
@@ -195,7 +146,8 @@ void VideoPage::ImportVideos(const QStringList& paths) {
   // The bottom picture track sits on top of the sound tracks.
   const int bottom = SoundTrackCount(managers_.history->current().reel);
   for (const QString& path : paths) {
-    if (IsSoundFile(path)) {
+    const bool is_sound = IsSoundFile(path);
+    if (is_sound) {
       sounds.append(path);
       continue;
     }
@@ -271,7 +223,8 @@ void VideoPage::EditText(ClipId clip) {
   assert(clip.IsValid());
   assert(managers_.playback != nullptr);
   const Clip* found = ClipOf(managers_.history->current().reel, clip);
-  if (found == nullptr) {
+  const bool is_missing = found == nullptr;
+  if (is_missing) {
     return;
   }
   // The words show while they are typed: the playhead goes inside.
@@ -322,37 +275,6 @@ bool VideoPage::eventFilter(QObject* watched, QEvent* event) {
     }
   }
   return QWidget::eventFilter(watched, event);
-}
-
-void VideoPage::ShowSide() {
-  assert(managers_.selection != nullptr);
-  assert(side_.count() == 5);
-  const SidePanels panels = SidePanelsFor(managers_.history->current().reel,
-                                          managers_.selection->clips());
-  const bool shows[] = {panels.text, panels.subtitles, panels.sound,
-                        panels.shot, panels.IsEmpty()};
-  int shown = 0;
-  for (int tab = 0; tab < side_.count(); ++tab) {
-    side_.setTabVisible(tab, shows[tab]);
-    shown += shows[tab] ? 1 : 0;
-  }
-  // One panel needs no tab to pick it.
-  side_.tabBar()->setVisible(shown > 1);
-  const bool is_current_hidden = !shows[side_.currentIndex()];
-  if (is_current_hidden) {
-    for (int tab = 0; tab < side_.count(); ++tab) {
-      if (shows[tab]) {
-        side_.setCurrentIndex(tab);
-        break;
-      }
-    }
-  }
-  if (panels.sound) {
-    sound_panel_.Refresh();
-  }
-  if (panels.shot) {
-    shot_panel_.Refresh();
-  }
 }
 
 void VideoPage::Refresh() {

@@ -27,6 +27,7 @@
 #include "ui/sound_clip_panel.h"
 #include "ui/subtitle_panel.h"
 #include "ui/transport_bar.h"
+#include "ui/voice_panel.h"
 
 namespace snapper {
 
@@ -87,7 +88,8 @@ class VideoPage final : public QWidget {
   void Refresh();
   void ShowSide();
   void Report(const QString& problem) {
-    if (!problem.isEmpty()) {
+    const bool has_problem = !problem.isEmpty();
+    if (has_problem) {
       emit Problem(problem);
     }
   }
@@ -127,6 +129,8 @@ class VideoPage final : public QWidget {
   TransportBar transport_;
   // Only with a RecordManager.
   std::unique_ptr<RecordButton> record_;
+  // Only with the voice managers; the Voice tab of side_.
+  std::unique_ptr<VoicePanel> voice_;
   ReelTimeline timeline_;
 };
 

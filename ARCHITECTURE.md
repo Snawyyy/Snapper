@@ -842,7 +842,10 @@ The Video tab's side panel shows only what the pick needs
 among them), the Sound clip panel (volume and fades as faders) for
 sound clips, the Shot clip panel (name, length through `ResizeShots`,
 the Edges mode, Open) for shot clips, Subtitles with nothing picked,
-and a hint otherwise. The reel's tracks scroll up and down (a scroll
+and a hint otherwise, plus the always shown Voice tab (`VoicePanel`:
+`ui/voice_panel.cpp`, `ui/voice_clone_box.cpp` for the Clone half,
+`ui/audio_preview.cpp` to listen). `ShowSide` and `SidePanelsFor` live in
+`ui/video_page_side.cpp`. The reel's tracks scroll up and down (a scroll
 bar, Shift and the wheel, or the wheel over the track names) instead of
 growing the timeline; the Video bar wraps (`FlowLayout`).
 

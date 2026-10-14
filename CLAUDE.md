@@ -58,7 +58,18 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-14, branch `timeline-consistency`, not pushed): the
+Last done (2026-10-14, branch `voice-gen`, cut from `timeline-consistency`,
+not pushed): a Voice tab in the Video tab's side panel, always shown:
+clone a voice from a sample (file, or what the PC plays through `parec`)
+or design one from a description, say a line, listen, and Add to timeline
+at the playhead; saved voices across projects. The worker is
+`tools/voice_gen/voice_gen.py` (run `tools/voice_gen/setup.sh` once;
+CMake copies the script beside the binary). `VoiceGenManager`,
+`VoiceLibrary`, `VoiceWorker`, `DesktopRecorder`, `ui/voice_panel.cpp`.
+Built, not seen by eye, no tests (owner's rule); the worker never ran
+from the app.
+
+Before that (2026-10-14, branch `timeline-consistency`, not pushed): the
 Pose, Video and Comp timelines now share their view and chrome
 (`ui/timeline_scale.h`, `timeline_ruler.h`, `timeline_keys.h`): one zoom
 and scroll rule (wheel scrolls, Ctrl+wheel zooms at the cursor, Ctrl+=,
