@@ -2,6 +2,7 @@
 
 #include <QJsonArray>
 
+#include <algorithm>
 #include <cassert>
 
 #include "base/text.h"
@@ -38,6 +39,37 @@ void ReadDolls(const QJsonArray& dolls, Project* project, JsonIssues* issues) {
   }
 }
 
+// Shots grown at the front before 2026-10-14 pushed every layer's start
+// back with the keys, leaving the new first frames blank. A shot whose
+// layers all start on one frame past 0 is that: they start at 0 again,
+// and a layer shown for part of the shot keeps its end.
+// ponytail: a shot whose every layer was meant to start late is
+// changed too; rare, and the layer's start drag puts it back.
+Shot WithFrontRepaired(Shot shot) {
+  assert(shot.layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
+  assert(shot.length.index() >= 0);
+  const bool is_empty = shot.layers.empty();
+  if (is_empty) {
+    return shot;
+  }
+  const Frame first = shot.layers.front().start;
+  const bool is_shifted =
+      first.index() > 0 &&
+      std::ranges::all_of(shot.layers, [first](const Layer& layer) {
+        return layer.start == first;
+      });
+  if (!is_shifted) {
+    return shot;
+  }
+  for (Layer& layer : shot.layers) {
+    const bool has_span = layer.length.index() > 0;
+    layer.length = has_span ? Frame(layer.length.index() + first.index())
+                            : layer.length;
+    layer.start = Frame(0);
+  }
+  return shot;
+}
+
 void ReadShots(const QJsonArray& shots, Project* project, JsonIssues* issues) {
   assert(project != nullptr);
   assert(issues != nullptr);
@@ -48,7 +80,7 @@ void ReadShots(const QJsonArray& shots, Project* project, JsonIssues* issues) {
   }
   for (const QJsonValue& item : shots) {
     project->shots.push_back(std::make_shared<const Shot>(
-        ShotFromJson(item.toObject(), issues)));
+        WithFrontRepaired(ShotFromJson(item.toObject(), issues))));
   }
 }
 
@@ -124,7 +156,8 @@ Result<void> WriteProject(const QString& path, const Project& project) {
       {"reel", ReelToJson(project.reel)},
       {"cut_markers", MarkersToJson(project.reel.markers)},
       {"reel_text", ReelTextToJson(project.reel)}};
-  if (project.new_shots_transparent) {
+  const bool starts_transparent = project.new_shots_transparent;
+  if (starts_transparent) {
     object.insert("new_shots_transparent", true);
   }
   return WriteJsonFile(path, object);
