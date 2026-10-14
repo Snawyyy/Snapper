@@ -28,7 +28,9 @@ class PaletteManager;
 // hand-added ones), each a fold that stays as it was left. The doll's
 // show only when they fit what the palette is open for
 // (PaletteManager::ShowsDoll). Hovering a swatch makes the stage flash
-// where the color is used.
+// where the color is used. The Pick button is an eyedropper: the next
+// click anywhere in the window picks the color under it (Escape or a
+// right click cancels).
 class PalettePanel final : public QWidget {
   Q_OBJECT
 
@@ -48,12 +50,21 @@ class PalettePanel final : public QWidget {
   void mousePressEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;
+  void keyPressEvent(QKeyEvent* event) override;
   void paintEvent(QPaintEvent* event) override;
 
  private:
   // Size, cursor and mouse tracking (ui/palette_panel_frame.cpp).
   void SetUpFrame();
   void BuildTitle();
+  // The eyedropper (ui/palette_eyedropper.cpp).
+  void StartEyedropper();
+  void StopEyedropper();
+  // Handles a mouse event while the eyedropper is on; false when off.
+  bool Eyedrop(const QMouseEvent& event);
+  // The window's color at global, as drawn; invalid off the window.
+  QColor ColorAt(QPoint global) const;
+  void ShowCurrent(const QColor& color);
   void BuildSections(MotionManager* motion);
   void Refresh();
   void ShowGrid(SwatchGrid* grid, QLabel* title, std::vector<QColor> colors,
@@ -77,6 +88,7 @@ class PalettePanel final : public QWidget {
   QVBoxLayout layout_;
   QWidget title_;
   QLabel title_text_;
+  QToolButton pick_;
   QToolButton fold_;
   QToolButton close_;
   // The folds; the panel's children, kept to show and hide.
@@ -96,6 +108,7 @@ class PalettePanel final : public QWidget {
   QLabel current_swatch_;
   QLabel current_hex_;
   bool is_folded_ = false;
+  bool is_eyedropping_ = false;
   // A left press on the panel (or a swatch): where it was grabbed, and
   // whether it has moved far enough to be a drag of the panel.
   bool is_pressed_ = false;

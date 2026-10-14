@@ -60,6 +60,13 @@ PalettePanel::PalettePanel(PaletteManager* palette, MotionManager* motion,
   connect(&fold_, &QToolButton::clicked, this,
           [this] { SetFolded(!is_folded_); });
   connect(&close_, &QToolButton::clicked, this, [this] { SetOpen(false); });
+  connect(&pick_, &QToolButton::clicked, this, [this](bool is_on) {
+    if (is_on) {
+      StartEyedropper();
+    } else {
+      StopEyedropper();
+    }
+  });
   SetFolded(false);
   hide();
 }
@@ -73,12 +80,18 @@ void PalettePanel::BuildTitle() {
   QFont bold = title_text_.font();
   bold.setBold(true);
   title_text_.setFont(bold);
+  pick_.setAutoRaise(true);
+  pick_.setCheckable(true);
+  pick_.setText(tr("Pick"));
+  pick_.setToolTip(tr("Eyedropper: click anywhere in the window to pick "
+                      "the color there. Escape or a right click cancels."));
   fold_.setAutoRaise(true);
   fold_.setToolTip(tr("Fold to the current color"));
   close_.setAutoRaise(true);
   close_.setText(QStringLiteral("x"));
   close_.setToolTip(tr("Close the palette"));
   title_row->addWidget(&title_text_, 1);
+  title_row->addWidget(&pick_);
   title_row->addWidget(&fold_);
   title_row->addWidget(&close_);
   layout_.addWidget(&title_);
@@ -142,6 +155,7 @@ void PalettePanel::SetOpen(bool is_open) {
     show();
     raise();
   } else {
+    StopEyedropper();
     KeepPlace();
     hide();
   }
@@ -173,10 +187,7 @@ void PalettePanel::Refresh() {
   ShowGrid(doll_, doll_title_, palette_->DollColors(), true);
   ShowGrid(added_, added_title_, palette_->AddedColors(), true);
   doll_fold_->SetTitle(tr("Doll: %1").arg(palette_->DollName()));
-  QPalette swatch = current_swatch_.palette();
-  swatch.setColor(QPalette::Window, current);
-  current_swatch_.setPalette(swatch);
-  current_hex_.setText(current.name().toUpper());
+  ShowCurrent(current);
   FitHeight();
 }
 

@@ -106,6 +106,10 @@ void PalettePanel::mousePressEvent(QMouseEvent* event) {
   assert(palette_ != nullptr);
   assert(width() >= 0);
   assert(event != nullptr);
+  const bool is_eyedrop = Eyedrop(*event);
+  if (is_eyedrop) {
+    return;
+  }
   const bool is_left = event->button() == Qt::LeftButton;
   if (!is_left) {
     return;
@@ -127,6 +131,10 @@ void PalettePanel::mousePressEvent(QMouseEvent* event) {
 
 void PalettePanel::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
+  const bool is_eyedrop = Eyedrop(*event);
+  if (is_eyedrop) {
+    return;
+  }
   const QWidget* window = parentWidget();
   assert(window != nullptr);
   const QPoint at = event->position().toPoint();
@@ -160,6 +168,10 @@ void PalettePanel::mouseReleaseEvent(QMouseEvent* event) {
   assert(palette_ != nullptr);
   assert(width() >= 0);
   assert(event != nullptr);
+  const bool is_eyedrop = Eyedrop(*event);
+  if (is_eyedrop) {
+    return;
+  }
   const bool is_left = event->button() == Qt::LeftButton;
   if (!is_left) {
     return;
