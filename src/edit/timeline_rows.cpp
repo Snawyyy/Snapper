@@ -57,6 +57,25 @@ void CollectKeys(const Shot& shot, TimelineRow* row) {
   }
 }
 
+// Each storyboard cel changes the picture where it starts.
+void AddCelStarts(const Shot& shot, int start, std::set<Frame>* changes) {
+  assert(changes != nullptr);
+  assert(start >= 0);
+  for (const Layer& layer : shot.layers) {
+    const auto* board = std::get_if<StoryboardLayer>(&layer.content);
+    const bool is_board = board != nullptr;
+    if (!is_board) {
+      continue;
+    }
+    for (const StoryboardCel& cel : board->cels) {
+      const bool is_inside = cel.at < shot.length;
+      if (is_inside) {
+        changes->insert(Frame(start + cel.at.index()));
+      }
+    }
+  }
+}
+
 }  // namespace
 
 std::vector<TimelineRow> TimelineRows(const Project& project, ShotId shot) {
@@ -69,6 +88,11 @@ std::vector<TimelineRow> TimelineRows(const Project& project, ShotId shot) {
     return rows;
   }
   for (auto it = found->layers.rbegin(); it != found->layers.rend(); ++it) {
+    // A storyboard layer's cels have their own dashed row.
+    const bool is_board = std::holds_alternative<StoryboardLayer>(it->content);
+    if (is_board) {
+      continue;
+    }
     TimelineRow row{it->name, it->id, LayerTracks(*found, *it), {}, {}};
     CollectKeys(*found, &row);
     rows.push_back(std::move(row));
@@ -108,6 +132,7 @@ std::set<Frame> PoseChanges(const Project& project) {
     const Shot& shot = *project.shots[static_cast<size_t>(i)];
     const int start = ShotStart(project, i).index();
     changes.insert(Frame(start));
+    AddCelStarts(shot, start, &changes);
     for (const TimelineRow& row : TimelineRows(project, shot.id)) {
       for (size_t k = 0; k < row.keys.size(); ++k) {
         const int from = row.keys[k].index();

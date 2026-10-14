@@ -70,6 +70,7 @@ struct Painter final {
   void operator()(const ImageLayer& layer) const;
   void operator()(const TextLayer& layer) const;
   void operator()(const EffectLayer& layer) const;
+  void operator()(const StoryboardLayer& layer) const;
 };
 
 void Painter::operator()(const DollLayer& layer) const {
@@ -199,6 +200,14 @@ void Painter::operator()(const TextLayer& layer) const {
 void Painter::operator()([[maybe_unused]] const EffectLayer& layer) const {
   assert(painter != nullptr);
   assert(static_cast<int>(layer.kind) < kEffectKindCount);
+}
+
+// A storyboard sheet lies over the canvas, not in the camera's world:
+// FrameRenderer::PaintBoardLayer draws it.
+void Painter::operator()(
+    [[maybe_unused]] const StoryboardLayer& layer) const {
+  assert(painter != nullptr);
+  assert(layer.opacity >= 0.0 && layer.opacity <= 1.0);
 }
 
 }  // namespace

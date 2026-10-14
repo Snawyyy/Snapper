@@ -9,6 +9,7 @@
 
 #include "edit/history_manager.h"
 #include "edit/project_edits.h"
+#include "edit/storyboard_edits.h"
 
 namespace snapper {
 
@@ -146,6 +147,18 @@ Result<LayerId> StageManager::AddEffect(ShotId shot, EffectKind kind) {
   effect.kind = kind;
   return AddLayer(shot, EffectName(kind), effect,
                   Tr("Add %1").arg(EffectName(kind)));
+}
+
+Result<LayerId> StageManager::AddStoryboard(ShotId shot) {
+  assert(history_ != nullptr);
+  const Shot* found = FindShot(history_->current(), shot);
+  const bool has_shot = found != nullptr;
+  if (!has_shot) {
+    return std::unexpected(Error{Tr("Pick a shot first.")});
+  }
+  assert(found->layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
+  return AddLayer(shot, NextStoryboardName(*found), StoryboardLayer{},
+                  Tr("Add storyboard"));
 }
 
 Result<LayerId> StageManager::Duplicate(ShotId shot, LayerId layer) {

@@ -105,10 +105,10 @@ Result<CompTarget> CompManager::TargetFor(
   if (is_gone) {
     return std::unexpected(Error{Tr("The picked layer is gone.")});
   }
-  const bool is_effect = std::holds_alternative<EffectLayer>(picked->content);
-  if (is_effect) {
+  const bool is_picture = IsStagePicture(*picked);
+  if (!is_picture) {
     return std::unexpected(
-        Error{Tr("An effect layer draws nothing to work on.")});
+        Error{Tr("An effect or storyboard layer draws nothing to work on.")});
   }
   CompTarget target;
   target.layer = layer;

@@ -1,4 +1,4 @@
-#include "render/draft_paint.h"
+#include "render/storyboard_paint.h"
 
 #include <QPainter>
 
@@ -6,21 +6,23 @@
 
 namespace snapper {
 
-void PaintDraft(const Draft& draft, Frame local, ImageCache* cache,
-                QImage* frame) {
+void PaintStoryboard(const StoryboardLayer& board, Frame local,
+                     ImageCache* cache, QImage* frame) {
   assert(cache != nullptr && frame != nullptr);
-  assert(draft.opacity >= 0.0 && draft.opacity <= 1.0);
-  const bool is_seen = draft.is_shown && draft.opacity > 0.0;
-  const DraftCel* cel = is_seen ? CelAt(draft, local) : nullptr;
-  if (cel == nullptr) {
+  assert(board.opacity >= 0.0 && board.opacity <= 1.0);
+  const bool is_seen = board.opacity > 0.0;
+  const StoryboardCel* cel = is_seen ? CelAt(board, local) : nullptr;
+  const bool has_cel = cel != nullptr;
+  if (!has_cel) {
     return;
   }
   const QImage& picture = cache->Get(cel->path);
-  if (picture.isNull()) {
+  const bool has_picture = !picture.isNull();
+  if (!has_picture) {
     return;
   }
   QPainter painter(frame);
-  painter.setOpacity(draft.opacity);
+  painter.setOpacity(board.opacity);
   painter.setRenderHint(QPainter::SmoothPixmapTransform,
                         frame->size() != picture.size());
   painter.drawImage(QRectF(QPointF(), QSizeF(frame->size())), picture);
@@ -28,7 +30,8 @@ void PaintDraft(const Draft& draft, Frame local, ImageCache* cache,
 
 QImage TintedCel(const QImage& image, QColor color) {
   assert(color.isValid());
-  if (image.isNull()) {
+  const bool is_empty = image.isNull();
+  if (is_empty) {
     return QImage();
   }
   QImage tinted = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);

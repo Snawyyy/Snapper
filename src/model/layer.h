@@ -11,6 +11,7 @@
 #include "base/id.h"
 #include "model/key.h"
 #include "model/pose.h"
+#include "model/storyboard.h"
 
 namespace snapper {
 
@@ -105,8 +106,8 @@ struct EffectLayer final {
   bool operator==(const EffectLayer&) const = default;
 };
 
-using LayerContent =
-    std::variant<DollLayer, ImageLayer, TextLayer, EffectLayer>;
+using LayerContent = std::variant<DollLayer, ImageLayer, TextLayer,
+                                  EffectLayer, StoryboardLayer>;
 
 // Something on a shot's stage. Every kind shares a name, a time range
 // and a keyed transform; content says what it is.
@@ -126,6 +127,12 @@ struct Layer final {
 
 // True on frames the layer shows, given the shot's length.
 bool IsLayerLive(const Layer& layer, Frame frame, Frame shot_length);
+
+// True for a layer that draws a picture in the camera's world, which a
+// click on the stage can pick and a Comp effect can work on: a doll, a
+// picture or text. An effect changes what lies below it, and a
+// storyboard layer is a sheet laid over the canvas, so neither is one.
+bool IsStagePicture(const Layer& layer);
 
 }  // namespace snapper
 

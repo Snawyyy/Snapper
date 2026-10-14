@@ -43,7 +43,7 @@ void KeepPicked(QListWidget* list, int row) {
 
 QString LayerKind(const Layer& layer) {
   assert(layer.id.IsValid());
-  assert(layer.content.index() < 4);
+  assert(layer.content.index() < 5);
   switch (layer.content.index()) {
     case 0:
       return QObject::tr("doll");
@@ -51,6 +51,8 @@ QString LayerKind(const Layer& layer) {
       return QObject::tr("picture");
     case 2:
       return QObject::tr("text");
+    case 4:
+      return QObject::tr("storyboard");
     default:
       return QObject::tr("effect");
   }

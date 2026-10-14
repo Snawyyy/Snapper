@@ -56,8 +56,7 @@ void SelectionManager::StepPick(int direction) {
   }
   std::vector<LayerId> layers;
   for (const Layer& layer : shot->layers) {
-    const bool is_pickable =
-        !std::holds_alternative<EffectLayer>(layer.content);
+    const bool is_pickable = IsStagePicture(layer);
     if (is_pickable) {
       layers.push_back(layer.id);
     }

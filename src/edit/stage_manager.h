@@ -31,6 +31,10 @@ class StageManager final {
   Result<LayerId> AddImage(ShotId shot, const QString& path);
   Result<LayerId> AddText(ShotId shot, const QString& text);
   Result<LayerId> AddEffect(ShotId shot, EffectKind kind);
+  // An empty storyboard layer (model/storyboard.h), named "Storyboard"
+  // and numbered when the shot has one already. Its cels are drawn and
+  // edited by StoryboardManager.
+  Result<LayerId> AddStoryboard(ShotId shot);
   // A picture as the bottom layer, scaled to fill the canvas (cropping
   // what overhangs), for the whole shot ("Add background").
   Result<LayerId> AddBackground(ShotId shot, const QString& path);

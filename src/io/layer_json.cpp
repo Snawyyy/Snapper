@@ -9,8 +9,8 @@
 
 #include "io/dot_group_json.h"
 #include "io/comp_json.h"
-#include "io/draft_json.h"
 #include "io/reference_json.h"
+#include "io/storyboard_json.h"
 #include "model/doll.h"
 #include "model/smart_dial.h"
 
@@ -21,8 +21,8 @@ constexpr std::array<const char*, kEffectKindCount> kEffectNames = {
     "flash", "fill", "invert", "zoom_punch", "halftone", "glitch",
     "posterize"};
 // Index matches LayerContent's alternatives.
-constexpr std::array<const char*, 4> kLayerTypes = {"doll", "image", "text",
-                                                    "effect"};
+constexpr std::array<const char*, 5> kLayerTypes = {
+    "doll", "image", "text", "effect", "storyboard"};
 static_assert(std::variant_size_v<LayerContent> == kLayerTypes.size());
 // PlayMode by its value.
 constexpr std::array<const char*, kPlayModeCount> kPlayModes = {
@@ -83,6 +83,12 @@ void AddFields(const EffectLayer& effect, QJsonObject* object) {
                  EnumToJson(static_cast<int>(effect.kind), kEffectNames));
   object->insert("color", ColorToJson(effect.color));
   object->insert("amount", ChannelToJson(effect.amount));
+}
+
+void AddFields(const StoryboardLayer& board, QJsonObject* object) {
+  assert(object != nullptr);
+  assert(object->contains("type"));
+  AddStoryboardFields(board, object);
 }
 
 QJsonObject ContentToJson(const LayerContent& content) {
@@ -157,6 +163,8 @@ LayerContent ContentFromJson(const QJsonObject& object, JsonIssues* issues) {
       effect.amount = ChannelFromJson(object.value("amount"), 1.0, issues);
       return effect;
     }
+    case 4:
+      return StoryboardFromJson(object, issues);
     default:
       return DollFromJson(object, issues);
   }
@@ -255,7 +263,8 @@ QJsonArray HoldsToJson(const std::vector<Hold>& holds) {
   for (const Hold& hold : holds) {
     QJsonObject object{{"object", hold.object.value()},
                        {"at", hold.at.index()}};
-    if (!hold.IsDrop()) {
+    const bool has_holder = !hold.IsDrop();
+    if (has_holder) {
       object.insert("holder", EndToJson(hold.holder));
     }
     array.append(object);
@@ -338,7 +347,8 @@ QJsonObject ShotToJson(const Shot& shot) {
   if (has_holds) {
     object.insert("holds", HoldsToJson(shot.holds));
   }
-  if (shot.is_transparent) {
+  const bool is_transparent = shot.is_transparent;
+  if (is_transparent) {
     object.insert("transparent", true);
   }
   const bool has_references = !shot.references.empty();
@@ -352,9 +362,6 @@ QJsonObject ShotToJson(const Shot& shot) {
   const bool has_light = !shot.light.keys.empty();
   if (has_light) {
     object.insert("light", ChannelToJson(shot.light));
-  }
-  if (shot.draft != Draft()) {
-    object.insert("draft", DraftToJson(shot.draft));
   }
   return object;
 }
@@ -386,7 +393,6 @@ Shot ShotFromJson(const QJsonObject& object, JsonIssues* issues) {
   shot.references = ReferencesFromJson(object.value("references"), issues);
   shot.comp = CompFromJson(object.value("comp"), issues);
   shot.light = ChannelFromJson(object.value("light"), 0.0, issues);
-  shot.draft = DraftFromJson(object.value("draft"), issues);
   assert(static_cast<int>(shot.layers.size()) <= kMaxLayersPerShot);
   return shot;
 }

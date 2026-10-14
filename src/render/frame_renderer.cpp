@@ -13,7 +13,7 @@
 #include "anim/reel_timeline.h"
 #include "anim/sampler.h"
 #include "render/comp.h"
-#include "render/draft_paint.h"
+#include "render/storyboard_paint.h"
 #include "render/effects.h"
 #include "render/layer_painter.h"
 
@@ -126,6 +126,10 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
       RunEffectLayer(shot, layer, *effect, local, scale, &frame);
       continue;
     }
+    const bool is_board = PaintBoardLayer(layer, local, &frame);
+    if (is_board) {
+      continue;
+    }
     const bool is_split = !needs.IsEmpty();
     if (is_split) {
       PaintForComp(project, layer, local, scale, view, &links, needs,
@@ -145,10 +149,23 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
     context.skips_screen = !runs_screen;
     ApplyComp(context, &frame, &comp_report_);
   }
-  if (is_draft_shown_) {
-    PaintDraft(shot.draft, local, &cache_, &frame);
-  }
   return frame;
+}
+
+bool FrameRenderer::PaintBoardLayer(const Layer& layer, Frame local,
+                                    QImage* frame) {
+  assert(frame != nullptr);
+  assert(local.index() >= 0);
+  const auto* board = std::get_if<StoryboardLayer>(&layer.content);
+  const bool is_board = board != nullptr;
+  if (!is_board) {
+    return false;
+  }
+  const bool is_drawn = is_storyboard_shown_ || board->is_exported;
+  if (is_drawn) {
+    PaintStoryboard(*board, local, &cache_, frame);
+  }
+  return true;
 }
 
 void FrameRenderer::PaintForComp(const Project& project, const Layer& layer,
@@ -222,7 +239,7 @@ QImage FrameRenderer::RenderLayers(
     const auto chosen = only.find(layer.id);
     const bool is_chosen = chosen != only.end() &&
                            IsLayerLive(layer, local, shot.length) &&
-                           !std::holds_alternative<EffectLayer>(layer.content);
+                           IsStagePicture(layer);
     if (is_chosen) {
       const bool is_whole = chosen->second.empty();
       PaintLayer(project, layer, local, view, &links, &cache_, &painter,
@@ -246,7 +263,7 @@ QImage FrameRenderer::RenderArea(const Project& project, const Shot& shot,
   QPainter painter(&out);
   for (const Layer& layer : shot.layers) {
     const bool is_drawn = IsLayerLive(layer, local, shot.length) &&
-                          !std::holds_alternative<EffectLayer>(layer.content);
+                          IsStagePicture(layer);
     if (is_drawn) {
       PaintLayer(project, layer, local, view, &links, &cache_, &painter);
     }

@@ -51,8 +51,7 @@ void StageView::PickAll() {
     }
   } else {
     for (const Layer& layer : shot->layers) {
-      const bool is_pickable =
-          !std::holds_alternative<EffectLayer>(layer.content);
+      const bool is_pickable = IsStagePicture(layer);
       if (is_pickable) {
         all.insert({layer.id, QString()});
       }

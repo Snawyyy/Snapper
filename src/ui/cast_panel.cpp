@@ -125,6 +125,10 @@ void CastPanel::Wire() {
   add_menu_.addAction(tr("Picture..."), this, &CastPanel::AddPicture);
   add_menu_.addAction(tr("Background..."), this, &CastPanel::AddBackground);
   add_menu_.addAction(tr("Text..."), this, &CastPanel::AddText);
+  add_menu_.addAction(tr("Storyboard"), this, [this] {
+    const ShotId shot = managers_.selection->shot();
+    Report(ProblemOf(managers_.stage->AddStoryboard(shot)));
+  });
   QMenu* effects = add_menu_.addMenu(tr("Effect"));
   for (int kind = 0; kind < kEffectKindCount; ++kind) {
     const auto effect = static_cast<EffectKind>(kind);

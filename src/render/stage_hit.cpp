@@ -121,6 +121,13 @@ struct LayerHitter final {
     assert(cache != nullptr);
     return std::nullopt;
   }
+  // A storyboard sheet is picked on its timeline row or in the layer
+  // list, never by clicking the stage through what lies under it.
+  std::optional<QString> operator()(const StoryboardLayer& layer) const {
+    assert(layer.opacity >= 0.0 && layer.opacity <= 1.0);
+    assert(cache != nullptr);
+    return std::nullopt;
+  }
 };
 
 }  // namespace
@@ -241,7 +248,7 @@ std::vector<StageHit> HitBox(const Project& project, const Shot& shot,
   area.addRect(box);
   for (const Layer& layer : shot.layers) {
     const bool is_live = IsLayerLive(layer, local, shot.length) &&
-                         !std::holds_alternative<EffectLayer>(layer.content);
+                         IsStagePicture(layer);
     if (!is_live) {
       continue;
     }
