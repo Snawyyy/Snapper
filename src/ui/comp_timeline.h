@@ -173,6 +173,9 @@ class CompTimeline final : public QWidget {
   void FillMenu(QMenu* menu) const;
   void RunMenu(MenuCommand command);
   Frame Playhead() const;
+  // While the reel plays, pages the view to keep the playhead in sight
+  // (TimelineScale::Follow).
+  void FollowPlayhead();
   void Report(const QString& problem);
 
   Managers managers_;

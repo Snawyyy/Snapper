@@ -118,6 +118,9 @@ class TimelineView final : public QWidget {
   double FrameWidth() const { return scale_.pixels_per_frame(); }
   // The picked shot's length is what the scale fits and scrolls within.
   void SyncScale();
+  // While the playhead plays through this shot, pages the view to keep
+  // it in sight (TimelineScale::Follow).
+  void FollowPlayhead();
   void PaintWave(QPainter* painter) const;
   // The reel clip the picked shot borrows its sound from; nullptr when
   // it plays the song.

@@ -77,6 +77,16 @@ ReelTimeline::ReelTimeline(const Managers& managers)
   connect(managers_.selection, &SelectionManager::Changed, this, update_me);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
           update_me);
+  // Playing pages the view along until it is scrolled by hand.
+  connect(managers_.playback, &PlaybackManager::FrameChanged, this,
+          &ReelTimeline::FollowPlayhead);
+  connect(managers_.playback, &PlaybackManager::PlayingChanged, this,
+          [this](bool is_playing) {
+            if (is_playing) {
+              scale_.BeginFollow();
+            }
+            FollowPlayhead();
+          });
   // Waveforms show as their files finish loading.
   const bool has_sounds = managers_.sounds != nullptr;
   if (has_sounds) {
@@ -90,6 +100,19 @@ ReelTimeline::ReelTimeline(const Managers& managers)
   SyncScale();
   FitScrollBar();
   assert(acceptDrops());
+}
+
+void ReelTimeline::FollowPlayhead() {
+  assert(managers_.playback != nullptr);
+  assert(zoom() > 0.0);
+  const bool is_playing_here = managers_.playback->IsPlaying() &&
+                               managers_.playback->timeline() ==
+                                   Timeline::kReel;
+  const Frame now = managers_.playback->FrameOn(Timeline::kReel);
+  const bool is_paged = is_playing_here && scale_.Follow(now.index());
+  if (is_paged) {
+    update();
+  }
 }
 
 void ReelTimeline::SyncScale() {

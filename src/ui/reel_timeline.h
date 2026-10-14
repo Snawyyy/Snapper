@@ -283,6 +283,9 @@ class ReelTimeline final : public QWidget {
   void FitScrollBar();
   // The reel's length is what the scale fits and scrolls within.
   void SyncScale();
+  // While the reel plays, pages the view to keep the playhead in sight
+  // (TimelineScale::Follow).
+  void FollowPlayhead();
   // The marked range, a band over its track and the ruler.
   void PaintMarked(QPainter* painter) const;
   void ClipMenu(QPoint where);

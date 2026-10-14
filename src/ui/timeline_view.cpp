@@ -52,8 +52,19 @@ TimelineView::TimelineView(const Managers& managers)
           });
   setMinimumHeight(kRulerHeight + kWaveHeight + 3 * kRowHeight);
   connect(&chips_, &KeyChipBar::Problem, this, &TimelineView::Problem);
+  // Playing pages the view along until it is scrolled by hand.
+  connect(managers_.playback, &PlaybackManager::PlayingChanged, this,
+          [this](bool is_playing) {
+            if (is_playing) {
+              scale_.BeginFollow();
+            }
+            FollowPlayhead();
+            ShowChips();
+            update();
+          });
   const auto update_me = [this] {
     SyncScale();
+    FollowPlayhead();
     ShowChips();
     update();
   };
@@ -87,6 +98,20 @@ void TimelineView::SyncScale() {
       FindShot(managers_.history->current(), managers_.selection->shot());
   const bool has_shot = shot != nullptr;
   scale_.SetLength(has_shot ? shot->length.index() : 1);
+}
+
+void TimelineView::FollowPlayhead() {
+  assert(managers_.playback != nullptr);
+  assert(FrameWidth() > 0.0);
+  const auto here = PlayheadHere();
+  const bool is_playing_here = managers_.playback->IsPlaying() &&
+                               managers_.playback->timeline() ==
+                                   Timeline::kShots;
+  const bool can_follow = is_playing_here && here.has_value();
+  const bool is_paged = can_follow && scale_.Follow(here->index());
+  if (is_paged) {
+    update();
+  }
 }
 
 void TimelineView::ShowStep(const Project& before, bool is_travel) {

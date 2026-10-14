@@ -65,6 +65,28 @@ CompTimeline::CompTimeline(const Managers& managers)
     settle_.MoveTo(managers_.playback->FrameOn(Timeline::kReel),
                    managers_.playback->IsPlaying());
   });
+  // Playing pages the view along until it is scrolled by hand.
+  connect(managers_.playback, &PlaybackManager::FrameChanged, this,
+          &CompTimeline::FollowPlayhead);
+  connect(managers_.playback, &PlaybackManager::PlayingChanged, this,
+          [this](bool is_playing) {
+            if (is_playing) {
+              scale_.BeginFollow();
+            }
+            FollowPlayhead();
+          });
+}
+
+void CompTimeline::FollowPlayhead() {
+  assert(managers_.playback != nullptr);
+  assert(PixelsPerFrame() > 0.0);
+  const bool is_playing_here = managers_.playback->IsPlaying() &&
+                               managers_.playback->timeline() ==
+                                   Timeline::kReel;
+  const bool is_paged = is_playing_here && scale_.Follow(Playhead().index());
+  if (is_paged) {
+    update();
+  }
 }
 
 int CompTimeline::Length() const {
