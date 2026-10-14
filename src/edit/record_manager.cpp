@@ -20,7 +20,6 @@ namespace snapper {
 namespace {
 
 constexpr int kBeatMs = 1000;
-constexpr int kMaxTakes = 9999;
 
 bool IsSoundTrackOf(const Reel& reel, int track) {
   assert(track >= -1);
@@ -227,18 +226,11 @@ QString RecordManager::TakeFolder() const {
 }
 
 QString RecordManager::FreshTakePath() const {
-  assert(kMaxTakes > 0);
   const QDir folder(TakeFolder());
   assert(!folder.path().isEmpty());
-  for (int number = 1; number <= kMaxTakes; ++number) {
-    const QString name =
-        QStringLiteral("Take %1.wav").arg(number, 3, 10, QLatin1Char('0'));
-    const bool is_free = !folder.exists(name);
-    if (is_free) {
-      return folder.filePath(name);
-    }
-  }
-  return folder.filePath(QStringLiteral("Take.wav"));
+  assert(kBeatMs > 0);
+  return FreshNumberedPath(folder, QStringLiteral("Take"),
+                           QStringLiteral("wav"));
 }
 
 void RecordManager::SetState(State state) {

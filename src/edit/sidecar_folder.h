@@ -1,6 +1,7 @@
 #ifndef SNAPPER_EDIT_SIDECAR_FOLDER_H_
 #define SNAPPER_EDIT_SIDECAR_FOLDER_H_
 
+#include <QDir>
 #include <QString>
 
 namespace snapper {
@@ -13,6 +14,16 @@ namespace snapper {
 QString SidecarFolder(const QString& project_path, const QString& data_folder,
                       const QString& saved_format,
                       const QString& unsaved_name);
+
+// A file name made from any text: letters, digits, spaces, dashes and
+// underscores stay, everything else becomes an underscore; never empty,
+// never starting with a dot.
+QString SafeFileName(const QString& name);
+
+// "<stem> NNN.<suffix>" in folder, with the first number (from 001) not
+// used there yet.
+QString FreshNumberedPath(const QDir& folder, const QString& stem,
+                          const QString& suffix);
 
 }  // namespace snapper
 

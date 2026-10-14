@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "base/text.h"
+#include "edit/sidecar_folder.h"
 
 namespace snapper {
 namespace {
@@ -20,21 +21,6 @@ namespace {
 constexpr int kMaxVoices = 1000;
 constexpr const char* kSampleName = "sample";
 constexpr const char* kVoiceFile = "voice.json";
-
-// A folder name made from a voice name: letters, digits, spaces, dashes
-// and underscores stay, everything else becomes an underscore.
-QString SafeName(const QString& name) {
-  assert(kMaxVoices > 0);
-  assert(!name.isEmpty());
-  QString safe;
-  for (const QChar letter : name.trimmed()) {
-    const bool is_plain = letter.isLetterOrNumber() || letter == ' ' ||
-                          letter == '-' || letter == '_';
-    safe.append(is_plain ? letter : QChar('_'));
-  }
-  const bool is_dotted = safe.startsWith('.');
-  return is_dotted ? QStringLiteral("_") + safe : safe;
-}
 
 QStringList SampleFiles(const QDir& folder) {
   assert(!folder.path().isEmpty());
@@ -120,7 +106,7 @@ QString VoiceLibrary::FolderFor(const QString& name) const {
     return existing->folder;
   }
   const QDir root(folder_);
-  const QString base = SafeName(name);
+  const QString base = SafeFileName(name);
   QString candidate = base;
   for (int number = 2; number <= kMaxVoices; ++number) {
     const bool is_free = !root.exists(candidate);
