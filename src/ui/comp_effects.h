@@ -30,8 +30,8 @@ namespace snapper {
 
 // The Comp tab's right side: the effects on what is picked on the
 // stage (the screen's when nothing is), in the order they run, each a
-// fold like in After Effects. Its plate shows the kind's mark, the on
-// switch, the name and the fold arrow; a click on the name picks the
+// fold like in After Effects. Its plate shows the on switch, the kind's
+// mark, the name and the fold arrow; a click on the name picks the
 // effect (for K, I, Delete and the palette) and opens or closes it.
 // Plates drag to reorder (Escape cancels); library entries dropped
 // between them are added there. Right click copies, pastes, duplicates

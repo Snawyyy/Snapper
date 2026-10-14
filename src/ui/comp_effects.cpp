@@ -221,8 +221,8 @@ QFrame* CompEffects::NewPlate(const CompEffect& effect, Plate* plate) {
   plate->arrow->setAutoRaise(true);
   plate->arrow->setFocusPolicy(Qt::NoFocus);
   plate->arrow->setToolTip(tr("Show or hide its settings."));
-  row->addWidget(mark);
   row->addWidget(plate->eye);
+  row->addWidget(mark);
   row->addWidget(plate->name, 1);
   row->addWidget(plate->slow);
   row->addWidget(plate->arrow);
