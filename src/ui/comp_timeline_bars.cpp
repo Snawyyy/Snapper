@@ -182,6 +182,7 @@ void CompTimeline::MovePicked(int delta, bool is_free) {
     snap_ = has_first ? by_first : by_end;
     delta += has_first ? *by_first - first : has_end ? *by_end - end : 0;
   }
+  delta = KeptOnReel(from_, delta);
   for (const auto& [ref, span] : from_) {
     static_cast<void>(managers_.comp->SetTiming(
         ref.shot, ref.id, span.first + delta, span.end - span.first, true));
@@ -200,10 +201,25 @@ void CompTimeline::TrimGrabbed(int delta, bool is_free) {
     const bool has_snap = snap_.has_value();
     edge = has_snap ? *snap_ - span.offset : edge;
   }
+  // An end stays on the reel, frame 0 to its end.
+  edge = std::clamp(edge, -span.offset, Length() - span.offset);
   const int first = is_start ? std::min(span.end - 1, edge) : span.first;
   const int end = is_start ? span.end : std::max(span.first + 1, edge);
   static_cast<void>(managers_.comp->SetTiming(grabbed_.shot, grabbed_.id,
                                               first, end - first, false));
+}
+
+int CompTimeline::KeptOnReel(const std::map<CompClipRef, Span>& spans,
+                             int delta) const {
+  assert(Length() > 0);
+  assert(spans.size() < 100000);
+  int least = -kMaxFrame;
+  int most = kMaxFrame;
+  for (const auto& [ref, span] : spans) {
+    least = std::max(least, -(span.first + span.offset));
+    most = std::min(most, Length() - (span.end + span.offset));
+  }
+  return std::clamp(delta, least, std::max(least, most));
 }
 
 void CompTimeline::EndDrag() {

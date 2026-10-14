@@ -24,14 +24,23 @@ void CompTimeline::Nudge(int delta) {
     Report(tr("Pick an effect clip to nudge it."));
     return;
   }
-  EditScope scope(managers_.history, tr("Nudge effects"));
+  std::map<CompClipRef, Span> spans;
   for (const Bar& bar : Bars()) {
     const bool is_picked = picks.contains(bar.ref);
     if (is_picked) {
-      Report(ProblemOf(managers_.comp->SetTiming(
-          bar.ref.shot, bar.ref.id, bar.first + delta, bar.end - bar.first,
-          true)));
+      spans[bar.ref] = Span{bar.first, bar.end, bar.offset};
     }
+  }
+  const int kept = KeptOnReel(spans, delta);
+  const bool is_stuck = kept == 0;
+  if (is_stuck) {
+    Report(tr("The picked clips are at the edge of the reel."));
+    return;
+  }
+  EditScope scope(managers_.history, tr("Nudge effects"));
+  for (const auto& [ref, span] : spans) {
+    Report(ProblemOf(managers_.comp->SetTiming(
+        ref.shot, ref.id, span.first + kept, span.end - span.first, true)));
   }
 }
 

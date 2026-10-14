@@ -123,6 +123,9 @@ class CompTimeline final : public QWidget {
   void StartDrag(const Bar& bar, QPointF at);
   void DragTo(QPointF at, bool is_free);
   void MovePicked(int delta, bool is_free);
+  // delta kept so every clip in spans stays on the reel, frame 0 to its
+  // end.
+  int KeptOnReel(const std::map<CompClipRef, Span>& spans, int delta) const;
   void TrimGrabbed(int delta, bool is_free);
   void EndDrag();
   // The input that is not a drag (ui/comp_timeline_input.cpp).
