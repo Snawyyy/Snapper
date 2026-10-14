@@ -109,6 +109,7 @@ void CopySamples(const AudioClip& from, std::int64_t from_at,
 
 bool IsSoundFile(const QString& path) {
   assert(path.size() < 100000);
+  assert(!path.isNull() || path.isEmpty());
   static const QStringList kSuffixes = {
       QStringLiteral("wav"), QStringLiteral("mp3"),  QStringLiteral("ogg"),
       QStringLiteral("flac"), QStringLiteral("m4a"), QStringLiteral("aac"),
@@ -125,6 +126,7 @@ double GainToDb(double gain) {
 
 QString GainText(double gain) {
   assert(std::isfinite(gain));
+  assert(gain >= 0.0);
   const double db = GainToDb(gain);
   const bool is_silent = db < kQuietestDb;
   if (is_silent) {
@@ -151,11 +153,8 @@ double LevelToGain(double level) {
   assert(kMaxDb > kQuietestDb);
   const double kept = std::clamp(level, 0.0, 1.0);
   const bool is_silent = kept <= 0.0;
-  return is_silent ? 0.0
-                   : std::min(std::pow(10.0, (kQuietestDb + kept * (kMaxDb -
-                                                                    kQuietestDb)) /
-                                                 20.0),
-                              kMaxGain);
+  const double db = kQuietestDb + kept * (kMaxDb - kQuietestDb);
+  return is_silent ? 0.0 : std::min(std::pow(10.0, db / 20.0), kMaxGain);
 }
 
 SoundManager::SoundManager(HistoryManager* history) : history_(history) {
@@ -167,9 +166,11 @@ SoundManager::SoundManager(HistoryManager* history) : history_(history) {
 
 SoundManager::~SoundManager() {
   assert(history_ != nullptr);
+  assert(sounds_.size() < 100000);
   // A decode still running must finish before its watcher goes.
   for (auto& [path, entry] : sounds_) {
-    if (entry.loader != nullptr) {
+    const bool has_loader = entry.loader != nullptr;
+    if (has_loader) {
       entry.loader->waitForFinished();
     }
   }
@@ -178,18 +179,21 @@ SoundManager::~SoundManager() {
 std::shared_ptr<const AudioClip> SoundManager::Sound(
     const QString& path) const {
   assert(history_ != nullptr);
+  assert(path.size() < 100000);
   const auto found = sounds_.find(path);
   return found == sounds_.end() ? nullptr : found->second.clip;
 }
 
 QString SoundManager::ErrorOf(const QString& path) const {
   assert(history_ != nullptr);
+  assert(path.size() < 100000);
   const auto found = sounds_.find(path);
   return found == sounds_.end() ? QString() : found->second.error;
 }
 
 bool SoundManager::IsLoading() const {
   assert(history_ != nullptr);
+  assert(sounds_.size() < 100000);
   return std::ranges::any_of(sounds_, [](const auto& item) {
     return item.second.loader != nullptr && item.second.loader->isRunning();
   });
@@ -206,8 +210,10 @@ float SoundManager::PeakBetween(const QString& path, double from,
   }
   const std::vector<float>& peaks = found->second.peaks;
   const auto count = static_cast<std::int64_t>(peaks.size());
+  // Ends at count - 1 so last's range stays valid past the sound's end.
   const auto first = std::clamp<std::int64_t>(
-      static_cast<std::int64_t>(std::floor(from * kPeaksPerSecond)), 0, count);
+      static_cast<std::int64_t>(std::floor(from * kPeaksPerSecond)), 0,
+      count - 1);
   const auto last = std::clamp<std::int64_t>(
       static_cast<std::int64_t>(std::ceil(to * kPeaksPerSecond)), first + 1,
       count);
@@ -234,7 +240,8 @@ AudioClip SoundManager::MixReel(const Project& project, Frame length) const {
       const auto* source = std::get_if<SoundSource>(&clip.source);
       const auto sound =
           source != nullptr ? Sound(source->path) : nullptr;
-      if (sound != nullptr) {
+      const bool is_loaded = sound != nullptr;
+      if (is_loaded) {
         MixClip(*sound, clip, clip.volume * track.volume, &mix);
       }
     }
@@ -273,7 +280,8 @@ ClipId SoundManager::SoundClipOf(const Project& project, ShotId shot) const {
   assert(history_ != nullptr);
   assert(shot.value() >= 0);
   const std::vector<ClipId> clips = ClipsOf(project, shot);
-  if (clips.empty()) {
+  const bool has_clips = !clips.empty();
+  if (!has_clips) {
     return ClipId();
   }
   const auto preferred = preferred_.find(shot);
@@ -289,7 +297,8 @@ void SoundManager::PreferClip(ClipId clip) {
   const Clip* found = ClipOf(history_->current().reel, clip);
   const auto* source =
       found != nullptr ? std::get_if<ShotSource>(&found->source) : nullptr;
-  if (source == nullptr) {
+  const bool is_shot_clip = source != nullptr;
+  if (!is_shot_clip) {
     return;
   }
   const auto known = preferred_.find(source->shot);
@@ -320,8 +329,10 @@ std::shared_ptr<const AudioClip> SoundManager::MixShots(
     const std::int64_t at = SamplesOf(ShotStart(project, i));
     const ClipId borrowed = SoundClipOf(project, shot.id);
     const Clip* clip = ClipOf(project.reel, borrowed);
-    if (clip == nullptr) {
-      if (song != nullptr) {
+    const bool is_borrowing = clip != nullptr;
+    if (!is_borrowing) {
+      const bool has_song = song != nullptr;
+      if (has_song) {
         CopySamples(*song, at, SamplesOf(shot.length), at, mix.get());
       }
       continue;
@@ -337,11 +348,13 @@ std::shared_ptr<const AudioClip> SoundManager::MixShots(
 
 void SoundManager::Follow() {
   assert(history_ != nullptr);
+  assert(sounds_.size() < 100000);
   std::set<QString> paths;
   for (const ReelTrack& track : history_->current().reel.tracks) {
     for (const Clip& clip : track.clips) {
       const auto* sound = std::get_if<SoundSource>(&clip.source);
-      if (sound != nullptr) {
+      const bool is_sound = sound != nullptr;
+      if (is_sound) {
         paths.insert(sound->path);
       }
     }
