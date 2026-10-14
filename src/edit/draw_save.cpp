@@ -119,6 +119,15 @@ Result<void> DrawManager::Done(const QString& name) {
   if (!is_drawing_) {
     return std::unexpected(Error{Tr("Nothing is being drawn.")});
   }
+  // A job's picture is kept by whoever handed it in, unnamed.
+  if (target_ != DrawTarget::kPiece) {
+    assert(keep_ != nullptr);
+    auto kept = keep_(image_);
+    if (kept) {
+      End();
+    }
+    return kept;
+  }
   const QString trimmed = name.trimmed();
   const Doll* doll = FindDoll(history_->current(), doll_);
   const ArtPiece* art = doll != nullptr ? FindArt(*doll, track_.piece)

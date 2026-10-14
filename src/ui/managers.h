@@ -6,6 +6,7 @@ namespace snapper {
 class CompManager;
 class DialManager;
 class DocumentManager;
+class DraftManager;
 class DrawManager;
 class DollLibraryManager;
 class ExportManager;
@@ -86,6 +87,9 @@ struct Managers final {
   // Not in IsComplete either: the Video tab's Voice panel checks them.
   VoiceLibrary* voices = nullptr;
   VoiceGenManager* voice_gen = nullptr;
+  // Not in IsComplete either: the Draft row, the draft box and the
+  // draft keys check it.
+  DraftManager* draft = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&

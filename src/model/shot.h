@@ -10,6 +10,7 @@
 #include "base/id.h"
 #include "model/comp.h"
 #include "model/dot_group.h"
+#include "model/draft.h"
 #include "model/key.h"
 #include "model/layer.h"
 #include "model/pose.h"
@@ -92,6 +93,8 @@ struct Shot final {
   // The shot's Light: the direction (degrees, 0 up, clockwise) the
   // light comes from, shared by every effect that picks "Shot light".
   Channel<double> light{};
+  // The raster sketch of the shot's plan (model/draft.h); never exported.
+  Draft draft{};
 
   bool operator==(const Shot&) const = default;
 };

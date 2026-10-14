@@ -23,6 +23,8 @@ namespace {
 constexpr double kGridZoom = 8.0;
 constexpr double kDollDim = 0.35;
 constexpr double kOnion = 0.3;
+// The shot under a draft cel shows clearer than a dimmed doll.
+constexpr double kUnderDim = 0.6;
 
 }  // namespace
 
@@ -43,6 +45,15 @@ void DrawCanvas::paintEvent(QPaintEvent* event) {
 void DrawCanvas::PaintDoll(QPainter* painter) {
   assert(painter != nullptr);
   assert(managers_.history != nullptr);
+  // A draft cel lies over the shot as it is at that frame.
+  if (!managers_.draw->is_named()) {
+    painter->save();
+    painter->setOpacity(kUnderDim);
+    painter->setTransform(World());
+    painter->drawImage(QPointF(), managers_.draw->under());
+    painter->restore();
+    return;
+  }
   const Project& project = managers_.history->current();
   const Doll* doll = FindDoll(project, managers_.draw->doll());
   if (doll == nullptr) {
@@ -72,7 +83,9 @@ void DrawCanvas::PaintDrawing(QPainter* painter) {
   const bool is_onion = draw->is_onion() && !draw->is_peeking();
   if (is_onion) {
     painter->setOpacity(kOnion);
-    painter->drawImage(QPointF(), draw->reference());
+    for (const QImage& onion : draw->onions()) {
+      painter->drawImage(QPointF(), onion);
+    }
     painter->setOpacity(1.0);
   }
   painter->drawImage(QPointF(), draw->is_peeking() ? draw->reference()

@@ -10,6 +10,8 @@ namespace snapper {
 void StageView::SetUpDraw() {
   assert(managers_.history != nullptr);
   assert(draw_ == nullptr);
+  // The Pose stage shows each shot's draft over it.
+  renderer_.SetDraftShown(managers_.draft != nullptr);
   if (managers_.draw == nullptr) {
     return;
   }

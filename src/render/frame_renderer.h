@@ -79,6 +79,10 @@ class FrameRenderer final {
   // What each comp effect cost in the last frame, in milliseconds, and
   // which plugin effects refused to run.
   const CompReport& comp_report() const { return comp_report_; }
+  // Whether each shot's draft is drawn over it (render/draft_paint.h):
+  // the Pose stage and the Video preview turn it on; export and every
+  // other renderer keep it off.
+  void SetDraftShown(bool is_shown) { is_draft_shown_ = is_shown; }
 
  private:
   // Draws layer onto frame through its own picture, keeping the comp's
@@ -107,6 +111,7 @@ class FrameRenderer final {
   ImageCache cache_;
   CompShow comp_show_;
   CompReport comp_report_;
+  bool is_draft_shown_ = false;
 };
 
 }  // namespace snapper

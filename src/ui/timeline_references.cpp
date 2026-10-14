@@ -77,7 +77,8 @@ int TimelineView::ReferenceRows() const {
 }
 
 double TimelineView::RowsTop() const {
-  const double top = BandTop() + ReferenceRows() * kRowHeight;
+  const double top =
+      BandTop() + ReferenceRows() * kRowHeight + draft_.Height();
   assert(top >= BandTop());
   return top;
 }

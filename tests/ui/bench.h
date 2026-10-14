@@ -5,6 +5,7 @@
 #include <QTemporaryDir>
 
 #include "edit/comp_manager.h"
+#include "edit/draft_manager.h"
 #include "edit/dial_manager.h"
 #include "edit/doll_library_manager.h"
 #include "edit/document_manager.h"
@@ -70,6 +71,7 @@ struct Bench final {
   RecordManager record{&history, &document, &playback, &reel, dir.path()};
   LibraryFolderManager library_folders{
       QDir(dir.path()).filePath("library_folders.json")};
+  DraftManager draft{&history, &document, &draw};
 
   Managers All() {
     Managers all{&history, &document, &library, &rig, &shots, &stage,
@@ -85,6 +87,7 @@ struct Bench final {
     all.comp = &comp;
     all.record = &record;
     all.library_folders = &library_folders;
+    all.draft = &draft;
     return all;
   }
 };

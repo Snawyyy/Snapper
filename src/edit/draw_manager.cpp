@@ -172,6 +172,9 @@ Result<void> DrawManager::Start(const TrackRef& track, Frame frame, int from,
   if (playback_->IsPlaying()) {
     playback_->Pause();
   }
+  target_ = DrawTarget::kPiece;
+  under_ = QImage();
+  keep_ = nullptr;
   doll_ = doll.name;
   track_ = track;
   frame_ = frame;
@@ -191,6 +194,44 @@ Result<void> DrawManager::Start(const TrackRef& track, Frame frame, int from,
                ? Tr("Drawing: copy of %1 (%2)")
                      .arg(DrawingName(art, from), track.piece)
                : Tr("Drawing: %1 (%2)").arg(default_name_, track.piece);
+  onions_ = {reference_};
+  Open();
+  return {};
+}
+
+Result<void> DrawManager::BeginJob(DrawJob job) {
+  assert(history_ != nullptr);
+  assert(job.target != DrawTarget::kPiece);
+  if (is_drawing_) {
+    return std::unexpected(
+        Error{Tr("Already drawing: press Done or Cancel first.")});
+  }
+  const bool is_usable = !job.image.isNull() && job.keep != nullptr;
+  if (!is_usable) {
+    return std::unexpected(Error{Tr("There is nothing to draw on.")});
+  }
+  if (playback_->IsPlaying()) {
+    playback_->Pause();
+  }
+  target_ = job.target;
+  image_ = job.image.convertToFormat(QImage::Format_ARGB32);
+  reference_ = job.reference.isNull() ? image_ : job.reference;
+  under_ = job.under;
+  onions_ = std::move(job.onions);
+  keep_ = std::move(job.keep);
+  title_ = job.title;
+  default_name_.clear();
+  doll_.clear();
+  track_ = TrackRef();
+  replaces_ = -1;
+  rest_place_ = QTransform();
+  Open();
+  return {};
+}
+
+void DrawManager::Open() {
+  assert(!is_drawing_);
+  assert(!image_.isNull());
   undo_.clear();
   redo_.clear();
   is_stroking_ = false;
@@ -207,7 +248,6 @@ Result<void> DrawManager::Start(const TrackRef& track, Frame frame, int from,
   }
   emit Started();
   emit Changed();
-  return {};
 }
 
 QString DrawManager::Title() const {
@@ -365,6 +405,9 @@ void DrawManager::End() {
   is_peeking_ = false;
   image_ = QImage();
   reference_ = QImage();
+  under_ = QImage();
+  onions_.clear();
+  keep_ = nullptr;
   undo_.clear();
   redo_.clear();
   const bool has_palette = palette_ != nullptr;

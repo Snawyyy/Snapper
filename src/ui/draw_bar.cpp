@@ -47,8 +47,6 @@ DrawBar::DrawBar(const Managers& managers)
   name_.setPlaceholderText(tr("Name"));
   name_.setToolTip(tr("What the drawing is called in the Drawing picker."));
   name_.setMaximumWidth(140);
-  onion_.setToolTip(tr("Show the original under yours at 30 % (D). "
-                       "Hold R to see only the original."));
   done_.setToolTip(tr("Save the drawing (Enter)."));
   cancel_.setToolTip(tr("Leave without saving (Escape)."));
   question_.setText(tr("Throw away what you drew?"));
@@ -105,6 +103,14 @@ void DrawBar::Refresh() {
   assert(draw != nullptr);
   title_.setText(draw->Title());
   size_.setText(tr("Brush %1 px").arg(draw->brush_size()));
+  // A draft cel has no name; its onion is the cels around it.
+  name_.setVisible(draw->is_named());
+  onion_.setToolTip(draw->is_named()
+                        ? tr("Show the original under yours at 30 % (D). "
+                             "Hold R to see only the original.")
+                        : tr("Show the cel before (red) and after (green) "
+                             "at 30 % (D). Hold R to see the cel as it "
+                             "was."));
   const QSignalBlocker quiet(onion_);
   onion_.setChecked(draw->is_onion());
   // No title while no drawing is open, so the text may be null.

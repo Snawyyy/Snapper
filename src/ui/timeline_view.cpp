@@ -159,6 +159,7 @@ void TimelineView::paintEvent(QPaintEvent* event) {
   PaintWave(&painter);
   PaintGrid(&painter);
   PaintReferences(&painter);
+  draft_.Paint(&painter);
   PaintRows(&painter, rows, false);
   PaintReferenceMarks(&painter);
   PaintPlayhead(&painter);

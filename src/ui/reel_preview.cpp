@@ -43,6 +43,7 @@ ReelPreview::ReelPreview(const Managers& managers)
   setMinimumSize(160, 90);
   setMouseTracking(true);
   setFocusPolicy(Qt::ClickFocus);
+  renderer_.SetDraftShown(managers_.draft != nullptr);  // drafts, never export
   const auto update_me = [this] { update(); };
   connect(managers_.history, &HistoryManager::Changed, this, update_me);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this,
