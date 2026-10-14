@@ -65,6 +65,9 @@ PoseMap SamplePoses(const Doll& doll, const DollLayer& layer, Frame frame) {
   assert(layer.pieces.size() <= static_cast<size_t>(kMaxPieceTracks));
   PoseMap poses = SamplePoses(layer, frame);
   const bool has_skins = !doll.rig.skins.empty();
+  if (has_skins) {
+    DropOlderPicks(layer, frame, &poses);
+  }
   const std::set<QString> hand =
       has_skins ? HandPicked(poses) : std::set<QString>();
   ApplyDials(doll, layer, frame, &poses);
