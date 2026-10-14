@@ -8,6 +8,7 @@
 #include <variant>
 
 #include "anim/jitter.h"
+#include "anim/layer_order.h"
 #include "anim/links.h"
 #include "anim/master_timeline.h"
 #include "anim/reel_timeline.h"
@@ -115,11 +116,8 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
   if (needs_drawn) {
     pictures.drawn = Blank(project, scale, Qt::transparent);
   }
-  for (const Layer& layer : shot.layers) {
-    const bool is_live = IsLayerLive(layer, local, shot.length);
-    if (!is_live) {
-      continue;
-    }
+  for (const Layer* drawn_layer : LayersInDrawOrder(shot, local)) {
+    const Layer& layer = *drawn_layer;
     const auto* effect = std::get_if<EffectLayer>(&layer.content);
     const bool is_effect = effect != nullptr;
     if (is_effect) {
@@ -235,14 +233,12 @@ QImage FrameRenderer::RenderLayers(
   const QTransform view = ViewTransform(project, shot, local, scale);
   LinkSolver links(project, shot, cache_.poses());
   QPainter painter(&frame);
-  for (const Layer& layer : shot.layers) {
-    const auto chosen = only.find(layer.id);
-    const bool is_chosen = chosen != only.end() &&
-                           IsLayerLive(layer, local, shot.length) &&
-                           IsStagePicture(layer);
+  for (const Layer* layer : LayersInDrawOrder(shot, local)) {
+    const auto chosen = only.find(layer->id);
+    const bool is_chosen = chosen != only.end() && IsStagePicture(*layer);
     if (is_chosen) {
       const bool is_whole = chosen->second.empty();
-      PaintLayer(project, layer, local, view, &links, &cache_, &painter,
+      PaintLayer(project, *layer, local, view, &links, &cache_, &painter,
                  is_whole ? nullptr : &chosen->second);
     }
   }
@@ -261,11 +257,10 @@ QImage FrameRenderer::RenderArea(const Project& project, const Shot& shot,
                                                     -area.top());
   LinkSolver links(project, shot, cache_.poses());
   QPainter painter(&out);
-  for (const Layer& layer : shot.layers) {
-    const bool is_drawn = IsLayerLive(layer, local, shot.length) &&
-                          IsStagePicture(layer);
+  for (const Layer* layer : LayersInDrawOrder(shot, local)) {
+    const bool is_drawn = IsStagePicture(*layer);
     if (is_drawn) {
-      PaintLayer(project, layer, local, view, &links, &cache_, &painter);
+      PaintLayer(project, *layer, local, view, &links, &cache_, &painter);
     }
   }
   return out;

@@ -10,6 +10,7 @@
 
 #include "anim/doll_lean.h"
 #include "anim/doll_pose.h"
+#include "anim/layer_order.h"
 #include "anim/links.h"
 #include "render/frame_renderer.h"
 #include "render/layer_painter.h"
@@ -140,22 +141,22 @@ std::optional<StageHit> HitTest(const Project& project, const Shot& shot,
   const QTransform view =
       FrameRenderer::ViewTransform(project, shot, local, scale);
   LinkSolver links(project, shot, cache->poses());
-  for (auto it = shot.layers.rbegin(); it != shot.layers.rend(); ++it) {
-    const QTransform world = links.LayerTransform(*it, local) * view;
+  const std::vector<const Layer*> drawn = LayersInDrawOrder(shot, local);
+  for (auto it = drawn.rbegin(); it != drawn.rend(); ++it) {
+    const Layer& layer = **it;
+    const QTransform world = links.LayerTransform(layer, local) * view;
     bool is_invertible = false;
     const QPointF in_layer = world.inverted(&is_invertible).map(point);
-    const bool is_testable =
-        IsLayerLive(*it, local, shot.length) && is_invertible;
-    if (!is_testable) {
+    if (!is_invertible) {
       continue;
     }
     const std::optional<QString> hit = std::visit(
-        LayerHitter{project, *it, local, world, point, in_layer, &links,
+        LayerHitter{project, layer, local, world, point, in_layer, &links,
                     cache},
-        it->content);
+        layer.content);
     const bool is_hit = hit.has_value();
     if (is_hit) {
-      return StageHit{it->id, *hit};
+      return StageHit{layer.id, *hit};
     }
   }
   return std::nullopt;
