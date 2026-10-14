@@ -58,7 +58,16 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-14, branch `comp-effect-browser`, cut from
+Last done (2026-10-14, branch `comp-clip-edits`, cut from
+`comp-effect-browser`, not pushed): Comp effect clips got the Video
+tab's clip edits: S splits the picked clips at the playhead, Ctrl+X
+cuts, Ctrl+C copies many, Ctrl+V pastes at the playhead keeping their
+spacing (another shot's copy takes the stage pick), Ctrl+D duplicates
+all picked, all in the timeline's right click menu too
+(`edit/comp_cut.cpp`). No ripple remove: each effect has its own row.
+Built, not seen by eye, no tests run.
+
+Before that (2026-10-14, branch `comp-effect-browser`, cut from
 `fix-comp-crash` since main lacks the Comp work, not pushed): the Comp
 tab rebuilt. Left, every effect under a search field with hover help,
 double click adds to the stage pick; right, the pick's effects (the
