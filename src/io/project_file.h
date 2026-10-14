@@ -12,6 +12,8 @@ namespace snapper {
 // same even after the doll library changes.
 inline constexpr char kProjectSuffix[] = "snapper";
 
+// Storyboard frame pictures below the file's folder are saved relative to
+// it and come back absolute (io/storyboard_paths.h).
 Result<Project> ReadProject(const QString& path);
 Result<void> WriteProject(const QString& path, const Project& project);
 

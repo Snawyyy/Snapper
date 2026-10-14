@@ -6,41 +6,14 @@
 
 #include <cassert>
 
-#include "edit/document_manager.h"
-#include "edit/draw_manager.h"
-#include "edit/history_manager.h"
-#include "edit/playback_manager.h"
-#include "edit/selection_manager.h"
-#include "edit/stage_manager.h"
 #include "edit/storyboard_edits.h"
-#include "edit/storyboard_manager.h"
 #include "io/layer_json.h"
+#include "io/project_file.h"
 #include "model/storyboard.h"
+#include "storyboard_bench.h"
 
 namespace snapper {
 namespace {
-
-constexpr int kSide = 64;
-
-Project OneShot() {
-  Project project;
-  project.canvas.width = kSide;
-  project.canvas.height = kSide;
-  Shot shot;
-  shot.id = ShotId(1);
-  shot.name = "Opening";
-  project.shots = {std::make_shared<const Shot>(shot)};
-  project.next_shot_id = 2;
-  assert(project.shots.size() == 1);
-  assert(IsValidCanvas(project.canvas));
-  return project;
-}
-
-const Shot& TheShot(const HistoryManager& history) {
-  assert(!history.current().shots.empty());
-  assert(history.current().shots[0] != nullptr);
-  return *history.current().shots[0];
-}
 
 StoryboardLayer ThreeCels() {
   StoryboardLayer board;
@@ -50,34 +23,6 @@ StoryboardLayer ThreeCels() {
   assert(board.cels.front().at == Frame(0));
   return board;
 }
-
-// Every manager the drawing path needs, over a scratch folder.
-struct Bench final {
-  QTemporaryDir dir;
-  HistoryManager history{OneShot()};
-  DocumentManager document{&history, dir.path()};
-  PlaybackManager playback{&history};
-  DrawManager draw{&history, &playback, nullptr};
-  SelectionManager selection{&history};
-  StageManager stage{&history};
-  StoryboardManager board{&history, &document, &draw, &selection,
-                          dir.path()};
-  ShotId shot{1};
-
-  // The first storyboard layer of the shot.
-  const Layer& Sheet() const { return TheShot(history).layers.front(); }
-  const StoryboardLayer& Cels() const {
-    const auto* found = std::get_if<StoryboardLayer>(&Sheet().content);
-    assert(found != nullptr);
-    return *found;
-  }
-  // Draws one dot and presses Done.
-  void DrawDot() {
-    draw.Press(QPoint(3, 3), false, false);
-    draw.Release();
-    QVERIFY(draw.Done(QString()).has_value());
-  }
-};
 
 }  // namespace
 
@@ -96,6 +41,8 @@ class StoryboardTests final : public QObject {
   void MovingAndDeletingAreOneStepEach();
   void OpacityAndExportAreSteps();
   void SavesAndLoadsWithTheProject();
+  void FramesSaveRelativeAndLoadAbsolute();
+  void SaveAsCarriesTheFramesAlong();
 };
 
 void StoryboardTests::FindsTheCelShowingAtAFrame() {
@@ -336,6 +283,110 @@ void StoryboardTests::SavesAndLoadsWithTheProject() {
   Shot empty;
   empty.id = ShotId(2);
   QVERIFY(ShotFromJson(ShotToJson(empty), &issues).layers.empty());
+}
+
+namespace {
+
+// A small picture saved at path, its folder made.
+void SavePicture(const QString& path) {
+  QImage image(4, 4, QImage::Format_ARGB32);
+  image.fill(Qt::red);
+  QVERIFY(QDir().mkpath(QFileInfo(path).absolutePath()));
+  QVERIFY(image.save(path));
+}
+
+// The text of the file at path.
+QString TextOf(const QString& path) {
+  assert(!path.isEmpty());
+  assert(path.size() < 100000);
+  QFile file(path);
+  const bool is_open = file.open(QIODevice::ReadOnly);
+  return is_open ? QString::fromUtf8(file.readAll()) : QString();
+}
+
+}  // namespace
+
+void StoryboardTests::FramesSaveRelativeAndLoadAbsolute() {
+  QTemporaryDir dir;
+  QTemporaryDir elsewhere;
+  const QString inside =
+      QDir(dir.path()).filePath("Film storyboard/f.png");
+  const QString outside = QDir(elsewhere.path()).filePath("g.png");
+  SavePicture(inside);
+  SavePicture(outside);
+  Project project = OneShot();
+  Shot shot = *project.shots[0];
+  Layer layer;
+  layer.id = LayerId(1);
+  layer.name = "Storyboard";
+  StoryboardLayer board;
+  board.cels = {{Frame(2), inside}, {Frame(6), outside}};
+  layer.content = board;
+  shot.layers.push_back(layer);
+  project.shots[0] = std::make_shared<const Shot>(shot);
+  const QString file = QDir(dir.path()).filePath("Film.snapper");
+  QVERIFY(WriteProject(file, project).has_value());
+  // Below the file's folder it is written relative; elsewhere, whole.
+  const QString text = TextOf(file);
+  QVERIFY(text.contains("Film storyboard/f.png"));
+  QVERIFY(!text.contains(dir.path()));
+  QVERIFY(text.contains(outside));
+  const auto read = ReadProject(file);
+  QVERIFY(read.has_value());
+  QVERIFY(*read->shots[0] == shot);
+  // The project and its folder move together.
+  QTemporaryDir moved;
+  const QString there = QDir(moved.path()).filePath("Film.snapper");
+  SavePicture(QDir(moved.path()).filePath("Film storyboard/f.png"));
+  QVERIFY(QFile::copy(file, there));
+  const auto reopened = ReadProject(there);
+  QVERIFY(reopened.has_value());
+  const auto* frames = std::get_if<StoryboardLayer>(
+      &reopened->shots[0]->layers[0].content);
+  QCOMPARE(frames->cels[0].path,
+           QDir(moved.path()).filePath("Film storyboard/f.png"));
+  QCOMPARE(frames->cels[1].path, outside);
+}
+
+void StoryboardTests::SaveAsCarriesTheFramesAlong() {
+  Bench bench;
+  QVERIFY(bench.board.DrawNew(bench.shot, Frame(5)).has_value());
+  bench.DrawDot();
+  const QString first = bench.Cels().cels[0].path;
+  QVERIFY(first.startsWith(QDir(bench.dir.path()).filePath("storyboard")));
+  QVERIFY(QDir().mkpath(QDir(bench.dir.path()).filePath("saved")));
+  const QString film = QDir(bench.dir.path()).filePath("saved/Film.snapper");
+  QVERIFY(bench.document.SaveAs(film).has_value());
+  // The picture went beside the file and the project points at it.
+  const QString folder =
+      QDir(bench.dir.path()).filePath("saved/Film storyboard");
+  const QString carried = bench.Cels().cels[0].path;
+  QVERIFY(carried.startsWith(folder));
+  QVERIFY(QFile::exists(carried));
+  QVERIFY(QFile::exists(first));
+  QVERIFY(!bench.history.IsDirty());
+  QVERIFY(!TextOf(film).contains(bench.dir.path()));
+  // No step was made, and undo and redo find the copy.
+  QCOMPARE(bench.history.UndoLabel(), QString("Draw storyboard frame"));
+  bench.history.Undo();
+  bench.history.Redo();
+  QCOMPARE(bench.Cels().cels[0].path, carried);
+  // A frame drawn now lands beside the project, and Save As again
+  // carries both along.
+  QVERIFY(bench.board.DrawNew(bench.shot, Frame(9)).has_value());
+  bench.DrawDot();
+  QVERIFY(bench.Cels().cels[1].path.startsWith(folder));
+  const QString copy = QDir(bench.dir.path()).filePath("saved/Copy.snapper");
+  QVERIFY(bench.document.SaveAs(copy).has_value());
+  const QString copy_folder =
+      QDir(bench.dir.path()).filePath("saved/Copy storyboard");
+  for (const StoryboardCel& cel : bench.Cels().cels) {
+    QVERIFY(cel.path.startsWith(copy_folder));
+    QVERIFY(QFile::exists(cel.path));
+  }
+  QVERIFY(bench.document.Open(film).has_value());
+  QCOMPARE(bench.Cels().cels.size(), size_t{1});
+  QCOMPARE(bench.Cels().cels[0].path, carried);
 }
 
 }  // namespace snapper

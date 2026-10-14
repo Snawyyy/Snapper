@@ -6,11 +6,14 @@
 #include <QSettings>
 
 #include <cassert>
+#include <set>
 
 #include "base/text.h"
 #include "edit/history_manager.h"
 #include "edit/reel_manager.h"
+#include "edit/storyboard_folder.h"
 #include "io/project_file.h"
+#include "io/storyboard_paths.h"
 
 namespace snapper {
 namespace {
@@ -98,6 +101,10 @@ Result<void> DocumentManager::SaveAs(const QString& path) {
   if (!has_suffix) {
     target += QLatin1Char('.') + QLatin1String(kProjectSuffix);
   }
+  const auto carried = CarryStoryboard(target);
+  if (!carried) {
+    return carried;
+  }
   auto written = WriteProject(target, history_->current());
   if (!written) {
     return written;
@@ -178,6 +185,34 @@ Result<void> DocumentManager::SetSong(const QString& song) {
   ReelManager::ReplaceSong(&next, old_song);
   return history_->Apply(song.isEmpty() ? Tr("Remove song") : Tr("Set song"),
                          std::move(next));
+}
+
+Result<void> DocumentManager::CarryStoryboard(const QString& target) {
+  assert(history_ != nullptr);
+  assert(!target.isEmpty());
+  const bool is_moving = target != path_;
+  if (!is_moving) {
+    return {};
+  }
+  const QString from = StoryboardFolder(path_, data_folder_);
+  const QString to = StoryboardFolder(target, data_folder_);
+  const bool is_same = from == to;
+  if (is_same) {
+    return {};
+  }
+  // The frames now live beside the new file; the work does not change,
+  // so there is no undo step.
+  std::set<QString> pictures;
+  history_->MapProjects([&](const Project& project) {
+    return MovedStoryboardPaths(project, from, to, &pictures);
+  });
+  const auto copied = CopyStoryboardPictures(pictures, from, to);
+  if (!copied) {
+    history_->MapProjects([&](const Project& project) {
+      return MovedStoryboardPaths(project, to, from);
+    });
+  }
+  return copied;
 }
 
 Result<void> DocumentManager::Autosave() {

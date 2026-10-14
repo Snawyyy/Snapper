@@ -105,6 +105,20 @@ void HistoryManager::Reset(Project start, bool is_saved) {
   emit Changed();
 }
 
+void HistoryManager::MapProjects(
+    const std::function<Project(const Project&)>& map) {
+  assert(!is_scope_open_);
+  assert(map != nullptr);
+  current_ = map(current_);
+  for (Step& step : undo_) {
+    step.project = map(step.project);
+  }
+  for (Step& step : redo_) {
+    step.project = map(step.project);
+  }
+  emit Changed();
+}
+
 bool HistoryManager::CanUndo() const {
   assert(undo_.size() <= static_cast<size_t>(kMaxUndoSteps));
   assert(revision_ < next_revision_);

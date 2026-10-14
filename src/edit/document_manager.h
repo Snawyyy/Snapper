@@ -34,6 +34,9 @@ class DocumentManager final : public QObject {
   // Saves where the project was opened or last saved. Fails, saying so,
   // when it has never been saved: the caller asks where (SaveAs).
   Result<void> Save();
+  // Saving under a new name also copies the storyboard frames' folder
+  // beside the new file and points the project at the copies, so the
+  // frames follow the project.
   Result<void> SaveAs(const QString& path);
 
   const QString& path() const { return path_; }
@@ -78,6 +81,8 @@ class DocumentManager final : public QObject {
   void OutsideShownChanged();
 
  private:
+  // The storyboard frames of the project as it is now go beside target.
+  Result<void> CarryStoryboard(const QString& target);
   void Remember(const QString& path);
   // Reads the outside switch for the file now open.
   void LoadOutsideShown();

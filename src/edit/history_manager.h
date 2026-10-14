@@ -6,6 +6,7 @@
 #include <QString>
 
 #include <deque>
+#include <functional>
 #include <optional>
 
 #include "base/error.h"
@@ -75,6 +76,11 @@ class HistoryManager final : public QObject {
   // Starts over with start, as opening a file does: no undo across it.
   // A start that was never saved (recovered work) begins dirty.
   void Reset(Project start, bool is_saved = true);
+  // Swaps the current project and every project kept for undo and redo
+  // for map's answer, with no step and no change to dirty. For changes
+  // that do not alter the work, such as the folder its pictures moved
+  // to on Save As, so undo goes on finding them. Not during a drag.
+  void MapProjects(const std::function<Project(const Project&)>& map);
 
   // False while a drag is open, so undo never cuts into one.
   bool CanUndo() const;

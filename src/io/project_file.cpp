@@ -1,5 +1,6 @@
 #include "io/project_file.h"
 
+#include <QFileInfo>
 #include <QJsonArray>
 
 #include <algorithm>
@@ -11,6 +12,7 @@
 #include "io/json_file.h"
 #include "io/layer_json.h"
 #include "io/reel_json.h"
+#include "io/storyboard_paths.h"
 
 namespace snapper {
 namespace {
@@ -124,12 +126,16 @@ Result<Project> ReadProject(const QString& path) {
     return std::unexpected(Error{Tr("%1 is damaged: %2").arg(path, why)});
   }
   assert(project.shots.size() <= static_cast<size_t>(kMaxShots));
-  return project;
+  // Frame pictures are named from the file's folder in the file.
+  return ResolvedStoryboardPaths(std::move(project),
+                                 QFileInfo(path).absolutePath());
 }
 
-Result<void> WriteProject(const QString& path, const Project& project) {
+Result<void> WriteProject(const QString& path, const Project& in_memory) {
   assert(!path.isEmpty());
-  assert(IsValidCanvas(project.canvas));
+  assert(IsValidCanvas(in_memory.canvas));
+  const Project project = RelativeStoryboardPaths(
+      in_memory, QFileInfo(path).absolutePath());
   QJsonArray dolls;
   for (const auto& [name, doll] : project.dolls) {
     dolls.append(QJsonObject{{"name", name},

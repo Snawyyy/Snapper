@@ -13,6 +13,7 @@
 #include "edit/project_edits.h"
 #include "edit/sidecar_folder.h"
 #include "edit/storyboard_edits.h"
+#include "edit/storyboard_folder.h"
 #include "render/frame_renderer.h"
 #include "render/storyboard_paint.h"
 
@@ -71,9 +72,8 @@ QString StoryboardManager::Folder() const {
   assert(document_ != nullptr);
   assert(!data_folder_.isEmpty() || document_->HasPath());
   const bool is_saved = document_->HasPath();
-  return SidecarFolder(is_saved ? document_->path() : QString(),
-                       data_folder_, Tr("%1 storyboard"),
-                       QStringLiteral("storyboard"));
+  return StoryboardFolder(is_saved ? document_->path() : QString(),
+                          data_folder_);
 }
 
 QString StoryboardManager::WhyNoDraw(ShotId shot, Frame frame,
