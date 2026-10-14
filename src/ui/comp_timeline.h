@@ -17,10 +17,12 @@ class QPainter;
 namespace snapper {
 
 // The Comp tab's timeline: the Video tab's reel with its playhead, a
-// row of the shot clips (the one under the playhead is the picked shot),
-// then a row per effect of that shot, in the order they run, each a clip
-// over the reel showing when it runs and the frames its knobs are keyed
-// on, and one row for the shot's Light. Dragging a clip moves it (its
+// row of the shot clips (the one under the playhead is the picked
+// shot), then a row per effect of every shot on the reel, shot by shot
+// and in the order they run, each a clip over the reel showing when it
+// runs and the frames its knobs are keyed on, named with what it is on
+// ("(arm_l) Rim light"), and one row for the picked shot's Light. The
+// rows stay put as the playhead moves. Dragging a clip moves it (its
 // keys go with it), dragging an end trims it, a double click fits it to
 // its shot again; one undo step each, Escape cancels, Ctrl drags without
 // snapping. A clip may run past its shot's cut: an effect on the screen
@@ -46,6 +48,10 @@ class CompTimeline final : public QWidget {
  private:
   // One effect's clip as drawn: its box, and its frames of the shot.
   struct Bar final {
+    ShotId shot{};
+    // Shot frame f shows at reel frame f + offset.
+    int offset = 0;
+    const Clip* clip = nullptr;
     CompEffectId id{};
     QRectF box;
     int first = 0;
@@ -53,6 +59,12 @@ class CompTimeline final : public QWidget {
     bool is_on_doll = false;
   };
   enum class Grab { kNone, kMove, kStart, kEnd };
+
+  // The names column (wide enough for "(arm_l) Rim light"), the ruler
+  // and one row.
+  static constexpr double kNameWidth = 180.0;
+  static constexpr double kRuler = 18.0;
+  static constexpr double kRow = 18.0;
 
   // x of a reel frame, and the reel frame at x (unclamped when free).
   double XOf(int frame) const;
@@ -63,9 +75,10 @@ class CompTimeline final : public QWidget {
   void PaintShots(QPainter* painter, double y) const;
   void PaintBars(QPainter* painter) const;
   void PaintLight(QPainter* painter) const;
-  // The picked shot's clip the effects are drawn over; nullptr for none.
-  const Clip* ShotClip() const;
-  // Every effect's clip, in the order they run (comp_timeline_bars.cpp).
+  // The clip shot's effects are drawn over, its first on the reel;
+  // nullptr for none.
+  const Clip* ClipOf(ShotId shot) const;
+  // Every effect's clip, shot by shot (ui/comp_timeline_drag.cpp).
   std::vector<Bar> Bars() const;
   // A drag of a clip (ui/comp_timeline_drag.cpp).
   bool StartDrag(QPointF at);
@@ -76,7 +89,12 @@ class CompTimeline final : public QWidget {
 
   Managers managers_;
   Grab grab_ = Grab::kNone;
+  ShotId dragged_shot_{};
   CompEffectId dragged_{};
+  int drag_offset_ = 0;
+  // The dragged effect's shot clip on the reel, for snapping.
+  int drag_clip_start_ = 0;
+  int drag_clip_end_ = 0;
   int press_frame_ = 0;
   int from_first_ = 0;
   int from_end_ = 0;

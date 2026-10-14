@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <utility>
 #include <variant>
 
 #include "anim/reel_timeline.h"
@@ -18,74 +19,72 @@
 namespace snapper {
 namespace {
 
-constexpr double kRuler = 18.0;
-constexpr double kRow = 18.0;
-constexpr double kNameWidth = 130.0;
 // How near an end grabs it, and how near a snap catches, in pixels.
 constexpr double kEdge = 6.0;
 constexpr double kSnap = 6.0;
 
 }  // namespace
 
-const Clip* CompTimeline::ShotClip() const {
+const Clip* CompTimeline::ClipOf(ShotId shot) const {
   assert(managers_.history != nullptr);
-  assert(managers_.playback != nullptr);
-  const Project& project = managers_.history->current();
-  const ShotId shot = managers_.selection->shot();
-  const ReelShot here =
-      ShotAtReel(project, managers_.playback->FrameOn(Timeline::kReel));
-  const bool is_here = here.IsValid() && here.shot == shot;
-  if (is_here) {
-    return here.clip;
-  }
-  for (const ReelTrack& track : project.reel.tracks) {
+  assert(shot.value() >= 0);
+  const Clip* first = nullptr;
+  for (const ReelTrack& track : managers_.history->current().reel.tracks) {
     for (const Clip& clip : track.clips) {
       const auto* source = std::get_if<ShotSource>(&clip.source);
-      const bool is_it = source != nullptr && source->shot == shot;
-      if (is_it) {
-        return &clip;
-      }
+      const bool is_earlier =
+          source != nullptr && source->shot == shot &&
+          (first == nullptr || clip.start.index() < first->start.index());
+      first = is_earlier ? &clip : first;
     }
   }
-  return nullptr;
+  return first;
 }
 
 std::vector<CompTimeline::Bar> CompTimeline::Bars() const {
   assert(managers_.comp != nullptr);
-  assert(managers_.selection != nullptr);
-  std::vector<Bar> bars;
-  const Clip* clip = ShotClip();
-  const bool has_clip = clip != nullptr;
-  if (!has_clip) {
-    return bars;
+  assert(managers_.history != nullptr);
+  const Project& project = managers_.history->current();
+  std::vector<std::pair<const Clip*, const Shot*>> shots;
+  for (const auto& shot : project.shots) {
+    const Clip* clip = ClipOf(shot->id);
+    const bool is_on_reel = clip != nullptr && !shot->comp.empty();
+    if (is_on_reel) {
+      shots.emplace_back(clip, shot.get());
+    }
   }
-  const ShotId shot = managers_.selection->shot();
-  const int offset = clip->start.index() - clip->in.index();
+  std::ranges::sort(shots, [](const auto& a, const auto& b) {
+    return a.first->start.index() < b.first->start.index();
+  });
+  std::vector<Bar> bars;
   double y = kRuler + kRow;
-  for (const CompEffect& effect : managers_.comp->Of(shot)) {
-    Bar bar;
-    bar.id = effect.id;
-    bar.is_on_doll = effect.target.layer.IsValid();
-    const bool is_whole = effect.length == kWholeShot;
-    bar.first = is_whole ? clip->in.index() : effect.start;
-    bar.end = is_whole ? clip->in.index() + clip->length.index()
-                       : effect.start + effect.length;
-    const double left = XOf(bar.first + offset);
-    const double right = XOf(bar.end + offset);
-    bar.box = QRectF(left, y + 1, std::max(4.0, right - left), kRow - 2);
-    bars.push_back(bar);
-    y += kRow;
+  for (const auto& [clip, shot] : shots) {
+    for (const CompEffect& effect : shot->comp) {
+      Bar bar;
+      bar.shot = shot->id;
+      bar.clip = clip;
+      bar.offset = clip->start.index() - clip->in.index();
+      bar.id = effect.id;
+      bar.is_on_doll = effect.target.layer.IsValid();
+      const bool is_whole = effect.length == kWholeShot;
+      bar.first = is_whole ? clip->in.index() : effect.start;
+      bar.end = is_whole ? clip->in.index() + clip->length.index()
+                         : effect.start + effect.length;
+      const double left = XOf(bar.first + bar.offset);
+      const double right = XOf(bar.end + bar.offset);
+      bar.box = QRectF(left, y + 1, std::max(4.0, right - left), kRow - 2);
+      bars.push_back(bar);
+      y += kRow;
+    }
   }
   return bars;
 }
 
 int CompTimeline::Snapped(int frame) const {
   assert(managers_.playback != nullptr);
-  const Clip* clip = ShotClip();
-  assert(clip != nullptr);
+  assert(drag_clip_end_ >= drag_clip_start_);
   const int playhead = managers_.playback->FrameOn(Timeline::kReel).index();
-  for (const int target :
-       {clip->start.index(), clip->end().index(), playhead}) {
+  for (const int target : {drag_clip_start_, drag_clip_end_, playhead}) {
     const bool is_near = std::abs(XOf(target) - XOf(frame)) <= kSnap;
     if (is_near) {
       return target;
@@ -105,11 +104,15 @@ bool CompTimeline::StartDrag(QPointF at) {
     const bool is_start = at.x() <= bar.box.left() + kEdge;
     const bool is_end = at.x() >= bar.box.right() - kEdge;
     grab_ = is_start ? Grab::kStart : is_end ? Grab::kEnd : Grab::kMove;
+    dragged_shot_ = bar.shot;
     dragged_ = bar.id;
+    drag_offset_ = bar.offset;
+    drag_clip_start_ = bar.clip->start.index();
+    drag_clip_end_ = bar.clip->end().index();
     press_frame_ = FreeFrameAt(at.x());
     from_first_ = bar.first;
     from_end_ = bar.end;
-    managers_.comp->Pick(managers_.selection->shot(), bar.id);
+    managers_.comp->Pick(bar.shot, bar.id);
     drag_ = std::make_unique<EditScope>(
         managers_.history,
         grab_ == Grab::kMove ? tr("Move effect") : tr("Trim effect"));
@@ -121,12 +124,7 @@ bool CompTimeline::StartDrag(QPointF at) {
 void CompTimeline::DragTo(QPointF at, bool is_free) {
   assert(grab_ != Grab::kNone);
   assert(std::isfinite(at.x()));
-  const Clip* clip = ShotClip();
-  const bool has_clip = clip != nullptr;
-  if (!has_clip) {
-    return;
-  }
-  const int offset = clip->start.index() - clip->in.index();
+  const int offset = drag_offset_;
   const int delta = FreeFrameAt(at.x()) - press_frame_;
   const auto snap = [&](int shot_frame) {
     return is_free ? shot_frame : Snapped(shot_frame + offset) - offset;
@@ -147,9 +145,8 @@ void CompTimeline::DragTo(QPointF at, bool is_free) {
   } else {
     end = std::max(from_first_ + 1, snap(from_end_ + delta));
   }
-  const ShotId shot = managers_.selection->shot();
-  static_cast<void>(
-      managers_.comp->SetTiming(shot, dragged_, first, end - first, is_move));
+  static_cast<void>(managers_.comp->SetTiming(dragged_shot_, dragged_, first,
+                                              end - first, is_move));
 }
 
 void CompTimeline::mousePressEvent(QMouseEvent* event) {
@@ -168,7 +165,7 @@ void CompTimeline::mousePressEvent(QMouseEvent* event) {
     const bool is_row = at.y() >= bar.box.top() - 1 &&
                         at.y() < bar.box.top() - 1 + kRow;
     if (is_row) {
-      managers_.comp->Pick(managers_.selection->shot(), bar.id);
+      managers_.comp->Pick(bar.shot, bar.id);
     }
   }
   const bool is_on_frames = at.x() >= kNameWidth;
@@ -217,8 +214,8 @@ void CompTimeline::mouseDoubleClickEvent(QMouseEvent* event) {
   for (const Bar& bar : Bars()) {
     const bool is_on = bar.box.contains(event->position());
     if (is_on) {
-      static_cast<void>(managers_.comp->SetTiming(
-          managers_.selection->shot(), bar.id, 0, kWholeShot, false));
+      static_cast<void>(
+          managers_.comp->SetTiming(bar.shot, bar.id, 0, kWholeShot, false));
       return;
     }
   }

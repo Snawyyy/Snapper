@@ -219,6 +219,9 @@ class CompManager final : public QObject {
 
   // A target's words ("Screen", "Mika: arm_l, 2 colors").
   QString TargetText(ShotId shot, const CompTarget& target) const;
+  // A target in short, to put before an effect's name: "(arm_l)",
+  // "(arm_l +2)", "(Mika)", "(screen)".
+  QString TargetTag(ShotId shot, const CompTarget& target) const;
   // The target a new effect gets from what is picked on the Comp stage
   // (edit/comp_pick.cpp): no layer is the screen, a layer the whole
   // layer, pieces those pieces of it. Fails on a layer that draws

@@ -18,9 +18,6 @@
 namespace snapper {
 namespace {
 
-constexpr double kNameWidth = 130.0;
-constexpr double kRuler = 18.0;
-constexpr double kRow = 18.0;
 // The ruler, the row of shot clips and the shot light.
 constexpr int kFixedRows = 2;
 
@@ -34,7 +31,7 @@ CompTimeline::CompTimeline(const Managers& managers) : managers_(managers) {
   setMinimumHeight(static_cast<int>(kRuler + 3 * kRow));
   const auto repaint = [this] { update(); };
   connect(managers_.history, &HistoryManager::Changed, this, [this] {
-    const size_t rows = managers_.comp->Of(managers_.selection->shot()).size();
+    const size_t rows = Bars().size();
     setMinimumHeight(static_cast<int>(
         kRuler + (static_cast<double>(rows) + kFixedRows) * kRow + 4));
     update();
@@ -123,9 +120,9 @@ void CompTimeline::paintEvent(QPaintEvent* event) {
     painter.drawText(QPointF(x + 2, kRuler - 6), QString::number(frame));
   }
   PaintShots(&painter, kRuler);
-  const bool has_clip = ShotClip() != nullptr;
+  PaintBars(&painter);
+  const bool has_clip = ClipOf(managers_.selection->shot()) != nullptr;
   if (has_clip) {
-    PaintBars(&painter);
     PaintLight(&painter);
   }
   const Frame playhead = managers_.playback->FrameOn(Timeline::kReel);
@@ -136,17 +133,16 @@ void CompTimeline::paintEvent(QPaintEvent* event) {
 
 void CompTimeline::PaintBars(QPainter* painter) const {
   assert(painter != nullptr);
-  const ShotId shot = managers_.selection->shot();
-  const CompEffectId picked = managers_.comp->PickedIn(shot);
-  const Clip* clip = ShotClip();
-  assert(clip != nullptr);
-  const QRectF own(XOf(clip->start.index()), 0,
-                   XOf(clip->end().index()) - XOf(clip->start.index()),
-                   height());
+  assert(managers_.comp != nullptr);
   for (const Bar& bar : Bars()) {
-    const CompEffect* effect = managers_.comp->Find(shot, bar.id);
-    assert(effect != nullptr);
-    const bool is_picked = bar.id == picked;
+    const CompEffect* effect = managers_.comp->Find(bar.shot, bar.id);
+    assert(effect != nullptr && bar.clip != nullptr);
+    const Clip* clip = bar.clip;
+    const QRectF own(XOf(clip->start.index()), 0,
+                     XOf(clip->end().index()) - XOf(clip->start.index()),
+                     height());
+    const bool is_picked = bar.id == managers_.comp->PickedIn(bar.shot) &&
+                           bar.shot == managers_.selection->shot();
     const double y = bar.box.top() - 1;
     painter->fillRect(QRectF(0, y, width(), kRow),
                       is_picked ? QColor(0x3a, 0x2a, 0x30)
@@ -154,7 +150,9 @@ void CompTimeline::PaintBars(QPainter* painter) const {
     painter->setPen(effect->is_on ? QColor(0xe6, 0xe6, 0xe6) : theme::kTextOff);
     painter->drawText(QRectF(4, y, kNameWidth - 8, kRow),
                       Qt::AlignLeft | Qt::AlignVCenter,
-                      CompManager::EffectName(*effect));
+                      managers_.comp->TargetTag(bar.shot, effect->target) +
+                          QStringLiteral(" ") +
+                          CompManager::EffectName(*effect));
     QColor fill = KindMark(effect->kind).darker(effect->is_on ? 170 : 260);
     painter->setPen(is_picked ? QPen(theme::kPick, 2.0) : QPen(Qt::black));
     painter->setBrush(fill);
@@ -172,8 +170,7 @@ void CompTimeline::PaintBars(QPainter* painter) const {
     painter->setPen(Qt::black);
     painter->setBrush(theme::kHandle);
     for (const int frame : CompManager::KeyFrames(*effect)) {
-      const double x =
-          XOf(clip->start.index() + frame - clip->in.index());
+      const double x = XOf(frame + bar.offset);
       const QPointF at(x, bar.box.center().y());
       painter->drawPolygon(
           QPolygonF({at + QPointF(0, -5), at + QPointF(5, 0),
@@ -186,7 +183,7 @@ void CompTimeline::PaintLight(QPainter* painter) const {
   assert(painter != nullptr);
   const Shot* shot =
       FindShot(managers_.history->current(), managers_.selection->shot());
-  const Clip* clip = ShotClip();
+  const Clip* clip = ClipOf(managers_.selection->shot());
   assert(clip != nullptr);
   const double y =
       kRuler + kRow * (1 + static_cast<double>(Bars().size()));

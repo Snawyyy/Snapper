@@ -66,6 +66,29 @@ QString CompManager::TargetText(ShotId shot, const CompTarget& target) const {
   return text;
 }
 
+QString CompManager::TargetTag(ShotId shot, const CompTarget& target) const {
+  assert(history_ != nullptr);
+  assert(target.pieces.size() <= kMaxPicked);
+  const bool is_screen = !target.layer.IsValid();
+  if (is_screen) {
+    return Tr("(screen)");
+  }
+  const size_t pieces = target.pieces.size();
+  const bool has_pieces = pieces > 0;
+  if (has_pieces) {
+    const bool is_one = pieces == 1;
+    return is_one ? QStringLiteral("(%1)").arg(target.pieces.front())
+                  : QStringLiteral("(%1 +%2)")
+                        .arg(target.pieces.front())
+                        .arg(pieces - 1);
+  }
+  const Shot* found = FindShot(history_->current(), shot);
+  const Layer* layer =
+      found != nullptr ? FindLayer(*found, target.layer) : nullptr;
+  return QStringLiteral("(%1)").arg(layer != nullptr ? layer->name
+                                                     : Tr("gone"));
+}
+
 Result<CompTarget> CompManager::TargetFor(
     ShotId shot, LayerId layer, const std::set<QString>& pieces) const {
   assert(history_ != nullptr);
