@@ -80,12 +80,13 @@ class CompRun final {
       return true;
     }
     const double amount = KnobAt(effect, CompKnob::kAmount, local);
+    const Mask mask = UncoveredOf(effect, drawn.mask);
     const bool stands_in = drawn.stands_in;
     if (stands_in) {
-      StandInOnto(drawn.picture, effect.blend, amount, drawn.mask, frame_);
+      StandInOnto(drawn.picture, effect.blend, amount, mask, frame_);
       return true;
     }
-    BlendOnto(drawn.picture, effect.blend, amount, drawn.mask, frame_);
+    BlendOnto(drawn.picture, effect.blend, amount, mask, frame_);
     return true;
   }
 
@@ -126,6 +127,24 @@ class CompRun final {
     const bool wants_drawn =
         NeedsCompShape(effect) && !context_.pictures->drawn.isNull();
     return wants_drawn ? AlphaOf(context_.pictures->drawn) : Mask();
+  }
+
+  // mask less what stands in front of the effect's layer target, so
+  // what the effect draws keeps the target's place in the draw order.
+  Mask UncoveredOf(const CompEffect& effect, const Mask& mask) const {
+    assert(context_.pictures != nullptr && frame_ != nullptr);
+    [[maybe_unused]] const size_t count =
+        static_cast<size_t>(frame_->width()) *
+        static_cast<size_t>(frame_->height());
+    assert(mask.empty() || mask.size() == count);
+    const bool has_layer = HasCompLayer(effect);
+    if (!has_layer) {
+      return mask;
+    }
+    const auto found = context_.pictures->covers.find(CompKeyOf(effect));
+    const bool is_covered = found != context_.pictures->covers.end() &&
+                            !found->second.isNull();
+    return is_covered ? Uncovered(mask, found->second) : mask;
   }
 
   Mask RegionOf(const CompEffect& effect, const Mask& shape) const {

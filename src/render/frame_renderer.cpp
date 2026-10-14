@@ -148,7 +148,8 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
   LinkSolver links(project, shot, cache_.poses());
   const CompNeeds needs = NeedsOf(shot, local, comp_show_);
   CompPictures pictures;
-  if (needs.needs_drawn) {
+  const bool needs_drawn = needs.needs_drawn;
+  if (needs_drawn) {
     pictures.drawn = Blank(project, scale, Qt::transparent);
   }
   for (const Layer& layer : shot.layers) {
@@ -204,12 +205,20 @@ void FrameRenderer::PaintForComp(const Project& project, const Layer& layer,
     QPainter painter(&own);
     PaintLayer(project, layer, local, view, links, &cache_, &painter);
   }
-  // What this layer covers is cut out of the targets below it, so an
-  // effect on a doll never shows through what stands in front of it.
+  // What this layer covers is cut out of the targets below it and joins
+  // their covers, so an effect on a doll stays behind what stands in
+  // front of it.
   for (auto& [key, picture] : pictures->targets) {
     QPainter painter(&picture);
     painter.setCompositionMode(QPainter::CompositionMode_DestinationOut);
     painter.drawImage(0, 0, own);
+    QImage& cover = pictures->covers[key];
+    const bool is_first_cover = cover.isNull();
+    if (is_first_cover) {
+      cover = Blank(project, scale, Qt::transparent);
+    }
+    QPainter covering(&cover);
+    covering.drawImage(0, 0, own);
   }
   for (const CompTargetKey& key : needs.targets) {
     const bool is_this = key.layer == layer.id;
@@ -221,12 +230,17 @@ void FrameRenderer::PaintForComp(const Project& project, const Layer& layer,
       pictures->targets[key] = own;
       continue;
     }
+    // The doll's own pieces above the picked ones cover them too.
     const std::set<QString> only(key.pieces.begin(), key.pieces.end());
-    QImage pieces = Blank(project, scale, Qt::transparent);
-    QPainter painter(&pieces);
-    PaintLayer(project, layer, local, view, links, &cache_, &painter, &only);
-    painter.end();
-    pictures->targets[key] = pieces;
+    for (const PieceSplit split : {PieceSplit::kShown, PieceSplit::kCover}) {
+      QImage picture = Blank(project, scale, Qt::transparent);
+      QPainter painter(&picture);
+      PaintLayer(project, layer, local, view, links, &cache_, &painter, &only,
+                 split);
+      painter.end();
+      const bool is_shown = split == PieceSplit::kShown;
+      (is_shown ? pictures->targets : pictures->covers)[key] = picture;
+    }
   }
   QPainter painter(frame);
   painter.drawImage(0, 0, own);

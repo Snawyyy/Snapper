@@ -549,8 +549,12 @@ lists the pick's effects as folds (`CompEffects` on the right);
 what a pick means. When an effect needs a target's own
 pixels, `NeedsOf` says so and the layer pass paints each layer through
 its own picture (`PaintForComp`), keeping the target as it shows in
-the frame (cut where later layers cover it) and, for shape effects on
-everything, the drawn pixels on clear. The effect draws on a clear
+the frame (cut where later layers and the doll's own pieces above the
+picked ones cover it, `PieceSplit::kShown`) and, for shape effects on
+everything, the drawn pixels on clear. It also keeps each target's
+cover (`CompPictures::covers`: those pieces, `PieceSplit::kCover`, and
+the later layers), and what an effect on a layer draws is cut by it,
+so the target keeps its place in the draw order. The effect draws on a clear
 picture (`render/comp_effects.cpp`, `render/comp_light.cpp`) and
 `BlendOnto` (`render/blend.cpp`, the one blend function, W3C formulas,
 Normal over see-through pixels) lays it over the frame through the
