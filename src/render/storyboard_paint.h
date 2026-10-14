@@ -10,10 +10,8 @@
 
 namespace snapper {
 
-// Onion skins: the cel before red, the one after green, as on a light
-// table.
+// The onion skin: the cel before, in red, as on a light table.
 inline constexpr QColor kOnionBefore{220, 60, 60};
-inline constexpr QColor kOnionAfter{60, 170, 90};
 
 // Draws the cel of board showing at local over frame (the canvas at any
 // scale), at the layer's opacity. Canvas space, no camera: the sketch is
