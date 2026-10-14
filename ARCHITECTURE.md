@@ -806,6 +806,25 @@ data folder for a project never saved, and laid from where it started
 on the armed track (a free sound track when none is armed or it has no
 room) through `ReelManager::AddSounds`: one undo step per take.
 
+Spoken lines (the Voice tab of the Video side panel, always shown):
+`VoiceGenManager` speaks a line in a cloned voice (a sample plus, for
+a closer clone, the words it says) or a designed one (a description).
+The speaking is `tools/voice_gen/voice_gen.py` (copied beside the
+binary by CMake; its Python lives in `<data>/voice_gen/venv`, made by
+`tools/voice_gen/setup.sh`), run by `VoiceWorker` (`media/`): one
+long-lived process, a JSON job per line in, a JSON answer per line out
+(loading, speaking, done, error), started on the first line since its
+models take a while to load, and started again if it dies. A line is
+written to a fresh `line NNN.wav` in a temporary folder; Add to
+timeline copies the last one into "<project name> voices" beside the
+project (`voices_used` in the data folder when unsaved; the folder rule
+is `SidecarFolder`, shared with takes) and lays it at the reel's
+playhead through `ReelManager::AddSounds`: one undo step. A sample can
+come from the PC's own sound: `DesktopRecorder` (`media/`) reads
+`parec -d @DEFAULT_MONITOR@` (Qt hides PipeWire monitor sources), at
+most `kMaxSampleSeconds`. `VoiceLibrary` keeps voices across projects
+in `<data>/voices/<name>/` (`sample.<ext>`, `voice.json`).
+
 New shot here makes a blank shot sized to a stretch of the reel and
 lays it there, as one step (`ReelManager::AddNewShot`,
 `edit/reel_new_shot.cpp`). The stretch is a range marked with Alt and
@@ -950,6 +969,8 @@ are destroyed in reverse.
 | `ReelManager`          | The reel: clips, tracks, cuts, transitions, sound clips, volume, fades, Mute and Solo |
 | `SoundManager`         | The reel's sound files decoded and their waveforms; the mix; which clip a shot borrows its sound from |
 | `RecordManager`        | Recording sound onto the reel: the armed sound track, the count-in, the take from the playhead while the reel plays, its WAV beside the project, laid on as one step |
+| `VoiceGenManager`      | Spoken lines: clone a sample or design a voice through the voice worker, the last line, samples from the PC's sound, adding a line to the reel at the playhead as one step |
+| `VoiceLibrary`         | Voices saved across projects: sample, words, language, description |
 | `StageManager`         | What is in a shot: actors, props, text, effects |
 | `LinkManager`          | Which things copy another's movement, how much |
 | `SelectionManager`     | What is picked: shots, layers, pieces, keys, clips |

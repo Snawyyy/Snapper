@@ -40,6 +40,10 @@ class VoiceWorker final : public QObject {
   // Python and the script both exist.
   bool IsInstalled() const;
   bool IsBusy() const { return pending_id_ != 0; }
+  // The process is up, so its models may already be loaded.
+  bool IsRunning() const {
+    return process_.state() != QProcess::NotRunning;
+  }
   // Sends job; the answers come as the signals below.
   Result<void> Submit(const VoiceJob& job);
   // Kills the worker and drops the job; the next job starts it afresh.

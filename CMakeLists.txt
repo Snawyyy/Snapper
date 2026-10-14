@@ -68,6 +68,10 @@ snapper_warnings(snapper)
 set_property(GLOBAL APPEND PROPERTY SNAPPER_LAYERS "app=ui")
 target_include_directories(snapper PRIVATE src)
 set_target_properties(snapper PROPERTIES WIN32_EXECUTABLE TRUE)
+# The voice worker the Voice panel starts is looked for beside the binary;
+# configure_file copies it again whenever the script changes.
+configure_file(tools/voice_gen/voice_gen.py
+  ${CMAKE_CURRENT_BINARY_DIR}/voice_gen.py COPYONLY)
 
 if(BUILD_TESTING)
   snapper_test(base)

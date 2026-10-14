@@ -32,6 +32,8 @@
 #include "edit/stage_manager.h"
 #include "edit/poke_manager.h"
 #include "edit/timing_chart_manager.h"
+#include "edit/voice_gen_manager.h"
+#include "edit/voice_library.h"
 #include "ui/main_window.h"
 #include "ui/motion.h"
 #include "ui/toast_manager.h"
@@ -82,6 +84,8 @@ class AppContext final {
   CompManager comp_;
   RecordManager record_;
   LibraryFolderManager library_folders_;
+  VoiceLibrary voices_;
+  VoiceGenManager voice_gen_;
   MainWindow window_;
 };
 

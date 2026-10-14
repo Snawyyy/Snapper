@@ -33,6 +33,8 @@ class SoundManager;
 class StageManager;
 class TimingChartManager;
 class ToastManager;
+class VoiceGenManager;
+class VoiceLibrary;
 
 // Every manager the widgets talk to. AppContext owns them; widgets only
 // borrow, and each takes just the ones it uses.
@@ -81,6 +83,9 @@ struct Managers final {
   // Not in IsComplete either: the Cast panel's library browser and the
   // View menu's Show hidden folders check it.
   LibraryFolderManager* library_folders = nullptr;
+  // Not in IsComplete either: the Video tab's Voice panel checks them.
+  VoiceLibrary* voices = nullptr;
+  VoiceGenManager* voice_gen = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&
