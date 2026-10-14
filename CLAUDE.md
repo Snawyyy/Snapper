@@ -58,7 +58,17 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-14, branch `comp-clip-edits`, cut from
+Last done (2026-10-14, branch `timeline-consistency`, not pushed): the
+Pose, Video and Comp timelines now share their view and chrome
+(`ui/timeline_scale.h`, `timeline_ruler.h`, `timeline_keys.h`): one zoom
+and scroll rule (wheel scrolls, Ctrl+wheel zooms at the cursor, Ctrl+=,
+Ctrl+- and Ctrl+0, Show all), a frame ruler with a tick and number at
+each second, one playhead with its frame tag and settle, the Scrub and
+Animation switch in every ruler corner, paging along a playing
+playhead, Alt+Left and Alt+Right nudge on all three, and Comp drags on
+`DragFeedback`. Built, not seen by eye, no tests run (owner's rule).
+
+Before that (2026-10-14, branch `comp-clip-edits`, cut from
 `comp-effect-browser`, not pushed): Comp effect clips got the Video
 tab's clip edits: S splits the picked clips at the playhead, Ctrl+X
 cuts, Ctrl+C copies many, Ctrl+V pastes at the playhead keeping their

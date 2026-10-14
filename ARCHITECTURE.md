@@ -136,7 +136,32 @@ buttons and menu entries name and grey out per shot.
   scrub mode, a film frame (the arrow keys move one frame), and
   animation mode, a diamond (they jump to the next frame where the
   picture changes: a key, a shot's start, or each frame of an ease;
-  `PoseChanges`).
+  `PoseChanges`). The Pose, Video and Comp timelines all carry it in
+  the ruler's top-left corner (`StepModeSwitch::CornerRect`); the mode
+  is the one in `PlaybackManager`.
+- The three timelines (`TimelineView`, `ReelTimeline`, `CompTimeline`)
+  share their view and chrome, so they behave alike. `TimelineScale`
+  (`ui/timeline_scale.h`) holds pixels per frame, the first frame in
+  view and the length shown, and answers `XOf` and `FrameAt`. Zoom
+  runs from `kMinPixelsPerFrame` to `kMaxPixelsPerFrame` in
+  `kZoomStep` steps; `FitAll` shows the whole length and keeps doing
+  so as it changes until the user zooms or scrolls (Comp starts so).
+  `TimelineScale::Wheel` is the one wheel rule: plain scrolls time (a
+  tenth of the view), Ctrl zooms round the cursor, Shift hands the rows
+  back (only the Video tab has rows to scroll). `ViewKey`
+  (`ui/timeline_keys.h`) is Ctrl+= and Ctrl+- (round the playhead) and
+  Ctrl+0 (fit), and every timeline's menu ends with "Show all".
+  While a play runs the scale pages along (`Follow`: the view jumps to
+  start at the playhead when it leaves the view); a scroll by hand
+  stops that until the next play (`BeginFollow`). The ruler
+  (`PaintFrameRuler`, `ui/timeline_ruler.h`) counts frames with a
+  taller tick and a number at every whole second, and the playhead
+  (`PaintTimelinePlayhead`) is a 2 pixel line with its frame number in
+  a tag on the ruler, settling on a frame (`PlayheadSettle`) on all
+  three. `NudgeOf` reads Alt+Left and Alt+Right (Shift: ten): Pose
+  nudges the picked keys (`KeyManager::Shift`), Video the picked clips
+  (`ReelManager::MoveAll`), Comp the picked effect clips (`SetTiming`),
+  each one undo step. All three drags use `DragFeedback`.
 - A chip bar (`KeyChipBar`) floats over the picked keys on the
   timeline: Step, Ease, Line (pressed when all picked keys share it,
   `KeyManager::EaseOf`), On 2s, On 3s, and -1 f and +1 f (`KeyManager::Hold`:
