@@ -1,4 +1,5 @@
 #include "edit/skin_manager.h"
+#include "edit/skin_picks.h"
 
 #include <QStringList>
 
@@ -318,6 +319,10 @@ Result<void> SkinManager::Wear(ShotId shot,
                : is_stacking ? WithWorn(*now, skin, true)
                              : SkinSet{{skin}};
       });
+      if (!next) {
+        break;
+      }
+      next = WithSkinPicksCleared(std::move(*next), shot, layer, at);
       if (!next) {
         break;
       }
