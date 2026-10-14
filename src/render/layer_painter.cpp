@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <set>
 #include <variant>
 
 #include "anim/doll_lean.h"
@@ -67,6 +68,12 @@ struct Painter final {
   // image (the drawing it shows) is across the joint.
   void PaintJointCircle(const Doll& doll, const PlacedPiece& piece,
                         const QImage& image) const;
+  // The joint circles of piece and of its children not drawn yet, so
+  // each circle sits under both pieces it joins.
+  void PaintCirclesUnder(const Doll& doll,
+                         const std::vector<PlacedPiece>& placed,
+                         const QString& piece,
+                         std::set<QString>* circled) const;
   void operator()(const ImageLayer& layer) const;
   void operator()(const TextLayer& layer) const;
   void operator()(const EffectLayer& layer) const;
@@ -84,9 +91,11 @@ void Painter::operator()(const DollLayer& layer) const {
   const double layer_opacity = painter->opacity();
   const bool is_split = only_pieces != nullptr && split != PieceSplit::kOnly;
   bool is_above_chosen = false;
-  for (const PlacedPiece& piece :
-       PlaceDoll(*doll, links != nullptr ? links->Poses(*doll, whole, frame)
-                                         : ShownPoses(*doll, whole, frame))) {
+  const std::vector<PlacedPiece> placed =
+      PlaceDoll(*doll, links != nullptr ? links->Poses(*doll, whole, frame)
+                                        : ShownPoses(*doll, whole, frame));
+  std::set<QString> circled;
+  for (const PlacedPiece& piece : placed) {
     const QImage& image = cache->Get(piece.drawing);
     const bool is_chosen =
         only_pieces == nullptr || only_pieces->contains(piece.name);
@@ -104,7 +113,7 @@ void Painter::operator()(const DollLayer& layer) const {
         is_erasing ? QPainter::CompositionMode_DestinationOut
                    : QPainter::CompositionMode_SourceOver);
     painter->setOpacity(layer_opacity * piece.opacity);
-    PaintJointCircle(*doll, piece, image);
+    PaintCirclesUnder(*doll, placed, piece.name, &circled);
     DrawPiece(*doll, piece, image);
   }
   painter->setCompositionMode(QPainter::CompositionMode_SourceOver);
@@ -149,6 +158,29 @@ void Painter::DrawPiece(const Doll& doll, const PlacedPiece& piece,
           : image;
   painter->setTransform(on_screen);
   painter->drawImage(QRectF(QPointF(), QSizeF(piece.size)), shown);
+}
+
+void Painter::PaintCirclesUnder(const Doll& doll,
+                                const std::vector<PlacedPiece>& placed,
+                                const QString& piece,
+                                std::set<QString>* circled) const {
+  assert(circled != nullptr);
+  assert(!piece.isEmpty());
+  for (const PlacedPiece& joined : placed) {
+    const RigPiece* rig = FindRig(doll.rig, joined.name);
+    const bool is_joined =
+        joined.name == piece || (rig != nullptr && rig->parent == piece);
+    const bool is_due = is_joined && !circled->contains(joined.name);
+    if (!is_due) {
+      continue;
+    }
+    circled->insert(joined.name);
+    const QImage& image = cache->Get(joined.drawing);
+    const bool is_drawn = !image.isNull() && joined.opacity > 0.0;
+    if (is_drawn) {
+      PaintJointCircle(doll, joined, image);
+    }
+  }
 }
 
 void Painter::PaintJointCircle(const Doll& doll, const PlacedPiece& piece,
