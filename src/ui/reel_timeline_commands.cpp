@@ -74,6 +74,20 @@ void ReelTimeline::DeletePicked(const Result<void>& result, size_t count) {
                                    tr("clip"), tr("clips")));
 }
 
+void ReelTimeline::Nudge(int delta) {
+  assert(delta != 0);
+  assert(managers_.reel != nullptr);
+  const std::vector<ClipId> picked = Picked();
+  const QString why_not = managers_.reel->WhyNoPick(picked);
+  const bool can_nudge = why_not.isEmpty();
+  if (!can_nudge) {
+    Report(why_not);
+    return;
+  }
+  // One undo step: the picked clips move together, on their tracks.
+  Report(ProblemOf(managers_.reel->MoveAll(picked, 0, delta)));
+}
+
 void ReelTimeline::Run(Command command) {
   assert(managers_.reel != nullptr);
   assert(command != Command::kNone);
@@ -329,6 +343,12 @@ void ReelTimeline::keyPressEvent(QKeyEvent* event) {
   const bool was_view_key = ViewKey(*event, &scale_, now.index());
   if (was_view_key) {
     update();
+    return;
+  }
+  const int nudge = NudgeOf(*event);
+  const bool is_nudge = nudge != 0;
+  if (is_nudge) {
+    Nudge(nudge);
     return;
   }
   const bool is_escape = event->key() == Qt::Key_Escape;

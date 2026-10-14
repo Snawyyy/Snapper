@@ -158,6 +158,9 @@ class TimelineView final : public QWidget {
   // Ctrl+=, Ctrl+- and Ctrl+0, as on the other timelines. True when the
   // key was one of them.
   bool ViewKeyPress(const QKeyEvent& event);
+  // Alt+Left and Alt+Right: slides the picked keys delta frames as one
+  // undo step.
+  void NudgeKeys(int delta);
   // "Show all" (Ctrl+0), in a menu of its own and at the end of the
   // others.
   void AddShowAll(QMenu* menu);

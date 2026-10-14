@@ -34,6 +34,24 @@ bool TimelineView::ViewKeyPress(const QKeyEvent& event) {
   return was_view;
 }
 
+void TimelineView::NudgeKeys(int delta) {
+  assert(delta != 0);
+  assert(managers_.keys != nullptr);
+  const std::set<KeyRef> picked = managers_.selection->keys();
+  const bool has_picks = !picked.empty();
+  if (!has_picks) {
+    Report(tr("Pick a key to nudge it."));
+    return;
+  }
+  // One undo step: the keys slide together and stay picked.
+  const auto moved = managers_.keys->Shift(picked, delta);
+  if (!moved) {
+    Report(moved.error().message);
+    return;
+  }
+  managers_.selection->SelectKeys(*moved, false);
+}
+
 void TimelineView::AddShowAll(QMenu* menu) {
   assert(menu != nullptr);
   assert(FrameWidth() > 0.0);
@@ -75,6 +93,12 @@ void TimelineView::keyPressEvent(QKeyEvent* event) {
   }
   const bool was_view_key = ViewKeyPress(*event);
   if (was_view_key) {
+    return;
+  }
+  const int nudge = NudgeOf(*event);
+  const bool is_nudge = nudge != 0;
+  if (is_nudge) {
+    NudgeKeys(nudge);
     return;
   }
   const bool is_all = event->matches(QKeySequence::SelectAll);

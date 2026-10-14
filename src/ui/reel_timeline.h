@@ -258,6 +258,9 @@ class ReelTimeline final : public QWidget {
   static Command CommandFor(const QKeyEvent& event);
   // Why command can't act now; empty when it can.
   QString WhyNot(Command command) const;
+  // Alt+Left and Alt+Right: moves the picked clips delta frames as one
+  // undo step.
+  void Nudge(int delta);
   void Run(Command command);
   void AddCommands(QMenu* menu);
   // Asks which part of a video fills the gap between the cut markers
