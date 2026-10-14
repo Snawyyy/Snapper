@@ -15,6 +15,7 @@
 #include "edit/comp_manager.h"
 #include "edit/edit_scope.h"
 #include "model/project.h"
+#include "ui/drag_feedback.h"
 #include "ui/managers.h"
 #include "ui/playhead_settle.h"
 #include "ui/step_mode_switch.h"
@@ -143,7 +144,8 @@ class CompTimeline final : public QWidget {
   void PaintBars(QPainter* painter) const;
   void PaintBar(QPainter* painter, const Bar& bar, bool is_picked) const;
   void PaintLight(QPainter* painter) const;
-  void PaintDrag(QPainter* painter) const;
+  // The rubber band of a box pick.
+  void PaintBox(QPainter* painter) const;
   // The clip shot's effects are drawn over, its first on the reel;
   // nullptr for none.
   const Clip* ClipOf(ShotId shot) const;
@@ -155,14 +157,17 @@ class CompTimeline final : public QWidget {
   std::vector<int> SnapTargets() const;
   // The nearest target within a few pixels of frame, if any.
   std::optional<int> SnapOf(int frame) const;
-  // Drags (ui/comp_timeline_bars.cpp).
+  // Drags (ui/comp_timeline_bars.cpp). at is the cursor, for the chip.
   void StartDrag(const Bar& bar, QPointF at);
   void DragTo(QPointF at, bool is_free);
-  void MovePicked(int delta, bool is_free);
+  void MovePicked(int delta, bool is_free, QPointF at);
   // delta kept so every clip in spans stays on the reel, frame 0 to its
   // end.
   int KeptOnReel(const std::map<CompClipRef, Span>& spans, int delta) const;
-  void TrimGrabbed(int delta, bool is_free);
+  void TrimGrabbed(int delta, bool is_free, QPointF at);
+  // As clips are grabbed: leaves a faint copy of them, drawn by PaintBar,
+  // where they sit now.
+  void GrabGhost();
   void EndDrag();
   // The input that is not a drag (ui/comp_timeline_input.cpp).
   void PressBar(const Bar& bar, QPointF at, Qt::KeyboardModifiers mods);
@@ -187,6 +192,8 @@ class CompTimeline final : public QWidget {
   StepModeSwitch step_mode_;
   // The playhead overshoots a little as it lands on a frame.
   PlayheadSettle settle_;
+  // The chip, ghost and snap flash of a drag.
+  DragFeedback feedback_;
   Grab grab_ = Grab::kNone;
   CompClipRef grabbed_{};
   int press_frame_ = 0;
@@ -197,7 +204,6 @@ class CompTimeline final : public QWidget {
   bool narrows_on_release_ = false;
   std::map<CompClipRef, Span> from_;
   QPointF box_to_;
-  std::optional<int> snap_;
   std::unique_ptr<EditScope> drag_;
 };
 

@@ -11,6 +11,7 @@
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/comp_timeline.h"
+#include "ui/drag_text.h"
 
 namespace snapper {
 namespace {
@@ -139,6 +140,7 @@ void CompTimeline::StartDrag(const Bar& bar, QPointF at) {
       from_[one.ref] = Span{one.first, one.end, one.offset};
     }
   }
+  GrabGhost();
 }
 
 void CompTimeline::DragTo(QPointF at, bool is_free) {
@@ -160,18 +162,18 @@ void CompTimeline::DragTo(QPointF at, bool is_free) {
   const int delta = FreeFrameAt(at.x()) - press_frame_;
   const bool is_move = grab_ == Grab::kMove;
   if (is_move) {
-    MovePicked(delta, is_free);
+    MovePicked(delta, is_free, at);
   } else {
-    TrimGrabbed(delta, is_free);
+    TrimGrabbed(delta, is_free, at);
   }
   update();
 }
 
-void CompTimeline::MovePicked(int delta, bool is_free) {
+void CompTimeline::MovePicked(int delta, bool is_free, QPointF at) {
   assert(from_.contains(grabbed_));
   assert(managers_.comp != nullptr);
   const Span& grabbed = from_.at(grabbed_);
-  snap_.reset();
+  bool is_snapped = false;
   if (!is_free) {
     const int first = grabbed.first + grabbed.offset + delta;
     const int end = grabbed.end + grabbed.offset + delta;
@@ -179,7 +181,7 @@ void CompTimeline::MovePicked(int delta, bool is_free) {
     const std::optional<int> by_end = SnapOf(end);
     const bool has_first = by_first.has_value();
     const bool has_end = by_end.has_value();
-    snap_ = has_first ? by_first : by_end;
+    is_snapped = has_first || has_end;
     delta += has_first ? *by_first - first : has_end ? *by_end - end : 0;
   }
   delta = KeptOnReel(from_, delta);
@@ -187,19 +189,20 @@ void CompTimeline::MovePicked(int delta, bool is_free) {
     static_cast<void>(managers_.comp->SetTiming(
         ref.shot, ref.id, span.first + delta, span.end - span.first, true));
   }
+  feedback_.Update(press_at_, at, FramesText(delta), is_snapped);
 }
 
-void CompTimeline::TrimGrabbed(int delta, bool is_free) {
+void CompTimeline::TrimGrabbed(int delta, bool is_free, QPointF at) {
   assert(from_.contains(grabbed_));
   assert(managers_.comp != nullptr);
   const Span& span = from_.at(grabbed_);
   const bool is_start = grab_ == Grab::kStart;
   int edge = (is_start ? span.first : span.end) + delta;
-  snap_.reset();
+  bool is_snapped = false;
   if (!is_free) {
-    snap_ = SnapOf(edge + span.offset);
-    const bool has_snap = snap_.has_value();
-    edge = has_snap ? *snap_ - span.offset : edge;
+    const std::optional<int> snap = SnapOf(edge + span.offset);
+    is_snapped = snap.has_value();
+    edge = is_snapped ? *snap - span.offset : edge;
   }
   // An end stays on the reel, frame 0 to its end.
   edge = std::clamp(edge, -span.offset, Length() - span.offset);
@@ -207,6 +210,26 @@ void CompTimeline::TrimGrabbed(int delta, bool is_free) {
   const int end = is_start ? span.end : std::max(span.first + 1, edge);
   static_cast<void>(managers_.comp->SetTiming(grabbed_.shot, grabbed_.id,
                                               first, end - first, false));
+  const int moved = is_start ? first - span.first : end - span.end;
+  feedback_.Update(press_at_, at, FramesText(moved), is_snapped);
+}
+
+void CompTimeline::GrabGhost() {
+  assert(!from_.empty());
+  assert(managers_.comp != nullptr);
+  const std::vector<Bar> bars = Bars();
+  feedback_.SetGhost(MakeGhost(
+      GhostKind::kClip, size(), devicePixelRatioF(), [&](QPainter* painter) {
+        // The same cut as the rows: nothing over the names column.
+        painter->setClipRect(
+            QRectF(kNameWidth, 0, width() - kNameWidth, height()));
+        for (const Bar& bar : bars) {
+          const bool is_dragged = from_.contains(bar.ref);
+          if (is_dragged) {
+            PaintBar(painter, bar, true);
+          }
+        }
+      }));
 }
 
 int CompTimeline::KeptOnReel(const std::map<CompClipRef, Span>& spans,
@@ -228,7 +251,6 @@ void CompTimeline::EndDrag() {
   // Leaving the scope lands the drag as one undo step.
   drag_.reset();
   grab_ = Grab::kNone;
-  snap_.reset();
   from_.clear();
   update();
 }

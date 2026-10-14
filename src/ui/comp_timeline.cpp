@@ -37,7 +37,8 @@ CompTimeline::CompTimeline(const Managers& managers)
       scale_(this, kNameWidth, kDefaultFrameWidth),
       step_mode_(managers.playback, this),
       settle_(managers.motion, managers.playback->FrameOn(Timeline::kReel),
-              this) {
+              this),
+      feedback_(managers.motion, this) {
   assert(managers_.IsComplete());
   assert(managers_.comp != nullptr);
   step_mode_.setObjectName("step_mode");
@@ -61,6 +62,7 @@ CompTimeline::CompTimeline(const Managers& managers)
   connect(managers_.playback, &PlaybackManager::FrameChanged, this, repaint);
   // The playhead overshoots a little as it lands on a frame.
   connect(&settle_, &PlayheadSettle::Changed, this, repaint);
+  connect(&feedback_, &DragFeedback::Changed, this, repaint);
   connect(managers_.playback, &PlaybackManager::FrameChanged, this, [this] {
     settle_.MoveTo(managers_.playback->FrameOn(Timeline::kReel),
                    managers_.playback->IsPlaying());
@@ -173,7 +175,7 @@ void CompTimeline::paintEvent(QPaintEvent* event) {
   if (has_clip) {
     PaintLight(&painter);
   }
-  PaintDrag(&painter);
+  PaintBox(&painter);
   const Frame now = managers_.playback->FrameOn(Timeline::kReel);
   PaintTimelinePlayhead(
       &painter, XOf(now.index()) + settle_.offset() * PixelsPerFrame(),
@@ -209,6 +211,7 @@ void CompTimeline::paintEvent(QPaintEvent* event) {
   painter.setPen(kText);
   painter.drawText(QRectF(4, light_y, kNameWidth - 8, kRow),
                    Qt::AlignLeft | Qt::AlignVCenter, tr("Shot light"));
+  feedback_.Paint(&painter, QRectF(rect()));
 }
 
 void CompTimeline::PaintBars(QPainter* painter) const {
@@ -279,7 +282,7 @@ void CompTimeline::PaintLight(QPainter* painter) const {
   }
 }
 
-void CompTimeline::PaintDrag(QPainter* painter) const {
+void CompTimeline::PaintBox(QPainter* painter) const {
   assert(painter != nullptr);
   assert(managers_.comp != nullptr);
   const bool is_boxing = grab_ == Grab::kBox && has_moved_;
@@ -288,37 +291,6 @@ void CompTimeline::PaintDrag(QPainter* painter) const {
     painter->setBrush(QColor(0xd8, 0x30, 0x4f, 40));
     painter->drawRect(QRectF(press_at_, box_to_).normalized());
   }
-  const bool has_snap = snap_.has_value();
-  if (has_snap) {
-    const double x = XOf(*snap_);
-    painter->setPen(QPen(theme::kHandle, 1.0, Qt::DashLine));
-    painter->drawLine(QPointF(x, 0), QPointF(x, height()));
-  }
-  const bool is_clip_drag =
-      grab_ == Grab::kMove || grab_ == Grab::kStart || grab_ == Grab::kEnd;
-  const CompEffect* effect =
-      is_clip_drag ? managers_.comp->Find(grabbed_.shot, grabbed_.id)
-                   : nullptr;
-  const bool has_readout = effect != nullptr && has_moved_;
-  if (!has_readout) {
-    return;
-  }
-  // Where the grabbed clip now runs, in reel frames.
-  const auto found = from_.find(grabbed_);
-  const int offset = found != from_.end() ? found->second.offset : 0;
-  const int first = effect->start + offset;
-  const int end = first + effect->length;
-  const QString text = tr("%1 to %2, %3 frames")
-                           .arg(first)
-                           .arg(end)
-                           .arg(effect->length);
-  const QRectF chip(XOf(first), kRuler + 2,
-                    fontMetrics().horizontalAdvance(text) + 12, kRow - 4);
-  painter->setPen(Qt::NoPen);
-  painter->setBrush(QColor(0, 0, 0, 200));
-  painter->drawRect(chip);
-  painter->setPen(Qt::white);
-  painter->drawText(chip, Qt::AlignCenter, text);
 }
 
 }  // namespace snapper

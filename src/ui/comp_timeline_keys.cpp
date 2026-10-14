@@ -142,8 +142,10 @@ void CompTimeline::keyPressEvent(QKeyEvent* event) {
   const bool is_cancel = is_escape && is_dragging;
   if (is_cancel) {
     drag_->Cancel();
+    feedback_.Cancel();
     EndDrag();
   } else if (is_escape) {
+    feedback_.Cancel();
     grab_ = Grab::kNone;
     managers_.comp->PickClips({}, PickMode::kReplace, CompClipRef());
   } else if (is_all) {

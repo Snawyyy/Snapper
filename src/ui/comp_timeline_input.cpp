@@ -153,6 +153,12 @@ void CompTimeline::mouseReleaseEvent(QMouseEvent* event) {
     managers_.comp->PickClips({grabbed_}, PickMode::kReplace, grabbed_);
   }
   if (is_clip) {
+    // A click that never dragged leaves nothing to pop.
+    if (has_moved_) {
+      feedback_.Settle();
+    } else {
+      feedback_.Cancel();
+    }
     EndDrag();
     return;
   }
@@ -165,6 +171,7 @@ void CompTimeline::mouseDoubleClickEvent(QMouseEvent* event) {
   const std::optional<Bar> bar = BarAt(event->position());
   const bool is_on = bar.has_value();
   if (is_on) {
+    feedback_.Cancel();
     drag_.reset();
     grab_ = Grab::kNone;
     managers_.comp->PickClips({bar->ref}, PickMode::kAdd, bar->ref);
