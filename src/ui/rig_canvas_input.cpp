@@ -11,7 +11,6 @@
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
 #include "render/stage_hit.h"
-#include "ui/drag_text.h"
 #include "ui/grab.h"
 #include "ui/pick_keys.h"
 #include "ui/problem.h"
@@ -116,7 +115,8 @@ bool RigCanvas::PressHandle(QPointF point,
 void RigCanvas::mousePressEvent(QMouseEvent* event) {
   assert(event != nullptr);
   assert(managers_.history != nullptr);
-  if (PanPress(event)) {
+  const bool is_panned = PanPress(event);
+  if (is_panned) {
     return;
   }
   const Doll* doll =
@@ -215,7 +215,8 @@ void RigCanvas::FinishBox() {
 void RigCanvas::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
   assert(managers_.history != nullptr);
-  if (PanMove(event)) {
+  const bool is_panned = PanMove(event);
+  if (is_panned) {
     return;
   }
   cursor_ = event->position();
@@ -265,10 +266,10 @@ void RigCanvas::MovePivots(const Doll& doll, QPointF cursor, bool is_free) {
   assert(managers_.rig != nullptr);
   // Each joint moves by the cursor's step, in its own drawing's pixels.
   std::map<QString, QPointF> offsets;
-  PivotSnap snap;
   const std::optional<ShapeSnapKind> was =
-      shape_snap_ ? std::optional<ShapeSnapKind>(shape_snap_->kind)
-                  : std::nullopt;
+      shape_snap_ && is_snap_caught_
+          ? std::optional<ShapeSnapKind>(shape_snap_->kind)
+          : std::nullopt;
   shape_snap_.reset();
   for (const QString& piece : picked_) {
     const auto now = IntoPiece(doll, piece, World(), cursor);
@@ -284,15 +285,12 @@ void RigCanvas::MovePivots(const Doll& doll, QPointF cursor, bool is_free) {
                          rig_piece != nullptr;
     if (is_lone) {
       const QPointF wanted = grab_pivot_ + (*now - grab_cursor_);
-      snap = is_free ? PivotSnap{wanted, std::nullopt, false}
-                     : SnappedPivot(doll, piece, wanted);
-      offsets[piece] = snap.spot - rig_piece->pivot;
-      shape_snap_ = snap.shape;
-      snap_piece_ = piece;
+      offsets[piece] = CatchPivot(doll, piece, wanted, is_free) -
+                       rig_piece->pivot;
     }
   }
   last_ = cursor;
-  const bool is_shape = shape_snap_.has_value();
+  const bool is_shape = shape_snap_.has_value() && is_snap_caught_;
   if (is_shape) {
     // The chip names what it caught and flashes when that changes.
     const bool is_new = !was.has_value() || *was != shape_snap_->kind;
@@ -301,25 +299,10 @@ void RigCanvas::MovePivots(const Doll& doll, QPointF cursor, bool is_free) {
   emit Problem(ProblemOf(managers_.rig->MovePivots(doll_, offsets)));
 }
 
-QString RigCanvas::SnapName(ShapeSnapKind kind) const {
-  assert(kind == ShapeSnapKind::kWidthMiddle ||
-         kind == ShapeSnapKind::kEndCenter ||
-         kind == ShapeSnapKind::kOverlapCenter);
-  assert(drag_ != Drag::kNone);
-  return kind == ShapeSnapKind::kWidthMiddle ? tr("Width middle")
-         : kind == ShapeSnapKind::kEndCenter ? tr("End center")
-                                             : tr("Overlap center");
-}
-
-void RigCanvas::ShowDrag(QPointF cursor) {
-  assert(drag_ != Drag::kNone);
-  assert(std::isfinite(cursor.x()) && std::isfinite(cursor.y()));
-  feedback_.Update(start_, cursor, OffsetText(cursor - start_), false);
-}
-
 void RigCanvas::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
-  if (PanRelease(event)) {
+  const bool is_panned = PanRelease(event);
+  if (is_panned) {
     return;
   }
   const bool was_rope = is_rope_ && is_hanging_;
@@ -333,7 +316,8 @@ void RigCanvas::mouseReleaseEvent(QMouseEvent* event) {
   }
   const bool is_late_pick = !later_joint_.isEmpty() && !is_started_;
   if (is_late_pick) {
-    if (scope_ != nullptr) {
+    const bool has_scope = scope_ != nullptr;
+    if (has_scope) {
       scope_->Cancel();
     }
     ApplyPick({later_joint_}, later_mode_, later_joint_);
@@ -382,15 +366,7 @@ void RigCanvas::keyPressEvent(QKeyEvent* event) {
     return;
   }
   if (is_all) {
-    const Doll* doll = doll_.isEmpty()
-                           ? nullptr
-                           : FindDoll(managers_.history->current(), doll_);
-    std::set<QString> all;
-    for (const RigPiece& piece :
-         doll != nullptr ? doll->rig.pieces : std::vector<RigPiece>()) {
-      all.insert(piece.name);
-    }
-    ApplyPick(all, PickMode::kReplace, piece_);
+    PickAllPieces();
     return;
   }
   const bool is_circle = event->key() == Qt::Key_J &&

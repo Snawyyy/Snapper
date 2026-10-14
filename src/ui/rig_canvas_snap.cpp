@@ -13,6 +13,8 @@
 #include "anim/guides.h"
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
+#include "ui/drag_text.h"
+#include "ui/grab.h"
 #include "ui/problem.h"
 #include "ui/rig_canvas.h"
 #include "ui/theme.h"
@@ -25,8 +27,9 @@ PivotSnap RigCanvas::SnappedPivot(const Doll& doll, const QString& piece,
   assert(std::isfinite(wanted.x()) && std::isfinite(wanted.y()));
   assert(!piece.isEmpty());
   const QImage own_drawing = cache_.Get(DrawingPath(doll, piece, -1));
-  if (own_drawing.isNull()) {
-    return PivotSnap{wanted, std::nullopt, false};
+  const bool is_undrawn = own_drawing.isNull();
+  if (is_undrawn) {
+    return PivotSnap{wanted, std::nullopt, false, std::nullopt};
   }
   const auto own = limbs_.Of(own_drawing);
   // A few screen pixels, in the drawing's own.
@@ -52,6 +55,35 @@ PivotSnap RigCanvas::SnappedPivot(const Doll& doll, const QString& piece,
                    parent_to_own, wanted, reach);
 }
 
+QPointF RigCanvas::CatchPivot(const Doll& doll, const QString& piece,
+                              QPointF wanted, bool is_free) {
+  assert(std::isfinite(wanted.x()) && std::isfinite(wanted.y()));
+  assert(!piece.isEmpty());
+  const PivotSnap snap =
+      is_free ? PivotSnap{wanted, std::nullopt, false, std::nullopt}
+              : SnappedPivot(doll, piece, wanted);
+  is_snap_caught_ = snap.shape.has_value();
+  shape_snap_ = is_snap_caught_ ? snap.shape : snap.near;
+  snap_piece_ = piece;
+  return snap.spot;
+}
+
+QString RigCanvas::SnapName(ShapeSnapKind kind) const {
+  assert(kind == ShapeSnapKind::kWidthMiddle ||
+         kind == ShapeSnapKind::kEndCenter ||
+         kind == ShapeSnapKind::kOverlapCenter);
+  assert(drag_ != Drag::kNone);
+  return kind == ShapeSnapKind::kWidthMiddle ? tr("Width middle")
+         : kind == ShapeSnapKind::kEndCenter ? tr("End center")
+                                             : tr("Overlap center");
+}
+
+void RigCanvas::ShowDrag(QPointF cursor) {
+  assert(drag_ != Drag::kNone);
+  assert(std::isfinite(cursor.x()) && std::isfinite(cursor.y()));
+  feedback_.Update(start_, cursor, OffsetText(cursor - start_), false);
+}
+
 void RigCanvas::PaintShapeSnap(
     QPainter* painter, const std::map<QString, QTransform>& pieces) const {
   assert(painter != nullptr);
@@ -61,23 +93,32 @@ void RigCanvas::PaintShapeSnap(
   if (!shows) {
     return;
   }
+  // What it would catch shows faint until it catches.
+  QColor color = theme::kPick;
+  color.setAlpha(is_snap_caught_ ? 255 : 140);
   const QTransform at = pieces.at(snap_piece_) * World();
   painter->save();
   painter->setRenderHint(QPainter::Antialiasing, true);
-  painter->setPen(QPen(theme::kPick, 1.0));
+  painter->setBrush(Qt::NoBrush);
+  painter->setPen(QPen(color, 1.0, Qt::DashLine));
+  painter->drawLine(at.map(shape_snap_->middle_a),
+                    at.map(shape_snap_->middle_b));
+  painter->setPen(QPen(color, 1.0));
   painter->drawLine(at.map(shape_snap_->edge_a), at.map(shape_snap_->edge_b));
-  painter->setBrush(theme::kPick);
-  painter->drawEllipse(at.map(shape_snap_->spot), 3.0, 3.0);
   const bool has_circle = shape_snap_->radius > 0.0;
   if (has_circle) {
-    QPen ring(theme::kPick, 1.0);
+    QPen ring(color, 1.0);
     ring.setCosmetic(true);
+    painter->save();
     painter->setPen(ring);
-    painter->setBrush(Qt::NoBrush);
     painter->setTransform(at, true);
     painter->drawEllipse(shape_snap_->spot, shape_snap_->radius,
                          shape_snap_->radius);
+    painter->restore();
   }
+  // A ring wider than the joint's own handle, so it shows around it.
+  painter->setPen(QPen(color, 2.0));
+  painter->drawEllipse(at.map(shape_snap_->spot), kHandleDraw, kHandleDraw);
   painter->restore();
 }
 
@@ -86,7 +127,8 @@ void RigCanvas::SnapJoints(const std::vector<QString>& pieces) {
   assert(pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   const Doll* doll =
       doll_.isEmpty() ? nullptr : FindDoll(managers_.history->current(), doll_);
-  if (doll == nullptr) {
+  const bool has_doll = doll != nullptr;
+  if (!has_doll) {
     return;
   }
   // Every drawing, so parents are there for the overlap center.

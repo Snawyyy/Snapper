@@ -41,7 +41,8 @@ RigCanvas::RigCanvas(const Managers& managers)
           [this] { update(); });
   connect(&hover_, &HandleHover::Changed, this, [this] { update(); });
   connect(&feedback_, &DragFeedback::Changed, this, [this] { update(); });
-  if (managers_.palette != nullptr) {
+  const bool has_palette = managers_.palette != nullptr;
+  if (has_palette) {
     connect(managers_.palette, &PaletteManager::Picked, this,
             [this](const QColor& color) { ColorJointCircle(color); });
   }
@@ -224,6 +225,20 @@ void RigCanvas::PaintTip(QPainter* painter,
   painter->setBrush(theme::kHandle);
   painter->drawRect(QRectF(tip - QPointF(side / 2, side / 2),
                            QSizeF(side, side)));
+}
+
+void RigCanvas::PickAllPieces() {
+  assert(managers_.history != nullptr);
+  assert(picked_.size() <= static_cast<size_t>(kMaxDollPieces));
+  const Doll* doll = doll_.isEmpty()
+                         ? nullptr
+                         : FindDoll(managers_.history->current(), doll_);
+  std::set<QString> all;
+  for (const RigPiece& piece :
+       doll != nullptr ? doll->rig.pieces : std::vector<RigPiece>()) {
+    all.insert(piece.name);
+  }
+  ApplyPick(all, PickMode::kReplace, piece_);
 }
 
 }  // namespace snapper

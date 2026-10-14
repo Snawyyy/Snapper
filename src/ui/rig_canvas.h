@@ -153,8 +153,12 @@ class RigCanvas final : public QWidget {
   // (SnapPivot, anim/joint_snap.h).
   PivotSnap SnappedPivot(const Doll& doll, const QString& piece,
                          QPointF wanted);
-  // The shape snap caught by the pivot drag: the line across the limb,
-  // its middle and an end's circle.
+  // Where a lone dragged pivot lands (free with Ctrl), keeping what it
+  // caught or would catch to draw.
+  QPointF CatchPivot(const Doll& doll, const QString& piece, QPointF wanted,
+                     bool is_free);
+  // The pivot drag's shape snap, caught or nearest: the limb's middle
+  // line, the line across it, the spot and an end's circle.
   void PaintShapeSnap(QPainter* painter,
                       const std::map<QString, QTransform>& pieces) const;
   // Right click > Snap to shape or Snap all joints: moves the joints
@@ -165,6 +169,8 @@ class RigCanvas final : public QWidget {
   // A palette pick while the canvas shows and the focused joint has its
   // circle on colors that circle.
   void ColorJointCircle(const QColor& color);
+  // Select all: every piece of the doll.
+  void PickAllPieces();
   void ApplyPick(const std::set<QString>& pieces, PickMode mode,
                  const QString& focus);
   void FinishBox();
@@ -225,8 +231,10 @@ class RigCanvas final : public QWidget {
   QPointF pan_from_;
   // The drawings measured for joint snap.
   LimbMemo limbs_;
-  // What the lone pivot drag caught on its piece's shape, if anything.
+  // What the lone pivot drag caught on its piece's shape or, when
+  // is_snap_caught_ is false, the nearest spot it would catch on.
   std::optional<ShapeSnap> shape_snap_;
+  bool is_snap_caught_ = false;
   QString snap_piece_;
   QString chain_;
   std::unique_ptr<EditScope> scope_;
