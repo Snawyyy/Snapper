@@ -849,8 +849,8 @@ IndexTTS (a {feeling} after each sentence, split and joined by the
 worker), and the emotion fader, each engine in its own Python, one at a time
 on the card; `VoiceGenManager`'s reasons live in
 `edit/voice_gen_checks.cpp`,
-`ui/audio_preview.cpp` to listen; its look: `ui/voice_mode_tile.cpp`
-the Clone and Design tiles, `ui/wave_screen.cpp` a sound on a phosphor
+`ui/audio_preview.cpp` to listen; its look:
+`ui/wave_screen.cpp` a sound on a phosphor
 screen, click to listen from there, `ui/led_meter.cpp` the recording
 meter, `ui/hero_button.cpp` the big red Generate, `ui/bevel.cpp` the
 raised or sunk edge every self-painted widget shares). `ShowSide` and `SidePanelsFor` live in

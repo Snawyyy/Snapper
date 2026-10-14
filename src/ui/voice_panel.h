@@ -15,13 +15,12 @@
 #include "ui/managers.h"
 #include "ui/voice_clone_box.h"
 #include "ui/voice_engine_box.h"
-#include "ui/voice_mode_tile.h"
 #include "ui/wave_screen.h"
 
 namespace snapper {
 
 // The Video tab's Voice panel, always shown beside the clip panels: two
-// big mode tiles, Clone and Design (remembered), then numbered steps:
+// mode buttons, Clone and Design (remembered), then numbered steps:
 // the voice (a saved voice or a sample to clone, or a description to
 // design one from), the line to say with its language and the big red
 // Generate (Ctrl+Enter; a click while it works stops it), and Listen:
@@ -67,8 +66,8 @@ class VoicePanel final : public QScrollArea {
   Managers managers_;
   AudioPreview preview_;
   bool is_design_ = false;
-  VoiceModeTile* clone_tile_ = nullptr;
-  VoiceModeTile* design_tile_ = nullptr;
+  QPushButton clone_mode_;
+  QPushButton design_mode_;
   QLabel mode_caption_;
   VoiceCloneBox clone_;
   VoiceEngineBox engine_box_;

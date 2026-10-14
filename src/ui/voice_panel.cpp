@@ -94,18 +94,20 @@ VoicePanel::VoicePanel(const Managers& managers)
 
 QWidget* VoicePanel::BuildModeRow(QWidget* parent) {
   assert(parent != nullptr);
-  assert(clone_tile_ == nullptr && design_tile_ == nullptr);
+  assert(clone_mode_.text().isEmpty());
   auto* row = MakeOwned<QWidget>(parent);
   auto* column = MakeOwned<QVBoxLayout>(row);
   column->setContentsMargins(0, 0, 0, 0);
   column->setSpacing(theme::kRowGap / 2);
-  clone_tile_ = MakeOwned<VoiceModeTile>(false, tr("Clone"),
-                                         managers_.motion, row);
-  design_tile_ = MakeOwned<VoiceModeTile>(true, tr("Design"),
-                                          managers_.motion, row);
-  clone_tile_->setToolTip(tr("Copy the voice in a sample."));
-  design_tile_->setToolTip(tr("Make up a voice from a description."));
-  column->addWidget(TileRow({clone_tile_, design_tile_}, row));
+  clone_mode_.setText(tr("Clone"));
+  design_mode_.setText(tr("Design"));
+  for (QPushButton* mode : {&clone_mode_, &design_mode_}) {
+    mode->setCheckable(true);
+    mode->setMinimumHeight(theme::Em(this) * 2);
+  }
+  clone_mode_.setToolTip(tr("Copy the voice in a sample."));
+  design_mode_.setToolTip(tr("Make up a voice from a description."));
+  column->addWidget(TileRow({&clone_mode_, &design_mode_}, row));
   mode_caption_.setAlignment(Qt::AlignCenter);
   mode_caption_.setWordWrap(true);
   column->addWidget(&mode_caption_);
@@ -166,11 +168,11 @@ QWidget* VoicePanel::BuildResultBody(QWidget* parent) {
 
 void VoicePanel::Wire() {
   assert(managers_.voice_gen != nullptr);
-  assert(clone_tile_ != nullptr && design_tile_ != nullptr);
+  assert(clone_mode_.isCheckable() && design_mode_.isCheckable());
   VoiceGenManager* gen = managers_.voice_gen;
-  connect(clone_tile_, &QAbstractButton::clicked, this,
+  connect(&clone_mode_, &QPushButton::clicked, this,
           [this] { SetMode(false); });
-  connect(design_tile_, &QAbstractButton::clicked, this,
+  connect(&design_mode_, &QPushButton::clicked, this,
           [this] { SetMode(true); });
   connect(&language_, &QComboBox::currentIndexChanged, this, [this] {
     QSettings settings(managers_.document->SettingsPath(),
@@ -239,8 +241,8 @@ void VoicePanel::ShowMode() {
   clone_.setVisible(!is_design);
   // Designs are Qwen's only, so the model and emotion are clone settings.
   engine_box_.setVisible(!is_design);
-  clone_tile_->SetShare(is_design ? Share::kNone : Share::kAll);
-  design_tile_->SetShare(is_design ? Share::kAll : Share::kNone);
+  clone_mode_.setChecked(!is_design);
+  design_mode_.setChecked(is_design);
   mode_caption_.setText(
       is_design ? tr("Describe a voice in words and hear it speak.")
                 : tr("Give it a few seconds of someone talking, and it "
