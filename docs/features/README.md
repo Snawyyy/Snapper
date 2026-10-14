@@ -79,7 +79,7 @@ Every proposed key is free in Snapper today (checked against the keys bound in t
 | X | Draw mode | Show transparent pixels, on and off | Draw on a piece |
 | [ and ] | Draw mode | Brush size down and up | Draw on a piece |
 | H | Draw mode | Flip the picked pixels | Draw on a piece |
-| Arrows, Shift+arrows | Draw mode | Nudge picked pixels by 1 or 10 (reused from the stage nudge) | Draw on a piece |
+| Shift+arrows, Ctrl+Shift+arrows | Stage, Draw mode | Nudge the pick (or picked pixels) by 1 or 10; plain arrows step frames | Draw on a piece |
 | Delete | Draw mode | Clear the picked pixels (reused from Delete on the stage) | Draw on a piece |
 | Ctrl+Z, Ctrl+Y | Draw mode | Undo and redo one stroke | Draw on a piece |
 | Enter | Draw mode | Done, save the drawing | Draw on a piece |

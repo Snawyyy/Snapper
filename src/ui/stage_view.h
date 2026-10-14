@@ -81,8 +81,8 @@ class StageView final : public QWidget {
   void keyReleaseEvent(QKeyEvent* event) override;
   void focusOutEvent(QFocusEvent* event) override;
   void contextMenuEvent(QContextMenuEvent* event) override;
-  // The arrow keys nudge the pick while the stage has focus, ahead of
-  // the window's frame-step shortcuts; Tab steps the pick.
+  // Shift+arrows nudge the pick while the stage has focus, ahead of
+  // any shortcut; plain arrows still step frames. Tab steps the pick.
   bool event(QEvent* event) override;
   // A doll card dragged here is put on the stage; the frame glows while
   // it hovers.
@@ -125,8 +125,8 @@ class StageView final : public QWidget {
   void PaintPickedDots(const StageFrame& frame, const Pick& pick,
                        const WarpOnScreen& warp, QPainter* painter);
   void ReportTool();
-  // An arrow key: nudges the pick 1 pixel (10 with Shift); true when it
-  // was one and something is picked.
+  // Shift+arrow: nudges the pick 1 pixel (10 with Ctrl too); true when
+  // it was one and something is picked.
   bool NudgeKey(QKeyEvent* event);
   // Escape: backs out of the drag, then the picked dot, then the pick.
   void BackOut();

@@ -66,12 +66,14 @@ QRectF StageView::AllBox(const StageFrame& frame) {
   const CanvasSize& canvas = managers_.history->current().canvas;
   const QRectF inside(frame.corner, QSizeF(canvas.width * frame.scale,
                                            canvas.height * frame.scale));
-  if (shot == nullptr) {
+  const bool has_shot = shot != nullptr;
+  if (!has_shot) {
     return inside;
   }
   std::vector<LayerId> layers;
   for (const Layer& layer : shot->layers) {
-    if (IsLayerLive(layer, frame.local, shot->length)) {
+    const bool is_live = IsLayerLive(layer, frame.local, shot->length);
+    if (is_live) {
       layers.push_back(layer.id);
     }
   }
@@ -154,7 +156,11 @@ bool StageView::event(QEvent* event) {
     const int key = static_cast<QKeyEvent*>(event)->key();
     const bool is_arrow = key == Qt::Key_Left || key == Qt::Key_Right ||
                           key == Qt::Key_Up || key == Qt::Key_Down;
-    const bool is_ours = is_arrow && !managers_.selection->picks().empty();
+    // Plain arrows step frames; Shift ones nudge the pick.
+    const bool is_shift = static_cast<QKeyEvent*>(event)->modifiers().testFlag(
+        Qt::ShiftModifier);
+    const bool is_ours =
+        is_arrow && is_shift && !managers_.selection->picks().empty();
     if (is_ours) {
       event->accept();
       return true;
@@ -170,13 +176,15 @@ bool StageView::NudgeKey(QKeyEvent* event) {
   const bool is_arrow = key == Qt::Key_Left || key == Qt::Key_Right ||
                         key == Qt::Key_Up || key == Qt::Key_Down;
   const auto frame = CurrentFrame();
-  const bool is_nudge = is_arrow && frame.has_value() &&
+  // Shift+arrow nudges a pixel, Ctrl+Shift ten; plain arrows step frames.
+  const bool is_shift = event->modifiers().testFlag(Qt::ShiftModifier);
+  const bool is_nudge = is_arrow && is_shift && frame.has_value() &&
                         !managers_.selection->picks().empty();
   if (!is_nudge) {
     return false;
   }
-  const double step = event->modifiers().testFlag(Qt::ShiftModifier) ? 10.0
-                                                                     : 1.0;
+  const double step =
+      event->modifiers().testFlag(Qt::ControlModifier) ? 10.0 : 1.0;
   const QPointF way(key == Qt::Key_Left ? -1.0 : key == Qt::Key_Right ? 1.0
                                                                       : 0.0,
                     key == Qt::Key_Up ? -1.0 : key == Qt::Key_Down ? 1.0
