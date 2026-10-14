@@ -15,6 +15,9 @@
 
 namespace snapper {
 
+// A drawing past this many pixels is not measured (nothing catches).
+inline constexpr std::int64_t kMaxMaskPixels = 8192LL * 8192LL;
+
 // One solid shape of a drawing: where its middle is, which way it is
 // long, and how far it reaches along and across that way.
 struct LimbShape final {
@@ -49,12 +52,15 @@ enum class ShapeSnapKind { kWidthMiddle, kEndCenter, kOverlapCenter };
 
 // A spot a joint can catch on, in the drawing's pixels, and what to
 // draw for it: the line straight across the limb there, edge to edge,
-// and for an end, the end circle's radius (0 otherwise).
+// the limb's middle line tip to tip, and for an end, the end circle's
+// radius (0 otherwise).
 struct ShapeSnap final {
   ShapeSnapKind kind = ShapeSnapKind::kWidthMiddle;
   QPointF spot;
   QPointF edge_a;
   QPointF edge_b;
+  QPointF middle_a;
+  QPointF middle_b;
   double radius = 0.0;
 };
 
@@ -62,8 +68,9 @@ struct ShapeSnap final {
 // through at; none when at is on no shape.
 std::optional<ShapeSnap> WidthMiddleAt(const LimbMask& mask, QPointF at);
 
-// The center of each end circle of each shape: half a width in from
-// the tip, on the middle of the width there.
+// Each end of each shape, on its middle line where it leaves the
+// drawing, with a circle as wide as the limb near the end, so a joint
+// circle there caps the end.
 std::vector<ShapeSnap> EndCentersOf(const LimbMask& mask);
 
 // Where the center lines of own's and parent's biggest shapes cross,
@@ -79,6 +86,9 @@ struct PivotSnap final {
   // The shape snap it caught; none for a box snap or none at all.
   std::optional<ShapeSnap> shape;
   bool is_snapped = false;
+  // When no shape snap caught it: the one nearest wanted on the limb,
+  // to show where the joint would go.
+  std::optional<ShapeSnap> near;
 };
 
 // wanted (a pivot in own's drawing pixels) caught within reach (the
@@ -97,8 +107,9 @@ std::optional<ShapeSnap> NearestShapeSnap(const LimbMask& own,
                                           const QTransform& parent_to_own,
                                           QPointF at);
 
-// The radius of a joint circle at pivot: half the limb's width straight
-// across it there; 0 when pivot is on no shape.
+// The radius of a joint circle at pivot: an end's circle when pivot is
+// on an end, else half the limb's width straight across it there; 0
+// when pivot is on no shape.
 double JointRadius(const LimbMask& mask, QPointF pivot);
 
 // The most common solid color of drawing within a few pixels of at, for

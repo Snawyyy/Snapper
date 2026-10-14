@@ -1287,19 +1287,22 @@ drawing within 6 pixels (`SnapToGuides`), and saving the rig to the
 library says so in a toast.
 
 Joint snap (`anim/joint_snap.h`, pure) also catches it on the drawn
-limb: `MeasureLimbs` labels each solid shape of a drawing (alpha 8 and
+limb: `MeasureLimbs` (anim/limb_mask.cpp) labels each solid shape of a drawing (alpha 8 and
 up as the shape mesh counts it, holes closed in) with its long
-direction, and `SnapPivot` picks, within the same reach, an end circle's
-center or where the piece's and its parent's center lines cross first,
+direction, and `SnapPivot` picks, within the same reach, a limb's end
+(on its middle line where it leaves the drawing, so a circle there caps
+it) or where the piece's and its parent's center lines cross first,
 else the nearer of the middle of the width across the limb and the box
 snaps. `RigCanvas` keeps measured drawings in a `LimbMemo`, draws the
-caught line, middle and end circle, names it in the chip, and lets Ctrl
+limb's middle line, the line across, the spot ring and end circle
+(faint for the nearest spot, `PivotSnap::near`, until caught), names it in the chip, and lets Ctrl
 drag freely. Right click > Snap to shape or Snap all joints goes through
 `RigManager::SnapJointsToShape` (edit/rig_snap.cpp), one undo step.
 A joint circle (`RigPiece::joint_circle`, rig.json `joint_circle`) is
 turned on with J (`ToggleJointCircle`, taking `JointColorAt` the first
 time) and recolored by a palette pick (`SetJointCircleColor`). The
-shared renderer draws it just before its piece, its radius measured
+shared renderer draws it before the first drawn of its piece and its
+parent, so it sits under both (`PaintCirclesUnder`), its radius measured
 from the shown drawing each time (`JointRadius` over the
 `ImageCache::limbs()` memo), never stored.
 
