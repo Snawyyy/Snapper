@@ -1,10 +1,14 @@
 // FrameRenderer: the reel, its clips on their tracks with their mixes,
-// and the screen effects over the finished picture.
+// and the screen effects over the finished picture. Over a transition
+// each clip is a finished picture, its own effects baked in like a
+// video file's, and the transition only moves or fades the two.
 
 #include <QPainter>
 
+#include <algorithm>
 #include <cassert>
 #include <variant>
+#include <vector>
 
 #include "anim/reel_timeline.h"
 #include "render/frame_renderer.h"
@@ -74,38 +78,11 @@ void DrawFitted(const QImage& picture, QImage* frame) {
   painter.drawImage(target, picture);
 }
 
-// Mixes the two sides' shapes as Combine mixes their pictures, on
-// clear: a swipe moves them, a fade or flash hands one to the other.
-QImage CombineShapes(TransitionKind kind, double mix, const QImage& from,
-                     const QImage& to) {
-  assert(from.size() == to.size());
-  assert(mix >= 0.0 && mix <= 1.0);
-  QImage out(from.size(), QImage::Format_ARGB32_Premultiplied);
-  out.fill(Qt::transparent);
-  QPainter painter(&out);
-  const QPointF way =
-      kind == TransitionKind::kSwipeLeft    ? QPointF(-out.width(), 0)
-      : kind == TransitionKind::kSwipeRight ? QPointF(out.width(), 0)
-      : kind == TransitionKind::kSwipeUp    ? QPointF(0, -out.height())
-      : kind == TransitionKind::kSwipeDown  ? QPointF(0, out.height())
-                                            : QPointF();
-  const bool is_swipe = !way.isNull();
-  if (is_swipe) {
-    painter.drawImage(way * mix, from);
-    painter.drawImage(way * (mix - 1.0), to);
-    return out;
-  }
-  const bool is_cut = kind == TransitionKind::kCut;
-  const bool shows_to = is_cut || mix >= 0.5;
-  painter.drawImage(0, 0, shows_to ? to : from);
-  return out;
-}
-
 }  // namespace
 
 void FrameRenderer::DrawClip(const Project& project, const Clip& clip,
                              Frame source, double scale, VideoFrames* videos,
-                             QImage* out, QImage* drawn) {
+                             QImage* out, QImage* drawn, bool bakes_screen) {
   assert(out != nullptr);
   assert(scale > 0.0);
   const auto* video = std::get_if<VideoSource>(&clip.source);
@@ -138,8 +115,8 @@ void FrameRenderer::DrawClip(const Project& project, const Clip& clip,
   const bool wants_shape = drawn != nullptr;
   QPainter painter(out);
   painter.drawImage(0, 0,
-                    RenderShot(project, *shot, source, scale, nullptr, false,
-                               wants_shape ? &shape : nullptr));
+                    RenderShot(project, *shot, source, scale, nullptr,
+                               bakes_screen, wants_shape ? &shape : nullptr));
   const bool has_shape = wants_shape && !shape.isNull();
   if (has_shape) {
     QPainter onto(drawn);
@@ -153,32 +130,36 @@ QImage FrameRenderer::RenderReel(const Project& project, Frame frame,
   assert(scale > 0.0);
   assert(frame.index() >= 0);
   QImage out = Blank(project, scale, under);
-  const bool needs_shape = NeedsReelShape(project, frame);
+  const std::vector<ReelPiece> pieces = ReelAt(project, frame);
+  // Text clips draw their own appear and leave; they never mix.
+  const auto is_mixing = [](const ReelPiece& piece) {
+    return piece.next != nullptr && !IsTextClip(*piece.clip);
+  };
+  const bool has_mix = std::ranges::any_of(pieces, is_mixing);
+  // A frame with a transition bakes every clip's effects into it, so
+  // no effect runs over the mixed picture.
+  const bool needs_shape = !has_mix && NeedsReelShape(project, frame);
   QImage drawn =
       needs_shape ? Blank(project, scale, Qt::transparent) : QImage();
   QImage* shape = needs_shape ? &drawn : nullptr;
-  for (const ReelPiece& piece : ReelAt(project, frame)) {
-    // Text clips draw their own appear and leave; they never mix.
-    const bool is_mixing = piece.next != nullptr && !IsTextClip(*piece.clip);
-    if (!is_mixing) {
+  for (const ReelPiece& piece : pieces) {
+    const bool mixes = is_mixing(piece);
+    if (!mixes) {
       DrawClip(project, *piece.clip, piece.source, scale, videos, &out,
-               shape);
+               shape, has_mix);
       continue;
     }
-    // Both sides are drawn over what lies below, then mixed; their
-    // shapes mix the same way, so effects on them move with a swipe.
+    // Both sides are drawn finished over what lies below, then mixed.
     QImage from = out.copy();
-    QImage from_shape = needs_shape ? drawn.copy() : QImage();
     DrawClip(project, *piece.clip, piece.source, scale, videos, &from,
-             needs_shape ? &from_shape : nullptr);
+             nullptr, true);
     QImage to = out.copy();
-    QImage to_shape = needs_shape ? drawn.copy() : QImage();
     DrawClip(project, *piece.next, piece.next_source, scale, videos, &to,
-             needs_shape ? &to_shape : nullptr);
+             nullptr, true);
     out = Combine(piece.kind, piece.mix, from, to);
-    if (needs_shape) {
-      drawn = CombineShapes(piece.kind, piece.mix, from_shape, to_shape);
-    }
+  }
+  if (has_mix) {
+    return out;
   }
   ApplyReelComp(project, frame, scale, drawn, &out);
   return out;

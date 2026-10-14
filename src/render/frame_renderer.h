@@ -34,7 +34,8 @@ class FrameRenderer final {
   // first, a shot clip drawn as its shot alone, a video fitted to the
   // canvas and a text clip's words over what is below (PaintReelText).
   // Where nothing plays the frame is black. Over a transition
-  // the clip and the next one are mixed. videos supplies the video
+  // the clip and the next one, each finished with its own effects,
+  // are mixed; no effect runs over the mix. videos supplies the video
   // pictures; with nullptr, videos are left out. under is what lies
   // below every track: black, or clear for an export that keeps alpha.
   // A see-through shot clip shows the tracks below it.
@@ -97,10 +98,11 @@ class FrameRenderer final {
 
   // Draws clip's source at source over out: a shot whole, a video
   // fitted to the canvas, text where its look places it. drawn, when
-  // given, gets a shot's layers added.
+  // given, gets a shot's layers added. bakes_screen runs a shot's own
+  // screen effects on it, as over a transition.
   void DrawClip(const Project& project, const Clip& clip, Frame source,
                 double scale, VideoFrames* videos, QImage* out,
-                QImage* drawn);
+                QImage* drawn, bool bakes_screen);
 
   ImageCache cache_;
   CompShow comp_show_;

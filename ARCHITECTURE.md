@@ -871,7 +871,10 @@ edits; a rig without a look opens Crisp, a new doll starts Smooth
 
 `RenderReel` draws a reel frame: shot clips through `RenderShot`, video
 clips fitted to the canvas, keeping their shape. Over a transition both
-clips are drawn over the tracks below and mixed by `Combine`. Pictures
+clips are drawn over the tracks below, each finished with its own
+screen effects like a video file, and mixed by `Combine`; on such a
+frame no effect runs over the mix, so an effect stretched past its cut
+skips it. Pictures
 of video files come through the `VideoFrames` hook, so drawing never
 opens a file; the `edit` side's `VideoFileFrames` reads them with
 `VideoReader`, keeping each file open so playing forward decodes each
