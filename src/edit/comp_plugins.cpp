@@ -2,6 +2,7 @@
 // docs/features/fsp-effects.md.
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 
@@ -11,6 +12,58 @@
 #include "edit/comp_manager.h"
 
 namespace snapper {
+namespace {
+
+struct PluginWords final {
+  const char* id;
+  const char* help;
+};
+
+// What each plugin does, in a line; its own readme is in Japanese.
+constexpr std::array<PluginWords, 19> kPluginHelp = {{
+    {"AlphaFill", "Fills the drawn parts with one color, or keys a color "
+                  "out."},
+    {"BurstLines", "Lines bursting out from a point, for impacts."},
+    {"CellLineEraser", "Removes picked line colors and fills the gap with "
+                       "the colors around them."},
+    {"ColorSwitch", "Swaps, keys out or pulls out up to 32 picked "
+                    "colors."},
+    {"FloodFill", "A paint bucket: fills a closed area from a point."},
+    {"InkingLineBlur", "Blurs the lines and keeps the blur only on picked "
+                       "colors, for soft colored lines."},
+    {"InnerFlare", "A soft glow inside the shape's edge, or outside it."},
+    {"InnerFlareRot", "A glow inside the edge pushed to one side, like "
+                      "light from a direction."},
+    {"LineExtraction", "Draws lines from the picture's edges in one "
+                       "color."},
+    {"Outline", "Draws a line around the drawn parts, inside, outside or "
+                "both."},
+    {"RadialLines", "Focus lines closing in on a point, as in manga."},
+    {"RimFill", "Fills a band along the shape's edge with a color or the "
+                "color under it."},
+    {"SelectiveColorBlur", "Blurs only the picked colors."},
+    {"SpeedLines", "Parallel speed lines across the frame, at any angle."},
+    {"Sputtering", "Spray dots along edges, like airbrush splatter."},
+    {"Star", "A cross star filter: streaks from the bright parts."},
+    {"Thin", "Thins picked line colors by a few pixels."},
+    {"TouchLines", "Speed lines from the target's edges, straight or "
+                   "bursting."},
+    {"WhiteKeying", "Makes white (or a picked color) see-through."},
+}};
+
+}  // namespace
+
+QString CompManager::PluginHelp(const QString& id) {
+  assert(!kPluginHelp.empty());
+  assert(kPluginHelp.size() < 512);
+  for (const PluginWords& words : kPluginHelp) {
+    const bool is_it = id == QLatin1String(words.id);
+    if (is_it) {
+      return Tr(words.help);
+    }
+  }
+  return KindHelp(CompKind::kFsp);
+}
 
 QString CompManager::EffectName(const CompEffect& effect) {
   assert(static_cast<int>(effect.kind) >= 0 &&
@@ -38,7 +91,7 @@ QString CompManager::EffectHelp(const CompEffect& effect) {
   assert(effect.kept_params.isEmpty() || FspInfoOf(effect) == nullptr);
   const QString why = WhyNoPlugin(effect.plugin);
   const bool is_usable = why.isEmpty();
-  return is_usable ? KindHelp(effect.kind)
+  return is_usable ? PluginHelp(effect.plugin)
                    : Tr("%1 It is kept as it was saved and does nothing.")
                          .arg(why);
 }
@@ -58,8 +111,10 @@ QString CompManager::WhyNoPlugin(const QString& id) {
   return WhyNoFsp(*info);
 }
 
-Result<CompEffectId> CompManager::AddPlugin(ShotId shot, const QString& id) {
+Result<CompEffectId> CompManager::AddPlugin(ShotId shot, const QString& id,
+                                            const CompTarget& target) {
   assert(history_ != nullptr);
+  assert(target.layer.IsValid() || target.pieces.empty());
   const QString why = WhyNoPlugin(id);
   const bool can_add = why.isEmpty();
   if (!can_add) {
@@ -68,6 +123,7 @@ Result<CompEffectId> CompManager::AddPlugin(ShotId shot, const QString& id) {
   CompEffect effect;
   effect.kind = CompKind::kFsp;
   effect.plugin = id;
+  effect.target = target;
   effect.blend = BlendMode::kNormal;
   // No keys: every value is the plugin's own default until changed.
   assert(FspInfoOf(effect) != nullptr);

@@ -207,10 +207,14 @@ Result<CompEffectId> CompManager::Insert(ShotId shot, CompEffect effect,
   return made;
 }
 
-Result<CompEffectId> CompManager::Add(ShotId shot, CompKind kind) {
+Result<CompEffectId> CompManager::Add(ShotId shot, CompKind kind,
+                                      const CompTarget& target) {
   assert(static_cast<int>(kind) < kCompKindCount);
+  assert(target.layer.IsValid() || target.pieces.empty());
   const int top = static_cast<int>(Of(shot).size());
-  return Insert(shot, MadeOf(kind), top,
+  CompEffect effect = MadeOf(kind);
+  effect.target = target;
+  return Insert(shot, std::move(effect), top,
                 Tr("Add %1").arg(KindName(kind)));
 }
 

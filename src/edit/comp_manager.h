@@ -23,10 +23,6 @@ namespace snapper {
 
 class HistoryManager;
 
-// The Applies to tiles of an effect; Picked colors combines with the
-// first three.
-enum class TargetTile { kEverything, kLayer, kPieces };
-
 // How the panel shows one control of an effect.
 enum class CompRowKind {
   kFader,   // A keyed number on a fader.
@@ -71,6 +67,8 @@ class CompManager final : public QObject {
   // the missing plugin's id marked as missing.
   static QString EffectName(const CompEffect& effect);
   static QString EffectHelp(const CompEffect& effect);
+  // What the plugin with id does, in a line.
+  static QString PluginHelp(const QString& id);
   static QString BlendName(BlendMode mode);
   static QString ShapeName(GradientShape shape);
   // The effect's label for knob ("Width", a plugin's own word); empty
@@ -102,14 +100,16 @@ class CompManager final : public QObject {
   // Why Add can't act; empty when it can.
   QString WhyNoAdd(ShotId shot) const;
   // Adds a kind's effect on top of the stack with its own defaults,
-  // working on everything below; it is picked.
-  Result<CompEffectId> Add(ShotId shot, CompKind kind);
+  // working on target (the screen when empty); it is picked.
+  Result<CompEffectId> Add(ShotId shot, CompKind kind,
+                           const CompTarget& target = {});
   // Why the plugin with id can't be an effect (not in this Snapper, too
   // many values); empty when it can. Shot fullness is WhyNoAdd's.
   static QString WhyNoPlugin(const QString& id);
   // Adds an F's Plugins effect (kFsp) with the plugin's own defaults,
   // like Add.
-  Result<CompEffectId> AddPlugin(ShotId shot, const QString& id);
+  Result<CompEffectId> AddPlugin(ShotId shot, const QString& id,
+                                 const CompTarget& target = {});
   // A gradient over the whole shot in one click: screen space, Overlay,
   // warm at the top to cool at the bottom.
   Result<CompEffectId> AddSceneGradient(ShotId shot);
@@ -167,16 +167,20 @@ class CompManager final : public QObject {
                             QColor color);
   Result<void> RemoveSwap(ShotId shot, CompEffectId id, int swap);
 
-  static TargetTile TileOf(const CompEffect& effect);
-  // The target chip's words ("Mika: arm_l, 2 colors").
-  QString TargetText(ShotId shot, const CompEffect& effect) const;
-  QString WhyNoTargetLayer(ShotId shot, LayerId layer) const;
-  QString WhyNoTargetPieces(ShotId shot, LayerId layer,
-                            const std::set<QString>& pieces) const;
-  Result<void> TargetEverything(ShotId shot, CompEffectId id);
-  Result<void> TargetLayer(ShotId shot, CompEffectId id, LayerId layer);
-  Result<void> TargetPieces(ShotId shot, CompEffectId id, LayerId layer,
-                            const std::set<QString>& pieces);
+  // A target's words ("Screen", "Mika: arm_l, 2 colors").
+  QString TargetText(ShotId shot, const CompTarget& target) const;
+  // The target a new effect gets from what is picked on the Comp stage
+  // (edit/comp_pick.cpp): no layer is the screen, a layer the whole
+  // layer, pieces those pieces of it. Fails on a layer that draws
+  // nothing.
+  Result<CompTarget> TargetFor(ShotId shot, LayerId layer,
+                               const std::set<QString>& pieces) const;
+  // The effects the Comp tab lists for that pick, in the order they
+  // run (the bottom of the stack first, as After Effects lists them):
+  // with no layer the screen's; with a layer every effect on it, or
+  // with pieces the layer-wide ones and those on any of the pieces.
+  std::vector<CompEffect> ShownFor(ShotId shot, LayerId layer,
+                                   const std::set<QString>& pieces) const;
   // A palette or stage pick: alone, Shift adds it, Ctrl flips it.
   Result<void> PickTargetColor(ShotId shot, CompEffectId id, QColor color,
                                Qt::KeyboardModifiers modifiers);
