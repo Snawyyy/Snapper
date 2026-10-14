@@ -286,6 +286,11 @@ void CompStage::PickUnder(QPointF point, bool is_adding) {
                            point - FrameRect().topLeft(), Scale(),
                            renderer_.cache());
   if (!hit) {
+    // A click on nothing picks the screen; Shift keeps the pick.
+    const bool is_clearing = !is_adding;
+    if (is_clearing) {
+      managers_.selection->Clear();
+    }
     return;
   }
   const bool is_new_layer = hit->layer != managers_.selection->layer();
@@ -311,6 +316,7 @@ void CompStage::paintEvent(QPaintEvent* event) {
     painter.fillRect(frame, Qt::black);
   }
   painter.setRenderHint(QPainter::Antialiasing);
+  PaintPicks(&painter);
   const auto arrow = HandleAt(Handle::kArrow);
   if (arrow) {
     painter.setPen(QPen(theme::kHandle, 2.0));

@@ -51,7 +51,7 @@ void CompPanel::BuildKnobs(const CompEffect& effect, QVBoxLayout* into) {
   eased_->setToolTip(tr("Off: keys hold until the next one. On: values "
                         "glide between keys."));
   connect(eased_, &QCheckBox::clicked, this, [this](bool is_eased) {
-    const CompEffect* picked = Picked();
+    const CompEffect* picked = Effect();
     const bool is_picked = picked != nullptr;
     if (is_picked) {
       Report(ProblemOf(managers_.comp->SetEased(Shot(), picked->id, is_eased)));
@@ -92,7 +92,7 @@ void CompPanel::AddNumberRow(const CompRow& row, const CompEffect& effect,
                        "With two keys or more, changes key it."));
     line->addWidget(key);
     connect(key, &QPushButton::clicked, this, [this, knob] {
-      const CompEffect* picked = Picked();
+      const CompEffect* picked = Effect();
       const bool is_picked = picked != nullptr;
       if (is_picked) {
         Report(ProblemOf(
@@ -103,7 +103,7 @@ void CompPanel::AddNumberRow(const CompRow& row, const CompEffect& effect,
   const QString label = QStringLiteral("%1 %2").arg(
       CompManager::EffectName(effect), row.label.toLower());
   MakeLive(box, &live_, label, this, [this, knob, box] {
-    const CompEffect* picked = Picked();
+    const CompEffect* picked = Effect();
     const bool is_picked = picked != nullptr;
     if (is_picked) {
       Report(ProblemOf(managers_.comp->SetKnob(Shot(), picked->id, knob,
@@ -121,7 +121,7 @@ void CompPanel::AddToggleRow(const CompRow& row, QFormLayout* form) {
   toggle->setToolTip(tr("Holds for the whole shot."));
   const CompKnob knob = row.knob;
   connect(toggle, &QCheckBox::clicked, this, [this, knob](bool is_on) {
-    const CompEffect* picked = Picked();
+    const CompEffect* picked = Effect();
     const bool is_picked = picked != nullptr;
     if (is_picked) {
       Report(ProblemOf(managers_.comp->SetKnob(Shot(), picked->id, knob,
@@ -140,7 +140,7 @@ void CompPanel::AddChoiceRow(const CompRow& row, QFormLayout* form) {
   choice->setToolTip(tr("Holds for the whole shot."));
   const CompKnob knob = row.knob;
   connect(choice, &QComboBox::activated, this, [this, knob](int index) {
-    const CompEffect* picked = Picked();
+    const CompEffect* picked = Effect();
     const bool is_choice = picked != nullptr && index >= 0;
     if (is_choice) {
       Report(ProblemOf(managers_.comp->SetKnob(Shot(), picked->id, knob,
@@ -171,7 +171,6 @@ void CompPanel::AddColorRow(const CompRow& row, const CompEffect& effect,
 
 void CompPanel::ShowValues(const CompEffect& effect) {
   const Frame local = Local();
-  const ShotId shot = Shot();
   assert(knob_rows_.size() <= static_cast<size_t>(kCompKnobCount));
   assert(local.index() >= 0);
   for (const KnobRow& row : knob_rows_) {
@@ -180,14 +179,6 @@ void CompPanel::ShowValues(const CompEffect& effect) {
   const bool has_eased = eased_ != nullptr;
   if (has_eased) {
     eased_->setChecked(CompManager::IsEased(effect));
-  }
-  const bool can_show_light = light_box_ != nullptr && !light_box_->hasFocus();
-  if (can_show_light) {
-    ShowNumber(light_box_, managers_.comp->ShotLight(shot, local));
-  }
-  const bool has_light_key = light_key_ != nullptr;
-  if (has_light_key) {
-    light_key_->setChecked(managers_.comp->HasShotLightKeyAt(shot, local));
   }
 }
 

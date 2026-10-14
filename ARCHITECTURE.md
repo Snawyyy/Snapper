@@ -542,7 +542,11 @@ tab's finishing effects, and a Light (`Shot::light`, a keyed angle).
 layer (`render/comp.cpp`; what a target needs and its point space in
 `render/comp_targets.cpp`), so every picture of the shot has it. Each
 effect works on a target: everything below, one layer, some pieces of
-a doll, narrowed by picked colors. When an effect needs a target's own
+a doll, narrowed by picked colors. The tab sets the target from the
+stage pick when an effect is added (`CompLibrary` on the left), and
+lists the pick's effects as folds (`CompEffects` on the right);
+`CompManager::TargetFor` and `ShownFor` (`edit/comp_pick.cpp`) say
+what a pick means. When an effect needs a target's own
 pixels, `NeedsOf` says so and the layer pass paints each layer through
 its own picture (`PaintForComp`), keeping the target as it shows in
 the frame (cut where later layers cover it) and, for shape effects on

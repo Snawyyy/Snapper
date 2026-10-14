@@ -6,11 +6,11 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
-#include "ui/grip_splitter.h"
-#include "ui/comp_panel.h"
-#include "ui/comp_stack.h"
+#include "ui/comp_effects.h"
+#include "ui/comp_library.h"
 #include "ui/comp_stage.h"
 #include "ui/comp_timeline.h"
+#include "ui/grip_splitter.h"
 #include "ui/managers.h"
 #include "ui/transport_bar.h"
 
@@ -19,10 +19,10 @@ class QShowEvent;
 
 namespace snapper {
 
-// The Comp tab: the effect stack on the left, the stage in the middle
-// with the play controls and the Comp timeline under it, the picked
-// effect's controls on the right. Its keys work while it shows: A adds,
-// V held turns every effect off, K held shows what the picked one
+// The Comp tab: every effect on the left, the stage in the middle with
+// the play controls and the Comp timeline under it, the effects on
+// what is picked on the stage on the right. Its keys work while it
+// shows: A searches the effects, V held turns every effect off, K held shows what the picked one
 // touches, I picks the color under the cursor as a target color,
 // Delete removes, Ctrl+D duplicates, Shift+= and Shift+- step the
 // blend mode.
@@ -62,13 +62,12 @@ class CompPage final : public QWidget {
   GripSplitter center_;
   QWidget bottom_;
   QVBoxLayout bottom_layout_;
-  QScrollArea stack_scroll_;
-  QScrollArea panel_scroll_;
-  CompStack stack_;
+  QScrollArea effects_scroll_;
+  CompLibrary library_;
   CompStage stage_;
   TransportBar transport_;
   CompTimeline timeline_;
-  CompPanel panel_;
+  CompEffects effects_;
 };
 
 }  // namespace snapper

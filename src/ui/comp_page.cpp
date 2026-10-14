@@ -49,20 +49,16 @@ CompPage::CompPage(const Managers& managers)
       split_(Qt::Horizontal),
       center_(Qt::Vertical),
       bottom_layout_(&bottom_),
-      stack_(managers),
+      library_(managers),
       stage_(managers),
       transport_(managers),
       timeline_(managers),
-      panel_(managers) {
+      effects_(managers) {
   assert(managers_.IsComplete());
   assert(managers_.comp != nullptr);
   layout_.setContentsMargins(0, 0, 0, 0);
-  stack_scroll_.setWidgetResizable(true);
-  stack_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  stack_scroll_.setFrameShape(QFrame::NoFrame);
-  stack_scroll_.setWidget(&stack_);
-  stack_scroll_.setMinimumWidth(200);
-  split_.addWidget(&stack_scroll_);
+  library_.setMinimumWidth(200);
+  split_.addWidget(&library_);
   center_.addWidget(&stage_);
   bottom_layout_.setContentsMargins(0, 0, 0, 0);
   bottom_layout_.setSpacing(0);
@@ -73,20 +69,20 @@ CompPage::CompPage(const Managers& managers)
   center_.Remember(QStringLiteral("comp_center"),
                    managers_.document->SettingsPath());
   split_.addWidget(&center_);
-  panel_scroll_.setWidgetResizable(true);
-  panel_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  panel_scroll_.setFrameShape(QFrame::NoFrame);
-  panel_scroll_.setWidget(&panel_);
-  panel_scroll_.setMinimumWidth(280);
-  split_.addWidget(&panel_scroll_);
+  effects_scroll_.setWidgetResizable(true);
+  effects_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  effects_scroll_.setFrameShape(QFrame::NoFrame);
+  effects_scroll_.setWidget(&effects_);
+  effects_scroll_.setMinimumWidth(280);
+  split_.addWidget(&effects_scroll_);
   split_.SetDefaultShares({0, 3, 1});
   split_.Remember(QStringLiteral("comp_main"),
                   managers_.document->SettingsPath());
   layout_.addWidget(&split_);
   const auto report = [this](const QString& why) { Report(why); };
-  connect(&stack_, &CompStack::Problem, this, report);
+  connect(&library_, &CompLibrary::Problem, this, report);
   connect(&stage_, &CompStage::Problem, this, report);
-  connect(&panel_, &CompPanel::Problem, this, report);
+  connect(&effects_, &CompEffects::Problem, this, report);
   const auto follow = [this] { FollowPlayhead(); };
   connect(managers_.playback, &PlaybackManager::FrameChanged, this, follow);
   connect(managers_.history, &HistoryManager::Changed, this, follow);
@@ -136,7 +132,7 @@ void CompPage::PressKey(const QKeyEvent& key) {
   const bool has_pick = picked.IsValid();
   switch (key.key()) {
     case Qt::Key_A:
-      stack_.OpenAdd();
+      library_.FocusSearch();
       return;
     case Qt::Key_V:
       comp->SetEffectsOff(true);

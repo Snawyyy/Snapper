@@ -3,6 +3,7 @@
 #include <QGridLayout>
 #include <QSignalBlocker>
 
+#include <array>
 #include <cassert>
 
 #include "anim/reel_timeline.h"
@@ -11,7 +12,6 @@
 #include "edit/palette_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
-#include "ui/angle_dial.h"
 #include "ui/form_helpers.h"
 #include "ui/problem.h"
 
@@ -30,17 +30,17 @@ QString ColorKey(const QColor& color) {
 
 }  // namespace
 
-CompPanel::CompPanel(const Managers& managers)
-    : managers_(managers),
+CompPanel::CompPanel(const Managers& managers, CompEffectId effect,
+                     QWidget* parent)
+    : QWidget(parent),
+      managers_(managers),
       live_(managers.history),
       layout_(this),
-      applies_title_(tr("Applies to")),
-      tiles_{QPushButton(tr("Everything")), QPushButton(tr("A layer")),
-             QPushButton(tr("Pieces"))},
+      effect_(effect),
       pick_colors_(tr("Pick colors")),
       clear_colors_(tr("Clear colors")) {
   assert(managers_.IsComplete());
-  assert(managers_.comp != nullptr);
+  assert(effect_.IsValid());
   BuildFixed();
   const auto refresh = [this] { Refresh(); };
   connect(managers_.history, &HistoryManager::Changed, this, refresh);
@@ -56,15 +56,8 @@ CompPanel::CompPanel(const Managers& managers)
 
 void CompPanel::BuildFixed() {
   assert(layout_.count() == 0);
-  layout_.setContentsMargins(8, 8, 8, 8);
+  layout_.setContentsMargins(0, 0, 0, 0);
   layout_.setSpacing(6);
-  QFont bold = title_.font();
-  bold.setBold(true);
-  bold.setPointSize(bold.pointSize() + 2);
-  title_.setFont(bold);
-  layout_.addWidget(&title_);
-  help_.setWordWrap(true);
-  layout_.addWidget(&help_);
   note_.setWordWrap(true);
   note_.setStyleSheet(QStringLiteral("QLabel { color: #f2c230; }"));
   note_.hide();
@@ -83,44 +76,13 @@ void CompPanel::BuildFixed() {
                        "Shift+= and Shift+- step through the modes."));
   layout_.addWidget(&blend_);
   connect(&blend_, &QComboBox::activated, this, [this](int index) {
-    const CompEffect* effect = Picked();
+    const CompEffect* effect = Effect();
     if (effect == nullptr) {
       return;
     }
     const auto mode = static_cast<BlendMode>(blend_.itemData(index).toInt());
     Report(ProblemOf(managers_.comp->SetBlend(Shot(), effect->id, mode)));
   });
-  layout_.addWidget(&applies_title_);
-  tiles_row_.setSpacing(2);
-  for (QPushButton& tile : tiles_) {
-    tile.setCheckable(true);
-    tile.setFocusPolicy(Qt::NoFocus);
-    tiles_row_.addWidget(&tile);
-  }
-  layout_.addLayout(&tiles_row_);
-  connect(&tiles_[0], &QPushButton::clicked, this, [this] {
-    const CompEffect* effect = Picked();
-    if (effect != nullptr) {
-      Report(ProblemOf(managers_.comp->TargetEverything(Shot(), effect->id)));
-    }
-  });
-  connect(&tiles_[1], &QPushButton::clicked, this, [this] {
-    const CompEffect* effect = Picked();
-    if (effect != nullptr) {
-      Report(ProblemOf(managers_.comp->TargetLayer(
-          Shot(), effect->id, managers_.selection->layer())));
-    }
-  });
-  connect(&tiles_[2], &QPushButton::clicked, this, [this] {
-    const CompEffect* effect = Picked();
-    if (effect != nullptr) {
-      Report(ProblemOf(managers_.comp->TargetPieces(
-          Shot(), effect->id, managers_.selection->layer(),
-          managers_.selection->pieces())));
-    }
-  });
-  target_text_.setWordWrap(true);
-  layout_.addWidget(&target_text_);
   pick_colors_.setCheckable(true);
   pick_colors_.setFocusPolicy(Qt::NoFocus);
   pick_colors_.setToolTip(
@@ -134,14 +96,13 @@ void CompPanel::BuildFixed() {
   connect(&pick_colors_, &QPushButton::clicked, this,
           [this] { AimAt(Aim::kTarget, 0); });
   connect(&clear_colors_, &QPushButton::clicked, this, [this] {
-    const CompEffect* effect = Picked();
+    const CompEffect* effect = Effect();
     if (effect != nullptr) {
       Report(ProblemOf(managers_.comp->ClearTargetColors(Shot(), effect->id)));
     }
   });
   dynamic_ = new QWidget(this);
   layout_.addWidget(dynamic_);
-  layout_.addStretch();
 }
 
 ShotId CompPanel::Shot() const { return managers_.selection->shot(); }
@@ -152,8 +113,8 @@ Frame CompPanel::Local() const {
   return at.IsValid() ? at.local : Frame(0);
 }
 
-const CompEffect* CompPanel::Picked() const {
-  return managers_.comp->Find(Shot(), managers_.comp->PickedIn(Shot()));
+const CompEffect* CompPanel::Effect() const {
+  return managers_.comp->Find(Shot(), effect_);
 }
 
 QString CompPanel::Signature(const CompEffect* effect) const {
@@ -193,53 +154,22 @@ QString CompPanel::Signature(const CompEffect* effect) const {
 
 void CompPanel::Refresh() {
   assert(managers_.comp != nullptr);
-  const CompEffect* effect = Picked();
+  assert(effect_.IsValid());
+  const CompEffect* effect = Effect();
   const bool has_effect = effect != nullptr;
-  title_.setText(has_effect ? CompManager::EffectName(*effect)
-                            : tr("No effect picked"));
-  help_.setText(has_effect ? CompManager::EffectHelp(*effect)
-                           : tr("Add an effect with + or A, or pick one in "
-                                "the stack."));
-  const QString why_not_run =
-      has_effect ? managers_.comp->WhyNotRun(*effect) : QString();
+  if (!has_effect) {
+    return;
+  }
+  const QString why_not_run = managers_.comp->WhyNotRun(*effect);
   note_.setText(why_not_run);
   note_.setVisible(!why_not_run.isEmpty());
-  const QString why_none = has_effect ? QString() : tr("Pick an effect first.");
-  Explain(&blend_, why_none, blend_.toolTip());
-  if (has_effect) {
+  {
     const QSignalBlocker quiet(&blend_);
-    blend_.setCurrentIndex(
-        blend_.findData(static_cast<int>(effect->blend)));
+    blend_.setCurrentIndex(blend_.findData(static_cast<int>(effect->blend)));
   }
-  const ShotId shot = Shot();
-  const TargetTile tile = has_effect ? CompManager::TileOf(*effect)
-                                     : TargetTile::kEverything;
-  const QString why_layer =
-      managers_.comp->WhyNoTargetLayer(shot, managers_.selection->layer());
-  const QString why_pieces = managers_.comp->WhyNoTargetPieces(
-      shot, managers_.selection->layer(), managers_.selection->pieces());
-  Explain(&tiles_[0], why_none,
-          tr("Everything below: the whole frame, in screen space."));
-  Explain(&tiles_[1], has_effect ? why_layer : why_none,
-          tr("A layer: the picked layer only; the effect follows it. "
-             "Click a doll on the stage to pick it."));
-  Explain(&tiles_[2], has_effect ? why_pieces : why_none,
-          tr("Picked pieces: those pieces of the doll only. Click a piece "
-             "on the stage, Shift adds."));
-  for (size_t i = 0; i < tiles_.size(); ++i) {
-    tiles_[i].setChecked(has_effect && static_cast<int>(tile) ==
-                                           static_cast<int>(i));
-  }
-  applies_title_.setEnabled(has_effect);
-  target_text_.setText(has_effect ? managers_.comp->TargetText(shot, *effect)
-                                  : QString());
-  Explain(&pick_colors_, why_none, pick_colors_.toolTip());
   pick_colors_.setChecked(aim_ == Aim::kTarget);
-  const bool has_colors = has_effect && !effect->target.colors.empty();
-  Explain(&clear_colors_,
-          !has_effect   ? why_none
-          : !has_colors ? tr("No colors are picked.")
-                        : QString(),
+  const bool has_colors = !effect->target.colors.empty();
+  Explain(&clear_colors_, has_colors ? QString() : tr("No colors are picked."),
           tr("Work on every color again."));
   const QString signature = Signature(effect);
   const bool is_new = signature != signature_;
@@ -247,9 +177,7 @@ void CompPanel::Refresh() {
     signature_ = signature;
     Rebuild(effect);
   }
-  if (has_effect) {
-    ShowValues(*effect);
-  }
+  ShowValues(*effect);
 }
 
 QPushButton* CompPanel::Swatch(const QColor& color, const QString& tip,
@@ -277,8 +205,6 @@ QPushButton* CompPanel::Swatch(const QColor& color, const QString& tip,
 void CompPanel::Rebuild(const CompEffect* effect) {
   assert(dynamic_ != nullptr);
   knob_rows_.clear();
-  light_box_ = nullptr;
-  light_key_ = nullptr;
   eased_ = nullptr;
   const int at = layout_.indexOf(dynamic_);
   dynamic_->hide();
@@ -300,7 +226,7 @@ void CompPanel::Rebuild(const CompEffect* effect) {
           Swatch(color, tr("A picked target color. Click to drop it."),
                  dynamic_);
       connect(swatch, &QPushButton::clicked, this, [this, color] {
-        const CompEffect* picked = Picked();
+        const CompEffect* picked = Effect();
         if (picked != nullptr) {
           Report(ProblemOf(managers_.comp->PickTargetColor(
               Shot(), picked->id, color, Qt::ControlModifier)));
@@ -315,7 +241,6 @@ void CompPanel::Rebuild(const CompEffect* effect) {
   BuildGradient(*effect, into);
   BuildSwaps(*effect, into);
   BuildKnobs(*effect, into);
-  BuildLight(into);
   dynamic_->show();
 }
 
@@ -349,7 +274,7 @@ void CompPanel::BuildLook(const CompEffect& effect, QVBoxLayout* into) {
       tile->setChecked(effect.style == static_cast<int>(i));
       const int style = static_cast<int>(i);
       connect(tile, &QPushButton::clicked, this, [this, style] {
-        const CompEffect* picked = Picked();
+        const CompEffect* picked = Effect();
         if (picked != nullptr) {
           Report(ProblemOf(
               managers_.comp->SetStyle(Shot(), picked->id, style)));
@@ -366,7 +291,7 @@ void CompPanel::BuildLook(const CompEffect& effect, QVBoxLayout* into) {
     shared->setToolTip(tr("Follow the shot's Light, set once below, so "
                           "every doll is lit from the same side."));
     connect(shared, &QCheckBox::clicked, this, [this](bool is_used) {
-      const CompEffect* picked = Picked();
+      const CompEffect* picked = Effect();
       if (picked != nullptr) {
         Report(ProblemOf(
             managers_.comp->SetUsesShotLight(Shot(), picked->id, is_used)));
@@ -391,7 +316,7 @@ void CompPanel::BuildGradient(const CompEffect& effect, QVBoxLayout* into) {
     tile->setFocusPolicy(Qt::NoFocus);
     tile->setChecked(effect.shape == shape);
     connect(tile, &QPushButton::clicked, this, [this, shape] {
-      const CompEffect* picked = Picked();
+      const CompEffect* picked = Effect();
       if (picked != nullptr) {
         Report(ProblemOf(managers_.comp->SetShape(Shot(), picked->id, shape)));
       }
@@ -425,7 +350,7 @@ void CompPanel::BuildGradient(const CompEffect& effect, QVBoxLayout* into) {
             [this, stop] { AimAt(Aim::kStop, stop); });
     connect(swatch, &QWidget::customContextMenuRequested, this,
             [this, stop] {
-              const CompEffect* picked = Picked();
+              const CompEffect* picked = Effect();
               if (picked != nullptr) {
                 Report(ProblemOf(
                     managers_.comp->RemoveStop(Shot(), picked->id, stop)));
@@ -439,7 +364,7 @@ void CompPanel::BuildGradient(const CompEffect& effect, QVBoxLayout* into) {
   Explain(add, managers_.comp->WhyNoAddStop(effect),
           tr("Add a color stop to the ramp."));
   connect(add, &QPushButton::clicked, this, [this] {
-    const CompEffect* picked = Picked();
+    const CompEffect* picked = Effect();
     if (picked != nullptr) {
       Report(ProblemOf(managers_.comp->AddStop(Shot(), picked->id)));
     }
@@ -480,7 +405,7 @@ void CompPanel::BuildSwaps(const CompEffect& effect, QVBoxLayout* into) {
     remove->setFocusPolicy(Qt::NoFocus);
     remove->setToolTip(tr("Remove this pair."));
     connect(remove, &QPushButton::clicked, this, [this, swap] {
-      const CompEffect* picked = Picked();
+      const CompEffect* picked = Effect();
       if (picked != nullptr) {
         Report(ProblemOf(managers_.comp->RemoveSwap(Shot(), picked->id, swap)));
       }
@@ -497,7 +422,7 @@ void CompPanel::BuildSwaps(const CompEffect& effect, QVBoxLayout* into) {
   Explain(add, managers_.comp->WhyNoAddSwap(effect),
           tr("Add a pair, starting from the palette's current color."));
   connect(add, &QPushButton::clicked, this, [this] {
-    const CompEffect* picked = Picked();
+    const CompEffect* picked = Effect();
     const QColor from = managers_.palette != nullptr
                             ? managers_.palette->current()
                             : QColor(Qt::black);
@@ -508,42 +433,6 @@ void CompPanel::BuildSwaps(const CompEffect& effect, QVBoxLayout* into) {
   into->addWidget(add);
 }
 
-void CompPanel::BuildLight(QVBoxLayout* into) {
-  assert(into != nullptr);
-  auto* title = new QLabel(tr("Shot light"), dynamic_);
-  QFont bold = title->font();
-  bold.setBold(true);
-  title->setFont(bold);
-  into->addWidget(title);
-  auto* row = new QHBoxLayout();
-  light_box_ = new QDoubleSpinBox(dynamic_);
-  light_box_->setRange(0.0, 360.0);
-  light_box_->setDecimals(0);
-  light_box_->setWrapping(true);
-  light_box_->setSuffix(tr(" deg"));
-  light_box_->setToolTip(tr("Where the light comes from (0 up, clockwise), "
-                            "for every rim light and gradient that follows "
-                            "the shot light."));
-  row->addWidget(new AngleDial(light_box_, &live_, dynamic_, 36));
-  row->addWidget(light_box_);
-  light_key_ = new QPushButton(tr("Key"), dynamic_);
-  light_key_->setCheckable(true);
-  light_key_->setFocusPolicy(Qt::NoFocus);
-  light_key_->setToolTip(tr("Key the shot light at the playhead, so a light "
-                            "can swing across the shot."));
-  row->addWidget(light_key_);
-  row->addStretch();
-  into->addLayout(row);
-  QDoubleSpinBox* box = light_box_;
-  MakeLive(light_box_, &live_, tr("Shot light"), this, [this, box] {
-    Report(ProblemOf(
-        managers_.comp->SetShotLight(Shot(), Local(), box->value())));
-  });
-  connect(light_key_, &QPushButton::clicked, this, [this] {
-    Report(ProblemOf(managers_.comp->ToggleShotLightKey(Shot(), Local())));
-  });
-}
-
 void CompPanel::AimAt(Aim aim, int index) {
   assert(index >= 0);
   // A second click on the aimed control stops aiming.
@@ -551,7 +440,12 @@ void CompPanel::AimAt(Aim aim, int index) {
   aim_ = is_same ? Aim::kNone : aim;
   aim_index_ = index;
   const bool is_aimed = aim_ != Aim::kNone;
-  if (is_aimed && managers_.palette != nullptr) {
+  if (is_aimed) {
+    // Only the picked effect's panel takes palette colors.
+    managers_.comp->Pick(Shot(), effect_);
+  }
+  const bool can_show_palette = is_aimed && managers_.palette != nullptr;
+  if (can_show_palette) {
     managers_.palette->SetShown(true);
   }
   signature_.clear();
@@ -560,8 +454,10 @@ void CompPanel::AimAt(Aim aim, int index) {
 
 void CompPanel::TakeColor(const QColor& color,
                           Qt::KeyboardModifiers modifiers) {
-  const bool is_aimed = aim_ != Aim::kNone && isVisible() && color.isValid();
-  const CompEffect* effect = Picked();
+  const bool is_aimed = aim_ != Aim::kNone && isVisible() &&
+                        color.isValid() &&
+                        managers_.comp->PickedIn(Shot()) == effect_;
+  const CompEffect* effect = Effect();
   if (!is_aimed || effect == nullptr) {
     return;
   }

@@ -12,7 +12,6 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
-#include <array>
 #include <vector>
 
 #include "base/frame.h"
@@ -23,18 +22,18 @@
 
 namespace snapper {
 
-// The Comp tab's right side: the picked effect's controls. Blend (a
-// sunken dropdown in groups), Applies to tiles and the picked target
-// colors, the effect's color, its look tiles, gradient shapes and
-// stops, color pairs, and a fader or dial per keyed knob with a Key
-// button; then the shot's Light. Colors come from the floating
-// palette: click a color button, then a swatch. Every control calls
-// CompManager; a drag is one undo step and Escape cancels it.
+// The open body of one effect's fold in the Comp tab's effect list:
+// blend (a sunken dropdown in groups), the target colors, the effect's
+// color, its look tiles, gradient shapes and stops, color pairs, and a
+// fader or dial per keyed knob with a Key button. Colors come from the
+// floating palette: click a color button (which picks the effect), then
+// a swatch. Every control calls CompManager; a drag is one undo step
+// and Escape cancels it.
 class CompPanel final : public QWidget {
   Q_OBJECT
 
  public:
-  explicit CompPanel(const Managers& managers);
+  CompPanel(const Managers& managers, CompEffectId effect, QWidget* parent);
 
  signals:
   void Problem(const QString& why);
@@ -81,7 +80,6 @@ class CompPanel final : public QWidget {
   void AddChoiceRow(const CompRow& row, QFormLayout* form);
   void AddColorRow(const CompRow& row, const CompEffect& effect,
                    QFormLayout* form);
-  void BuildLight(QVBoxLayout* into);
   // Shows the knobs' values and keys at the playhead.
   void ShowValues(const CompEffect& effect);
   void ShowRow(const KnobRow& row, const CompEffect& effect, Frame local);
@@ -91,31 +89,24 @@ class CompPanel final : public QWidget {
                       QWidget* parent);
   // What the controls are built for; a change rebuilds them.
   QString Signature(const CompEffect* effect) const;
-  const CompEffect* Picked() const;
+  const CompEffect* Effect() const;
   ShotId Shot() const;
   Frame Local() const;
 
   Managers managers_;
   LiveEdit live_;
   QVBoxLayout layout_;
-  QLabel title_;
-  QLabel help_;
+  CompEffectId effect_;
   // Why the effect draws nothing (a missing plugin, or one that refused
   // to run); hidden while it runs.
   QLabel note_;
   QComboBox blend_;
-  QLabel applies_title_;
-  QHBoxLayout tiles_row_;
-  std::array<QPushButton, 3> tiles_;
-  QLabel target_text_;
   QHBoxLayout colors_row_;
   QPushButton pick_colors_;
   QPushButton clear_colors_;
   QWidget* dynamic_ = nullptr;
   QString signature_;
   std::vector<KnobRow> knob_rows_;
-  QDoubleSpinBox* light_box_ = nullptr;
-  QPushButton* light_key_ = nullptr;
   QCheckBox* eased_ = nullptr;
   Aim aim_ = Aim::kNone;
   int aim_index_ = 0;

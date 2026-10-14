@@ -21,6 +21,8 @@
 #include "ui/managers.h"
 #include "ui/view_camera.h"
 
+class QPainter;
+
 namespace snapper {
 
 // The Comp tab's stage: the reel's picture at the reel playhead (the
@@ -30,7 +32,8 @@ namespace snapper {
 // scrubbing back is instant. While an effect is picked its yellow
 // handles show: points A and B, and an arrow for a light or a direction;
 // dragging one is one undo step, Escape cancels it. A click elsewhere
-// picks the layer (and piece) under it, for the Applies to tiles.
+// picks the layer (and piece) under it, outlined in red, and the effect
+// list shows its effects; a click on nothing picks the screen.
 class CompStage final : public QWidget {
   Q_OBJECT
 
@@ -79,7 +82,11 @@ class CompStage final : public QWidget {
   QPointF ArrowCenter() const;
   Handle HandleUnder(QPointF point);
   void DragTo(QPointF point, bool is_snapped);
+  // A click picks the layer (and piece) under it, so a new effect goes
+  // on it; a click on nothing picks the screen.
   void PickUnder(QPointF point, bool is_adding);
+  // The Teto red outline of every pick (ui/comp_stage_picks.cpp).
+  void PaintPicks(QPainter* painter);
   // The picked effect of the shot being worked in, or nullptr.
   const CompEffect* Picked() const;
   Frame Local() const;
