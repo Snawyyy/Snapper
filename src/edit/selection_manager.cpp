@@ -195,10 +195,13 @@ std::set<Frame> SelectionManager::EditFrames(Frame at) const {
   assert(at.index() >= 0);
   std::set<Frame> frames;
   for (const KeyRef& key : keys_) {
-    frames.insert(key.frame);
+    const bool is_here = key.track.shot == shot_;
+    if (is_here) {
+      frames.insert(key.frame);
+    }
   }
-  const bool is_on_pick = frames.contains(at);
-  return is_on_pick ? frames : std::set<Frame>{at};
+  const bool has_picked = !frames.empty();
+  return has_picked ? frames : std::set<Frame>{at};
 }
 
 void SelectionManager::ClearKeys() {

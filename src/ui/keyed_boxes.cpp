@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cassert>
+#include <set>
 #include <type_traits>
 #include <vector>
 
@@ -203,22 +204,40 @@ void PoseBox::Commit() {
   if (!track) {
     return;
   }
-  // The fields show the focused pick; a change there is added to every
-  // pick, so each keeps its own value plus the same difference.
+  // With keys picked, every picked frame changes. A number typed in a
+  // field sets every pick and frame to it; a dial, pad or fader drag
+  // adds the same difference to each, so each keeps its own value.
+  const std::set<Frame> picked =
+      managers_.selection->EditFrames(spot->local);
+  const std::vector<Frame> frames(picked.begin(), picked.end());
   const PiecePose shown =
       PoseAt(managers_.history->current(), *track, spot->local);
+  const std::array<double, kCount> was = {
+      shown.rotation, shown.offset.x(), shown.offset.y(),
+      shown.scale_x,  shown.scale_y,    shown.skew,
+      shown.opacity,  shown.lean,       shown.swivel};
+  std::array<double, kCount> change{};
+  for (size_t i = 0; i < change.size(); ++i) {
+    change[i] = fields_[i].value() - was[i];
+    const bool is_typed = fields_[i].hasFocus() && change[i] != 0.0;
+    if (is_typed) {
+      emit Problem(ProblemOf(managers_.pose->SetField(
+          managers_.selection->PickedTracks(), frames,
+          static_cast<PoseField>(i), fields_[i].value())));
+      return;
+    }
+  }
   PoseDelta delta;
-  delta.rotation = fields_[kTurn].value() - shown.rotation;
-  delta.offset = QPointF(fields_[kX].value(), fields_[kY].value()) -
-                 shown.offset;
-  delta.scale_x = fields_[kScaleX].value() - shown.scale_x;
-  delta.scale_y = fields_[kScaleY].value() - shown.scale_y;
-  delta.skew = fields_[kSkew].value() - shown.skew;
-  delta.opacity = fields_[kOpacity].value() - shown.opacity;
-  delta.lean = fields_[kLean].value() - shown.lean;
-  delta.swivel = fields_[kSwivel].value() - shown.swivel;
+  delta.rotation = change[kTurn];
+  delta.offset = QPointF(change[kX], change[kY]);
+  delta.scale_x = change[kScaleX];
+  delta.scale_y = change[kScaleY];
+  delta.skew = change[kSkew];
+  delta.opacity = change[kOpacity];
+  delta.lean = change[kLean];
+  delta.swivel = change[kSwivel];
   emit Problem(ProblemOf(managers_.pose->Shift(
-      managers_.selection->PickedTracks(), spot->local, delta)));
+      managers_.selection->PickedTracks(), frames, delta)));
   assert(managers_.history != nullptr);
 }
 

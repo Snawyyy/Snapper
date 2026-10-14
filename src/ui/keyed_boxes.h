@@ -36,6 +36,7 @@ class PoseBox final : public QGroupBox {
     kTurn, kX, kY, kScaleX, kScaleY, kSkew, kOpacity, kLean, kSwivel,
     kCount
   };
+  // The fields run in PoseField's order.
 
   void Commit();
   void SwapDrawing(int index);

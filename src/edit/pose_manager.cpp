@@ -46,57 +46,6 @@ Result<void> PoseManager::SetPose(const TrackRef& track, Frame frame,
                           }));
 }
 
-Result<void> PoseManager::Shift(const std::vector<TrackRef>& tracks,
-                                Frame frame, const PoseDelta& delta) {
-  assert(history_ != nullptr);
-  assert(frame.index() >= 0);
-  return Shift(tracks, std::vector<Frame>{frame}, delta);
-}
-
-Result<void> PoseManager::Shift(const std::vector<TrackRef>& tracks,
-                                const std::vector<Frame>& frames,
-                                const PoseDelta& delta) {
-  assert(history_ != nullptr);
-  assert(frames.size() < 1000000);
-  const bool is_finite =
-      std::isfinite(delta.rotation) && std::isfinite(delta.offset.x()) &&
-      std::isfinite(delta.offset.y()) && std::isfinite(delta.scale_x) &&
-      std::isfinite(delta.scale_y) && std::isfinite(delta.skew) &&
-      std::isfinite(delta.opacity) && std::isfinite(delta.lean) &&
-      std::isfinite(delta.swivel);
-  const bool is_usable = is_finite && !tracks.empty() && !frames.empty();
-  if (!is_usable) {
-    return std::unexpected(Error{Tr("Pick something to change first.")});
-  }
-  Project next = history_->current();
-  for (const TrackRef& track : tracks) {
-    const bool is_layer = track.kind == TrackKind::kLayer;
-    for (const Frame frame : frames) {
-      auto shifted = KeyedAt(next, track, frame, PiecePose(),
-                             [&delta, is_layer](PiecePose* pose) {
-                               pose->rotation += delta.rotation;
-                               pose->offset += delta.offset;
-                               pose->scale_x = std::max(
-                                   0.0, pose->scale_x + delta.scale_x);
-                               pose->scale_y = std::max(
-                                   0.0, pose->scale_y + delta.scale_y);
-                               pose->skew = std::clamp(
-                                   pose->skew + delta.skew, -85.0, 85.0);
-                               pose->opacity = std::clamp(
-                                   pose->opacity + delta.opacity, 0.0, 1.0);
-                               pose->lean += is_layer ? delta.lean : 0.0;
-                               pose->swivel += is_layer ? delta.swivel : 0.0;
-                               return Result<void>();
-                             });
-      if (!shifted) {
-        return std::unexpected(shifted.error());
-      }
-      next = std::move(*shifted);
-    }
-  }
-  return history_->Apply(Tr("Pose"), std::move(next));
-}
-
 Result<void> PoseManager::Rotate(const TrackRef& track, Frame frame,
                                  double degrees) {
   assert(history_ != nullptr);

@@ -111,8 +111,9 @@ class SelectionManager final : public QObject {
   void SelectKeys(const std::set<KeyRef>& keys, bool add);
   void PickKeys(const std::set<KeyRef>& keys, PickMode mode);
   void ClearKeys();
-  // The frames an edit at frame at goes to: every picked key's frame
-  // when at is one of them, else at alone.
+  // The frames an edit at frame at goes to, one rule for the stage and
+  // every panel: each picked key's frame, or at alone with no key
+  // picked.
   std::set<Frame> EditFrames(Frame at) const;
   void PickClips(const std::set<ClipId>& clips, PickMode mode);
   // Picks a warp dot of a picked piece, replacing the dots picked (or

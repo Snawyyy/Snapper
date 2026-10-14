@@ -19,6 +19,11 @@ class HistoryManager;
 
 // A change added to each picked thing's own pose, so things keep their
 // differences: x 10 and x 0 moved by 5 become 15 and 5.
+// One number of a pose, as the Pose box shows it.
+enum class PoseField {
+  kTurn, kX, kY, kScaleX, kScaleY, kSkew, kOpacity, kLean, kSwivel,
+};
+
 struct PoseDelta final {
   double rotation = 0.0;
   QPointF offset;
@@ -68,6 +73,11 @@ class PoseManager final {
   Result<void> Shift(const std::vector<TrackRef>& tracks,
                      const std::vector<Frame>& frames,
                      const PoseDelta& delta);
+  // Sets field to value on every track at every one of frames, as one
+  // step: a number typed with many frames picked lands on all of them.
+  Result<void> SetField(const std::vector<TrackRef>& tracks,
+                        const std::vector<Frame>& frames, PoseField field,
+                        double value);
   Result<void> SetCamera(ShotId shot, Frame frame, CameraPose camera);
   // Effect amount tracks, 0 to 1.
   Result<void> SetAmount(const TrackRef& track, Frame frame, double amount);
