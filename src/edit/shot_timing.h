@@ -12,7 +12,9 @@ namespace snapper {
 // Adds delta frames at the shot's start (delta < 0 takes them away):
 // everything moves by delta and the shot gets delta frames longer.
 // Keys that would land before frame 0 fold onto it, the later one kept,
-// so frame 0 shows what the cut frame did. The length stays at least 1.
+// so frame 0 shows what the cut frame did. Layers and Comp effects
+// that start on the first frame keep starting there, so added frames
+// hold the first pose. The length stays at least 1.
 void ShiftShotFront(Shot* shot, int delta);
 // Stretches the shot's timing to length: each frame moves in proportion
 // and lands on a whole frame; two keys on one frame keep the later.

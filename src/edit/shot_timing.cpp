@@ -32,7 +32,8 @@ void RemapChannel(Channel<T>* channel, const FrameMap& map) {
   moved.reserve(channel->keys.size());
   for (Key<T>& key : channel->keys) {
     key.frame = Mapped(map, key.frame);
-    const bool is_same_frame = !moved.empty() && moved.back().frame == key.frame;
+    const bool is_same_frame =
+        !moved.empty() && moved.back().frame == key.frame;
     if (is_same_frame) {
       moved.back() = std::move(key);
     } else {
@@ -46,11 +47,13 @@ void RemapChannel(Channel<T>* channel, const FrameMap& map) {
 template <typename Visit>
 void ReadChannels(const Shot& shot, Visit visit) {
   assert(shot.layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
+  assert(shot.length.index() >= 0);
   visit(shot.camera);
   for (const Layer& layer : shot.layers) {
     visit(layer.transform);
     const auto* doll = std::get_if<DollLayer>(&layer.content);
-    if (doll != nullptr) {
+    const bool is_doll = doll != nullptr;
+    if (is_doll) {
       for (const auto& [name, channel] : doll->pieces) {
         visit(channel);
       }
@@ -60,7 +63,8 @@ void ReadChannels(const Shot& shot, Visit visit) {
       visit(doll->skins);
     }
     const auto* effect = std::get_if<EffectLayer>(&layer.content);
-    if (effect != nullptr) {
+    const bool is_effect = effect != nullptr;
+    if (is_effect) {
       visit(effect->amount);
     }
   }
@@ -71,7 +75,8 @@ void RemapLayer(Layer* layer, const FrameMap& map) {
   assert(map != nullptr);
   RemapChannel(&layer->transform, map);
   auto* doll = std::get_if<DollLayer>(&layer->content);
-  if (doll != nullptr) {
+  const bool is_doll = doll != nullptr;
+  if (is_doll) {
     for (auto& [name, channel] : doll->pieces) {
       RemapChannel(&channel, map);
     }
@@ -82,26 +87,56 @@ void RemapLayer(Layer* layer, const FrameMap& map) {
     doll->play.start = Mapped(map, doll->play.start);
   }
   auto* effect = std::get_if<EffectLayer>(&layer->content);
-  if (effect != nullptr) {
+  const bool is_effect = effect != nullptr;
+  if (is_effect) {
     RemapChannel(&effect->amount, map);
   }
   // A layer shown for part of the shot keeps showing the same stretch;
-  // length 0 (to the end) stays as it is.
+  // length 0 (to the end) stays as it is. One shown from the first
+  // frame still is: frames added at the front hold its first pose
+  // instead of showing nothing.
   const bool has_span = layer->length.index() > 0;
   const Frame end(layer->start.index() + layer->length.index());
-  layer->start = Mapped(map, layer->start);
+  const bool is_from_first = layer->start.index() == 0;
+  layer->start = is_from_first ? Frame(0) : Mapped(map, layer->start);
   if (has_span) {
     layer->length =
         Frame(std::max(1, Mapped(map, end).index() - layer->start.index()));
   }
 }
 
-// Moves every timed thing in shot by map: keys, layer spans, links and
-// holds. Two holds of one object on one frame keep the later.
+// Moves a Comp effect's keys and span by map, like a layer's.
+void RemapEffect(CompEffect* effect, const FrameMap& map) {
+  assert(effect != nullptr);
+  assert(map != nullptr);
+  for (Channel<double>& knob : effect->knobs) {
+    RemapChannel(&knob, map);
+  }
+  const bool is_whole = effect->length == kWholeShot;
+  if (is_whole) {
+    return;
+  }
+  // One running from the first frame (or before it) still does.
+  const bool is_from_first = effect->start <= 0;
+  const int end = effect->start + effect->length;
+  effect->start = is_from_first ? effect->start : map(effect->start);
+  effect->length = std::max(1, map(end) - effect->start);
+}
+
+// Moves every timed thing in shot by map: keys, layer spans, links,
+// holds, references and Comp effects. Two holds of one object on one
+// frame keep the later.
 void RemapShot(Shot* shot, const FrameMap& map) {
   assert(shot != nullptr);
   assert(map != nullptr);
   RemapChannel(&shot->camera, map);
+  RemapChannel(&shot->light, map);
+  for (Reference& reference : shot->references) {
+    reference.start = Mapped(map, reference.start);
+  }
+  for (CompEffect& effect : shot->comp) {
+    RemapEffect(&effect, map);
+  }
   for (Layer& layer : shot->layers) {
     RemapLayer(&layer, map);
   }
