@@ -117,9 +117,9 @@ QWidget* VoiceCloneBox::BuildSampleBody() {
   hint_ = EmptyHint(tr("3 to 15 seconds of clear speech works best."), body);
   column->addWidget(hint_);
   transcribe_.setIcon(style()->standardIcon(QStyle::SP_FileDialogDetailedView));
-  column->addWidget(GoldenRow(
-      MakeOwned<QLabel>(tr("Words in the sample"), body), &transcribe_,
-      body));
+  words_row_ = GoldenRow(MakeOwned<QLabel>(tr("Words in the sample"), body),
+                         &transcribe_, body);
+  column->addWidget(words_row_);
   words_.setPlaceholderText(
       tr("What the sample says. Fresh samples fill this in by themselves."));
   words_.setFixedHeight(theme::Em(this) * 4);
@@ -158,6 +158,13 @@ void VoiceCloneBox::LoadPickedVoice() {
   assert(managers_.voice_gen != nullptr);
   const auto voice = managers_.voices->Find(PickedVoice());
   if (!voice) {
+    // New voice starts empty, so a saved voice's hidden words never show.
+    preview_->Stop();
+    sample_path_.clear();
+    sample_seconds_ = 0.0;
+    words_.clear();
+    Refresh();
+    emit Changed();
     return;
   }
   words_.setPlainText(voice->words);
@@ -363,6 +370,9 @@ void VoiceCloneBox::Refresh() {
   const QString no_voice = tr("Pick a saved voice first.");
   Explain(&rename_, has_voice ? QString() : no_voice);
   Explain(&delete_, has_voice ? QString() : no_voice);
+  // A saved voice's words are fixed with its sample: not shown, not edited.
+  words_row_->setVisible(!has_voice);
+  words_.setVisible(!has_voice);
 }
 
 }  // namespace snapper

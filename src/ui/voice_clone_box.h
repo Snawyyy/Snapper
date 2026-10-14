@@ -21,8 +21,9 @@ class AudioPreview;
 // (the saved voices, with Rename and Delete) over a Sample plate (the
 // sample on a phosphor screen, a LED meter in its place while recording
 // what the PC plays, open a file, listen, the words the sample says,
-// Save voice). Picking a saved voice loads its sample and words; a new
-// sample or recording goes back to "New voice". All of it is asked of
+// Save voice). Picking a saved voice loads its sample and words, the
+// words hidden and fixed; a new sample or recording goes back to "New
+// voice", and picking "New voice" starts empty. All of it is asked of
 // VoiceLibrary and VoiceGenManager; nothing is decided here.
 class VoiceCloneBox final : public QWidget {
   Q_OBJECT
@@ -87,6 +88,7 @@ class VoiceCloneBox final : public QWidget {
   WaveScreen screen_;
   LedMeter meter_;
   QLabel* hint_ = nullptr;
+  QWidget* words_row_ = nullptr;
   QPlainTextEdit words_;
   QString sample_path_;
   QString language_;
