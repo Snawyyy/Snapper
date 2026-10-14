@@ -4,8 +4,6 @@
 
 #include "anim/comp_fsp.h"
 #include "fsp/fsp_effects.h"
-#include "render/comp_color_snap.h"
-#include "render/comp_targets.h"
 
 namespace snapper {
 namespace {
@@ -42,17 +40,12 @@ QImage RunCompPlugin(const CompEffect& effect, const QImage& source,
     return QImage();
   }
   const FspValues values = FspValuesAt(effect, *info, local);
-  // Plugins that match colors exactly get colors a few steps off (warped
-  // in-between frames) snapped to their targets first.
-  const QImage straight = SnapToTargetColors(
-      *info, values, source.convertToFormat(QImage::Format_ARGB32),
-      kCompColorReach);
-  QImage out = RunFspEffect(*info, values, straight, scale);
+  QImage out = RunFspEffect(*info, values, source, scale);
   const bool is_usable = !out.isNull() && out.size() == source.size();
   if (!is_usable) {
     return QImage();
   }
-  ClearUnchanged(straight, &out);
+  ClearUnchanged(source.convertToFormat(QImage::Format_ARGB32), &out);
   const bool is_same_format = out.format() == source.format();
   return is_same_format ? out : out.convertToFormat(source.format());
 }

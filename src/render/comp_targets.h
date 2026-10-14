@@ -9,11 +9,6 @@ namespace snapper {
 // What a Comp effect works on, for render/comp.cpp; NeedsOf and
 // CompSpace (render/comp.h) live beside these.
 
-// How far (RGB distance) a pixel may sit from a picked target color and
-// still count as it: the color key of the target and the plugins that
-// match colors exactly (render/comp_color_snap.h) share it.
-inline constexpr double kCompColorReach = 24.0;
-
 // True when the effect targets layers (or pieces of them).
 bool HasCompLayer(const CompEffect& effect);
 // True for kinds that read the target's outline.

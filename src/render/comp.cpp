@@ -22,6 +22,8 @@
 namespace snapper {
 namespace {
 
+// The color key's reach for picked target colors (RGB distance).
+constexpr double kTargetTolerance = 24.0;
 constexpr double kTargetFeather = 0.5;
 
 // The seed of a moving effect: new every rate frames, held at 0.
@@ -134,7 +136,7 @@ class CompRun final {
     }
     const QImage& keyed = base_.isNull() ? *frame_ : base_;
     const Mask colors = ColorMaskOf(keyed, effect.target.colors,
-                                    kCompColorReach, kTargetFeather);
+                                    kTargetTolerance, kTargetFeather);
     return shape.empty() ? colors : Both(shape, colors);
   }
 
