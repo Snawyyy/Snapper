@@ -37,6 +37,10 @@ kModels = {
     "transcribe": "openai/whisper-large-v3-turbo",
 }
 
+# Steps Chatterbox takes to turn its sound plan into sound: 10 by
+# default; more is a little cleaner and costs little time.
+kChatterboxSteps = 20
+
 # The languages Snapper offers, as Chatterbox's language codes.
 kChatterboxLanguages = {
     "Chinese": "zh", "Japanese": "ja", "Korean": "ko", "German": "de",
@@ -60,12 +64,17 @@ def Load(name):
         from transformers import pipeline
         return pipeline("automatic-speech-recognition", model=kModels[name],
                         torch_dtype=torch.float16, device="cuda:0")
-    if name == "chatterbox":
-        from chatterbox.tts import ChatterboxTTS
-        return ChatterboxTTS.from_pretrained(device="cuda")
-    if name == "chatterbox_multi":
-        from chatterbox.mtl_tts import ChatterboxMultilingualTTS
-        return ChatterboxMultilingualTTS.from_pretrained(device="cuda")
+    if name in ("chatterbox", "chatterbox_multi"):
+        if name == "chatterbox":
+            from chatterbox.tts import ChatterboxTTS as Model
+        else:
+            from chatterbox.mtl_tts import ChatterboxMultilingualTTS as Model
+        model = Model.from_pretrained(device="cuda")
+        # generate() can't pass the step count, so it rides on the call.
+        import functools
+        model.s3gen.inference = functools.partial(
+            model.s3gen.inference, n_cfm_timesteps=kChatterboxSteps)
+        return model
     from qwen_tts import Qwen3TTSModel
     return Qwen3TTSModel.from_pretrained(
         kModels[name], device_map="cuda:0", dtype=torch.bfloat16)
