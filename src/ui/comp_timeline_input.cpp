@@ -179,20 +179,31 @@ void CompTimeline::mouseDoubleClickEvent(QMouseEvent* event) {
   }
 }
 
+void CompTimeline::ZoomBy(double factor, double x) {
+  assert(factor > 0.0);
+  assert(std::isfinite(x));
+  const double at = std::clamp(x, kNameWidth, static_cast<double>(width()));
+  // The frame under x stays put.
+  const double under = first_ + (at - kNameWidth) / PixelsPerFrame();
+  const double shown = std::clamp(
+      FramesShown() / factor,
+      std::min(kFewestFrames, static_cast<double>(Length())),
+      static_cast<double>(Length()));
+  shown_ = shown >= Length() ? 0.0 : shown;
+  first_ = under - (at - kNameWidth) / PixelsPerFrame();
+  ClampView();
+  update();
+}
+
 void CompTimeline::wheelEvent(QWheelEvent* event) {
   assert(event != nullptr);
   assert(Length() > 0);
-  const double steps = event->angleDelta().y() / 120.0;
+  // Some mice turn a held key's wheel into a sideways one.
+  const QPoint turn = event->angleDelta();
+  const double steps = (turn.y() != 0 ? turn.y() : turn.x()) / 120.0;
   const bool is_zoom = event->modifiers().testFlag(Qt::ControlModifier);
   if (is_zoom) {
-    const double x = event->position().x();
-    const double under = first_ + (x - kNameWidth) / PixelsPerFrame();
-    const double shown = std::clamp(
-        FramesShown() / std::pow(kZoomStep, steps),
-        std::min(kFewestFrames, static_cast<double>(Length())),
-        static_cast<double>(Length()));
-    shown_ = shown >= Length() ? 0.0 : shown;
-    first_ = under - (x - kNameWidth) / PixelsPerFrame();
+    ZoomBy(std::pow(kZoomStep, steps), event->position().x());
   } else {
     first_ -= steps * FramesShown() / 10.0;
   }

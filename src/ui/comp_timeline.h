@@ -38,9 +38,10 @@ namespace snapper {
 // step. Alt+Left and Alt+Right nudge the picked clips a frame (Shift:
 // ten). A double click fits a clip to its shot again; right click
 // offers the same with duplicate and remove. Ctrl+wheel zooms round the
-// cursor, the wheel scrolls. A clip may run past its shot's cut: an
-// effect on the screen then goes on over whatever the reel shows; one
-// on a doll stops at the cut (that part is hatched). A click on the
+// cursor (Ctrl+= and Ctrl+- round the playhead), the wheel scrolls. A
+// clip may run past its shot's cut: an effect on the screen then goes
+// on over whatever the reel shows; one on a doll stops at the cut (that
+// part is hatched). A click on the
 // ruler or the shot row moves the playhead, which picks the shot there.
 class CompTimeline final : public QWidget {
   Q_OBJECT
@@ -101,6 +102,8 @@ class CompTimeline final : public QWidget {
   int Length() const;
   void SeekTo(double x);
   void ClampView();
+  // Shows factor times fewer frames, keeping the frame under x put.
+  void ZoomBy(double factor, double x);
   // Painting (ui/comp_timeline.cpp).
   void PaintRuler(QPainter* painter) const;
   void PaintShots(QPainter* painter, double y) const;

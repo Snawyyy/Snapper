@@ -74,6 +74,33 @@ void DrawFitted(const QImage& picture, QImage* frame) {
   painter.drawImage(target, picture);
 }
 
+// Mixes the two sides' shapes as Combine mixes their pictures, on
+// clear: a swipe moves them, a fade or flash hands one to the other.
+QImage CombineShapes(TransitionKind kind, double mix, const QImage& from,
+                     const QImage& to) {
+  assert(from.size() == to.size());
+  assert(mix >= 0.0 && mix <= 1.0);
+  QImage out(from.size(), QImage::Format_ARGB32_Premultiplied);
+  out.fill(Qt::transparent);
+  QPainter painter(&out);
+  const QPointF way =
+      kind == TransitionKind::kSwipeLeft    ? QPointF(-out.width(), 0)
+      : kind == TransitionKind::kSwipeRight ? QPointF(out.width(), 0)
+      : kind == TransitionKind::kSwipeUp    ? QPointF(0, -out.height())
+      : kind == TransitionKind::kSwipeDown  ? QPointF(0, out.height())
+                                            : QPointF();
+  const bool is_swipe = !way.isNull();
+  if (is_swipe) {
+    painter.drawImage(way * mix, from);
+    painter.drawImage(way * (mix - 1.0), to);
+    return out;
+  }
+  const bool is_cut = kind == TransitionKind::kCut;
+  const bool shows_to = is_cut || mix >= 0.5;
+  painter.drawImage(0, 0, shows_to ? to : from);
+  return out;
+}
+
 }  // namespace
 
 void FrameRenderer::DrawClip(const Project& project, const Clip& clip,
@@ -138,14 +165,20 @@ QImage FrameRenderer::RenderReel(const Project& project, Frame frame,
                shape);
       continue;
     }
-    // Both sides are drawn over what lies below, then mixed.
+    // Both sides are drawn over what lies below, then mixed; their
+    // shapes mix the same way, so effects on them move with a swipe.
     QImage from = out.copy();
+    QImage from_shape = needs_shape ? drawn.copy() : QImage();
     DrawClip(project, *piece.clip, piece.source, scale, videos, &from,
-             shape);
+             needs_shape ? &from_shape : nullptr);
     QImage to = out.copy();
+    QImage to_shape = needs_shape ? drawn.copy() : QImage();
     DrawClip(project, *piece.next, piece.next_source, scale, videos, &to,
-             shape);
+             needs_shape ? &to_shape : nullptr);
     out = Combine(piece.kind, piece.mix, from, to);
+    if (needs_shape) {
+      drawn = CombineShapes(piece.kind, piece.mix, from_shape, to_shape);
+    }
   }
   ApplyReelComp(project, frame, scale, drawn, &out);
   return out;
