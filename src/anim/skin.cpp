@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <optional>
 
 #include "anim/sampler.h"
 
@@ -37,8 +36,7 @@ int SkinVersion(const ArtPiece& art, const std::vector<const Skin*>& skins,
   for (const Skin* skin : skins) {
     const int found =
         FindDrawing(art, QStringLiteral("%1/%2").arg(skin->name, plain));
-    const bool is_found = found >= 0;
-    if (is_found) {
+    if (found >= 0) {
       return found;
     }
   }
@@ -61,46 +59,6 @@ SkinSet SkinsAt(const Doll& doll, const DollLayer& layer, Frame frame) {
   return worn;
 }
 
-namespace {
-
-// The frame of channel's last key at or before frame; nullopt for none.
-template <typename T>
-std::optional<Frame> LastKeyAt(const Channel<T>& channel, Frame frame) {
-  assert(IsSorted(channel));
-  assert(frame.index() >= 0);
-  std::optional<Frame> last;
-  for (const Key<T>& key : channel.keys) {
-    const bool is_past = frame < key.frame;
-    if (is_past) {
-      break;
-    }
-    last = key.frame;
-  }
-  return last;
-}
-
-}  // namespace
-
-void DropOlderPicks(const DollLayer& layer, Frame frame,
-                    std::map<QString, PiecePose>* poses) {
-  assert(poses != nullptr);
-  assert(frame.index() >= 0);
-  const std::optional<Frame> skin_key = LastKeyAt(layer.skins, frame);
-  const bool has_skin_key = skin_key.has_value();
-  if (!has_skin_key) {
-    return;
-  }
-  for (const auto& [name, channel] : layer.pieces) {
-    const std::optional<Frame> piece_key = LastKeyAt(channel, frame);
-    const bool is_older = !piece_key || *piece_key < *skin_key;
-    const auto posed = poses->find(name);
-    const bool drops = is_older && posed != poses->end();
-    if (drops) {
-      posed->second.drawing = -1;
-    }
-  }
-}
-
 std::set<QString> HandPicked(const std::map<QString, PiecePose>& poses) {
   assert(poses.size() < 100000);
   std::set<QString> picked;
@@ -120,8 +78,7 @@ void ApplySkins(const Doll& doll, const SkinSet& worn,
   assert(poses != nullptr);
   assert(doll.rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   const std::vector<const Skin*> skins = WornInOrder(doll, worn);
-  const bool is_bare = skins.empty();
-  if (is_bare) {
+  if (skins.empty()) {
     return;
   }
   for (const RigPiece& rig : doll.rig.pieces) {
@@ -133,8 +90,7 @@ void ApplySkins(const Doll& doll, const SkinSet& worn,
     const QString* choice = nullptr;
     for (const Skin* skin : skins) {
       const auto named = skin->drawings.find(rig.name);
-      const bool is_named = named != skin->drawings.end();
-      if (is_named) {
+      if (named != skin->drawings.end()) {
         choice = &named->second;
         break;
       }
@@ -149,15 +105,13 @@ void ApplySkins(const Doll& doll, const SkinSet& worn,
     const bool is_dialed = dialed >= 0;
     if (is_dialed) {
       const int version = SkinVersion(*art, skins, dialed);
-      const bool has_version = version >= 0;
-      if (has_version) {
+      if (version >= 0) {
         posed->second.drawing = version;
       }
       continue;
     }
     const int chosen = choice != nullptr ? FindDrawing(*art, *choice) : -1;
-    const bool is_chosen = chosen >= 0;
-    if (is_chosen) {
+    if (chosen >= 0) {
       (*poses)[rig.name].drawing = chosen;
     }
   }
@@ -166,8 +120,7 @@ void ApplySkins(const Doll& doll, const SkinSet& worn,
 Channel<SkinSet> WornFromStart(const SkinSet& worn) {
   assert(worn.names.size() < 100000);
   Channel<SkinSet> channel;
-  [[maybe_unused]] const bool is_set =
-      SetKey(&channel, Key<SkinSet>{Frame(0), worn});
+  [[maybe_unused]] const bool is_set = SetKey(&channel, Key<SkinSet>{Frame(0), worn});
   assert(is_set);
   return channel;
 }
@@ -188,7 +141,6 @@ QString RestDrawingName(const Doll& doll, const QString& skin,
 
 std::vector<QString> SkinPrefixes(const Doll& doll) {
   assert(doll.art.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
-  assert(doll.rig.skins.size() <= static_cast<size_t>(kMaxSkins));
   std::vector<QString> prefixes;
   for (const ArtPiece& art : doll.art.pieces) {
     const int count = static_cast<int>(art.drawings.size());

@@ -17,13 +17,6 @@ namespace snapper {
 // those its doll still has.
 SkinSet SkinsAt(const Doll& doll, const DollLayer& layer, Frame frame);
 
-// Drops the hand-picked drawing (back to the default) of every piece
-// in poses whose last key at frame is older than layer's last skin
-// key: a skin put on after a swap wins, so a piece swapped to a blank
-// drawing comes back when the skin changes.
-void DropOlderPicks(const DollLayer& layer, Frame frame,
-                    std::map<QString, PiecePose>* poses);
-
 // The pieces whose hand pose in poses picks a drawing: a hand swap beats
 // every skin.
 std::set<QString> HandPicked(const std::map<QString, PiecePose>& poses);
