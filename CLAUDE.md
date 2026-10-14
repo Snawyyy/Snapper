@@ -58,7 +58,17 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-13, branch `ccr-33af7348-m78soh`, pushed, not
+Last done (2026-10-14, branch `comp-effect-browser`, cut from
+`fix-comp-crash` since main lacks the Comp work, not pushed): the Comp
+tab rebuilt. Left, every effect under a search field with hover help,
+double click adds to the stage pick; right, the pick's effects (the
+screen's when nothing is picked) as After Effects folds, shot Light
+under them; stage clicks pick with a red outline. Applies to tiles
+gone. Built, not seen by eye, no tests run (owner's rule). Open: drag
+to reorder folds (right click Move up or down for now), drag an effect
+from the list onto the stage.
+
+Before that (2026-10-13, branch `ccr-33af7348-m78soh`, pushed, not
 merged to main): the UX polish pass, from
 `docs/redesign/ux-polish-plan.md` (read it first: the problems found,
 the style kit, the work packages). Built and merged: WP0 the panel kit,
