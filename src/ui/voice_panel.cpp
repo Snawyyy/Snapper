@@ -2,6 +2,7 @@
 
 #include <QSettings>
 #include <QStringList>
+#include <QStyle>
 #include <QVBoxLayout>
 
 #include <cassert>
@@ -21,16 +22,15 @@
 namespace snapper {
 namespace {
 
-enum Mode { kClone = 0, kDesign = 1 };
-
 constexpr const char* kModeKey = "voice/mode";
 constexpr const char* kLanguageKey = "voice/language";
 constexpr int kTextLines = 4;
+constexpr int kDesignMode = 1;
 
 // What the worker's model understands; Auto lets it tell.
 QStringList Languages() {
   assert(kTextLines > 0);
-  assert(kClone != kDesign);
+  assert(kDesignMode != 0);
   return {QStringLiteral("Auto"),       QStringLiteral("English"),
           QStringLiteral("Chinese"),    QStringLiteral("Japanese"),
           QStringLiteral("Korean"),     QStringLiteral("German"),
@@ -39,14 +39,25 @@ QStringList Languages() {
           QStringLiteral("Italian")};
 }
 
+// Renames the title plate of a section PlatedSection made.
+void Retitle(QWidget* section, const QString& title) {
+  assert(section != nullptr);
+  assert(!title.isEmpty());
+  auto* plate = section->findChild<QLabel*>(QStringLiteral("plate"));
+  const bool has_plate = plate != nullptr;
+  if (has_plate) {
+    plate->setText(title);
+  }
+}
+
 }  // namespace
 
 VoicePanel::VoicePanel(const Managers& managers)
     : managers_(managers),
       clone_(managers, &preview_),
       save_designed_(tr("Save voice...")),
-      generate_(tr("Generate")),
-      cancel_(tr("Cancel")),
+      generate_(tr("Generate"), nullptr),
+      take_screen_(&preview_, tr("NO LINE YET"), nullptr),
       play_take_(tr("Play")),
       add_(tr("Add to timeline")),
       generate_key_(QKeySequence(Qt::CTRL | Qt::Key_Return), &line_),
@@ -59,27 +70,44 @@ VoicePanel::VoicePanel(const Managers& managers)
   auto* column = MakeOwned<QVBoxLayout>(body);
   column->setContentsMargins(0, 0, 0, 0);
   column->setSpacing(theme::kRowGap);
-  mode_.addItem(tr("Clone"));
-  mode_.addItem(tr("Design"));
-  mode_.setToolTip(tr("Clone copies the voice of a sample; Design makes a "
-                      "voice from a description."));
-  column->addWidget(&mode_);
+  column->addWidget(BuildModeRow(body));
   column->addWidget(&clone_);
   column->addWidget(BuildDesignPage(body));
-  column->addWidget(PlatedSection(tr("Line"), BuildLineBody(body), body));
-  column->addWidget(PlatedSection(tr("Result"), BuildResultBody(body), body));
+  line_section_ = PlatedSection(tr("Line"), BuildLineBody(body), body);
+  column->addWidget(line_section_);
+  result_section_ =
+      PlatedSection(tr("Listen"), BuildResultBody(body), body);
+  column->addWidget(result_section_);
   column->addStretch(1);
   setWidget(body);
   KeepWideEnough(this);
   const QSettings settings(managers_.document->SettingsPath(),
                            QSettings::IniFormat);
   ShowLanguage(settings.value(QString::fromLatin1(kLanguageKey)).toString());
-  const int saved_mode =
-      settings.value(QString::fromLatin1(kModeKey), kClone).toInt();
-  mode_.setCurrentIndex(saved_mode == kDesign ? kDesign : kClone);
+  is_design_ =
+      settings.value(QString::fromLatin1(kModeKey), 0).toInt() == kDesignMode;
   Wire();
   ShowMode();
-  Refresh();
+}
+
+QWidget* VoicePanel::BuildModeRow(QWidget* parent) {
+  assert(parent != nullptr);
+  assert(clone_tile_ == nullptr && design_tile_ == nullptr);
+  auto* row = MakeOwned<QWidget>(parent);
+  auto* column = MakeOwned<QVBoxLayout>(row);
+  column->setContentsMargins(0, 0, 0, 0);
+  column->setSpacing(theme::kRowGap / 2);
+  clone_tile_ = MakeOwned<VoiceModeTile>(false, tr("Clone"),
+                                         managers_.motion, row);
+  design_tile_ = MakeOwned<VoiceModeTile>(true, tr("Design"),
+                                          managers_.motion, row);
+  clone_tile_->setToolTip(tr("Copy the voice in a sample."));
+  design_tile_->setToolTip(tr("Make up a voice from a description."));
+  column->addWidget(TileRow({clone_tile_, design_tile_}, row));
+  mode_caption_.setAlignment(Qt::AlignCenter);
+  mode_caption_.setWordWrap(true);
+  column->addWidget(&mode_caption_);
+  return row;
 }
 
 QWidget* VoicePanel::BuildDesignPage(QWidget* parent) {
@@ -95,12 +123,9 @@ QWidget* VoicePanel::BuildDesignPage(QWidget* parent) {
   describe_.setToolTip(tr("Who is speaking and how: age, mood, accent, "
                           "pace. The voice is made fresh for each line."));
   column->addWidget(&describe_);
+  save_designed_.setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
   column->addWidget(&save_designed_);
-  save_designed_.setToolTip(tr("Keeps the last designed line as a voice "
-                               "you can clone from again, with the line "
-                               "as its words."));
-  design_page_ =
-      PlatedSection(tr("Describe the voice"), body, parent);
+  design_page_ = PlatedSection(tr("1  Describe the voice"), body, parent);
   return design_page_;
 }
 
@@ -111,16 +136,16 @@ QWidget* VoicePanel::BuildLineBody(QWidget* parent) {
   auto* column = MakeOwned<QVBoxLayout>(body);
   column->setContentsMargins(0, 0, 0, 0);
   column->setSpacing(theme::kRowGap / 2);
-  line_.setPlaceholderText(tr("What to say"));
+  line_.setPlaceholderText(tr("What should they say?"));
   line_.setFixedHeight(theme::Em(this) * kTextLines);
   column->addWidget(&line_);
   language_.addItems(Languages());
   language_.setToolTip(tr("The language of the line. Auto lets the model "
                           "tell from the words."));
-  column->addWidget(&language_);
-  column->addWidget(GoldenRow(&generate_, &cancel_, body));
-  cancel_.setToolTip(tr("Stops the line. The voice model has to load again "
-                        "for the next one."));
+  auto* language_label = MakeOwned<QLabel>(tr("Language"), body);
+  column->addWidget(SharedRow({language_label, &language_},
+                              {kGoldenShort, kGoldenLong}, kTileGap, body));
+  column->addWidget(&generate_);
   return body;
 }
 
@@ -131,18 +156,21 @@ QWidget* VoicePanel::BuildResultBody(QWidget* parent) {
   auto* column = MakeOwned<QVBoxLayout>(body);
   column->setContentsMargins(0, 0, 0, 0);
   column->setSpacing(theme::kRowGap / 2);
+  column->addWidget(&take_screen_);
   play_take_.setCheckable(true);
-  column->addWidget(GoldenRow(&take_info_, &play_take_, body));
-  column->addWidget(&add_);
+  add_.setIcon(style()->standardIcon(QStyle::SP_ArrowDown));
+  column->addWidget(GoldenRow(&add_, &play_take_, body));
   return body;
 }
 
 void VoicePanel::Wire() {
   assert(managers_.voice_gen != nullptr);
-  assert(managers_.voices != nullptr);
+  assert(clone_tile_ != nullptr && design_tile_ != nullptr);
   VoiceGenManager* gen = managers_.voice_gen;
-  connect(&mode_, &ChoiceRow::currentIndexChanged, this,
-          &VoicePanel::ShowMode);
+  connect(clone_tile_, &QAbstractButton::clicked, this,
+          [this] { SetMode(false); });
+  connect(design_tile_, &QAbstractButton::clicked, this,
+          [this] { SetMode(true); });
   connect(&language_, &QComboBox::currentIndexChanged, this, [this] {
     QSettings settings(managers_.document->SettingsPath(),
                        QSettings::IniFormat);
@@ -156,11 +184,12 @@ void VoicePanel::Wire() {
   connect(&describe_, &QPlainTextEdit::textChanged, this,
           &VoicePanel::Refresh);
   connect(&line_, &QPlainTextEdit::textChanged, this, &VoicePanel::Refresh);
-  connect(&generate_, &QPushButton::clicked, this, &VoicePanel::Generate);
-  connect(&generate_key_, &QShortcut::activated, this, &VoicePanel::Generate);
+  connect(&generate_, &QPushButton::clicked, this,
+          &VoicePanel::GenerateOrStop);
+  connect(&generate_key_, &QShortcut::activated, this,
+          &VoicePanel::GenerateOrStop);
   connect(&generate_pad_key_, &QShortcut::activated, this,
-          &VoicePanel::Generate);
-  connect(&cancel_, &QPushButton::clicked, gen, &VoiceGenManager::Cancel);
+          &VoicePanel::GenerateOrStop);
   connect(&play_take_, &QPushButton::clicked, this,
           [this] { preview_.Toggle(managers_.voice_gen->last_take()); });
   connect(&add_, &QPushButton::clicked, this, &VoicePanel::AddToTimeline);
@@ -172,12 +201,6 @@ void VoicePanel::Wire() {
   connect(gen, &VoiceGenManager::Problem, this, &VoicePanel::Problem);
   generate_key_.setContext(Qt::WidgetShortcut);
   generate_pad_key_.setContext(Qt::WidgetShortcut);
-}
-
-bool VoicePanel::IsDesign() const {
-  assert(mode_.count() == 2);
-  assert(kClone != kDesign);
-  return mode_.currentIndex() == kDesign;
 }
 
 QString VoicePanel::Language() const {
@@ -194,23 +217,46 @@ void VoicePanel::ShowLanguage(const QString& language) {
   clone_.SetLanguage(Language());
 }
 
-void VoicePanel::ShowMode() {
+void VoicePanel::SetMode(bool is_design) {
+  assert(managers_.document != nullptr);
   assert(design_page_ != nullptr);
-  assert(mode_.count() == 2);
-  const bool is_design = IsDesign();
-  design_page_->setVisible(is_design);
-  clone_.setVisible(!is_design);
+  is_design_ = is_design;
   QSettings settings(managers_.document->SettingsPath(),
                      QSettings::IniFormat);
   settings.setValue(QString::fromLatin1(kModeKey),
-                    is_design ? kDesign : kClone);
+                    is_design ? kDesignMode : 0);
+  ShowMode();
+}
+
+void VoicePanel::ShowMode() {
+  assert(design_page_ != nullptr && line_section_ != nullptr);
+  assert(result_section_ != nullptr);
+  const bool is_design = IsDesign();
+  design_page_->setVisible(is_design);
+  clone_.setVisible(!is_design);
+  clone_tile_->SetShare(is_design ? Share::kNone : Share::kAll);
+  design_tile_->SetShare(is_design ? Share::kAll : Share::kNone);
+  mode_caption_.setText(
+      is_design ? tr("Describe a voice in words and hear it speak.")
+                : tr("Give it a few seconds of someone talking, and it "
+                     "says anything in their voice."));
+  // The steps count on from the voice's own: two for a clone, one for
+  // a design.
+  const int first = is_design ? 2 : 3;
+  Retitle(line_section_, tr("%1  Line").arg(first));
+  Retitle(result_section_, tr("%1  Listen").arg(first + 1));
   Refresh();
 }
 
-void VoicePanel::Generate() {
+void VoicePanel::GenerateOrStop() {
   assert(managers_.voice_gen != nullptr);
   assert(managers_.voices != nullptr);
   VoiceGenManager& gen = *managers_.voice_gen;
+  const bool is_busy = gen.IsBusy();
+  if (is_busy) {
+    gen.Cancel();
+    return;
+  }
   preview_.Stop();
   const QString text = line_.toPlainText();
   const auto started =
@@ -226,7 +272,8 @@ void VoicePanel::AddToTimeline() {
   preview_.Stop();
   const auto added = managers_.voice_gen->AddToReel();
   Report(ProblemOf(added));
-  if (!added) {
+  const bool is_added = added.has_value();
+  if (!is_added) {
     return;
   }
   // The new clip is picked, so it shows where it landed.
@@ -238,27 +285,36 @@ void VoicePanel::SaveDesigned() {
   assert(managers_.voice_gen != nullptr);
   assert(managers_.voices != nullptr);
   const auto chosen = AskVoiceName(this, *managers_.voices, QString(), true);
-  if (!chosen) {
+  const bool is_chosen = chosen.has_value();
+  if (!is_chosen) {
     return;
   }
   const auto saved =
       managers_.voice_gen->SaveDesigned(chosen->name, chosen->replace);
   Report(ProblemOf(saved));
-  if (saved) {
+  const bool is_saved = saved.has_value();
+  if (is_saved) {
     managers_.toasts->Say(tr("Saved the voice \"%1\".").arg(chosen->name));
   }
 }
 
-void VoicePanel::Refresh() {
+void VoicePanel::ShowGenerate() {
   assert(managers_.voice_gen != nullptr);
-  assert(managers_.toasts != nullptr);
+  assert(design_page_ != nullptr);
   const VoiceGenManager& gen = *managers_.voice_gen;
   using State = VoiceGenManager::State;
   const State state = gen.state();
-  generate_.setText(state == State::kLoading    ? tr("Loading voice model...")
-                    : state == State::kSpeaking ? tr("Speaking...")
-                                                : tr("Generate"));
-  cancel_.setVisible(gen.IsBusy());
+  const bool is_busy = gen.IsBusy();
+  generate_.SetBusy(is_busy);
+  if (is_busy) {
+    generate_.setText(state == State::kLoading ? tr("Loading voice...")
+                                               : tr("Speaking..."));
+    generate_.setEnabled(true);
+    generate_.setToolTip(tr("Click to stop. The voice model has to load "
+                            "again for the next line."));
+    return;
+  }
+  generate_.setText(tr("Generate"));
   const QString text = line_.toPlainText();
   const QString why_not =
       IsDesign() ? gen.WhyNoSpeakDesign(describe_.toPlainText(), text)
@@ -266,19 +322,28 @@ void VoicePanel::Refresh() {
   Explain(&generate_, why_not,
           tr("Says the line in this voice (Ctrl+Enter in the line). The "
              "first line takes a while, as the voice model loads."));
-  Explain(&save_designed_, gen.WhyNoSaveDesigned());
+}
+
+void VoicePanel::Refresh() {
+  assert(managers_.voice_gen != nullptr);
+  assert(managers_.toasts != nullptr);
+  const VoiceGenManager& gen = *managers_.voice_gen;
+  ShowGenerate();
+  Explain(&save_designed_, gen.WhyNoSaveDesigned(),
+          tr("Keeps the last designed line as a voice you can clone from "
+             "again, with the line as its words."));
   const QString no_take = gen.WhyNoAdd();
   const bool has_take = no_take.isEmpty();
+  take_screen_.SetFile(has_take ? gen.last_take() : QString(),
+                       gen.last_voice_name());
   const bool is_playing = preview_.IsPlaying(gen.last_take());
   play_take_.setChecked(is_playing);
   play_take_.setText(is_playing ? tr("Stop") : tr("Play"));
+  play_take_.setIcon(style()->standardIcon(
+      is_playing ? QStyle::SP_MediaStop : QStyle::SP_MediaPlay));
   Explain(&play_take_, no_take);
   Explain(&add_, no_take,
           tr("Lays the line on a sound track at the playhead and picks it."));
-  take_info_.setText(has_take ? tr("%1 s, %2")
-                                    .arg(gen.last_seconds(), 0, 'f', 1)
-                                    .arg(gen.last_voice_name())
-                              : tr("No line yet."));
 }
 
 }  // namespace snapper

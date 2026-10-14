@@ -2,6 +2,7 @@
 
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QStyle>
 
 #include <cassert>
 
@@ -21,7 +22,6 @@ namespace {
 // A sample outside these lengths clones worse.
 constexpr double kShortSample = 3.0;
 constexpr double kLongSample = 20.0;
-constexpr int kLevelSteps = 100;
 
 }  // namespace
 
@@ -33,14 +33,17 @@ VoiceCloneBox::VoiceCloneBox(const Managers& managers, AudioPreview* preview)
       delete_(tr("Delete")),
       open_(tr("Open file...")),
       record_(tr("Rec PC audio")),
-      play_(tr("Play sample")),
-      save_(tr("Save voice...")) {
+      play_(tr("Play")),
+      save_(tr("Save voice...")),
+      screen_(preview, tr("NO SAMPLE"), nullptr),
+      meter_(nullptr) {
   assert(managers_.voices != nullptr && managers_.voice_gen != nullptr);
   assert(preview_ != nullptr);
   layout_.setContentsMargins(0, 0, 0, 0);
   layout_.setSpacing(theme::kRowGap);
-  layout_.addWidget(PlatedSection(tr("Voice"), BuildVoiceBody(), this));
-  layout_.addWidget(PlatedSection(tr("Sample"), BuildSampleBody(), this));
+  layout_.addWidget(PlatedSection(tr("1  Voice"), BuildVoiceBody(), this));
+  layout_.addWidget(
+      PlatedSection(tr("2  Sample"), BuildSampleBody(), this));
   connect(&voices_box_, &QComboBox::activated, this,
           &VoiceCloneBox::LoadPickedVoice);
   connect(&rename_, &QPushButton::clicked, this, &VoiceCloneBox::RenameVoice);
@@ -55,11 +58,10 @@ VoiceCloneBox::VoiceCloneBox(const Managers& managers, AudioPreview* preview)
   VoiceGenManager* gen = managers_.voice_gen;
   connect(gen, &VoiceGenManager::StateChanged, this,
           &VoiceCloneBox::Refresh);
-  connect(gen, &VoiceGenManager::CaptureLevel, this, [this](double peak) {
-    level_.setValue(static_cast<int>(peak * kLevelSteps));
-  });
+  connect(gen, &VoiceGenManager::CaptureLevel, &meter_, &LedMeter::SetLevel);
   connect(gen, &VoiceGenManager::CaptureSeconds, this, [this](double seconds) {
     capture_seconds_ = seconds;
+    meter_.SetSeconds(seconds, kMaxSampleSeconds);
     Refresh();
   });
   connect(gen, &VoiceGenManager::SampleCaptured, this,
@@ -88,21 +90,24 @@ QWidget* VoiceCloneBox::BuildVoiceBody() {
 
 QWidget* VoiceCloneBox::BuildSampleBody() {
   assert(layout_.count() == 1);
-  assert(kLevelSteps > 0);
+  assert(preview_ != nullptr);
   auto* body = MakeOwned<QWidget>(this);
   auto* column = MakeOwned<QVBoxLayout>(body);
   column->setContentsMargins(0, 0, 0, 0);
   column->setSpacing(theme::kRowGap / 2);
+  // The meter takes the screen's place while recording, at its height,
+  // so nothing under them moves.
+  column->addWidget(&screen_);
+  column->addWidget(&meter_);
+  meter_.setFixedHeight(screen_.minimumHeight());
+  screen_.setFixedHeight(screen_.minimumHeight());
   record_.setCheckable(true);
   play_.setCheckable(true);
+  open_.setIcon(style()->standardIcon(QStyle::SP_DialogOpenButton));
+  save_.setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
   column->addWidget(TileRow({&open_, &record_, &play_}, body));
   open_.setToolTip(tr("Takes a sound file (wav, mp3, flac or ogg) as the "
                       "sample to clone."));
-  level_.setRange(0, kLevelSteps);
-  level_.setTextVisible(false);
-  level_.setMaximumHeight(theme::Em(this) / 2);
-  column->addWidget(&length_);
-  column->addWidget(&level_);
   hint_ = EmptyHint(tr("3 to 15 seconds of clear speech works best."), body);
   column->addWidget(hint_);
   column->addWidget(MakeOwned<QLabel>(tr("Words in the sample"), body));
@@ -204,7 +209,7 @@ void VoiceCloneBox::ToggleCapture() {
   assert(kMaxSampleSeconds > 0);
   preview_->Stop();
   capture_seconds_ = 0.0;
-  level_.setValue(0);
+  meter_.SetSeconds(0.0, kMaxSampleSeconds);
   Report(ProblemOf(managers_.voice_gen->ToggleCapture()));
   Refresh();
 }
@@ -276,26 +281,33 @@ void VoiceCloneBox::Refresh() {
   const VoiceGenManager& gen = *managers_.voice_gen;
   const bool is_capturing = gen.IsCapturing();
   record_.setChecked(is_capturing);
-  record_.setText(is_capturing
-                      ? tr("Stop (%1 s)").arg(capture_seconds_, 0, 'f', 1)
-                      : tr("Rec PC audio"));
+  record_.setText(is_capturing ? tr("Stop") : tr("Rec PC"));
+  record_.setIcon(style()->standardIcon(
+      is_capturing ? QStyle::SP_MediaStop : QStyle::SP_MediaVolume));
   Explain(&record_, gen.WhyNoCapture(),
           tr("Records what the PC plays, up to %1 seconds, as the sample. "
              "Play a clip of the voice, press this, press it again.")
               .arg(kMaxSampleSeconds));
-  level_.setVisible(is_capturing);
+  const bool was_shown = !meter_.isHidden();
+  meter_.setVisible(is_capturing);
+  screen_.setVisible(!is_capturing);
+  const bool is_new_state = was_shown != is_capturing;
+  if (is_new_state) {
+    meter_.SetRunning(is_capturing);
+  }
   const bool has_sample = !sample_path_.isEmpty();
   const QString no_sample = tr("Open or record a sample first.");
+  screen_.SetFile(sample_path_, PickedVoice().isEmpty() ? tr("Sample")
+                                                        : PickedVoice());
   const bool is_playing = preview_->IsPlaying(sample_path_);
   play_.setChecked(is_playing);
-  play_.setText(is_playing ? tr("Stop sample") : tr("Play sample"));
+  play_.setText(is_playing ? tr("Stop") : tr("Play"));
+  play_.setIcon(style()->standardIcon(
+      is_playing ? QStyle::SP_MediaStop : QStyle::SP_MediaPlay));
   Explain(&play_, has_sample ? QString() : no_sample);
   Explain(&save_, has_sample ? QString() : no_sample,
           tr("Keeps the sample and its words as a voice to pick again "
              "later, in any project."));
-  length_.setText(has_sample
-                      ? tr("Sample: %1 s").arg(sample_seconds_, 0, 'f', 1)
-                      : tr("No sample yet."));
   const bool is_poor = has_sample && (sample_seconds_ < kShortSample ||
                                       sample_seconds_ > kLongSample);
   hint_->setVisible(is_poor);

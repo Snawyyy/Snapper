@@ -7,6 +7,7 @@
 #include <cmath>
 #include <memory>
 
+#include "ui/bevel.h"
 #include "ui/material_art.h"
 #include "ui/motion.h"
 #include "ui/snapper_style.h"
@@ -92,14 +93,7 @@ void LoopTile::paintEvent(QPaintEvent* event) {
   const ButtonLook look =
       LookOfButton(isEnabled(), isDown(), false, fade_->hover());
   painter.fillRect(box, look.fill);
-  const QColor top = look.is_sunk ? theme::kShadow : theme::kFaceLight;
-  const QColor bottom = look.is_sunk ? theme::kFaceLight : theme::kShadow;
-  painter.setPen(top);
-  painter.drawLine(box.topLeft(), box.topRight());
-  painter.drawLine(box.topLeft(), box.bottomLeft());
-  painter.setPen(bottom);
-  painter.drawLine(box.bottomLeft(), box.bottomRight());
-  painter.drawLine(box.topRight(), box.bottomRight());
+  DrawBevel(&painter, box, look.is_sunk);
   const QColor ink = isEnabled() ? theme::kText : theme::kTextOff;
   const QRectF art = box.adjusted(2, 2, -2, -kLabelHeight);
   PaintArt(&painter, art, phase_, ink);

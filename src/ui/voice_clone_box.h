@@ -4,21 +4,23 @@
 #include <QComboBox>
 #include <QLabel>
 #include <QPlainTextEdit>
-#include <QProgressBar>
 #include <QPushButton>
 #include <QString>
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "ui/led_meter.h"
 #include "ui/managers.h"
+#include "ui/wave_screen.h"
 
 namespace snapper {
 
 class AudioPreview;
 
 // The Voice panel's Clone half, in the panel kit's style: a Voice plate
-// (the saved voices, with Rename and Delete) over a Sample plate (open a
-// file, record what the PC plays, listen, the words the sample says,
+// (the saved voices, with Rename and Delete) over a Sample plate (the
+// sample on a phosphor screen, a LED meter in its place while recording
+// what the PC plays, open a file, listen, the words the sample says,
 // Save voice). Picking a saved voice loads its sample and words; a new
 // sample or recording goes back to "New voice". All of it is asked of
 // VoiceLibrary and VoiceGenManager; nothing is decided here.
@@ -75,9 +77,9 @@ class VoiceCloneBox final : public QWidget {
   QPushButton record_;
   QPushButton play_;
   QPushButton save_;
-  QLabel length_;
+  WaveScreen screen_;
+  LedMeter meter_;
   QLabel* hint_ = nullptr;
-  QProgressBar level_;
   QPlainTextEdit words_;
   QString sample_path_;
   QString language_;

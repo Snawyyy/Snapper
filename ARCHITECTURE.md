@@ -844,7 +844,11 @@ sound clips, the Shot clip panel (name, length through `ResizeShots`,
 the Edges mode, Open) for shot clips, Subtitles with nothing picked,
 and a hint otherwise, plus the always shown Voice tab (`VoicePanel`:
 `ui/voice_panel.cpp`, `ui/voice_clone_box.cpp` for the Clone half,
-`ui/audio_preview.cpp` to listen). `ShowSide` and `SidePanelsFor` live in
+`ui/audio_preview.cpp` to listen; its look: `ui/voice_mode_tile.cpp`
+the Clone and Design tiles, `ui/wave_screen.cpp` a sound on a phosphor
+screen, click to listen from there, `ui/led_meter.cpp` the recording
+meter, `ui/hero_button.cpp` the big red Generate, `ui/bevel.cpp` the
+raised or sunk edge every self-painted widget shares). `ShowSide` and `SidePanelsFor` live in
 `ui/video_page_side.cpp`. The reel's tracks scroll up and down (a scroll
 bar, Shift and the wheel, or the wheel over the track names) instead of
 growing the timeline; the Video bar wraps (`FlowLayout`).

@@ -11,20 +11,23 @@
 #include <QWidget>
 
 #include "ui/audio_preview.h"
-#include "ui/choice_row.h"
+#include "ui/hero_button.h"
 #include "ui/managers.h"
 #include "ui/voice_clone_box.h"
+#include "ui/voice_mode_tile.h"
+#include "ui/wave_screen.h"
 
 namespace snapper {
 
-// The Video tab's Voice panel, always shown beside the clip panels: a
-// Clone | Design switch (remembered), the voice (a saved voice or a
-// sample to clone, or a description to design one from), the line to
-// say with its language, Generate (Ctrl+Enter, with Cancel while it
-// works), and the result: listen, then Add to timeline at the playhead.
-// Built with the panel kit; every decision is VoiceGenManager's and
-// VoiceLibrary's, the panel only asks and shows (greyed controls carry
-// the manager's reason).
+// The Video tab's Voice panel, always shown beside the clip panels: two
+// big mode tiles, Clone and Design (remembered), then numbered steps:
+// the voice (a saved voice or a sample to clone, or a description to
+// design one from), the line to say with its language and the big red
+// Generate (Ctrl+Enter; a click while it works stops it), and Listen:
+// the line on a phosphor screen to play, then Add to timeline at the
+// playhead. Built with the panel kit; every decision is
+// VoiceGenManager's and VoiceLibrary's, the panel only asks and shows
+// (greyed controls carry the manager's reason).
 class VoicePanel final : public QScrollArea {
   Q_OBJECT
 
@@ -38,15 +41,19 @@ class VoicePanel final : public QScrollArea {
   void Problem(const QString& why);
 
  private:
+  QWidget* BuildModeRow(QWidget* parent);
   QWidget* BuildDesignPage(QWidget* parent);
   QWidget* BuildLineBody(QWidget* parent);
   QWidget* BuildResultBody(QWidget* parent);
   void Wire();
-  bool IsDesign() const;
+  bool IsDesign() const { return is_design_; }
   QString Language() const;
   void ShowLanguage(const QString& language);
+  void SetMode(bool is_design);
   void ShowMode();
-  void Generate();
+  void ShowGenerate();
+  // Generate, or stops the line while one is being made.
+  void GenerateOrStop();
   void AddToTimeline();
   void SaveDesigned();
   void Report(const QString& problem) {
@@ -58,18 +65,22 @@ class VoicePanel final : public QScrollArea {
 
   Managers managers_;
   AudioPreview preview_;
-  ChoiceRow mode_;
+  bool is_design_ = false;
+  VoiceModeTile* clone_tile_ = nullptr;
+  VoiceModeTile* design_tile_ = nullptr;
+  QLabel mode_caption_;
   VoiceCloneBox clone_;
   QWidget* design_page_ = nullptr;
+  QWidget* line_section_ = nullptr;
+  QWidget* result_section_ = nullptr;
   QPlainTextEdit describe_;
   QPushButton save_designed_;
   QPlainTextEdit line_;
   QComboBox language_;
-  QPushButton generate_;
-  QPushButton cancel_;
+  HeroButton generate_;
+  WaveScreen take_screen_;
   QPushButton play_take_;
   QPushButton add_;
-  QLabel take_info_;
   QShortcut generate_key_;
   QShortcut generate_pad_key_;
 };

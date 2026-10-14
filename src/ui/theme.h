@@ -23,6 +23,9 @@ inline constexpr QColor kField{0x1c, 0x1c, 0x1f};
 inline constexpr QColor kFieldBad{0x5a, 0x1c, 0x28};
 inline constexpr QColor kText{0xe6, 0xe6, 0xe6};
 inline constexpr QColor kTextOff{0x80, 0x80, 0x86};
+// Placeholder text in an empty field: quieter than typed text, still
+// easy to read on the dark field.
+inline constexpr QColor kTextHint{0x9c, 0x9c, 0xa4};
 // Teto red: picks, the playhead, the active tab.
 inline constexpr QColor kPick{0xd8, 0x30, 0x4f};
 // Handles you can drag.

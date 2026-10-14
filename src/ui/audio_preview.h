@@ -20,9 +20,13 @@ class AudioPreview final : public QObject {
 
   // Plays path from its start, or stops it when it is playing.
   void Toggle(const QString& path);
+  // Plays path from seconds in, whatever was playing.
+  void PlayFrom(const QString& path, double seconds);
   void Stop();
   // path is the file that is playing now (false for an empty path).
   bool IsPlaying(const QString& path) const;
+  // How far into the playing file it is, in seconds.
+  double Seconds() const;
 
  signals:
   // A file started or stopped (also when it played to its end).

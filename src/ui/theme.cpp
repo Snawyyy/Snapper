@@ -40,6 +40,7 @@ QPalette DarkPalette() {
       palette.setColor(group, role, is_off ? kTextOff : kText);
     }
     palette.setColor(group, QPalette::Link, kPick.lighter(130));
+    palette.setColor(group, QPalette::PlaceholderText, kTextHint);
   }
   assert(palette.color(QPalette::Highlight) == kPick);
   return palette;
