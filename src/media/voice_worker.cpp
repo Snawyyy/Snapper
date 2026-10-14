@@ -40,6 +40,11 @@ QByteArray JobLine(int id, const VoiceJob& job) {
     json.insert("sample", job.sample);
     json.insert("words", job.words);
   }
+  const bool is_chatterbox = job.engine == VoiceEngine::kChatterbox;
+  if (is_chatterbox) {
+    json.insert("engine", "chatterbox");
+    json.insert("emotion", job.emotion);
+  }
   return QJsonDocument(json).toJson(QJsonDocument::Compact) + '\n';
 }
 
@@ -67,6 +72,20 @@ bool VoiceWorker::IsInstalled() const {
   assert(!python_.isEmpty());
   assert(!script_.isEmpty());
   return QFileInfo::exists(python_) && QFileInfo::exists(script_);
+}
+
+void VoiceWorker::SetPython(const QString& python) {
+  assert(!python.isEmpty());
+  assert(!IsBusy());
+  const bool is_same = python == python_;
+  if (is_same) {
+    return;
+  }
+  is_cancelling_ = true;
+  Stop();
+  is_cancelling_ = false;
+  answers_.clear();
+  python_ = python;
 }
 
 Result<void> VoiceWorker::Submit(const VoiceJob& job) {

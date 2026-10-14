@@ -13,6 +13,7 @@
 #include "edit/voice_library.h"
 #include "ui/form_helpers.h"
 #include "ui/panel_kit.h"
+#include "ui/pose_controls.h"
 #include "ui/problem.h"
 #include "ui/scroll_fit.h"
 #include "ui/theme.h"
@@ -55,6 +56,7 @@ void Retitle(QWidget* section, const QString& title) {
 VoicePanel::VoicePanel(const Managers& managers)
     : managers_(managers),
       clone_(managers, &preview_),
+      engine_box_(managers),
       save_designed_(tr("Save voice...")),
       generate_(tr("Generate"), nullptr),
       take_screen_(&preview_, tr("NO LINE YET"), nullptr),
@@ -139,12 +141,11 @@ QWidget* VoicePanel::BuildLineBody(QWidget* parent) {
   line_.setPlaceholderText(tr("What should they say?"));
   line_.setFixedHeight(theme::Em(this) * kTextLines);
   column->addWidget(&line_);
+  column->addWidget(&engine_box_);
   language_.addItems(Languages());
   language_.setToolTip(tr("The language of the line. Auto lets the model "
                           "tell from the words."));
-  auto* language_label = MakeOwned<QLabel>(tr("Language"), body);
-  column->addWidget(SharedRow({language_label, &language_},
-                              {kGoldenShort, kGoldenLong}, kTileGap, body));
+  column->addWidget(MakeNamedRow(tr("Language"), &language_, body));
   column->addWidget(&generate_);
   return body;
 }
@@ -178,6 +179,8 @@ void VoicePanel::Wire() {
     clone_.SetLanguage(Language());
   });
   connect(&clone_, &VoiceCloneBox::Changed, this, &VoicePanel::Refresh);
+  connect(&engine_box_, &VoiceEngineBox::Changed, this,
+          &VoicePanel::Refresh);
   connect(&clone_, &VoiceCloneBox::LanguageSuggested, this,
           &VoicePanel::ShowLanguage);
   connect(&clone_, &VoiceCloneBox::Problem, this, &VoicePanel::Problem);
@@ -234,6 +237,8 @@ void VoicePanel::ShowMode() {
   const bool is_design = IsDesign();
   design_page_->setVisible(is_design);
   clone_.setVisible(!is_design);
+  // Designs are Qwen's only, so the model and emotion are clone settings.
+  engine_box_.setVisible(!is_design);
   clone_tile_->SetShare(is_design ? Share::kNone : Share::kAll);
   design_tile_->SetShare(is_design ? Share::kAll : Share::kNone);
   mode_caption_.setText(
@@ -262,7 +267,8 @@ void VoicePanel::GenerateOrStop() {
   const auto started =
       IsDesign() ? gen.SpeakDesign(describe_.toPlainText(), text, Language())
                  : gen.SpeakClone(clone_.sample_path(), clone_.words(), text,
-                                  Language());
+                                  Language(), engine_box_.engine(),
+                                  engine_box_.emotion());
   Report(ProblemOf(started));
 }
 
@@ -319,7 +325,8 @@ void VoicePanel::ShowGenerate() {
   const QString text = line_.toPlainText();
   const QString why_not =
       IsDesign() ? gen.WhyNoSpeakDesign(describe_.toPlainText(), text)
-                 : gen.WhyNoSpeakClone(clone_.sample_path(), text);
+                 : gen.WhyNoSpeakClone(clone_.sample_path(), text,
+                                       engine_box_.engine());
   Explain(&generate_, why_not,
           tr("Says the line in this voice (Ctrl+Enter in the line). The "
              "first line takes a while, as the voice model loads."));
@@ -330,6 +337,7 @@ void VoicePanel::Refresh() {
   assert(managers_.toasts != nullptr);
   const VoiceGenManager& gen = *managers_.voice_gen;
   ShowGenerate();
+  engine_box_.Refresh();
   Explain(&save_designed_, gen.WhyNoSaveDesigned(),
           tr("Keeps the last designed line as a voice you can clone from "
              "again, with the line as its words."));

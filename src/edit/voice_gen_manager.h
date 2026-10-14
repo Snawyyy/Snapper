@@ -17,6 +17,10 @@ class PlaybackManager;
 class ReelManager;
 class VoiceLibrary;
 
+// Where setup.sh puts the Python of engine, under the data folder; each
+// engine has its own, as their libraries clash.
+QString VoicePython(const QString& data_folder, VoiceEngine engine);
+
 // Speaking lines in a cloned or designed voice, for the Voice panel on
 // the Video tab. The speaking is done by tools/voice_gen/voice_gen.py in
 // its own Python (installed by tools/voice_gen/setup.sh), started on the
@@ -42,14 +46,21 @@ class VoiceGenManager final : public QObject {
   bool IsBusy() const { return state_ != State::kIdle; }
 
   // Why a line can't be spoken now; empty when it can.
-  QString WhyNoSpeakClone(const QString& sample_path,
-                          const QString& text) const;
+  QString WhyNoSpeakClone(const QString& sample_path, const QString& text,
+                          VoiceEngine engine) const;
+  // Why engine can't be used: its Python is not installed.
+  QString WhyNoEngine(VoiceEngine engine) const;
+  // Why the emotion can't be set with engine (Qwen copies the sample's).
+  QString WhyNoEmotion(VoiceEngine engine) const;
   QString WhyNoSpeakDesign(const QString& describe,
                            const QString& text) const;
-  // Says text in the voice of the sample; words is what the sample says
-  // (empty clones from its sound alone). language is "Auto" or a name.
+  // Says text in the voice of the sample with engine; words is what the
+  // sample says (Qwen without them clones from its sound alone; Chatterbox
+  // never reads them). language is "Auto" or a name; emotion is
+  // Chatterbox's, kMinEmotion to kMaxEmotion.
   Result<void> SpeakClone(const QString& sample_path, const QString& words,
-                          const QString& text, const QString& language);
+                          const QString& text, const QString& language,
+                          VoiceEngine engine, double emotion);
   // Says text in a voice made from a description.
   Result<void> SpeakDesign(const QString& describe, const QString& text,
                            const QString& language);

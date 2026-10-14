@@ -22,7 +22,6 @@ namespace {
 constexpr int kReadoutWidth = 62;
 // The least a readout in a bar shrinks to.
 constexpr int kReadoutLeast = 40;
-constexpr int kNameWidth = 60;
 // The small dials are 36 px: the least that still shows the snap ticks.
 constexpr int kMiniDial = 36;
 constexpr int kMiniNameWidth = 56;
@@ -138,6 +137,21 @@ QWidget* MakeCellRow(const std::vector<QWidget*>& cells,
   return SharedRow(cells, shares, theme::kCellGap, parent);
 }
 
+QWidget* MakeNamedRow(const QString& label, QWidget* field,
+                      QWidget* parent) {
+  assert(field != nullptr);
+  assert(!label.isEmpty());
+  auto row = std::make_unique<QWidget>(parent);
+  auto* line = MakeOwned<QHBoxLayout>(row.get());
+  line->setContentsMargins(0, 0, 0, 0);
+  line->setSpacing(4);
+  auto* name = MakeOwned<QLabel>(label, row.get());
+  name->setFixedWidth(kFaderNameWidth);
+  line->addWidget(name);
+  line->addWidget(field, 1);
+  return row.release();
+}
+
 QWidget* MakeFaderRow(const QString& label, QDoubleSpinBox* box,
                       LiveEdit* live, double shown_high, double neutral,
                       QWidget* parent) {
@@ -149,7 +163,7 @@ QWidget* MakeFaderRow(const QString& label, QDoubleSpinBox* box,
   line->setSpacing(4);
   MakeReadout(box);
   auto* name = MakeOwned<ScrubLabel>(label, box, live);
-  name->setFixedWidth(kNameWidth);
+  name->setFixedWidth(kFaderNameWidth);
   line->addWidget(name);
   line->addWidget(
       MakeOwned<Fader>(box, live, shown_high, neutral, row.get()), 1);

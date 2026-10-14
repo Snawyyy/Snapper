@@ -12,6 +12,14 @@
 namespace snapper {
 
 enum class VoiceKind { kClone, kDesign, kTranscribe };
+// Who clones: Qwen3-TTS (follows the sample's words closely, copies its
+// mood) or Chatterbox (needs no words, takes an emotion). Designs are
+// Qwen's only.
+enum class VoiceEngine { kQwen, kChatterbox };
+// Chatterbox's emotion, from flat to wild; plain speech is the default.
+inline constexpr double kMinEmotion = 0.25;
+inline constexpr double kMaxEmotion = 2.0;
+inline constexpr double kPlainEmotion = 0.5;
 
 // One job for the voice worker. A clone job reads sample (and words,
 // what the sample says); a design job reads describe; both write the
@@ -19,6 +27,8 @@ enum class VoiceKind { kClone, kDesign, kTranscribe };
 // answers with the words heard in it.
 struct VoiceJob final {
   VoiceKind kind = VoiceKind::kClone;
+  VoiceEngine engine = VoiceEngine::kQwen;
+  double emotion = kPlainEmotion;
   QString text;
   QString language;
   QString sample;
@@ -42,6 +52,10 @@ class VoiceWorker final : public QObject {
 
   // Python and the script both exist.
   bool IsInstalled() const;
+  // Runs the next jobs in python; a worker up in another Python is
+  // stopped (when idle), so only one engine holds the graphics card.
+  void SetPython(const QString& python);
+  const QString& python() const { return python_; }
   bool IsBusy() const { return pending_id_ != 0; }
   // The process is up, so its models may already be loaded.
   bool IsRunning() const {
