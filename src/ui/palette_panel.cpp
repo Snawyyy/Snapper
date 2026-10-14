@@ -74,6 +74,7 @@ PalettePanel::PalettePanel(PaletteManager* palette, MotionManager* motion,
     }
   });
   SetFolded(false);
+  LoadRecent();
   hide();
 }
 
@@ -167,6 +168,10 @@ void PalettePanel::SetOpen(bool is_open) {
     hide();
   }
   palette_->SetShown(is_open);
+  const bool is_closed = !is_open;
+  if (is_closed) {
+    KeepRecent();
+  }
   emit OpenChanged(is_open);
 }
 

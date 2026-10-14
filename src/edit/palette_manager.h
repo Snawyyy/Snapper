@@ -25,10 +25,10 @@ class SelectionManager;
 enum class PaletteUse { kAuto, kFree, kDoll };
 
 // The floating palette's colors, shared by every feature that asks for
-// a color: the picked piece's colors, the whole doll's, the project's
-// recent ones and the doll's hand-added ones. It reads colors and never
+// a color: the picked piece's colors, the whole doll's, the recent
+// ones and the doll's hand-added ones. It reads colors and never
 // changes a drawing. Users of a color store it as a value; picking one
-// is part of their own edit, which records it with WithRecent.
+// is part of their own edit.
 // Also holds the palette's current and hovered color, so the panel and
 // the stage (flash, pick with I) agree.
 class PaletteManager final : public QObject {
@@ -44,8 +44,11 @@ class PaletteManager final : public QObject {
   std::vector<QColor> PieceColors() const;
   // Every solid color of the doll's drawings, most used first.
   std::vector<QColor> DollColors() const;
-  // The project's last picked colors, newest first.
-  std::vector<QColor> RecentColors() const;
+  // The colors last chosen, newest first: the current color each time
+  // the palette closed after a pick. The panel keeps them in the
+  // settings file between runs.
+  const std::vector<QColor>& RecentColors() const { return recent_; }
+  void SetRecentColors(std::vector<QColor> colors);
   // The doll's hand-added colors.
   std::vector<QColor> AddedColors() const;
 
@@ -68,16 +71,13 @@ class PaletteManager final : public QObject {
   void Hover(const QColor& color);
   // Whether the panel is open; the stage takes I only while it is.
   bool is_shown() const { return is_shown_; }
-  // Closing it puts its use back to kAuto.
+  // Closing it puts its use back to kAuto and, after a pick, the
+  // current color first in the recent ones.
   void SetShown(bool is_shown);
   // A feature about to ask for a color says what for.
   void SetUse(PaletteUse use);
   // True when the doll's colors are worth showing now.
   bool ShowsDoll() const;
-
-  // project with color first in its recent colors (moved up when it is
-  // there already), for the edit that uses the color.
-  static Project WithRecent(Project project, const QColor& color);
 
  signals:
   // The colors to show may have changed (pick, project, art).
@@ -99,6 +99,9 @@ class PaletteManager final : public QObject {
   QColor current_ = Qt::black;
   QColor hovered_;
   bool is_shown_ = false;
+  // A color was picked since the palette opened.
+  bool is_chosen_ = false;
+  std::vector<QColor> recent_;
   PaletteUse use_ = PaletteUse::kAuto;
   struct Cached final {
     QDateTime stamp;

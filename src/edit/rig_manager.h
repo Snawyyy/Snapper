@@ -237,8 +237,7 @@ class RigManager final {
   // common color at the joint (JointColorAt).
   Result<void> ToggleJointCircle(const QString& doll, const QString& piece,
                                  const QImage& drawing);
-  // Gives piece's joint circle color (a palette pick, kept in the
-  // recent colors); one undo step. Refused while the circle is off.
+  // Gives piece's joint circle color (a palette pick); one undo step. Refused while the circle is off.
   Result<void> SetJointCircleColor(const QString& doll, const QString& piece,
                                    const QColor& color);
 

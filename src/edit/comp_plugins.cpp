@@ -164,8 +164,7 @@ Result<void> CompManager::SetKnobColor(ShotId shot, CompEffectId id,
         channel.keys = {Key<double>{Frame(0), static_cast<double>(rgb),
                                     Ease::kStep}};
         return {};
-      },
-      color);
+      });
 }
 
 }  // namespace snapper

@@ -74,6 +74,9 @@ class PalettePanel final : public QWidget {
   void AddColor();
   void KeepPlace();
   void RestorePlace();
+  // The recent colors in the settings file, shared by every project.
+  void KeepRecent() const;
+  void LoadRecent();
   // The panel as tall as its colors need at its width, or as tall as
   // the user made it when that is more.
   void FitHeight();

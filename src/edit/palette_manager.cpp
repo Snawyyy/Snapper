@@ -123,8 +123,21 @@ std::vector<QColor> PaletteManager::DollColors() const {
   return ToColors(MergeColors(lists));
 }
 
-std::vector<QColor> PaletteManager::RecentColors() const {
-  return history_->current().recent_colors;
+void PaletteManager::SetRecentColors(std::vector<QColor> colors) {
+  assert(history_ != nullptr);
+  assert(kMaxRecentColors > 0);
+  std::erase_if(colors, [](const QColor& color) { return !color.isValid(); });
+  const auto most = static_cast<size_t>(kMaxRecentColors);
+  const bool is_long = colors.size() > most;
+  if (is_long) {
+    colors.resize(most);
+  }
+  const bool is_same = colors == recent_;
+  if (is_same) {
+    return;
+  }
+  recent_ = std::move(colors);
+  emit Changed();
 }
 
 std::vector<QColor> PaletteManager::AddedColors() const {
@@ -195,6 +208,7 @@ void PaletteManager::Pick(const QColor& color,
     return;
   }
   current_ = color;
+  is_chosen_ = is_chosen_ || is_shown_;
   emit Picked(color, modifiers);
   emit Changed();
 }
@@ -212,7 +226,16 @@ void PaletteManager::SetShown(bool is_shown) {
     return;
   }
   is_shown_ = is_shown;
-  if (!is_shown_) {
+  const bool is_closing = !is_shown_;
+  const bool remembers = is_closing && is_chosen_;
+  if (remembers) {
+    std::vector<QColor> recent = recent_;
+    std::erase(recent, current_);
+    recent.insert(recent.begin(), current_);
+    SetRecentColors(std::move(recent));
+  }
+  is_chosen_ = false;
+  if (is_closing) {
     Hover(QColor());
     use_ = PaletteUse::kAuto;
   }
@@ -236,17 +259,6 @@ bool PaletteManager::ShowsDoll() const {
   const bool has_doll = !DollName().isEmpty();
   const bool is_free = use_ == PaletteUse::kFree;
   return has_doll && !is_free;
-}
-
-Project PaletteManager::WithRecent(Project project, const QColor& color) {
-  assert(color.isValid());
-  auto& recent = project.recent_colors;
-  std::erase(recent, color);
-  recent.insert(recent.begin(), color);
-  if (recent.size() > static_cast<size_t>(kMaxRecentColors)) {
-    recent.resize(static_cast<size_t>(kMaxRecentColors));
-  }
-  return project;
 }
 
 }  // namespace snapper

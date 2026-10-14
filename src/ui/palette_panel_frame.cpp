@@ -5,9 +5,12 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QSettings>
+#include <QStringList>
 
 #include <algorithm>
 #include <cassert>
+#include <utility>
+#include <vector>
 
 #include "edit/palette_manager.h"
 #include "ui/palette_panel.h"
@@ -22,6 +25,7 @@ constexpr int kGap = 3;
 constexpr int kPanelWidth = 8 * (kSwatch + kGap) + kGap + 16 + 24;
 constexpr char kPlaceKey[] = "palette/place";
 constexpr char kSizeKey[] = "palette/size";
+constexpr char kRecentKey[] = "palette/recent";
 // The resize corner, and the smallest the panel gets.
 constexpr int kGrip = 14;
 constexpr int kMinWidth = 3 * (kSwatch + kGap) + kGap + 40;
@@ -79,6 +83,28 @@ void PalettePanel::KeepPlace() {
   QSettings settings(settings_path_, QSettings::IniFormat);
   settings.setValue(kPlaceKey, pos());
   settings.setValue(kSizeKey, QSize(width(), asked_height_));
+}
+
+void PalettePanel::KeepRecent() const {
+  assert(palette_ != nullptr);
+  assert(kRecentKey[0] != '\0');
+  QStringList names;
+  for (const QColor& color : palette_->RecentColors()) {
+    names.append(color.name(QColor::HexArgb));
+  }
+  QSettings settings(settings_path_, QSettings::IniFormat);
+  settings.setValue(kRecentKey, names);
+}
+
+void PalettePanel::LoadRecent() {
+  assert(palette_ != nullptr);
+  assert(kRecentKey[0] != '\0');
+  const QSettings settings(settings_path_, QSettings::IniFormat);
+  std::vector<QColor> colors;
+  for (const QString& name : settings.value(kRecentKey).toStringList()) {
+    colors.emplace_back(QColor::fromString(name));
+  }
+  palette_->SetRecentColors(std::move(colors));
 }
 
 void PalettePanel::RestorePlace() {

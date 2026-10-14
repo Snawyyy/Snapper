@@ -194,8 +194,8 @@ drawings a re-export lost (`RemovedDrawings`).
 The floating palette (`PaletteManager`) gives every feature that asks
 for a color the same colors: the picked piece's and doll's solid
 colors (`render/drawing_colors.cpp`, cached per drawing file), the
-project's recent ones (`Project::recent_colors`, recorded by the edit
-that uses a color through `WithRecent`) and the doll's hand-added ones
+recent ones (the current color each time the palette closes after a
+pick, kept in the settings file by the panel) and the doll's hand-added ones
 (`Rig::added_colors`). It never changes a drawing. It also holds the
 current and hovered color, so `ui/palette_panel.cpp` and the stage
 (flash, I to pick) agree; draw mode opens and closes it with `SetShown`.

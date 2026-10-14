@@ -7,7 +7,6 @@
 #include "base/text.h"
 #include "edit/comp_manager.h"
 #include "edit/history_manager.h"
-#include "edit/palette_manager.h"
 #include "edit/project_edits.h"
 
 namespace snapper {
@@ -53,8 +52,7 @@ void Spread(std::vector<GradientStop>* stops) {
 
 Result<void> CompManager::Edit(
     ShotId shot, CompEffectId id, const QString& label,
-    const std::function<Result<void>(CompEffect*)>& change,
-    const QColor& recent) {
+    const std::function<Result<void>(CompEffect*)>& change) {
   assert(history_ != nullptr);
   assert(!label.isEmpty());
   auto next = WithShot(history_->current(), shot,
@@ -67,10 +65,6 @@ Result<void> CompManager::Edit(
                          }
                          return change(effect);
                        });
-  const bool has_recent = next.has_value() && recent.isValid();
-  if (has_recent) {
-    next = PaletteManager::WithRecent(std::move(*next), recent);
-  }
   return history_->Apply(label, std::move(next));
 }
 
@@ -222,8 +216,7 @@ Result<void> CompManager::SetColor(ShotId shot, CompEffectId id,
       [color](CompEffect* effect) -> Result<void> {
         effect->color = color;
         return {};
-      },
-      color);
+      });
 }
 
 Result<void> CompManager::SetStyle(ShotId shot, CompEffectId id, int style) {
@@ -294,8 +287,7 @@ Result<void> CompManager::SetStopColor(ShotId shot, CompEffectId id, int stop,
         }
         effect->stops[static_cast<size_t>(stop)].color = kept;
         return {};
-      },
-      color);
+      });
 }
 
 QString CompManager::WhyNoAddStop(const CompEffect& effect) const {
@@ -406,8 +398,7 @@ Result<void> CompManager::SetSwapColor(ShotId shot, CompEffectId id, int swap,
         ColorSwap& pair = effect->swaps[static_cast<size_t>(swap)];
         (is_to ? pair.to : pair.from) = color;
         return {};
-      },
-      color);
+      });
 }
 
 Result<void> CompManager::RemoveSwap(ShotId shot, CompEffectId id, int swap) {
@@ -455,8 +446,7 @@ Result<void> CompManager::PickTargetColor(ShotId shot, CompEffectId id,
           colors.push_back(color);
         }
         return {};
-      },
-      color);
+      });
 }
 
 Result<void> CompManager::ClearTargetColors(ShotId shot, CompEffectId id) {

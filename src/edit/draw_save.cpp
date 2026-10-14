@@ -9,7 +9,6 @@
 #include "base/text.h"
 #include "edit/draw_manager.h"
 #include "edit/history_manager.h"
-#include "edit/palette_manager.h"
 #include "edit/pose_edits.h"
 #include "io/doll_file.h"
 
@@ -102,7 +101,6 @@ Result<Project> DrawManager::WithDrawing(const QString& file,
     AddOwnDrawings(&doll);
   }
   next.dolls[doll_] = std::make_shared<const Doll>(std::move(doll));
-  next = PaletteManager::WithRecent(std::move(next), color());
   // A new drawing shows on the piece where drawing began, so Done shows
   // what was drawn; a new version shows wherever the old one did.
   if (is_replacing) {

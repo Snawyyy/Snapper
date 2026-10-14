@@ -221,8 +221,7 @@ class CompManager final : public QObject {
   static std::set<int> KeyFrames(const CompEffect& effect);
 
   Result<void> SetColor(ShotId shot, CompEffectId id, QColor color);
-  // A plugin's color knob (kColor row): the whole shot, kept in the
-  // palette's recent colors.
+  // A plugin's color knob (kColor row): the whole shot.
   Result<void> SetKnobColor(ShotId shot, CompEffectId id, CompKnob knob,
                             QColor color);
   // The color a kColor knob holds at frame.
@@ -324,8 +323,7 @@ class CompManager final : public QObject {
   static bool IsPluginKnobShown(const CompEffect& effect, CompKnob knob);
   // Applies change(CompEffect*) to one effect as an undo step.
   Result<void> Edit(ShotId shot, CompEffectId id, const QString& label,
-                    const std::function<Result<void>(CompEffect*)>& change,
-                    const QColor& recent = QColor());
+                    const std::function<Result<void>(CompEffect*)>& change);
   Result<CompEffectId> Insert(ShotId shot, CompEffect effect, int index,
                               const QString& label);
   // A clip's frames: of its shot, and the reel frame the first one

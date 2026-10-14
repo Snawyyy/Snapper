@@ -12,7 +12,6 @@
 #include "anim/doll_pose.h"
 #include "anim/joint_snap.h"
 #include "edit/history_manager.h"
-#include "edit/palette_manager.h"
 #include "edit/rig_edits.h"
 #include "edit/rig_manager.h"
 
@@ -142,9 +141,6 @@ Result<void> RigManager::SetJointCircleColor(const QString& doll,
     FindRig(rig, piece)->joint_circle.color = color;
     return Result<void>();
   });
-  if (next) {
-    next = PaletteManager::WithRecent(std::move(*next), color);
-  }
   return history_->Apply(Tr("Joint circle color %1").arg(piece),
                          std::move(next));
 }
