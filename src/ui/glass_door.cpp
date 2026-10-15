@@ -15,7 +15,7 @@ namespace {
 constexpr int kTickMs = 16;
 // How far the door tips per pixel pulled up or down, and at most.
 constexpr double kTiltPerPixel = 0.12;
-constexpr double kMaxTilt = 6.0;
+constexpr double kMaxTilt = 3.0;
 // The swing spring: pull toward the aim and the loss each step.
 constexpr double kSwingPull = 0.18;
 constexpr double kSwingKeep = 0.78;
@@ -134,6 +134,12 @@ void GlassDoor::Swing() {
   assert(kSwingKeep > 0.0);
   spin_ = (spin_ + (tilt_aim_ - tilt_) * kSwingPull) * kSwingKeep;
   tilt_ += spin_;
+  // The track stops it hard: no swing past the limit.
+  const bool is_at_stop = std::abs(tilt_) > kMaxTilt;
+  if (is_at_stop) {
+    tilt_ = std::clamp(tilt_, -kMaxTilt, kMaxTilt);
+    spin_ = 0.0;
+  }
   const bool is_settled = !is_held_ && std::abs(tilt_) < kRestTilt &&
                           std::abs(spin_) < kRestTilt;
   if (is_settled) {
