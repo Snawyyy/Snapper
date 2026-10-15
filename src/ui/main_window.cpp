@@ -97,7 +97,8 @@ MainWindow::MainWindow(const Managers& managers)
       find_action_(tr("&Find a command...")),
       sheet_action_(tr("&Keys and gestures...")),
       palette_(menuBar(), this),
-      sheet_(menuBar(), this) {
+      sheet_(menuBar(), this),
+      full_view_(this) {
   assert(managers_.IsComplete());
   BuildMenus();
   BuildPages();
@@ -222,6 +223,20 @@ void MainWindow::FollowPlayhead() {
     managers_.selection->SelectShot(
         project.shots[static_cast<size_t>(moment.shot)]->id);
   }
+}
+
+void MainWindow::ToggleFullView() {
+  assert(pages_.count() == static_cast<int>(Mode::kRig) + 1);
+  assert(centralWidget() == &pages_);
+  if (full_view_.is_on()) {
+    full_view_.Leave();
+    return;
+  }
+  QWidget* view = mode() == Mode::kVideo  ? video_page_.main_view()
+                  : mode() == Mode::kComp ? comp_page_.main_view()
+                  : mode() == Mode::kRig  ? static_cast<QWidget*>(&rig_canvas_)
+                                          : static_cast<QWidget*>(&stage_);
+  full_view_.Enter(view);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
@@ -379,6 +394,18 @@ void MainWindow::BuildViewAndHelp() {
       tr("The floating palette: the picked piece's and doll's colors, "
          "recent and added ones."));
   view_menu_.addAction(&color_palette_action_);
+  full_view_action_.setText(tr("Full view"));
+  full_view_action_.setShortcut(QKeySequence(Qt::Key_Tab));
+  full_view_action_.setShortcutContext(Qt::WindowShortcut);
+  full_view_action_.setToolTip(tr("The stage or preview fills the screen; "
+                                  "Tab again comes back."));
+  view_menu_.addAction(&full_view_action_);
+  addAction(&full_view_action_);
+  connect(&full_view_action_, &QAction::triggered, this,
+          &MainWindow::ToggleFullView);
+  // Another tab has another view: full view ends on a tab change.
+  connect(top_bar_.tabs(), &QTabBar::currentChanged, this,
+          [this] { full_view_.Leave(); });
   connect(&color_palette_action_, &QAction::toggled, &color_palette_,
           &PalettePanel::SetOpen);
   connect(&color_palette_, &PalettePanel::OpenChanged,

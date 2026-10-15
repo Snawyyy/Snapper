@@ -60,6 +60,8 @@ class VideoPage final : public QWidget {
   Q_OBJECT
 
  public:
+  // The reel preview, which Tab's full view fills the screen with.
+  QWidget* main_view() { return &preview_; }
   explicit VideoPage(const Managers& managers);
 
   ShotBin* bin() { return &bin_; }

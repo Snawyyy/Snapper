@@ -22,6 +22,7 @@
 #include "ui/comp_page.h"
 #include "ui/export_dialog.h"
 #include "ui/file_menu.h"
+#include "ui/full_view.h"
 #include "ui/inspector.h"
 #include "ui/managers.h"
 #include "ui/motion_menu.h"
@@ -77,6 +78,8 @@ class MainWindow final : public QMainWindow {
   void BuildMenus();
   // The View menu's Sounds switch and the Help menu.
   void BuildViewAndHelp();
+  // Tab: fills the screen with the open tab's main view, or comes back.
+  void ToggleFullView();
   // Puts the Pose, Rig, Comp and Video pages in the stack.
   void BuildPages();
   // Puts the top bar in its fixed host and ties the tabs to the pages.
@@ -176,6 +179,10 @@ class MainWindow final : public QMainWindow {
   // Whether the posing panels were open before the Video tab hid them.
   bool was_cast_open_ = true;
   bool was_inspector_open_ = true;
+  // Tab: the tab's main view fills the screen. Last, so it goes first
+  // and shows what it hid while the widgets still live.
+  QAction full_view_action_;
+  FullView full_view_;
 };
 
 }  // namespace snapper

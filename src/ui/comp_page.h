@@ -34,6 +34,8 @@ class CompPage final : public QWidget {
   Q_OBJECT
 
  public:
+  // The stage, which Tab's full view fills the screen with.
+  QWidget* main_view() { return &stage_; }
   explicit CompPage(const Managers& managers);
   ~CompPage() override;
 
