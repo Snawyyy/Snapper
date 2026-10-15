@@ -14,18 +14,7 @@ class QRectF;
 namespace snapper {
 
 // The symbol stamped on a tape key.
-enum class TapeGlyph {
-  kFirst,
-  kBack,
-  kPlay,
-  kNext,
-  kLast,
-  // Draw mode's tools.
-  kBrush,
-  kEraser,
-  kFill,
-  kPick,
-};
+enum class TapeGlyph { kFirst, kBack, kPlay, kNext, kLast };
 
 // A play bar button drawn as an old cassette recorder's piano key: a
 // black plastic block, a round dimple in its top holding the symbol,
@@ -42,8 +31,6 @@ class TapeKey : public QPushButton {
   explicit TapeKey(const QString& text);
 
   QSize sizeHint() const override;
-  // A small mark printed in the top face's corner: the key's shortcut.
-  void SetCornerMark(const QString& mark);
 
  protected:
   void paintEvent(QPaintEvent* event) override;
@@ -60,7 +47,6 @@ class TapeKey : public QPushButton {
 
   std::optional<TapeGlyph> glyph_;
   double print_inset_ = 0.0;
-  QString corner_mark_;
 };
 
 }  // namespace snapper
