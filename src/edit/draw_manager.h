@@ -9,6 +9,7 @@
 #include <QTransform>
 
 #include <functional>
+#include <map>
 #include <optional>
 #include <vector>
 
@@ -113,6 +114,12 @@ class DrawManager final : public QObject {
   // What it started from (for a blank start, the drawing shown), for
   // holding R and the onion.
   const QImage& reference() const { return reference_; }
+  // The drawing each piece of the doll shows where drawing began (its
+  // keys, skins and dials), so the rest of the doll stands as it is
+  // dressed there, not in its default drawings.
+  const std::map<QString, int>& doll_drawings() const {
+    return doll_drawings_;
+  }
   // The piece's drawing pixels to doll space at rest, where the doll's
   // other pieces stand.
   const QTransform& rest_place() const { return rest_place_; }
@@ -244,6 +251,7 @@ class DrawManager final : public QObject {
   int page_ = 0;
   QImage flipped_image_;
   QString flipped_name_;
+  std::map<QString, int> doll_drawings_;
   // The sheet a piece's drawing is made on, and where its frame lies.
   QSize sheet_;
   QSize frame_size_;

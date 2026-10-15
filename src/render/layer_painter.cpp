@@ -314,6 +314,19 @@ Layer RestLayer(const QString& doll) {
   return layer;
 }
 
+Layer RestLayer(const QString& doll, const std::map<QString, int>& drawings) {
+  assert(!doll.isEmpty());
+  assert(drawings.size() < 100000);
+  Layer layer = RestLayer(doll);
+  auto& pieces = std::get<DollLayer>(layer.content).pieces;
+  for (const auto& [name, drawing] : drawings) {
+    PiecePose pose;
+    pose.drawing = drawing;
+    pieces[name].keys.push_back(Key<PiecePose>{Frame(0), pose});
+  }
+  return layer;
+}
+
 void PaintLayer(const Project& project, const Layer& layer, Frame frame,
                 const QTransform& view, LinkSolver* links, ImageCache* cache,
                 QPainter* painter, const std::set<QString>* only_pieces,

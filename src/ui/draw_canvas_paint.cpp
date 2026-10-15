@@ -67,8 +67,9 @@ void DrawCanvas::PaintDoll(QPainter* painter) {
   }
   painter->save();
   painter->setOpacity(kDollDim);
-  PaintLayer(project, RestLayer(doll->name), Frame(0), View(), nullptr,
-             &cache_, painter, &others);
+  PaintLayer(project,
+             RestLayer(doll->name, managers_.draw->doll_drawings()),
+             Frame(0), View(), nullptr, &cache_, painter, &others);
   painter->restore();
 }
 

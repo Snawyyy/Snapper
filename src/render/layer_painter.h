@@ -7,6 +7,7 @@
 #include <QRectF>
 #include <QTransform>
 
+#include <map>
 #include <set>
 
 #include "anim/doll_pose.h"
@@ -32,6 +33,9 @@ void PaintLettering(const QPainterPath& path, const TextLayer& text,
 // A layer showing doll at rest, unkeyed, for canvases that draw a doll
 // outside any shot (the rig canvas, draw mode).
 Layer RestLayer(const QString& doll);
+// The same, each piece showing the drawing drawings gives it (by piece
+// name; -1 its default), still at rest.
+Layer RestLayer(const QString& doll, const std::map<QString, int>& drawings);
 
 // What a doll drawn for some of its pieces does with the others. Pieces
 // below the lowest named one are never drawn: nothing named is under
