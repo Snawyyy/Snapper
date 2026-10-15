@@ -13,6 +13,7 @@
 
 #include "base/frame.h"
 #include "edit/playback_manager.h"
+#include "ui/glass_door.h"
 #include "ui/theme.h"
 
 namespace snapper {
@@ -74,8 +75,11 @@ CassetteDeck::CassetteDeck(const Managers& managers) : managers_(managers) {
   setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
   setCursor(Qt::OpenHandCursor);
   setFocusPolicy(Qt::ClickFocus);
+  setMouseTracking(true);
   setToolTip(tr("The tape follows the playhead. Drag across it to "
-                "scrub; Escape while dragging puts it back."));
+                "scrub, or the yellow handle to slide the glass door; "
+                "Escape while dragging puts it back."));
+  connect(&door_, &GlassDoor::Changed, this, [this] { update(); });
   connect(playback, &PlaybackManager::FrameChanged, this,
           [this] { update(); });
   connect(playback, &PlaybackManager::TimelineChanged, this,
@@ -111,17 +115,24 @@ void CassetteDeck::paintEvent(QPaintEvent* event) {
   assert(width() > 0);
   QPainter painter(this);
   painter.setRenderHint(QPainter::Antialiasing, true);
-  // Keep the cassette's shape whatever room the dock gives it.
-  const double room_w = width() - 2.0 * kMargin;
-  const double room_h = height() - 2.0 * kMargin;
-  const double shell_w = std::min(room_w, room_h / kAspect);
-  const double shell_h = shell_w * kAspect;
-  const QRectF shell((width() - shell_w) / 2.0, (height() - shell_h) / 2.0,
-                     shell_w, shell_h);
+  const QRectF shell = ShellRect();
   PaintShell(&painter, shell);
   PaintLabel(&painter, shell);
   PaintWindow(&painter, shell);
+  door_.Paint(&painter, shell);
   PaintInset(&painter, shell);
+}
+
+QRectF CassetteDeck::ShellRect() const {
+  assert(width() >= 0);
+  assert(kAspect > 0.0);
+  // Keep the cassette's shape whatever room the dock gives it.
+  const double room_w = std::max(1.0, width() - 2.0 * kMargin);
+  const double room_h = std::max(1.0, height() - 2.0 * kMargin);
+  const double shell_w = std::min(room_w, room_h / kAspect);
+  const double shell_h = shell_w * kAspect;
+  return QRectF((width() - shell_w) / 2.0, (height() - shell_h) / 2.0,
+                shell_w, shell_h);
 }
 
 void CassetteDeck::PaintInset(QPainter* painter,
@@ -304,6 +315,12 @@ void CassetteDeck::mousePressEvent(QMouseEvent* event) {
     QWidget::mousePressEvent(event);
     return;
   }
+  const bool is_door = door_.IsOnHandle(event->position(), ShellRect());
+  if (is_door) {
+    door_.Grab(event->position());
+    setCursor(Qt::ClosedHandCursor);
+    return;
+  }
   is_dragging_ = true;
   drag_x_ = event->position().x();
   drag_frame_ = managers_.playback->frame().index();
@@ -313,7 +330,15 @@ void CassetteDeck::mousePressEvent(QMouseEvent* event) {
 void CassetteDeck::mouseMoveEvent(QMouseEvent* event) {
   assert(event != nullptr);
   assert(kDragPerFrame > 0.0);
+  const bool is_door = door_.is_held();
+  if (is_door) {
+    door_.Drag(event->position(), ShellRect());
+    return;
+  }
   if (!is_dragging_) {
+    const bool is_on_handle =
+        door_.IsOnHandle(event->position(), ShellRect());
+    setCursor(is_on_handle ? Qt::PointingHandCursor : Qt::OpenHandCursor);
     return;
   }
   const double moved = event->position().x() - drag_x_;
@@ -326,13 +351,24 @@ void CassetteDeck::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
   assert(managers_.playback != nullptr);
   is_dragging_ = false;
+  const bool is_door = door_.is_held();
+  if (is_door) {
+    door_.Release();
+  }
   setCursor(Qt::OpenHandCursor);
 }
 
 void CassetteDeck::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
   assert(managers_.playback != nullptr);
-  const bool is_cancel = is_dragging_ && event->key() == Qt::Key_Escape;
+  const bool is_escape = event->key() == Qt::Key_Escape;
+  const bool is_door_cancel = is_escape && door_.is_held();
+  if (is_door_cancel) {
+    door_.Cancel();
+    setCursor(Qt::OpenHandCursor);
+    return;
+  }
+  const bool is_cancel = is_dragging_ && is_escape;
   if (!is_cancel) {
     QWidget::keyPressEvent(event);
     return;

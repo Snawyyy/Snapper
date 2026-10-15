@@ -1,15 +1,16 @@
 #ifndef SNAPPER_UI_CASSETTE_DECK_H_
 #define SNAPPER_UI_CASSETTE_DECK_H_
 
+#include <QRectF>
 #include <QWidget>
 
+#include "ui/glass_door.h"
 #include "ui/managers.h"
 
 class QKeyEvent;
 class QMouseEvent;
 class QPaintEvent;
 class QPainter;
-class QRectF;
 
 namespace snapper {
 
@@ -17,7 +18,8 @@ namespace snapper {
 // playhead: the reels turn with every frame it moves, forward or back,
 // and the tape winds from the left reel onto the right one from the
 // first frame to the last. Dragging across it scrubs the playhead;
-// Escape puts it back where the drag began.
+// Escape puts it back where the drag began. A glass door in front
+// slides right by its handle (glass_door.h).
 class CassetteDeck final : public QWidget {
   Q_OBJECT
 
@@ -36,6 +38,8 @@ class CassetteDeck final : public QWidget {
   void keyPressEvent(QKeyEvent* event) override;
 
  private:
+  // Where the cassette sits, kept in shape inside the margin.
+  QRectF ShellRect() const;
   // The wall's shadow over the edges, as if the cassette sits in it.
   void PaintInset(QPainter* painter, const QRectF& shell) const;
   void PaintShell(QPainter* painter, const QRectF& shell) const;
@@ -49,6 +53,8 @@ class CassetteDeck final : public QWidget {
   double Wound() const;
 
   Managers managers_;
+  // The glass in front of the cassette.
+  GlassDoor door_;
   bool is_dragging_ = false;
   double drag_x_ = 0.0;
   int drag_frame_ = 0;
