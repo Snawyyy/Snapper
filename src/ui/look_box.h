@@ -1,24 +1,23 @@
 #ifndef SNAPPER_UI_LOOK_BOX_H_
 #define SNAPPER_UI_LOOK_BOX_H_
 
-#include <QButtonGroup>
-#include <QCheckBox>
 #include <QHBoxLayout>
-#include <QPushButton>
 #include <QVBoxLayout>
 #include <QWidget>
 
-#include <array>
-
 #include "model/doll.h"
+#include "ui/flip_switch.h"
+#include "ui/look_preview.h"
 #include "ui/managers.h"
+#include "ui/mode_knob.h"
 
 namespace snapper {
 
-// The Rig tab's Look box for the doll being rigged: three tiles (Crisp,
-// Smooth, Smooth flat) pick how its drawings look when warped, turned
-// or scaled, and Hard edges cuts smooth edges out instead of blending
-// them. Each click is one undo step through RigManager. A plated
+// The Rig tab's Look box for the doll being rigged: a mode knob (Crisp,
+// Smooth, Flat) picks how its drawings look when warped, turned or
+// scaled, a small screen beside it shows that look on a turned pixel
+// drawing, and the Hard edges switch cuts smooth edges out instead of
+// blending them. Each click is one undo step through RigManager. A plated
 // section of its own (plated_box.h).
 class LookBox final : public QWidget {
   Q_OBJECT
@@ -36,10 +35,10 @@ class LookBox final : public QWidget {
   Managers managers_;
   QString doll_;
   QVBoxLayout layout_;
-  QHBoxLayout tiles_row_;
-  QButtonGroup group_;
-  std::array<QPushButton, kDrawingLookCount> tiles_;
-  QCheckBox hard_edges_;
+  QHBoxLayout row_;
+  ModeKnob knob_;
+  LookPreview preview_;
+  FlipSwitch hard_edges_;
 };
 
 }  // namespace snapper

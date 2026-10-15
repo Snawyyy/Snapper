@@ -1,7 +1,5 @@
 #include "ui/look_box.h"
 
-#include <QSignalBlocker>
-
 #include <cassert>
 
 #include "edit/history_manager.h"
@@ -35,31 +33,22 @@ QString LookHelp(DrawingLook look) {
 }  // namespace
 
 LookBox::LookBox(const Managers& managers)
-    : managers_(managers) {
+    : managers_(managers),
+      knob_({tr("Crisp"), tr("Smooth"), tr("Flat")}),
+      hard_edges_(tr("Hard edges")) {
   assert(managers_.IsComplete());
   assert(managers_.rig != nullptr);
   PlateBox(this, tr("Look"), &layout_);
-  for (int i = 0; i < kDrawingLookCount; ++i) {
-    const auto look = static_cast<DrawingLook>(i);
-    QPushButton& tile = tiles_[static_cast<size_t>(i)];
-    tile.setText(LookName(look));
-    tile.setCheckable(true);
-    tile.setMinimumHeight(36);
-    tile.setToolTip(LookHelp(look));
-    group_.addButton(&tile, i);
-    tiles_row_.addWidget(&tile);
-  }
-  group_.setExclusive(true);
-  hard_edges_.setText(tr("Hard edges"));
-  hard_edges_.setToolTip(tr("Smooth edges are cut out instead of blended "
-                            "into what is behind: a cutout look."));
-  layout_.addLayout(&tiles_row_);
+  hard_edges_.setObjectName("hard_edges");
+  row_.addWidget(&knob_, 1);
+  row_.addWidget(&preview_, 0, Qt::AlignVCenter);
+  layout_.addLayout(&row_);
   layout_.addWidget(&hard_edges_);
-  connect(&group_, &QButtonGroup::idClicked, this, [this](int id) {
+  connect(&knob_, &ModeKnob::Picked, this, [this](int look) {
     emit Problem(ProblemOf(
-        managers_.rig->SetLook(doll_, static_cast<DrawingLook>(id))));
+        managers_.rig->SetLook(doll_, static_cast<DrawingLook>(look))));
   });
-  connect(&hard_edges_, &QCheckBox::clicked, this, [this](bool is_on) {
+  connect(&hard_edges_, &QAbstractButton::clicked, this, [this](bool is_on) {
     emit Problem(ProblemOf(managers_.rig->SetHardEdges(doll_, is_on)));
   });
   connect(managers_.history, &HistoryManager::Changed, this,
@@ -75,30 +64,26 @@ void LookBox::SetDoll(const QString& doll) {
 
 void LookBox::Refresh() {
   assert(managers_.history != nullptr);
-  assert(group_.buttons().size() == kDrawingLookCount);
+  assert(knob_.value() >= 0);
   const Doll* doll = doll_.isEmpty()
                          ? nullptr
                          : FindDoll(managers_.history->current(), doll_);
   const QString why_not =
       doll == nullptr ? tr("Import a doll first.") : QString();
-  for (int i = 0; i < kDrawingLookCount; ++i) {
-    Explain(&tiles_[static_cast<size_t>(i)], why_not,
-            LookHelp(static_cast<DrawingLook>(i)));
-  }
-  const bool is_crisp =
-      doll == nullptr || doll->rig.look == DrawingLook::kCrisp;
+  const DrawingLook look =
+      doll == nullptr ? DrawingLook::kCrisp : doll->rig.look;
+  Explain(&knob_, why_not, LookHelp(look));
+  const bool is_crisp = look == DrawingLook::kCrisp;
   Explain(&hard_edges_,
           doll == nullptr ? why_not
           : is_crisp      ? tr("Crisp edges are already hard.")
                           : QString(),
           tr("Smooth edges are cut out instead of blended into what is "
              "behind: a cutout look."));
-  if (doll == nullptr) {
-    return;
-  }
-  const QSignalBlocker quiet(group_);
-  tiles_[static_cast<size_t>(doll->rig.look)].setChecked(true);
-  hard_edges_.setChecked(doll->rig.hard_edges);
+  const bool has_hard = doll != nullptr && doll->rig.hard_edges;
+  knob_.SetValue(static_cast<int>(look));
+  hard_edges_.setChecked(has_hard);
+  preview_.Show(look, has_hard);
 }
 
 }  // namespace snapper
