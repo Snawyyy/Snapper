@@ -4,6 +4,7 @@
 #include <QCheckBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QSpinBox>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QToolButton>
@@ -42,6 +43,8 @@ class DrawBar final : public QWidget {
   QLineEdit name_;
   QCheckBox onion_;
   QLabel size_;
+  // The brush size: typed, wheeled or stepped with [ and ].
+  QSpinBox brush_;
   QLabel question_;
   QPushButton discard_;
   QPushButton keep_;

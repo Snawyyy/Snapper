@@ -2,6 +2,7 @@
 
 #include <cassert>
 
+#include "render/pixel_paint.h"
 #include "ui/problem.h"
 #include "ui/theme.h"
 #include "ui/toast_manager.h"
@@ -53,7 +54,13 @@ DrawBar::DrawBar(const Managers& managers)
   layout_.addWidget(&title_);
   layout_.addWidget(&name_);
   layout_.addWidget(&onion_);
+  size_.setText(tr("Brush"));
+  brush_.setRange(1, kMaxBrushSize);
+  brush_.setSuffix(tr(" px"));
+  brush_.setToolTip(tr("Brush size: type it, roll the wheel over it, or "
+                       "press [ and ] while drawing."));
   layout_.addWidget(&size_);
+  layout_.addWidget(&brush_);
   layout_.addStretch(1);
   layout_.addWidget(&question_);
   layout_.addWidget(&discard_);
@@ -71,6 +78,8 @@ DrawBar::DrawBar(const Managers& managers)
     Ask(false);
   });
   connect(&onion_, &QCheckBox::toggled, draw, &DrawManager::SetOnion);
+  connect(&brush_, &QSpinBox::valueChanged, draw,
+          &DrawManager::SetBrushSize);
   // Enter in the name field reaches the canvas, which presses Done.
   connect(&done_, &QPushButton::clicked, this, &DrawBar::Finish);
   connect(&cancel_, &QPushButton::clicked, this, &DrawBar::AskCancel);
@@ -102,7 +111,10 @@ void DrawBar::Refresh() {
   const DrawManager* draw = managers_.draw;
   assert(draw != nullptr);
   title_.setText(draw->Title());
-  size_.setText(tr("Brush %1 px").arg(draw->brush_size()));
+  {
+    const QSignalBlocker quiet_size(brush_);
+    brush_.setValue(draw->brush_size());
+  }
   // A storyboard frame has no name; its onion is the frame before.
   name_.setVisible(draw->is_named());
   onion_.setToolTip(draw->is_named()
