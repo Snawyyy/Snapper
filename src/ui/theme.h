@@ -8,25 +8,30 @@ class QWidget;
 
 namespace snapper {
 
-// Snapper's look: a dark take on Windows 98. Raised 3D buttons, sunken
-// fields, square corners, tight spacing, and Teto red for whatever is
-// picked or active. Every widget draws from these, so the look lives in
-// one place.
+// Snapper's look: a dark take on Windows 98 dressed as Kasane Teto.
+// Raised 3D buttons, sunken fields, square corners, tight spacing, in
+// a 60 30 10 split: 60 the warm charcoal of her coat (faces, fields,
+// shadows, the same warm grey as the deck plastic), 30 the cream of
+// her shirt and the silver of her trim (text and labels), 10 her red
+// hair (whatever is picked or active). Every widget draws from these,
+// so the look lives in one place.
 namespace theme {
 
-inline constexpr QColor kFace{0x3a, 0x3a, 0x3e};
-inline constexpr QColor kFaceLight{0x5c, 0x5c, 0x62};
-inline constexpr QColor kFaceDark{0x24, 0x24, 0x27};
-inline constexpr QColor kShadow{0x10, 0x10, 0x12};
-inline constexpr QColor kField{0x1c, 0x1c, 0x1f};
+// 60: her coat. Warm greys, red a touch over green over blue.
+inline constexpr QColor kFace{0x33, 0x30, 0x2d};
+inline constexpr QColor kFaceLight{0x52, 0x4d, 0x48};
+inline constexpr QColor kFaceDark{0x21, 0x1f, 0x1d};
+inline constexpr QColor kShadow{0x0f, 0x0e, 0x0d};
+inline constexpr QColor kField{0x19, 0x17, 0x16};
 // A field that could not read what was typed, for a moment.
 inline constexpr QColor kFieldBad{0x5a, 0x1c, 0x28};
-inline constexpr QColor kText{0xe6, 0xe6, 0xe6};
-inline constexpr QColor kTextOff{0x80, 0x80, 0x86};
+// 30: her shirt and trim. Cream text, silver when off.
+inline constexpr QColor kText{0xec, 0xe6, 0xda};
+inline constexpr QColor kTextOff{0x8c, 0x86, 0x7e};
 // Placeholder text in an empty field: quieter than typed text, still
 // easy to read on the dark field.
-inline constexpr QColor kTextHint{0x9c, 0x9c, 0xa4};
-// Teto red: picks, the playhead, the active tab.
+inline constexpr QColor kTextHint{0xa8, 0xa1, 0x96};
+// 10: Teto red, her hair: picks, the playhead, the active tab.
 inline constexpr QColor kPick{0xd8, 0x30, 0x4f};
 // Handles you can drag.
 inline constexpr QColor kHandle{0xf2, 0xc2, 0x30};
