@@ -2,7 +2,7 @@
 
 #include <QApplication>
 #include <QDrag>
-#include <QFontMetrics>
+#include <QSet>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QSettings>
@@ -16,6 +16,7 @@
 #include "fsp/fsp_effects.h"
 #include "model/comp.h"
 #include "ui/comp_drag.h"
+#include "ui/effect_row_delegate.h"
 #include "ui/form_helpers.h"
 #include "ui/panel_kit.h"
 #include "ui/problem.h"
@@ -26,16 +27,10 @@ namespace {
 
 // Item data: the entry's kind, its plugin, whether it is the Scene
 // gradient or a header, and the words the search also looks in.
-constexpr int kKindRole = Qt::UserRole;
-constexpr int kPluginRole = Qt::UserRole + 1;
-constexpr int kSceneRole = Qt::UserRole + 2;
-constexpr int kHeaderRole = Qt::UserRole + 3;
-constexpr int kHelpRole = Qt::UserRole + 4;
 // F's Plugins carries about 50; more is a broken list.
 constexpr size_t kMaxPlugins = 512;
 constexpr int kMaxItems = 1024;
-// Room above a group caption, past its text.
-constexpr int kHeaderLift = 10;
+constexpr char kFoldsKey[] = "comp/folded";
 
 }  // namespace
 
@@ -55,10 +50,11 @@ CompLibrary::CompLibrary(const Managers& managers)
   where_.setPalette(quiet);
   where_.setContentsMargins(0, 2, 0, 4);
   list_.setMouseTracking(true);
-  // Rows a little apart, so the list reads as items, not a run of text.
-  list_.setSpacing(1);
   list_.setFrameShape(QFrame::NoFrame);
-  list_.setIconSize(QSize(12, 12));
+  list_.setItemDelegate(&delegate_);
+  // Rows light under the pointer.
+  list_.viewport()->setAttribute(Qt::WA_Hover);
+  list_.setUniformItemSizes(false);
   list_.viewport()->installEventFilter(this);
   none_ = EmptyHint(tr("No effect matches."), &body_);
   none_->hide();
@@ -68,6 +64,7 @@ CompLibrary::CompLibrary(const Managers& managers)
   body_layout_.addWidget(&list_, 1);
   layout_.addWidget(PlatedSection(tr("Effects"), &body_, this), 1);
   LoadRecent();
+  LoadFolds();
   Fill();
   connect(&search_, &QLineEdit::textChanged, this, &CompLibrary::Filter);
   connect(&search_, &QLineEdit::returnPressed, this,
@@ -91,19 +88,9 @@ void CompLibrary::AddHeader(const QString& name, const QString& help) {
   assert(!name.isEmpty());
   assert(list_.count() < kMaxItems);
   auto* item = MakeOwned<QListWidgetItem>(name, &list_);
-  item->setData(kHeaderRole, true);
-  item->setToolTip(help);
-  // A group's caption: the quiet second level, with room above it so
-  // each group stands apart.
-  QFont small = item->font();
-  small.setBold(true);
-  small.setPointSizeF(small.pointSizeF() * 0.85);
-  small.setCapitalization(QFont::AllUppercase);
-  small.setLetterSpacing(QFont::AbsoluteSpacing, 1.0);
-  item->setFont(small);
-  item->setForeground(theme::kTextOff);
-  item->setTextAlignment(Qt::AlignLeft | Qt::AlignBottom);
-  item->setSizeHint(QSize(0, QFontMetrics(small).height() + kHeaderLift));
+  item->setData(kEffectHeaderRole, true);
+  item->setData(kEffectFoldedRole, folded_.contains(name));
+  item->setToolTip(help + tr(" Click to fold or open."));
   item->setFlags(Qt::NoItemFlags);
 }
 
@@ -111,11 +98,11 @@ void CompLibrary::AddItem(const QString& name, const QString& help,
                           const CompEntry& entry, const QString& why_not) {
   assert(!name.isEmpty());
   assert(list_.count() < kMaxItems);
-  auto* item = MakeOwned<QListWidgetItem>(MarkIcon(entry.kind), name, &list_);
-  item->setData(kKindRole, static_cast<int>(entry.kind));
-  item->setData(kPluginRole, entry.plugin);
-  item->setData(kSceneRole, entry.is_scene_gradient);
-  item->setData(kHelpRole, help);
+  auto* item = MakeOwned<QListWidgetItem>(name, &list_);
+  item->setData(kEffectKindRole, static_cast<int>(entry.kind));
+  item->setData(kEffectPluginRole, entry.plugin);
+  item->setData(kEffectSceneRole, entry.is_scene_gradient);
+  item->setData(kEffectHelpRole, help);
   const bool can_add = why_not.isEmpty();
   item->setToolTip(can_add ? help : why_not);
   item->setFlags(can_add ? Qt::ItemIsEnabled | Qt::ItemIsSelectable
@@ -165,8 +152,14 @@ void CompLibrary::Fill() {
   }
   entries.push_back(CompEntry{CompKind::kGradient, QString(), true});
   const size_t plugins_at = entries.size();
-  for (const FspEffectInfo& info : plugins) {
-    entries.push_back(CompEntry{CompKind::kFsp, info.id, false});
+  // Plugins that can be added first; the greyed ones gather at the end.
+  for (const bool wants_ready : {true, false}) {
+    for (const FspEffectInfo& info : plugins) {
+      const bool is_ready = CompManager::WhyNoPlugin(info.id).isEmpty();
+      if (is_ready == wants_ready) {
+        entries.push_back(CompEntry{CompKind::kFsp, info.id, false});
+      }
+    }
   }
   for (size_t i = 0; i < entries.size(); ++i) {
     const bool is_own_start = i == own_at;
@@ -182,6 +175,56 @@ void CompLibrary::Fill() {
     AddItem(name.isEmpty() ? tr("Missing plugin") : name, help, entry,
             is_plugin ? CompManager::WhyNoPlugin(entry.plugin) : QString());
   }
+  CountGroups();
+}
+
+void CompLibrary::CountGroups() {
+  assert(list_.count() < kMaxItems);
+  QListWidgetItem* header = nullptr;
+  int count = 0;
+  for (int row = 0; row <= list_.count(); ++row) {
+    QListWidgetItem* item = row < list_.count() ? list_.item(row) : nullptr;
+    const bool ends_group =
+        item == nullptr || item->data(kEffectHeaderRole).toBool();
+    if (!ends_group) {
+      ++count;
+      continue;
+    }
+    const bool has_header = header != nullptr;
+    if (has_header) {
+      header->setData(kEffectCountRole, count);
+    }
+    header = item;
+    count = 0;
+  }
+}
+
+void CompLibrary::LoadFolds() {
+  assert(managers_.document != nullptr);
+  assert(folded_.isEmpty());
+  const QSettings settings(managers_.document->SettingsPath(),
+                           QSettings::IniFormat);
+  const QStringList names =
+      settings.value(QLatin1String(kFoldsKey)).toStringList();
+  folded_ = QSet<QString>(names.begin(), names.end());
+}
+
+void CompLibrary::ToggleFold(QListWidgetItem* header) {
+  assert(header != nullptr);
+  assert(header->data(kEffectHeaderRole).toBool());
+  const QString name = header->text();
+  const bool was_folded = folded_.contains(name);
+  if (was_folded) {
+    folded_.remove(name);
+  } else {
+    folded_.insert(name);
+  }
+  header->setData(kEffectFoldedRole, !was_folded);
+  QSettings settings(managers_.document->SettingsPath(),
+                     QSettings::IniFormat);
+  settings.setValue(QLatin1String(kFoldsKey),
+                    QStringList(folded_.begin(), folded_.end()));
+  Filter(search_.text());
 }
 
 void CompLibrary::Refill() {
@@ -232,17 +275,17 @@ void CompLibrary::SaveRecent() {
 std::optional<CompEntry> CompLibrary::EntryAt(
     const QListWidgetItem* item) const {
   const bool is_entry = item != nullptr && !item->isHidden() &&
-                        !item->data(kHeaderRole).toBool() &&
+                        !item->data(kEffectHeaderRole).toBool() &&
                         item->flags().testFlag(Qt::ItemIsEnabled);
   if (!is_entry) {
     return std::nullopt;
   }
-  const int kind = item->data(kKindRole).toInt();
+  const int kind = item->data(kEffectKindRole).toInt();
   assert(kind >= 0 && kind < kCompKindCount);
   assert(list_.count() > 0);
   return CompEntry{static_cast<CompKind>(kind),
-                   item->data(kPluginRole).toString(),
-                   item->data(kSceneRole).toBool()};
+                   item->data(kEffectPluginRole).toString(),
+                   item->data(kEffectSceneRole).toBool()};
 }
 
 void CompLibrary::Filter(const QString& text) {
@@ -251,10 +294,13 @@ void CompLibrary::Filter(const QString& text) {
   const QString needle = text.trimmed();
   QListWidgetItem* header = nullptr;
   bool has_group_shown = false;
+  // A search looks through folded groups too.
+  const bool is_searching = !needle.isEmpty();
+  bool is_folded = false;
   QListWidgetItem* first = nullptr;
   for (int row = 0; row < list_.count(); ++row) {
     QListWidgetItem* item = list_.item(row);
-    const bool is_header = item->data(kHeaderRole).toBool();
+    const bool is_header = item->data(kEffectHeaderRole).toBool();
     if (is_header) {
       // A header shows while its group has a match.
       const bool has_last = header != nullptr;
@@ -263,12 +309,14 @@ void CompLibrary::Filter(const QString& text) {
       }
       header = item;
       has_group_shown = false;
+      is_folded = !is_searching && folded_.contains(item->text());
       continue;
     }
     const bool is_match =
         item->text().contains(needle, Qt::CaseInsensitive) ||
-        item->data(kHelpRole).toString().contains(needle, Qt::CaseInsensitive);
-    item->setHidden(!is_match);
+        item->data(kEffectHelpRole).toString().contains(needle, Qt::CaseInsensitive);
+    item->setHidden(!is_match || is_folded);
+    // A folded group keeps its header, so it can be opened again.
     has_group_shown = has_group_shown || is_match;
     const bool is_first = first == nullptr && EntryAt(item).has_value();
     first = is_first ? item : first;
@@ -354,8 +402,16 @@ bool CompLibrary::eventFilter(QObject* watched, QEvent* event) {
         mouse->buttons().testFlag(Qt::LeftButton) &&
         (mouse->position().toPoint() - press_at_).manhattanLength() >=
             QApplication::startDragDistance();
+    QListWidgetItem* under =
+        is_press ? list_.itemAt(mouse->position().toPoint()) : nullptr;
+    const bool is_fold_click =
+        under != nullptr && under->data(kEffectHeaderRole).toBool();
+    if (is_fold_click) {
+      ToggleFold(under);
+      return true;
+    }
     if (is_press) {
-      pressed_ = list_.itemAt(mouse->position().toPoint());
+      pressed_ = under;
       press_at_ = mouse->position().toPoint();
     } else if (is_drag) {
       const QListWidgetItem* item = pressed_;

@@ -5,6 +5,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPoint>
+#include <QSet>
 #include <QString>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -14,6 +15,7 @@
 #include <vector>
 
 #include "edit/comp_manager.h"
+#include "ui/effect_row_delegate.h"
 #include "ui/managers.h"
 
 namespace snapper {
@@ -65,6 +67,11 @@ class CompLibrary final : public QWidget {
   void Filter(const QString& text);
   void AddPicked(const QListWidgetItem* item);
   void ShowWhere();
+  // Writes each group's effect count on its header.
+  void CountGroups();
+  void LoadFolds();
+  // Folds the group under header shut, or opens it, and remembers it.
+  void ToggleFold(QListWidgetItem* header);
 
   Managers managers_;
   QVBoxLayout layout_;
@@ -72,6 +79,8 @@ class CompLibrary final : public QWidget {
   QVBoxLayout body_layout_;
   QLineEdit search_;
   QLabel where_;
+  // Paints list_'s rows; outlives it.
+  EffectRowDelegate delegate_;
   QListWidget list_;
   // Says when the search matches nothing.
   QLabel* none_ = nullptr;
@@ -79,6 +88,8 @@ class CompLibrary final : public QWidget {
   // The recently used as last listed.
   std::vector<CompEntry> listed_recent_;
   QPoint press_at_;
+  // The groups folded shut, by name.
+  QSet<QString> folded_;
 };
 
 }  // namespace snapper
