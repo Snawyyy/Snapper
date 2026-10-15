@@ -1,9 +1,13 @@
 #include "ui/draw_actions.h"
 
 #include <QAction>
+#include <QComboBox>
+#include <QEvent>
+#include <QWheelEvent>
 #include <QStandardItemModel>
 
 #include <cassert>
+#include <memory>
 
 #include "ui/playhead.h"
 #include "ui/problem.h"
@@ -25,6 +29,52 @@ std::optional<std::pair<TrackRef, Frame>> PickedPiece(
   }
   return std::pair{*track, spot->local};
 }
+
+// Marks the "+ New drawing" entries of a drawing picker.
+constexpr int kDrawStartRole = Qt::UserRole + 30;
+constexpr char kSkipsStarts[] = "wheelSkipsDrawStarts";
+
+// The mouse wheel on a drawing picker steps through the drawings only:
+// rolling past the last one must not land on "+ New drawing" and open
+// draw mode. A click still picks any entry.
+class WheelSkipsStarts final : public QObject {
+ public:
+  explicit WheelSkipsStarts(QComboBox* box) : QObject(box), box_(box) {
+    assert(box_ != nullptr);
+    assert(box_->count() >= 0);
+  }
+
+ protected:
+  bool eventFilter(QObject* watched, QEvent* event) override {
+    assert(watched != nullptr && event != nullptr);
+    const bool is_wheel =
+        watched == box_ && event->type() == QEvent::Wheel;
+    if (!is_wheel) {
+      return QObject::eventFilter(watched, event);
+    }
+    const auto* wheel = static_cast<const QWheelEvent*>(event);
+    const int step = wheel->angleDelta().y() > 0 ? -1 : 1;
+    int at = box_->currentIndex() + step;
+    for (int i = 0; i < box_->count() && at >= 0 && at < box_->count();
+         ++i) {
+      const bool is_start = box_->itemData(at, kDrawStartRole).toBool();
+      // Separators and greyed entries are stepped over too.
+      const bool is_live =
+          box_->model()->flags(box_->model()->index(at, 0))
+              .testFlag(Qt::ItemIsEnabled);
+      const bool is_drawing = !is_start && is_live;
+      if (is_drawing) {
+        box_->setCurrentIndex(at);
+        break;
+      }
+      at += step;
+    }
+    return true;
+  }
+
+ private:
+  QComboBox* box_;
+};
 
 void Report(const Managers& managers, const Result<void>& result) {
   assert(managers.toasts != nullptr);
@@ -81,8 +131,15 @@ int AddDrawStarts(QComboBox* box, const Managers& managers) {
   const QStringList names = {QObject::tr("+ New drawing: blank"),
                              QObject::tr("+ New drawing: copy of this one"),
                              QObject::tr("+ New drawing: copy of the default")};
+  const bool has_filter = box->property(kSkipsStarts).toBool();
+  if (!has_filter) {
+    // The box owns it.
+    box->installEventFilter(std::make_unique<WheelSkipsStarts>(box).release());
+    box->setProperty(kSkipsStarts, true);
+  }
   for (const QString& name : names) {
     box->addItem(name);
+    box->setItemData(box->count() - 1, true, kDrawStartRole);
     QStandardItem* item =
         items != nullptr ? items->item(box->count() - 1) : nullptr;
     if (item != nullptr) {
