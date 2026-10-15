@@ -67,6 +67,13 @@ void PaintDisplay(QPainter* painter, const QRectF& glass);
 void PaintGlowText(QPainter* painter, const QRectF& area,
                    const QString& text, bool is_lit);
 
+// A small screw head at center: a grey dome with a dark slot.
+void PaintScrew(QPainter* painter, QPointF center, double radius);
+
+// The face of a deck's front panel over area: brushed plastic, lit
+// along its top edge and shaded along its foot, a screw at each end.
+void PaintPanel(QPainter* painter, const QRectF& area);
+
 }  // namespace deck
 }  // namespace snapper
 

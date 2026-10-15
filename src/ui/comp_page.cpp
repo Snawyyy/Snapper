@@ -55,6 +55,7 @@ CompPage::CompPage(const Managers& managers)
       split_(Qt::Horizontal),
       center_(Qt::Vertical),
       bottom_layout_(&bottom_),
+      deck_layout_(&deck_),
       library_(managers),
       stage_(managers),
       transport_(managers),
@@ -68,7 +69,10 @@ CompPage::CompPage(const Managers& managers)
   center_.addWidget(&stage_);
   bottom_layout_.setContentsMargins(0, 0, 0, 0);
   bottom_layout_.setSpacing(0);
-  bottom_layout_.addWidget(&transport_, 0, Qt::AlignLeft);
+  deck_layout_.setContentsMargins(kDeckEdge, 0, kDeckEdge, 0);
+  deck_layout_.addWidget(&transport_);
+  deck_layout_.addStretch(1);
+  bottom_layout_.addWidget(&deck_);
   bottom_layout_.addWidget(&timeline_, 1);
   center_.addWidget(&bottom_);
   center_.SetDefaultShares({3, 1});

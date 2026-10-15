@@ -1,6 +1,7 @@
 #ifndef SNAPPER_UI_COMP_PAGE_H_
 #define SNAPPER_UI_COMP_PAGE_H_
 
+#include <QHBoxLayout>
 #include <QScrollArea>
 #include <QString>
 #include <QVBoxLayout>
@@ -10,6 +11,7 @@
 #include "ui/comp_library.h"
 #include "ui/comp_stage.h"
 #include "ui/comp_timeline.h"
+#include "ui/deck_panel.h"
 #include "ui/grip_splitter.h"
 #include "ui/managers.h"
 #include "ui/transport_bar.h"
@@ -68,6 +70,9 @@ class CompPage final : public QWidget {
   GripSplitter center_;
   QWidget bottom_;
   QVBoxLayout bottom_layout_;
+  // The deck panel strip the play controls sit on.
+  DeckPanel deck_;
+  QHBoxLayout deck_layout_;
   QScrollArea effects_scroll_;
   CompLibrary library_;
   CompStage stage_;

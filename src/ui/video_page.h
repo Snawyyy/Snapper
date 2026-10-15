@@ -15,6 +15,7 @@
 #include "base/frame.h"
 #include "model/reel.h"
 #include "model/shot.h"
+#include "ui/deck_panel.h"
 #include "ui/grip_splitter.h"
 #include "ui/flow_layout.h"
 #include "ui/managers.h"
@@ -26,6 +27,7 @@
 #include "ui/shot_clip_panel.h"
 #include "ui/sound_clip_panel.h"
 #include "ui/subtitle_panel.h"
+#include "ui/tape_key.h"
 #include "ui/transport_bar.h"
 #include "ui/voice_panel.h"
 
@@ -104,7 +106,7 @@ class VideoPage final : public QWidget {
   QVBoxLayout bin_layout_;
   QWidget bottom_;
   QVBoxLayout bottom_layout_;
-  QWidget bar_;
+  DeckPanel bar_;
   FlowLayout bar_layout_;
   QTabWidget side_;
   ShotBin bin_;
@@ -117,15 +119,15 @@ class VideoPage final : public QWidget {
   ShotClipPanel shot_panel_;
   QWidget hint_page_;
   QVBoxLayout hint_layout_;
-  QPushButton import_;
+  TapeKey import_;
   // T+: a text clip at the playhead (Ctrl+T).
-  QPushButton add_text_;
+  TapeKey add_text_;
   // L: the next subtitle line; how long it has been held.
   QShortcut tap_key_;
   QElapsedTimer tap_clock_;
-  QPushButton split_button_;
-  QPushButton mark_;
-  QPushButton add_track_;
+  TapeKey split_button_;
+  TapeKey mark_;
+  TapeKey add_track_;
   TransportBar transport_;
   // Only with a RecordManager.
   std::unique_ptr<RecordButton> record_;

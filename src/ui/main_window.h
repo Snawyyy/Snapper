@@ -3,6 +3,7 @@
 
 #include <QAction>
 #include <QDockWidget>
+#include <QHBoxLayout>
 #include <QMainWindow>
 #include <QMenu>
 #include <QScrollArea>
@@ -17,6 +18,7 @@
 #include "ui/krita_menu.h"
 #include "ui/palette_panel.h"
 #include "ui/command_palette.h"
+#include "ui/deck_panel.h"
 #include "ui/comp_page.h"
 #include "ui/export_dialog.h"
 #include "ui/file_menu.h"
@@ -125,6 +127,9 @@ class MainWindow final : public QMainWindow {
   // The timeline with the play controls above it.
   QWidget timeline_host_;
   QVBoxLayout timeline_layout_;
+  // The deck panel strip the play controls sit on.
+  DeckPanel pose_deck_;
+  QHBoxLayout pose_deck_layout_;
   TransportBar pose_transport_;
   TimelineView timeline_;
   GripSplitter rig_split_;

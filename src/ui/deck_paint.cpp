@@ -160,4 +160,33 @@ void PaintGlowText(QPainter* painter, const QRectF& area,
   painter->drawText(area, flags, text);
 }
 
+void PaintScrew(QPainter* painter, QPointF center, double radius) {
+  assert(painter != nullptr);
+  assert(radius > 0.0);
+  painter->save();
+  painter->setRenderHint(QPainter::Antialiasing, true);
+  painter->setPen(QPen(kPlasticDark, 1.0));
+  painter->setBrush(QColor(0x80, 0x7c, 0x78));
+  painter->drawEllipse(center, radius, radius);
+  painter->setPen(QPen(kPlasticDark, 1.0));
+  painter->drawLine(center + QPointF(-radius * 0.6, radius * 0.6),
+                    center + QPointF(radius * 0.6, -radius * 0.6));
+  painter->restore();
+}
+
+void PaintPanel(QPainter* painter, const QRectF& area) {
+  assert(painter != nullptr);
+  assert(area.height() > 2.0);
+  PaintPlastic(painter, area, area.right(), area.height() + 1.0);
+  painter->setPen(kPlasticLight.lighter(130));
+  painter->drawLine(area.topLeft(), area.topRight());
+  painter->setPen(kPlasticDark);
+  painter->drawLine(area.bottomLeft(), area.bottomRight());
+  // Screws at the ends, as if the panel were fixed to the deck.
+  const double radius = std::min(3.0, area.height() / 6.0);
+  const double y = area.center().y();
+  PaintScrew(painter, QPointF(area.left() + 2.0 * radius + 1.0, y), radius);
+  PaintScrew(painter, QPointF(area.right() - 2.0 * radius - 1.0, y), radius);
+}
+
 }  // namespace snapper::deck

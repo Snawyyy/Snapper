@@ -13,6 +13,7 @@
 
 #include "base/frame.h"
 #include "edit/playback_manager.h"
+#include "ui/deck_paint.h"
 #include "ui/glass_door.h"
 #include "ui/theme.h"
 
@@ -161,13 +162,11 @@ void CassetteDeck::PaintFrame(QPainter* painter,
   painter->drawLine(lip.topRight(), lip.bottomRight());
   // A small screw in each corner of the bezel.
   const double screw = kFrame * 0.22;
-  painter->setPen(QPen(QColor(0x14, 0x14, 0x16), 1.0));
-  painter->setBrush(QColor(0x80, 0x80, 0x88));
   for (const double x : {outer.left() + kFrame / 2.0,
                          outer.right() - kFrame / 2.0}) {
     for (const double y : {outer.top() + kFrame / 2.0,
                            outer.bottom() - kFrame / 2.0}) {
-      painter->drawEllipse(QPointF(x, y), screw, screw);
+      deck::PaintScrew(painter, QPointF(x, y), screw);
     }
   }
 }

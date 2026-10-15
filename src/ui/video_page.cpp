@@ -15,6 +15,7 @@
 #include "edit/selection_manager.h"
 #include "edit/sound_manager.h"
 #include "ui/form_helpers.h"
+#include "ui/hover_fade.h"
 #include "ui/panel_kit.h"
 #include "ui/theme.h"
 
@@ -100,12 +101,14 @@ VideoPage::VideoPage(const Managers& managers)
 void VideoPage::BuildBar() {
   assert(managers_.reel != nullptr);
   assert(bar_layout_.count() == 0);
-  bar_layout_.setContentsMargins(4, 2, 4, 2);
+  bar_layout_.setContentsMargins(kDeckEdge, 2, kDeckEdge, 2);
   bar_layout_.addWidget(&transport_);
   const bool can_record = managers_.record != nullptr;
   if (can_record) {
     record_ = std::make_unique<RecordButton>(managers_);
     bar_layout_.addWidget(record_.get());
+    // The key owns it; it sinks the key as it is pressed.
+    std::make_unique<HoverFade>(record_.get(), managers_.motion).release();
     connect(record_.get(), &RecordButton::Problem, this, &VideoPage::Problem);
   }
   bar_layout_.addWidget(&import_);
@@ -113,6 +116,12 @@ void VideoPage::BuildBar() {
   bar_layout_.addWidget(&split_button_);
   bar_layout_.addWidget(&mark_);
   bar_layout_.addWidget(&add_track_);
+  for (TapeKey* key : {&import_, &add_text_, &split_button_, &mark_,
+                       &add_track_}) {
+    key->setFocusPolicy(Qt::NoFocus);
+    // The key owns it; it sinks the key as it is pressed.
+    std::make_unique<HoverFade>(key, managers_.motion).release();
+  }
   import_.setToolTip(tr("Puts video files on the bottom picture track, "
                         "and sound files on a sound track at the "
                         "playhead."));

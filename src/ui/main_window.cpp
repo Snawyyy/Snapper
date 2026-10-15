@@ -61,6 +61,7 @@ MainWindow::MainWindow(const Managers& managers)
       pose_split_(Qt::Vertical),
       stage_(managers),
       timeline_layout_(&timeline_host_),
+      pose_deck_layout_(&pose_deck_),
       pose_transport_(managers),
       timeline_(managers),
       rig_split_(Qt::Horizontal),
@@ -237,7 +238,10 @@ void MainWindow::BuildPages() {
   pose_split_.addWidget(&stage_);
   timeline_layout_.setContentsMargins(0, 0, 0, 0);
   timeline_layout_.setSpacing(0);
-  timeline_layout_.addWidget(&pose_transport_, 0, Qt::AlignLeft);
+  pose_deck_layout_.setContentsMargins(kDeckEdge, 0, kDeckEdge, 0);
+  pose_deck_layout_.addWidget(&pose_transport_);
+  pose_deck_layout_.addStretch(1);
+  timeline_layout_.addWidget(&pose_deck_);
   timeline_layout_.addWidget(&timeline_, 1);
   pose_split_.addWidget(&timeline_host_);
   pose_split_.SetDefaultShares({3, 1});
