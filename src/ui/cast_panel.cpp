@@ -11,6 +11,7 @@
 #include "edit/selection_manager.h"
 #include "edit/stage_manager.h"
 #include "edit/document_manager.h"
+#include "ui/cassette_deck.h"
 #include "ui/doll_drop.h"
 #include "ui/library_nav_bar.h"
 #include "ui/panel_kit.h"
@@ -73,6 +74,8 @@ void CastPanel::BuildLayout() {
   connect(tabs_, &QTabWidget::currentChanged, this,
           &CastPanel::RememberTab);
   layout_.addWidget(tabs_, 1);
+  // The tape under the tabs turns with the playhead.
+  layout_.addWidget(MakeOwned<CassetteDeck>(managers_), 0);
   objects_.SetEmptyText(
       tr("Drop PNG or GIF pictures here, or on the stage."));
   objects_.AcceptFiles();

@@ -62,6 +62,8 @@ class PlaybackManager final : public QObject {
   // delta frames, or in animation mode delta pose changes (shots) or
   // clip cuts (reel).
   void Step(int delta);
+  // The last frame of the current timeline.
+  Frame LastFrame() const;
   StepMode step_mode() const { return step_mode_; }
   void SetStepMode(StepMode mode);
   // Playing wraps from end back to start.
@@ -100,7 +102,6 @@ class PlaybackManager final : public QObject {
   void Tick();
   void FollowProject();
   void SongLoaded();
-  Frame LastFrame() const;
   // Gives the player the current timeline's sound when it changed.
   void FreshenSound();
   // The sound changed: mixed again before the next play.

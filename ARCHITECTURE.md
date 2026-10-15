@@ -1497,7 +1497,9 @@ dockers (the open one kept in the settings file as `cast_tab`): Library
 (doll cards), Objects (object cards, Add pictures and Background, which
 puts a picture under every layer scaled to cover the canvas:
 `StageManager::AddBackground`) and Layers (the shot's layers, top
-first). Delete on cards takes the picked dolls out of the project as
+first). Under the tabs a tape player (`CassetteDeck`) follows the
+playhead: its reels turn with every frame moved, the tape winds from
+left to right over the timeline, and a drag across it scrubs. Delete on cards takes the picked dolls out of the project as
 one undo step (the library refuses ones still on a layer and says why).
 The rig panel is plated sections too: Doll, Look, Skins and IK chains
 with a doll; Joint and Warp with a piece; Collider only while the piece
