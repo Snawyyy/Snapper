@@ -60,6 +60,10 @@ bool PalettePanel::event(QEvent* event) {
 void PalettePanel::FitHeight() {
   assert(palette_ != nullptr);
   assert(width() >= 0);
+  // Docked, it is as tall as what it lies over.
+  if (is_docked()) {
+    return;
+  }
   const int needed = layout_.hasHeightForWidth()
                          ? layout_.totalHeightForWidth(width())
                          : layout_.totalSizeHint().height();
@@ -80,6 +84,10 @@ bool PalettePanel::IsOnGrip(QPoint at) const {
 void PalettePanel::KeepPlace() {
   assert(palette_ != nullptr);
   assert(width() >= 0);
+  // The docked place is not where the user left it floating.
+  if (is_docked()) {
+    return;
+  }
   QSettings settings(settings_path_, QSettings::IniFormat);
   settings.setValue(kPlaceKey, pos());
   settings.setValue(kSizeKey, QSize(width(), asked_height_));
@@ -110,6 +118,10 @@ void PalettePanel::LoadRecent() {
 void PalettePanel::RestorePlace() {
   assert(palette_ != nullptr);
   assert(width() >= 0);
+  if (is_docked()) {
+    Follow();
+    return;
+  }
   const QWidget* window = parentWidget();
   assert(window != nullptr);
   const QSettings settings(settings_path_, QSettings::IniFormat);
@@ -138,6 +150,10 @@ void PalettePanel::mousePressEvent(QMouseEvent* event) {
   }
   const bool is_left = event->button() == Qt::LeftButton;
   if (!is_left) {
+    return;
+  }
+  // Docked, it sits still: no drag, no resize.
+  if (is_docked()) {
     return;
   }
   const QPoint at = event->position().toPoint();

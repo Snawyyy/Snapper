@@ -12,6 +12,7 @@
 #include <initializer_list>
 
 #include "edit/document_manager.h"
+#include "edit/draw_manager.h"
 #include "edit/library_folder_manager.h"
 #include "anim/master_timeline.h"
 #include "edit/export_manager.h"
@@ -382,6 +383,15 @@ void MainWindow::BuildViewAndHelp() {
           &PalettePanel::SetOpen);
   connect(&color_palette_, &PalettePanel::OpenChanged,
           &color_palette_action_, &QAction::setChecked);
+  // While drawing, the palette takes the inspector's place instead of
+  // floating over the canvas.
+  const bool can_draw = managers_.draw != nullptr;
+  if (can_draw) {
+    connect(managers_.draw, &DrawManager::Started, &color_palette_,
+            [this] { color_palette_.DockOver(&inspector_dock_); });
+    connect(managers_.draw, &DrawManager::Ended, &color_palette_,
+            [this] { color_palette_.Undock(); });
+  }
   BuildHiddenFoldersAction();
   connect(&sounds_action_, &QAction::toggled, &sound_, &UiSound::SetOn);
   connect(managers_.toasts, &ToastManager::Cheered, &sound_,

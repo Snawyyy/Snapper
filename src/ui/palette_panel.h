@@ -3,6 +3,7 @@
 
 #include <QColor>
 #include <QLabel>
+#include <QPointer>
 #include <QPoint>
 #include <QString>
 #include <QToolButton>
@@ -41,12 +42,18 @@ class PalettePanel final : public QWidget {
 
   // Opens or closes it, where it was last left.
   void SetOpen(bool is_open);
+  // Draw mode docks it: it lies exactly over area (the inspector, idle
+  // while drawing) and follows it, with no drag or resize, so nothing
+  // floats over the canvas. Undock lets it float where it was left.
+  void DockOver(QWidget* area);
+  void Undock();
 
  signals:
   void OpenChanged(bool is_open);
 
  protected:
   bool event(QEvent* event) override;
+  bool eventFilter(QObject* watched, QEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;
@@ -80,6 +87,10 @@ class PalettePanel final : public QWidget {
   // The panel as tall as its colors need at its width, or as tall as
   // the user made it when that is more.
   void FitHeight();
+  // Lies over the docking area, as big as it is
+  // (ui/palette_panel_dock.cpp).
+  void Follow();
+  bool is_docked() const { return !dock_area_.isNull(); }
   // True when at (panel pixels) is on the resize corner.
   bool IsOnGrip(QPoint at) const;
   // The swatch under at (panel pixels) in any shown grid; invalid for
@@ -88,6 +99,8 @@ class PalettePanel final : public QWidget {
 
   PaletteManager* palette_;
   QString settings_path_;
+  // The area it is docked over while drawing; null while it floats.
+  QPointer<QWidget> dock_area_;
   QVBoxLayout layout_;
   QWidget title_;
   QLabel title_text_;
