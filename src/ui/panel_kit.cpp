@@ -14,7 +14,7 @@ namespace {
 
 // The margin inside a frame, and above and below a title plate's text.
 constexpr int kFrameMargin = 2;
-constexpr int kPlateMargin = 2;
+constexpr int kTitleMargin = 3;
 // Space between a caption and what it names.
 constexpr int kCaptionGap = 2;
 // Room either side of a title plate's text.
@@ -68,8 +68,10 @@ void MakeTitlePlate(QLabel* label) {
   assert(label != nullptr);
   assert(kTitlePadX > 0);
   label->setFrameStyle(QFrame::StyledPanel | QFrame::Raised);
+  theme::SetLevel(label, theme::kRaised);
   label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-  label->setMargin(kPlateMargin);
+  // As tall as a group box's section bar, so every section's bar matches.
+  label->setMargin(kTitleMargin);
   // The style paints a red strip down its left side.
   label->setProperty("titlePlate", true);
   label->setIndent(kTitlePadX + 4);
