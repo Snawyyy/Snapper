@@ -26,7 +26,8 @@ PivotSnap RigCanvas::SnappedPivot(const Doll& doll, const QString& piece,
                                   QPointF wanted) {
   assert(std::isfinite(wanted.x()) && std::isfinite(wanted.y()));
   assert(!piece.isEmpty());
-  const QImage own_drawing = cache_.Get(DrawingPath(doll, piece, -1));
+  const QImage own_drawing =
+      FrameOf(doll, piece, -1, cache_.Get(DrawingPath(doll, piece, -1)));
   const bool is_undrawn = own_drawing.isNull();
   if (is_undrawn) {
     return PivotSnap{wanted, std::nullopt, false, std::nullopt};
@@ -43,7 +44,9 @@ PivotSnap RigCanvas::SnappedPivot(const Doll& doll, const QString& piece,
                           pieces.contains(parent_name) &&
                           pieces.contains(piece);
   const QImage parent_drawing =
-      has_parent ? cache_.Get(DrawingPath(doll, parent_name, -1)) : QImage();
+      has_parent ? FrameOf(doll, parent_name, -1,
+                           cache_.Get(DrawingPath(doll, parent_name, -1)))
+                 : QImage();
   const auto parent =
       parent_drawing.isNull() ? nullptr : limbs_.Of(parent_drawing);
   bool is_invertible = false;
@@ -134,7 +137,8 @@ void RigCanvas::SnapJoints(const std::vector<QString>& pieces) {
   // Every drawing, so parents are there for the overlap center.
   std::map<QString, QImage> drawings;
   for (const RigPiece& rig : doll->rig.pieces) {
-    drawings[rig.name] = cache_.Get(DrawingPath(*doll, rig.name, -1));
+    drawings[rig.name] = FrameOf(*doll, rig.name, -1,
+                                cache_.Get(DrawingPath(*doll, rig.name, -1)));
   }
   const auto moved =
       managers_.rig->SnapJointsToShape(doll_, pieces, drawings);
@@ -157,7 +161,8 @@ void RigCanvas::ToggleJointCircle(const QString& piece) {
   if (!can_act) {
     return;
   }
-  const QImage drawing = cache_.Get(DrawingPath(*doll, piece, -1));
+  const QImage drawing =
+      FrameOf(*doll, piece, -1, cache_.Get(DrawingPath(*doll, piece, -1)));
   emit Problem(ProblemOf(
       managers_.rig->ToggleJointCircle(doll_, piece, drawing)));
 }

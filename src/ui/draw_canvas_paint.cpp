@@ -76,9 +76,13 @@ void DrawCanvas::PaintDrawing(QPainter* painter) {
   assert(painter != nullptr);
   const DrawManager* draw = managers_.draw;
   assert(draw != nullptr);
-  const QRectF frame(QPointF(), QSizeF(draw->image().size()));
+  // The piece's frame (its joint and warp live there) on the sheet,
+  // which reaches past it on every side to draw beyond it.
+  const QRectF frame(draw->frame_rect());
+  const QRectF sheet(QPointF(), QSizeF(draw->image().size()));
   painter->save();
   painter->setTransform(World());
+  painter->fillRect(sheet, QColor(255, 255, 255, 14));
   painter->fillRect(frame, QColor(255, 255, 255, 40));
   const bool is_onion =
       draw->is_onion() && !draw->is_peeking() && !draw->is_flipped();
@@ -97,6 +101,10 @@ void DrawCanvas::PaintDrawing(QPainter* painter) {
   painter->setPen(edge);
   painter->setBrush(Qt::NoBrush);
   painter->drawRect(frame);
+  QPen sheet_edge(QColor(255, 255, 255, 60), 1.0, Qt::DashLine);
+  sheet_edge.setCosmetic(true);
+  painter->setPen(sheet_edge);
+  painter->drawRect(sheet);
   painter->restore();
   const QString note =
       draw->is_peeking() ? tr("Original")
@@ -104,7 +112,7 @@ void DrawCanvas::PaintDrawing(QPainter* painter) {
           ? tr("Flipped to %1: Left and Right go on, drawing goes back "
                "to yours")
                 .arg(draw->flipped_name())
-      : is_outside_ ? tr("Past the frame: cut off")
+      : is_outside_ ? tr("Past the sheet's edge: cut off")
                     : QString();
   if (!note.isEmpty()) {
     painter->setPen(is_outside_ ? theme::kPick : theme::kText);

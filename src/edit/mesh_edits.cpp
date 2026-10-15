@@ -53,10 +53,13 @@ std::vector<QImage> DrawingsOf(const Doll& doll, const QString& piece) {
                                    : 0;
   assert(count <= kMaxPieceDrawings);
   for (int i = 0; i < count; ++i) {
-    QImage drawing(DrawingPath(doll, piece, i));
+    // The shape inside the frame: what a drawing reaches past it is
+    // left out, so the mesh keeps the frame's size.
+    const QImage drawing =
+        FrameOf(doll, piece, i, QImage(DrawingPath(doll, piece, i)));
     const bool is_read = !drawing.isNull();
     if (is_read) {
-      drawings.push_back(std::move(drawing));
+      drawings.push_back(drawing);
     }
   }
   return drawings;

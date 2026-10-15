@@ -28,6 +28,10 @@ Result<void> DrawManager::BeginJob(DrawJob job) {
   }
   target_ = job.target;
   image_ = job.image.convertToFormat(QImage::Format_ARGB32);
+  // A job's picture is its own frame: nothing past it.
+  sheet_ = image_.size();
+  frame_size_ = image_.size();
+  origin_ = QPoint();
   reference_ = job.reference.isNull() ? image_ : job.reference;
   under_ = job.under;
   onions_ = std::move(job.onions);

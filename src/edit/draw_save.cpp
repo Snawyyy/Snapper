@@ -37,6 +37,30 @@ QString FileSafe(const QString& name) {
   return safe;
 }
 
+// The part of sheet that holds a drawing: everything drawn, and at
+// least frame, so the drawing keeps its frame whole.
+QRect DrawnBounds(const QImage& sheet, QRect frame) {
+  assert(!sheet.isNull());
+  assert(sheet.rect().contains(frame));
+  int left = frame.left();
+  int top = frame.top();
+  int right = frame.right();
+  int bottom = frame.bottom();
+  for (int y = 0; y < sheet.height(); ++y) {
+    const auto* line = reinterpret_cast<const QRgb*>(sheet.constScanLine(y));
+    for (int x = 0; x < sheet.width(); ++x) {
+      const bool is_drawn = qAlpha(line[x]) > 0;
+      if (is_drawn) {
+        left = std::min(left, x);
+        right = std::max(right, x);
+        top = std::min(top, y);
+        bottom = std::max(bottom, y);
+      }
+    }
+  }
+  return QRect(QPoint(left, top), QPoint(right, bottom));
+}
+
 }  // namespace
 
 QString DrawManager::FreeFile(const QString& folder,
@@ -64,7 +88,8 @@ QString DrawManager::FreeFile(const QString& folder,
 }
 
 Result<Project> DrawManager::WithDrawing(const QString& file,
-                                         const QString& name) const {
+                                         const QString& name,
+                                         QPoint offset) const {
   assert(!file.isEmpty());
   assert(!name.isEmpty());
   Project next = history_->current();
@@ -93,13 +118,13 @@ Result<Project> DrawManager::WithDrawing(const QString& file,
     if (old.isEmpty() || own == rig.own_drawings.end()) {
       return std::unexpected(Error{Tr("That drawing is gone.")});
     }
-    *own = OwnDrawing{file, name};
+    *own = OwnDrawing{file, name, offset};
     art.layer_names.resize(art.drawings.size());
     art.drawings[static_cast<size_t>(replaces_)] = file;
     art.layer_names[static_cast<size_t>(replaces_)] = name;
     index = replaces_;
   } else {
-    rig.own_drawings.push_back(OwnDrawing{file, name});
+    rig.own_drawings.push_back(OwnDrawing{file, name, offset});
     AddOwnDrawings(&doll);
   }
   next.dolls[doll_] = std::make_shared<const Doll>(std::move(doll));
@@ -123,7 +148,8 @@ void DrawManager::SetMirrors(bool mirrors) {
 }
 
 std::optional<DrawManager::MirrorCopy> DrawManager::SaveMirror(
-    const Doll& doll, const QString& name, const QString& folder) const {
+    const Doll& doll, const QString& name, const QString& folder,
+    const QImage& picture, QPoint offset) const {
   assert(!name.isEmpty());
   assert(!folder.isEmpty());
   const QString twin = MirrorName(track_.piece);
@@ -140,12 +166,20 @@ std::optional<DrawManager::MirrorCopy> DrawManager::SaveMirror(
       break;
     }
   }
-  // Flipped left to right, fitted to the twin's frame when it differs.
-  QImage flipped = image_.flipped(Qt::Horizontal);
-  const bool is_other_size = flipped.size() != art.size;
+  // Flipped left to right: its frame flips with it, from the right.
+  QImage flipped = picture.flipped(Qt::Horizontal);
+  QPoint flipped_offset(picture.width() - frame_size_.width() - offset.x(),
+                        offset.y());
+  // Fitted to the twin's frame when that is another size.
+  const bool is_other_size = art.size != frame_size_ && !frame_size_.isEmpty();
   if (is_other_size) {
-    flipped = flipped.scaled(art.size, Qt::IgnoreAspectRatio,
-                             Qt::FastTransformation);
+    const double x = art.size.width() / double(frame_size_.width());
+    const double y = art.size.height() / double(frame_size_.height());
+    flipped = flipped.scaled(qRound(flipped.width() * x),
+                             qRound(flipped.height() * y),
+                             Qt::IgnoreAspectRatio, Qt::FastTransformation);
+    flipped_offset = QPoint(qRound(flipped_offset.x() * x),
+                            qRound(flipped_offset.y() * y));
   }
   const QString file = FreeFile(folder, Tr("%1 %2").arg(piece, copy_name));
   const bool is_saved = !file.isEmpty() &&
@@ -153,7 +187,7 @@ std::optional<DrawManager::MirrorCopy> DrawManager::SaveMirror(
   if (!is_saved) {
     return std::nullopt;
   }
-  return MirrorCopy{piece, file, copy_name};
+  return MirrorCopy{piece, file, copy_name, flipped_offset};
 }
 
 Result<Project> DrawManager::WithMirror(Result<Project> next,
@@ -172,7 +206,8 @@ Result<Project> DrawManager::WithMirror(Result<Project> next,
   }
   Doll doll = *found;
   FindRig(&doll.rig, copy.piece)
-      ->own_drawings.push_back(OwnDrawing{copy.file, copy.name});
+      ->own_drawings.push_back(
+          OwnDrawing{copy.file, copy.name, copy.offset});
   AddOwnDrawings(&doll);
   next->dolls[doll_name] = std::make_shared<const Doll>(std::move(doll));
   return next;
@@ -213,8 +248,13 @@ Result<void> DrawManager::Done(const QString& name) {
   }
   const QString folder = QDir(doll->folder).filePath(QLatin1String(kOwnFolder));
   const QString file = FreeFile(folder, trimmed);
+  // Only what was drawn is kept, with its frame whole, and where the
+  // frame starts in it.
+  const QRect kept = DrawnBounds(image_, frame_rect());
+  const QImage picture = image_.copy(kept);
+  const QPoint offset = origin_ - kept.topLeft();
   const bool is_saved = !file.isEmpty() && QDir().mkpath(folder) &&
-                        image_.save(QDir(doll->folder).filePath(file), "PNG");
+                        picture.save(QDir(doll->folder).filePath(file), "PNG");
   if (!is_saved) {
     return std::unexpected(Error{Tr("Can't save the drawing in %1.").arg(folder)});
   }
@@ -223,9 +263,10 @@ Result<void> DrawManager::Done(const QString& name) {
   // A new drawing also goes to the other side, or flipped beside itself;
   // a new version of one stays where it is.
   const bool wants_mirror = mirrors_ && !is_replacing();
-  const auto mirror = wants_mirror ? SaveMirror(*doll, trimmed, folder)
-                                   : std::nullopt;
-  Result<Project> next = WithDrawing(file, trimmed);
+  const auto mirror =
+      wants_mirror ? SaveMirror(*doll, trimmed, folder, picture, offset)
+                   : std::nullopt;
+  Result<Project> next = WithDrawing(file, trimmed, offset);
   if (mirror) {
     next = WithMirror(std::move(next), doll_, *mirror);
   }

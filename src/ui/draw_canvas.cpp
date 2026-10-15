@@ -101,7 +101,7 @@ void DrawCanvas::Fit() {
   const DrawManager* draw = managers_.draw;
   assert(draw != nullptr);
   const QRectF box =
-      draw->rest_place().mapRect(QRectF(QPointF(), draw->image().size()));
+      draw->rest_place().mapRect(QRectF(draw->frame_rect()));
   const bool is_sized = box.width() > 0.0 && box.height() > 0.0 &&
                         width() > 0 && height() > 0;
   zoom_ = is_sized ? std::clamp(kFill * std::min(width() / box.width(),

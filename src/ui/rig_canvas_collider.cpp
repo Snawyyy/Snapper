@@ -35,7 +35,9 @@ void RigCanvas::MakeCollider(const QString& piece) {
   const QString name = RigDrawing(*doll, piece);
   const ArtPiece* art = FindArt(*doll, piece);
   const int index = art != nullptr ? FindDrawing(*art, name) : -1;
-  const QImage& drawing = cache_.Get(DrawingPath(*doll, piece, index));
+  // Outlined inside the piece's frame, where colliders live.
+  const QImage drawing =
+      FrameOf(*doll, piece, index, cache_.Get(DrawingPath(*doll, piece, index)));
   emit Problem(
       ProblemOf(managers_.rig->MakeCollider(doll_, piece, drawing, name)));
   // Its dots show only while it is picked.

@@ -49,22 +49,42 @@ int ShownDrawing(const Project& project, const TrackRef& track, Frame frame) {
   return ResolvedDrawing(*doll, track.piece, drawing);
 }
 
-// drawing index of doll's piece read as a size-sized Format_ARGB32
-// image, clear where the file has nothing.
+// drawing index of doll's piece on a clear Format_ARGB32 sheet of
+// sheet's size whose frame starts at origin: the drawing's frame on the
+// sheet's, what it draws past its frame around it.
 QImage DrawingImage(const Doll& doll, const QString& piece, int drawing,
-                    QSize size) {
+                    QSize sheet, QPoint origin) {
   assert(!piece.isEmpty());
-  assert(size.isValid());
-  QImage image(size, QImage::Format_ARGB32);
+  assert(sheet.isValid());
+  QImage image(sheet, QImage::Format_ARGB32);
   image.fill(Qt::transparent);
   const QImage read(drawing >= 0 ? DrawingPath(doll, piece, drawing)
                                  : QString());
   if (!read.isNull()) {
     QPainter painter(&image);
     painter.setCompositionMode(QPainter::CompositionMode_Source);
-    painter.drawImage(0, 0, read);
+    painter.drawImage(origin - DrawingOffset(doll, piece, drawing), read);
   }
   return image;
+}
+
+// Room to draw past the frame on each side: half the frame's longer
+// side, more when the drawing begun from already reaches further.
+int SheetMargin(const Doll& doll, const QString& piece, int drawing,
+                QSize frame) {
+  assert(frame.isValid());
+  assert(!piece.isEmpty());
+  int margin = std::max(frame.width(), frame.height()) / 2;
+  const QImage read(drawing >= 0 ? DrawingPath(doll, piece, drawing)
+                                 : QString());
+  const QPoint offset = DrawingOffset(doll, piece, drawing);
+  const bool has_read = !read.isNull();
+  if (has_read) {
+    margin = std::max({margin, offset.x(), offset.y(),
+                       read.width() - offset.x() - frame.width(),
+                       read.height() - offset.y() - frame.height()});
+  }
+  return std::clamp(margin, 8, kMaxSheetMargin);
 }
 
 // "mouth 2", "mouth 3"...: the first name no drawing of art has.
@@ -179,13 +199,23 @@ Result<void> DrawManager::Start(const TrackRef& track, Frame frame, int from,
   track_ = track;
   frame_ = frame;
   replaces_ = replaces;
-  image_ = DrawingImage(doll, track.piece, from, art.size);
   const int shown = ShownDrawing(project, track, frame);
-  reference_ = from >= 0 ? image_
-                         : DrawingImage(doll, track.piece, shown, art.size);
+  // A sheet around the frame, to draw past it; Done keeps only what
+  // was drawn, cropped, and where its frame starts.
+  const int margin =
+      SheetMargin(doll, track.piece, from >= 0 ? from : shown, art.size);
+  frame_size_ = art.size;
+  origin_ = QPoint(margin, margin);
+  sheet_ = art.size + QSize(2 * margin, 2 * margin);
+  image_ = DrawingImage(doll, track.piece, from, sheet_, origin_);
+  reference_ = from >= 0
+                   ? image_
+                   : DrawingImage(doll, track.piece, shown, sheet_, origin_);
   const auto places = PieceTransforms(doll, PoseMap());
   const auto place = places.find(track.piece);
-  rest_place_ = place != places.end() ? place->second : QTransform();
+  // Sheet pixels to doll space: the frame's pixels sit origin_ in.
+  rest_place_ = QTransform::fromTranslate(-origin_.x(), -origin_.y()) *
+                (place != places.end() ? place->second : QTransform());
   const bool is_replacing = replaces >= 0;
   default_name_ = is_replacing ? DrawingName(art, replaces) : FreeName(art);
   const bool is_krita_copy = from >= 0 && !is_replacing &&
@@ -208,7 +238,7 @@ Result<void> DrawManager::Start(const TrackRef& track, Frame frame, int from,
     if (is_page) {
       onions_.push_back(DrawingImage(doll, track.piece,
                                      pages_[static_cast<size_t>(side)],
-                                     art.size));
+                                     sheet_, origin_));
     }
   }
   if (onions_.empty()) {
@@ -325,7 +355,8 @@ void DrawManager::Flip(int step) {
   flipped_ = std::min(pages_[static_cast<size_t>(page_)], count - 1);
   const bool is_other = flipped_ >= 0;
   flipped_image_ = is_other
-                       ? DrawingImage(*doll, track_.piece, flipped_, art->size)
+                       ? DrawingImage(*doll, track_.piece, flipped_, sheet_,
+                                      origin_)
                        : QImage();
   flipped_name_ = is_other ? DrawingName(*art, flipped_) : QString();
   emit Changed();

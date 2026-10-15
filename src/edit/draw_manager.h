@@ -33,6 +33,8 @@ inline constexpr int kDrawToolCount = 5;
 
 // The most strokes draw mode can undo.
 inline constexpr int kMaxDrawUndo = 64;
+// The most room draw mode gives past a frame on each side, in pixels.
+inline constexpr int kMaxSheetMargin = 1024;
 
 // What draw mode draws on: a drawing of a doll piece, or a cel of a
 // storyboard layer (handed in by StoryboardManager as a DrawJob).
@@ -102,8 +104,12 @@ class DrawManager final : public QObject {
   QString DefaultName() const { return default_name_; }
   // True for an edit of a drawing made in Snapper.
   bool is_replacing() const { return replaces_ >= 0; }
-  // The drawing being made, Format_ARGB32, the piece's size.
+  // The drawing being made, Format_ARGB32: for a piece, a sheet bigger
+  // than its frame, to draw past it (frame_rect).
   const QImage& image() const { return image_; }
+  // Where the piece's frame lies on the sheet; the whole picture for a
+  // job.
+  QRect frame_rect() const { return QRect(origin_, frame_size_); }
   // What it started from (for a blank start, the drawing shown), for
   // holding R and the onion.
   const QImage& reference() const { return reference_; }
@@ -186,19 +192,25 @@ class DrawManager final : public QObject {
   void End();
   // The project with the drawing at file listed for the piece, and,
   // for a new one, shown on it at the frame drawing began.
-  Result<Project> WithDrawing(const QString& file, const QString& name) const;
+  // offset: where the frame starts in the saved picture.
+  Result<Project> WithDrawing(const QString& file, const QString& name,
+                              QPoint offset) const;
   // The mirrored copy Done also keeps: on the twin piece (arm_L's on
   // arm_R), or on the piece itself for an unsided one, flipped.
   struct MirrorCopy final {
     QString piece;
     QString file;
     QString name;
+    QPoint offset;
   };
   // Saves the drawing flipped left to right for doll's piece's twin (or
   // the piece) next to the drawing in folder; nothing when it can't.
+  // picture is the drawing as saved, its frame starting at offset.
   std::optional<MirrorCopy> SaveMirror(const Doll& doll,
                                        const QString& name,
-                                       const QString& folder) const;
+                                       const QString& folder,
+                                       const QImage& picture,
+                                       QPoint offset) const;
   // next with copy listed on its piece.
   static Result<Project> WithMirror(Result<Project> next,
                                     const QString& doll_name,
@@ -232,6 +244,10 @@ class DrawManager final : public QObject {
   int page_ = 0;
   QImage flipped_image_;
   QString flipped_name_;
+  // The sheet a piece's drawing is made on, and where its frame lies.
+  QSize sheet_;
+  QSize frame_size_;
+  QPoint origin_;
   // A Move drag: the drawing as it was when pressed, and where.
   bool is_moving_ = false;
   QImage move_base_;
