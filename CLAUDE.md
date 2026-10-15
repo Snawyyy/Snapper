@@ -67,6 +67,22 @@ as cassettes with title stickers, sound on glowing teal display glass,
 Comp effect bars as cassettes. Built, not run, no tests (owner's rule).
 Next: owner looks by eye.
 
+Then the same day, same branch: the whole app restyled on the owner's
+word, each change seen by the owner in screenshots. Theme is Kasane Teto
+in a 60 30 10 split (warm charcoal, cream, red) with four tinted depths
+(gap, well, panel, raised; `theme::SetLevel`). Headers are two levels
+only: group boxes draw as a full-width red-strip bar over one well
+(`ui/section_bar.cpp`), parts inside wear quiet captions, folds match.
+Number fields and readouts show through an rgb/brg CRT tile
+(`CrtEffect`). Deck strips under the play keys (`DeckPanel`), text tape
+keys, Cast rows of equal keys, tape case folders, Comp effect list as
+folding color-banded rows (`EffectRowDelegate`), Comp bars as named
+tape, Rig piece list as a tree (`RigTreeDelegate`), Look as a mode knob
+with a preview and flip switch, skins as tapes on a rack (`TapeSpine`),
+IK chains as patch cords (`PatchCordDelegate`). Built, not run, no
+tests (owner's rule); `cast_panel_tests` still expects the old upper
+case doll tags. Next: owner looks at the Rig settings by eye.
+
 Also 2026-10-14, side branches cut from `joint-end-snap`, not pushed,
 built, no tests, not seen by eye: `frame-size` (File > Frame size...
 changes the frame after the project is made, content stays centered;
