@@ -168,6 +168,9 @@ class DrawManager final : public QObject {
   void Changed();
 
  private:
+  // Builds pages_ for a piece of count drawings, the new one after
+  // drawing after (or replacing replaces when that is not -1).
+  void StackPages(int count, int after, int replaces);
   Result<void> Start(const TrackRef& track, Frame frame, int from,
                      int replaces);
   // Enters draw mode on the picture set up by Start or BeginJob.
@@ -199,6 +202,12 @@ class DrawManager final : public QObject {
   // The piece's drawing shown in place of the new one, or -1 for the
   // new one (Flip).
   int flipped_ = -1;
+  // The stack Flip walks: the piece's drawings in order with the new
+  // one (-1) right after the one it was started from (or in the place
+  // of the one it replaces), so it flips as an in-between would.
+  std::vector<int> pages_;
+  // Where in pages_ the shown page is.
+  int page_ = 0;
   QImage flipped_image_;
   QString flipped_name_;
   // A Move drag: the drawing as it was when pressed, and where.

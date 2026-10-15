@@ -196,6 +196,8 @@ Result<void> DrawManager::Start(const TrackRef& track, Frame frame, int from,
                : Tr("Drawing: %1 (%2)").arg(default_name_, track.piece);
   onions_ = {reference_};
   flipped_ = -1;
+  StackPages(static_cast<int>(art.drawings.size()), from >= 0 ? from : shown,
+             replaces);
   Open();
   return {};
 }
@@ -259,6 +261,28 @@ void DrawManager::SetOnion(bool is_onion) {
   emit Changed();
 }
 
+void DrawManager::StackPages(int count, int after, int replaces) {
+  assert(count >= 0);
+  assert(replaces < count);
+  pages_.clear();
+  const bool is_after_none = after < 0 || after >= count;
+  if (is_after_none) {
+    pages_.push_back(-1);
+  }
+  for (int i = 0; i < count; ++i) {
+    // An edit takes the place of the drawing it replaces.
+    const bool is_replaced = i == replaces;
+    pages_.push_back(is_replaced ? -1 : i);
+    const bool goes_after = i == after && replaces < 0;
+    if (goes_after) {
+      pages_.push_back(-1);
+    }
+  }
+  page_ = static_cast<int>(
+      std::find(pages_.begin(), pages_.end(), -1) - pages_.begin());
+  assert(page_ < static_cast<int>(pages_.size()));
+}
+
 void DrawManager::Flip(int step) {
   assert(history_ != nullptr);
   assert(step > -1000 && step < 1000);
@@ -275,10 +299,14 @@ void DrawManager::Flip(int step) {
   if (count == 0) {
     return;
   }
-  // The pages: the new drawing first, then each of the piece's.
-  const int pages = count + 1;
-  const int page = (((flipped_ + 1) + step) % pages + pages) % pages;
-  flipped_ = page - 1;
+  // A drawing added since draw mode began is not in the stack: the
+  // stack keeps to what was there.
+  const int pages = static_cast<int>(pages_.size());
+  if (pages <= 1) {
+    return;
+  }
+  page_ = ((page_ + step) % pages + pages) % pages;
+  flipped_ = std::min(pages_[static_cast<size_t>(page_)], count - 1);
   const bool is_other = flipped_ >= 0;
   flipped_image_ = is_other
                        ? DrawingImage(*doll, track_.piece, flipped_, art->size)
@@ -293,6 +321,8 @@ void DrawManager::Press(QPoint at, bool is_erase, bool is_line) {
   // Drawing lands on the new drawing: flip back to it first.
   if (is_flipped()) {
     flipped_ = -1;
+    page_ = static_cast<int>(
+        std::find(pages_.begin(), pages_.end(), -1) - pages_.begin());
     flipped_image_ = QImage();
     flipped_name_.clear();
     emit Changed();
