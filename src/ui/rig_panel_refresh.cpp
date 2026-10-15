@@ -3,6 +3,7 @@
 #include <QSignalBlocker>
 
 #include <cassert>
+#include <memory>
 #include <vector>
 
 #include "edit/history_manager.h"
@@ -11,25 +12,60 @@
 #include "ui/form_helpers.h"
 #include "ui/problem.h"
 #include "ui/rig_panel.h"
+#include "ui/rig_tree_delegate.h"
 
 namespace snapper {
 namespace {
 
-// How deep a piece hangs, for indenting the tree.
-int DepthOf(const Rig& rig, const QString& piece) {
-  assert(!piece.isEmpty());
-  assert(rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+// One row of the piece tree: a piece, how deep it hangs, which branch
+// lines above it run on past it, and whether it is its parent's last.
+struct TreeRow final {
+  QString name;
   int depth = 0;
-  const RigPiece* at = FindRig(rig, piece);
-  for (int i = 0; i < kMaxDollPieces && at != nullptr; ++i) {
-    const bool is_root = at->parent.isEmpty();
-    if (is_root) {
-      break;
+  qulonglong lines = 0;
+  bool is_last = false;
+};
+
+// The rig's pieces in tree order: each piece right under the one it
+// hangs from, its children after it, roots in the rig's order.
+std::vector<TreeRow> TreeOrder(const Rig& rig) {
+  assert(rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
+  std::vector<TreeRow> rows;
+  std::vector<TreeRow> stack;
+  const auto children_of = [&rig](const QString& parent) {
+    std::vector<QString> kids;
+    for (const RigPiece& piece : rig.pieces) {
+      const bool is_child = piece.parent == parent;
+      const bool is_orphan = parent.isEmpty() && !piece.parent.isEmpty() &&
+                             FindRig(rig, piece.parent) == nullptr;
+      if (is_child || is_orphan) {
+        kids.push_back(piece.name);
+      }
     }
-    at = FindRig(rig, at->parent);
-    ++depth;
+    return kids;
+  };
+  const std::vector<QString> roots = children_of(QString());
+  for (size_t i = roots.size(); i > 0; --i) {
+    stack.push_back(TreeRow{roots[i - 1], 0, 0, i == roots.size()});
   }
-  return depth;
+  for (int guard = 0; guard < kMaxDollPieces && !stack.empty(); ++guard) {
+    const TreeRow row = stack.back();
+    stack.pop_back();
+    rows.push_back(row);
+    const std::vector<QString> kids = children_of(row.name);
+    // The line of this row's own elbow runs on while it has a later
+    // sibling: its children carry that bit.
+    const bool carries = row.depth > 0 && !row.is_last &&
+                         row.depth - 1 < kRigMaxDepth;
+    const qulonglong lines =
+        row.lines | (carries ? (1ULL << (row.depth - 1)) : 0ULL);
+    for (size_t k = kids.size(); k > 0; --k) {
+      stack.push_back(
+          TreeRow{kids[k - 1], row.depth + 1, lines, k == kids.size()});
+    }
+  }
+  assert(rows.size() <= rig.pieces.size());
+  return rows;
 }
 
 }  // namespace
@@ -97,10 +133,15 @@ void RigPanel::RefreshPieces() {
     pieces_.clear();
     const bool has_doll = doll != nullptr;
     if (has_doll) {
-      for (const RigPiece& piece : doll->rig.pieces) {
-        pieces_.addItem(QString(DepthOf(doll->rig, piece.name) * 2, ' ') +
-                        piece.name);
+      for (const TreeRow& row : TreeOrder(doll->rig)) {
+        auto item = std::make_unique<QListWidgetItem>(row.name);
+        item->setData(kRigDepthRole, row.depth);
+        item->setData(kRigLinesRole, row.lines);
+        item->setData(kRigLastRole, row.is_last);
+        // The list owns it.
+        pieces_.addItem(item.release());
       }
+      FitPieceList();
     }
   }
   SetPick(picked_, piece_);
