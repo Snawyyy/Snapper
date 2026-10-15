@@ -185,16 +185,17 @@ void RigPanel::BuildLayout() {
   chains_column->addWidget(&chains_);
   chains_column->addLayout(&chain_buttons_);
   chains_section_ = PlatedSection(tr("IK chains"), chains_body, this);
-  // The tree, then what is set on the picked piece right under it, then
-  // the doll-wide settings that are set once and left.
+  // The tree; the skin being changed, as it decides what the Drawing
+  // picker below sets; what is set on the picked piece; then the
+  // doll-wide settings set once and left, IK chains, used least, last.
   layout_.addWidget(&hint_);
   layout_.addWidget(doll_section_);
+  layout_.addWidget(&skins_);
   layout_.addWidget(joint_section_);
   layout_.addWidget(warp_section_);
   layout_.addWidget(&collider_box_);
-  layout_.addWidget(chains_section_);
   layout_.addWidget(&look_);
-  layout_.addWidget(&skins_);
+  layout_.addWidget(chains_section_);
   layout_.addStretch(1);
   // The piece list picks by the one pick rule; pieces are not deleted
   // from here, so Delete asks nothing of it.
