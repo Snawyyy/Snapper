@@ -1,7 +1,13 @@
 #include "ui/draw_bar.h"
 
-#include <cassert>
+#include <QPainter>
 
+#include <cassert>
+#include <memory>
+#include <utility>
+
+#include "ui/deck_paint.h"
+#include "ui/hover_fade.h"
 #include "ui/problem.h"
 #include "ui/theme.h"
 #include "ui/toast_manager.h"
@@ -13,15 +19,21 @@ struct ToolFace final {
   const char* name;
   const char* key;
   const char* tip;
+  TapeGlyph glyph;
 };
 
 // In DrawTool order.
 constexpr std::array<ToolFace, kDrawToolCount> kToolFaces = {{
     {"Brush", "B", "A hard pixel brush. Right button erases; Shift+click "
-                   "draws a line from the last point; [ and ] size it."},
-    {"Eraser", "E", "The same brush, clearing to transparent; E again goes back to the brush."},
-    {"Fill", "F", "Fills the touching area of the same color."},
-    {"Pick", "I", "Click to take a color (hold Alt with any tool)."},
+                   "draws a line from the last point; [ and ] size it.",
+     TapeGlyph::kBrush},
+    {"Eraser", "E", "The same brush, clearing to transparent; E again "
+                    "goes back to the brush.",
+     TapeGlyph::kEraser},
+    {"Fill", "F", "Fills the touching area of the same color.",
+     TapeGlyph::kFill},
+    {"Pick", "I", "Click to take a color (hold Alt with any tool).",
+     TapeGlyph::kPick},
 }};
 
 void Paint(QWidget* widget) {
@@ -127,25 +139,42 @@ void DrawBar::Ask(bool is_asking) {
 }
 
 DrawTools::DrawTools(const Managers& managers)
-    : managers_(managers), layout_(this) {
+    : managers_(managers), layout_(this), well_(managers) {
   assert(managers_.draw != nullptr);
-  Paint(this);
+  layout_.setContentsMargins(6, 8, 6, 8);
+  layout_.setSpacing(4);
   for (int i = 0; i < kDrawToolCount; ++i) {
     const ToolFace& face = kToolFaces[static_cast<size_t>(i)];
-    QToolButton& tile = tiles_[static_cast<size_t>(i)];
-    tile.setText(QStringLiteral("%1\n%2").arg(tr(face.name), face.key));
-    tile.setToolTip(QStringLiteral("%1 (%2)").arg(tr(face.tip), face.key));
-    tile.setCheckable(true);
-    tile.setFocusPolicy(Qt::NoFocus);
-    tile.setFixedSize(56, 48);
-    layout_.addWidget(&tile);
-    connect(&tile, &QToolButton::clicked, this, [this, i] {
+    auto tile = std::make_unique<TapeKey>(face.glyph);
+    tile->setText(tr(face.name));
+    tile->SetCornerMark(QString::fromLatin1(face.key));
+    tile->setToolTip(
+        QStringLiteral("%1: %2 (%3)").arg(tr(face.name), tr(face.tip),
+                                          face.key));
+    tile->setCheckable(true);
+    tile->setFocusPolicy(Qt::NoFocus);
+    tile->setFixedSize(52, 48);
+    // The key owns it; it sinks the key as it is pressed.
+    std::make_unique<HoverFade>(tile.get(), managers_.motion).release();
+    layout_.addWidget(tile.get());
+    connect(tile.get(), &QPushButton::clicked, this, [this, i] {
       managers_.draw->SetTool(static_cast<DrawTool>(i));
     });
+    tiles_[static_cast<size_t>(i)] = std::move(tile);
   }
+  layout_.addSpacing(8);
+  layout_.addWidget(&well_);
   layout_.addStretch(1);
   connect(managers_.draw, &DrawManager::Changed, this, &DrawTools::Refresh);
   Refresh();
+}
+
+void DrawTools::paintEvent(QPaintEvent* event) {
+  assert(event != nullptr);
+  assert(width() >= 0);
+  // A strip of deck panel the keys stand in.
+  QPainter painter(this);
+  deck::PaintPanel(&painter, QRectF(rect()));
 }
 
 void DrawTools::Refresh() {
@@ -153,7 +182,7 @@ void DrawTools::Refresh() {
   const int tool = static_cast<int>(managers_.draw->tool());
   assert(tool >= 0 && tool < kDrawToolCount);
   for (int i = 0; i < kDrawToolCount; ++i) {
-    tiles_[static_cast<size_t>(i)].setChecked(i == tool);
+    tiles_[static_cast<size_t>(i)]->setChecked(i == tool);
   }
 }
 

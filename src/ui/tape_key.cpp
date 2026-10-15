@@ -3,6 +3,7 @@
 #include <QLinearGradient>
 #include <QPainter>
 #include <QPainterPath>
+#include <QTransform>
 
 #include <algorithm>
 #include <cassert>
@@ -44,6 +45,36 @@ void AddTriangle(QPainterPath* path, double x, double mid_y, double size,
   path->closeSubpath();
 }
 
+// A draw tool's mark, centred on the origin, size tall.
+QPainterPath ToolPath(TapeGlyph glyph, double size) {
+  assert(size > 0.0);
+  const double u = size / 10.0;
+  QPainterPath path;
+  if (glyph == TapeGlyph::kBrush) {
+    // A pencil lying corner to corner: body, then its point.
+    path.addRect(QRectF(-u, -5 * u, 2 * u, 7 * u));
+    path.moveTo(-u, 2.5 * u);
+    path.lineTo(u, 2.5 * u);
+    path.lineTo(0, 5 * u);
+    path.closeSubpath();
+  } else if (glyph == TapeGlyph::kEraser) {
+    // A block with its rubber end split off.
+    path.addRect(QRectF(-2 * u, -5 * u, 4 * u, 6 * u));
+    path.addRect(QRectF(-2 * u, 2 * u, 4 * u, 3 * u));
+  } else if (glyph == TapeGlyph::kFill) {
+    // A tipped bucket and the drop leaving it.
+    path.addRect(QRectF(-3.5 * u, -3 * u, 5 * u, 5 * u));
+    path.addEllipse(QPointF(3 * u, 3.5 * u), 1.2 * u, 1.6 * u);
+  } else {
+    // A dropper: thin tube, round bulb.
+    path.addRect(QRectF(-0.6 * u, -1 * u, 1.2 * u, 6 * u));
+    path.addEllipse(QPointF(0, -3 * u), 2 * u, 2 * u);
+  }
+  QTransform lean;
+  lean.rotate(glyph == TapeGlyph::kFill ? -20.0 : 45.0);
+  return lean.map(path);
+}
+
 QPainterPath GlyphPath(TapeGlyph glyph, const QPointF& middle,
                        double size) {
   assert(size > 0.0);
@@ -72,6 +103,13 @@ QPainterPath GlyphPath(TapeGlyph glyph, const QPointF& middle,
       path.addRect(QRectF(left + reach, y - size / 2.0, bar, size));
       break;
     }
+    case TapeGlyph::kBrush:
+    case TapeGlyph::kEraser:
+    case TapeGlyph::kFill:
+    case TapeGlyph::kPick:
+      path = ToolPath(glyph, size);
+      path.translate(middle);
+      break;
   }
   return path;
 }
@@ -131,6 +169,13 @@ QRectF TapeKey::TopFace() const {
   return QRectF(1.0, 1.0 + drop, width() - 2.0, height() - 2.0 - lip);
 }
 
+void TapeKey::SetCornerMark(const QString& mark) {
+  assert(mark.size() < 8);
+  assert(glyph_.has_value());
+  corner_mark_ = mark;
+  update();
+}
+
 void TapeKey::SetPrintInset(double inset) {
   assert(inset >= 0.0);
   assert(!glyph_.has_value());
@@ -187,6 +232,16 @@ void TapeKey::paintEvent(QPaintEvent* event) {
   cup.moveCenter(top.center());
   PaintDimple(&painter, cup);
   PaintGlyph(&painter, cup);
+  const bool has_mark = !corner_mark_.isEmpty();
+  if (has_mark) {
+    QFont small = painter.font();
+    small.setPointSizeF(small.pointSizeF() * 0.75);
+    small.setBold(true);
+    painter.setFont(small);
+    painter.setPen(isChecked() ? theme::kPick : kPrint.darker(140));
+    painter.drawText(top.adjusted(3, 1, -2, -1), Qt::AlignLeft | Qt::AlignTop,
+                     corner_mark_);
+  }
 }
 
 void TapeKey::PaintGlyph(QPainter* painter, const QRectF& cup) const {

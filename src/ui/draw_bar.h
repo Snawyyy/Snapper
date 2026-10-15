@@ -11,9 +11,12 @@
 #include <QWidget>
 
 #include <array>
+#include <memory>
 
 #include "edit/draw_manager.h"
+#include "ui/brush_well.h"
 #include "ui/managers.h"
+#include "ui/tape_key.h"
 
 namespace snapper {
 
@@ -49,19 +52,26 @@ class DrawBar final : public QWidget {
   QPushButton cancel_;
 };
 
-// Draw mode's tool tiles, beside the stage, each with its key on it.
+// Draw mode's tools beside the stage, on a strip of deck panel: a tape
+// key each with the tool's mark in its dimple and its key letter in
+// the corner (the one in use latched down, red), and under them the
+// brush well showing the brush's size and color.
 class DrawTools final : public QWidget {
   Q_OBJECT
 
  public:
   explicit DrawTools(const Managers& managers);
 
+ protected:
+  void paintEvent(QPaintEvent* event) override;
+
  private:
   void Refresh();
 
   Managers managers_;
   QVBoxLayout layout_;
-  std::array<QToolButton, kDrawToolCount> tiles_;
+  std::array<std::unique_ptr<TapeKey>, kDrawToolCount> tiles_;
+  BrushWell well_;
 };
 
 }  // namespace snapper
