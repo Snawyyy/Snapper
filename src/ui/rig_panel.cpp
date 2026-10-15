@@ -1,5 +1,6 @@
 #include "ui/rig_panel.h"
 
+#include <algorithm>
 #include <cassert>
 
 #include "edit/doll_library_manager.h"
@@ -15,6 +16,13 @@
 #include "ui/toast_manager.h"
 
 namespace snapper {
+namespace {
+
+// The piece tree shows at least and at most this many rows.
+constexpr int kMinTreeRows = 8;
+constexpr int kMaxTreeRows = 28;
+
+}  // namespace
 
 RigPanel::RigPanel(const Managers& managers)
     : managers_(managers),
@@ -112,9 +120,11 @@ void RigPanel::BuildLayout() {
   layout_.setSpacing(theme::kRowGap);
   // Doll: its pieces, and saving its rig. Which doll is open is picked
   // in the library (OpenDoll).
-  // Fixed heights: the panel scrolls, so no list grows or shrinks as
-  // the fields under it come and go.
-  pieces_.setFixedHeight(200);
+  // The tree draws its own rows; its height follows the doll
+  // (FitPieceList), and the panel scrolls past it.
+  pieces_.setItemDelegate(&tree_rows_);
+  pieces_.viewport()->setAttribute(Qt::WA_Hover);
+  pieces_.setFixedHeight(kMinTreeRows * RigTreeDelegate::RowHeight());
   auto* doll_body = MakeOwned<QWidget>(this);
   auto* doll_column = MakeOwned<QVBoxLayout>(doll_body);
   doll_column->setContentsMargins(0, 0, 0, 0);
@@ -167,20 +177,32 @@ void RigPanel::BuildLayout() {
   chains_column->addWidget(&chains_);
   chains_column->addLayout(&chain_buttons_);
   chains_section_ = PlatedSection(tr("IK chains"), chains_body, this);
+  // The tree, then what is set on the picked piece right under it, then
+  // the doll-wide settings that are set once and left.
+  layout_.addWidget(&hint_);
   layout_.addWidget(doll_section_);
-  layout_.addWidget(&look_);
-  layout_.addWidget(&skins_);
   layout_.addWidget(joint_section_);
   layout_.addWidget(warp_section_);
   layout_.addWidget(&collider_box_);
   layout_.addWidget(chains_section_);
-  layout_.addWidget(&hint_);
+  layout_.addWidget(&look_);
+  layout_.addWidget(&skins_);
   layout_.addStretch(1);
   // The piece list picks by the one pick rule; pieces are not deleted
   // from here, so Delete asks nothing of it.
   PickList::Install(&pieces_);
   assert(joint_form_->rowCount() == 6);
   assert(warp_form_->rowCount() == 4);
+}
+
+void RigPanel::FitPieceList() {
+  assert(kMinTreeRows > 0 && kMaxTreeRows >= kMinTreeRows);
+  assert(pieces_.count() >= 0);
+  // Tall enough for the whole doll, so the tree rarely scrolls inside a
+  // panel that scrolls too.
+  const int rows = std::clamp(pieces_.count(), kMinTreeRows, kMaxTreeRows);
+  pieces_.setFixedHeight(rows * RigTreeDelegate::RowHeight() +
+                         2 * pieces_.frameWidth());
 }
 
 void RigPanel::OpenDoll(const QString& doll) {

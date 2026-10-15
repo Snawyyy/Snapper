@@ -20,6 +20,7 @@
 #include "ui/collider_box.h"
 #include "ui/live_edit.h"
 #include "ui/look_box.h"
+#include "ui/rig_tree_delegate.h"
 #include "ui/managers.h"
 #include "ui/skin_rig_box.h"
 
@@ -82,6 +83,8 @@ class RigPanel final : public QWidget {
   void MakeShapeMesh();
   void RefreshChains();
   void AddChain();
+  // Sizes the piece list to the doll's pieces, within bounds.
+  void FitPieceList();
   // The picked pieces, at least the focused one.
   std::vector<QString> Picked() const;
   const RigPiece* Focus() const;
@@ -92,6 +95,8 @@ class RigPanel final : public QWidget {
   QStringList picked_;
   QVBoxLayout layout_;
   LiveEdit live_;
+  // Paints pieces_ as the doll's tree; outlives it.
+  RigTreeDelegate tree_rows_;
   QListWidget pieces_;
   // The sections shown by what is picked, and the forms of two of them
   // (their widgets own them).
