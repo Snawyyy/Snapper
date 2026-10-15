@@ -4,11 +4,13 @@
 #include <QMenu>
 
 #include <cassert>
+#include <memory>
 #include <vector>
 
 #include "edit/history_manager.h"
 #include "edit/skin_manager.h"
 #include "ui/form_helpers.h"
+#include "ui/hover_fade.h"
 #include "ui/plated_box.h"
 #include "ui/problem.h"
 #include "ui/toast_manager.h"
@@ -17,10 +19,11 @@ namespace snapper {
 
 SkinRigBox::SkinRigBox(const Managers& managers)
     : managers_(managers),
-      tiles_(tr("Click to change this skin: pick pieces and set their "
-                "drawing below. Right click for more.")),
-      add_(tr("+ Skin")),
-      from_krita_(tr("From Krita names")) {
+      tiles_(tr("Click to pull this tape out and change the skin: pick "
+                "pieces and set their drawing below. Right click for "
+                "more.")),
+      add_(tr("+ Blank tape")),
+      from_krita_(tr("Auto-load from Krita")) {
   assert(managers_.IsComplete());
   assert(managers_.skins != nullptr);
   PlateBox(this, tr("Skins"), &layout_);
@@ -28,9 +31,14 @@ SkinRigBox::SkinRigBox(const Managers& managers)
                      "that changes nothing yet."));
   hint_.setWordWrap(true);
   layout_.addWidget(&tiles_);
-  buttons_.addWidget(&add_);
-  buttons_.addWidget(&from_krita_);
-  buttons_.addStretch(1);
+  // Deck keys, one even row: record a blank tape, or load one per
+  // "skin/drawing" name the Krita file already has.
+  for (TapeKey* key : {&add_, &from_krita_}) {
+    key->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    // The key owns it; it sinks the key as it is pressed.
+    std::make_unique<HoverFade>(key, managers_.motion).release();
+    buttons_.addWidget(key, 1);
+  }
   layout_.addLayout(&buttons_);
   layout_.addWidget(&hint_);
   connect(&tiles_, &SkinTiles::Clicked, this,
@@ -96,10 +104,10 @@ void SkinRigBox::Refresh() {
   Explain(&from_krita_, managers_.skins->WhyNoKritaSkins(doll_));
   hint_.setText(
       skin_.isEmpty()
-          ? tr("A skin swaps drawings across many pieces at once. Click + "
-               "to make one.")
-          : tr("Changing %1: pick pieces and set their Drawing. Click the "
-               "tile again when done.")
+          ? tr("A skin swaps drawings across many pieces at once. Pull a "
+               "tape out to change it, or record a blank one.")
+          : tr("Changing %1: pick pieces and set their Drawing. Push the "
+               "tape back in when done.")
                 .arg(skin_));
   setEnabled(!doll_.isEmpty());
 }

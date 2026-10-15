@@ -3,12 +3,12 @@
 
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QPushButton>
 #include <QVBoxLayout>
 #include <QWidget>
 
 #include "ui/managers.h"
 #include "ui/skin_tiles.h"
+#include "ui/tape_key.h"
 
 namespace snapper {
 
@@ -47,8 +47,8 @@ class SkinRigBox final : public QWidget {
   QVBoxLayout layout_;
   SkinTiles tiles_;
   QHBoxLayout buttons_;
-  QPushButton add_;
-  QPushButton from_krita_;
+  TapeKey add_;
+  TapeKey from_krita_;
   QLabel hint_;
 };
 
