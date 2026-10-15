@@ -15,6 +15,7 @@
 #include "edit/selection_manager.h"
 #include "edit/sound_manager.h"
 #include "media/audio_clip.h"
+#include "ui/deck_paint.h"
 #include "ui/form_helpers.h"
 #include "ui/paint_clip.h"
 #include "ui/playhead.h"
@@ -146,7 +147,7 @@ void TimelineView::paintEvent(QPaintEvent* event) {
   assert(event != nullptr);
   assert(managers_.selection != nullptr);
   QPainter painter(this);
-  painter.fillRect(rect(), theme::kField);
+  painter.fillRect(rect(), deck::kPlastic);
   const auto rows =
       TimelineRows(managers_.history->current(), managers_.selection->shot());
   const bool has_shot = !rows.empty();
@@ -177,13 +178,12 @@ void TimelineView::PaintRuler(QPainter* painter) const {
   const Shot* shot =
       FindShot(managers_.history->current(), managers_.selection->shot());
   assert(shot != nullptr);
-  // Beyond the shot's end is dimmed: keys there never play. The ruler
-  // dims its own band; numbers sit over the frame's middle, where the
-  // keys are.
+  // The rows are slots in the deck's plastic, darker beyond the shot's
+  // end: keys there never play. The ruler dims its own band.
   const double end = std::max<double>(XOf(shot->length), kNameWidth);
-  painter->fillRect(QRectF(end, kRulerHeight, width() - end,
-                           height() - kRulerHeight),
-                    theme::kFaceDark);
+  const double top = kRulerHeight + kWaveHeight;
+  deck::PaintPlastic(painter, QRectF(0, top, width(), height() - top), end,
+                     kRowHeight);
   PaintFrameRuler(painter, scale_, width(), true);
 }
 
@@ -261,24 +261,27 @@ void TimelineView::PaintWave(QPainter* painter) const {
   const bool has_wave = song != nullptr && index >= 0;
   const QRectF band(kNameWidth, kRulerHeight, width() - kNameWidth,
                     kWaveHeight);
-  painter->fillRect(band, theme::kFaceDark);
-  painter->fillRect(QRectF(0, kRulerHeight, kNameWidth, kWaveHeight),
-                    theme::kFace);
+  // The sound shows on a DVD player's display: the source's name in
+  // its own window, the wave on the glass beside it.
+  painter->fillRect(QRectF(0, kRulerHeight, width(), kWaveHeight),
+                    deck::kPlastic);
+  deck::PaintDisplay(painter, band.adjusted(1, 2, -2, -2));
+  const QRectF readout(3, kRulerHeight + 2, kNameWidth - 6, kWaveHeight - 4);
+  deck::PaintDisplay(painter, readout);
   const Clip* clip = SoundClip();
-  painter->setPen(clip != nullptr ? theme::kText : theme::kTextOff);
-  painter->drawText(QRectF(6, kRulerHeight, kNameWidth - 8, kWaveHeight),
-                    Qt::AlignVCenter | Qt::AlignLeft,
-                    clip != nullptr
-                        ? tr("From clip at %1").arg(TimeText(clip->start))
-                    : has_wave ? tr("Song")
-                               : tr("No song"));
+  deck::PaintGlowText(painter, readout.adjusted(5, 0, -3, 0),
+                      clip != nullptr
+                          ? tr("CLIP %1").arg(TimeText(clip->start))
+                      : has_wave ? tr("SONG")
+                                 : tr("NO SONG"),
+                      clip != nullptr || has_wave);
   const bool has_clip = clip != nullptr;
   if (has_clip) {
     // Frames the clip leaves out are silent: shaded, so it is clear why.
     const double from = std::max<double>(XOf(clip->in), kNameWidth);
     const double to = std::max<double>(
         XOf(Frame(clip->in.index() + clip->length.index())), kNameWidth);
-    const QBrush shade(theme::kTextOff, Qt::BDiagPattern);
+    const QBrush shade(deck::kGlowDim, Qt::BDiagPattern);
     painter->fillRect(
         QRectF(kNameWidth, kRulerHeight, from - kNameWidth, kWaveHeight),
         shade);
@@ -292,11 +295,11 @@ void TimelineView::PaintWave(QPainter* painter) const {
   const double start = SecondsAtFrame(ShotStart(project, index));
   const double per_pixel = 1.0 / (FrameWidth() * kFramesPerSecond);
   const double middle = band.center().y();
-  painter->setPen(theme::kPick.darker(130));
+  painter->setPen(deck::kGlow);
   for (int x = kNameWidth; x < width(); ++x) {
     const double at = start + scale_.FrameAtX(x) / kFramesPerSecond;
     const double half =
-        PeakBetween(*song, at, at + per_pixel) * (kWaveHeight / 2.0 - 1.0);
+        PeakBetween(*song, at, at + per_pixel) * (kWaveHeight / 2.0 - 3.0);
     painter->drawLine(QPointF(x, middle - half), QPointF(x, middle + half));
   }
 }

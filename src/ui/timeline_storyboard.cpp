@@ -18,6 +18,7 @@
 #include "edit/selection_manager.h"
 #include "edit/storyboard_edits.h"
 #include "edit/storyboard_manager.h"
+#include "ui/deck_paint.h"
 #include "ui/grab.h"
 #include "ui/paint_clip.h"
 #include "ui/storyboard_actions.h"
@@ -190,18 +191,12 @@ void TimelineStoryboard::PaintRow(QPainter* painter, const Layer& layer,
   const StoryboardLayer* board = BoardOf(layer);
   assert(board != nullptr);
   const bool is_shown = layer.is_visible;
-  const QColor ink = is_shown ? theme::kText : theme::kTextOff;
   const double width = view_->width();
   const QRectF name(0, top, kNameWidth, kRowHeight);
   painter->save();
-  painter->fillRect(name, theme::kFace);
-  painter->setPen(ink);
-  painter->drawText(
-      name.adjusted(6, 0, -(kEyeSize + 10.0), 0),
-      Qt::AlignVCenter | Qt::AlignLeft,
-      painter->fontMetrics().elidedText(
-          layer.name, Qt::ElideRight,
-          static_cast<int>(kNameWidth - kEyeSize - 16.0)));
+  painter->fillRect(name, deck::kPlastic);
+  deck::PaintLabel(painter, name.adjusted(0, 0, -(kEyeSize + 6.0), 0),
+                   layer.name, false, !is_shown);
   PaintEye(EyeRect(top), is_shown, painter);
   {
     const PaintClip keep_in(
@@ -232,9 +227,6 @@ void TimelineStoryboard::PaintRow(QPainter* painter, const Layer& layer,
     }
     painter->setOpacity(1.0);
   }
-  painter->setPen(theme::kFaceDark);
-  painter->drawLine(QPointF(0, top + kRowHeight),
-                    QPointF(width, top + kRowHeight));
   painter->restore();
 }
 

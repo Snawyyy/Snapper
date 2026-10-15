@@ -10,6 +10,7 @@
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/change_effects.h"
+#include "ui/deck_paint.h"
 #include "ui/paint_clip.h"
 #include "ui/theme.h"
 #include "ui/timeline_layout.h"
@@ -42,14 +43,8 @@ void TimelineView::PaintRows(QPainter* painter,
     const QRectF name(0, top, kNameWidth, kRowHeight);
     // A ghost is only the keys: no names, no row lines.
     if (!is_ghost) {
-      painter->fillRect(name, is_current ? theme::kPick.darker(160)
-                                         : theme::kFace);
-      painter->setPen(theme::kText);
-      painter->drawText(name.adjusted(6, 0, -4, 0),
-                        Qt::AlignVCenter | Qt::AlignLeft, row.name);
-      painter->setPen(theme::kFaceDark);
-      painter->drawLine(QPointF(0, top + kRowHeight),
-                        QPointF(width(), top + kRowHeight));
+      painter->fillRect(name, deck::kPlastic);
+      deck::PaintLabel(painter, name, row.name, is_current, false);
     }
     const double middle = top + kRowHeight / 2.0;
     // Scrolled keys, bars and puffs never reach over the names.
@@ -99,18 +94,18 @@ void TimelineView::PaintKeys(QPainter* painter, const TimelineRow& row,
                                  : x + FrameWidth();
     // A hold is a bar; an ease or slide is a thin line.
     const bool is_eased = row.is_eased[i] && has_next;
-    painter->fillRect(QRectF(x, middle - (is_eased ? 1.0 : 4.0), next - x,
-                             is_eased ? 2.0 : 8.0),
-                      theme::kFaceLight);
+    deck::PaintTape(painter, QRectF(x, middle - (is_eased ? 1.0 : 4.0),
+                                    next - x, is_eased ? 2.0 : 8.0));
     const bool is_picked = IsKeyPicked(row, row.keys[i]);
-    painter->setPen(QPen(theme::kShadow, 1.0));
+    painter->setPen(QPen(deck::kInk, 1.0));
     const QString key_name = KeyName(row_index, row.keys[i]);
     // A hovered key grows and brightens; so does one popping in, and
     // one coming back by undo flashes brighter still.
     const double grow = hover_.ScaleOf(GrabKind::kKey, key_name) *
                         effects_.ScaleOf(lane, 0, row.keys[i]);
     const double glow = effects_.GlowOf(lane, 0, row.keys[i]);
-    const QColor fill = is_picked ? theme::kPick : theme::kText;
+    // Keys are cream like the labels, edged in ink.
+    const QColor fill = is_picked ? theme::kPick : deck::kLabel;
     const bool is_lit = grow > 1.0;
     painter->setBrush(fill.lighter((is_lit ? 125 : 100) +
                                    static_cast<int>(100.0 * glow)));

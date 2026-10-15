@@ -9,8 +9,8 @@
 #include <cmath>
 
 #include "base/frame.h"
+#include "ui/deck_paint.h"
 #include "ui/paint_clip.h"
-#include "ui/theme.h"
 #include "ui/timeline_layout.h"
 
 namespace snapper {
@@ -93,7 +93,7 @@ void PaintFrameRuler(QPainter* painter, const TimelineScale& scale,
                      int width, bool labels_on_middle) {
   assert(painter != nullptr);
   assert(width >= 0);
-  painter->fillRect(QRectF(0, 0, width, kRulerHeight), theme::kFace);
+  painter->fillRect(QRectF(0, 0, width, kRulerHeight), deck::kPlastic);
   const double left = scale.left();
   const bool has_room = width > left;
   if (!has_room) {

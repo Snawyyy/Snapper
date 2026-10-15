@@ -16,6 +16,7 @@
 #include "edit/history_manager.h"
 #include "edit/reference_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/deck_paint.h"
 #include "ui/doll_cards.h"
 #include "ui/form_helpers.h"
 #include "ui/paint_clip.h"
@@ -85,16 +86,12 @@ void TimelineView::PaintReferences(QPainter* painter) const {
     const bool is_picked = picked.contains(reference.id);
     const bool is_missing = ReferenceManager::IsMissing(reference);
     const QRectF name(0, top, kNameWidth, kRowHeight);
-    painter->fillRect(name, is_picked ? theme::kPick.darker(160)
-                                      : theme::kFace);
-    painter->setPen(is_missing ? theme::kPick : theme::kText);
+    painter->fillRect(name, deck::kPlastic);
     const QString file = QFileInfo(reference.path).fileName();
-    painter->drawText(
-        name.adjusted(6, 0, -(kEyeSize + 10.0), 0),
-        Qt::AlignVCenter | Qt::AlignLeft,
-        painter->fontMetrics().elidedText(
-            is_missing ? tr("Missing: %1").arg(file) : tr("Ref %1").arg(file),
-            Qt::ElideRight, static_cast<int>(kNameWidth - kEyeSize - 16.0)));
+    deck::PaintLabel(
+        painter, name.adjusted(0, 0, -(kEyeSize + 6.0), 0),
+        is_missing ? tr("Missing: %1").arg(file) : tr("Ref %1").arg(file),
+        is_picked, is_missing || !reference.is_shown);
     PaintEye(EyeRect(top), reference.is_shown, painter);
     {
       const PaintClip keep_in(painter, QRectF(kNameWidth, top,
@@ -119,9 +116,6 @@ void TimelineView::PaintReferences(QPainter* painter) const {
       }
       painter->setOpacity(1.0);
     }
-    painter->setPen(theme::kFaceDark);
-    painter->drawLine(QPointF(0, top + kRowHeight),
-                      QPointF(width(), top + kRowHeight));
     top += kRowHeight;
   }
   painter->restore();
