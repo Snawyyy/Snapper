@@ -40,6 +40,8 @@ class CassetteDeck final : public QWidget {
  private:
   // Where the cassette sits, kept in shape inside the margin.
   QRectF ShellRect() const;
+  // The bezel round the opening the cassette sits in.
+  void PaintFrame(QPainter* painter, const QRectF& shell) const;
   // The wall's shadow over the edges, as if the cassette sits in it.
   void PaintInset(QPainter* painter, const QRectF& shell) const;
   void PaintShell(QPainter* painter, const QRectF& shell) const;

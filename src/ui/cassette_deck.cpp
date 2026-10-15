@@ -25,6 +25,8 @@ constexpr int kMinWidth = 160;
 constexpr int kHintWidth = 240;
 // Room kept clear between the cassette and the panel's edges.
 constexpr int kMargin = 18;
+// The bezel round the opening, inside the margin.
+constexpr double kFrame = 9.0;
 // A reel turns this far each frame: one turn a second at 24 frames.
 constexpr double kDegreesPerFrame = 360.0 / 24.0;
 // Pixels of drag per frame scrubbed.
@@ -121,6 +123,53 @@ void CassetteDeck::paintEvent(QPaintEvent* event) {
   PaintWindow(&painter, shell);
   door_.Paint(&painter, shell);
   PaintInset(&painter, shell);
+  PaintFrame(&painter, shell);
+}
+
+void CassetteDeck::PaintFrame(QPainter* painter,
+                              const QRectF& shell) const {
+  assert(painter != nullptr);
+  assert(kFrame < kMargin);
+  // A moulded bezel round the opening, standing up from the panel:
+  // lit on its outer top and left, its inner lip turned toward the
+  // cassette and so lit on the bottom and right.
+  const QRectF outer = shell.adjusted(-kFrame, -kFrame, kFrame, kFrame);
+  QPainterPath ring;
+  ring.setFillRule(Qt::OddEvenFill);
+  ring.addRoundedRect(outer, 3.0, 3.0);
+  ring.addRect(shell);
+  QLinearGradient face(outer.topLeft(), outer.bottomLeft());
+  face.setColorAt(0.0, QColor(0x56, 0x56, 0x5c));
+  face.setColorAt(1.0, QColor(0x2e, 0x2e, 0x32));
+  painter->setPen(Qt::NoPen);
+  painter->setBrush(face);
+  painter->drawPath(ring);
+  painter->setBrush(Qt::NoBrush);
+  const QRectF rim = outer.adjusted(0.5, 0.5, -0.5, -0.5);
+  painter->setPen(QPen(QColor(0x7a, 0x7a, 0x82), 1.0));
+  painter->drawLine(rim.topLeft(), rim.topRight());
+  painter->drawLine(rim.topLeft(), rim.bottomLeft());
+  painter->setPen(QPen(QColor(0x12, 0x12, 0x14), 1.0));
+  painter->drawLine(rim.bottomLeft(), rim.bottomRight());
+  painter->drawLine(rim.topRight(), rim.bottomRight());
+  const QRectF lip = shell.adjusted(-0.5, -0.5, 0.5, 0.5);
+  painter->setPen(QPen(QColor(0x0e, 0x0e, 0x10), 1.0));
+  painter->drawLine(lip.topLeft(), lip.topRight());
+  painter->drawLine(lip.topLeft(), lip.bottomLeft());
+  painter->setPen(QPen(QColor(0x6a, 0x6a, 0x72), 1.0));
+  painter->drawLine(lip.bottomLeft(), lip.bottomRight());
+  painter->drawLine(lip.topRight(), lip.bottomRight());
+  // A small screw in each corner of the bezel.
+  const double screw = kFrame * 0.22;
+  painter->setPen(QPen(QColor(0x14, 0x14, 0x16), 1.0));
+  painter->setBrush(QColor(0x80, 0x80, 0x88));
+  for (const double x : {outer.left() + kFrame / 2.0,
+                         outer.right() - kFrame / 2.0}) {
+    for (const double y : {outer.top() + kFrame / 2.0,
+                           outer.bottom() - kFrame / 2.0}) {
+      painter->drawEllipse(QPointF(x, y), screw, screw);
+    }
+  }
 }
 
 QRectF CassetteDeck::ShellRect() const {
