@@ -12,6 +12,7 @@
 
 #include "edit/palette_manager.h"
 #include "ui/fold_section.h"
+#include "ui/full_view.h"
 #include "ui/mode_icons.h"
 #include "ui/panel_kit.h"
 #include "ui/theme.h"
@@ -41,6 +42,8 @@ PalettePanel::PalettePanel(PaletteManager* palette, MotionManager* motion,
   assert(palette_ != nullptr);
   assert(window != nullptr);
   SetUpFrame();
+  // Drawing in Tab's full view still needs the colors.
+  setProperty(kKeepInFullView, true);
   layout_.setContentsMargins(8, 6, 8, 8);
   layout_.setSpacing(4);
   BuildTitle();

@@ -56,8 +56,10 @@ void FullView::Enter(QWidget* view) {
       auto* sibling = qobject_cast<QWidget*>(kids[i]);
       // Splitter handles go with what they part; windows of their own
       // (menus, dialogs) are not part of the page.
+      // A panel may ask to stay over the view (the palette).
       const bool is_beside = sibling != nullptr && sibling != at &&
                              !sibling->isWindow() &&
+                             !sibling->property(kKeepInFullView).toBool() &&
                              qobject_cast<QSplitterHandle*>(sibling) ==
                                  nullptr;
       if (is_beside) {

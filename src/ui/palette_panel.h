@@ -90,7 +90,11 @@ class PalettePanel final : public QWidget {
   // Lies over the docking area, as big as it is
   // (ui/palette_panel_dock.cpp).
   void Follow();
-  bool is_docked() const { return !dock_area_.isNull(); }
+  // Docked and the area shows: a hidden area (full view) leaves it
+  // floating until the area comes back.
+  bool is_docked() const {
+    return !dock_area_.isNull() && dock_area_->isVisible();
+  }
   // True when at (panel pixels) is on the resize corner.
   bool IsOnGrip(QPoint at) const;
   // The swatch under at (panel pixels) in any shown grid; invalid for

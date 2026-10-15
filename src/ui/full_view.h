@@ -10,6 +10,10 @@ class QMainWindow;
 
 namespace snapper {
 
+// A widget with this property true stays shown in full view, floating
+// over the view (the palette while drawing).
+inline constexpr char kKeepInFullView[] = "keepInFullView";
+
 // Tab's full view: one view (the stage, the reel preview) fills the
 // screen. Entering hides everything beside it, up to the window, and
 // the window's bars and docks, and puts the window full screen; leaving

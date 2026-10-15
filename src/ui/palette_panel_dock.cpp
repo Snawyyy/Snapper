@@ -11,9 +11,8 @@ namespace snapper {
 void PalettePanel::DockOver(QWidget* area) {
   assert(area != nullptr);
   assert(parentWidget() != nullptr);
-  // A closed inspector leaves nothing to lie over: it floats then.
-  const bool is_pointless = dock_area_ == area || !area->isVisible();
-  if (is_pointless) {
+  const bool is_same = dock_area_ == area;
+  if (is_same) {
     return;
   }
   Undock();
@@ -28,7 +27,8 @@ void PalettePanel::DockOver(QWidget* area) {
 void PalettePanel::Undock() {
   assert(palette_ != nullptr);
   assert(width() >= 0);
-  if (!is_docked()) {
+  const bool has_area = !dock_area_.isNull();
+  if (!has_area) {
     return;
   }
   dock_area_->removeEventFilter(this);
@@ -59,6 +59,13 @@ bool PalettePanel::eventFilter(QObject* watched, QEvent* event) {
                            type == QEvent::Show);
   if (moves_area) {
     Follow();
+  }
+  // The area went away (full view hid it): float where it was left.
+  const bool loses_area = watched == dock_area_ && type == QEvent::Hide &&
+                          isVisible();
+  if (loses_area) {
+    RestorePlace();
+    raise();
   }
   return QWidget::eventFilter(watched, event);
 }
