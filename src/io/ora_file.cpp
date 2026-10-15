@@ -221,11 +221,14 @@ Result<void> WriteDollOra(const Doll& doll, const QString& path) {
       entries.push_back({source, *bytes});
       const int index = static_cast<int>(i);
       const bool is_default = index == piece.default_drawing;
+      // A drawing that reaches past its frame starts that much before it.
+      const QPoint drawn_at = at - DrawingOffset(doll, piece.name, index);
       if (is_default) {
-        merge.drawImage(at, QImage::fromData(*bytes, "PNG"));
+        merge.drawImage(drawn_at, QImage::fromData(*bytes, "PNG"));
       }
       layers.push_back({is_single ? piece.name : DrawingName(piece, index),
-                        false, is_default || is_single, source, at, {}});
+                        false, is_default || is_single, source, drawn_at,
+                        {}});
     }
     if (is_single) {
       into->push_back(layers.front());

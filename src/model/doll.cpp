@@ -204,6 +204,36 @@ const OwnDrawing* OwnDrawingAt(const Doll& doll, const QString& piece,
   return found == rig->own_drawings.end() ? nullptr : &*found;
 }
 
+QPoint DrawingOffset(const Doll& doll, const QString& piece, int drawing) {
+  assert(!piece.isEmpty());
+  assert(drawing >= -1);
+  // -1 is the shown default, as for DrawingPath.
+  const OwnDrawing* own =
+      OwnDrawingAt(doll, piece, ShownDrawingIndex(doll, piece, drawing));
+  return own != nullptr ? own->offset : QPoint();
+}
+
+QImage InFrame(const QImage& drawing, QPoint offset, QSize size) {
+  assert(size.isValid());
+  assert(!drawing.isNull() || drawing.isNull());
+  const bool is_frame_sized = offset.isNull() && drawing.size() == size;
+  if (is_frame_sized || drawing.isNull()) {
+    return drawing;
+  }
+  return drawing.copy(QRect(offset, size));
+}
+
+QImage FrameOf(const Doll& doll, const QString& piece, int drawing,
+               const QImage& read) {
+  assert(!piece.isEmpty());
+  assert(drawing >= -1);
+  const ArtPiece* art = FindArt(doll, piece);
+  const bool can_cut = art != nullptr && art->size.isValid();
+  return can_cut ? InFrame(read, DrawingOffset(doll, piece, drawing),
+                           art->size)
+                 : read;
+}
+
 PieceDots DotsOf(const RigPiece& piece, LayerId layer) {
   assert(piece.layer_dots.size() < 1000000);
   assert(layer.value() >= 0);

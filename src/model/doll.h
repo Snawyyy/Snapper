@@ -2,6 +2,8 @@
 #define SNAPPER_MODEL_DOLL_H_
 
 #include <QColor>
+#include <QImage>
+#include <QPoint>
 #include <QPointF>
 #include <QSize>
 #include <QString>
@@ -221,6 +223,10 @@ struct OwnDrawing final {
   // The PNG inside the doll folder ("snapper/mouth 2.png").
   QString file;
   QString name;
+  // Where the piece's frame starts inside the picture: a drawing may
+  // reach past its frame (a bigger picture), the frame, joint, warp and
+  // colliders staying where they are. (0, 0) for one the frame's size.
+  QPoint offset;
 
   bool operator==(const OwnDrawing&) const = default;
 };
@@ -415,6 +421,17 @@ bool HasCollider(const RigPiece& piece);
 
 // The own drawing (made in Snapper) that is drawing index of piece, or
 // nullptr for a Krita drawing.
+// Where piece's frame starts inside its drawing (OwnDrawing::offset);
+// (0, 0) for a Krita drawing or a missing one.
+QPoint DrawingOffset(const Doll& doll, const QString& piece, int drawing);
+// drawing cut to piece's frame of size: what lies in the frame, as
+// frame pixels, for anything that measures the shape (joint snap,
+// meshes, colliders).
+QImage InFrame(const QImage& drawing, QPoint offset, QSize size);
+// read (piece's drawing, -1 its default) cut to the piece's frame.
+QImage FrameOf(const Doll& doll, const QString& piece, int drawing,
+               const QImage& read);
+
 const OwnDrawing* OwnDrawingAt(const Doll& doll, const QString& piece,
                                int index);
 
