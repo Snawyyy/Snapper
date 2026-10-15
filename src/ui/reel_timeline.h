@@ -163,7 +163,7 @@ class ReelTimeline final : public QWidget {
     kDuplicate,
   };
 
-  static constexpr double kHeaderWidth = 48.0;
+  static constexpr double kHeaderWidth = 64.0;
   // The ruler is the same height on every timeline.
   static constexpr double kRulerHeight = snapper::kRulerHeight;
   static constexpr double kTrackHeight = 46.0;

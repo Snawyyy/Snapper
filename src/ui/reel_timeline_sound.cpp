@@ -36,25 +36,25 @@ constexpr double kLineReach = 4.0;
 QRectF ReelTimeline::MuteRect(int track) const {
   assert(track >= 0);
   assert(kHeaderWidth > 40.0);
-  return QRectF(4.0, TrackTop(track) + 17.0, 18.0, 13.0);
+  return QRectF(5.0, TrackTop(track) + 20.0, 24.0, 13.0);
 }
 
 QRectF ReelTimeline::SoloRect(int track) const {
   assert(track >= 0);
   assert(kHeaderWidth > 40.0);
-  return QRectF(25.0, TrackTop(track) + 17.0, 18.0, 13.0);
+  return QRectF(32.0, TrackTop(track) + 20.0, 24.0, 13.0);
 }
 
 QRectF ReelTimeline::ArmRect(int track) const {
   assert(track >= 0);
   assert(kHeaderWidth > 40.0);
-  return QRectF(kHeaderWidth - 19.0, TrackTop(track) + 2.0, 14.0, 13.0);
+  return QRectF(kHeaderWidth - 20.0, TrackTop(track) + 3.0, 15.0, 14.0);
 }
 
 QRectF ReelTimeline::FaderRect(int track) const {
   assert(track >= 0);
   assert(kHeaderWidth > 40.0);
-  return QRectF(4.0, TrackTop(track) + 34.0, kHeaderWidth - 9.0, 7.0);
+  return QRectF(5.0, TrackTop(track) + 37.0, kHeaderWidth - 13.0, 5.0);
 }
 
 double ReelTimeline::VolumeY(const QRectF& box, double gain) {
@@ -85,7 +85,7 @@ void ReelTimeline::PaintSoundHeader(QPainter* painter, int track) const {
       managers_.history->current().reel.tracks[static_cast<size_t>(track)];
   assert(row.is_sound);
   const double top = TrackTop(track);
-  deck::PaintLabel(painter, QRectF(0.0, top, kHeaderWidth, 17.0),
+  deck::PaintLabel(painter, QRectF(2.0, top + 1.0, kHeaderWidth - 24.0, 18.0),
                    TrackName(track), false, row.is_muted);
   // Boom box buttons: black plastic keys whose letter lights up.
   const auto button = [painter](const QRectF& box, const QString& text,
@@ -144,6 +144,9 @@ void ReelTimeline::PaintSoundBody(QPainter* painter, const Clip& clip,
   const double fade_in = clip.fade_in.index() * zoom();
   const double fade_out = clip.fade_out.index() * zoom();
   const bool has_wave = sounds != nullptr && !is_missing;
+  // The display's center line, so a quiet stretch still reads as sound.
+  painter->setPen(deck::kGlowDim);
+  painter->drawLine(QPointF(left, middle), QPointF(right, middle));
   painter->setPen(wave);
   for (double x = left; has_wave && x < right; x += 1.0) {
     const double into = (x - box.left()) / zoom();
@@ -161,7 +164,7 @@ void ReelTimeline::PaintSoundBody(QPainter* painter, const Clip& clip,
     painter->drawLine(QPointF(x, middle - level), QPointF(x, middle + level));
   }
   deck::PaintGlowText(
-      painter, QRectF(box.left() + 8, box.top() + 3, box.width() - 12, 14),
+      painter, QRectF(box.left() + 6, box.bottom() - 17, box.width() - 10, 14),
       is_missing ? tr("%1 (find file)").arg(QFileInfo(source.path).fileName())
                  : QFileInfo(source.path).fileName(),
       is_heard);
@@ -171,7 +174,7 @@ void ReelTimeline::PaintSoundBody(QPainter* painter, const Clip& clip,
   line.lineTo(box.left() + fade_in, y);
   line.lineTo(box.right() - fade_out, y);
   line.lineTo(box.right(), box.bottom() - 2.0);
-  painter->setPen(QPen(theme::kHandle, 1.5));
+  painter->setPen(QPen(theme::kHandle, 1.0));
   painter->setBrush(Qt::NoBrush);
   painter->drawPath(line);
   const bool is_picked = managers_.selection->clips().contains(clip.id);
