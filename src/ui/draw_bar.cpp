@@ -23,6 +23,9 @@ constexpr std::array<ToolFace, kDrawToolCount> kToolFaces = {{
     {"Eraser", "E", "The same brush, clearing to transparent; E again goes back to the brush."},
     {"Fill", "F", "Fills the touching area of the same color."},
     {"Pick", "I", "Click to take a color (hold Alt with any tool)."},
+    {"Move", "V", "Drag the whole drawing inside its frame; the joint "
+                  "stays put. What goes past the frame is cut off when "
+                  "you let go."},
 }};
 
 void Paint(QWidget* widget) {

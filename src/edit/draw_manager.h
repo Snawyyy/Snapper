@@ -25,8 +25,10 @@ class PlaybackManager;
 // What a new drawing starts from.
 enum class DrawStart { kBlank, kShowing, kDefault };
 // The tools of draw mode, each on its own key.
-enum class DrawTool { kBrush, kEraser, kFill, kPicker };
-inline constexpr int kDrawToolCount = 4;
+// kMove drags the whole drawing inside its frame, the piece's joint
+// left where it is.
+enum class DrawTool { kBrush, kEraser, kFill, kPicker, kMove };
+inline constexpr int kDrawToolCount = 5;
 
 // The most strokes draw mode can undo.
 inline constexpr int kMaxDrawUndo = 64;
@@ -199,6 +201,10 @@ class DrawManager final : public QObject {
   int flipped_ = -1;
   QImage flipped_image_;
   QString flipped_name_;
+  // A Move drag: the drawing as it was when pressed, and where.
+  bool is_moving_ = false;
+  QImage move_base_;
+  QPoint move_from_;
   QImage image_;
   QImage reference_;
   QTransform rest_place_;

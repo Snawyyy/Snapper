@@ -219,6 +219,7 @@ bool DrawCanvas::ToolKey(QKeyEvent* event) {
     case Qt::Key_Right: draw->Flip(1); return true;
     case Qt::Key_F: draw->SetTool(DrawTool::kFill); return true;
     case Qt::Key_I: draw->SetTool(DrawTool::kPicker); return true;
+    case Qt::Key_V: draw->SetTool(DrawTool::kMove); return true;
     case Qt::Key_BracketLeft:
       draw->SetBrushSize(draw->brush_size() - 1);
       return true;

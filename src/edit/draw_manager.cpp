@@ -302,6 +302,15 @@ void DrawManager::Press(QPoint at, bool is_erase, bool is_line) {
     PickColor(at);
     return;
   }
+  const bool is_move = tool_ == DrawTool::kMove;
+  if (is_move) {
+    Remember(image_);
+    move_base_ = image_;
+    move_from_ = at;
+    is_moving_ = true;
+    is_stroking_ = true;
+    return;
+  }
   const bool is_fill = tool_ == DrawTool::kFill && !is_erase;
   if (is_fill) {
     const QImage before = image_;
@@ -328,6 +337,19 @@ void DrawManager::Press(QPoint at, bool is_erase, bool is_line) {
 void DrawManager::MoveTo(QPoint at) {
   assert(is_drawing_ || !is_stroking_);
   assert(brush_size_ >= 1);
+  if (is_moving_) {
+    // From the drawing as pressed, so dragging back brings back what
+    // went past the frame; it is cut off only when let go.
+    QImage shifted(move_base_.size(), QImage::Format_ARGB32);
+    shifted.fill(Qt::transparent);
+    QPainter painter(&shifted);
+    painter.setCompositionMode(QPainter::CompositionMode_Source);
+    painter.drawImage(at - move_from_, move_base_);
+    painter.end();
+    image_ = shifted;
+    emit Changed();
+    return;
+  }
   if (!is_stroking_ || at == last_) {
     return;
   }
@@ -339,6 +361,14 @@ void DrawManager::MoveTo(QPoint at) {
 void DrawManager::Release() {
   assert(is_drawing_ || !is_stroking_);
   assert(undo_.size() <= static_cast<size_t>(kMaxDrawUndo));
+  // A move that went nowhere leaves nothing to undo.
+  const bool was_still =
+      is_moving_ && !undo_.empty() && undo_.back() == image_;
+  if (was_still) {
+    undo_.pop_back();
+  }
+  is_moving_ = false;
+  move_base_ = QImage();
   is_stroking_ = false;
 }
 
