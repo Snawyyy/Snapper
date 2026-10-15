@@ -1,6 +1,7 @@
 #include "ui/transport_bar.h"
 
 #include <QFontMetrics>
+#include <QPalette>
 
 #include <cassert>
 #include <memory>
@@ -8,6 +9,7 @@
 #include "base/frame.h"
 #include "edit/playback_manager.h"
 #include "ui/bar_text.h"
+#include "ui/deck_paint.h"
 #include "ui/hover_fade.h"
 
 namespace snapper {
@@ -50,7 +52,14 @@ TransportBar::TransportBar(const Managers& managers)
   const QFontMetrics metrics(counter_.font());
   const int counter_wide =
       metrics.horizontalAdvance(QStringLiteral("F 9999"));
+  // The readouts are a DVD player's display: dark glass, green glow.
+  QPalette display = counter_.palette();
+  display.setColor(QPalette::Window, deck::kGlass);
+  display.setColor(QPalette::WindowText, deck::kGlow);
   for (BumpLabel* label : {&counter_, &time_}) {
+    label->setAutoFillBackground(true);
+    label->setPalette(display);
+    label->setAlignment(Qt::AlignCenter);
     label->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
     label->setMargin(2);
     label->setFixedWidth(counter_wide + 2 * kButtonPadPx);
