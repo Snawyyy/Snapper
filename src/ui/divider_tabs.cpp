@@ -84,7 +84,15 @@ void DividerTabBar::PaintTab(QPainter* painter, int index, int depth) const {
   // where it meets its own sheet: no shadow on the same paper.
   const QRectF edges(box.left(), box.top(), box.width(),
                      box.bottom() - box.top());
+  const int open = currentIndex();
   for (const bool is_left : {true, false}) {
+    // Only onto a tab lying behind on that side, never onto bare panel.
+    const int behind = is_left ? index - 1 : index + 1;
+    const bool is_away = is_left ? index <= open : index >= open;
+    const bool has_paper = is_away && behind >= 0 && behind < count();
+    if (!has_paper) {
+      continue;
+    }
     const double edge = is_left ? edges.left() : edges.right();
     const double out = is_left ? edge - kShadow : edge + kShadow;
     QLinearGradient shade(QPointF(edge, 0.0), QPointF(out, 0.0));
@@ -101,11 +109,14 @@ void DividerTabBar::PaintTab(QPainter* painter, int index, int depth) const {
   }
   painter->fillRect(tab, fill);
   // The paper's cut edges: lit at the top and left, dark at the right.
+  // Lines sit on the last pixel inside, so none pokes out past the
+  // paper onto the sheet below.
+  const QRectF rim = edges.adjusted(0.0, 0.0, -1.0, -1.0);
   painter->setPen(fill.lighter(140));
-  painter->drawLine(tab.topLeft(), tab.topRight());
-  painter->drawLine(edges.topLeft(), edges.bottomLeft());
+  painter->drawLine(rim.topLeft(), rim.topRight());
+  painter->drawLine(rim.topLeft(), rim.bottomLeft());
   painter->setPen(fill.darker(150));
-  painter->drawLine(edges.topRight(), edges.bottomRight());
+  painter->drawLine(rim.topRight(), rim.bottomRight());
   painter->setPen(is_open ? theme::kText : theme::kTextOff);
   painter->drawText(slot, Qt::AlignCenter, tabText(index));
 }
