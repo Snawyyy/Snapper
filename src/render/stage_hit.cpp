@@ -63,14 +63,14 @@ std::optional<QString> HitDollPiece(const Doll& doll, const PoseMap& poses,
     }
     const QPointF in_drawing = back.map(point);
     const bool is_warped = !it->warp_points.empty();
+    WarpLook look;
+    look.frame = FrameShare(it->offset, it->size, image.size());
     const bool is_hit =
         is_warped ? IsWarpedSolidAt(cache->Warped(it->drawing, it->grid,
-                                                  it->warp_points),
+                                                  it->warp_points,
+                                                  kFullDetail, look),
                                     in_drawing)
-                  : IsSolidAt(image, QPointF(in_drawing.x() * image.width() /
-                                                 it->size.width(),
-                                             in_drawing.y() * image.height() /
-                                                 it->size.height()));
+                  : IsSolidAt(image, in_drawing + QPointF(it->offset));
     if (is_hit) {
       return it->name;
     }

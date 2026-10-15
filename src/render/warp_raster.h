@@ -2,6 +2,9 @@
 #define SNAPPER_RENDER_WARP_RASTER_H_
 
 #include <QImage>
+#include <QPoint>
+#include <QRectF>
+#include <QSize>
 #include <QPointF>
 
 #include <vector>
@@ -30,9 +33,19 @@ struct WarpLook final {
   bool is_flat = false;
   // Edge pixels are kept or dropped whole instead of blended.
   bool is_hard = false;
+  // Where the piece's frame lies in the source, as shares of its width
+  // and height: the whole of it for a drawing the frame's size; less
+  // for one that reaches past its frame (OwnDrawing::offset), whose
+  // overhang bends along with the grid's edge cells. Shares, so a
+  // shrunk or upscaled source keeps the same frame.
+  QRectF frame = QRectF(0.0, 0.0, 1.0, 1.0);
 
   bool operator==(const WarpLook&) const = default;
 };
+
+// The frame's place in a drawing of image_size whose frame of
+// frame_size starts at offset (WarpLook::frame).
+QRectF FrameShare(QPoint offset, QSize frame_size, QSize image_size);
 
 // The bend look for a doll's look and edges.
 WarpLook WarpLookFor(DrawingLook look, bool hard_edges);

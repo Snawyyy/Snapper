@@ -1,6 +1,7 @@
 #ifndef SNAPPER_ANIM_DOLL_POSE_H_
 #define SNAPPER_ANIM_DOLL_POSE_H_
 
+#include <QPoint>
 #include <QPointF>
 #include <QSize>
 #include <QString>
@@ -34,6 +35,8 @@ struct PlacedPiece final {
   WarpGrid grid;
   // Grid points in drawing pixels after the warp; empty when unwarped.
   std::vector<QPointF> warp_points;
+  // Where the frame starts in the drawing shown (OwnDrawing::offset).
+  QPoint offset;
 };
 
 using PoseMap = std::map<QString, PiecePose>;

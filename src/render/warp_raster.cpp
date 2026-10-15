@@ -250,6 +250,69 @@ WarpLook WarpLookFor(DrawingLook look, bool hard_edges) {
   return {true, look == DrawingLook::kSmoothFlat, hard_edges};
 }
 
+QRectF FrameShare(QPoint offset, QSize frame_size, QSize image_size) {
+  assert(frame_size.width() >= 0 && frame_size.height() >= 0);
+  assert(image_size.width() >= 0 && image_size.height() >= 0);
+  const bool is_frame_sized =
+      offset.isNull() && frame_size == image_size;
+  if (is_frame_sized || image_size.isEmpty()) {
+    return QRectF(0.0, 0.0, 1.0, 1.0);
+  }
+  const double wide = image_size.width();
+  const double tall = image_size.height();
+  return QRectF(offset.x() / wide, offset.y() / tall,
+                frame_size.width() / wide, frame_size.height() / tall);
+}
+
+namespace {
+
+// Lays one more point past each end of every line (lines of count
+// points, along x or y) of the row by row grids rest and points: the
+// rest point at the source's edge (low or high), its bent point carried
+// on as the line's end cell bends.
+void GrowLines(std::vector<QPointF>* rest, std::vector<QPointF>* points,
+               int count, int lines, bool is_x, double low, double high) {
+  assert(rest != nullptr && points != nullptr);
+  assert(count >= 2 && lines >= 1);
+  const auto along = [is_x](QPointF p) { return is_x ? p.x() : p.y(); };
+  const auto at = [&](int line, int i) {
+    return is_x ? static_cast<size_t>(line * count + i)
+                : static_cast<size_t>(i * lines + line);
+  };
+  std::vector<QPointF> new_rest(static_cast<size_t>((count + 2) * lines));
+  std::vector<QPointF> new_points(new_rest.size());
+  const auto put = [&](int line, int i, QPointF r, QPointF p) {
+    const size_t k = is_x ? static_cast<size_t>(line * (count + 2) + i)
+                          : static_cast<size_t>(i * lines + line);
+    new_rest[k] = r;
+    new_points[k] = p;
+  };
+  for (int line = 0; line < lines; ++line) {
+    for (int i = 0; i < count; ++i) {
+      put(line, i + 1, (*rest)[at(line, i)], (*points)[at(line, i)]);
+    }
+    for (const bool is_low : {true, false}) {
+      const int edge = is_low ? 0 : count - 1;
+      const int inner = is_low ? 1 : count - 2;
+      const QPointF edge_rest = (*rest)[at(line, edge)];
+      const QPointF inner_rest = (*rest)[at(line, inner)];
+      const double cell = along(edge_rest) - along(inner_rest);
+      const double reach = (is_low ? low : high) - along(edge_rest);
+      const double share = cell != 0.0 ? reach / cell : 0.0;
+      QPointF far_rest = edge_rest;
+      (is_x ? far_rest.rx() : far_rest.ry()) = is_low ? low : high;
+      const QPointF edge_point = (*points)[at(line, edge)];
+      const QPointF far_point =
+          edge_point + (edge_point - (*points)[at(line, inner)]) * share;
+      put(line, is_low ? 0 : count + 1, far_rest, far_point);
+    }
+  }
+  *rest = std::move(new_rest);
+  *points = std::move(new_points);
+}
+
+}  // namespace
+
 WarpedImage WarpImage(const QImage& source, const WarpGrid& grid,
                       const std::vector<QPointF>& points,
                       const WarpLook& look) {
@@ -257,13 +320,37 @@ WarpedImage WarpImage(const QImage& source, const WarpGrid& grid,
   assert(points.size() <= static_cast<size_t>(kMaxWarpPoints));
   const QImage premultiplied =
       source.convertToFormat(QImage::Format_ARGB32_Premultiplied);
-  const std::vector<QPointF> rest = RestPoints(source.size(), grid);
+  // The frame in source pixels; the grid rests over it, not the source.
+  const QRectF frame(look.frame.x() * source.width(),
+                     look.frame.y() * source.height(),
+                     look.frame.width() * source.width(),
+                     look.frame.height() * source.height());
+  std::vector<QPointF> rest =
+      RestPoints(frame.size().toSize(), grid);
+  for (QPointF& point : rest) {
+    point += frame.topLeft();
+  }
   const bool is_matching = grid.IsOn() && points.size() == rest.size();
   if (!is_matching) {
-    return {premultiplied, QPointF()};
+    return {premultiplied, -frame.topLeft()};
+  }
+  // A drawing past its frame: the grid grows a ring of cells out to the
+  // source's edges, bending as its edge cells do, so the overhang comes
+  // along. (A shape mesh keeps to its own outline.)
+  const bool has_overhang = look.frame != QRectF(0.0, 0.0, 1.0, 1.0);
+  WarpGrid used = grid;
+  std::vector<QPointF> targets = points;
+  const bool can_grow = has_overhang && !grid.IsMesh() &&
+                        grid.columns >= 1 && grid.rows >= 1;
+  if (can_grow) {
+    GrowLines(&rest, &targets, grid.columns + 1, grid.rows + 1, true, 0.0,
+              source.width());
+    GrowLines(&rest, &targets, grid.rows + 1, grid.columns + 3, false, 0.0,
+              source.height());
+    used = WarpGrid{grid.columns + 2, grid.rows + 2, nullptr};
   }
   QRectF bounds;
-  for (const QPointF& point : points) {
+  for (const QPointF& point : targets) {
     bounds = bounds.united(QRectF(point, QSizeF(1, 1)));
   }
   const QRect area = bounds.toAlignedRect().intersected(
@@ -274,11 +361,11 @@ WarpedImage WarpImage(const QImage& source, const WarpGrid& grid,
   warped.image.fill(Qt::transparent);
   if (look.is_blended) {
     DrawTriangles(
-        [&](QPointF at) { return ReadLooked(premultiplied, at, look); }, grid,
-        rest, points, &warped);
+        [&](QPointF at) { return ReadLooked(premultiplied, at, look); }, used,
+        rest, targets, &warped);
   } else {
-    DrawTriangles([&](QPointF at) { return Sample(premultiplied, at); }, grid,
-                  rest, points, &warped);
+    DrawTriangles([&](QPointF at) { return Sample(premultiplied, at); }, used,
+                  rest, targets, &warped);
   }
   return warped;
 }

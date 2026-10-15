@@ -128,7 +128,8 @@ void Painter::DrawPiece(const Doll& doll, const PlacedPiece& piece,
   assert(cache != nullptr && painter != nullptr);
   assert(!image.isNull());
   const QTransform on_screen = piece.transform * world;
-  const WarpLook look = LookOf(doll, piece.name, *cache);
+  WarpLook look = LookOf(doll, piece.name, *cache);
+  look.frame = FrameShare(piece.offset, piece.size, image.size());
   // A smooth look is blended by the painter too, unless it cuts out.
   painter->setRenderHint(QPainter::SmoothPixmapTransform,
                          look.is_blended && !look.is_hard);
@@ -157,7 +158,10 @@ void Painter::DrawPiece(const Doll& doll, const PlacedPiece& piece,
                              std::sqrt(std::abs(on_screen.determinant()))))
           : image;
   painter->setTransform(on_screen);
-  painter->drawImage(QRectF(QPointF(), QSizeF(piece.size)), shown);
+  // The drawing at its own size, its frame on the piece's: what it
+  // draws past the frame shows around it.
+  painter->drawImage(QRectF(-QPointF(piece.offset), QSizeF(image.size())),
+                     shown);
 }
 
 void Painter::PaintCirclesUnder(const Doll& doll,
@@ -193,7 +197,8 @@ void Painter::PaintJointCircle(const Doll& doll, const PlacedPiece& piece,
     return;
   }
   // Measured, never stored: a swapped drawing gets its own width.
-  const double radius = JointRadius(*cache->limbs()->Of(image), rig->pivot);
+  const double radius = JointRadius(*cache->limbs()->Of(image),
+                                    rig->pivot + QPointF(piece.offset));
   const bool is_empty = radius <= 0.0;
   if (is_empty) {
     return;
