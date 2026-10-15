@@ -123,11 +123,17 @@ class DrawManager final : public QObject {
   // The original under the drawing at 30 % (Shift+R).
   bool is_onion() const { return is_onion_; }
   void SetOnion(bool is_onion);
-  // Flips the onion (and what R shows) step drawings on through the
-  // piece's drawings, round and round, and turns the onion on: like
-  // flipping the pages of an animator's stack to draw the next one.
-  // Only while drawing a piece.
+  // Flips step pages through the piece's drawings, as an animator flips
+  // a stack: the canvas shows another of its drawings full strength in
+  // place of the new one, round and round back to the new one. Drawing
+  // goes back to the new one first. Only while drawing a piece.
   void Flip(int step);
+  // A drawing other than the new one is shown (Flip).
+  bool is_flipped() const { return flipped_ >= 0; }
+  // The drawing shown while flipped.
+  const QImage& flipped_image() const { return flipped_image_; }
+  // The name of the drawing shown while flipped.
+  const QString& flipped_name() const { return flipped_name_; }
 
   // A press at at (drawing pixels) with the current tool, or erasing
   // whatever the tool (the right button). With is_line, the brush or
@@ -188,10 +194,11 @@ class DrawManager final : public QObject {
   int replaces_ = -1;
   QString default_name_;
   QString title_;
-  // The title before any flip, which a flip adds "under: name" to.
-  QString base_title_;
-  // The drawing the onion shows after a flip; the shown one before.
-  int flip_ = -1;
+  // The piece's drawing shown in place of the new one, or -1 for the
+  // new one (Flip).
+  int flipped_ = -1;
+  QImage flipped_image_;
+  QString flipped_name_;
   QImage image_;
   QImage reference_;
   QTransform rest_place_;

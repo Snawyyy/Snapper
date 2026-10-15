@@ -80,7 +80,8 @@ void DrawCanvas::PaintDrawing(QPainter* painter) {
   painter->save();
   painter->setTransform(World());
   painter->fillRect(frame, QColor(255, 255, 255, 40));
-  const bool is_onion = draw->is_onion() && !draw->is_peeking();
+  const bool is_onion =
+      draw->is_onion() && !draw->is_peeking() && !draw->is_flipped();
   if (is_onion) {
     painter->setOpacity(kOnion);
     for (const QImage& onion : draw->onions()) {
@@ -88,17 +89,23 @@ void DrawCanvas::PaintDrawing(QPainter* painter) {
     }
     painter->setOpacity(1.0);
   }
-  painter->drawImage(QPointF(), draw->is_peeking() ? draw->reference()
-                                                   : draw->image());
+  painter->drawImage(QPointF(), draw->is_peeking()   ? draw->reference()
+                                : draw->is_flipped() ? draw->flipped_image()
+                                                     : draw->image());
   QPen edge(is_outside_ ? theme::kPick : theme::kHandle, 1.0);
   edge.setCosmetic(true);
   painter->setPen(edge);
   painter->setBrush(Qt::NoBrush);
   painter->drawRect(frame);
   painter->restore();
-  const QString note = draw->is_peeking() ? tr("Original")
-                       : is_outside_ ? tr("Past the frame: cut off")
-                                     : QString();
+  const QString note =
+      draw->is_peeking() ? tr("Original")
+      : draw->is_flipped()
+          ? tr("Flipped to %1: Left and Right go on, drawing goes back "
+               "to yours")
+                .arg(draw->flipped_name())
+      : is_outside_ ? tr("Past the frame: cut off")
+                    : QString();
   if (!note.isEmpty()) {
     painter->setPen(is_outside_ ? theme::kPick : theme::kText);
     painter->drawText(rect().adjusted(80, 0, 0, -12),

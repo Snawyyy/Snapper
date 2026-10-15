@@ -195,8 +195,7 @@ Result<void> DrawManager::Start(const TrackRef& track, Frame frame, int from,
                      .arg(DrawingName(art, from), track.piece)
                : Tr("Drawing: %1 (%2)").arg(default_name_, track.piece);
   onions_ = {reference_};
-  base_title_ = title_;
-  flip_ = from >= 0 ? from : shown;
+  flipped_ = -1;
   Open();
   return {};
 }
@@ -276,19 +275,28 @@ void DrawManager::Flip(int step) {
   if (count == 0) {
     return;
   }
-  const int from = std::clamp(flip_, 0, count - 1);
-  flip_ = ((from + step) % count + count) % count;
-  reference_ = DrawingImage(*doll, track_.piece, flip_, art->size);
-  onions_ = {reference_};
-  is_onion_ = true;
-  title_ = Tr("%1, under: %2")
-               .arg(base_title_, DrawingName(*art, flip_));
+  // The pages: the new drawing first, then each of the piece's.
+  const int pages = count + 1;
+  const int page = (((flipped_ + 1) + step) % pages + pages) % pages;
+  flipped_ = page - 1;
+  const bool is_other = flipped_ >= 0;
+  flipped_image_ = is_other
+                       ? DrawingImage(*doll, track_.piece, flipped_, art->size)
+                       : QImage();
+  flipped_name_ = is_other ? DrawingName(*art, flipped_) : QString();
   emit Changed();
 }
 
 void DrawManager::Press(QPoint at, bool is_erase, bool is_line) {
   assert(is_drawing_);
   assert(!image_.isNull());
+  // Drawing lands on the new drawing: flip back to it first.
+  if (is_flipped()) {
+    flipped_ = -1;
+    flipped_image_ = QImage();
+    flipped_name_.clear();
+    emit Changed();
+  }
   const bool is_picker = tool_ == DrawTool::kPicker && !is_erase;
   if (is_picker) {
     PickColor(at);

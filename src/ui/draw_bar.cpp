@@ -120,8 +120,8 @@ void DrawBar::Refresh() {
   onion_.setToolTip(draw->is_named()
                         ? tr("Show the original under yours at 30 % (D). "
                              "Hold R to see only the original. Left and "
-                             "Right flip it through the piece's other "
-                             "drawings.")
+                             "Right flip through the piece's drawings in "
+                             "place of yours.")
                         : tr("Show the frame before (red) faint under "
                              "yours, to trace from (D). Hold R to see "
                              "this frame as it was."));
