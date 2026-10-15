@@ -40,10 +40,16 @@ LookBox::LookBox(const Managers& managers)
   assert(managers_.rig != nullptr);
   PlateBox(this, tr("Look"), &layout_);
   hard_edges_.setObjectName("hard_edges");
-  row_.addWidget(&knob_, 1);
+  // One faceplate: the knob, the screen showing its look and the switch,
+  // the same height and spread evenly, as on an amplifier's front.
+  row_.addStretch(1);
+  row_.addWidget(&knob_, 0, Qt::AlignVCenter);
+  row_.addStretch(1);
   row_.addWidget(&preview_, 0, Qt::AlignVCenter);
+  row_.addStretch(1);
+  row_.addWidget(&hard_edges_, 0, Qt::AlignVCenter);
+  row_.addStretch(1);
   layout_.addLayout(&row_);
-  layout_.addWidget(&hard_edges_);
   connect(&knob_, &ModeKnob::Picked, this, [this](int look) {
     emit Problem(ProblemOf(
         managers_.rig->SetLook(doll_, static_cast<DrawingLook>(look))));

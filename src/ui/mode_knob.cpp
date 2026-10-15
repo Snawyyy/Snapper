@@ -18,11 +18,11 @@
 namespace snapper {
 namespace {
 
-constexpr double kKnobRadius = 20.0;
+constexpr double kKnobRadius = 24.0;
 // The settings spread over this many degrees, centred on straight up.
 constexpr double kSweep = 110.0;
 // From the knob's centre to the middle of a setting's name.
-constexpr double kLabelReach = 44.0;
+constexpr double kLabelReach = 46.0;
 constexpr int kRidges = 24;
 constexpr int kMaxModes = 8;
 
@@ -38,7 +38,7 @@ ModeKnob::ModeKnob(const QStringList& modes) : modes_(modes) {
   assert(modes_.size() >= 2);
   assert(modes_.size() <= kMaxModes);
   setCursor(Qt::PointingHandCursor);
-  setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+  setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
 
 void ModeKnob::SetValue(int value) {
@@ -52,7 +52,7 @@ QSize ModeKnob::sizeHint() const {
   const int height = static_cast<int>(kLabelReach + kKnobRadius) +
                      fontMetrics().height() + 8;
   assert(height > 0);
-  return QSize(static_cast<int>(2 * kLabelReach) + 80, height);
+  return QSize(static_cast<int>(2 * kLabelReach) + 70, height);
 }
 
 QRectF ModeKnob::KnobRect() const {

@@ -53,7 +53,7 @@ void LookPreview::Show(DrawingLook look, bool has_hard_edges) {
   update();
 }
 
-QSize LookPreview::sizeHint() const { return QSize(72, 72); }
+QSize LookPreview::sizeHint() const { return QSize(96, 96); }
 
 void LookPreview::paintEvent(QPaintEvent* event) {
   assert(event != nullptr);
