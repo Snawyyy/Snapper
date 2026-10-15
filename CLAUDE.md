@@ -58,6 +58,15 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
+Last done (2026-10-15, branch `tape-keys`, not pushed): the retro gear
+look. Tape recorder play keys, radio dial ruler, Cast tabs as divider
+sheets, a cassette player under them; then all three timelines dressed
+from one kit (`ui/deck_paint.h`): deck plastic rows, names on cream
+cassette labels, Pose holds as brown tape with cream keys, Video clips
+as cassettes with title stickers, sound on glowing teal display glass,
+Comp effect bars as cassettes. Built, not run, no tests (owner's rule).
+Next: owner looks by eye.
+
 Also 2026-10-14, side branches cut from `joint-end-snap`, not pushed,
 built, no tests, not seen by eye: `frame-size` (File > Frame size...
 changes the frame after the project is made, content stays centered;
