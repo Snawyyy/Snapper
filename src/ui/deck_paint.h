@@ -46,7 +46,8 @@ void PaintLabel(QPainter* painter, const QRectF& strip, const QString& text,
 void PaintTape(QPainter* painter, const QRectF& run);
 
 // A clip as a video cassette seen side on: body in color, lit along its
-// top edge and shaded at its foot, with name on a cream label sticker.
+// top edge and shaded at its foot, with name on a cream label sticker
+// (none for an empty name).
 void PaintCassette(QPainter* painter, const QRectF& box, const QColor& body,
                    const QString& name);
 

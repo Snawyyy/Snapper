@@ -12,6 +12,7 @@
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/comp_drag.h"
+#include "ui/deck_paint.h"
 #include "ui/theme.h"
 #include "ui/timeline_ruler.h"
 
@@ -20,8 +21,6 @@ namespace {
 
 // The ruler, the row of shot clips and the shot light.
 constexpr int kFixedRows = 2;
-const QColor kRowColor(0x2e, 0x2e, 0x32);
-const QColor kText(0xe6, 0xe6, 0xe6);
 
 void PaintKey(QPainter* painter, QPointF at) {
   assert(painter != nullptr);
@@ -137,7 +136,7 @@ void CompTimeline::PaintShots(QPainter* painter, double y) const {
   assert(y >= 0.0);
   const Project& project = managers_.history->current();
   const ShotId picked = managers_.selection->shot();
-  painter->fillRect(QRectF(0, y, width(), kRow), kRowColor);
+  deck::PaintPlastic(painter, QRectF(0, y, width(), kRow), width(), kRow);
   for (const ReelTrack& track : project.reel.tracks) {
     for (const Clip& clip : track.clips) {
       const auto* source = std::get_if<ShotSource>(&clip.source);
@@ -149,11 +148,14 @@ void CompTimeline::PaintShots(QPainter* painter, double y) const {
       const double left = XOf(clip.start.index());
       const double right = XOf(clip.end().index());
       const QRectF box(left, y + 1, std::max(2.0, right - left), kRow - 2);
-      painter->setPen(Qt::black);
-      painter->setBrush(source->shot == picked ? theme::kPick
-                                               : QColor(0x4a, 0x4a, 0x52));
+      // Each shot is a run of tape; the picked one wears the red outline.
+      deck::PaintTape(painter, box);
+      const bool is_picked = source->shot == picked;
+      painter->setPen(is_picked ? QPen(theme::kPick, 2.0)
+                                : QPen(deck::kTapeDark));
+      painter->setBrush(Qt::NoBrush);
       painter->drawRect(box);
-      painter->setPen(QColor(0xf2, 0xf2, 0xf2));
+      painter->setPen(deck::kLabel);
       painter->drawText(box.adjusted(3, 0, -2, 0),
                         Qt::AlignLeft | Qt::AlignVCenter,
                         shot != nullptr ? shot->name : QString());
@@ -165,7 +167,7 @@ void CompTimeline::paintEvent(QPaintEvent* event) {
   assert(event != nullptr);
   assert(managers_.playback != nullptr);
   QPainter painter(this);
-  painter.fillRect(rect(), QColor(0x24, 0x24, 0x27));
+  painter.fillRect(rect(), deck::kPlasticDark);
   painter.save();
   painter.setClipRect(QRectF(kNameWidth, 0, width() - kNameWidth, height()));
   PaintRuler(&painter);
@@ -183,34 +185,29 @@ void CompTimeline::paintEvent(QPaintEvent* event) {
   painter.restore();
   // The ruler's corner (the Scrub and Animation switch sits over it) and
   // the names column over what scrolled under it.
-  painter.fillRect(QRectF(0, 0, kNameWidth, kRuler), theme::kFace);
-  painter.fillRect(QRectF(0, kRuler, kNameWidth, height()), kRowColor);
-  painter.setPen(kText);
-  painter.drawText(QRectF(4, kRuler, kNameWidth - 8, kRow),
-                   Qt::AlignLeft | Qt::AlignVCenter, tr("Shots"));
+  painter.fillRect(QRectF(0, 0, kNameWidth, kRuler), deck::kPlastic);
+  deck::PaintPlastic(&painter, QRectF(0, kRuler, kNameWidth,
+                                      height() - kRuler),
+                     kNameWidth, kRow);
+  deck::PaintLabel(&painter, QRectF(0, kRuler, kNameWidth, kRow),
+                   tr("Shots"), false, false);
   const std::set<CompClipRef> picks = managers_.comp->ClipPicks();
   for (const Bar& bar : Bars()) {
     const CompEffect* effect = managers_.comp->Find(bar.ref.shot, bar.ref.id);
     assert(effect != nullptr);
     const double y = bar.box.top() - 1;
     const bool is_picked = picks.contains(bar.ref);
-    painter.fillRect(QRectF(0, y, kNameWidth, kRow),
-                     is_picked ? QColor(0x3a, 0x2a, 0x30) : kRowColor);
-    painter.setPen(effect->is_on ? kText : theme::kTextOff);
-    painter.drawText(QRectF(4, y, kNameWidth - 8, kRow),
-                     Qt::AlignLeft | Qt::AlignVCenter,
-                     fontMetrics().elidedText(
-                         managers_.comp->TargetTag(bar.ref.shot,
-                                                   effect->target) +
-                             QStringLiteral(" ") +
-                             CompManager::EffectName(*effect),
-                         Qt::ElideRight, static_cast<int>(kNameWidth - 8)));
+    deck::PaintLabel(&painter, QRectF(0, y, kNameWidth, kRow),
+                     managers_.comp->TargetTag(bar.ref.shot,
+                                               effect->target) +
+                         QStringLiteral(" ") +
+                         CompManager::EffectName(*effect),
+                     is_picked, !effect->is_on);
   }
   const double light_y = kRuler + kRow * (1 + static_cast<double>(
                                                   Bars().size()));
-  painter.setPen(kText);
-  painter.drawText(QRectF(4, light_y, kNameWidth - 8, kRow),
-                   Qt::AlignLeft | Qt::AlignVCenter, tr("Shot light"));
+  deck::PaintLabel(&painter, QRectF(0, light_y, kNameWidth, kRow),
+                   tr("Shot light"), false, false);
   feedback_.Paint(&painter, QRectF(rect()));
 }
 
@@ -220,8 +217,8 @@ void CompTimeline::PaintBars(QPainter* painter) const {
   const std::set<CompClipRef> picks = managers_.comp->ClipPicks();
   for (const Bar& bar : Bars()) {
     const bool is_picked = picks.contains(bar.ref);
-    painter->fillRect(QRectF(0, bar.box.top() - 1, width(), kRow),
-                      is_picked ? QColor(0x3a, 0x2a, 0x30) : kRowColor);
+    deck::PaintPlastic(painter, QRectF(0, bar.box.top() - 1, width(), kRow),
+                       width(), kRow);
     PaintBar(painter, bar, is_picked);
   }
 }
@@ -234,8 +231,9 @@ void CompTimeline::PaintBar(QPainter* painter, const Bar& bar,
   assert(effect != nullptr);
   const QColor fill =
       KindMark(effect->kind).darker(effect->is_on ? 170 : 260);
+  deck::PaintCassette(painter, bar.box, fill, QString());
   painter->setPen(is_picked ? QPen(theme::kPick, 2.0) : QPen(Qt::black));
-  painter->setBrush(fill);
+  painter->setBrush(Qt::NoBrush);
   painter->drawRect(bar.box);
   // On a doll it stops at the cut: what lies past it is hatched.
   const bool is_cut = bar.is_on_doll;
@@ -267,7 +265,7 @@ void CompTimeline::PaintLight(QPainter* painter) const {
   assert(clip != nullptr);
   const double y =
       kRuler + kRow * (1 + static_cast<double>(Bars().size()));
-  painter->fillRect(QRectF(0, y, width(), kRow), kRowColor);
+  deck::PaintPlastic(painter, QRectF(0, y, width(), kRow), width(), kRow);
   const bool is_keyed = shot != nullptr && shot->light.keys.size() > 1;
   if (!is_keyed) {
     return;

@@ -96,7 +96,8 @@ void PaintCassette(QPainter* painter, const QRectF& box, const QColor& body,
   const double height = std::min(box.height() / 2.0 + 2.0, 22.0);
   const QRectF sticker(box.left() + 4.0, box.top(), box.width() - 6.0,
                        height);
-  const bool has_room = sticker.width() > 24.0 && sticker.height() > 10.0;
+  const bool has_room = !name.isEmpty() && sticker.width() > 24.0 &&
+                        sticker.height() > 10.0;
   if (has_room) {
     PaintLabel(painter, sticker, name, false, false);
   }
