@@ -20,6 +20,7 @@
 #include "ui/collider_box.h"
 #include "ui/live_edit.h"
 #include "ui/look_box.h"
+#include "ui/patch_cord_delegate.h"
 #include "ui/rig_tree_delegate.h"
 #include "ui/managers.h"
 #include "ui/skin_rig_box.h"
@@ -117,7 +118,11 @@ class RigPanel final : public QWidget {
   QSpinBox warp_rows_;
   QComboBox detail_;
   QPushButton convert_;
+  // Paints chains_ as patch cords; outlives it.
+  PatchCordDelegate cords_;
   QListWidget chains_;
+  // Says what to pick while the doll has no chain (the panel owns it).
+  QLabel* no_chains_ = nullptr;
   QHBoxLayout chain_buttons_;
   QPushButton add_chain_;
   QPushButton flip_chain_;

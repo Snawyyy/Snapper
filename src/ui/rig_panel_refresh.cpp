@@ -2,6 +2,7 @@
 
 #include <QSignalBlocker>
 
+#include <algorithm>
 #include <cassert>
 #include <memory>
 #include <vector>
@@ -12,10 +13,14 @@
 #include "ui/form_helpers.h"
 #include "ui/problem.h"
 #include "ui/rig_panel.h"
+#include "ui/patch_cord_delegate.h"
 #include "ui/rig_tree_delegate.h"
 
 namespace snapper {
 namespace {
+
+// The chain list grows to this many cords before it scrolls.
+constexpr int kMaxCordRows = 6;
 
 // One row of the piece tree: a piece, how deep it hangs, which branch
 // lines above it run on past it, and whether it is its parent's last.
@@ -309,7 +314,13 @@ void RigPanel::RefreshChains() {
     const bool has_doll = doll != nullptr;
     if (has_doll) {
       for (const IkChain& chain : doll->rig.chains) {
-        chains_.addItem(chain.name);
+        auto item = std::make_unique<QListWidgetItem>(chain.name);
+        item->setData(kChainUpperRole, chain.upper);
+        item->setData(kChainLowerRole, chain.lower);
+        item->setData(kChainClockwiseRole, chain.bends_clockwise);
+        item->setToolTip(chain.name);
+        // The list owns it.
+        chains_.addItem(item.release());
         const bool is_picked = chain.name == picked;
         if (is_picked) {
           chains_.setCurrentRow(chains_.count() - 1);
@@ -322,6 +333,12 @@ void RigPanel::RefreshChains() {
                                : tr("Pick an IK chain first.");
   Explain(&flip_chain_, no_chain);
   Explain(&remove_chain_, no_chain);
+  const bool has_chains = chains_.count() > 0;
+  chains_.setVisible(has_chains);
+  no_chains_->setVisible(!has_chains);
+  chains_.setFixedHeight(std::clamp(chains_.count(), 1, kMaxCordRows) *
+                             PatchCordDelegate::RowHeight() +
+                         2 * chains_.frameWidth());
   assert(chains_.count() >= 0);
 }
 

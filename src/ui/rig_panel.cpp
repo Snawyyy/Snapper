@@ -170,10 +170,18 @@ void RigPanel::BuildLayout() {
   chain_buttons_.addWidget(&add_chain_);
   chain_buttons_.addWidget(&flip_chain_);
   chain_buttons_.addWidget(&remove_chain_);
-  chains_.setFixedHeight(90);
+  // Chains are patch cords between two pieces; the list is as tall as
+  // its cords, and an empty patch bay says how to plug one in.
+  chains_.setItemDelegate(&cords_);
+  chains_.setFixedHeight(PatchCordDelegate::RowHeight());
   auto* chains_body = MakeOwned<QWidget>(this);
   auto* chains_column = MakeOwned<QVBoxLayout>(chains_body);
   chains_column->setContentsMargins(0, 0, 0, 0);
+  no_chains_ = EmptyHint(tr("No chains plugged in yet. Pick a hand or a "
+                            "foot, then Add for piece: its arm or leg "
+                            "bends to follow it."),
+                         chains_body);
+  chains_column->addWidget(no_chains_);
   chains_column->addWidget(&chains_);
   chains_column->addLayout(&chain_buttons_);
   chains_section_ = PlatedSection(tr("IK chains"), chains_body, this);
