@@ -229,9 +229,8 @@ void CompTimeline::PaintBar(QPainter* painter, const Bar& bar,
   assert(bar.clip != nullptr);
   const CompEffect* effect = managers_.comp->Find(bar.ref.shot, bar.ref.id);
   assert(effect != nullptr);
-  const QColor fill =
-      KindMark(effect->kind).darker(effect->is_on ? 170 : 260);
-  deck::PaintCassette(painter, bar.box, fill, QString());
+  deck::PaintCassette(painter, bar.box, KindMark(effect->kind), QString(),
+                      !effect->is_on);
   painter->setPen(is_picked ? QPen(theme::kPick, 2.0) : QPen(Qt::black));
   painter->setBrush(Qt::NoBrush);
   painter->drawRect(bar.box);

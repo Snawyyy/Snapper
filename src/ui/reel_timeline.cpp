@@ -28,10 +28,6 @@ namespace snapper {
 namespace {
 
 constexpr double kDefaultZoom = 2.0;
-constexpr QColor kShotClip{0x4b, 0x5a, 0x8f};
-constexpr QColor kVideoClip{0x2f, 0x77, 0x6a};
-constexpr QColor kMissing{0x7d, 0x2c, 0x2c};
-constexpr QColor kTextClip{0x7a, 0x4f, 0x8c};
 
 }  // namespace
 
@@ -240,8 +236,8 @@ void ReelTimeline::PaintTracks(QPainter* painter) const {
       PaintSoundHeader(painter, t);
       continue;
     }
-    deck::PaintLabel(painter, QRectF(0, top + 10.0, kHeaderWidth,
-                                     kTrackHeight - 20.0),
+    deck::PaintLabel(painter, QRectF(2.0, top + (kTrackHeight - 20.0) / 2.0,
+                                     kHeaderWidth - 6.0, 20.0),
                      TrackName(t), false, false);
   }
   painter->save();
@@ -325,10 +321,10 @@ void ReelTimeline::PaintPictureBody(QPainter* painter, const Clip& clip,
                        : is_missing     ? tr("Shot removed")
                                         : shot->name;
   deck::PaintCassette(painter, box,
-                      is_missing          ? kMissing
-                      : video != nullptr ? kVideoClip
-                                         : kShotClip,
-                      name);
+                      is_missing          ? deck::kBandMissing
+                      : video != nullptr ? deck::kBandVideo
+                                         : deck::kBandShot,
+                      name, false);
   PaintHatch(painter, clip, box);
   const bool has_swatch = shot != nullptr;
   if (has_swatch) {
@@ -346,8 +342,8 @@ void ReelTimeline::PaintPictureBody(QPainter* painter, const Clip& clip,
                                                   clip.length.index() >=
                                               shot->length.index();
   if (shows_hidden) {
-    painter->setPen(theme::kTextOff);
-    painter->drawText(box.adjusted(8, 3, -6, -3),
+    painter->setPen(deck::kLabelRule);
+    painter->drawText(box.adjusted(8, 3, -6, -4),
                       Qt::AlignRight | Qt::AlignBottom,
                       hidden == 1 ? tr("1 key hidden")
                                   : tr("%1 keys hidden").arg(hidden));
@@ -361,8 +357,8 @@ void ReelTimeline::PaintTextBody(QPainter* painter, const Clip& clip,
   const Project& project = managers_.history->current();
   const auto& text = std::get<TextSource>(clip.source);
   const QString first = text.text.section(QLatin1Char('\n'), 0, 0);
-  deck::PaintCassette(painter, box, kTextClip,
-                      first.isEmpty() ? tr("(no words)") : first);
+  deck::PaintCassette(painter, box, deck::kBandText,
+                      first.isEmpty() ? tr("(no words)") : first, false);
   // The look's fill color as a swatch, as a shot shows its background.
   painter->fillRect(QRectF(box.topLeft(), QSizeF(4, box.height())),
                     LookOf(project.reel, clip).letters.fill);
@@ -371,8 +367,8 @@ void ReelTimeline::PaintTextBody(QPainter* painter, const Clip& clip,
                       SubtitleTrack(project.reel);
   const bool is_long = is_cue && ReelTextLines(project, clip) > 2;
   if (is_long) {
-    painter->setPen(theme::kHandle);
-    painter->drawText(box.adjusted(8, 3, -6, -3),
+    painter->setPen(theme::kPick);
+    painter->drawText(box.adjusted(8, 3, -6, -4),
                       Qt::AlignRight | Qt::AlignBottom, tr("! 3+ lines"));
   }
 }

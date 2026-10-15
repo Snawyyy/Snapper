@@ -12,8 +12,13 @@
 namespace snapper::deck {
 namespace {
 
-// Grooves painted at most, however tall the area.
+// Grooves and brush lines painted at most, however tall the area.
 constexpr int kMaxGrooves = 400;
+constexpr int kMaxBrushLines = 1200;
+// Brushed plastic: a faint light line every this many pixels.
+constexpr double kBrushGap = 3.0;
+constexpr QColor kBrush{0xff, 0xf0, 0xe0, 7};
+constexpr QColor kShell{0x16, 0x15, 0x14};
 
 }  // namespace
 
@@ -30,6 +35,13 @@ void PaintPlastic(QPainter* painter, const QRectF& area, double end,
   painter->fillRect(QRectF(from, area.top(), area.right() - from,
                            area.height()),
                     kPlasticDark);
+  // Fine brush marks so wide empty rows read as plastic, not a hole.
+  painter->setPen(kBrush);
+  double line = area.top() + kBrushGap;
+  for (int i = 0; i < kMaxBrushLines && line < area.bottom(); ++i) {
+    painter->drawLine(QPointF(area.left(), line), QPointF(from, line));
+    line += kBrushGap;
+  }
   // Each row is a moulded slot: a dark groove with a faint lit ridge
   // under it, as on a deck's front panel.
   double y = area.top() + row_height;
@@ -82,24 +94,36 @@ void PaintTape(QPainter* painter, const QRectF& run) {
   painter->fillRect(run, oxide);
 }
 
-void PaintCassette(QPainter* painter, const QRectF& box, const QColor& body,
-                   const QString& name) {
+void PaintCassette(QPainter* painter, const QRectF& box, const QColor& band,
+                   const QString& name, bool is_shut) {
   assert(painter != nullptr);
-  assert(body.isValid());
-  QLinearGradient shell(box.topLeft(), box.bottomLeft());
-  shell.setColorAt(0.0, body.lighter(135));
-  shell.setColorAt(0.15, body);
-  shell.setColorAt(1.0, body.darker(160));
-  painter->fillRect(box, shell);
-  // The label sits on the top half of the spine, where a hand-written
-  // title goes; too short a clip keeps its bare plastic.
-  const double height = std::min(box.height() / 2.0 + 2.0, 22.0);
-  const QRectF sticker(box.left() + 4.0, box.top(), box.width() - 6.0,
-                       height);
-  const bool has_room = !name.isEmpty() && sticker.width() > 24.0 &&
-                        sticker.height() > 10.0;
+  assert(band.isValid());
+  // A black shell, lit along its top edge.
+  painter->fillRect(box, kShell);
+  painter->setPen(kPlasticLight);
+  painter->drawLine(box.topLeft(), box.topRight());
+  const QRectF label = box.adjusted(3.0, 3.0, -2.0, -3.0);
+  const bool has_label = label.width() > 4.0 && label.height() > 4.0;
+  if (!has_label) {
+    return;
+  }
+  // The label fills the spine; a colored band across its top tells the
+  // kind, as the stripe on a tape's label tells its length.
+  painter->fillRect(label, is_shut ? kLabelShut : kLabel);
+  const double band_height = std::min(5.0, label.height() / 3.0);
+  painter->fillRect(QRectF(label.left(), label.top(), label.width(),
+                           band_height),
+                    is_shut ? band.darker(150) : band);
+  const QRectF line(label.left() + 5.0, label.top() + band_height,
+                    label.width() - 8.0, label.height() - band_height);
+  const bool has_room = !name.isEmpty() && line.width() > 16.0 &&
+                        line.height() >= painter->fontMetrics().height();
   if (has_room) {
-    PaintLabel(painter, sticker, name, false, false);
+    painter->setPen(kInk);
+    painter->drawText(line, Qt::AlignVCenter | Qt::AlignLeft,
+                      painter->fontMetrics().elidedText(
+                          name, Qt::ElideRight,
+                          static_cast<int>(line.width())));
   }
 }
 
