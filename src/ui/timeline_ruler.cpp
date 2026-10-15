@@ -1,5 +1,6 @@
 #include "ui/timeline_ruler.h"
 
+#include <QLinearGradient>
 #include <QString>
 
 #include <algorithm>
@@ -22,6 +23,16 @@ constexpr std::array<int, 15> kSteps = {1,   2,    3,    6,    12,
                                         1200, 2400, 7200, 14400, 43200};
 // Marks painted at most, whatever the zoom.
 constexpr int kMaxMarks = 6000;
+// The ruler is an old radio's tuning dial: dark green glass, a scale
+// printed in pale green and an orange needle for the playhead.
+constexpr QColor kGlassTop{0x1a, 0x40, 0x34};
+constexpr QColor kGlassBottom{0x0c, 0x26, 0x1e};
+constexpr QColor kGlassPast{0x05, 0x10, 0x0d};
+constexpr QColor kPrintBright{0xd8, 0xea, 0xd2};
+constexpr QColor kPrintDim{0x5c, 0xa8, 0x82};
+constexpr QColor kScaleLine{0x3e, 0x8e, 0x68};
+constexpr QColor kNeedle{0xf2, 0x8c, 0x28};
+constexpr QColor kNeedleInk{0x1a, 0x10, 0x06};
 
 // One tick at x for frame, and its number when has_label.
 void PaintMark(QPainter* painter, double x, int frame, bool has_label,
@@ -30,7 +41,7 @@ void PaintMark(QPainter* painter, double x, int frame, bool has_label,
   assert(frame >= 0);
   const bool is_second = frame % kFramesPerSecond == 0;
   const bool is_two = frame % 2 == 0;
-  painter->setPen(is_second ? theme::kText : theme::kTextOff);
+  painter->setPen(is_second ? kPrintBright : kPrintDim);
   const double tick = is_second ? kRulerHeight : (is_two ? 6.0 : 3.0);
   painter->drawLine(QPointF(x, kRulerHeight - tick),
                     QPointF(x, kRulerHeight));
@@ -40,6 +51,28 @@ void PaintMark(QPainter* painter, double x, int frame, bool has_label,
                       Qt::AlignHCenter | Qt::AlignVCenter,
                       QString::number(frame));
   }
+}
+
+// The green glass from glass.left(), darker past end where nothing
+// plays, with a faint sheen and the printed line the ticks stand on.
+void PaintDialGlass(QPainter* painter, const QRectF& glass, double end) {
+  assert(painter != nullptr);
+  assert(end >= glass.left());
+  QLinearGradient green(glass.topLeft(), glass.bottomLeft());
+  green.setColorAt(0.0, kGlassTop);
+  green.setColorAt(1.0, kGlassBottom);
+  painter->fillRect(glass, green);
+  const double past = std::max(0.0, glass.right() - end);
+  painter->fillRect(QRectF(end, glass.top(), past, glass.height()),
+                    kGlassPast);
+  // Light off the glass: brightest along its top edge.
+  QLinearGradient sheen(glass.topLeft(), glass.bottomLeft());
+  sheen.setColorAt(0.0, QColor(255, 255, 255, 34));
+  sheen.setColorAt(0.45, QColor(255, 255, 255, 0));
+  painter->fillRect(glass, sheen);
+  painter->setPen(kScaleLine);
+  const double base = glass.bottom() - 1.0;
+  painter->drawLine(QPointF(glass.left(), base), QPointF(end, base));
 }
 
 }  // namespace
@@ -66,10 +99,8 @@ void PaintFrameRuler(QPainter* painter, const TimelineScale& scale,
   if (!has_room) {
     return;
   }
-  // Past the last frame is dimmed: nothing plays there.
   const double end = std::max(scale.XOf(scale.length()), left);
-  painter->fillRect(QRectF(end, 0, std::max(0.0, width - end), kRulerHeight),
-                    theme::kFaceDark);
+  PaintDialGlass(painter, QRectF(left, 0, width - left, kRulerHeight), end);
   const PaintClip keep_in(painter, QRectF(left, 0, width - left,
                                           kRulerHeight));
   const double per_frame = scale.pixels_per_frame();
@@ -98,15 +129,20 @@ void PaintTimelinePlayhead(QPainter* painter, double x, int frame,
     return;
   }
   const PaintClip keep_in(painter, area);
-  painter->setPen(QPen(theme::kPick, 2.0));
+  // The dial's needle: a soft glow behind a thin orange line.
+  QColor glow = kNeedle;
+  glow.setAlpha(70);
+  painter->setPen(QPen(glow, 4.0));
+  painter->drawLine(QPointF(x, area.top()), QPointF(x, area.bottom()));
+  painter->setPen(QPen(kNeedle, 2.0));
   painter->drawLine(QPointF(x, area.top()), QPointF(x, area.bottom()));
   // The frame the playhead is on, in a tag on the ruler.
   const QString number = QString::number(frame);
   const double tag_width =
       painter->fontMetrics().horizontalAdvance(number) + 8.0;
   const QRectF tag(x - tag_width / 2.0, area.top(), tag_width, kRulerHeight);
-  painter->fillRect(tag, theme::kPick);
-  painter->setPen(theme::kText);
+  painter->fillRect(tag, kNeedle);
+  painter->setPen(kNeedleInk);
   painter->drawText(tag, Qt::AlignCenter, number);
 }
 
