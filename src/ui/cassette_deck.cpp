@@ -13,11 +13,13 @@
 
 #include "base/frame.h"
 #include "edit/playback_manager.h"
+#include "ui/theme.h"
 
 namespace snapper {
 namespace {
 
-constexpr double kAspect = 0.62;
+// A compact cassette is 100 by 64 mm.
+constexpr double kAspect = 0.64;
 constexpr int kMinWidth = 160;
 constexpr int kHintWidth = 240;
 // A reel turns this far each frame: one turn a second at 24 frames.
@@ -25,14 +27,36 @@ constexpr double kDegreesPerFrame = 360.0 / 24.0;
 // Pixels of drag per frame scrubbed.
 constexpr double kDragPerFrame = 3.0;
 constexpr int kHubTeeth = 6;
-constexpr QColor kCream{0xec, 0xe6, 0xd8};
-constexpr QColor kCreamShade{0xc9, 0xc1, 0xae};
-constexpr QColor kStripe{0xc4, 0x26, 0x2c};
-constexpr QColor kPlate{0xd6, 0xd6, 0xd8};
-constexpr QColor kWindowRim{0x16, 0x16, 0x18};
-constexpr QColor kShell{0x7c, 0x7c, 0x82};
-constexpr QColor kTape{0x2a, 0x1f, 0x1a};
-constexpr QColor kHub{0xe2, 0xe2, 0xe4};
+constexpr int kMaxRidges = 400;
+// Where the hubs sit, as shares of the shell's width and height.
+constexpr double kLeftHubX = 0.31;
+constexpr double kRightHubX = 0.69;
+constexpr double kHubY = 0.5;
+constexpr QColor kShell{0x1e, 0x1e, 0x20};
+constexpr QColor kLabel{0xec, 0xe6, 0xd2};
+constexpr QColor kInk{0x3a, 0x34, 0x2c};
+constexpr QColor kBrown{0x86, 0x48, 0x1e};
+constexpr QColor kOrange{0xd2, 0x7c, 0x2c};
+constexpr QColor kWindow{0x26, 0x26, 0x28};
+constexpr QColor kTape{0x4a, 0x30, 0x22};
+constexpr QColor kHub{0xf0, 0xf0, 0xec};
+
+// The part of shell from (x0, y0) to (x1, y1), each a share of its size.
+QRectF Part(const QRectF& shell, double x0, double y0, double x1,
+            double y1) {
+  assert(x1 >= x0);
+  assert(y1 >= y0);
+  return QRectF(shell.left() + shell.width() * x0,
+                shell.top() + shell.height() * y0,
+                shell.width() * (x1 - x0), shell.height() * (y1 - y0));
+}
+
+QPointF Spot(const QRectF& shell, double x, double y) {
+  assert(x >= 0.0 && x <= 1.0);
+  assert(y >= 0.0 && y <= 1.0);
+  return {shell.left() + shell.width() * x,
+          shell.top() + shell.height() * y};
+}
 
 }  // namespace
 
@@ -81,121 +105,157 @@ void CassetteDeck::paintEvent(QPaintEvent* event) {
   assert(width() > 0);
   QPainter painter(this);
   painter.setRenderHint(QPainter::Antialiasing, true);
-  // Keep the walkman's shape whatever room the dock gives it.
+  // Keep the cassette's shape whatever room the dock gives it.
   const double room_w = width() - 8.0;
   const double room_h = height() - 8.0;
-  const double body_w = std::min(room_w, room_h / kAspect);
-  const double body_h = body_w * kAspect;
-  const QRectF body((width() - body_w) / 2.0, (height() - body_h) / 2.0,
-                    body_w, body_h);
-  PaintBody(&painter, body);
-  const QRectF window(body.left() + body_w * 0.07,
-                      body.top() + body_h * 0.36, body_w * 0.86,
-                      body_h * 0.54);
-  PaintWindow(&painter, window);
+  const double shell_w = std::min(room_w, room_h / kAspect);
+  const double shell_h = shell_w * kAspect;
+  const QRectF shell((width() - shell_w) / 2.0, (height() - shell_h) / 2.0,
+                     shell_w, shell_h);
+  PaintShell(&painter, shell);
+  PaintLabel(&painter, shell);
+  PaintWindow(&painter, shell);
 }
 
-void CassetteDeck::PaintBody(QPainter* painter, const QRectF& body) const {
+void CassetteDeck::PaintShell(QPainter* painter,
+                              const QRectF& shell) const {
   assert(painter != nullptr);
-  assert(body.width() > 0.0);
-  const double corner = body.height() * 0.08;
-  QLinearGradient shade(body.topLeft(), body.bottomRight());
-  shade.setColorAt(0.0, kCream);
-  shade.setColorAt(1.0, kCreamShade);
-  painter->setPen(QPen(kCreamShade.darker(150), 1.0));
-  painter->setBrush(shade);
-  painter->drawRoundedRect(body, corner, corner);
-  // The red line along the top, as on the old walkman.
-  const double stripe_y = body.top() + body.height() * 0.06;
-  painter->setPen(QPen(kStripe, std::max(1.5, body.height() * 0.018)));
-  painter->drawLine(QPointF(body.left() + corner, stripe_y),
-                    QPointF(body.right() - corner, stripe_y));
-  // The silver plate with the name, the word in red beside it.
-  const QRectF plate(body.left() + body.width() * 0.07,
-                     body.top() + body.height() * 0.11,
-                     body.width() * 0.36, body.height() * 0.18);
-  painter->setPen(QPen(kPlate.darker(130), 1.0));
-  painter->setBrush(kPlate);
-  painter->drawRect(plate);
-  QFont serif(QStringLiteral("serif"));
-  serif.setPixelSize(std::max(6, static_cast<int>(plate.height() * 0.55)));
-  serif.setLetterSpacing(QFont::PercentageSpacing, 130);
-  painter->setFont(serif);
-  painter->setPen(QColor(0x1a, 0x1a, 0x1a));
-  painter->drawText(plate, Qt::AlignCenter, QStringLiteral("STEREO"));
-  QFont heavy;
-  heavy.setPixelSize(std::max(6, static_cast<int>(plate.height() * 0.8)));
-  heavy.setWeight(QFont::Black);
-  heavy.setItalic(true);
-  painter->setFont(heavy);
-  painter->setPen(kStripe);
-  const QRectF word(plate.right() + body.width() * 0.04, plate.top(),
-                    body.right() - plate.right() - body.width() * 0.1,
-                    plate.height());
-  painter->drawText(word, Qt::AlignRight | Qt::AlignVCenter,
-                    QStringLiteral("SNAPMAN"));
+  assert(shell.width() > 0.0);
+  const double corner = shell.height() * 0.04;
+  painter->setPen(QPen(QColor(0x05, 0x05, 0x06), 1.0));
+  painter->setBrush(kShell);
+  painter->drawRoundedRect(shell, corner, corner);
+  // The fine grip ridges moulded into the plastic.
+  painter->setPen(QColor(255, 255, 255, 14));
+  for (int ridge = 0; ridge < kMaxRidges; ++ridge) {
+    const double y = shell.top() + 2.0 + ridge * 2.0;
+    const bool is_past = y >= shell.bottom() - 2.0;
+    if (is_past) {
+      break;
+    }
+    painter->drawLine(QPointF(shell.left() + 2.0, y),
+                      QPointF(shell.right() - 2.0, y));
+  }
+  // The raised block over the tape heads, with its holes.
+  QPolygonF block;
+  block << Spot(shell, 0.22, 0.78) << Spot(shell, 0.78, 0.78)
+        << Spot(shell, 0.83, 1.0) << Spot(shell, 0.17, 1.0);
+  painter->setPen(QPen(QColor(0x40, 0x40, 0x44), 1.0));
+  painter->setBrush(kShell.lighter(115));
+  painter->drawPolygon(block);
+  const double hole = shell.width() * 0.018;
+  painter->setPen(Qt::NoPen);
+  painter->setBrush(theme::kFace);
+  for (const double x : {0.27, 0.35, 0.65, 0.73}) {
+    painter->drawEllipse(Spot(shell, x, 0.9), hole, hole);
+  }
+  painter->setBrush(QColor(0x0a, 0x0a, 0x0b));
+  painter->drawEllipse(Spot(shell, 0.5, 0.84), hole * 0.8, hole * 0.8);
+  // A screw in each corner.
+  const double screw = shell.width() * 0.016;
+  painter->setBrush(QColor(0x50, 0x50, 0x54));
+  for (const double x : {0.03, 0.97}) {
+    for (const double y : {0.05, 0.95}) {
+      painter->drawEllipse(Spot(shell, x, y), screw, screw);
+    }
+  }
+}
+
+void CassetteDeck::PaintLabel(QPainter* painter,
+                              const QRectF& shell) const {
+  assert(painter != nullptr);
+  assert(shell.height() > 0.0);
+  const QRectF label = Part(shell, 0.06, 0.07, 0.94, 0.72);
+  painter->setPen(Qt::NoPen);
+  painter->setBrush(kLabel);
+  painter->drawRoundedRect(label, 2.0, 2.0);
+  // The side mark: a black box with a white A.
+  const QRectF side = Part(shell, 0.085, 0.1, 0.135, 0.18);
+  painter->fillRect(side, kShell);
+  QFont bold;
+  bold.setBold(true);
+  bold.setPixelSize(std::max(6, static_cast<int>(side.height() * 0.8)));
+  painter->setFont(bold);
+  painter->setPen(kLabel);
+  painter->drawText(side, Qt::AlignCenter, QStringLiteral("A"));
+  // Lines to write the title on.
+  painter->setPen(QPen(QColor(0xb4, 0xac, 0x98), 1.0));
+  for (const double y : {0.15, 0.22, 0.29}) {
+    painter->drawLine(Spot(shell, 0.16, y), Spot(shell, 0.91, y));
+  }
+  painter->fillRect(Part(shell, 0.06, 0.34, 0.94, 0.365), kBrown);
+  painter->fillRect(Part(shell, 0.06, 0.365, 0.94, 0.385), kOrange);
+  QFont small;
+  small.setPixelSize(std::max(5, static_cast<int>(shell.height() * 0.042)));
+  painter->setFont(small);
+  painter->setPen(kInk);
+  painter->drawText(Part(shell, 0.08, 0.43, 0.25, 0.6),
+                    Qt::AlignLeft | Qt::AlignTop,
+                    tr("Normal\n24 fps"));
+  painter->drawText(Part(shell, 0.77, 0.43, 0.93, 0.6),
+                    Qt::AlignLeft | Qt::AlignTop, tr("Snapper\nC-90"));
 }
 
 void CassetteDeck::PaintWindow(QPainter* painter,
-                               const QRectF& window) const {
+                               const QRectF& shell) const {
   assert(painter != nullptr);
   assert(managers_.playback != nullptr);
-  const double round = window.height() / 2.0;
+  const QRectF band = Part(shell, 0.24, 0.41, 0.76, 0.63);
+  const double round = band.height() * 0.2;
   painter->setPen(Qt::NoPen);
-  painter->setBrush(kWindowRim);
-  painter->drawRoundedRect(window, round, round);
-  const QRectF shell = window.adjusted(round * 0.35, round * 0.18,
-                                       -round * 0.35, -round * 0.18);
-  QLinearGradient grey(shell.topLeft(), shell.bottomLeft());
-  grey.setColorAt(0.0, kShell.lighter(115));
-  grey.setColorAt(1.0, kShell.darker(115));
-  painter->setBrush(grey);
-  painter->drawRoundedRect(shell, shell.height() * 0.12,
-                           shell.height() * 0.12);
-  const double hub = shell.height() * 0.17;
-  const double full = shell.height() * 0.44;
-  const double wound = Wound();
+  painter->setBrush(kWindow);
+  painter->drawRoundedRect(band, round, round);
+  const double hub = shell.width() * 0.055;
+  const double full = shell.width() * 0.185;
   // A pack's area grows with the tape on it, so its radius goes by the
-  // square root.
-  // An empty reel still shows a thin ring of leader tape.
-  const double core = hub * 1.12;
+  // square root; an empty reel still holds a ring of leader.
+  const double core = hub * 1.15;
   const auto pack_of = [core, full](double share) {
     return std::sqrt(core * core + (full * full - core * core) * share);
   };
+  const double wound = Wound();
+  const QPointF left = Spot(shell, kLeftHubX, kHubY + 0.02);
+  const QPointF right = Spot(shell, kRightHubX, kHubY + 0.02);
+  // The tape packs show only through the clear middle window.
+  const QRectF clear = Part(shell, 0.4, 0.45, 0.6, 0.59);
+  painter->save();
+  painter->setClipRect(clear);
+  painter->fillRect(clear, QColor(0x5a, 0x5a, 0x5e));
+  painter->setBrush(kTape);
+  painter->drawEllipse(left, pack_of(1.0 - wound), pack_of(1.0 - wound));
+  painter->drawEllipse(right, pack_of(wound), pack_of(wound));
+  // The length marks printed on the window.
+  painter->setPen(QPen(QColor(255, 255, 255, 150), 1.0));
+  for (int mark = 0; mark < 4; ++mark) {
+    const double x = clear.left() + clear.width() * (0.3 + 0.13 * mark);
+    painter->drawLine(QPointF(x, clear.top() + clear.height() * 0.25),
+                      QPointF(x, clear.bottom() - clear.height() * 0.25));
+  }
+  painter->restore();
   const double turn = managers_.playback->frame().index() * kDegreesPerFrame;
-  const double mid_y = shell.center().y();
-  PaintReel(painter, QPointF(shell.left() + shell.width() * 0.28, mid_y),
-            hub, pack_of(1.0 - wound), turn);
-  PaintReel(painter, QPointF(shell.left() + shell.width() * 0.72, mid_y),
-            hub, pack_of(wound), turn);
-  // Glass over it all: a soft light off the top.
-  QLinearGradient glare(window.topLeft(), window.bottomLeft());
-  glare.setColorAt(0.0, QColor(255, 255, 255, 40));
-  glare.setColorAt(0.5, QColor(255, 255, 255, 0));
-  painter->setBrush(glare);
-  painter->drawRoundedRect(window, round, round);
+  PaintHub(painter, left, hub, turn);
+  PaintHub(painter, right, hub, turn);
 }
 
-void CassetteDeck::PaintReel(QPainter* painter, const QPointF& middle,
-                             double hub, double pack, double turn) const {
+void CassetteDeck::PaintHub(QPainter* painter, const QPointF& middle,
+                            double hub, double turn) const {
   assert(painter != nullptr);
-  assert(hub > 0.0 && pack >= hub);
+  assert(hub > 0.0);
   painter->setPen(Qt::NoPen);
-  painter->setBrush(kTape);
-  painter->drawEllipse(middle, pack, pack);
   painter->setBrush(kHub);
   painter->drawEllipse(middle, hub, hub);
+  painter->setBrush(kWindow);
+  painter->drawEllipse(middle, hub * 0.62, hub * 0.62);
   painter->save();
   painter->translate(middle);
   painter->rotate(turn);
   // The teeth that grip the spindle: they show the turn.
-  painter->setBrush(kWindowRim);
-  const double tooth = hub * 0.28;
+  painter->setBrush(kHub);
+  const double tooth = hub * 0.3;
   for (int i = 0; i < kHubTeeth; ++i) {
-    painter->drawRect(QRectF(hub * 0.45, -tooth / 2.0, hub * 0.4, tooth));
+    painter->drawRect(QRectF(hub * 0.36, -tooth / 2.0, hub * 0.3, tooth));
     painter->rotate(360.0 / kHubTeeth);
   }
-  painter->drawEllipse(QPointF(0.0, 0.0), hub * 0.3, hub * 0.3);
   painter->restore();
 }
 

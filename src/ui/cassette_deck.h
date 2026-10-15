@@ -13,7 +13,7 @@ class QRectF;
 
 namespace snapper {
 
-// An old tape player under the Cast tabs whose cassette follows the
+// A compact cassette under the Cast tabs that follows the
 // playhead: the reels turn with every frame it moves, forward or back,
 // and the tape winds from the left reel onto the right one from the
 // first frame to the last. Dragging across it scrubs the playhead;
@@ -36,11 +36,13 @@ class CassetteDeck final : public QWidget {
   void keyPressEvent(QKeyEvent* event) override;
 
  private:
-  void PaintBody(QPainter* painter, const QRectF& body) const;
-  void PaintWindow(QPainter* painter, const QRectF& window) const;
-  // One reel at middle: its wound tape pack and the turning hub.
-  void PaintReel(QPainter* painter, const QPointF& middle, double hub,
-                 double pack, double turn) const;
+  void PaintShell(QPainter* painter, const QRectF& shell) const;
+  void PaintLabel(QPainter* painter, const QRectF& shell) const;
+  // The window band: the tape packs through the clear middle and the
+  // two hubs, turned by turn degrees.
+  void PaintWindow(QPainter* painter, const QRectF& shell) const;
+  void PaintHub(QPainter* painter, const QPointF& middle, double hub,
+                double turn) const;
   // How far the tape has wound, 0 at the first frame to 1 at the last.
   double Wound() const;
 
