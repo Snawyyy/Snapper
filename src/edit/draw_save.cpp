@@ -158,7 +158,12 @@ std::optional<DrawManager::MirrorCopy> DrawManager::SaveMirror(
                         FindRig(doll.rig, twin) != nullptr;
   const QString piece = has_twin ? twin : track_.piece;
   const ArtPiece& art = *FindArt(doll, piece);
-  QString copy_name = has_twin ? name : Tr("%1 flipped").arg(name);
+  // A sided drawing name gets the other side's ("turn_L" to "turn_R");
+  // else the twin takes the same name, an unsided piece "name flipped".
+  const bool is_sided_name = SideOf(name) != 0;
+  QString copy_name = is_sided_name ? MirrorName(name)
+                      : has_twin    ? name
+                                    : Tr("%1 flipped").arg(name);
   for (int i = 0; i < static_cast<int>(art.drawings.size()); ++i) {
     const bool is_clash = DrawingName(art, i) == copy_name;
     if (is_clash) {

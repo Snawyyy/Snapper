@@ -143,7 +143,8 @@ void DrawBar::Refresh() {
       : twin != draw->piece()
           ? tr("Done also puts this drawing, flipped, on %1.").arg(twin)
           : tr("Done also keeps a flipped copy beside it, as another "
-               "drawing of %1.")
+               "drawing of %1: a name ending _L gets its _R, else "
+               "\"name flipped\".")
                 .arg(draw->piece()));
   {
     const QSignalBlocker quiet_mirror(mirror_);
