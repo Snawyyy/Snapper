@@ -2,6 +2,7 @@
 
 #include <QApplication>
 #include <QDrag>
+#include <QFontMetrics>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QSettings>
@@ -18,6 +19,7 @@
 #include "ui/form_helpers.h"
 #include "ui/panel_kit.h"
 #include "ui/problem.h"
+#include "ui/theme.h"
 
 namespace snapper {
 namespace {
@@ -32,6 +34,8 @@ constexpr int kHelpRole = Qt::UserRole + 4;
 // F's Plugins carries about 50; more is a broken list.
 constexpr size_t kMaxPlugins = 512;
 constexpr int kMaxItems = 1024;
+// Room above a group caption, past its text.
+constexpr int kHeaderLift = 10;
 
 }  // namespace
 
@@ -45,7 +49,14 @@ CompLibrary::CompLibrary(const Managers& managers)
   search_.setClearButtonEnabled(true);
   search_.installEventFilter(this);
   where_.setWordWrap(true);
+  // Where an effect goes is a note, not a setting: quiet, like a hint.
+  QPalette quiet = where_.palette();
+  quiet.setColor(QPalette::WindowText, theme::kTextOff);
+  where_.setPalette(quiet);
+  where_.setContentsMargins(0, 2, 0, 4);
   list_.setMouseTracking(true);
+  // Rows a little apart, so the list reads as items, not a run of text.
+  list_.setSpacing(1);
   list_.setFrameShape(QFrame::NoFrame);
   list_.setIconSize(QSize(12, 12));
   list_.viewport()->installEventFilter(this);
@@ -82,9 +93,17 @@ void CompLibrary::AddHeader(const QString& name, const QString& help) {
   auto* item = MakeOwned<QListWidgetItem>(name, &list_);
   item->setData(kHeaderRole, true);
   item->setToolTip(help);
-  QFont bold = item->font();
-  bold.setBold(true);
-  item->setFont(bold);
+  // A group's caption: the quiet second level, with room above it so
+  // each group stands apart.
+  QFont small = item->font();
+  small.setBold(true);
+  small.setPointSizeF(small.pointSizeF() * 0.85);
+  small.setCapitalization(QFont::AllUppercase);
+  small.setLetterSpacing(QFont::AbsoluteSpacing, 1.0);
+  item->setFont(small);
+  item->setForeground(theme::kTextOff);
+  item->setTextAlignment(Qt::AlignLeft | Qt::AlignBottom);
+  item->setSizeHint(QSize(0, QFontMetrics(small).height() + kHeaderLift));
   item->setFlags(Qt::NoItemFlags);
 }
 
