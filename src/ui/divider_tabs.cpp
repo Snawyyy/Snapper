@@ -80,15 +80,18 @@ void DividerTabBar::PaintTab(QPainter* painter, int index, int depth) const {
   // The open tab runs down into the sheet so they read as one piece.
   const double foot = is_open ? box.bottom() + kSheet : box.bottom();
   const QRectF tab(box.left(), box.top(), box.width(), foot - box.top());
-  // Its shadow on the sheets behind, both sides.
+  // Its shadow on the sheets behind, both sides, and its cut edges end
+  // where it meets its own sheet: no shadow on the same paper.
+  const QRectF edges(box.left(), box.top(), box.width(),
+                     box.bottom() - box.top());
   for (const bool is_left : {true, false}) {
-    const double edge = is_left ? tab.left() : tab.right();
+    const double edge = is_left ? edges.left() : edges.right();
     const double out = is_left ? edge - kShadow : edge + kShadow;
     QLinearGradient shade(QPointF(edge, 0.0), QPointF(out, 0.0));
     shade.setColorAt(0.0, QColor(0, 0, 0, 120));
     shade.setColorAt(1.0, QColor(0, 0, 0, 0));
-    painter->fillRect(QRectF(std::min(edge, out), tab.top() + 2.0, kShadow,
-                             tab.height() - 2.0),
+    painter->fillRect(QRectF(std::min(edge, out), edges.top() + 2.0,
+                             kShadow, edges.height() - 2.0),
                       shade);
   }
   QColor fill = theme::kFace;
@@ -100,9 +103,9 @@ void DividerTabBar::PaintTab(QPainter* painter, int index, int depth) const {
   // The paper's cut edges: lit at the top and left, dark at the right.
   painter->setPen(fill.lighter(140));
   painter->drawLine(tab.topLeft(), tab.topRight());
-  painter->drawLine(tab.topLeft(), tab.bottomLeft());
+  painter->drawLine(edges.topLeft(), edges.bottomLeft());
   painter->setPen(fill.darker(150));
-  painter->drawLine(tab.topRight(), tab.bottomRight());
+  painter->drawLine(edges.topRight(), edges.bottomRight());
   painter->setPen(is_open ? theme::kText : theme::kTextOff);
   painter->drawText(slot, Qt::AlignCenter, tabText(index));
 }
@@ -126,8 +129,12 @@ void DividerTabs::paintEvent(QPaintEvent* event) {
   assert(tabBar() != nullptr);
   QPainter painter(this);
   const double under = kUnderSheets * kUnderStep;
-  // The sheet starts under the tabs' foot, so the open tab joins it.
-  const double top = tabBar()->geometry().bottom() + 1.0 - kSheet;
+  // The sheet starts at the open tab's foot, so the two are one piece
+  // of paper whatever height the style gives the bar.
+  const QTabBar* bar = tabBar();
+  const int open = std::max(0, bar->currentIndex());
+  const QRect open_tab = bar->tabRect(open).translated(bar->pos());
+  const double top = open_tab.top() + open_tab.height() - kSheet;
   const QRectF sheet(0.0, top, width() - under, height() - top - under);
   for (int step = kUnderSheets; step > 0; --step) {
     const QRectF below = sheet.translated(step * kUnderStep,
@@ -144,10 +151,14 @@ void DividerTabs::paintEvent(QPaintEvent* event) {
                      QColor(0, 0, 0, 22));
   }
   painter.fillRect(sheet, theme::kFace);
-  // Lit cut edges at the top and left; the open tab covers the top one
-  // where it joins.
+  // Lit cut edges at the top and left, but none where the open tab
+  // joins: there the paper goes on unbroken.
   painter.setPen(theme::kFace.lighter(140));
-  painter.drawLine(sheet.topLeft(), sheet.topRight());
+  const bool has_tabs = bar->count() > 0;
+  const double join_left = has_tabs ? open_tab.left() - kOverlap : 0.0;
+  const double join_right = has_tabs ? open_tab.right() + kOverlap : 0.0;
+  painter.drawLine(sheet.topLeft(), QPointF(join_left, top));
+  painter.drawLine(QPointF(join_right, top), sheet.topRight());
   painter.drawLine(sheet.topLeft(), sheet.bottomLeft());
   painter.setPen(theme::kFace.darker(150));
   painter.drawLine(sheet.bottomLeft(), sheet.bottomRight());
