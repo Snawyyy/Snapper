@@ -136,7 +136,8 @@ void DrawGrip(const QStyleOption* option, QPainter* painter, bool is_lit) {
   const bool is_active =
       is_lit ||
       option->state.testFlags(QStyle::State_MouseOver | QStyle::State_Sunken);
-  painter->fillRect(option->rect, option->palette.window());
+  // Grips are the gaps between panels: the window shows through.
+  painter->fillRect(option->rect, theme::kGap);
   DrawGripLine(painter, option->rect, is_active);
 }
 
@@ -185,17 +186,18 @@ double SquashScale(double press) {
 ButtonLook LookOfButton(bool is_enabled, bool is_down, bool is_checked,
                         double hover) {
   assert(hover >= 0.0 && hover <= 1.0);
-  assert(theme::kFace.isValid());
+  assert(theme::kRaised.isValid());
   ButtonLook look;
-  look.fill = theme::kFace;
+  // A greyed button lies flat on the panel; a live one stands raised.
+  look.fill = is_enabled ? theme::kRaised : theme::kFace;
   const bool is_sunk = is_enabled && (is_down || is_checked);
   const bool is_reacting = is_enabled && !is_sunk;
   look.is_sunk = is_sunk;
   if (is_sunk) {
-    look.fill = is_down ? theme::kFaceDark : theme::kFace.darker(118);
+    look.fill = is_down ? theme::kFaceDark : theme::kFace.darker(110);
   } else if (is_reacting) {
     const int boost = static_cast<int>(kHoverBoostPercent * hover);
-    look.fill = theme::kFace.lighter(100 + boost);
+    look.fill = theme::kRaised.lighter(100 + boost);
   }
   return look;
 }

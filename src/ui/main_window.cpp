@@ -9,6 +9,7 @@
 #include <QStatusBar>
 
 #include <cassert>
+#include <initializer_list>
 
 #include "edit/document_manager.h"
 #include "edit/library_folder_manager.h"
@@ -18,6 +19,7 @@
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/scroll_fit.h"
+#include "ui/theme.h"
 #include "ui/bar_text.h"
 #include "ui/timing_chart_action.h"
 #include "ui/toast_manager.h"
@@ -268,6 +270,14 @@ void MainWindow::BuildPages() {
   pages_.addWidget(&comp_page_);
   pages_.addWidget(&rig_split_);
   setCentralWidget(&pages_);
+  // Depth: the window is the gap behind everything; pages and docks are
+  // panels on it; the top bar stands raised.
+  theme::SetLevel(this, theme::kGap);
+  for (QWidget* panel : std::initializer_list<QWidget*>{
+           &pages_, &cast_dock_, &inspector_dock_}) {
+    theme::SetLevel(panel, theme::kFace);
+  }
+  theme::SetLevel(&top_bar_host_, theme::kRaised);
   assert(pages_.count() == static_cast<int>(Mode::kRig) + 1);
 }
 

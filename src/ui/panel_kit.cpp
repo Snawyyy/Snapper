@@ -53,6 +53,7 @@ void MakePlate(QLabel* label) {
   assert(label != nullptr);
   assert(!label->text().isEmpty());
   label->setFrameStyle(QFrame::StyledPanel | QFrame::Raised);
+  theme::SetLevel(label, theme::kRaised);
   label->setAlignment(Qt::AlignCenter);
   label->setMargin(kPlateMargin);
 }
@@ -78,6 +79,7 @@ QWidget* Framed(QWidget* control, QWidget* bar, QWidget* parent) {
   assert(parent != nullptr);
   auto frame = std::make_unique<QFrame>(parent);
   frame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+  theme::SetLevel(frame.get(), theme::kWell);
   auto* column = MakeOwned<QVBoxLayout>(frame.get());
   column->setContentsMargins(kFrameMargin, kFrameMargin, kFrameMargin,
                              kFrameMargin);

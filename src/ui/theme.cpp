@@ -21,7 +21,7 @@ QPalette DarkPalette() {
        {QPalette::Active, QPalette::Inactive, QPalette::Disabled}) {
     const bool is_off = group == QPalette::Disabled;
     palette.setColor(group, QPalette::Window, kFace);
-    palette.setColor(group, QPalette::Button, kFace);
+    palette.setColor(group, QPalette::Button, kRaised);
     // The Windows style builds its bevels from these four.
     palette.setColor(group, QPalette::Light, kFaceLight);
     palette.setColor(group, QPalette::Midlight, kFace.lighter(115));
@@ -53,6 +53,15 @@ int Em(const QWidget* widget) {
   const int em = QFontMetrics(widget->font()).height();
   assert(em > 0);
   return em;
+}
+
+void SetLevel(QWidget* widget, const QColor& level) {
+  assert(widget != nullptr);
+  assert(level.isValid());
+  QPalette palette = widget->palette();
+  palette.setColor(QPalette::Window, level);
+  widget->setPalette(palette);
+  widget->setAutoFillBackground(true);
 }
 
 void Apply(QApplication* application) {

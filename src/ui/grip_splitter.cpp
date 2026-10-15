@@ -12,6 +12,7 @@
 #include <numeric>
 
 #include "ui/snapper_style.h"
+#include "ui/theme.h"
 
 namespace snapper {
 namespace {
@@ -45,7 +46,8 @@ void GripHandle::paintEvent(QPaintEvent* event) {
   assert(event != nullptr);
   assert(rect().isValid());
   QPainter painter(this);
-  painter.fillRect(rect(), palette().window());
+  // The gap between two panels: the window shows through.
+  painter.fillRect(rect(), theme::kGap);
   const bool is_active = is_lit_ || is_down_;
   DrawGripLine(&painter, rect(), is_active);
 }

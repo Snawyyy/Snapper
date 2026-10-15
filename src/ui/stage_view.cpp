@@ -93,7 +93,7 @@ void StageView::paintEvent(QPaintEvent* event) {
   assert(event != nullptr);
   assert(managers_.history != nullptr);
   QPainter painter(this);
-  painter.fillRect(rect(), theme::kFaceDark);
+  painter.fillRect(rect(), theme::kWell);
   const auto frame = CurrentFrame();
   if (!frame) {
     painter.setPen(theme::kTextOff);
