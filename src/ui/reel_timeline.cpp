@@ -19,6 +19,7 @@
 #include "edit/sound_manager.h"
 #include "render/reel_text.h"
 #include "ui/checkerboard.h"
+#include "ui/deck_paint.h"
 #include "ui/form_helpers.h"
 #include "ui/theme.h"
 #include "ui/timeline_ruler.h"
@@ -212,7 +213,7 @@ void ReelTimeline::paintEvent(QPaintEvent* event) {
   assert(event != nullptr);
   assert(managers_.history != nullptr);
   QPainter painter(this);
-  painter.fillRect(rect(), theme::kFaceDark);
+  painter.fillRect(rect(), deck::kPlasticDark);
   PaintTracks(&painter);
   PaintJoints(&painter);
   PaintDrop(&painter);
@@ -231,18 +232,17 @@ void ReelTimeline::PaintTracks(QPainter* painter) const {
   assert(count <= kMaxAllTracks);
   for (int t = 0; t < count; ++t) {
     const double top = TrackTop(t);
-    painter->fillRect(QRectF(kHeaderWidth, top, width(), kTrackHeight - 1),
-                      t % 2 == 0 ? theme::kField : theme::kFaceDark);
-    painter->fillRect(QRectF(0, top, kHeaderWidth - 1, kTrackHeight - 1),
-                      theme::kFace);
+    // Each track is a slot moulded in the deck's front.
+    deck::PaintPlastic(painter, QRectF(0, top, width(), kTrackHeight),
+                       width(), kTrackHeight);
     const bool is_sound = reel.tracks[static_cast<size_t>(t)].is_sound;
     if (is_sound) {
       PaintSoundHeader(painter, t);
       continue;
     }
-    painter->setPen(theme::kTextOff);
-    painter->drawText(QRectF(0, top, kHeaderWidth, kTrackHeight),
-                      Qt::AlignCenter, TrackName(t));
+    deck::PaintLabel(painter, QRectF(0, top + 10.0, kHeaderWidth,
+                                     kTrackHeight - 20.0),
+                     TrackName(t), false, false);
   }
   painter->save();
   painter->setClipRect(QRectF(kHeaderWidth, kRulerHeight, width(), height()));
@@ -321,26 +321,25 @@ void ReelTimeline::PaintPictureBody(QPainter* painter, const Clip& clip,
           ? nullptr
           : FindShot(project, std::get<ShotSource>(clip.source).shot);
   const bool is_missing = video == nullptr && shot == nullptr;
-  painter->fillRect(box, is_missing          ? kMissing
-                         : video != nullptr ? kVideoClip
-                                            : kShotClip);
+  const QString name = video != nullptr ? QFileInfo(video->path).fileName()
+                       : is_missing     ? tr("Shot removed")
+                                        : shot->name;
+  deck::PaintCassette(painter, box,
+                      is_missing          ? kMissing
+                      : video != nullptr ? kVideoClip
+                                         : kShotClip,
+                      name);
   PaintHatch(painter, clip, box);
   const bool has_swatch = shot != nullptr;
   if (has_swatch) {
     // A see-through shot shows the checker instead of its color.
-    const QRectF swatch(box.topLeft(), QSizeF(5, box.height()));
+    const QRectF swatch(box.topLeft(), QSizeF(4, box.height()));
     if (shot->is_transparent) {
       PaintCheckerboard(painter, swatch, 2.5);
     } else {
       painter->fillRect(swatch, shot->background);
     }
   }
-  const QString name = video != nullptr ? QFileInfo(video->path).fileName()
-                       : is_missing     ? tr("Shot removed")
-                                        : shot->name;
-  painter->setPen(theme::kText);
-  painter->drawText(box.adjusted(8, 3, -4, -3), Qt::AlignLeft | Qt::AlignTop,
-                    name);
   // Keys a shortened shot keeps past its end, where the clip ends.
   const int hidden = shot != nullptr ? HiddenKeyFrames(*shot) : 0;
   const bool shows_hidden = hidden > 0 && clip.in.index() +
@@ -361,14 +360,12 @@ void ReelTimeline::PaintTextBody(QPainter* painter, const Clip& clip,
   assert(IsTextClip(clip));
   const Project& project = managers_.history->current();
   const auto& text = std::get<TextSource>(clip.source);
-  painter->fillRect(box, kTextClip);
-  // The look's fill color as a swatch, as a shot shows its background.
-  painter->fillRect(QRectF(box.topLeft(), QSizeF(5, box.height())),
-                    LookOf(project.reel, clip).letters.fill);
   const QString first = text.text.section(QLatin1Char('\n'), 0, 0);
-  painter->setPen(theme::kText);
-  painter->drawText(box.adjusted(8, 3, -4, -3), Qt::AlignLeft | Qt::AlignTop,
-                    first.isEmpty() ? tr("(no words)") : first);
+  deck::PaintCassette(painter, box, kTextClip,
+                      first.isEmpty() ? tr("(no words)") : first);
+  // The look's fill color as a swatch, as a shot shows its background.
+  painter->fillRect(QRectF(box.topLeft(), QSizeF(4, box.height())),
+                    LookOf(project.reel, clip).letters.fill);
   // A cue wrapping past two lines is hard to read in time.
   const bool is_cue = FindClip(project.reel, clip.id).track ==
                       SubtitleTrack(project.reel);

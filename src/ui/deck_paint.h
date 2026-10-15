@@ -45,6 +45,11 @@ void PaintLabel(QPainter* painter, const QRectF& strip, const QString& text,
 // A run of brown tape: darker edges and a sheen along its top.
 void PaintTape(QPainter* painter, const QRectF& run);
 
+// A clip as a video cassette seen side on: body in color, lit along its
+// top edge and shaded at its foot, with name on a cream label sticker.
+void PaintCassette(QPainter* painter, const QRectF& box, const QColor& body,
+                   const QString& name);
+
 // The dark glass of a DVD player's display, sunk into the plastic.
 void PaintDisplay(QPainter* painter, const QRectF& glass);
 

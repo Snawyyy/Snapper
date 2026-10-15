@@ -82,6 +82,26 @@ void PaintTape(QPainter* painter, const QRectF& run) {
   painter->fillRect(run, oxide);
 }
 
+void PaintCassette(QPainter* painter, const QRectF& box, const QColor& body,
+                   const QString& name) {
+  assert(painter != nullptr);
+  assert(body.isValid());
+  QLinearGradient shell(box.topLeft(), box.bottomLeft());
+  shell.setColorAt(0.0, body.lighter(135));
+  shell.setColorAt(0.15, body);
+  shell.setColorAt(1.0, body.darker(160));
+  painter->fillRect(box, shell);
+  // The label sits on the top half of the spine, where a hand-written
+  // title goes; too short a clip keeps its bare plastic.
+  const double height = std::min(box.height() / 2.0 + 2.0, 22.0);
+  const QRectF sticker(box.left() + 4.0, box.top(), box.width() - 6.0,
+                       height);
+  const bool has_room = sticker.width() > 24.0 && sticker.height() > 10.0;
+  if (has_room) {
+    PaintLabel(painter, sticker, name, false, false);
+  }
+}
+
 void PaintDisplay(QPainter* painter, const QRectF& glass) {
   assert(painter != nullptr);
   assert(glass.width() > 2.0 && glass.height() > 2.0);

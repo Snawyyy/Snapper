@@ -17,6 +17,7 @@
 #include "edit/selection_manager.h"
 #include "edit/sound_manager.h"
 #include "ui/drag_text.h"
+#include "ui/deck_paint.h"
 #include "ui/grab.h"
 #include "ui/reel_timeline.h"
 #include "ui/theme.h"
@@ -24,8 +25,6 @@
 namespace snapper {
 namespace {
 
-constexpr QColor kSoundClip{0x3f, 0x5f, 0x45};
-constexpr QColor kWave{0x9c, 0xd6, 0xa4};
 constexpr QColor kMissingSound{0x7d, 0x2c, 0x2c};
 // The fade handles, square, on the clip's top corners.
 constexpr double kFadeHandle = 8.0;
@@ -86,13 +85,15 @@ void ReelTimeline::PaintSoundHeader(QPainter* painter, int track) const {
       managers_.history->current().reel.tracks[static_cast<size_t>(track)];
   assert(row.is_sound);
   const double top = TrackTop(track);
-  painter->setPen(theme::kTextOff);
-  painter->drawText(QRectF(4.0, top, kHeaderWidth - 8.0, 16.0),
-                    Qt::AlignLeft | Qt::AlignVCenter, TrackName(track));
+  deck::PaintLabel(painter, QRectF(0.0, top, kHeaderWidth, 17.0),
+                   TrackName(track), false, row.is_muted);
+  // Boom box buttons: black plastic keys whose letter lights up.
   const auto button = [painter](const QRectF& box, const QString& text,
                                 bool is_on, const QColor& lit) {
-    painter->fillRect(box, is_on ? lit : theme::kFaceDark);
-    painter->setPen(is_on ? theme::kShadow : theme::kTextOff);
+    painter->fillRect(box, is_on ? deck::kPlasticDark : deck::kPlasticLight);
+    painter->setPen(deck::kPlasticDark);
+    painter->drawLine(box.bottomLeft(), box.bottomRight());
+    painter->setPen(is_on ? lit : deck::kLabelShut);
     painter->drawText(box, Qt::AlignCenter, text);
   };
   button(MuteRect(track), tr("M"), row.is_muted, theme::kPick);
@@ -104,11 +105,11 @@ void ReelTimeline::PaintSoundHeader(QPainter* painter, int track) const {
   }
   // The fader: a sunken slot filled to the track's volume.
   const QRectF slot = FaderRect(track);
-  painter->fillRect(slot, theme::kShadow);
+  deck::PaintDisplay(painter, slot);
   painter->fillRect(QRectF(slot.left(), slot.top(),
                            slot.width() * GainToLevel(row.volume),
                            slot.height()),
-                    kWave.darker(130));
+                    deck::kGlowDim);
   const double knob = slot.left() + slot.width() * GainToLevel(row.volume);
   painter->fillRect(QRectF(knob - 1.5, slot.top() - 2.0, 3.0,
                            slot.height() + 4.0),
@@ -124,12 +125,16 @@ void ReelTimeline::PaintSoundBody(QPainter* painter, const Clip& clip,
   const SoundManager* sounds = managers_.sounds;
   const bool is_missing =
       sounds != nullptr && !sounds->ErrorOf(source.path).isEmpty();
-  painter->fillRect(box, is_missing ? kMissingSound : kSoundClip);
+  // A sound clip is a strip of display glass with its wave glowing on it.
+  deck::PaintDisplay(painter, box);
+  if (is_missing) {
+    painter->fillRect(box, kMissingSound);
+  }
   PaintHatch(painter, clip, box);
   // Sound under a muted track still shows, dimmed.
   const int track = FindClip(reel, clip.id).track;
   const bool is_heard = track >= 0 && IsTrackHeard(reel, track);
-  QColor wave = kWave;
+  QColor wave = deck::kGlow;
   wave.setAlphaF(is_heard ? 0.85f : 0.3f);
   const double middle = box.center().y();
   const double half = box.height() / 2.0 - 3.0;
@@ -155,11 +160,11 @@ void ReelTimeline::PaintSoundBody(QPainter* painter, const Clip& clip,
         half;
     painter->drawLine(QPointF(x, middle - level), QPointF(x, middle + level));
   }
-  painter->setPen(theme::kText);
-  painter->drawText(box.adjusted(8, 3, -4, -3), Qt::AlignLeft | Qt::AlignTop,
-                    is_missing ? tr("%1 (find file)")
-                                     .arg(QFileInfo(source.path).fileName())
-                               : QFileInfo(source.path).fileName());
+  deck::PaintGlowText(
+      painter, QRectF(box.left() + 8, box.top() + 3, box.width() - 12, 14),
+      is_missing ? tr("%1 (find file)").arg(QFileInfo(source.path).fileName())
+                 : QFileInfo(source.path).fileName(),
+      is_heard);
   // The volume line, sloping down over the fades.
   const double y = VolumeY(box, clip.volume);
   QPainterPath line(QPointF(box.left(), box.bottom() - 2.0));

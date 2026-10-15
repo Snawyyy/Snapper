@@ -9,6 +9,7 @@
 
 #include "anim/reel_timeline.h"
 #include "edit/history_manager.h"
+#include "ui/deck_paint.h"
 #include "ui/reel_timeline.h"
 #include "ui/theme.h"
 
@@ -96,8 +97,8 @@ void ReelTimeline::PaintJoints(QPainter* painter) const {
       }
       // The badge names the transition; a click on it opens it.
       const QRectF badge = BadgeRect(x, box.bottom());
-      painter->setPen(QPen(has_mix ? theme::kText : theme::kTextOff, 1.0));
-      painter->setBrush(theme::kFace);
+      painter->setPen(QPen(has_mix ? deck::kLabel : deck::kLabelShut, 1.0));
+      painter->setBrush(deck::kPlasticLight);
       painter->drawRect(badge);
       painter->drawText(badge, Qt::AlignCenter, GlyphOf(clip.out.kind));
     }
