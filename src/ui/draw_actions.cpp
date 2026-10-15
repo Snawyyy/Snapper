@@ -65,6 +65,9 @@ class WheelSkipsStarts final : public QObject {
       const bool is_drawing = !is_start && is_live;
       if (is_drawing) {
         box_->setCurrentIndex(at);
+        // A pick by the user, as a click is: what listens for picks
+        // (activated, not every index change) swaps the drawing.
+        emit box_->activated(at);
         break;
       }
       at += step;
