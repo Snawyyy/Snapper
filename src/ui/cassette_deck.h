@@ -36,6 +36,9 @@ class CassetteDeck final : public QWidget {
   void keyPressEvent(QKeyEvent* event) override;
 
  private:
+  // The dent in the panel the cassette sits in.
+  void PaintWell(QPainter* painter, const QRectF& well) const;
+  void PaintDropShadow(QPainter* painter, const QRectF& shell) const;
   void PaintShell(QPainter* painter, const QRectF& shell) const;
   void PaintLabel(QPainter* painter, const QRectF& shell) const;
   // The window band: the tape packs through the clear middle and the

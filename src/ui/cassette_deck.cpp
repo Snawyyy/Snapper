@@ -27,6 +27,13 @@ constexpr double kDegreesPerFrame = 360.0 / 24.0;
 // Pixels of drag per frame scrubbed.
 constexpr double kDragPerFrame = 3.0;
 constexpr int kHubTeeth = 6;
+// The dent the cassette sits in: its gap around the cassette and its
+// distance from the widget's edge.
+constexpr double kWellGap = 9.0;
+constexpr double kWellMargin = 3.0;
+// The cassette's shadow falls this far down and right, this soft.
+constexpr double kShadowOffset = 4.0;
+constexpr int kShadowSteps = 6;
 constexpr int kMaxRidges = 400;
 // Where the hubs sit, as shares of the shell's width and height.
 constexpr double kLeftHubX = 0.31;
@@ -106,15 +113,59 @@ void CassetteDeck::paintEvent(QPaintEvent* event) {
   QPainter painter(this);
   painter.setRenderHint(QPainter::Antialiasing, true);
   // Keep the cassette's shape whatever room the dock gives it.
-  const double room_w = width() - 8.0;
-  const double room_h = height() - 8.0;
+  const double room_w = width() - 2.0 * (kWellMargin + kWellGap);
+  const double room_h = height() - 2.0 * (kWellMargin + kWellGap);
   const double shell_w = std::min(room_w, room_h / kAspect);
   const double shell_h = shell_w * kAspect;
   const QRectF shell((width() - shell_w) / 2.0, (height() - shell_h) / 2.0,
                      shell_w, shell_h);
+  PaintWell(&painter, shell.adjusted(-kWellGap, -kWellGap, kWellGap,
+                                     kWellGap));
+  PaintDropShadow(&painter, shell);
   PaintShell(&painter, shell);
   PaintLabel(&painter, shell);
   PaintWindow(&painter, shell);
+}
+
+void CassetteDeck::PaintWell(QPainter* painter, const QRectF& well) const {
+  assert(painter != nullptr);
+  assert(well.width() > 0.0);
+  // Pressed into the panel: darker inside, the light from the top left
+  // catching its bottom and right lip, its top and left walls in shadow.
+  painter->setPen(Qt::NoPen);
+  painter->fillRect(well, theme::kFace.darker(125));
+  const double wall = kWellGap * 0.6;
+  QLinearGradient top(well.topLeft(), well.topLeft() + QPointF(0, wall));
+  top.setColorAt(0.0, QColor(0, 0, 0, 150));
+  top.setColorAt(1.0, QColor(0, 0, 0, 0));
+  painter->fillRect(QRectF(well.left(), well.top(), well.width(), wall), top);
+  QLinearGradient side(well.topLeft(), well.topLeft() + QPointF(wall, 0));
+  side.setColorAt(0.0, QColor(0, 0, 0, 120));
+  side.setColorAt(1.0, QColor(0, 0, 0, 0));
+  painter->fillRect(QRectF(well.left(), well.top(), wall, well.height()),
+                    side);
+  painter->setPen(theme::kShadow);
+  painter->drawLine(well.topLeft(), well.topRight());
+  painter->drawLine(well.topLeft(), well.bottomLeft());
+  painter->setPen(theme::kFaceLight);
+  painter->drawLine(well.bottomLeft(), well.bottomRight());
+  painter->drawLine(well.topRight(), well.bottomRight());
+}
+
+void CassetteDeck::PaintDropShadow(QPainter* painter,
+                                   const QRectF& shell) const {
+  assert(painter != nullptr);
+  assert(kShadowSteps > 0);
+  // Stacked faint copies, each a pixel wider, make a soft edge.
+  painter->setPen(Qt::NoPen);
+  const QRectF cast = shell.translated(kShadowOffset, kShadowOffset);
+  const double corner = shell.height() * 0.04;
+  for (int step = kShadowSteps; step > 0; --step) {
+    painter->setBrush(QColor(0, 0, 0, 230 / kShadowSteps));
+    const double grow = step;
+    painter->drawRoundedRect(cast.adjusted(-grow, -grow, grow, grow),
+                             corner + grow, corner + grow);
+  }
 }
 
 void CassetteDeck::PaintShell(QPainter* painter,
