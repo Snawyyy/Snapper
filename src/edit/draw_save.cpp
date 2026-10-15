@@ -165,7 +165,10 @@ std::optional<DrawManager::MirrorCopy> DrawManager::SaveMirror(
                       : has_twin    ? name
                                     : Tr("%1 flipped").arg(name);
   for (int i = 0; i < static_cast<int>(art.drawings.size()); ++i) {
-    const bool is_clash = DrawingName(art, i) == copy_name;
+    // A copy made before is redone in place; only a Krita drawing of
+    // that name pushes it to another.
+    const bool is_clash = DrawingName(art, i) == copy_name &&
+                          OwnDrawingAt(doll, piece, i) == nullptr;
     if (is_clash) {
       copy_name = Tr("%1 mirror").arg(copy_name);
       break;
@@ -210,10 +213,30 @@ Result<Project> DrawManager::WithMirror(Result<Project> next,
     return next;
   }
   Doll doll = *found;
-  FindRig(&doll.rig, copy.piece)
-      ->own_drawings.push_back(
-          OwnDrawing{copy.file, copy.name, copy.offset});
-  AddOwnDrawings(&doll);
+  RigPiece& rig = *FindRig(&doll.rig, copy.piece);
+  // The copy made last time (same piece, same name) takes the new one;
+  // its keys keep showing it.
+  const auto old = std::find_if(
+      rig.own_drawings.begin(), rig.own_drawings.end(),
+      [&copy](const OwnDrawing& own) { return own.name == copy.name; });
+  const bool is_redone = old != rig.own_drawings.end();
+  if (is_redone) {
+    const QString old_file = old->file;
+    *old = OwnDrawing{copy.file, copy.name, copy.offset};
+    for (ArtPiece& art : doll.art.pieces) {
+      const bool is_piece = art.name == copy.piece;
+      if (!is_piece) {
+        continue;
+      }
+      for (QString& drawing : art.drawings) {
+        drawing = drawing == old_file ? copy.file : drawing;
+      }
+    }
+  } else {
+    rig.own_drawings.push_back(
+        OwnDrawing{copy.file, copy.name, copy.offset});
+    AddOwnDrawings(&doll);
+  }
   next->dolls[doll_name] = std::make_shared<const Doll>(std::move(doll));
   return next;
 }
@@ -265,9 +288,9 @@ Result<void> DrawManager::Done(const QString& name) {
   }
   const QString label = is_replacing() ? Tr("Edit drawing %1").arg(trimmed)
                                        : Tr("New drawing %1").arg(trimmed);
-  // A new drawing also goes to the other side, or flipped beside itself;
-  // a new version of one stays where it is.
-  const bool wants_mirror = mirrors_ && !is_replacing();
+  // A drawing also goes to the other side, or flipped beside itself; a
+  // new version redoes the copy made before.
+  const bool wants_mirror = mirrors_;
   const auto mirror =
       wants_mirror ? SaveMirror(*doll, trimmed, folder, picture, offset)
                    : std::nullopt;

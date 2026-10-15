@@ -132,14 +132,13 @@ void DrawBar::Refresh() {
                         : tr("Show the frame before (red) faint under "
                              "yours, to trace from (D). Hold R to see "
                              "this frame as it was."));
-  // Mirroring is for a new drawing of a piece; a new version of one
-  // stays where it is.
-  const bool can_mirror = draw->is_named() && !draw->is_replacing();
+  // Mirroring is for a piece's drawings; a new version redoes its copy.
+  const bool can_mirror = draw->is_named();
   mirror_.setVisible(draw->is_named());
   mirror_.setEnabled(can_mirror);
   const QString twin = MirrorName(draw->piece());
   mirror_.setToolTip(
-      !can_mirror ? tr("A new version stays on its own piece only.")
+      !can_mirror ? QString()
       : twin != draw->piece()
           ? tr("Done also puts this drawing, flipped, on %1.").arg(twin)
           : tr("Done also keeps a flipped copy beside it, as another "
