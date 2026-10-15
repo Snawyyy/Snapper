@@ -3,13 +3,13 @@
 
 #include <QHBoxLayout>
 #include <QHash>
-#include <QLabel>
 #include <QPixmap>
 #include <QListWidget>
 #include <QMenu>
 #include <QPushButton>
 #include <QSet>
 #include <QString>
+#include <QTabWidget>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -20,16 +20,15 @@
 
 namespace snapper {
 
-class FoldSection;
 class LibraryNavBar;
 
-// Who is in the picked shot, in three plated sections (panel_kit.h).
-// Library: import a doll, reload it after a Krita re-export (marked "new
-// art"), or put it on the stage. Objects: props made from pictures, and
-// Background, a picture as the bottom layer filling the canvas. Layers
-// (folded at first; the timeline rows show the same): the shot's layers,
-// top first: pick, tick to show or hide, add pictures, text and effects,
-// copy, delete and restack. Every list picks by the one pick rule
+// Who is in the picked shot, in three tabs stacked in one area, like
+// Krita's stacked dockers; the open tab is remembered. Library: import a
+// doll, reload it after a Krita re-export (marked "new art"), or put it
+// on the stage. Objects: props made from pictures, and Background, a
+// picture as the bottom layer filling the canvas. Layers: the shot's
+// layers, top first: pick, tick to show or hide, add pictures, text and
+// effects, copy, delete and restack. Every list picks by the one pick rule
 // (PickList); Delete on cards takes unused dolls out of the project, on
 // layers deletes them.
 class CastPanel final : public QWidget {
@@ -48,6 +47,12 @@ class CastPanel final : public QWidget {
 
  private:
   void BuildLayout();
+  // The tabs' pages, each its list over its buttons.
+  QWidget* MakeLibraryPage();
+  QWidget* MakeObjectsPage();
+  QWidget* MakeLayersPage();
+  // Keeps the open tab for the next start.
+  void RememberTab(int tab) const;
   void Wire();
   void RefreshLibrary();
   // Rebuilds cards with a card per name, keeping the picked ones picked.
@@ -93,6 +98,8 @@ class CastPanel final : public QWidget {
   QStringList PickedDolls(bool is_in_project) const;
   void Report(const QString& problem) { emit Problem(problem); }
 
+  static constexpr int kLibraryTab = 0;
+
   Managers managers_;
   // Library dolls re-exported since they were last taken.
   QSet<QString> stale_;
@@ -100,8 +107,9 @@ class CastPanel final : public QWidget {
   // doll's art changes.
   QHash<QString, QPixmap> pictures_;
   QVBoxLayout layout_;
-  // The Library section's title plate (it names unconverted dolls).
-  QLabel* library_plate_ = nullptr;
+  // Library, Objects and Layers; the Library tab names unconverted
+  // dolls.
+  QTabWidget* tabs_ = nullptr;
   LibraryNavBar* nav_ = nullptr;
   DollCards library_;
   QHBoxLayout library_buttons_;
@@ -112,7 +120,6 @@ class CastPanel final : public QWidget {
   QHBoxLayout object_buttons_;
   QPushButton add_objects_;
   QPushButton background_;
-  FoldSection* layers_fold_ = nullptr;
   QListWidget layers_;
   QHBoxLayout layer_buttons_;
   QToolButton add_;

@@ -1,5 +1,7 @@
 #include "ui/cast_panel.h"
 
+#include <QSettings>
+
 #include <cassert>
 #include <variant>
 
@@ -10,7 +12,6 @@
 #include "edit/stage_manager.h"
 #include "edit/document_manager.h"
 #include "ui/doll_drop.h"
-#include "ui/fold_section.h"
 #include "ui/library_nav_bar.h"
 #include "ui/panel_kit.h"
 #include "ui/pick_list.h"
@@ -19,6 +20,12 @@
 #include "ui/toast_queue.h"
 
 namespace snapper {
+namespace {
+
+constexpr char kTabKey[] = "cast_tab";
+
+}  // namespace
+
 CastPanel::CastPanel(const Managers& managers)
     : managers_(managers),
       layout_(this),
@@ -42,63 +49,30 @@ CastPanel::CastPanel(const Managers& managers)
 
 void CastPanel::BuildLayout() {
   assert(layout_.count() == 0);
+  assert(tabs_ == nullptr);
   layout_.setContentsMargins(4, 4, 4, 4);
   layout_.setSpacing(theme::kRowGap);
-  library_buttons_.addWidget(&import_);
-  library_buttons_.addWidget(&reload_);
-  library_buttons_.addWidget(&place_);
-  add_.setText(tr("Add"));
-  add_.setMenu(&add_menu_);
-  add_menu_.setToolTipsVisible(true);
-  add_.setPopupMode(QToolButton::InstantPopup);
-  for (QWidget* button : {static_cast<QWidget*>(&add_),
-                          static_cast<QWidget*>(&copy_),
-                          static_cast<QWidget*>(&remove_),
-                          static_cast<QWidget*>(&up_),
-                          static_cast<QWidget*>(&down_)}) {
-    layer_buttons_.addWidget(button);
+  tabs_ = MakeOwned<QTabWidget>(this);
+  tabs_->setDocumentMode(true);
+  QWidget* library = MakeLibraryPage();
+  // Layers is made before Objects so the layer list stays the second
+  // list among the children.
+  QWidget* layers = MakeLayersPage();
+  QWidget* objects = MakeObjectsPage();
+  tabs_->addTab(library, tr("Library"));
+  tabs_->addTab(objects, tr("Objects"));
+  const int layers_tab = tabs_->addTab(layers, tr("Layers"));
+  tabs_->setTabToolTip(layers_tab, tr("The shot's layers, top first; "
+                                       "the timeline rows show the same."));
+  const QString settings_path = managers_.document->SettingsPath();
+  const bool is_saved = !settings_path.isEmpty();
+  if (is_saved) {
+    const QSettings settings(settings_path, QSettings::IniFormat);
+    tabs_->setCurrentIndex(settings.value(kTabKey, kLibraryTab).toInt());
   }
-  // Library: the dolls, with their buttons under them.
-  auto* library_body = MakeOwned<QWidget>(this);
-  auto* library_column = MakeOwned<QVBoxLayout>(library_body);
-  library_column->setContentsMargins(0, 0, 0, 0);
-  const bool has_folders = managers_.library_folders != nullptr;
-  if (has_folders) {
-    nav_ = MakeOwned<LibraryNavBar>(managers_);
-    library_column->addWidget(nav_);
-    library_.AcceptDollsOnFolders();
-  }
-  library_column->addWidget(&library_, 1);
-  library_column->addLayout(&library_buttons_);
-  QWidget* library = PlatedSection(tr("Library"), library_body, this);
-  library_plate_ = library->findChild<QLabel*>(QStringLiteral("plate"));
-  assert(library_plate_ != nullptr);
-  // Layers: folded at first, as the timeline rows show the same. It is
-  // made before Objects so the layer list stays the second list among
-  // the children.
-  layers_fold_ = MakeOwned<FoldSection>(
-      tr("Layers (top first)"), managers_.motion,
-      managers_.document->SettingsPath(), QStringLiteral("cast_layers"),
-      this, false);
-  auto* layer_bar = MakeOwned<QWidget>(layers_fold_);
-  layer_bar->setLayout(&layer_buttons_);
-  layer_buttons_.setContentsMargins(0, 0, 0, 0);
-  layers_fold_->form()->addRow(&layers_);
-  layers_fold_->form()->addRow(layer_bar);
-  // Objects: props from pictures, and the Background quick add.
-  object_buttons_.addWidget(&add_objects_);
-  object_buttons_.addWidget(&background_);
-  object_buttons_.addStretch(1);
-  auto* objects_body = MakeOwned<QWidget>(this);
-  auto* objects_column = MakeOwned<QVBoxLayout>(objects_body);
-  objects_column->setContentsMargins(0, 0, 0, 0);
-  objects_column->addWidget(&objects_, 1);
-  objects_column->addLayout(&object_buttons_);
-  QWidget* objects = PlatedSection(tr("Objects"), objects_body, this);
-  layout_.addWidget(library, 1);
-  layout_.addWidget(objects, 1);
-  layout_.addWidget(layers_fold_, 0);
-  layout_.addStretch(0);
+  connect(tabs_, &QTabWidget::currentChanged, this,
+          &CastPanel::RememberTab);
+  layout_.addWidget(tabs_, 1);
   objects_.SetEmptyText(
       tr("Drop PNG or GIF pictures here, or on the stage."));
   objects_.AcceptFiles();
@@ -117,6 +91,73 @@ void CastPanel::BuildLayout() {
   connect(&objects_, &DollCards::DeleteAsked, this,
           [this] { TakeOut(objects_); });
   assert(layout_.count() > 0);
+}
+
+void CastPanel::RememberTab(int tab) const {
+  assert(tab >= -1);
+  assert(managers_.document != nullptr);
+  const QString settings_path = managers_.document->SettingsPath();
+  const bool is_saved = !settings_path.isEmpty() && tab >= 0;
+  if (is_saved) {
+    QSettings settings(settings_path, QSettings::IniFormat);
+    settings.setValue(kTabKey, tab);
+  }
+}
+
+QWidget* CastPanel::MakeLibraryPage() {
+  assert(tabs_ != nullptr);
+  assert(library_buttons_.count() == 0);
+  library_buttons_.addWidget(&import_);
+  library_buttons_.addWidget(&reload_);
+  library_buttons_.addWidget(&place_);
+  auto* page = MakeOwned<QWidget>(this);
+  auto* column = MakeOwned<QVBoxLayout>(page);
+  column->setContentsMargins(4, 4, 4, 4);
+  const bool has_folders = managers_.library_folders != nullptr;
+  if (has_folders) {
+    nav_ = MakeOwned<LibraryNavBar>(managers_);
+    column->addWidget(nav_);
+    library_.AcceptDollsOnFolders();
+  }
+  column->addWidget(&library_, 1);
+  column->addLayout(&library_buttons_);
+  return page;
+}
+
+QWidget* CastPanel::MakeObjectsPage() {
+  assert(tabs_ != nullptr);
+  assert(object_buttons_.count() == 0);
+  object_buttons_.addWidget(&add_objects_);
+  object_buttons_.addWidget(&background_);
+  object_buttons_.addStretch(1);
+  auto* page = MakeOwned<QWidget>(this);
+  auto* column = MakeOwned<QVBoxLayout>(page);
+  column->setContentsMargins(4, 4, 4, 4);
+  column->addWidget(&objects_, 1);
+  column->addLayout(&object_buttons_);
+  return page;
+}
+
+QWidget* CastPanel::MakeLayersPage() {
+  assert(tabs_ != nullptr);
+  assert(layer_buttons_.count() == 0);
+  add_.setText(tr("Add"));
+  add_.setMenu(&add_menu_);
+  add_menu_.setToolTipsVisible(true);
+  add_.setPopupMode(QToolButton::InstantPopup);
+  for (QWidget* button : {static_cast<QWidget*>(&add_),
+                          static_cast<QWidget*>(&copy_),
+                          static_cast<QWidget*>(&remove_),
+                          static_cast<QWidget*>(&up_),
+                          static_cast<QWidget*>(&down_)}) {
+    layer_buttons_.addWidget(button);
+  }
+  auto* page = MakeOwned<QWidget>(this);
+  auto* column = MakeOwned<QVBoxLayout>(page);
+  column->setContentsMargins(4, 4, 4, 4);
+  column->addWidget(&layers_, 1);
+  column->addLayout(&layer_buttons_);
+  return page;
 }
 
 void CastPanel::Wire() {

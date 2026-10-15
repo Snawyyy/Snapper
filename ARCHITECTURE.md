@@ -1492,11 +1492,12 @@ its own when the stage picks something. With references picked,
 every reference row, Delete remove the picked ones as one undo step
 (`RemovePicked`) and Escape let them go.
 
-The Cast panel is three plated sections: Library (doll cards), Objects
-(object cards, Add pictures and Background, which puts a picture under
-every layer scaled to cover the canvas: `StageManager::AddBackground`)
-and Layers (a `FoldSection`, folded at first as the timeline rows show
-the same). Delete on cards takes the picked dolls out of the project as
+The Cast panel is three tabs stacked in one area, like Krita's stacked
+dockers (the open one kept in the settings file as `cast_tab`): Library
+(doll cards), Objects (object cards, Add pictures and Background, which
+puts a picture under every layer scaled to cover the canvas:
+`StageManager::AddBackground`) and Layers (the shot's layers, top
+first). Delete on cards takes the picked dolls out of the project as
 one undo step (the library refuses ones still on a layer and says why).
 The rig panel is plated sections too: Doll, Look, Skins and IK chains
 with a doll; Joint and Warp with a piece; Collider only while the piece

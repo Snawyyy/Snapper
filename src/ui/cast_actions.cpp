@@ -154,11 +154,11 @@ void CastPanel::RefreshLibrary() {
   }
   const QStringList& problems = managers_.library->conversion_problems();
   const bool has_problems = !problems.isEmpty();
-  library_plate_->setText(has_problems
-                              ? tr("Library (%1 old doll(s) not "
-                                   "converted)").arg(problems.size())
-                              : tr("Library"));
-  library_plate_->setToolTip(problems.join("\n"));
+  tabs_->setTabText(kLibraryTab,
+                    has_problems ? tr("Library (%1 old doll(s) not "
+                                      "converted)").arg(problems.size())
+                                 : tr("Library"));
+  tabs_->setTabToolTip(kLibraryTab, problems.join("\n"));
   RefreshButtons();
 }
 
