@@ -1,6 +1,7 @@
 #ifndef SNAPPER_UI_DIVIDER_TABS_H_
 #define SNAPPER_UI_DIVIDER_TABS_H_
 
+#include <QMargins>
 #include <QSize>
 #include <QTabBar>
 #include <QTabWidget>
@@ -29,12 +30,21 @@ class DividerTabBar final : public QTabBar {
   void PaintTab(QPainter* painter, int index, int depth) const;
 };
 
-// A QTabWidget whose bar is a DividerTabBar.
+// A QTabWidget whose bar is a DividerTabBar and whose page is drawn as
+// the open divider's sheet of paper lying on the others: one piece with
+// its tab, the sheets under it peeking out at the right and bottom, and
+// its shadow on them. Pages should leave PageMargins() clear so their
+// contents stay on the sheet.
 class DividerTabs final : public QTabWidget {
   Q_OBJECT
 
  public:
   explicit DividerTabs(QWidget* parent);
+
+  static QMargins PageMargins();
+
+ protected:
+  void paintEvent(QPaintEvent* event) override;
 };
 
 }  // namespace snapper

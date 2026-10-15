@@ -116,7 +116,7 @@ QWidget* CastPanel::MakeLibraryPage() {
   library_buttons_.addWidget(&place_);
   auto* page = MakeOwned<QWidget>(this);
   auto* column = MakeOwned<QVBoxLayout>(page);
-  column->setContentsMargins(4, 4, 4, 4);
+  column->setContentsMargins(DividerTabs::PageMargins());
   const bool has_folders = managers_.library_folders != nullptr;
   if (has_folders) {
     nav_ = MakeOwned<LibraryNavBar>(managers_);
@@ -136,7 +136,7 @@ QWidget* CastPanel::MakeObjectsPage() {
   object_buttons_.addStretch(1);
   auto* page = MakeOwned<QWidget>(this);
   auto* column = MakeOwned<QVBoxLayout>(page);
-  column->setContentsMargins(4, 4, 4, 4);
+  column->setContentsMargins(DividerTabs::PageMargins());
   column->addWidget(&objects_, 1);
   column->addLayout(&object_buttons_);
   return page;
@@ -158,7 +158,7 @@ QWidget* CastPanel::MakeLayersPage() {
   }
   auto* page = MakeOwned<QWidget>(this);
   auto* column = MakeOwned<QVBoxLayout>(page);
-  column->setContentsMargins(4, 4, 4, 4);
+  column->setContentsMargins(DividerTabs::PageMargins());
   column->addWidget(&layers_, 1);
   column->addLayout(&layer_buttons_);
   return page;

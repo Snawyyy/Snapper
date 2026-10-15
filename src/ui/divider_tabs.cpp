@@ -2,6 +2,7 @@
 
 #include <QCursor>
 #include <QLinearGradient>
+#include <QPaintEvent>
 #include <QPainter>
 
 #include <algorithm>
@@ -24,6 +25,10 @@ constexpr double kOverlap = 8.0;
 constexpr double kShadow = 6.0;
 constexpr double kSheet = 3.0;
 constexpr int kMaxTabs = 64;
+// The sheets under the open one: how many peek out and how far each.
+constexpr int kUnderSheets = 2;
+constexpr double kUnderStep = 3.0;
+constexpr int kPagePad = 6;
 
 }  // namespace
 
@@ -59,8 +64,6 @@ void DividerTabBar::paintEvent(QPaintEvent* event) {
   }
   const bool has_open = open < count();
   if (has_open) {
-    painter.fillRect(QRectF(0.0, height() - kSheet, width(), kSheet),
-                     theme::kFace);
     PaintTab(&painter, open, 0);
   }
 }
@@ -94,9 +97,12 @@ void DividerTabBar::PaintTab(QPainter* painter, int index, int depth) const {
     fill = fill.darker(is_hot ? dark - kHoverLift : dark);
   }
   painter->fillRect(tab, fill);
-  // The sheet's cut edge catches the light.
+  // The paper's cut edges: lit at the top and left, dark at the right.
   painter->setPen(fill.lighter(140));
   painter->drawLine(tab.topLeft(), tab.topRight());
+  painter->drawLine(tab.topLeft(), tab.bottomLeft());
+  painter->setPen(fill.darker(150));
+  painter->drawLine(tab.topRight(), tab.bottomRight());
   painter->setPen(is_open ? theme::kText : theme::kTextOff);
   painter->drawText(slot, Qt::AlignCenter, tabText(index));
 }
@@ -106,6 +112,46 @@ DividerTabs::DividerTabs(QWidget* parent) : QTabWidget(parent) {
   // The widget owns its bar.
   setTabBar(std::make_unique<DividerTabBar>(this).release());
   assert(tabBar() != nullptr);
+}
+
+QMargins DividerTabs::PageMargins() {
+  assert(kPagePad > 0);
+  const int under = static_cast<int>(kUnderSheets * kUnderStep);
+  assert(under >= 0);
+  return {kPagePad, kPagePad, kPagePad + under, kPagePad + under};
+}
+
+void DividerTabs::paintEvent(QPaintEvent* event) {
+  assert(event != nullptr);
+  assert(tabBar() != nullptr);
+  QPainter painter(this);
+  const double under = kUnderSheets * kUnderStep;
+  // The sheet starts under the tabs' foot, so the open tab joins it.
+  const double top = tabBar()->geometry().bottom() + 1.0 - kSheet;
+  const QRectF sheet(0.0, top, width() - under, height() - top - under);
+  for (int step = kUnderSheets; step > 0; --step) {
+    const QRectF below = sheet.translated(step * kUnderStep,
+                                          step * kUnderStep);
+    const QColor paper = theme::kFace.darker(kFirstShut +
+                                             kDarkerPerSheet * (step - 1));
+    painter.fillRect(below, paper);
+    painter.setPen(paper.darker(130));
+    painter.drawRect(below.adjusted(0.0, 0.0, -1.0, -1.0));
+  }
+  // The open sheet's shadow on the ones under it.
+  for (int ring = 1; ring <= kUnderSheets * 2; ++ring) {
+    painter.fillRect(sheet.translated(ring * 0.75, ring * 0.75),
+                     QColor(0, 0, 0, 22));
+  }
+  painter.fillRect(sheet, theme::kFace);
+  // Lit cut edges at the top and left; the open tab covers the top one
+  // where it joins.
+  painter.setPen(theme::kFace.lighter(140));
+  painter.drawLine(sheet.topLeft(), sheet.topRight());
+  painter.drawLine(sheet.topLeft(), sheet.bottomLeft());
+  painter.setPen(theme::kFace.darker(150));
+  painter.drawLine(sheet.bottomLeft(), sheet.bottomRight());
+  painter.drawLine(sheet.topRight(), sheet.bottomRight());
 }
 
 }  // namespace snapper
