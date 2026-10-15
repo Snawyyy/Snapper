@@ -1,8 +1,11 @@
 #include "ui/cast_panel.h"
 
+#include <QAbstractButton>
+#include <QHBoxLayout>
 #include <QSettings>
 
 #include <cassert>
+#include <initializer_list>
 #include <variant>
 
 #include "edit/doll_library_manager.h"
@@ -25,6 +28,19 @@ namespace snapper {
 namespace {
 
 constexpr char kTabKey[] = "cast_tab";
+
+// Every tab's buttons are one row of equal keys across the page, so the
+// row reads the same whichever tab is open.
+void FillKeyRow(QHBoxLayout* row,
+                std::initializer_list<QAbstractButton*> keys) {
+  assert(row != nullptr);
+  assert(keys.size() > 0);
+  row->setSpacing(kTileGap);
+  for (QAbstractButton* key : keys) {
+    key->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    row->addWidget(key, 1);
+  }
+}
 
 }  // namespace
 
@@ -111,9 +127,7 @@ void CastPanel::RememberTab(int tab) const {
 QWidget* CastPanel::MakeLibraryPage() {
   assert(tabs_ != nullptr);
   assert(library_buttons_.count() == 0);
-  library_buttons_.addWidget(&import_);
-  library_buttons_.addWidget(&reload_);
-  library_buttons_.addWidget(&place_);
+  FillKeyRow(&library_buttons_, {&import_, &reload_, &place_});
   auto* page = MakeOwned<QWidget>(this);
   auto* column = MakeOwned<QVBoxLayout>(page);
   column->setContentsMargins(DividerTabs::PageMargins());
@@ -131,9 +145,7 @@ QWidget* CastPanel::MakeLibraryPage() {
 QWidget* CastPanel::MakeObjectsPage() {
   assert(tabs_ != nullptr);
   assert(object_buttons_.count() == 0);
-  object_buttons_.addWidget(&add_objects_);
-  object_buttons_.addWidget(&background_);
-  object_buttons_.addStretch(1);
+  FillKeyRow(&object_buttons_, {&add_objects_, &background_});
   auto* page = MakeOwned<QWidget>(this);
   auto* column = MakeOwned<QVBoxLayout>(page);
   column->setContentsMargins(DividerTabs::PageMargins());
@@ -149,13 +161,7 @@ QWidget* CastPanel::MakeLayersPage() {
   add_.setMenu(&add_menu_);
   add_menu_.setToolTipsVisible(true);
   add_.setPopupMode(QToolButton::InstantPopup);
-  for (QWidget* button : {static_cast<QWidget*>(&add_),
-                          static_cast<QWidget*>(&copy_),
-                          static_cast<QWidget*>(&remove_),
-                          static_cast<QWidget*>(&up_),
-                          static_cast<QWidget*>(&down_)}) {
-    layer_buttons_.addWidget(button);
-  }
+  FillKeyRow(&layer_buttons_, {&add_, &copy_, &remove_, &up_, &down_});
   auto* page = MakeOwned<QWidget>(this);
   auto* column = MakeOwned<QVBoxLayout>(page);
   column->setContentsMargins(DividerTabs::PageMargins());
