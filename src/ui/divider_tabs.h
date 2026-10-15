@@ -9,10 +9,10 @@ class QPaintEvent;
 
 namespace snapper {
 
-// Tabs drawn as the coloured tabs of index page dividers: each its own
-// colour, slanted at the sides. The open one shows its full colour and
-// a strip of it runs under the bar like the divider's sheet; the rest
-// are darkened.
+// Tabs drawn as the tabs of index page dividers: plain rectangles with
+// a gap between. The open one keeps the panel's colour and runs into a
+// strip of it under the bar like the divider's sheet; the rest are
+// darkened, never the open one lightened.
 class DividerTabBar final : public QTabBar {
   Q_OBJECT
 
