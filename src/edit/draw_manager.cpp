@@ -194,10 +194,26 @@ Result<void> DrawManager::Start(const TrackRef& track, Frame frame, int from,
                ? Tr("Drawing: copy of %1 (%2)")
                      .arg(DrawingName(art, from), track.piece)
                : Tr("Drawing: %1 (%2)").arg(default_name_, track.piece);
-  onions_ = {reference_};
   flipped_ = -1;
   StackPages(static_cast<int>(art.drawings.size()), from >= 0 ? from : shown,
              replaces);
+  // The onion is the pages either side of the new one in the stack, as
+  // an animator lays the drawings before and after under an in-between;
+  // with none, the drawing it started from.
+  onions_.clear();
+  for (const int side : {page_ - 1, page_ + 1}) {
+    const bool is_page =
+        side >= 0 && side < static_cast<int>(pages_.size()) &&
+        pages_[static_cast<size_t>(side)] >= 0;
+    if (is_page) {
+      onions_.push_back(DrawingImage(doll, track.piece,
+                                     pages_[static_cast<size_t>(side)],
+                                     art.size));
+    }
+  }
+  if (onions_.empty()) {
+    onions_ = {reference_};
+  }
   Open();
   return {};
 }
