@@ -1,24 +1,41 @@
 // CastPanel's library folders: the folder cards, their menus, and moving
 // dolls into them.
 
-#include <QApplication>
 #include <QIcon>
 #include <QListWidgetItem>
 #include <QMenu>
+#include <QPainter>
+#include <QPixmap>
 #include <QSignalBlocker>
-#include <QStyle>
 
 #include <cassert>
 #include <memory>
 
 #include "edit/library_folder_manager.h"
 #include "ui/cast_panel.h"
+#include "ui/deck_paint.h"
 #include "ui/library_folder_prompts.h"
+#include "ui/theme.h"
 
 namespace snapper {
 namespace {
 
 constexpr int kKeyRole = Qt::UserRole;
+
+// A folder card is a tape case standing on end: a black shell with a
+// cream label and a red band, the deck's own look, not the desktop's.
+QIcon TapeCaseIcon(const QSize& size) {
+  assert(size.width() > 8 && size.height() > 8);
+  assert(theme::kPick.isValid());
+  QPixmap picture(size);
+  picture.fill(Qt::transparent);
+  QPainter painter(&picture);
+  const int width = size.width() * 3 / 5;
+  const QRectF spine((size.width() - width) / 2.0, 2.0, width,
+                     size.height() - 4.0);
+  deck::PaintCassette(&painter, spine, theme::kPick, QString(), false);
+  return QIcon(picture);
+}
 
 QString PathIn(const QString& parent, const QString& name) {
   assert(!name.contains('/'));
@@ -37,8 +54,7 @@ void CastPanel::AddFolderCards() {
   }
   assert(library_.count() >= 0);
   const QSignalBlocker quiet(&library_);
-  const QIcon folder_icon =
-      QApplication::style()->standardIcon(QStyle::SP_DirIcon);
+  const QIcon folder_icon = TapeCaseIcon(library_.iconSize());
   const QStringList names = folders->FoldersIn(folders->current());
   int at = 0;
   for (const QString& name : names) {
