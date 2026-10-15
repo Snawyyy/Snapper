@@ -14,7 +14,9 @@
 #include <memory>
 
 #include "ui/crt_effect.h"
+#include "ui/section_bar.h"
 #include "ui/snapper_accents.h"
+#include "ui/style_bevel.h"
 #include "ui/theme.h"
 
 namespace snapper {
@@ -40,51 +42,6 @@ double HoverOf(const QStyleOption* option, const QWidget* widget) {
   const bool is_fading = faded.isValid();
   return is_fading ? std::clamp(faded.toDouble(), 0.0, 1.0)
                    : (is_over ? 1.0 : 0.0);
-}
-
-// A one pixel bevel: light on the top and left, shadow on the bottom and
-// right, or the other way round when sunk.
-void DrawBevel(QPainter* painter, const QRect& rect, const QColor& fill,
-               bool is_sunk) {
-  assert(painter != nullptr);
-  assert(fill.isValid());
-  // A squeezed widget (a combo box in a narrow panel) leaves no room.
-  const bool has_room = rect.isValid();
-  if (!has_room) {
-    return;
-  }
-  painter->fillRect(rect, fill);
-  const QColor top_left = is_sunk ? theme::kShadow : theme::kFaceLight;
-  const QColor bottom_right = is_sunk ? theme::kFaceLight : theme::kShadow;
-  painter->setPen(top_left);
-  painter->drawLine(rect.topLeft(), rect.topRight());
-  painter->drawLine(rect.topLeft(), rect.bottomLeft());
-  painter->setPen(bottom_right);
-  painter->drawLine(rect.bottomLeft(), rect.bottomRight());
-  painter->drawLine(rect.topRight(), rect.bottomRight());
-  const bool is_raised = !is_sunk;
-  if (is_raised) {
-    const QRect inner = rect.adjusted(1, 1, -1, -1);
-    painter->setPen(theme::kFaceDark);
-    painter->drawLine(inner.bottomLeft(), inner.bottomRight());
-    painter->drawLine(inner.topRight(), inner.bottomRight());
-  }
-}
-
-// A square sunken frame with no fill: shadow on the top and left, light
-// on the bottom and right. Group boxes are drawn so, like the frames of
-// the panel kit.
-void DrawSunkenFrame(QPainter* painter, const QRect& rect) {
-  assert(painter != nullptr);
-  assert(rect.isValid());
-  painter->save();
-  painter->setPen(theme::kShadow);
-  painter->drawLine(rect.topLeft(), rect.topRight());
-  painter->drawLine(rect.topLeft(), rect.bottomLeft());
-  painter->setPen(theme::kFaceLight);
-  painter->drawLine(rect.bottomLeft(), rect.bottomRight());
-  painter->drawLine(rect.topRight(), rect.bottomRight());
-  painter->restore();
 }
 
 void DrawButton(const QStyleOption* option, QPainter* painter,
@@ -252,6 +209,14 @@ void SnapperStyle::drawPrimitive(PrimitiveElement element,
   }
   if (is_button) {
     DrawButton(option, painter, widget);
+    // A fold's header is a section bar: it wears the red strip too.
+    const bool is_bar = widget != nullptr &&
+                        widget->property("titlePlate").toBool();
+    if (is_bar) {
+      const QRect box = option->rect;
+      DrawAccentStrip(painter, QRect(box.left() + 1, box.top() + 1, 3,
+                                     box.height() - 2));
+    }
     return;
   }
   QProxyStyle::drawPrimitive(element, option, painter, widget);
@@ -275,6 +240,19 @@ void SnapperStyle::drawControl(ControlElement element,
     const QRect box = option->rect;
     DrawAccentStrip(painter, QRect(box.left() + 1, box.top() + 1, 3,
                                    box.height() - 2));
+    return;
+  }
+  // A fold's header spans the panel; its arrow and title keep left.
+  const auto* tool = qstyleoption_cast<const QStyleOptionToolButton*>(option);
+  const bool is_bar_label = element == CE_ToolButtonLabel && tool != nullptr &&
+                            widget != nullptr &&
+                            widget->property("titlePlate").toBool();
+  if (is_bar_label) {
+    QStyleOptionToolButton left = *tool;
+    left.rect.setLeft(left.rect.left() + 6);
+    left.rect.setWidth(std::min(left.rect.width(),
+                                widget->sizeHint().width()));
+    QProxyStyle::drawControl(element, &left, painter, widget);
     return;
   }
   const bool is_tab_shape = element == CE_TabBarTabShape && tab != nullptr;
@@ -315,6 +293,14 @@ void SnapperStyle::drawComplexControl(ComplexControl control,
                                       const QWidget* widget) const {
   assert(option != nullptr);
   assert(painter != nullptr);
+  const auto* group = qstyleoption_cast<const QStyleOptionGroupBox*>(option);
+  const bool is_section = control == CC_GroupBox && group != nullptr &&
+                          !group->subControls.testFlag(SC_GroupBoxCheckBox);
+  if (is_section) {
+    DrawSection(painter, *group,
+                widget != nullptr ? widget->font() : painter->font());
+    return;
+  }
   const auto* combo = qstyleoption_cast<const QStyleOptionComboBox*>(option);
   const bool is_combo = control == CC_ComboBox && combo != nullptr;
   if (!is_combo) {
@@ -360,6 +346,22 @@ int SnapperStyle::pixelMetric(PixelMetric metric, const QStyleOption* option,
     return kGripExtent;
   }
   return QProxyStyle::pixelMetric(metric, option, widget);
+}
+
+QRect SnapperStyle::subControlRect(ComplexControl control,
+                                  const QStyleOptionComplex* option,
+                                  SubControl part,
+                                  const QWidget* widget) const {
+  assert(option != nullptr);
+  assert(baseStyle() != nullptr);
+  const auto* group = qstyleoption_cast<const QStyleOptionGroupBox*>(option);
+  const bool is_section = control == CC_GroupBox && group != nullptr &&
+                          !group->subControls.testFlag(SC_GroupBoxCheckBox);
+  if (!is_section) {
+    return QProxyStyle::subControlRect(control, option, part, widget);
+  }
+  return SectionPart(part, option->rect,
+                     widget != nullptr ? widget->font() : QFont());
 }
 
 void SnapperStyle::polish(QWidget* widget) {

@@ -66,6 +66,11 @@ class SnapperStyle final : public QProxyStyle {
                           const QStyleOptionComplex* option,
                           QPainter* painter,
                           const QWidget* widget) const override;
+  // Group boxes lay out as sections: a title bar over a well.
+  QRect subControlRect(ComplexControl control,
+                       const QStyleOptionComplex* option,
+                       SubControl part,
+                       const QWidget* widget) const override;
   // A dropdown takes the full width it is given and opens a sunken list.
   void polish(QWidget* widget) override;
   using QProxyStyle::polish;
