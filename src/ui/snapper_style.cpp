@@ -381,6 +381,15 @@ void SnapperStyle::polish(QWidget* widget) {
     // The widget owns it.
     widget->setGraphicsEffect(std::make_unique<CrtEffect>().release());
   }
+  // Lists and grids are wells: a shade up from the fields, so what they
+  // hold sits on a surface, not in a hole.
+  auto* view = qobject_cast<QAbstractItemView*>(widget);
+  const bool is_view = view != nullptr;
+  if (is_view) {
+    QPalette well = view->palette();
+    well.setColor(QPalette::Base, theme::kWell);
+    view->setPalette(well);
+  }
   auto* combo = qobject_cast<QComboBox*>(widget);
   const bool is_combo = combo != nullptr;
   if (!is_combo) {
