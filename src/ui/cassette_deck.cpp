@@ -22,6 +22,8 @@ namespace {
 constexpr double kAspect = 0.64;
 constexpr int kMinWidth = 160;
 constexpr int kHintWidth = 240;
+// Room kept clear between the cassette and the panel's edges.
+constexpr int kMargin = 18;
 // A reel turns this far each frame: one turn a second at 24 frames.
 constexpr double kDegreesPerFrame = 360.0 / 24.0;
 // Pixels of drag per frame scrubbed.
@@ -83,7 +85,7 @@ CassetteDeck::CassetteDeck(const Managers& managers) : managers_(managers) {
 int CassetteDeck::heightForWidth(int width) const {
   assert(width >= 0);
   assert(kAspect > 0.0);
-  return static_cast<int>(width * kAspect);
+  return static_cast<int>((width - 2 * kMargin) * kAspect) + 2 * kMargin;
 }
 
 QSize CassetteDeck::sizeHint() const {
@@ -110,8 +112,8 @@ void CassetteDeck::paintEvent(QPaintEvent* event) {
   QPainter painter(this);
   painter.setRenderHint(QPainter::Antialiasing, true);
   // Keep the cassette's shape whatever room the dock gives it.
-  const double room_w = width();
-  const double room_h = height();
+  const double room_w = width() - 2.0 * kMargin;
+  const double room_h = height() - 2.0 * kMargin;
   const double shell_w = std::min(room_w, room_h / kAspect);
   const double shell_h = shell_w * kAspect;
   const QRectF shell((width() - shell_w) / 2.0, (height() - shell_h) / 2.0,
