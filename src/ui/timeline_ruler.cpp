@@ -42,12 +42,14 @@ void PaintMark(QPainter* painter, double x, int frame, bool has_label,
   const bool is_second = frame % kFramesPerSecond == 0;
   const bool is_two = frame % 2 == 0;
   painter->setPen(is_second ? kPrintBright : kPrintDim);
-  const double tick = is_second ? kRulerHeight : (is_two ? 6.0 : 3.0);
+  // Ticks stand short under the numbers, as printed on a dial, so no
+  // line runs through a number.
+  const double tick = is_second ? 6.0 : (is_two ? 4.0 : 2.0);
   painter->drawLine(QPointF(x, kRulerHeight - tick),
                     QPointF(x, kRulerHeight));
   if (has_label) {
     painter->drawText(QRectF(label_x - kMinLabelGap / 2.0, 0, kMinLabelGap,
-                             kRulerHeight - 4),
+                             kRulerHeight - 5),
                       Qt::AlignHCenter | Qt::AlignVCenter,
                       QString::number(frame));
   }

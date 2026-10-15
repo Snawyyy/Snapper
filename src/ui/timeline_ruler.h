@@ -9,7 +9,7 @@
 namespace snapper {
 
 // Ruler numbers stay this many pixels apart, and ticks this many.
-inline constexpr double kMinLabelGap = 24.0;
+inline constexpr double kMinLabelGap = 40.0;
 inline constexpr double kMinTickGap = 3.0;
 
 // The fewest frames between marks that keeps them min_gap pixels apart
