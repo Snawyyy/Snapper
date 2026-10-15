@@ -178,9 +178,9 @@ void CastPanel::FillCards(DollCards* cards, const QStringList& names) {
     const bool is_stale = is_in && stale_.contains(name);
     const bool is_in_shot =
         IsInShot(project, managers_.selection->shot(), name);
-    const QString badge = is_stale     ? tr("NEW ART")
-                          : is_in_shot ? tr("IN SHOT")
-                          : is_in      ? tr("in project")
+    const QString badge = is_stale     ? tr("New art")
+                          : is_in_shot ? tr("In shot")
+                          : is_in      ? tr("In project")
                                        : QString();
     cards->addItem(badge.isEmpty() ? name : name + "\n" + badge);
     QListWidgetItem* item = cards->item(cards->count() - 1);
