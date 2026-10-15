@@ -23,12 +23,12 @@ constexpr int kPrintPad = 10;
 // The round dimple's share of the top's short side.
 constexpr double kDimpleShare = 0.82;
 constexpr double kGlyphShare = 0.42;
-constexpr QColor kTopLight{0x44, 0x44, 0x48};
-constexpr QColor kTopDark{0x26, 0x26, 0x29};
-constexpr QColor kFrontLight{0x16, 0x16, 0x18};
-constexpr QColor kFrontDark{0x08, 0x08, 0x09};
-constexpr QColor kRidge{0x5e, 0x5e, 0x64};
-constexpr QColor kPrint{0xc8, 0xc8, 0xcc};
+constexpr QColor kTopLight{0x48, 0x45, 0x42};
+constexpr QColor kTopDark{0x2a, 0x27, 0x24};
+constexpr QColor kFrontLight{0x19, 0x16, 0x13};
+constexpr QColor kFrontDark{0x0b, 0x08, 0x05};
+constexpr QColor kRidge{0x63, 0x60, 0x5d};
+constexpr QColor kPrint{0xcc, 0xc9, 0xc6};
 
 // A triangle size tall pointing right (or left), its back at x.
 void AddTriangle(QPainterPath* path, double x, double mid_y, double size,
@@ -82,8 +82,8 @@ void PaintDimple(QPainter* painter, const QRectF& cup) {
   assert(painter != nullptr);
   assert(cup.width() > 0.0);
   QLinearGradient bowl(cup.topLeft(), cup.bottomLeft());
-  bowl.setColorAt(0.0, QColor(0x08, 0x08, 0x0a));
-  bowl.setColorAt(1.0, QColor(0x30, 0x30, 0x34));
+  bowl.setColorAt(0.0, QColor(0x0b, 0x08, 0x05));
+  bowl.setColorAt(1.0, QColor(0x34, 0x31, 0x2e));
   painter->setPen(Qt::NoPen);
   painter->setBrush(bowl);
   painter->drawEllipse(cup);

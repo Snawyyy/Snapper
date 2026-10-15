@@ -62,7 +62,7 @@ void GlassDoor::Paint(QPainter* painter, const QRectF& opening) const {
   painter->rotate(tilt_);
   painter->translate(-door.center());
   painter->setPen(Qt::NoPen);
-  painter->setBrush(QColor(0xb4, 0xd8, 0xe0, 34));
+  painter->setBrush(QColor(0xd8, 0xd0, 0xc4, 34));
   painter->drawRect(door);
   // Two streaks of light across the glass.
   for (const double at : {0.18, 0.34}) {
@@ -74,7 +74,7 @@ void GlassDoor::Paint(QPainter* painter, const QRectF& opening) const {
     painter->drawRect(door);
   }
   painter->setBrush(Qt::NoBrush);
-  painter->setPen(QPen(QColor(0xc8, 0xcc, 0xd0, 170), 1.5));
+  painter->setPen(QPen(QColor(0xcf, 0xcc, 0xc9, 170), 1.5));
   painter->drawRect(door.adjusted(0.75, 0.75, -0.75, -0.75));
   const QRectF handle = HandleRect(door);
   QLinearGradient metal(handle.topLeft(), handle.topRight());

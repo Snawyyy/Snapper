@@ -42,12 +42,12 @@ constexpr int kMaxRidges = 400;
 constexpr double kLeftHubX = 0.31;
 constexpr double kRightHubX = 0.69;
 constexpr double kHubY = 0.5;
-constexpr QColor kShell{0x1e, 0x1e, 0x20};
+constexpr QColor kShell{0x21, 0x1e, 0x1b};
 constexpr QColor kLabel{0xec, 0xe6, 0xd2};
 constexpr QColor kInk{0x3a, 0x34, 0x2c};
-constexpr QColor kBrown{0x86, 0x48, 0x1e};
-constexpr QColor kOrange{0xd2, 0x7c, 0x2c};
-constexpr QColor kWindow{0x26, 0x26, 0x28};
+constexpr QColor kStripeDeep{0x8a, 0x1e, 0x32};
+constexpr QColor kStripe{0xd8, 0x30, 0x4f};
+constexpr QColor kWindow{0x29, 0x26, 0x23};
 constexpr QColor kTape{0x4a, 0x30, 0x22};
 constexpr QColor kHub{0xf0, 0xf0, 0xec};
 
@@ -140,24 +140,24 @@ void CassetteDeck::PaintFrame(QPainter* painter,
   ring.addRoundedRect(outer, 3.0, 3.0);
   ring.addRect(shell);
   QLinearGradient face(outer.topLeft(), outer.bottomLeft());
-  face.setColorAt(0.0, QColor(0x56, 0x56, 0x5c));
-  face.setColorAt(1.0, QColor(0x2e, 0x2e, 0x32));
+  face.setColorAt(0.0, QColor(0x5b, 0x58, 0x55));
+  face.setColorAt(1.0, QColor(0x32, 0x2f, 0x2c));
   painter->setPen(Qt::NoPen);
   painter->setBrush(face);
   painter->drawPath(ring);
   painter->setBrush(Qt::NoBrush);
   const QRectF rim = outer.adjusted(0.5, 0.5, -0.5, -0.5);
-  painter->setPen(QPen(QColor(0x7a, 0x7a, 0x82), 1.0));
+  painter->setPen(QPen(QColor(0x7f, 0x7c, 0x79), 1.0));
   painter->drawLine(rim.topLeft(), rim.topRight());
   painter->drawLine(rim.topLeft(), rim.bottomLeft());
-  painter->setPen(QPen(QColor(0x12, 0x12, 0x14), 1.0));
+  painter->setPen(QPen(QColor(0x15, 0x12, 0x0f), 1.0));
   painter->drawLine(rim.bottomLeft(), rim.bottomRight());
   painter->drawLine(rim.topRight(), rim.bottomRight());
   const QRectF lip = shell.adjusted(-0.5, -0.5, 0.5, 0.5);
-  painter->setPen(QPen(QColor(0x0e, 0x0e, 0x10), 1.0));
+  painter->setPen(QPen(QColor(0x11, 0x0e, 0x0b), 1.0));
   painter->drawLine(lip.topLeft(), lip.topRight());
   painter->drawLine(lip.topLeft(), lip.bottomLeft());
-  painter->setPen(QPen(QColor(0x6a, 0x6a, 0x72), 1.0));
+  painter->setPen(QPen(QColor(0x6f, 0x6c, 0x69), 1.0));
   painter->drawLine(lip.bottomLeft(), lip.bottomRight());
   painter->drawLine(lip.topRight(), lip.bottomRight());
   // A small screw in each corner of the bezel.
@@ -236,7 +236,7 @@ void CassetteDeck::PaintShell(QPainter* painter,
   QPolygonF block;
   block << Spot(shell, 0.22, 0.78) << Spot(shell, 0.78, 0.78)
         << Spot(shell, 0.83, 1.0) << Spot(shell, 0.17, 1.0);
-  painter->setPen(QPen(QColor(0x40, 0x40, 0x44), 1.0));
+  painter->setPen(QPen(QColor(0x44, 0x41, 0x3e), 1.0));
   painter->setBrush(kShell.lighter(115));
   painter->drawPolygon(block);
   const double hole = shell.width() * 0.018;
@@ -245,11 +245,11 @@ void CassetteDeck::PaintShell(QPainter* painter,
   for (const double x : {0.27, 0.35, 0.65, 0.73}) {
     painter->drawEllipse(Spot(shell, x, 0.9), hole, hole);
   }
-  painter->setBrush(QColor(0x0a, 0x0a, 0x0b));
+  painter->setBrush(QColor(0x0d, 0x0a, 0x07));
   painter->drawEllipse(Spot(shell, 0.5, 0.84), hole * 0.8, hole * 0.8);
   // A screw in each corner.
   const double screw = shell.width() * 0.016;
-  painter->setBrush(QColor(0x50, 0x50, 0x54));
+  painter->setBrush(QColor(0x54, 0x51, 0x4e));
   for (const double x : {0.03, 0.97}) {
     for (const double y : {0.05, 0.95}) {
       painter->drawEllipse(Spot(shell, x, y), screw, screw);
@@ -279,8 +279,8 @@ void CassetteDeck::PaintLabel(QPainter* painter,
   for (const double y : {0.15, 0.22, 0.29}) {
     painter->drawLine(Spot(shell, 0.16, y), Spot(shell, 0.91, y));
   }
-  painter->fillRect(Part(shell, 0.06, 0.34, 0.94, 0.365), kBrown);
-  painter->fillRect(Part(shell, 0.06, 0.365, 0.94, 0.385), kOrange);
+  painter->fillRect(Part(shell, 0.06, 0.34, 0.94, 0.365), kStripeDeep);
+  painter->fillRect(Part(shell, 0.06, 0.365, 0.94, 0.385), kStripe);
   QFont small;
   small.setPixelSize(std::max(5, static_cast<int>(shell.height() * 0.042)));
   painter->setFont(small);
@@ -316,7 +316,7 @@ void CassetteDeck::PaintWindow(QPainter* painter,
   const QRectF clear = Part(shell, 0.4, 0.45, 0.6, 0.59);
   painter->save();
   painter->setClipRect(clear);
-  painter->fillRect(clear, QColor(0x5a, 0x5a, 0x5e));
+  painter->fillRect(clear, QColor(0x5e, 0x5b, 0x58));
   painter->setBrush(kTape);
   painter->drawEllipse(left, pack_of(1.0 - wound), pack_of(1.0 - wound));
   painter->drawEllipse(right, pack_of(wound), pack_of(wound));
