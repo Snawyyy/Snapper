@@ -62,7 +62,9 @@ void GlassDoor::Paint(QPainter* painter, const QRectF& opening) const {
   painter->rotate(tilt_);
   painter->translate(-door.center());
   painter->setPen(Qt::NoPen);
-  painter->setBrush(QColor(0xd8, 0xd0, 0xc4, 34));
+  // Smoked glass: it dims the cassette behind it, so the deck stays a
+  // quiet part of the panel and the eye goes to the lists above.
+  painter->setBrush(QColor(0x10, 0x0b, 0x0c, 120));
   painter->drawRect(door);
   // Two streaks of light across the glass.
   for (const double at : {0.18, 0.34}) {
