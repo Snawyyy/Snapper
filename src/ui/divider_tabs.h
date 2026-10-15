@@ -9,10 +9,11 @@ class QPaintEvent;
 
 namespace snapper {
 
-// Tabs drawn as the tabs of index page dividers: plain rectangles with
-// a gap between. The open one keeps the panel's colour and runs into a
-// strip of it under the bar like the divider's sheet; the rest are
-// darkened, never the open one lightened.
+// Tabs drawn as the tabs of stacked index page dividers: rectangles
+// that reach over their neighbours, each sheet further from the open
+// one lying further back, darker and in the shadow of the one in front.
+// The open one keeps the panel's colour and runs into a strip of it
+// under the bar like its sheet; it is never lightened.
 class DividerTabBar final : public QTabBar {
   Q_OBJECT
 
@@ -24,7 +25,8 @@ class DividerTabBar final : public QTabBar {
   void paintEvent(QPaintEvent* event) override;
 
  private:
-  void PaintTab(QPainter* painter, int index) const;
+  // depth: 0 for the open tab, else how many sheets behind it.
+  void PaintTab(QPainter* painter, int index, int depth) const;
 };
 
 // A QTabWidget whose bar is a DividerTabBar.
