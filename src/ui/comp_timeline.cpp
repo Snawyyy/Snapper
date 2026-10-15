@@ -229,8 +229,17 @@ void CompTimeline::PaintBar(QPainter* painter, const Bar& bar,
   assert(bar.clip != nullptr);
   const CompEffect* effect = managers_.comp->Find(bar.ref.shot, bar.ref.id);
   assert(effect != nullptr);
-  deck::PaintCassette(painter, bar.box, KindMark(effect->kind), QString(),
-                      !effect->is_on);
+  // A run of tape in the effect's kind color, dimmed when off, named
+  // on itself so the bar reads without looking left.
+  const QColor kind = KindMark(effect->kind);
+  deck::PaintColorTape(painter, bar.box,
+                       effect->is_on ? kind.darker(140) : kind.darker(300));
+  painter->setPen(effect->is_on ? theme::kText : theme::kTextOff);
+  const QRectF words = bar.box.adjusted(4, 0, -2, 0);
+  painter->drawText(words, Qt::AlignLeft | Qt::AlignVCenter,
+                    painter->fontMetrics().elidedText(
+                        CompManager::EffectName(*effect), Qt::ElideRight,
+                        std::max(0, static_cast<int>(words.width()))));
   painter->setPen(is_picked ? QPen(theme::kPick, 2.0) : QPen(Qt::black));
   painter->setBrush(Qt::NoBrush);
   painter->drawRect(bar.box);

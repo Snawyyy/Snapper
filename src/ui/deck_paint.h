@@ -59,6 +59,11 @@ void PaintTape(QPainter* painter, const QRectF& run);
 void PaintCassette(QPainter* painter, const QRectF& box, const QColor& band,
                    const QString& name, bool is_shut);
 
+// A colored strip of tape: color lit along its top, darker at its foot,
+// for a bar that carries its color (a Comp effect's kind).
+void PaintColorTape(QPainter* painter, const QRectF& run,
+                    const QColor& color);
+
 // The dark glass of a DVD player's display, sunk into the plastic.
 void PaintDisplay(QPainter* painter, const QRectF& glass);
 

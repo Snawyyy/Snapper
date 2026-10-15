@@ -94,6 +94,21 @@ void PaintTape(QPainter* painter, const QRectF& run) {
   painter->fillRect(run, oxide);
 }
 
+void PaintColorTape(QPainter* painter, const QRectF& run,
+                    const QColor& color) {
+  assert(painter != nullptr);
+  assert(color.isValid());
+  const bool is_empty = run.width() <= 0.0 || run.height() <= 0.0;
+  if (is_empty) {
+    return;
+  }
+  QLinearGradient oxide(run.topLeft(), run.bottomLeft());
+  oxide.setColorAt(0.0, color.lighter(125));
+  oxide.setColorAt(0.3, color);
+  oxide.setColorAt(1.0, color.darker(170));
+  painter->fillRect(run, oxide);
+}
+
 void PaintCassette(QPainter* painter, const QRectF& box, const QColor& band,
                    const QString& name, bool is_shut) {
   assert(painter != nullptr);
