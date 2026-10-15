@@ -29,10 +29,20 @@ int SectionBarHeight(const QFont& font) {
   return text + 2 * kBarPad;
 }
 
+bool IsSection(const QStyleOptionGroupBox& box) {
+  assert(box.rect.isValid() || box.rect.isEmpty());
+  assert(box.text.size() < 10000);
+  const bool is_flat = box.features.testFlag(QStyleOptionFrame::Flat);
+  return !box.text.isEmpty() && !is_flat;
+}
+
 QRect SectionPart(QStyle::SubControl part, const QRect& box,
-                  const QFont& font) {
+                  const QFont& font, bool has_bar) {
   assert(box.isValid() || box.isEmpty());
   assert(theme::kIndent > 0);
+  if (!has_bar) {
+    return part == QStyle::SC_GroupBoxLabel ? QRect() : box;
+  }
   const int bar = SectionBarHeight(font);
   const QRect title(box.left(), box.top(), box.width(), bar);
   const QRect well(box.left(), box.top() + bar, box.width(),
@@ -75,13 +85,19 @@ void DrawSection(QPainter* painter, const QStyleOptionGroupBox& box,
                  const QFont& font) {
   assert(painter != nullptr);
   assert(box.rect.isValid() || box.rect.isEmpty());
-  const QRect well = SectionPart(QStyle::SC_GroupBoxFrame, box.rect, font);
+  const bool is_section = IsSection(box);
+  if (!is_section) {
+    return;
+  }
+  const QRect well =
+      SectionPart(QStyle::SC_GroupBoxFrame, box.rect, font, true);
   const bool has_well = well.isValid();
   if (has_well) {
     painter->fillRect(well, theme::kWell);
     DrawSunkenFrame(painter, well.adjusted(0, 0, -1, -1));
   }
-  DrawSectionBar(painter, SectionPart(QStyle::SC_GroupBoxLabel, box.rect, font),
+  DrawSectionBar(painter,
+                 SectionPart(QStyle::SC_GroupBoxLabel, box.rect, font, true),
                  box.text, font);
 }
 

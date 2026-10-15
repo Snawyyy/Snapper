@@ -361,7 +361,8 @@ QRect SnapperStyle::subControlRect(ComplexControl control,
     return QProxyStyle::subControlRect(control, option, part, widget);
   }
   return SectionPart(part, option->rect,
-                     widget != nullptr ? widget->font() : QFont());
+                     widget != nullptr ? widget->font() : QFont(),
+                     IsSection(*group));
 }
 
 void SnapperStyle::polish(QWidget* widget) {

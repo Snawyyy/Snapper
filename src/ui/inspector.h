@@ -69,6 +69,8 @@ class Inspector final : public QScrollArea {
   std::vector<std::pair<QGroupBox*, FoldSection*>> folds_;
   QLabel title_;
   QLabel hint_;
+  // The maker's mark at the panel's foot, where the sections end.
+  QLabel badge_;
   ShotBox shot_;
   PoseBox pose_;
   DialBox dials_;

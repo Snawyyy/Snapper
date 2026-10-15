@@ -86,7 +86,10 @@ Inspector::Inspector(const Managers& managers)
   new_dial_.setMenu(dials_.templates());
   new_dial_.setPopupMode(QToolButton::InstantPopup);
   new_dial_.setToolButtonStyle(Qt::ToolButtonTextOnly);
-  layout_.addWidget(&new_dial_, 0, Qt::AlignLeft);
+  // As wide as the sections, so it reads as a row of the panel, not a
+  // loose button between two of them.
+  new_dial_.setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+  layout_.addWidget(&new_dial_);
   layout_.addWidget(&drag_);
   AddFolded(&point_motion_, "dot_animation");
   layout_.addWidget(&layer_);
@@ -94,6 +97,19 @@ Inspector::Inspector(const Managers& managers)
   // Saved poses are reached for now and then: folded until opened.
   AddFolded(&poses_, "saved_poses_shut", false);
   layout_.addStretch(1);
+  // Pressed into the plastic like the model name on a deck: it closes
+  // the panel so the space above reads as room, not a missing box.
+  badge_.setText(tr("SNAPPER  SN-1  ANIMATION DECK"));
+  badge_.setAlignment(Qt::AlignCenter);
+  QFont engraved = badge_.font();
+  engraved.setBold(true);
+  engraved.setLetterSpacing(QFont::AbsoluteSpacing, 2.0);
+  engraved.setPointSizeF(engraved.pointSizeF() * 0.8);
+  badge_.setFont(engraved);
+  QPalette pressed = badge_.palette();
+  pressed.setColor(QPalette::WindowText, theme::kFaceLight);
+  badge_.setPalette(pressed);
+  layout_.addWidget(&badge_);
   connect(&pose_, &PoseBox::Problem, this, &Inspector::Problem);
   connect(&dials_, &DialBox::Problem, this, &Inspector::Problem);
   connect(&skins_, &SkinBox::Problem, this, &Inspector::Problem);
