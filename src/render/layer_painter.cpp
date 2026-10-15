@@ -314,14 +314,12 @@ Layer RestLayer(const QString& doll) {
   return layer;
 }
 
-Layer RestLayer(const QString& doll, const std::map<QString, int>& drawings) {
+Layer RestLayer(const QString& doll, const PoseMap& poses) {
   assert(!doll.isEmpty());
-  assert(drawings.size() < 100000);
+  assert(poses.size() < 100000);
   Layer layer = RestLayer(doll);
   auto& pieces = std::get<DollLayer>(layer.content).pieces;
-  for (const auto& [name, drawing] : drawings) {
-    PiecePose pose;
-    pose.drawing = drawing;
+  for (const auto& [name, pose] : poses) {
     pieces[name].keys.push_back(Key<PiecePose>{Frame(0), pose});
   }
   return layer;

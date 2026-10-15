@@ -211,14 +211,10 @@ Result<void> DrawManager::Start(const TrackRef& track, Frame frame, int from,
   reference_ = from >= 0
                    ? image_
                    : DrawingImage(doll, track.piece, shown, sheet_, origin_);
-  doll_drawings_.clear();
   const DollLayer* posed = PosedLayerOf(project, track.shot, track.layer);
-  if (posed != nullptr) {
-    for (const auto& [name, pose] : SamplePoses(doll, *posed, frame)) {
-      doll_drawings_[name] = pose.drawing;
-    }
-  }
-  const auto places = PieceTransforms(doll, PoseMap());
+  doll_poses_ =
+      posed != nullptr ? SamplePoses(doll, *posed, frame) : PoseMap();
+  const auto places = PieceTransforms(doll, doll_poses_);
   const auto place = places.find(track.piece);
   // Sheet pixels to doll space: the frame's pixels sit origin_ in.
   rest_place_ = QTransform::fromTranslate(-origin_.x(), -origin_.y()) *

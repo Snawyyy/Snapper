@@ -13,6 +13,7 @@
 #include <optional>
 #include <vector>
 
+#include "anim/doll_pose.h"
 #include "base/error.h"
 #include "base/frame.h"
 #include "edit/track_ref.h"
@@ -114,14 +115,12 @@ class DrawManager final : public QObject {
   // What it started from (for a blank start, the drawing shown), for
   // holding R and the onion.
   const QImage& reference() const { return reference_; }
-  // The drawing each piece of the doll shows where drawing began (its
-  // keys, skins and dials), so the rest of the doll stands as it is
-  // dressed there, not in its default drawings.
-  const std::map<QString, int>& doll_drawings() const {
-    return doll_drawings_;
-  }
-  // The piece's drawing pixels to doll space at rest, where the doll's
-  // other pieces stand.
+  // Each piece's pose where drawing began (its keys, skins and dials):
+  // the doll stands, and is dressed, as it is there, and the drawing is
+  // made in place on its piece.
+  const PoseMap& doll_poses() const { return doll_poses_; }
+  // Sheet pixels to doll space, posed as at that frame, where the
+  // doll's other pieces stand.
   const QTransform& rest_place() const { return rest_place_; }
   // Something was drawn that Done would keep.
   bool is_dirty() const { return !undo_.empty(); }
@@ -251,7 +250,7 @@ class DrawManager final : public QObject {
   int page_ = 0;
   QImage flipped_image_;
   QString flipped_name_;
-  std::map<QString, int> doll_drawings_;
+  PoseMap doll_poses_;
   // The sheet a piece's drawing is made on, and where its frame lies.
   QSize sheet_;
   QSize frame_size_;
