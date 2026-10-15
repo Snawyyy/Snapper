@@ -20,10 +20,12 @@ constexpr double kMeterHeight = 3.0;
 }  // namespace
 
 RecordButton::RecordButton(const Managers& managers)
-    : QPushButton(tr("Rec")), managers_(managers) {
+    : TapeKey(tr("Rec")), managers_(managers) {
   assert(managers_.record != nullptr);
   assert(managers_.playback != nullptr);
   setObjectName("record");
+  // Room for the dot before the print.
+  SetPrintInset(fontMetrics().height() + 4.0);
   setFocusPolicy(Qt::NoFocus);
   RecordManager* record = managers_.record;
   connect(this, &QPushButton::clicked, this, [this, record] {
@@ -74,19 +76,22 @@ void RecordButton::Refresh() {
 void RecordButton::paintEvent(QPaintEvent* event) {
   assert(event != nullptr);
   assert(managers_.record != nullptr);
-  QPushButton::paintEvent(event);
+  TapeKey::paintEvent(event);
   QPainter painter(this);
   const bool is_on = isEnabled();
   const bool is_recording =
       managers_.record->state() == RecordManager::State::kRecording;
-  // A square dot, as every mark here is square: dim when greyed.
+  // A square dot on the key's top, as every mark here is square: dim
+  // when greyed. It rides down with the key.
+  const QRectF top = TopFace();
   const double side = height() * kDotShare;
-  const QRectF dot(side * 0.6, (height() - side) / 2.0, side, side);
+  const QRectF dot(top.left() + side * 0.8, top.center().y() - side / 2.0,
+                   side, side);
   painter.fillRect(dot, is_on ? theme::kPick : theme::kTextOff);
   if (is_recording) {
-    const double width = (rect().width() - 4.0) * level_;
-    painter.fillRect(QRectF(2.0, height() - kMeterHeight - 2.0, width,
-                            kMeterHeight),
+    const double width = (top.width() - 4.0) * level_;
+    painter.fillRect(QRectF(top.left() + 2.0, top.bottom() - kMeterHeight,
+                            width, kMeterHeight),
                      theme::kHandle);
   }
 }

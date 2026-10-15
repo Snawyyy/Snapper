@@ -18,6 +18,8 @@ constexpr double kLipShare = 0.26;
 // A latched key rests this far down, so it reads as held in.
 constexpr double kLatchDepth = 0.7;
 constexpr double kKeyShare = 1.1;
+// Room either side of a text key's print.
+constexpr int kPrintPad = 10;
 // The round dimple's share of the top's short side.
 constexpr double kDimpleShare = 0.82;
 constexpr double kGlyphShare = 0.42;
@@ -102,11 +104,38 @@ TapeKey::TapeKey(TapeGlyph glyph) : glyph_(glyph) {
   setCursor(Qt::PointingHandCursor);
 }
 
+TapeKey::TapeKey(const QString& text) : QPushButton(text) {
+  assert(!text.isEmpty());
+  assert(kLipShare > 0.0 && kLipShare < 0.5);
+  setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+  setCursor(Qt::PointingHandCursor);
+}
+
 QSize TapeKey::sizeHint() const {
   const int height = QPushButton::sizeHint().height();
   assert(height > 0);
   assert(kKeyShare > 0.0);
-  return {static_cast<int>(height * kKeyShare), height};
+  const bool has_glyph = glyph_.has_value();
+  if (has_glyph) {
+    return {static_cast<int>(height * kKeyShare), height};
+  }
+  const int print = fontMetrics().horizontalAdvance(text());
+  return {print + static_cast<int>(print_inset_) + 2 * kPrintPad, height};
+}
+
+QRectF TapeKey::TopFace() const {
+  assert(height() > 0);
+  assert(kLipShare > 0.0);
+  const double lip = height() * kLipShare;
+  const double drop = Depth() * lip * 0.8;
+  return QRectF(1.0, 1.0 + drop, width() - 2.0, height() - 2.0 - lip);
+}
+
+void TapeKey::SetPrintInset(double inset) {
+  assert(inset >= 0.0);
+  assert(!glyph_.has_value());
+  print_inset_ = inset;
+  updateGeometry();
 }
 
 double TapeKey::Depth() const {
@@ -128,9 +157,7 @@ void TapeKey::paintEvent(QPaintEvent* event) {
   if (is_greyed) {
     painter.setOpacity(0.45);
   }
-  const double lip = height() * kLipShare;
-  const double drop = Depth() * lip * 0.8;
-  const QRectF top(1.0, 1.0 + drop, width() - 2.0, height() - 2.0 - lip);
+  const QRectF top = TopFace();
   const QRectF front(top.left(), top.bottom(), top.width(),
                      height() - 1.0 - top.bottom());
   const double hover = property(kHoverProperty).toDouble();
@@ -148,6 +175,11 @@ void TapeKey::paintEvent(QPaintEvent* event) {
   painter.drawLine(top.bottomLeft(), top.bottomRight());
   painter.setPen(kRidge.lighter(130));
   painter.drawLine(top.topLeft(), top.topRight());
+  const bool has_glyph = glyph_.has_value();
+  if (!has_glyph) {
+    PaintPrint(&painter, top);
+    return;
+  }
   painter.setRenderHint(QPainter::Antialiasing, true);
   const double side =
       std::min(top.width(), top.height()) * kDimpleShare;
@@ -161,11 +193,21 @@ void TapeKey::PaintGlyph(QPainter* painter, const QRectF& cup) const {
   assert(painter != nullptr);
   assert(cup.height() > 0.0);
   const double size = cup.height() * kGlyphShare;
-  const QPainterPath glyph = GlyphPath(glyph_, cup.center(), size);
+  assert(glyph_.has_value());
+  const QPainterPath glyph = GlyphPath(*glyph_, cup.center(), size);
   painter->setPen(Qt::NoPen);
   // A latched key wears red: what is on is red here.
   const bool is_latched = isChecked();
   painter->fillPath(glyph, is_latched ? theme::kPick : kPrint);
+}
+
+void TapeKey::PaintPrint(QPainter* painter, const QRectF& top) const {
+  assert(painter != nullptr);
+  assert(top.height() > 0.0);
+  const bool is_latched = isChecked();
+  painter->setPen(is_latched ? theme::kPick : kPrint);
+  painter->drawText(top.adjusted(print_inset_, 0.0, 0.0, 0.0),
+                    Qt::AlignCenter, text());
 }
 
 }  // namespace snapper
