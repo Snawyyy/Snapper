@@ -140,24 +140,25 @@ void CassetteDeck::PaintFrame(QPainter* painter,
   ring.addRoundedRect(outer, 3.0, 3.0);
   ring.addRect(shell);
   QLinearGradient face(outer.topLeft(), outer.bottomLeft());
-  face.setColorAt(0.0, QColor(0x5b, 0x58, 0x55));
-  face.setColorAt(1.0, QColor(0x32, 0x2f, 0x2c));
+  // A raised part of the panel, so it wears the raised level's rose.
+  face.setColorAt(0.0, theme::kRaised.lighter(130));
+  face.setColorAt(1.0, theme::kFace);
   painter->setPen(Qt::NoPen);
   painter->setBrush(face);
   painter->drawPath(ring);
   painter->setBrush(Qt::NoBrush);
   const QRectF rim = outer.adjusted(0.5, 0.5, -0.5, -0.5);
-  painter->setPen(QPen(QColor(0x7f, 0x7c, 0x79), 1.0));
+  painter->setPen(QPen(theme::kFaceLight.lighter(125), 1.0));
   painter->drawLine(rim.topLeft(), rim.topRight());
   painter->drawLine(rim.topLeft(), rim.bottomLeft());
-  painter->setPen(QPen(QColor(0x15, 0x12, 0x0f), 1.0));
+  painter->setPen(QPen(theme::kShadow, 1.0));
   painter->drawLine(rim.bottomLeft(), rim.bottomRight());
   painter->drawLine(rim.topRight(), rim.bottomRight());
   const QRectF lip = shell.adjusted(-0.5, -0.5, 0.5, 0.5);
-  painter->setPen(QPen(QColor(0x11, 0x0e, 0x0b), 1.0));
+  painter->setPen(QPen(theme::kShadow, 1.0));
   painter->drawLine(lip.topLeft(), lip.topRight());
   painter->drawLine(lip.topLeft(), lip.bottomLeft());
-  painter->setPen(QPen(QColor(0x6f, 0x6c, 0x69), 1.0));
+  painter->setPen(QPen(theme::kFaceLight, 1.0));
   painter->drawLine(lip.bottomLeft(), lip.bottomRight());
   painter->drawLine(lip.topRight(), lip.bottomRight());
   // A small screw in each corner of the bezel.
