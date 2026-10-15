@@ -13,8 +13,9 @@ namespace snapper {
 // The symbol stamped on a tape key.
 enum class TapeGlyph { kFirst, kBack, kPlay, kNext, kLast };
 
-// A play bar button drawn as an old tape recorder's piano key: a
-// brushed silver top with its symbol pressed into it over a front edge.
+// A play bar button drawn as an old cassette recorder's piano key: a
+// black plastic block, a round dimple in its top holding the symbol,
+// its front face showing below.
 // It sinks as it is held (the press HoverFade eases) and, when
 // checkable, stays half down while checked, like a latched Play key.
 // The text is kept for tooltips and tests but not drawn.
@@ -32,7 +33,7 @@ class TapeKey final : public QPushButton {
  private:
   // How far down the key sits, 0 up to 1 fully pressed.
   double Depth() const;
-  void PaintGlyph(QPainter* painter, const QRectF& top) const;
+  void PaintGlyph(QPainter* painter, const QRectF& cup) const;
 
   TapeGlyph glyph_;
 };

@@ -13,20 +13,20 @@
 namespace snapper {
 namespace {
 
-// The front edge's share of the height when the key is up.
-constexpr double kLipShare = 0.24;
+// The front face's share of the height when the key is up.
+constexpr double kLipShare = 0.26;
 // A latched key rests this far down, so it reads as held in.
 constexpr double kLatchDepth = 0.7;
-constexpr double kWideKey = 1.9;
-constexpr double kNarrowKey = 1.35;
+constexpr double kKeyShare = 1.1;
+// The round dimple's share of the top's short side.
+constexpr double kDimpleShare = 0.82;
 constexpr double kGlyphShare = 0.42;
-constexpr int kBrushPitch = 2;
-constexpr int kMaxBrushLines = 256;
-constexpr QColor kSilverTop{0xdc, 0xdc, 0xe0};
-constexpr QColor kSilverBottom{0x9c, 0x9c, 0xa2};
-constexpr QColor kLipTop{0x86, 0x86, 0x8c};
-constexpr QColor kLipBottom{0x4c, 0x4c, 0x52};
-constexpr QColor kEngrave{0x2c, 0x2c, 0x30};
+constexpr QColor kTopLight{0x44, 0x44, 0x48};
+constexpr QColor kTopDark{0x26, 0x26, 0x29};
+constexpr QColor kFrontLight{0x16, 0x16, 0x18};
+constexpr QColor kFrontDark{0x08, 0x08, 0x09};
+constexpr QColor kRidge{0x5e, 0x5e, 0x64};
+constexpr QColor kPrint{0xc8, 0xc8, 0xcc};
 
 // A triangle size tall pointing right (or left), its back at x.
 void AddTriangle(QPainterPath* path, double x, double mid_y, double size,
@@ -74,22 +74,23 @@ QPainterPath GlyphPath(TapeGlyph glyph, const QPointF& middle,
   return path;
 }
 
-// Faint light and dark streaks across the top, the brushed metal grain.
-void PaintBrush(QPainter* painter, const QRectF& top) {
+// The round cup pressed into the key top: lit from above, so its upper
+// wall is in shadow and its lower rim catches the light.
+void PaintDimple(QPainter* painter, const QRectF& cup) {
   assert(painter != nullptr);
-  assert(kBrushPitch > 0);
-  const QColor light(255, 255, 255, 22);
-  const QColor dark(0, 0, 0, 16);
-  for (int line = 0; line < kMaxBrushLines; ++line) {
-    const double y = top.top() + 1.0 + line * kBrushPitch;
-    const bool is_past = y >= top.bottom() - 1.0;
-    if (is_past) {
-      break;
-    }
-    painter->setPen(line % 2 == 0 ? light : dark);
-    painter->drawLine(QPointF(top.left() + 1.0, y),
-                      QPointF(top.right() - 1.0, y));
-  }
+  assert(cup.width() > 0.0);
+  QLinearGradient bowl(cup.topLeft(), cup.bottomLeft());
+  bowl.setColorAt(0.0, QColor(0x08, 0x08, 0x0a));
+  bowl.setColorAt(1.0, QColor(0x30, 0x30, 0x34));
+  painter->setPen(Qt::NoPen);
+  painter->setBrush(bowl);
+  painter->drawEllipse(cup);
+  QLinearGradient rim(cup.topLeft(), cup.bottomLeft());
+  rim.setColorAt(0.0, QColor(0, 0, 0, 160));
+  rim.setColorAt(1.0, QColor(255, 255, 255, 110));
+  painter->setPen(QPen(QBrush(rim), 1.0));
+  painter->setBrush(Qt::NoBrush);
+  painter->drawEllipse(cup);
 }
 
 }  // namespace
@@ -104,10 +105,8 @@ TapeKey::TapeKey(TapeGlyph glyph) : glyph_(glyph) {
 QSize TapeKey::sizeHint() const {
   const int height = QPushButton::sizeHint().height();
   assert(height > 0);
-  assert(kWideKey > kNarrowKey);
-  const bool is_wide = glyph_ == TapeGlyph::kPlay;
-  const double share = is_wide ? kWideKey : kNarrowKey;
-  return {static_cast<int>(height * share), height};
+  assert(kKeyShare > 0.0);
+  return {static_cast<int>(height * kKeyShare), height};
 }
 
 double TapeKey::Depth() const {
@@ -123,7 +122,6 @@ void TapeKey::paintEvent(QPaintEvent* event) {
   assert(event != nullptr);
   assert(height() > 0);
   QPainter painter(this);
-  painter.setRenderHint(QPainter::Antialiasing, false);
   // The slot the key sits in, seen above it as it sinks.
   painter.fillRect(rect(), theme::kShadow);
   const bool is_greyed = !isEnabled();
@@ -136,36 +134,38 @@ void TapeKey::paintEvent(QPaintEvent* event) {
   const QRectF front(top.left(), top.bottom(), top.width(),
                      height() - 1.0 - top.bottom());
   const double hover = property(kHoverProperty).toDouble();
-  const int lift = 100 + static_cast<int>(12.0 * hover);
-  QLinearGradient metal(top.topLeft(), top.bottomLeft());
-  metal.setColorAt(0.0, kSilverTop.lighter(lift));
-  metal.setColorAt(1.0, kSilverBottom.lighter(lift));
-  painter.fillRect(top, metal);
-  PaintBrush(&painter, top);
-  QLinearGradient edge(front.topLeft(), front.bottomLeft());
-  edge.setColorAt(0.0, kLipTop);
-  edge.setColorAt(1.0, kLipBottom);
-  painter.fillRect(front, edge);
-  painter.setPen(QColor(255, 255, 255, 170));
+  const int lift = 100 + static_cast<int>(25.0 * hover);
+  QLinearGradient plastic(top.topLeft(), top.bottomLeft());
+  plastic.setColorAt(0.0, kTopLight.lighter(lift));
+  plastic.setColorAt(1.0, kTopDark.lighter(lift));
+  painter.fillRect(top, plastic);
+  QLinearGradient face(front.topLeft(), front.bottomLeft());
+  face.setColorAt(0.0, kFrontLight);
+  face.setColorAt(1.0, kFrontDark);
+  painter.fillRect(front, face);
+  // The rounded edge where the top turns down into the front.
+  painter.setPen(kRidge);
+  painter.drawLine(top.bottomLeft(), top.bottomRight());
+  painter.setPen(kRidge.lighter(130));
   painter.drawLine(top.topLeft(), top.topRight());
-  painter.setPen(theme::kShadow);
-  painter.drawRect(top.united(front).adjusted(0, 0, -1, -1));
-  PaintGlyph(&painter, top);
+  painter.setRenderHint(QPainter::Antialiasing, true);
+  const double side =
+      std::min(top.width(), top.height()) * kDimpleShare;
+  QRectF cup(0.0, 0.0, side, side);
+  cup.moveCenter(top.center());
+  PaintDimple(&painter, cup);
+  PaintGlyph(&painter, cup);
 }
 
-void TapeKey::PaintGlyph(QPainter* painter, const QRectF& top) const {
+void TapeKey::PaintGlyph(QPainter* painter, const QRectF& cup) const {
   assert(painter != nullptr);
-  assert(top.height() > 0.0);
-  const bool is_wide = glyph_ == TapeGlyph::kPlay;
-  const double size = top.height() * kGlyphShare * (is_wide ? 1.15 : 1.0);
-  const QPainterPath glyph = GlyphPath(glyph_, top.center(), size);
-  painter->setRenderHint(QPainter::Antialiasing, true);
+  assert(cup.height() > 0.0);
+  const double size = cup.height() * kGlyphShare;
+  const QPainterPath glyph = GlyphPath(glyph_, cup.center(), size);
   painter->setPen(Qt::NoPen);
-  // A light rim under the symbol makes it look pressed into the metal.
-  painter->fillPath(glyph.translated(0.0, 1.0), QColor(255, 255, 255, 140));
   // A latched key wears red: what is on is red here.
   const bool is_latched = isChecked();
-  painter->fillPath(glyph, is_latched ? theme::kPick : kEngrave);
+  painter->fillPath(glyph, is_latched ? theme::kPick : kPrint);
 }
 
 }  // namespace snapper
