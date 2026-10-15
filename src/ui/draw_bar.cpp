@@ -2,6 +2,7 @@
 
 #include <cassert>
 
+#include "anim/mirror.h"
 #include "render/pixel_paint.h"
 #include "ui/problem.h"
 #include "ui/theme.h"
@@ -40,7 +41,7 @@ void Paint(QWidget* widget) {
 
 DrawBar::DrawBar(const Managers& managers)
     : managers_(managers), layout_(this),
-      onion_(tr("Onion")), discard_(tr("Discard")), keep_(tr("Keep drawing")),
+      onion_(tr("Onion")), mirror_(tr("Mirror")), discard_(tr("Discard")), keep_(tr("Keep drawing")),
       done_(tr("Done")), cancel_(tr("Cancel")) {
   assert(managers_.draw != nullptr);
   assert(managers_.toasts != nullptr);
@@ -57,6 +58,8 @@ DrawBar::DrawBar(const Managers& managers)
   layout_.addWidget(&title_);
   layout_.addWidget(&name_);
   layout_.addWidget(&onion_);
+  layout_.addWidget(&mirror_);
+  mirror_.setFocusPolicy(Qt::NoFocus);
   size_.setText(tr("Brush"));
   brush_.setRange(1, kMaxBrushSize);
   brush_.setSuffix(tr(" px"));
@@ -81,6 +84,7 @@ DrawBar::DrawBar(const Managers& managers)
     Ask(false);
   });
   connect(&onion_, &QCheckBox::toggled, draw, &DrawManager::SetOnion);
+  connect(&mirror_, &QCheckBox::toggled, draw, &DrawManager::SetMirrors);
   connect(&brush_, &QSpinBox::valueChanged, draw,
           &DrawManager::SetBrushSize);
   // Enter in the name field reaches the canvas, which presses Done.
@@ -128,6 +132,23 @@ void DrawBar::Refresh() {
                         : tr("Show the frame before (red) faint under "
                              "yours, to trace from (D). Hold R to see "
                              "this frame as it was."));
+  // Mirroring is for a new drawing of a piece; a new version of one
+  // stays where it is.
+  const bool can_mirror = draw->is_named() && !draw->is_replacing();
+  mirror_.setVisible(draw->is_named());
+  mirror_.setEnabled(can_mirror);
+  const QString twin = MirrorName(draw->piece());
+  mirror_.setToolTip(
+      !can_mirror ? tr("A new version stays on its own piece only.")
+      : twin != draw->piece()
+          ? tr("Done also puts this drawing, flipped, on %1.").arg(twin)
+          : tr("Done also keeps a flipped copy beside it, as another "
+               "drawing of %1.")
+                .arg(draw->piece()));
+  {
+    const QSignalBlocker quiet_mirror(mirror_);
+    mirror_.setChecked(draw->mirrors());
+  }
   const QSignalBlocker quiet(onion_);
   onion_.setChecked(draw->is_onion());
   // No title while no drawing is open, so the text may be null.

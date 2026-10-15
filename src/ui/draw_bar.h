@@ -42,6 +42,8 @@ class DrawBar final : public QWidget {
   QLabel title_;
   QLineEdit name_;
   QCheckBox onion_;
+  // Done also keeps a mirrored copy (DrawManager::mirrors).
+  QCheckBox mirror_;
   QLabel size_;
   // The brush size: typed, wheeled or stepped with [ and ].
   QSpinBox brush_;

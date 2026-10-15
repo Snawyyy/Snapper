@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QImage>
 
 #include <algorithm>
 #include <cassert>
@@ -9,6 +10,7 @@
 #include "base/text.h"
 #include "edit/draw_manager.h"
 #include "edit/history_manager.h"
+#include "anim/mirror.h"
 #include "edit/pose_edits.h"
 #include "io/doll_file.h"
 
@@ -113,6 +115,69 @@ Result<Project> DrawManager::WithDrawing(const QString& file,
                  });
 }
 
+void DrawManager::SetMirrors(bool mirrors) {
+  assert(history_ != nullptr);
+  assert(mirrors || !mirrors);
+  mirrors_ = mirrors;
+  emit Changed();
+}
+
+std::optional<DrawManager::MirrorCopy> DrawManager::SaveMirror(
+    const Doll& doll, const QString& name, const QString& folder) const {
+  assert(!name.isEmpty());
+  assert(!folder.isEmpty());
+  const QString twin = MirrorName(track_.piece);
+  const bool has_twin = twin != track_.piece &&
+                        FindArt(doll, twin) != nullptr &&
+                        FindRig(doll.rig, twin) != nullptr;
+  const QString piece = has_twin ? twin : track_.piece;
+  const ArtPiece& art = *FindArt(doll, piece);
+  QString copy_name = has_twin ? name : Tr("%1 flipped").arg(name);
+  for (int i = 0; i < static_cast<int>(art.drawings.size()); ++i) {
+    const bool is_clash = DrawingName(art, i) == copy_name;
+    if (is_clash) {
+      copy_name = Tr("%1 mirror").arg(copy_name);
+      break;
+    }
+  }
+  // Flipped left to right, fitted to the twin's frame when it differs.
+  QImage flipped = image_.flipped(Qt::Horizontal);
+  const bool is_other_size = flipped.size() != art.size;
+  if (is_other_size) {
+    flipped = flipped.scaled(art.size, Qt::IgnoreAspectRatio,
+                             Qt::FastTransformation);
+  }
+  const QString file = FreeFile(folder, Tr("%1 %2").arg(piece, copy_name));
+  const bool is_saved = !file.isEmpty() &&
+                        flipped.save(QDir(doll.folder).filePath(file), "PNG");
+  if (!is_saved) {
+    return std::nullopt;
+  }
+  return MirrorCopy{piece, file, copy_name};
+}
+
+Result<Project> DrawManager::WithMirror(Result<Project> next,
+                                        const QString& doll_name,
+                                        const MirrorCopy& copy) {
+  assert(!copy.file.isEmpty());
+  assert(!doll_name.isEmpty());
+  if (!next) {
+    return next;
+  }
+  const Doll* found = FindDoll(*next, doll_name);
+  const bool has_piece =
+      found != nullptr && FindRig(found->rig, copy.piece) != nullptr;
+  if (!has_piece) {
+    return next;
+  }
+  Doll doll = *found;
+  FindRig(&doll.rig, copy.piece)
+      ->own_drawings.push_back(OwnDrawing{copy.file, copy.name});
+  AddOwnDrawings(&doll);
+  next->dolls[doll_name] = std::make_shared<const Doll>(std::move(doll));
+  return next;
+}
+
 Result<void> DrawManager::Done(const QString& name) {
   assert(history_ != nullptr);
   assert(name.size() < 100000);
@@ -155,9 +220,21 @@ Result<void> DrawManager::Done(const QString& name) {
   }
   const QString label = is_replacing() ? Tr("Edit drawing %1").arg(trimmed)
                                        : Tr("New drawing %1").arg(trimmed);
-  auto applied = history_->Apply(label, WithDrawing(file, trimmed));
+  // A new drawing also goes to the other side, or flipped beside itself;
+  // a new version of one stays where it is.
+  const bool wants_mirror = mirrors_ && !is_replacing();
+  const auto mirror = wants_mirror ? SaveMirror(*doll, trimmed, folder)
+                                   : std::nullopt;
+  Result<Project> next = WithDrawing(file, trimmed);
+  if (mirror) {
+    next = WithMirror(std::move(next), doll_, *mirror);
+  }
+  auto applied = history_->Apply(label, std::move(next));
   if (!applied) {
     QFile::remove(QDir(doll->folder).filePath(file));
+    if (mirror) {
+      QFile::remove(QDir(doll->folder).filePath(mirror->file));
+    }
     return applied;
   }
   End();

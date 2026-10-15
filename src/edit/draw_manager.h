@@ -9,6 +9,7 @@
 #include <QTransform>
 
 #include <functional>
+#include <optional>
 #include <vector>
 
 #include "base/error.h"
@@ -122,6 +123,11 @@ class DrawManager final : public QObject {
   // Holds the original over the drawing while true (R held).
   bool is_peeking() const { return is_peeking_; }
   void SetPeeking(bool is_peeking);
+  // Done also keeps a mirrored copy of a new drawing: on the other
+  // side's twin for a sided piece (arm_L, arm_R), else on the piece
+  // itself, flipped ("head 3 flipped").
+  bool mirrors() const { return mirrors_; }
+  void SetMirrors(bool mirrors);
   // The original under the drawing at 30 % (Shift+R).
   bool is_onion() const { return is_onion_; }
   void SetOnion(bool is_onion);
@@ -181,6 +187,22 @@ class DrawManager final : public QObject {
   // The project with the drawing at file listed for the piece, and,
   // for a new one, shown on it at the frame drawing began.
   Result<Project> WithDrawing(const QString& file, const QString& name) const;
+  // The mirrored copy Done also keeps: on the twin piece (arm_L's on
+  // arm_R), or on the piece itself for an unsided one, flipped.
+  struct MirrorCopy final {
+    QString piece;
+    QString file;
+    QString name;
+  };
+  // Saves the drawing flipped left to right for doll's piece's twin (or
+  // the piece) next to the drawing in folder; nothing when it can't.
+  std::optional<MirrorCopy> SaveMirror(const Doll& doll,
+                                       const QString& name,
+                                       const QString& folder) const;
+  // next with copy listed on its piece.
+  static Result<Project> WithMirror(Result<Project> next,
+                                    const QString& doll_name,
+                                    const MirrorCopy& copy);
   // A free file name for a new PNG in the doll's "snapper" folder.
   QString FreeFile(const QString& folder, const QString& name) const;
 
@@ -222,6 +244,7 @@ class DrawManager final : public QObject {
   QColor own_color_ = Qt::black;
   bool is_peeking_ = false;
   bool is_onion_ = false;
+  bool mirrors_ = true;
   // Draw mode opened the palette, so it closes it again.
   bool did_open_palette_ = false;
   // The stroke in progress: its color and last point.
