@@ -1,6 +1,7 @@
 #include "ui/snapper_style.h"
 
 #include <QAbstractItemView>
+#include <QAbstractSpinBox>
 #include <QComboBox>
 #include <QFrame>
 #include <QPainter>
@@ -10,7 +11,9 @@
 
 #include <algorithm>
 #include <cassert>
+#include <memory>
 
+#include "ui/crt_effect.h"
 #include "ui/snapper_accents.h"
 #include "ui/theme.h"
 
@@ -365,6 +368,13 @@ void SnapperStyle::polish(QWidget* widget) {
   const bool is_handle = qobject_cast<QSplitterHandle*>(widget) != nullptr;
   if (is_handle) {
     widget->setAttribute(Qt::WA_Hover);
+  }
+  // Numbers show as on a little CRT.
+  const bool is_number = qobject_cast<QAbstractSpinBox*>(widget) != nullptr;
+  const bool needs_crt = is_number && widget->graphicsEffect() == nullptr;
+  if (needs_crt) {
+    // The widget owns it.
+    widget->setGraphicsEffect(std::make_unique<CrtEffect>().release());
   }
   auto* combo = qobject_cast<QComboBox*>(widget);
   const bool is_combo = combo != nullptr;

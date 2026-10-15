@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cassert>
+#include <memory>
 
+#include "ui/crt_effect.h"
 #include "ui/motion.h"
 
 namespace snapper {
@@ -10,6 +12,8 @@ namespace snapper {
 BumpLabel::BumpLabel(MotionManager* motion) : motion_(motion) {
   assert(motion != nullptr);
   assert(lift_ == 0);
+  // A readout shows its value as on a little CRT; the label owns it.
+  setGraphicsEffect(std::make_unique<CrtEffect>().release());
 }
 
 void BumpLabel::SetText(const QString& text, bool is_bumping) {
