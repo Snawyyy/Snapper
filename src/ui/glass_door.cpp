@@ -15,7 +15,7 @@ namespace {
 constexpr int kTickMs = 16;
 // How far the door tips per pixel pulled up or down, and at most.
 constexpr double kTiltPerPixel = 0.12;
-constexpr double kMaxTilt = 3.0;
+constexpr double kMaxTilt = 1.0;
 // The swing spring: pull toward the aim and the loss each step.
 constexpr double kSwingPull = 0.18;
 constexpr double kSwingKeep = 0.78;
