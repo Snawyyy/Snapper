@@ -208,6 +208,9 @@ bool DrawCanvas::ToolKey(QKeyEvent* event) {
                                                       : DrawTool::kEraser);
       return true;
     case Qt::Key_D: draw->SetOnion(!draw->is_onion()); return true;
+    // Flip through the piece's other drawings under the new one.
+    case Qt::Key_Left: draw->Flip(-1); return true;
+    case Qt::Key_Right: draw->Flip(1); return true;
     case Qt::Key_F: draw->SetTool(DrawTool::kFill); return true;
     case Qt::Key_I: draw->SetTool(DrawTool::kPicker); return true;
     case Qt::Key_BracketLeft:

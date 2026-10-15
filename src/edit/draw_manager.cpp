@@ -195,6 +195,8 @@ Result<void> DrawManager::Start(const TrackRef& track, Frame frame, int from,
                      .arg(DrawingName(art, from), track.piece)
                : Tr("Drawing: %1 (%2)").arg(default_name_, track.piece);
   onions_ = {reference_};
+  base_title_ = title_;
+  flip_ = from >= 0 ? from : shown;
   Open();
   return {};
 }
@@ -255,6 +257,32 @@ void DrawManager::SetPeeking(bool is_peeking) {
 void DrawManager::SetOnion(bool is_onion) {
   assert(is_drawing_ || !is_onion);
   is_onion_ = is_onion;
+  emit Changed();
+}
+
+void DrawManager::Flip(int step) {
+  assert(history_ != nullptr);
+  assert(step > -1000 && step < 1000);
+  const bool can_flip = is_drawing_ && target_ == DrawTarget::kPiece;
+  if (!can_flip) {
+    return;
+  }
+  const Project& project = history_->current();
+  const Doll* doll = DollOfLayer(project, track_.shot, track_.layer);
+  const ArtPiece* art =
+      doll != nullptr ? FindArt(*doll, track_.piece) : nullptr;
+  const int count =
+      art != nullptr ? static_cast<int>(art->drawings.size()) : 0;
+  if (count == 0) {
+    return;
+  }
+  const int from = std::clamp(flip_, 0, count - 1);
+  flip_ = ((from + step) % count + count) % count;
+  reference_ = DrawingImage(*doll, track_.piece, flip_, art->size);
+  onions_ = {reference_};
+  is_onion_ = true;
+  title_ = Tr("%1, under: %2")
+               .arg(base_title_, DrawingName(*art, flip_));
   emit Changed();
 }
 
