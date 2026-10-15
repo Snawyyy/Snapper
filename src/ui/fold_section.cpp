@@ -39,10 +39,15 @@ FoldSection::FoldSection(const QString& title, MotionManager* motion,
   bold.setBold(true);
   header_.setFont(bold);
   header_.setToolTip(tr("Show or hide this section."));
+  // A section's bar: full width, raised, with the red strip, like a
+  // group box's title (the style draws it).
+  header_.setProperty("titlePlate", true);
+  header_.setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
   body_.setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+  theme::SetLevel(&body_, theme::kWell);
   form_.setContentsMargins(theme::kIndent, kBodyMargin, kBodyMargin,
                            kBodyMargin);
-  layout_.addWidget(&header_, 0, Qt::AlignLeft);
+  layout_.addWidget(&header_);
   layout_.addWidget(&body_);
   const bool is_saved = !settings_path_.isEmpty();
   if (is_saved) {
