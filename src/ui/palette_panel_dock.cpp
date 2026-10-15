@@ -21,7 +21,10 @@ void PalettePanel::DockOver(QWidget* area) {
   dock_area_ = area;
   area->installEventFilter(this);
   setCursor(Qt::ArrowCursor);
-  Follow();
+  // A hidden area (full view) leaves it floating until the area shows.
+  if (is_docked()) {
+    Follow();
+  }
 }
 
 void PalettePanel::Undock() {
