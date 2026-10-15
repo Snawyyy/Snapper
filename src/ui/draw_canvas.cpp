@@ -117,9 +117,14 @@ void DrawCanvas::mousePressEvent(QMouseEvent* event) {
   DrawManager* draw = managers_.draw;
   event->accept();
   setFocus();
-  if (event->button() == Qt::MiddleButton) {
+  // The middle button, or the left with Space held, grabs the view.
+  const bool is_grab =
+      event->button() == Qt::MiddleButton ||
+      (is_space_ && event->button() == Qt::LeftButton);
+  if (is_grab) {
     is_panning_ = true;
     pan_from_ = event->position();
+    setCursor(Qt::ClosedHandCursor);
     return;
   }
   const bool is_draw_button = event->button() == Qt::LeftButton ||
@@ -162,8 +167,9 @@ void DrawCanvas::mouseMoveEvent(QMouseEvent* event) {
 void DrawCanvas::mouseReleaseEvent(QMouseEvent* event) {
   assert(event != nullptr);
   event->accept();
-  if (event->button() == Qt::MiddleButton) {
+  if (is_panning_) {
     is_panning_ = false;
+    setCursor(is_space_ ? Qt::OpenHandCursor : Qt::CrossCursor);
     return;
   }
   if (is_stroking_) {
@@ -246,6 +252,15 @@ void DrawCanvas::keyPressEvent(QKeyEvent* event) {
     update();
     return;
   }
+  // Held Space turns the pointer into a hand that drags the view.
+  const bool is_space_down =
+      event->key() == Qt::Key_Space && !event->isAutoRepeat();
+  if (is_space_down) {
+    is_space_ = true;
+    setCursor(Qt::OpenHandCursor);
+    update();
+    return;
+  }
   if (event->matches(QKeySequence::Undo)) {
     draw->Undo();
     return;
@@ -270,6 +285,11 @@ void DrawCanvas::keyReleaseEvent(QKeyEvent* event) {
     is_alt_ = false;
     update();
   }
+  if (event->key() == Qt::Key_Space) {
+    is_space_ = false;
+    setCursor(is_panning_ ? Qt::ClosedHandCursor : Qt::CrossCursor);
+    update();
+  }
 }
 
 bool DrawCanvas::event(QEvent* event) {
@@ -282,7 +302,9 @@ bool DrawCanvas::event(QEvent* event) {
     const bool is_plain =
         !held.testFlag(Qt::ControlModifier) && !held.testFlag(Qt::MetaModifier) &&
         (!held.testFlag(Qt::AltModifier) || key->key() == Qt::Key_Alt);
-    if (is_plain || IsHistoryKey(key)) {
+    // Tab is the window's full view key, drawing or not.
+    const bool is_full_view = key->key() == Qt::Key_Tab;
+    if ((is_plain && !is_full_view) || IsHistoryKey(key)) {
       event->accept();
       return true;
     }

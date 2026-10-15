@@ -79,6 +79,8 @@ class DrawCanvas final : public QWidget {
   QPointF cursor_;
   // Alt is held: any tool picks a color.
   bool is_alt_ = false;
+  // Space is held: a left drag grabs the view instead of drawing.
+  bool is_space_ = false;
 };
 
 }  // namespace snapper

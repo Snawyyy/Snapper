@@ -134,7 +134,9 @@ void DrawCanvas::PaintGrid(QPainter* painter) {
 void DrawCanvas::PaintCursor(QPainter* painter) {
   assert(painter != nullptr);
   const DrawManager* draw = managers_.draw;
-  const bool is_brush = !is_alt_ && (draw->tool() == DrawTool::kBrush ||
+  // While the hand grabs the view, no brush shows.
+  const bool is_brush = !is_alt_ && !is_space_ && !is_panning_ &&
+                        (draw->tool() == DrawTool::kBrush ||
                                      draw->tool() == DrawTool::kEraser);
   if (!has_cursor_ || !is_brush) {
     return;
