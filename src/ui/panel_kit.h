@@ -15,10 +15,12 @@
 namespace snapper {
 
 // The panel kit: the pieces every panel is built from, so all of them
-// look like the Pose box. A group of settings is a raised title plate
-// over a sunken frame; titles stand out at the edge and their settings
-// sit indented under them; two things side by side share the width by
-// the golden ratio. Square corners only, and no style sheets: the look
+// look like the Pose box. Headers come in two levels only: a section is
+// a full-width raised title bar over one sunken well (a group box, a
+// fold or PlatedSection); inside it, parts wear a quiet caption and no
+// frame of their own, so no box sits in a box. Settings sit indented
+// under their title; two things side by side share the width by the
+// golden ratio. Square corners only, and no style sheets: the look
 // comes from frames and the style (see theme.h, snapper_style.h).
 
 // The golden ratio, and its two parts as whole shares of 100 for
@@ -44,16 +46,16 @@ T* MakeOwned(Args&&... args) {
   return std::make_unique<T>(std::forward<Args>(args)...).release();
 }
 
-// Makes label a raised plate, centred, like a header coming out of the
-// panel (the title of a control cell).
+// Makes label a caption: the quiet second level header naming a part
+// inside a section (the title of a control cell).
 void MakePlate(QLabel* label);
 // Makes label a title plate: raised, bold, text at the left, spanning
 // the whole width, so it stands out over the settings indented under it.
 void MakeTitlePlate(QLabel* label);
 
-// A sunken frame round control, with bar right under it (when not
-// null), both the same width, so the numbers read as part of the
-// control.
+// control with bar right under it (when not null), both the same
+// width, so the numbers read as part of the control. No border: it sits
+// in its section's well.
 QWidget* Framed(QWidget* control, QWidget* bar, QWidget* parent);
 // Lays cell out as a column with no margin or spacing of its own: a
 // title plate sits right on the frame under it.
@@ -71,7 +73,7 @@ QWidget* PlatedSection(const QString& title, QWidget* body, QWidget* parent);
 // rows kRowGap / 2 apart, no margin (whatever holds it indents it).
 QFormLayout* SettingsForm(QWidget* host);
 
-// A title plate with a form under it whose rows sit kIndent in, with no
+// A caption with a form under it whose rows sit kIndent in, with no
 // frame: a group of settings inside a section.
 class SettingsGroup final : public QWidget {
   Q_OBJECT

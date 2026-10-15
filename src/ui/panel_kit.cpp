@@ -15,6 +15,8 @@ namespace {
 // The margin inside a frame, and above and below a title plate's text.
 constexpr int kFrameMargin = 2;
 constexpr int kPlateMargin = 2;
+// Space between a caption and what it names.
+constexpr int kCaptionGap = 2;
 // Room either side of a title plate's text.
 constexpr int kTitlePadX = 6;
 // Margin inside a section's frame, past the indent on the left.
@@ -52,10 +54,14 @@ GoldenParts GoldenSplit(int total) {
 void MakePlate(QLabel* label) {
   assert(label != nullptr);
   assert(!label->text().isEmpty());
-  label->setFrameStyle(QFrame::StyledPanel | QFrame::Raised);
-  theme::SetLevel(label, theme::kRaised);
-  label->setAlignment(Qt::AlignCenter);
-  label->setMargin(kPlateMargin);
+  // The second level: a quiet caption, no plate, so only sections wear
+  // a bar.
+  label->setFrameStyle(QFrame::NoFrame);
+  label->setAlignment(Qt::AlignLeft | Qt::AlignBottom);
+  label->setContentsMargins(0, 0, 0, kCaptionGap);
+  QPalette quiet = label->palette();
+  quiet.setColor(QPalette::WindowText, theme::kTextOff);
+  label->setPalette(quiet);
 }
 
 void MakeTitlePlate(QLabel* label) {
@@ -77,9 +83,9 @@ void MakeTitlePlate(QLabel* label) {
 QWidget* Framed(QWidget* control, QWidget* bar, QWidget* parent) {
   assert(control != nullptr);
   assert(parent != nullptr);
+  // No border of its own: it sits in its section's well already.
   auto frame = std::make_unique<QFrame>(parent);
-  frame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
-  theme::SetLevel(frame.get(), theme::kWell);
+  frame->setFrameStyle(QFrame::NoFrame);
   auto* column = MakeOwned<QVBoxLayout>(frame.get());
   column->setContentsMargins(kFrameMargin, kFrameMargin, kFrameMargin,
                              kFrameMargin);
@@ -129,6 +135,7 @@ QWidget* PlatedSection(const QString& title, QWidget* body, QWidget* parent) {
   column->addWidget(plate);
   auto* frame = MakeOwned<QFrame>(section.get());
   frame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+  theme::SetLevel(frame, theme::kWell);
   auto* inside = MakeOwned<QVBoxLayout>(frame);
   inside->setContentsMargins(theme::kIndent, kSectionMargin, kSectionMargin,
                              kSectionMargin);
@@ -155,7 +162,7 @@ SettingsGroup::SettingsGroup(const QString& title, QWidget* parent)
   assert(theme::kIndent > 0);
   layout_.setContentsMargins(0, 0, 0, 0);
   layout_.setSpacing(theme::kRowGap / 2);
-  MakeTitlePlate(&title_);
+  MakePlate(&title_);
   layout_.addWidget(&title_);
   layout_.addWidget(&body_);
   form_.setContentsMargins(theme::kIndent, 0, 0, 0);

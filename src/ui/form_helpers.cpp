@@ -113,7 +113,7 @@ void AddTitle(QFormLayout* form, QLabel* title, const QString& text) {
   assert(form != nullptr && title != nullptr);
   assert(!text.isEmpty());
   title->setText(text);
-  MakeTitlePlate(title);
+  MakePlate(title);
   form->addRow(title);
 }
 
