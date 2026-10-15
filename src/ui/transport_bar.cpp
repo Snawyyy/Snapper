@@ -2,7 +2,6 @@
 
 #include <QFontMetrics>
 
-#include <algorithm>
 #include <cassert>
 #include <memory>
 
@@ -21,11 +20,11 @@ constexpr int kButtonPadPx = 12;
 TransportBar::TransportBar(const Managers& managers)
     : managers_(managers),
       layout_(this),
-      first_(QStringLiteral("|<")),
-      back_(QStringLiteral("<")),
-      play_(PlayText(false)),
-      next_(QStringLiteral(">")),
-      last_(QStringLiteral(">|")),
+      first_(TapeGlyph::kFirst),
+      back_(TapeGlyph::kBack),
+      play_(TapeGlyph::kPlay),
+      next_(TapeGlyph::kNext),
+      last_(TapeGlyph::kLast),
       counter_(managers.motion),
       time_(managers.motion) {
   assert(managers_.IsComplete());
@@ -48,14 +47,7 @@ TransportBar::TransportBar(const Managers& managers)
   last_.setObjectName(QStringLiteral("last"));
   counter_.setObjectName(QStringLiteral("counter"));
   time_.setObjectName(QStringLiteral("time"));
-  const QFontMetrics metrics(play_.font());
-  const int wide = std::max(metrics.horizontalAdvance(PlayText(false)),
-                            metrics.horizontalAdvance(PlayText(true)));
-  play_.setFixedWidth(wide + 2 * kButtonPadPx);
-  for (QPushButton* small : {&first_, &back_, &next_, &last_}) {
-    small->setFixedWidth(metrics.horizontalAdvance(small->text()) +
-                         2 * kButtonPadPx);
-  }
+  const QFontMetrics metrics(counter_.font());
   const int counter_wide =
       metrics.horizontalAdvance(QStringLiteral("F 9999"));
   for (BumpLabel* label : {&counter_, &time_}) {

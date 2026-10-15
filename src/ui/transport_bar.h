@@ -8,6 +8,7 @@
 
 #include "ui/bump_label.h"
 #include "ui/managers.h"
+#include "ui/tape_key.h"
 
 namespace snapper {
 
@@ -33,11 +34,11 @@ class TransportBar final : public QWidget {
   // The layout comes before what it holds, so the held widgets leave
   // it before it goes.
   QHBoxLayout layout_;
-  QPushButton first_;
-  QPushButton back_;
-  QPushButton play_;
-  QPushButton next_;
-  QPushButton last_;
+  TapeKey first_;
+  TapeKey back_;
+  TapeKey play_;
+  TapeKey next_;
+  TapeKey last_;
   BumpLabel counter_;
   BumpLabel time_;
 };
