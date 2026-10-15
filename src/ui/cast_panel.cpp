@@ -12,6 +12,7 @@
 #include "edit/stage_manager.h"
 #include "edit/document_manager.h"
 #include "ui/cassette_deck.h"
+#include "ui/divider_tabs.h"
 #include "ui/doll_drop.h"
 #include "ui/library_nav_bar.h"
 #include "ui/panel_kit.h"
@@ -53,7 +54,7 @@ void CastPanel::BuildLayout() {
   assert(tabs_ == nullptr);
   layout_.setContentsMargins(4, 4, 4, 4);
   layout_.setSpacing(theme::kRowGap);
-  tabs_ = MakeOwned<QTabWidget>(this);
+  tabs_ = MakeOwned<DividerTabs>(this);
   tabs_->setDocumentMode(true);
   QWidget* library = MakeLibraryPage();
   // Layers is made before Objects so the layer list stays the second

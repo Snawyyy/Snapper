@@ -1493,7 +1493,7 @@ every reference row, Delete remove the picked ones as one undo step
 (`RemovePicked`) and Escape let them go.
 
 The Cast panel is three tabs stacked in one area, like Krita's stacked
-dockers (the open one kept in the settings file as `cast_tab`): Library
+dockers, drawn as coloured index divider tabs (`DividerTabs`) (the open one kept in the settings file as `cast_tab`): Library
 (doll cards), Objects (object cards, Add pictures and Background, which
 puts a picture under every layer scaled to cover the canvas:
 `StageManager::AddBackground`) and Layers (the shot's layers, top
