@@ -216,3 +216,37 @@ _NFLib/fx/NF_SpatUtils.h:24: "..\NF_Utils.h" -> "../NF_Utils.h"
 ```
 
 (Lines 22 to 31 of `Sputtering.h` sit in a comment; patched anyway.)
+
+### Grain
+
+Files: `Grain/` (`Grain.cpp`, `Grain.h`, `NF_Target.h`, `README.MD`);
+`_NFLib/fx/` `NF_Noise`, `NF_Spat_Data` (`.cpp` and `.h`). Units
+`grain_unit_1..2.cpp`. `NF_Noise.cpp` and `NF_Spat_Data.cpp` both define
+an inline `hash_01` with different formulas; in two units of one
+namespace the linker would keep only one, so `grain_unit_2.cpp` renames
+`NF_Spat_Data.cpp`'s by macro (`fsp_grain_spat_hash_01`), as the entry
+points are renamed. Both hashes overflow signed ints and count on them
+wrapping as under MSVC; gcc at -O2 folded `NF_Spat_Data`'s to one value,
+putting every accent grain on one spot, so `fsp_vendor` is now built
+with `-fwrapv` (CMakeLists.txt). autoSeed adds the frame number, always
+0 here, so only seed changes the pattern. Accent grains keep their size
+at preview scale (F's code does not scale them); the grain size does.
+
+```
+Grain/Grain.h:11: "..\_NFLib\AE_SDK.h" -> "../_NFLib/AE_SDK.h"
+Grain/Grain.h:15: "..\_NFLib\NF_AE.h" -> "../_NFLib/NF_AE.h"
+Grain/Grain.h:16: "..\_NFLib\NF_ParamsSetup.h" -> "../_NFLib/NF_ParamsSetup.h"
+Grain/Grain.h:19: "..\_NFLib\fx\NF_Mult.h" -> "../_NFLib/fx/NF_Mult.h"
+Grain/Grain.h:20: "..\_NFLib\fx\NF_Minmax.h" -> "../_NFLib/fx/NF_MinMax.h"
+Grain/Grain.h:21: "..\_NFLib\fx\NF_blur.h" -> "../_NFLib/fx/NF_Blur.h"
+Grain/Grain.h:22: "..\_NFLib\fx\debug_font.h" -> "../_NFLib/fx/debug_font.h"
+Grain/Grain.h:23: "..\_NFLib\fx\NF_Paint.h" -> "../_NFLib/fx/NF_Paint.h"
+Grain/Grain.h:24: "..\_NFLib\fx\NF_Draw.h" -> "../_NFLib/fx/NF_Draw.h"
+Grain/Grain.h:26: "..\_NFLib\fx\NF_Noise.h" -> "../_NFLib/fx/NF_Noise.h"
+Grain/Grain.h:27: "..\_NFLib\fx\NF_Spat_Data.h" -> "../_NFLib/fx/NF_Spat_Data.h"
+Grain/NF_Target.h:7: "..\_NFLib\NF_CATEGORY.h" -> "../_NFLib/NF_CATEGORY.h"
+Grain/NF_Target.h:8: "..\_NFLib\NF_Version.h" -> "../_NFLib/NF_Version.h"
+_NFLib/fx/NF_Noise.h:26: "..\NF_Utils.h" -> "../NF_Utils.h"
+```
+
+(Lines 19 to 24 of `Grain.h` sit in a comment; patched anyway.)

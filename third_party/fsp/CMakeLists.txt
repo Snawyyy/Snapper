@@ -22,5 +22,10 @@ target_include_directories(fsp_vendor
           ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(fsp_vendor PRIVATE
   -w -fpermissive -fexceptions "$<$<CONFIG:Debug>:-O2>")
+# F's hashes multiply signed ints past their range and count on them
+# wrapping, as they do under MSVC. gcc at -O2 otherwise treats that
+# overflow as impossible and folds NF_Spat_Data's hash_01 to one value
+# for every grain, so Grain's accents all land on one spot.
+target_compile_options(fsp_vendor PRIVATE -fwrapv)
 target_link_libraries(fsp_vendor PRIVATE Threads::Threads)
 set_target_properties(fsp_vendor PROPERTIES POSITION_INDEPENDENT_CODE ON)
