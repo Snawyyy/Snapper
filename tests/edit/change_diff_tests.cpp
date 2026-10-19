@@ -19,13 +19,13 @@ struct Keyed final {
   double angle;
 };
 
-Layer DollWith(LayerId id, const std::vector<Keyed>& keys) {
+Layer LayerWith(LayerId id, const std::vector<Keyed>& keys) {
   assert(id.IsValid());
   assert(keys.size() < 100);
   Layer layer;
   layer.id = id;
-  layer.name = "Doll";
-  layer.content = DollLayer{"Doll", {}, false};
+  layer.name = "Bob";
+  layer.content = CharacterLayer{"Bob", {}, false};
   for (const Keyed& key : keys) {
     LayerPose pose;
     pose.rotation = key.angle;
@@ -48,7 +48,7 @@ Project StageOf(std::vector<Layer> layers) {
 Project Bob(const std::vector<Keyed>& keys) {
   assert(keys.size() < 100);
   assert(kBob.IsValid());
-  return StageOf({DollWith(kBob, keys)});
+  return StageOf({LayerWith(kBob, keys)});
 }
 
 Clip ClipOn(int id, int start, int length) {
@@ -156,9 +156,9 @@ void ChangeDiffTests::AMoveOntoAnotherKeysFrameIsNotAMove() {
 
 void ChangeDiffTests::KeysAreReportedOnTheirOwnRow() {
   const Project before =
-      StageOf({DollWith(kBob, {{4, 10}}), DollWith(kAmy, {{4, 10}})});
+      StageOf({LayerWith(kBob, {{4, 10}}), LayerWith(kAmy, {{4, 10}})});
   const Project after =
-      StageOf({DollWith(kBob, {{4, 10}}), DollWith(kAmy, {{4, 10}, {6, 3}})});
+      StageOf({LayerWith(kBob, {{4, 10}}), LayerWith(kAmy, {{4, 10}, {6, 3}})});
   const KeyChanges got = DiffKeys(before, after, kShot);
   QCOMPARE(got.added, std::vector<KeyChange>({{kAmy, Frame(6)}}));
   QVERIFY(got.removed.empty() && got.moved.empty());
@@ -172,7 +172,7 @@ void ChangeDiffTests::AMissingShotReportsNothing() {
 
 void ChangeDiffTests::ANewLayerCountsItsKeysAsAdded() {
   const Project after =
-      StageOf({DollWith(kBob, {{4, 10}}), DollWith(kAmy, {{2, 1}, {5, 2}})});
+      StageOf({LayerWith(kBob, {{4, 10}}), LayerWith(kAmy, {{2, 1}, {5, 2}})});
   const KeyChanges got = DiffKeys(Bob({{4, 10}}), after, kShot);
   QCOMPARE(got.added,
            std::vector<KeyChange>({{kAmy, Frame(2)}, {kAmy, Frame(5)}}));
@@ -181,7 +181,7 @@ void ChangeDiffTests::ANewLayerCountsItsKeysAsAdded() {
 
 void ChangeDiffTests::AGoneLayerReportsNothing() {
   const Project before =
-      StageOf({DollWith(kBob, {{4, 10}}), DollWith(kAmy, {{2, 1}})});
+      StageOf({LayerWith(kBob, {{4, 10}}), LayerWith(kAmy, {{2, 1}})});
   QVERIFY(DiffKeys(before, Bob({{4, 10}}), kShot).IsEmpty());
   QVERIFY(DiffClips(before, Bob({{4, 10}})).IsEmpty());
 }
@@ -226,9 +226,9 @@ void ChangeDiffTests::AClipTrimmedAtItsEndIsNotMoved() {
 
 void ChangeDiffTests::OnlyLayersThatDifferAreChanged() {
   const Project before =
-      StageOf({DollWith(kBob, {{4, 10}}), DollWith(kAmy, {{4, 10}})});
+      StageOf({LayerWith(kBob, {{4, 10}}), LayerWith(kAmy, {{4, 10}})});
   const Project after =
-      StageOf({DollWith(kBob, {{4, 30}}), DollWith(kAmy, {{4, 10}})});
+      StageOf({LayerWith(kBob, {{4, 30}}), LayerWith(kAmy, {{4, 10}})});
   QCOMPARE(ChangedLayers(before, after, kShot),
            std::vector<LayerId>({kBob}));
   QVERIFY(ChangedLayers(before, before, kShot).empty());

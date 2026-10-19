@@ -9,31 +9,28 @@
 namespace snapper {
 namespace {
 
+// Shot 1 holds Bob (keyed at 4) and Amy; shot 2 is empty.
 Project Stage() {
-  Doll doll;
-  doll.rig.pieces = {{"head", "", {}, 0, -1, {2, 2}},
-                     {"arm", "", {}, 0, -1, {}}};
   Shot shot;
   shot.id = ShotId(1);
-  Layer layer;
-  layer.id = LayerId(1);
-  DollLayer posed{"Bob", {}, false};
-  SetKey(&posed.pieces["head"], {Frame(4), LayerPose(), Ease::kStep});
-  layer.content = posed;
-  shot.layers = {layer};
+  Layer bob;
+  bob.id = LayerId(1);
+  bob.content = CharacterLayer{"Bob", {}, false};
+  SetKey(&bob.transform, {Frame(4), LayerPose(), Ease::kStep});
+  Layer amy;
+  amy.id = LayerId(2);
+  amy.content = CharacterLayer{"Amy", {}, false};
+  shot.layers = {bob, amy};
   Shot other;
   other.id = ShotId(2);
   Project project;
-  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
   project.shots = {std::make_shared<const Shot>(shot),
                    std::make_shared<const Shot>(other)};
   assert(project.shots.size() == 2);
-  assert(project.dolls.size() == 1);
   return project;
 }
 
-const KeyRef kHeadKey{{ShotId(1), TrackKind::kPiece, LayerId(1), "head"},
-                      Frame(4)};
+const KeyRef kBobKey{{ShotId(1), TrackKind::kLayer, LayerId(1)}, Frame(4)};
 
 }  // namespace
 
@@ -47,7 +44,6 @@ class SelectionTests final : public QObject {
   void EditsDropWhatIsGone();
   void ManyThingsCombineByMode();
   void ManyShotsKeepAFocus();
-  void ManyWarpDotsCombineByMode();
 };
 
 void SelectionTests::StartsOnTheFirstShot() {
@@ -62,28 +58,23 @@ void SelectionTests::PicksOnlyWhatExists() {
   SelectionManager selection(&history);
   QSignalSpy changed(&selection, &SelectionManager::Changed);
   selection.SelectLayer(LayerId(1));
-  selection.SelectPieces({"head", "tail"}, false);
-  QCOMPARE(selection.pieces(), std::set<QString>({"head"}));
-  selection.SelectPieces({"arm"}, true);
-  QCOMPARE(selection.pieces().size(), size_t{2});
-  KeyRef missing = kHeadKey;
+  KeyRef missing = kBobKey;
   missing.frame = Frame(5);
-  selection.SelectKeys({kHeadKey, missing}, false);
-  QCOMPARE(selection.keys(), std::set<KeyRef>({kHeadKey}));
+  selection.SelectKeys({kBobKey, missing}, false);
+  QCOMPARE(selection.keys(), std::set<KeyRef>({kBobKey}));
   selection.SelectLayer(LayerId(9));
   QCOMPARE(selection.layer(), LayerId(1));
-  QCOMPARE(changed.count(), 4);
+  QCOMPARE(changed.count(), 2);
 }
 
 void SelectionTests::PickingAnotherShotDropsTheRest() {
   HistoryManager history(Stage());
   SelectionManager selection(&history);
   selection.SelectLayer(LayerId(1));
-  selection.SelectPieces({"head"}, false);
-  selection.SelectKeys({kHeadKey}, false);
+  selection.SelectKeys({kBobKey}, false);
   selection.SelectShot(ShotId(2));
   QCOMPARE(selection.shot(), ShotId(2));
-  QVERIFY(selection.pieces().empty());
+  QVERIFY(selection.picks().empty());
   QVERIFY(selection.keys().empty());
   selection.SelectShot(ShotId(7));
   QCOMPARE(selection.shot(), ShotId(2));
@@ -92,46 +83,44 @@ void SelectionTests::PickingAnotherShotDropsTheRest() {
 void SelectionTests::EditsDropWhatIsGone() {
   HistoryManager history(Stage());
   SelectionManager selection(&history);
-  selection.SelectLayer(LayerId(1));
-  selection.SelectPieces({"head", "arm"}, false);
-  selection.SelectKeys({kHeadKey}, false);
+  selection.PickThings({Pick{LayerId(1)}, Pick{LayerId(2)}},
+                       PickMode::kReplace, LayerId(1));
+  selection.SelectKeys({kBobKey}, false);
   Project next = history.current();
-  Doll doll = *next.dolls.at("Bob");
-  doll.rig.pieces.pop_back();
-  next.dolls["Bob"] = std::make_shared<const Doll>(doll);
   Shot shot = *next.shots[0];
-  std::get<DollLayer>(shot.layers[0].content).pieces.clear();
+  shot.layers[0].transform.keys.clear();
+  shot.layers.pop_back();
   next.shots[0] = std::make_shared<const Shot>(shot);
   history.Commit("Edit", next);
-  QCOMPARE(selection.pieces(), std::set<QString>({"head"}));
+  QCOMPARE(selection.picks(), std::set<Pick>({Pick{LayerId(1)}}));
   QVERIFY(selection.keys().empty());
   next.shots.erase(next.shots.begin());
   history.Commit("Remove", next);
   QCOMPARE(selection.shot(), ShotId(2));
   QVERIFY(!selection.layer().IsValid());
-  QVERIFY(selection.pieces().empty());
+  QVERIFY(selection.picks().empty());
 }
 
 void SelectionTests::ManyThingsCombineByMode() {
   HistoryManager history(Stage());
   SelectionManager selection(&history);
-  const Pick head{LayerId(1), "head"};
-  const Pick arm{LayerId(1), "arm"};
-  selection.PickThings({head}, PickMode::kReplace, LayerId(1));
-  selection.PickThings({arm}, PickMode::kAdd, LayerId(1));
-  QCOMPARE(selection.picks(), std::set<Pick>({head, arm}));
-  selection.PickThings({head}, PickMode::kToggle, LayerId(1));
-  QCOMPARE(selection.picks(), std::set<Pick>({arm}));
-  selection.PickThings({arm, {LayerId(1), "tail"}}, PickMode::kRemove,
-                       LayerId(1));
+  const Pick bob{LayerId(1)};
+  const Pick amy{LayerId(2)};
+  selection.PickThings({bob}, PickMode::kReplace, LayerId(1));
+  selection.PickThings({amy}, PickMode::kAdd, LayerId(2));
+  QCOMPARE(selection.picks(), std::set<Pick>({bob, amy}));
+  selection.PickThings({bob}, PickMode::kToggle, LayerId(2));
+  QCOMPARE(selection.picks(), std::set<Pick>({amy}));
+  selection.PickThings({amy, Pick{LayerId(9)}}, PickMode::kRemove,
+                       LayerId(2));
   QVERIFY(selection.picks().empty());
   QVERIFY(!selection.layer().IsValid());
-  selection.PickThings({head, {LayerId(1), {}}}, PickMode::kAdd, LayerId(1));
-  // A layer picked by a piece isn't also picked whole.
-  QCOMPARE(selection.picks(), std::set<Pick>({head}));
+  // What is not on the shot is never picked.
+  selection.PickThings({bob, Pick{LayerId(9)}}, PickMode::kAdd, LayerId(1));
+  QCOMPARE(selection.picks(), std::set<Pick>({bob}));
   const auto tracks = selection.PickedTracks();
   QCOMPARE(tracks.size(), size_t{1});
-  QCOMPARE(tracks[0].kind, TrackKind::kPiece);
+  QCOMPARE(tracks[0].kind, TrackKind::kLayer);
   QCOMPARE(selection.PickedLayers(), std::vector<LayerId>({LayerId(1)}));
 }
 
@@ -145,35 +134,6 @@ void SelectionTests::ManyShotsKeepAFocus() {
   QCOMPARE(selection.shot(), ShotId(2));
   selection.PickShots({ShotId(2)}, PickMode::kRemove);
   QCOMPARE(selection.shots(), std::set<ShotId>({ShotId(2)}));
-}
-
-void SelectionTests::ManyWarpDotsCombineByMode() {
-  HistoryManager history(Stage());
-  SelectionManager selection(&history);
-  const auto dot = [](int point) {
-    return WarpDot{LayerId(1), "head", point};
-  };
-  // A dot of a piece that is not picked is not real.
-  selection.PickDots({dot(0)}, PickMode::kReplace);
-  QVERIFY(selection.dots().empty());
-  selection.SelectLayer(LayerId(1));
-  selection.PickThings({{LayerId(1), "head"}}, PickMode::kReplace,
-                       LayerId(1));
-  selection.PickDots({dot(1), dot(2), dot(3)}, PickMode::kReplace);
-  QCOMPARE(selection.dots().size(), size_t{3});
-  QCOMPARE(selection.dot(), std::optional<WarpDot>(dot(1)));
-  selection.PickDots({dot(2), dot(4)}, PickMode::kToggle);
-  QCOMPARE(selection.dots(), (std::vector<WarpDot>{dot(1), dot(3), dot(4)}));
-  selection.PickDots({dot(1)}, PickMode::kRemove);
-  QCOMPARE(selection.dots(), (std::vector<WarpDot>{dot(3), dot(4)}));
-  // A dot off the grid is dropped; a single pick still replaces.
-  selection.PickDots({dot(40)}, PickMode::kAdd);
-  QCOMPARE(selection.dots().size(), size_t{2});
-  selection.PickDot(dot(4));
-  QCOMPARE(selection.dots(), (std::vector<WarpDot>{dot(4)}));
-  selection.PickDot(std::nullopt);
-  QVERIFY(selection.dots().empty());
-  QVERIFY(!selection.dot().has_value());
 }
 
 }  // namespace snapper

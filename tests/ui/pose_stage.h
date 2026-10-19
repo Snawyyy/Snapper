@@ -18,7 +18,7 @@ namespace posestage {
 inline const StageFrame kFrame{ShotId(1), Frame(0), 1.0, QPointF(10, 10)};
 
 // A 100x100 project with a 20x20 red picture layer ("Dot") in the
-// middle, its file in the bench's folder, keyed there at frame 0.
+// middle, its file in the bench's folder.
 inline void Stage(Bench* bench) {
   assert(bench != nullptr);
   QImage red(20, 20, QImage::Format_ARGB32);
@@ -29,9 +29,6 @@ inline void Stage(Bench* bench) {
   layer.id = LayerId(1);
   layer.name = "Dot";
   layer.content = ImageLayer{path};
-  LayerPose middle;
-  middle.offset = QPointF(50, 50);
-  layer.transform.keys.push_back(Key<LayerPose>{Frame(0), middle});
   Shot shot;
   shot.id = ShotId(1);
   shot.layers = {layer};
@@ -41,7 +38,7 @@ inline void Stage(Bench* bench) {
   bench->history.Reset(project);
 }
 
-// The Dot layer's pose at frame 0.
+// The Dot layer's pose at frame 0; rest when it has no keys.
 inline LayerPose Body(const Bench& bench) {
   assert(!bench.dir.path().isEmpty());
   assert(!bench.history.current().shots.empty());

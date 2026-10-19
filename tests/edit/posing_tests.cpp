@@ -1,9 +1,8 @@
-#include <QLineF>
 #include <QTest>
 
 #include <cassert>
 
-#include "anim/doll_pose.h"
+#include "anim/sampler.h"
 #include "edit/edit_scope.h"
 #include "edit/history_manager.h"
 #include "edit/pose_manager.h"
@@ -12,58 +11,45 @@ namespace snapper {
 namespace {
 
 const ShotId kShot(1);
-const LayerId kDoll(1);
+const LayerId kBob(1);
 const LayerId kEffect(2);
+const LayerId kAmy(3);
 
-// Two 10-pixel arm bones on each side, with an IK chain on the left.
+// Bob and Amy, two characters, with an effect between them.
 Project Stage() {
-  Doll doll;
-  doll.art.pieces = {{"arm_l", {"a.png", "b.png"}, 0, {0, 0}, {10, 2}},
-                     {"hand_l", {"h.png"}, 0, {10, 0}, {10, 2}},
-                     {"arm_r", {"a.png"}, 0, {0, 0}, {10, 2}}};
-  doll.rig.pieces = {{"arm_l", "", {0, 1}, 0, -1, {1, 1}},
-                     {"hand_l", "arm_l", {0, 1}, 1, -1, {}},
-                     {"arm_r", "", {0, 1}, 0, -1, {}}};
-  doll.rig.chains = {{"reach", "arm_l", "hand_l", {10, 1}, true}};
-  Layer layer;
-  layer.id = kDoll;
-  layer.content = DollLayer{"Bob", {}, false};
+  Layer bob;
+  bob.id = kBob;
+  bob.content = CharacterLayer{"Bob", {}, false};
   Layer effect;
   effect.id = kEffect;
   effect.content = EffectLayer{};
+  Layer amy;
+  amy.id = kAmy;
+  amy.content = CharacterLayer{"Amy", {}, false};
   Shot shot;
   shot.id = kShot;
-  shot.layers = {layer, effect};
+  shot.layers = {bob, effect, amy};
   Project project;
-  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
   project.shots = {std::make_shared<const Shot>(shot)};
   assert(project.shots.size() == 1);
-  assert(project.dolls.size() == 1);
   return project;
 }
 
-TrackRef Piece(const QString& name) {
-  assert(!name.isEmpty());
-  const TrackRef track{kShot, TrackKind::kPiece, kDoll, name};
-  assert(track.piece == name);
-  return track;
+TrackRef Track(LayerId layer) {
+  assert(layer.IsValid());
+  return TrackRef{kShot, TrackKind::kLayer, layer};
 }
 
-PoseMap PosesAt(const HistoryManager& history, Frame frame) {
+const Layer& LayerOf(const HistoryManager& history, LayerId id) {
   assert(!history.current().shots.empty());
-  assert(!history.current().shots[0]->layers.empty());
-  return SamplePoses(
-      std::get<DollLayer>(history.current().shots[0]->layers[0].content),
-      frame);
+  const Layer* layer = FindLayer(*history.current().shots[0], id);
+  assert(layer != nullptr);
+  return *layer;
 }
 
-const Channel<LayerPose>& Keys(const HistoryManager& history,
-                               const QString& piece) {
-  assert(!piece.isEmpty());
-  assert(!history.current().shots.empty());
-  return std::get<DollLayer>(
-             history.current().shots[0]->layers[0].content)
-      .pieces.at(piece);
+LayerPose PoseAt(const HistoryManager& history, LayerId id, Frame frame) {
+  assert(frame.index() >= 0);
+  return Sample(LayerOf(history, id).transform, frame, LayerPose());
 }
 
 }  // namespace
@@ -75,98 +61,50 @@ class PosingTests final : public QObject {
   void PosingKeysTheFrameAndHolds();
   void KeysKeepTheirEase();
   void DragsLandAsOneKey();
-  void SwapsAndWarpsCheckTheRig();
-  void PullingDragsRubberNeighbours();
   void CameraAndEffectsKeyToo();
-  void IkBendsBothBones();
-  void PasteMirroredSwapsSides();
-  void PosingOnePieceKeysTheWholeDoll();
   void ShiftMovesEachByTheSameAmount();
 };
 
 void PosingTests::PosingKeysTheFrameAndHolds() {
   HistoryManager history(Stage());
   PoseManager pose(&history);
-  QVERIFY(pose.Rotate(Piece("arm_l"), Frame(4), 30.0).has_value());
-  QVERIFY(pose.Move(Piece("arm_l"), Frame(4), QPointF(2, 3)).has_value());
-  QCOMPARE(Keys(history, "arm_l").keys.size(), size_t{1});
-  QCOMPARE(PosesAt(history, Frame(10)).at("arm_l").rotation, 30.0);
-  QCOMPARE(PosesAt(history, Frame(10)).at("arm_l").offset, QPointF(2, 3));
-  QCOMPARE(Keys(history, "arm_l").keys[0].ease, Ease::kStep);
-  QVERIFY(!pose.Rotate(Piece("arm_l"), Frame(4), qQNaN()).has_value());
-  QVERIFY(!pose.Skew(Piece("arm_l"), Frame(4), 95.0).has_value());
-  QVERIFY(!pose.SetOpacity(Piece("arm_l"), Frame(4), 2.0).has_value());
+  QVERIFY(pose.Rotate(Track(kBob), Frame(4), 30.0).has_value());
+  QVERIFY(pose.Move(Track(kBob), Frame(4), QPointF(2, 3)).has_value());
+  QCOMPARE(LayerOf(history, kBob).transform.keys.size(), size_t{1});
+  QCOMPARE(PoseAt(history, kBob, Frame(10)).rotation, 30.0);
+  QCOMPARE(PoseAt(history, kBob, Frame(10)).offset, QPointF(2, 3));
+  QCOMPARE(LayerOf(history, kBob).transform.keys[0].ease, Ease::kStep);
+  QVERIFY(!pose.Rotate(Track(kBob), Frame(4), qQNaN()).has_value());
+  QVERIFY(!pose.Skew(Track(kBob), Frame(4), 95.0).has_value());
+  QVERIFY(!pose.SetOpacity(Track(kBob), Frame(4), 2.0).has_value());
 }
 
 void PosingTests::KeysKeepTheirEase() {
   HistoryManager history(Stage());
   PoseManager pose(&history);
-  QVERIFY(pose.Rotate(Piece("arm_l"), Frame(0), 10.0).has_value());
+  QVERIFY(pose.Rotate(Track(kBob), Frame(0), 10.0).has_value());
   Project eased = history.current();
   Shot shot = *eased.shots[0];
-  std::get<DollLayer>(shot.layers[0].content).pieces["arm_l"].keys[0].ease =
-      Ease::kLinear;
+  shot.layers[0].transform.keys[0].ease = Ease::kLinear;
   eased.shots[0] = std::make_shared<const Shot>(shot);
   history.Commit("Ease", eased);
-  QVERIFY(pose.Rotate(Piece("arm_l"), Frame(0), 20.0).has_value());
-  QCOMPARE(Keys(history, "arm_l").keys[0].ease, Ease::kLinear);
+  QVERIFY(pose.Rotate(Track(kBob), Frame(0), 20.0).has_value());
+  QCOMPARE(LayerOf(history, kBob).transform.keys[0].ease, Ease::kLinear);
 }
 
 void PosingTests::DragsLandAsOneKey() {
   HistoryManager history(Stage());
   PoseManager pose(&history);
   {
-    EditScope drag(&history, "Rotate arm_l");
+    EditScope drag(&history, "Rotate Bob");
     for (int degrees = 0; degrees <= 45; degrees += 5) {
-      QVERIFY(pose.Rotate(Piece("arm_l"), Frame(2), degrees).has_value());
+      QVERIFY(pose.Rotate(Track(kBob), Frame(2), degrees).has_value());
     }
   }
-  QCOMPARE(history.UndoLabel(), QString("Rotate arm_l"));
-  QCOMPARE(PosesAt(history, Frame(2)).at("arm_l").rotation, 45.0);
+  QCOMPARE(history.UndoLabel(), QString("Rotate Bob"));
+  QCOMPARE(PoseAt(history, kBob, Frame(2)).rotation, 45.0);
   history.Undo();
-  QVERIFY(PosesAt(history, Frame(2)).empty());
-}
-
-void PosingTests::SwapsAndWarpsCheckTheRig() {
-  HistoryManager history(Stage());
-  PoseManager pose(&history);
-  QVERIFY(pose.SwapDrawing(Piece("arm_l"), Frame(0), 1).has_value());
-  QVERIFY(!pose.SwapDrawing(Piece("arm_l"), Frame(0), 2).has_value());
-  QVERIFY(pose.Pull(Piece("arm_l"), Frame(0), 3, QPointF(1, 1)).has_value());
-  QVERIFY(!pose.Pull(Piece("arm_l"), Frame(0), 4, QPointF()).has_value());
-  QVERIFY(!pose.Pull(Piece("arm_r"), Frame(0), 0, QPointF()).has_value());
-  const LayerPose arm = PosesAt(history, Frame(0)).at("arm_l");
-  QCOMPARE(arm.drawing, 1);
-  QCOMPARE(arm.warp.size(), size_t{4});
-  QCOMPARE(arm.warp[3], QPointF(1, 1));
-}
-
-void PosingTests::PullingDragsRubberNeighbours() {
-  Project project = Stage();
-  Doll doll = *project.dolls.at("Bob");
-  doll.rig.pieces[0].warp = {2, 2};
-  doll.rig.pieces[0].warp_reach = std::vector<double>(9, 0.0);
-  doll.rig.pieces[0].warp_reach[4] = 2.0;
-  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
-  HistoryManager history(project);
-  PoseManager pose(&history);
-  {
-    // A drag pulls by its running total from where it started.
-    EditScope drag(&history, "Warp arm_l");
-    QVERIFY(pose.Pull(Piece("arm_l"), Frame(0), 4, QPointF(2, 0)));
-    QVERIFY(pose.Pull(Piece("arm_l"), Frame(0), 4, QPointF(4, 0)));
-  }
-  const LayerPose arm = PosesAt(history, Frame(0)).at("arm_l");
-  // The middle point takes it all, an edge point one cell off half,
-  // and the corners, further, less.
-  QCOMPARE(arm.warp[4], QPointF(4, 0));
-  QCOMPARE(arm.warp[1], QPointF(2, 0));
-  QVERIFY(arm.warp[0].x() > 0.0 && arm.warp[0].x() < 2.0);
-  // A point with no reach moves alone.
-  QVERIFY(pose.Pull(Piece("arm_l"), Frame(0), 0, QPointF(0, 3)));
-  const LayerPose after = PosesAt(history, Frame(0)).at("arm_l");
-  QCOMPARE(after.warp[0].y(), 3.0);
-  QCOMPARE(after.warp[1], QPointF(2, 0));
+  QVERIFY(LayerOf(history, kBob).transform.keys.empty());
 }
 
 void PosingTests::CameraAndEffectsKeyToo() {
@@ -177,7 +115,7 @@ void PosingTests::CameraAndEffectsKeyToo() {
   QVERIFY(pose.SetCamera(kShot, Frame(6), camera).has_value());
   camera.zoom = 0.0;
   QVERIFY(!pose.SetCamera(kShot, Frame(6), camera).has_value());
-  const TrackRef amount{kShot, TrackKind::kEffectAmount, kEffect, {}};
+  const TrackRef amount{kShot, TrackKind::kEffectAmount, kEffect};
   QVERIFY(pose.SetAmount(amount, Frame(1), 0.25).has_value());
   QVERIFY(!pose.SetAmount(amount, Frame(1), 1.5).has_value());
   QVERIFY(!pose.Rotate(amount, Frame(1), 5.0).has_value());
@@ -187,79 +125,23 @@ void PosingTests::CameraAndEffectsKeyToo() {
            0.25);
 }
 
-void PosingTests::IkBendsBothBones() {
-  HistoryManager history(Stage());
-  PoseManager pose(&history);
-  QVERIFY(pose.DragIk(kShot, kDoll, "reach", Frame(3), QPointF(10, 11))
-              .has_value());
-  const Project& project = history.current();
-  const auto tip = PieceTransforms(*project.dolls.at("Bob"),
-                                   PosesAt(history, Frame(3)))
-                       .at("hand_l")
-                       .map(QPointF(10, 1));
-  QVERIFY(QLineF(tip, QPointF(10, 11)).length() < 1e-6);
-  QCOMPARE(history.UndoLabel(), QString("Bend reach"));
-  QVERIFY(!pose.DragIk(kShot, kDoll, "kick", Frame(3), QPointF()).has_value());
-}
-
-void PosingTests::PasteMirroredSwapsSides() {
-  HistoryManager history(Stage());
-  PoseManager pose(&history);
-  QCOMPARE(pose.WhyNoPaste(), QString("Copy a pose first."));
-  QVERIFY(pose.Rotate(Piece("arm_l"), Frame(0), 40.0).has_value());
-  QVERIFY(pose.CopyPose(kShot, kDoll, Frame(0), {"arm_l"}).has_value());
-  QVERIFY(pose.WhyNoPaste().isEmpty());
-  QVERIFY(pose.PastePose(kShot, kDoll, Frame(8), true).has_value());
-  const PoseMap at8 = PosesAt(history, Frame(8));
-  QCOMPARE(at8.at("arm_r").rotation, -40.0);
-  QCOMPARE(at8.at("arm_l").rotation, 40.0);
-  QVERIFY(pose.PastePose(kShot, kDoll, Frame(12), false).has_value());
-  QCOMPARE(Keys(history, "arm_l").keys.back().frame, Frame(12));
-  QVERIFY(!pose.CopyPose(kShot, kEffect, Frame(0), {}).has_value());
-}
-
-void PosingTests::PosingOnePieceKeysTheWholeDoll() {
-  HistoryManager history(Stage());
-  PoseManager pose(&history);
-  QVERIFY(pose.Rotate(Piece("arm_r"), Frame(0), 10.0).has_value());
-  QVERIFY(pose.Rotate(Piece("arm_r"), Frame(8), 50.0).has_value());
-  Project eased = history.current();
-  Shot shot = *eased.shots[0];
-  auto& arm = std::get<DollLayer>(shot.layers[0].content).pieces["arm_r"];
-  arm.keys[0].ease = Ease::kLinear;
-  eased.shots[0] = std::make_shared<const Shot>(shot);
-  history.Commit("Ease", eased);
-  QVERIFY(pose.Rotate(Piece("arm_l"), Frame(4), 20.0).has_value());
-  for (const QString piece : {"arm_l", "hand_l", "arm_r"}) {
-    QVERIFY(KeyIndexAt(Keys(history, piece), Frame(4)) >= 0);
-  }
-  const Layer& layer = history.current().shots[0]->layers[0];
-  QVERIFY(KeyIndexAt(layer.transform, Frame(4)) >= 0);
-  // The in-between arm_r key holds the eased value and keeps easing.
-  const Channel<LayerPose> right = Keys(history, "arm_r");
-  QCOMPARE(right.keys[1].value.rotation, 30.0);
-  QCOMPARE(right.keys[1].ease, Ease::kLinear);
-  QCOMPARE(PosesAt(history, Frame(6)).at("arm_r").rotation, 40.0);
-}
-
 void PosingTests::ShiftMovesEachByTheSameAmount() {
   HistoryManager history(Stage());
   PoseManager pose(&history);
-  QVERIFY(pose.Move(Piece("arm_l"), Frame(0), QPointF(10, 0)).has_value());
+  QVERIFY(pose.Move(Track(kBob), Frame(0), QPointF(10, 0)).has_value());
   PoseDelta delta;
   delta.offset = QPointF(5, 1);
   delta.scale_x = -2.0;
   delta.opacity = 0.5;
-  QVERIFY(pose.Shift({Piece("arm_l"), Piece("arm_r")}, Frame(0), delta)
+  QVERIFY(pose.Shift({Track(kBob), Track(kAmy)}, Frame(0), delta)
               .has_value());
-  const PoseMap at0 = PosesAt(history, Frame(0));
-  QCOMPARE(at0.at("arm_l").offset, QPointF(15, 1));
-  QCOMPARE(at0.at("arm_r").offset, QPointF(5, 1));
-  QCOMPARE(at0.at("arm_r").scale_x, 0.0);
-  QCOMPARE(at0.at("arm_r").opacity, 1.0);
+  QCOMPARE(PoseAt(history, kBob, Frame(0)).offset, QPointF(15, 1));
+  QCOMPARE(PoseAt(history, kAmy, Frame(0)).offset, QPointF(5, 1));
+  QCOMPARE(PoseAt(history, kAmy, Frame(0)).scale_x, 0.0);
+  QCOMPARE(PoseAt(history, kAmy, Frame(0)).opacity, 1.0);
   QVERIFY(!pose.Shift({}, Frame(0), delta).has_value());
   history.Undo();
-  QCOMPARE(PosesAt(history, Frame(0)).at("arm_l").offset, QPointF(10, 0));
+  QCOMPARE(PoseAt(history, kBob, Frame(0)).offset, QPointF(10, 0));
 }
 
 }  // namespace snapper

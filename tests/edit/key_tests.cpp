@@ -10,8 +10,8 @@ namespace snapper {
 namespace {
 
 const ShotId kShot(1);
-const TrackRef kArm{kShot, TrackKind::kPiece, LayerId(1), "arm"};
-const TrackRef kCamera{kShot, TrackKind::kCamera, {}, {}};
+const TrackRef kArm{kShot, TrackKind::kLayer, LayerId(1)};
+const TrackRef kCamera{kShot, TrackKind::kCamera, {}};
 
 LayerPose Turned(double degrees) {
   assert(std::isfinite(degrees));
@@ -21,19 +21,18 @@ LayerPose Turned(double degrees) {
   return pose;
 }
 
-// Arm keys at 0, 4 and 8 turned 0, 40 and 80 degrees; a camera key at 4.
+// Layer 1 ("the arm") keyed at 0, 4 and 8 turned 0, 40 and 80 degrees;
+// layer 2 with no keys; a camera key at 4.
 Project Stage() {
-  DollLayer posed{"Bob", {}, false};
-  for (int i = 0; i < 3; ++i) {
-    SetKey(&posed.pieces["arm"], {Frame(i * 4), Turned(i * 40.0),
-                                  Ease::kStep});
-  }
   Layer layer;
   layer.id = LayerId(1);
-  layer.content = posed;
+  layer.content = CharacterLayer{"Bob", {}, false};
+  for (int i = 0; i < 3; ++i) {
+    SetKey(&layer.transform, {Frame(i * 4), Turned(i * 40.0), Ease::kStep});
+  }
   Layer other = layer;
   other.id = LayerId(2);
-  std::get<DollLayer>(other.content).pieces.clear();
+  other.transform.keys.clear();
   Shot shot;
   shot.id = kShot;
   shot.layers = {layer, other};
@@ -49,16 +48,10 @@ std::vector<int> ArmFrames(const HistoryManager& history, int layer = 0) {
   assert(layer >= 0);
   assert(!history.current().shots.empty());
   std::vector<int> frames;
-  const auto& pieces =
-      std::get<DollLayer>(
-          history.current().shots[0]->layers[static_cast<size_t>(layer)]
-              .content)
-          .pieces;
-  const bool has_arm = pieces.contains("arm");
-  if (has_arm) {
-    for (const auto& key : pieces.at("arm").keys) {
-      frames.push_back(key.frame.index());
-    }
+  for (const auto& key :
+       history.current().shots[0]->layers[static_cast<size_t>(layer)]
+           .transform.keys) {
+    frames.push_back(key.frame.index());
   }
   return frames;
 }
@@ -84,8 +77,8 @@ void KeyTests::ShiftMovesAndReplaces() {
   QVERIFY(moved.has_value());
   QVERIFY(moved->contains({kArm, Frame(4)}));
   QCOMPARE(ArmFrames(history), std::vector<int>({4, 8}));
-  QCOMPARE(std::get<DollLayer>(history.current().shots[0]->layers[0].content)
-               .pieces.at("arm").keys[0].value.rotation,
+  QCOMPARE(history.current().shots[0]->layers[0].transform.keys[0]
+               .value.rotation,
            0.0);
   QCOMPARE(history.current().shots[0]->camera.keys[0].frame, Frame(8));
   QVERIFY(!keys.Shift({{kArm, Frame(4)}}, -5).has_value());
@@ -95,8 +88,7 @@ void KeyTests::RemoveAndEase() {
   HistoryManager history(Stage());
   KeyManager keys(&history);
   QVERIFY(keys.SetEase({{kArm, Frame(4)}}, Ease::kEaseOut).has_value());
-  QCOMPARE(std::get<DollLayer>(history.current().shots[0]->layers[0].content)
-               .pieces.at("arm").keys[1].ease,
+  QCOMPARE(history.current().shots[0]->layers[0].transform.keys[1].ease,
            Ease::kEaseOut);
   QVERIFY(keys.Remove({{kArm, Frame(4)}, {kArm, Frame(8)}}).has_value());
   QCOMPARE(ArmFrames(history), std::vector<int>({0}));

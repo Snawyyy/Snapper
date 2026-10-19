@@ -2,7 +2,7 @@
 
 #include <cassert>
 
-#include "model/doll.h"
+#include "model/character.h"
 #include "model/key.h"
 #include "model/layer.h"
 #include "model/project.h"
@@ -11,25 +11,6 @@
 #include "model/transition.h"
 
 namespace snapper {
-namespace {
-
-Doll Arm() {
-  Doll doll;
-  doll.name = "Bob";
-  doll.folder = "/dolls/Bob.doll";
-  doll.art.pieces = {{"body", {"body.png"}, 0, {}, {10, 10}},
-                     {"arm", {"open.png", "fist.png"}, 0, {}, {4, 4}},
-                     {"hand", {"hand.png"}, 0, {}, {2, 2}}};
-  doll.rig.pieces = {{"body", "", {}, 0, -1, {}},
-                     {"arm", "body", {}, 1, -1, {}},
-                     {"hand", "arm", {}, 2, -1, {}}};
-  assert(doll.art.pieces.size() == doll.rig.pieces.size());
-  assert(doll.rig.chains.empty());
-  return doll;
-}
-
-}  // namespace
-
 class ModelTests final : public QObject {
   Q_OBJECT
 
@@ -38,12 +19,10 @@ class ModelTests final : public QObject {
   void CanvasMustBeEvenAndInRange();
   void KeysStaySortedAndUnique();
   void RemovingAMissingKeySaysSo();
-  void ParentingRefusesLoops();
-  void DrawingFallsBackToRigThenArtDefault();
   void LayersShowOnlyInTheirRange();
   void TransitionNeverEatsAWholeClip();
   void ClipsTouchWhereOneEndsAndTheNextStarts();
-  void ProjectFindsShotsAndDolls();
+  void ProjectFindsShotsAndCharacters();
   void LinksToGoneLayersDrop();
 };
 
@@ -81,26 +60,6 @@ void ModelTests::RemovingAMissingKeySaysSo() {
   QVERIFY(!RemoveKey(&channel, Frame(5)));
   QVERIFY(RemoveKey(&channel, Frame(4)));
   QVERIFY(channel.keys.empty());
-}
-
-void ModelTests::ParentingRefusesLoops() {
-  const Doll doll = Arm();
-  QVERIFY(CanParent(doll.rig, "hand", "body"));
-  QVERIFY(CanParent(doll.rig, "arm", ""));
-  QVERIFY(!CanParent(doll.rig, "body", "hand"));
-  QVERIFY(!CanParent(doll.rig, "arm", "arm"));
-  QVERIFY(!CanParent(doll.rig, "arm", "ghost"));
-  QVERIFY(!CanParent(doll.rig, "ghost", ""));
-}
-
-void ModelTests::DrawingFallsBackToRigThenArtDefault() {
-  Doll doll = Arm();
-  QCOMPARE(DrawingPath(doll, "arm", -1), QString("/dolls/Bob.doll/open.png"));
-  FindRig(&doll.rig, "arm")->default_drawing = 1;
-  QCOMPARE(DrawingPath(doll, "arm", -1), QString("/dolls/Bob.doll/fist.png"));
-  QCOMPARE(DrawingPath(doll, "arm", 0), QString("/dolls/Bob.doll/open.png"));
-  QVERIFY(DrawingPath(doll, "arm", 2).isEmpty());
-  QVERIFY(DrawingPath(doll, "ghost", 0).isEmpty());
 }
 
 void ModelTests::LayersShowOnlyInTheirRange() {
@@ -145,7 +104,7 @@ void ModelTests::ClipsTouchWhereOneEndsAndTheNextStarts() {
   QVERIFY(NextTouching(track, c) == nullptr);
 }
 
-void ModelTests::ProjectFindsShotsAndDolls() {
+void ModelTests::ProjectFindsShotsAndCharacters() {
   Project project;
   Shot shot;
   shot.id = ShotId(7);
@@ -153,12 +112,14 @@ void ModelTests::ProjectFindsShotsAndDolls() {
   layer.id = LayerId(3);
   shot.layers.push_back(layer);
   project.shots.push_back(std::make_shared<const Shot>(shot));
-  project.dolls["Bob"] = std::make_shared<const Doll>(Arm());
+  Character bob;
+  bob.name = "Bob";
+  project.characters["Bob"] = std::make_shared<const Character>(bob);
   QCOMPARE(ShotIndex(project, ShotId(7)), 0);
   QCOMPARE(ShotIndex(project, ShotId(8)), -1);
   QVERIFY(FindLayer(*FindShot(project, ShotId(7)), LayerId(3)) != nullptr);
-  QVERIFY(FindDoll(project, "Bob") != nullptr);
-  QVERIFY(FindDoll(project, "Ann") == nullptr);
+  QVERIFY(FindCharacter(project, "Bob") != nullptr);
+  QVERIFY(FindCharacter(project, "Ann") == nullptr);
 }
 
 void ModelTests::LinksToGoneLayersDrop() {
@@ -168,10 +129,10 @@ void ModelTests::LinksToGoneLayersDrop() {
   Layer b;
   b.id = LayerId(2);
   shot.layers = {a, b};
-  shot.links = {Link{{LayerId(1), {}}, {LayerId(2), {}}, Frame(0), 1.0},
-                Link{{LayerId(2), "arm"}, {LayerId(3), {}}, Frame(0), 1.0}};
-  QVERIFY(FindLink(shot, {LayerId(1), {}}) != nullptr);
-  QVERIFY(FindLink(shot, {LayerId(1), "arm"}) == nullptr);
+  shot.links = {Link{{LayerId(1)}, {LayerId(2)}, Frame(0), 1.0},
+                Link{{LayerId(2)}, {LayerId(3)}, Frame(0), 1.0}};
+  QVERIFY(FindLink(shot, {LayerId(1)}) != nullptr);
+  QVERIFY(FindLink(shot, {LayerId(3)}) == nullptr);
   DropDeadLinks(&shot);
   QCOMPARE(shot.links.size(), size_t{1});
   shot.layers.pop_back();

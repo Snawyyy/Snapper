@@ -9,7 +9,6 @@
 #include <QTest>
 
 #include "io/layer_json.h"
-#include "io/pose_file.h"
 #include "io/project_file.h"
 
 namespace snapper {
@@ -20,12 +19,13 @@ Layer MakeLayer(int id, LayerContent content) {
   Layer layer;
   layer.id = LayerId(id);
   layer.name = QString("layer %1").arg(id);
-  layer.start = Frame(2);
+  // Starts that differ, so the old grown-front repair leaves them be.
+  layer.start = Frame(id);
   layer.length = Frame(10);
   layer.is_visible = id % 2 == 0;
   LayerPose moved;
   moved.offset = QPointF(3, 4);
-  moved.warp = {QPointF(1, 2)};
+  moved.order = -2;
   SetKey(&layer.transform, {Frame(5), moved, Ease::kEaseOut});
   layer.content = std::move(content);
   assert(layer.length == Frame(10));
@@ -40,19 +40,23 @@ Project FullProject() {
   project.song = "/music/song.flac";
   project.next_shot_id = 3;
   project.next_layer_id = 9;
-  Doll doll;
-  doll.name = "Bob";
-  doll.folder = "/dolls/Bob.doll";
-  doll.art.canvas = QSize(100, 80);
-  doll.art.pieces = {{"head", {"a.png", "b.png"}, 1, {-5, -5}, {10, 10}}};
-  doll.rig.pieces = {{"head", "", {5, 5}, 2, 1, {2, 2}}};
-  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
-  DollLayer posed{"Bob", {}, true};
-  LayerPose tilt;
-  tilt.rotation = 15.0;
-  tilt.drawing = 1;
-  tilt.order = -2;
-  SetKey(&posed.pieces["head"], {Frame(0), tilt, Ease::kStep});
+  Character bob;
+  bob.name = "Bob";
+  CharacterPart root;
+  root.id = PartId(1);
+  root.name = "Body";
+  root.kind = PartKind::kBone;
+  root.bones = {Bone{}};
+  root.bones[0].id = BoneId(2);
+  root.bones[0].name = "spine";
+  root.bones[0].length = 40.0;
+  bob.parts = {root};
+  bob.next_id = 3;
+  project.characters["Bob"] = std::make_shared<const Character>(bob);
+  CharacterLayer posed{"Bob", {}, true};
+  CharacterPose tilt;
+  tilt.bones[BoneId(2)].turn = 15.0;
+  SetKey(&posed.poses, {Frame(0), tilt, Ease::kStep});
   EffectLayer flash{EffectKind::kGlitch, QColor(255, 0, 0, 128), {}};
   SetKey(&flash.amount, {Frame(1), 0.5, Ease::kLinear});
   TextLayer words;
@@ -69,8 +73,8 @@ Project FullProject() {
   SetKey(&shot.camera, {Frame(3), zoomed, Ease::kEaseInOut});
   shot.layers = {MakeLayer(4, posed), MakeLayer(5, ImageLayer{"/bg.png"}),
                  MakeLayer(6, words), MakeLayer(7, flash)};
-  shot.links = {Link{{LayerId(4), "head"}, {LayerId(5), {}}, Frame(12), 0.75},
-                Link{{LayerId(6), {}}, {LayerId(4), "head"}, Frame(0), 2.0}};
+  shot.links = {Link{{LayerId(4)}, {LayerId(5)}, Frame(12), 0.75},
+                Link{{LayerId(6)}, {LayerId(4)}, Frame(0), 2.0}};
   project.shots.push_back(std::make_shared<const Shot>(shot));
 
   project.next_clip_id = 4;
@@ -114,7 +118,6 @@ class ProjectFileTests final : public QObject {
   void OldFilesGetAnEmptyReel();
   void OverlappingClipsAreDamage();
   void OldShotTransitionsMoveToTheReel();
-  void PosesSurviveARoundTrip();
 };
 
 void ProjectFileTests::EverythingSurvivesARoundTrip() {
@@ -131,7 +134,7 @@ void ProjectFileTests::EverythingSurvivesARoundTrip() {
   QCOMPARE(read->canvas, project.canvas);
   QCOMPARE(read->song, project.song);
   QCOMPARE(read->next_layer_id, 9);
-  QCOMPARE(*read->dolls.at("Bob"), *project.dolls.at("Bob"));
+  QCOMPARE(*read->characters.at("Bob"), *project.characters.at("Bob"));
   QCOMPARE(read->shots.size(), size_t{1});
   QCOMPARE(*read->shots[0], *project.shots[0]);
   QCOMPARE(read->next_clip_id, 4);
@@ -156,12 +159,12 @@ void ProjectFileTests::BadLinkIdsAreDropped() {
   shot.id = ShotId(1);
   shot.layers = {MakeLayer(1, ImageLayer{"/a.png"}),
                  MakeLayer(2, ImageLayer{"/b.png"})};
-  shot.links = {Link{{LayerId(1), {}}, {LayerId(2), {}}, Frame(0), 1.0}};
+  shot.links = {Link{{LayerId(1)}, {LayerId(2)}, Frame(0), 1.0}};
   QJsonObject object = ShotToJson(shot);
   QJsonArray links = object.value("links").toArray();
   QCOMPARE(links.size(), 1);
   QJsonObject link = links[0].toObject();
-  link["follower"] = QJsonObject{{"layer", -5}, {"piece", ""}};
+  link["follower"] = QJsonObject{{"layer", -5}};
   links[0] = link;
   object["links"] = links;
   JsonIssues issues;
@@ -231,20 +234,6 @@ void ProjectFileTests::OldShotTransitionsMoveToTheReel() {
   QFile saved(path);
   QVERIFY(saved.open(QIODevice::ReadOnly));
   QVERIFY(!saved.readAll().contains("flash"));
-}
-
-void ProjectFileTests::PosesSurviveARoundTrip() {
-  QTemporaryDir dir;
-  const QString path = QDir(dir.path()).filePath("poses.json");
-  const auto empty = ReadPoses(path);
-  QVERIFY(empty.has_value() && empty->empty());
-  LayerPose wave;
-  wave.rotation = -40.0;
-  const std::vector<SavedPose> poses = {{"Wave", "Bob", {{"arm_l", wave}}}};
-  QVERIFY(WritePoses(path, poses).has_value());
-  const auto read = ReadPoses(path);
-  QVERIFY(read.has_value());
-  QCOMPARE(*read, poses);
 }
 
 }  // namespace snapper

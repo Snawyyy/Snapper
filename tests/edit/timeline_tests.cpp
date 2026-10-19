@@ -12,12 +12,10 @@ namespace {
 const ShotId kShot(1);
 
 Project Stage() {
-  Doll doll;
-  doll.rig.pieces = {{"head", "", {}, 0, -1, {}}, {"arm", "", {}, 0, -1, {}}};
   Layer bob;
   bob.id = LayerId(1);
   bob.name = "Bob";
-  bob.content = DollLayer{"Bob", {}, false};
+  bob.content = CharacterLayer{"Bob", {}, false};
   Layer flash;
   flash.id = LayerId(2);
   flash.name = "Flash";
@@ -26,7 +24,6 @@ Project Stage() {
   shot.id = kShot;
   shot.layers = {bob, flash};
   Project project;
-  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
   project.shots = {std::make_shared<const Shot>(shot)};
   assert(project.shots.size() == 1);
   assert(shot.layers.size() == 2);
@@ -40,7 +37,7 @@ class TimelineTests final : public QObject {
 
  private slots:
   void OneRowPerLayerTopFirstThenCamera();
-  void DollRowsShowWholePoses();
+  void LayerRowsShowTheirKeys();
   void InPlaceKeysKeepTheLook();
 };
 
@@ -54,19 +51,19 @@ void TimelineTests::OneRowPerLayerTopFirstThenCamera() {
   QVERIFY(TimelineRows(Stage(), ShotId(9)).empty());
 }
 
-void TimelineTests::DollRowsShowWholePoses() {
+void TimelineTests::LayerRowsShowTheirKeys() {
   HistoryManager history(Stage());
   PoseManager pose(&history);
-  const TrackRef head{kShot, TrackKind::kPiece, LayerId(1), "head"};
-  QVERIFY(pose.Rotate(head, Frame(4), 10.0).has_value());
-  QVERIFY(pose.Rotate(head, Frame(8), 20.0).has_value());
+  const TrackRef move{kShot, TrackKind::kLayer, LayerId(1)};
+  QVERIFY(pose.Rotate(move, Frame(4), 10.0).has_value());
+  QVERIFY(pose.Rotate(move, Frame(8), 20.0).has_value());
   const auto rows = TimelineRows(history.current(), kShot);
   const TimelineRow& bob = rows[1];
   QCOMPARE(bob.keys, std::vector<Frame>({Frame(4), Frame(8)}));
   QCOMPARE(bob.is_eased, std::vector<bool>({false, false}));
   const auto keys = RowKeysAt(history.current(), bob, Frame(4));
-  // Head, arm and the layer's own move.
-  QCOMPARE(keys.size(), size_t{3});
+  // The layer's own move; the character's pose row has no key there.
+  QCOMPARE(keys.size(), size_t{1});
   QVERIFY(RowKeysAt(history.current(), bob, Frame(5)).empty());
 }
 

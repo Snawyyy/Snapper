@@ -33,8 +33,10 @@ void ReadCharacters(const QJsonArray& characters, Project* project,
     const QJsonObject object = item.toObject();
     Character character = CharacterFromJson(object, issues);
     character.folder = object.value("folder").toString();
-    if (!character.name.isEmpty()) {
-      project->characters[character.name] =
+    // The name is taken before the move: the right side of = runs first.
+    const QString name = character.name;
+    if (!name.isEmpty()) {
+      project->characters[name] =
           std::make_shared<const Character>(std::move(character));
     }
   }

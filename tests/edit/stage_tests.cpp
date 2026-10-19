@@ -16,9 +16,10 @@ Project OneShot() {
   shot.id = ShotId(1);
   project.shots = {std::make_shared<const Shot>(shot)};
   project.next_shot_id = 2;
-  project.dolls["Bob"] = std::make_shared<const Doll>();
+  Character bob;
+  bob.name = "Bob";
+  project.characters["Bob"] = std::make_shared<const Character>(bob);
   assert(project.shots.size() == 1);
-  assert(project.dolls.size() == 1);
   return project;
 }
 
@@ -50,7 +51,7 @@ void StageTests::AddsEveryKindOnTop() {
   HistoryManager history(OneShot());
   StageManager stage(&history);
   const ShotId shot(1);
-  QVERIFY(stage.AddDoll(shot, "Bob").has_value());
+  QVERIFY(stage.AddCharacter(shot, "Bob").has_value());
   QVERIFY(stage.AddImage(shot, picture).has_value());
   QVERIFY(stage.AddText(shot, "Hello\nworld").has_value());
   const auto effect = stage.AddEffect(shot, EffectKind::kGlitch);
@@ -67,7 +68,7 @@ void StageTests::AddsEveryKindOnTop() {
 void StageTests::RefusesWhatCantBeShown() {
   HistoryManager history(OneShot());
   StageManager stage(&history);
-  QVERIFY(!stage.AddDoll(ShotId(1), "Ann").has_value());
+  QVERIFY(!stage.AddCharacter(ShotId(1), "Ann").has_value());
   QVERIFY(!stage.AddImage(ShotId(1), "/no/such.png").has_value());
   QVERIFY(!stage.AddText(ShotId(1), "  ").has_value());
   QVERIFY(!stage.AddEffect(ShotId(5), EffectKind::kFill).has_value());
@@ -78,16 +79,16 @@ void StageTests::DuplicateMoveAndRemove() {
   HistoryManager history(OneShot());
   StageManager stage(&history);
   const ShotId shot(1);
-  const LayerId doll = *stage.AddDoll(shot, "Bob");
+  const LayerId bob = *stage.AddCharacter(shot, "Bob");
   const LayerId text = *stage.AddText(shot, "Hi");
-  const auto copy = stage.Duplicate(shot, doll);
+  const auto copy = stage.Duplicate(shot, bob);
   QVERIFY(copy.has_value());
   QCOMPARE(TheShot(history).layers[1].id, *copy);
   QVERIFY(stage.Move(shot, text, 0).has_value());
   QCOMPARE(TheShot(history).layers[0].id, text);
   QVERIFY(!stage.Move(shot, text, 3).has_value());
-  QVERIFY(stage.Remove(shot, doll).has_value());
-  QVERIFY(!stage.Remove(shot, doll).has_value());
+  QVERIFY(stage.Remove(shot, bob).has_value());
+  QVERIFY(!stage.Remove(shot, bob).has_value());
   QCOMPARE(TheShot(history).layers.size(), size_t{2});
 }
 
@@ -95,27 +96,27 @@ void StageTests::SettingsFitTheirKind() {
   HistoryManager history(OneShot());
   StageManager stage(&history);
   const ShotId shot(1);
-  const LayerId doll = *stage.AddDoll(shot, "Bob");
+  const LayerId bob = *stage.AddCharacter(shot, "Bob");
   const LayerId text = *stage.AddText(shot, "Hi");
-  QVERIFY(stage.SetFlipped(shot, doll, true).has_value());
+  QVERIFY(stage.SetFlipped(shot, bob, true).has_value());
   QVERIFY(!stage.SetFlipped(shot, text, true).has_value());
   TextLayer style;
   style.text = "Bye";
   style.size = 50.0;
   QVERIFY(stage.SetText(shot, text, style).has_value());
-  QVERIFY(!stage.SetText(shot, doll, style).has_value());
+  QVERIFY(!stage.SetText(shot, bob, style).has_value());
   style.size = 0.0;
   QVERIFY(!stage.SetText(shot, text, style).has_value());
   QVERIFY(!stage.SetEffect(shot, text, EffectKind::kFill, Qt::red)
                .has_value());
-  QVERIFY(stage.SetRange(shot, doll, Frame(2), Frame(5)).has_value());
-  QVERIFY(stage.SetVisible(shot, doll, false).has_value());
-  QVERIFY(stage.Rename(shot, doll, "Hero").has_value());
+  QVERIFY(stage.SetRange(shot, bob, Frame(2), Frame(5)).has_value());
+  QVERIFY(stage.SetVisible(shot, bob, false).has_value());
+  QVERIFY(stage.Rename(shot, bob, "Hero").has_value());
   const Layer& layer = TheShot(history).layers[0];
   QCOMPARE(layer.name, QString("Hero"));
   QVERIFY(!layer.is_visible);
   QCOMPARE(layer.start, Frame(2));
-  QVERIFY(std::get<DollLayer>(layer.content).is_flipped);
+  QVERIFY(std::get<CharacterLayer>(layer.content).is_flipped);
   QCOMPARE(std::get<TextLayer>(TheShot(history).layers[1].content).text,
            QString("Bye"));
 }

@@ -8,32 +8,26 @@
 #include "render/frame_renderer.h"
 #include "render/stage_geometry.h"
 #include "render/stage_hit.h"
-#include "render/warp_raster.h"
 
 namespace snapper {
 namespace {
 
-// A 100x100 project with one shot holding a 20x20 red doll in the
-// middle, its drawing written into dir.
-Project RedDollProject(const QTemporaryDir& dir) {
+// A 100x100 project with one shot holding a 20x20 red picture in the
+// middle, its file written into dir.
+Project RedProject(const QTemporaryDir& dir) {
   assert(dir.isValid());
   QImage red(20, 20, QImage::Format_ARGB32);
   red.fill(Qt::red);
-  red.save(QDir(dir.path()).filePath("body.png"));
-  Doll doll;
-  doll.name = "Dot";
-  doll.folder = dir.path();
-  doll.art.pieces = {{"body", {"body.png"}, 0, {-10, -10}, {20, 20}}};
-  doll.rig.pieces = {{"body", "", {10, 10}, 0, -1, {}}};
+  const QString path = QDir(dir.path()).filePath("body.png");
+  red.save(path);
   Layer layer;
   layer.id = LayerId(1);
-  layer.content = DollLayer{"Dot", {}, false};
+  layer.content = ImageLayer{path};
   Shot shot;
   shot.id = ShotId(1);
   shot.layers = {layer};
   Project project;
   project.canvas = {100, 100};
-  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
   project.shots = {std::make_shared<const Shot>(shot)};
   assert(project.shots.size() == 1);
   return project;
@@ -63,9 +57,9 @@ class GreenVideos final : public VideoFrames {
   QString asked_path;
 };
 
-// The red doll's shot over a speedpaint, from frame 50 to 98.
+// The red picture's shot over a speedpaint, from frame 50 to 98.
 Project ShotOverVideo(const QTemporaryDir& dir) {
-  Project project = RedDollProject(dir);
+  Project project = RedProject(dir);
   Clip paint;
   paint.id = ClipId(1);
   paint.source = VideoSource{"/takes/paint.mp4", Frame(500)};
@@ -89,7 +83,7 @@ class RenderTests final : public QObject {
   Q_OBJECT
 
  private slots:
-  void DollsDrawWhereKritaPutThem();
+  void PicturesDrawInTheMiddle();
   void LayerMovesAndCameraZooms();
   void EffectsChangeWhatIsBelow();
   void SwipesPushTheShotOff();
@@ -97,28 +91,27 @@ class RenderTests final : public QObject {
   void LinksMoveWhatIsDrawnAndClicked();
   void ReelDrawsTracksBottomFirst();
   void ReelSkipsRemovedShots();
-  void WarpStretchesTheDrawing();
   void TextDrawsCentred();
   void MissingImagesDrawNothing();
   void ClicksPickWhatIsSeen();
 };
 
-void RenderTests::DollsDrawWhereKritaPutThem() {
+void RenderTests::PicturesDrawInTheMiddle() {
   QTemporaryDir dir;
   FrameRenderer renderer;
   const QImage frame =
-      renderer.RenderFrame(RedDollProject(dir), Frame(0), 1.0);
+      renderer.RenderFrame(RedProject(dir), Frame(0), 1.0);
   QCOMPARE(frame.size(), QSize(100, 100));
   QCOMPARE(At(frame, 50, 50), QColor(Qt::red));
   QCOMPARE(At(frame, 5, 5), QColor(Qt::white));
-  const QImage half = renderer.RenderFrame(RedDollProject(dir), Frame(0), 0.5);
+  const QImage half = renderer.RenderFrame(RedProject(dir), Frame(0), 0.5);
   QCOMPARE(half.size(), QSize(50, 50));
   QCOMPARE(At(half, 25, 25), QColor(Qt::red));
 }
 
 void RenderTests::LayerMovesAndCameraZooms() {
   QTemporaryDir dir;
-  Project project = RedDollProject(dir);
+  Project project = RedProject(dir);
   Shot& shot = FirstShot(&project);
   LayerPose moved;
   moved.offset = QPointF(30, 0);
@@ -136,7 +129,7 @@ void RenderTests::LayerMovesAndCameraZooms() {
 
 void RenderTests::EffectsChangeWhatIsBelow() {
   QTemporaryDir dir;
-  Project project = RedDollProject(dir);
+  Project project = RedProject(dir);
   Layer invert;
   invert.id = LayerId(2);
   invert.content = EffectLayer{EffectKind::kInvert, Qt::white, {}};
@@ -206,13 +199,13 @@ void RenderTests::PastTheEndIsBlack() {
   QVERIFY(dir.isValid());
   FrameRenderer renderer;
   const QImage frame =
-      renderer.RenderFrame(RedDollProject(dir), Frame(500), 1.0);
+      renderer.RenderFrame(RedProject(dir), Frame(500), 1.0);
   QCOMPARE(At(frame, 50, 50), QColor(Qt::black));
 }
 
 void RenderTests::LinksMoveWhatIsDrawnAndClicked() {
   QTemporaryDir dir;
-  Project project = RedDollProject(dir);
+  Project project = RedProject(dir);
   Shot& shot = FirstShot(&project);
   // An unseen leader slides 30 pixels right over ten frames.
   Layer leader;
@@ -223,7 +216,7 @@ void RenderTests::LinksMoveWhatIsDrawnAndClicked() {
   moved.offset = QPointF(30, 0);
   SetKey(&leader.transform, {Frame(10), moved, Ease::kStep});
   shot.layers.push_back(leader);
-  shot.links = {Link{{LayerId(1), {}}, {LayerId(2), {}}, Frame(0), 1.0}};
+  shot.links = {Link{{LayerId(1)}, {LayerId(2)}, Frame(0), 1.0}};
   FrameRenderer renderer;
   const QImage frame = renderer.RenderFrame(project, Frame(10), 1.0);
   QCOMPARE(At(frame, 80, 50), QColor(Qt::red));
@@ -232,10 +225,10 @@ void RenderTests::LinksMoveWhatIsDrawnAndClicked() {
                            QPointF(80, 50), 1.0, renderer.cache());
   QVERIFY(hit.has_value());
   QCOMPARE(hit->layer, LayerId(1));
-  const auto body = PieceOnScreen(project, *project.shots[0], LayerId(1),
-                                  "body", Frame(10), 1.0);
+  const auto body = LayerToScreen(project, *project.shots[0], LayerId(1),
+                                  Frame(10), 1.0);
   QVERIFY(body.has_value());
-  QCOMPARE(body->pivot, QPointF(80, 50));
+  QCOMPARE(body->map(QPointF(0, 0)), QPointF(80, 50));
 }
 
 void RenderTests::ReelDrawsTracksBottomFirst() {
@@ -271,21 +264,6 @@ void RenderTests::ReelSkipsRemovedShots() {
   const QImage frame = renderer.RenderReel(project, Frame(60), 1.0, &videos);
   QCOMPARE(At(frame, 50, 50), QColor(Qt::green));
   QCOMPARE(videos.asked, Frame(65));
-}
-
-void RenderTests::WarpStretchesTheDrawing() {
-  QImage red(10, 10, QImage::Format_ARGB32);
-  red.fill(Qt::red);
-  const WarpGrid grid{1, 1};
-  const std::vector<QPointF> points = {QPointF(0, 0), QPointF(20, 0),
-                                       QPointF(0, 10), QPointF(20, 10)};
-  const WarpedImage warped = WarpImage(red, grid, points);
-  QCOMPARE(warped.origin, QPointF(0, 0));
-  QVERIFY(warped.image.width() >= 20);
-  QCOMPARE(warped.image.pixelColor(15, 5), QColor(Qt::red));
-  QCOMPARE(warped.image.pixelColor(10, 2).alpha(), 255);
-  const WarpedImage rest = WarpImage(red, WarpGrid(), {});
-  QCOMPARE(rest.image.size(), QSize(10, 10));
 }
 
 void RenderTests::TextDrawsCentred() {
@@ -328,7 +306,7 @@ void RenderTests::MissingImagesDrawNothing() {
 
 void RenderTests::ClicksPickWhatIsSeen() {
   QTemporaryDir dir;
-  Project project = RedDollProject(dir);
+  Project project = RedProject(dir);
   // A see-through hole in the middle of the drawing.
   QImage holed(20, 20, QImage::Format_ARGB32);
   holed.fill(Qt::red);
@@ -353,13 +331,11 @@ void RenderTests::ClicksPickWhatIsSeen() {
   const auto body = HitTest(project, shot, Frame(0), {45, 45}, 1.0, &cache);
   QVERIFY(body.has_value());
   QCOMPARE(body->layer, LayerId(1));
-  QCOMPARE(body->piece, QString("body"));
   QVERIFY(!HitTest(project, shot, Frame(0), {50, 50}, 1.0, &cache));
   QVERIFY(!HitTest(project, shot, Frame(0), {5, 5}, 1.0, &cache));
   const auto label = HitTest(project, shot, Frame(0), {50, 85}, 1.0, &cache);
   QVERIFY(label.has_value());
   QCOMPARE(label->layer, LayerId(2));
-  QVERIFY(label->piece.isEmpty());
   const auto half = HitTest(project, shot, Frame(0), {22, 22}, 0.5, &cache);
   QVERIFY(half.has_value());
 }

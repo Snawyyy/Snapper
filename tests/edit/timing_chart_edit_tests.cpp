@@ -23,29 +23,31 @@ LayerPose Turned(double degrees) {
   return pose;
 }
 
-// Bob's head and arm keyed on 0, 4 (arm only), 8 and 12; the arm turns
-// 0, 33, 80, 90 degrees.
+// The Arm and Head layers keyed on 0, 4 (arm only), 8 and 12; the arm
+// turns 0, 33, 80, 90 degrees.
 Project Stage() {
   assert(kShot.value() == 1);
   assert(kShot.value() > 0);
-  DollLayer posed{"Bob", {}, false};
+  Layer arm_layer;
+  arm_layer.id = LayerId(1);
+  arm_layer.name = "Arm";
+  arm_layer.content = CharacterLayer{"Bob", {}, false};
+  Layer head_layer = arm_layer;
+  head_layer.id = LayerId(2);
+  head_layer.name = "Head";
   const double arm[] = {0.0, 80.0, 90.0};
   const int frames[] = {0, 8, 12};
   for (int i = 0; i < 3; ++i) {
-    SetKey(&posed.pieces["arm"], {Frame(frames[i]), Turned(arm[i]),
+    SetKey(&arm_layer.transform, {Frame(frames[i]), Turned(arm[i]),
                                   Ease::kStep});
-    SetKey(&posed.pieces["head"], {Frame(frames[i]), Turned(-arm[i]),
+    SetKey(&head_layer.transform, {Frame(frames[i]), Turned(-arm[i]),
                                    Ease::kStep});
   }
-  SetKey(&posed.pieces["arm"], {Frame(4), Turned(33.0), Ease::kStep});
-  Layer layer;
-  layer.id = LayerId(1);
-  layer.name = "Bob";
-  layer.content = posed;
+  SetKey(&arm_layer.transform, {Frame(4), Turned(33.0), Ease::kStep});
   Shot shot;
   shot.id = kShot;
   shot.length = Frame(48);
-  shot.layers = {layer};
+  shot.layers = {arm_layer, head_layer};
   Project project;
   project.shots = {std::make_shared<const Shot>(shot)};
   return project;
@@ -55,8 +57,8 @@ const Channel<LayerPose>& Piece(const HistoryManager& history,
                                 const QString& name) {
   assert(kShot.value() == 1);
   assert(kShot.value() > 0);
-  return std::get<DollLayer>(history.current().shots[0]->layers[0].content)
-      .pieces.at(name);
+  const size_t at = name == QLatin1String("arm") ? 0 : 1;
+  return history.current().shots[0]->layers[at].transform;
 }
 
 std::vector<int> FramesOf(const Channel<LayerPose>& channel) {
@@ -75,7 +77,8 @@ double ArmAt(const HistoryManager& history, int frame) {
   return Sample(Piece(history, "arm"), Frame(frame), LayerPose()).rotation;
 }
 
-// Everything the tests need, with Bob picked and keys on frames 0 and 8.
+// Everything the tests need, with both layers picked and the arm's keys
+// on frames 0 and 8.
 struct ChartRig final {
   ChartRig()
       : history(Stage()),
@@ -84,9 +87,9 @@ struct ChartRig final {
         playback(&history),
         chart(&history, &selection, &keys, &playback) {
     selection.SelectLayer(LayerId(1));
-    selection.PickThings({{LayerId(1), QString()}}, PickMode::kReplace,
-                         LayerId(1));
-    const TrackRef arm{kShot, TrackKind::kPiece, LayerId(1), "arm"};
+    selection.PickThings({Pick{LayerId(1)}, Pick{LayerId(2)}},
+                         PickMode::kReplace, LayerId(1));
+    const TrackRef arm{kShot, TrackKind::kLayer, LayerId(1)};
     selection.PickKeys({{arm, Frame(0)}, {arm, Frame(8)}},
                        PickMode::kReplace);
   }
@@ -120,7 +123,7 @@ class TimingChartEditTests final : public QObject {
 void TimingChartEditTests::RefusesWithAReason() {
   ChartRig rig;
   QVERIFY(rig.chart.WhyNoChart().isEmpty());
-  rig.selection.PickKeys({{{kShot, TrackKind::kPiece, LayerId(1), "arm"},
+  rig.selection.PickKeys({{{kShot, TrackKind::kLayer, LayerId(1)},
                            Frame(0)}},
                          PickMode::kReplace);
   QVERIFY(!rig.chart.WhyNoChart().isEmpty());
@@ -184,7 +187,7 @@ void TimingChartEditTests::ApplyIsOneUndoStep() {
   QVERIFY(!rig.history.CanUndo());
   rig.chart.Apply();
   QVERIFY(!rig.chart.IsOpen());
-  QCOMPARE(rig.history.UndoLabel(), QString("Timing chart on Bob"));
+  QCOMPARE(rig.history.UndoLabel(), QString("Timing chart on 2 things"));
   QVERIFY(ArmAt(rig.history, 1) > 10.0);
   rig.history.Undo();
   QVERIFY(Piece(rig.history, "arm") == before);
@@ -225,7 +228,7 @@ void TimingChartEditTests::ExistingKeysOnlyRespacesTheKeysThere() {
 
 void TimingChartEditTests::ExistingKeysOnlyWithNoneBetweenCannotApply() {
   ChartRig rig;
-  const TrackRef arm{kShot, TrackKind::kPiece, LayerId(1), "arm"};
+  const TrackRef arm{kShot, TrackKind::kLayer, LayerId(1)};
   rig.selection.PickKeys({{arm, Frame(8)}, {arm, Frame(12)}},
                          PickMode::kReplace);
   QCOMPARE(rig.chart.WhyNoChart(), QString());
@@ -284,7 +287,7 @@ void TimingChartEditTests::EveryModeIsOneUndoStepAndKeepsOutsideFrames() {
     QVERIFY(rig.chart.SetSpacing(Spacing::kSlowOut).has_value());
     QVERIFY(!rig.history.CanUndo());
     rig.chart.Apply();
-    QCOMPARE(rig.history.UndoLabel(), QString("Timing chart on Bob"));
+    QCOMPARE(rig.history.UndoLabel(), QString("Timing chart on 2 things"));
     for (int f = 0; f <= 20; ++f) {
       const bool is_outside = f > 8;
       if (is_outside) {

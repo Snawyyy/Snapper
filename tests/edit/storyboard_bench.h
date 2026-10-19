@@ -64,7 +64,7 @@ struct Bench final {
   void DrawDot() {
     draw.Press(QPoint(3, 3), false, false);
     draw.Release();
-    QVERIFY(draw.Done(QString()).has_value());
+    QVERIFY(draw.Done().has_value());
   }
 };
 

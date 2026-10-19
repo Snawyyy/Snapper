@@ -136,7 +136,6 @@ void StoryboardTests::DrawingAFrameIsOneNamedStep() {
   QVERIFY(bench.board.WhyNoDraw(bench.shot, Frame(5), false).isEmpty());
   QVERIFY(bench.board.DrawNew(bench.shot, Frame(5)).has_value());
   QVERIFY(bench.draw.is_drawing());
-  QVERIFY(!bench.draw.is_named());
   // Nothing is in the project until Done.
   QVERIFY(TheShot(bench.history).layers.empty());
   bench.DrawDot();
@@ -175,7 +174,7 @@ void StoryboardTests::DrawingOverSwapsThePicture() {
   QCOMPARE(bench.draw.image().pixelColor(3, 3).alpha(), 255);
   bench.draw.Press(QPoint(20, 20), false, false);
   bench.draw.Release();
-  QVERIFY(bench.draw.Done(QString()).has_value());
+  QVERIFY(bench.draw.Done().has_value());
   QCOMPARE(bench.Cels().cels.size(), size_t{1});
   QCOMPARE(bench.Cels().cels[0].at, Frame(5));
   QVERIFY(bench.Cels().cels[0].path != first);

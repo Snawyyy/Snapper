@@ -11,13 +11,13 @@ namespace {
 Project Stage() {
   Shot shot;
   shot.id = ShotId(1);
-  Layer doll;
-  doll.id = LayerId(1);
-  doll.content = DollLayer{"Bob", {}, false};
+  Layer bob;
+  bob.id = LayerId(1);
+  bob.content = CharacterLayer{"Bob", {}, false};
   Layer effect;
   effect.id = LayerId(2);
   effect.content = EffectLayer{};
-  shot.layers = {doll, effect};
+  shot.layers = {bob, effect};
   Project project;
   project.shots = {std::make_shared<const Shot>(shot)};
   assert(project.shots.size() == 1);
@@ -28,7 +28,7 @@ Project Stage() {
 // Writes a key at frame 3 with whatever value type the track holds.
 Result<Project> KeyAt3(const Project& project, const TrackRef& track) {
   assert(!project.shots.empty());
-  assert(track.kind != TrackKind::kPiece || !track.piece.isEmpty());
+  assert(track.shot.value() >= 0);
   return WithTrack(project, track, [](auto* channel) {
     using Value = typename std::remove_pointer_t<
         decltype(channel)>::value_type;
@@ -60,10 +60,10 @@ class TrackTests final : public QObject {
 void TrackTests::EveryKindOfTrackTakesKeys() {
   const ShotId shot(1);
   const std::vector<TrackRef> tracks = {
-      {shot, TrackKind::kLayer, LayerId(1), {}},
-      {shot, TrackKind::kPiece, LayerId(1), "arm"},
-      {shot, TrackKind::kCamera, {}, {}},
-      {shot, TrackKind::kEffectAmount, LayerId(2), {}}};
+      {shot, TrackKind::kLayer, LayerId(1)},
+      {shot, TrackKind::kCharacter, LayerId(1)},
+      {shot, TrackKind::kCamera, {}},
+      {shot, TrackKind::kEffectAmount, LayerId(2)}};
   for (const TrackRef& track : tracks) {
     const Project before = Stage();
     QCOMPARE(KeyCount(before, track), 0);
@@ -77,15 +77,15 @@ void TrackTests::EveryKindOfTrackTakesKeys() {
 void TrackTests::WrongKindsAndGoneLayersFail() {
   const ShotId shot(1);
   const Project project = Stage();
-  QVERIFY(!KeyAt3(project, {shot, TrackKind::kPiece, LayerId(2), "arm"})
+  QVERIFY(!KeyAt3(project, {shot, TrackKind::kCharacter, LayerId(2)})
                .has_value());
-  QVERIFY(!KeyAt3(project, {shot, TrackKind::kEffectAmount, LayerId(1), {}})
+  QVERIFY(!KeyAt3(project, {shot, TrackKind::kEffectAmount, LayerId(1)})
                .has_value());
-  QVERIFY(!KeyAt3(project, {shot, TrackKind::kLayer, LayerId(9), {}})
+  QVERIFY(!KeyAt3(project, {shot, TrackKind::kLayer, LayerId(9)})
                .has_value());
-  QVERIFY(!KeyAt3(project, {ShotId(4), TrackKind::kCamera, {}, {}})
+  QVERIFY(!KeyAt3(project, {ShotId(4), TrackKind::kCamera, {}})
                .has_value());
-  QCOMPARE(KeyCount(project, {shot, TrackKind::kLayer, LayerId(9), {}}), -1);
+  QCOMPARE(KeyCount(project, {shot, TrackKind::kLayer, LayerId(9)}), -1);
 }
 
 }  // namespace snapper
