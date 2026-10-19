@@ -106,6 +106,9 @@ class PalettePanel final : public QWidget {
   // The area it is docked over while drawing; null while it floats.
   QPointer<QWidget> dock_area_;
   QVBoxLayout layout_;
+  // Holders before what they hold, so each held widget is destroyed
+  // (and leaves its holder) first: the current row holds the eyedropper.
+  QWidget current_row_;
   QWidget title_;
   QLabel title_text_;
   QToolButton pick_;
@@ -124,7 +127,6 @@ class PalettePanel final : public QWidget {
   SwatchGrid* doll_ = nullptr;
   QLabel* added_title_ = nullptr;
   SwatchGrid* added_ = nullptr;
-  QWidget current_row_;
   QLabel current_swatch_;
   QLabel current_hex_;
   bool is_folded_ = false;

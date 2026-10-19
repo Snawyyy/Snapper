@@ -8,6 +8,7 @@
 #include <numbers>
 #include <set>
 
+#include "anim/bone_dynamics.h"
 #include "anim/sampler.h"
 
 namespace snapper {
@@ -171,7 +172,11 @@ CharacterPose PoseAt(const Character& character, const CharacterLayer& layer,
                      Frame frame) {
   assert(frame.index() >= 0);
   assert(IsSorted(layer.poses));
-  return WithActions(character, Sample(layer.poses, frame, CharacterPose{}));
+  const auto keyed = [&character, &layer](Frame at) {
+    return WithActions(character, Sample(layer.poses, at, CharacterPose{}));
+  };
+  return HasDynamics(character) ? WithDynamics(character, frame, keyed)
+                                : keyed(frame);
 }
 
 namespace {

@@ -38,8 +38,6 @@ class CharacterPoseManager final {
   Result<void> RemoveKey(ShotId shot, LayerId layer, Frame frame);
   // Keys the rest pose at frame.
   Result<void> ResetPose(ShotId shot, LayerId layer, Frame frame);
-  // Flips the character left to right on the stage.
-  Result<void> SetFlipped(ShotId shot, LayerId layer, bool is_flipped);
 
  private:
   HistoryManager* history_;

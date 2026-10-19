@@ -59,10 +59,45 @@ Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
 Last done (2026-10-19, branch `ccr-042c021f-aywj12`, cut from
-`tape-keys`): the plan to replace PNG dolls with Moho style characters
-(vector drawing, bones, smart bones, switch layers), in
-`docs/redesign/moho-plan.md`. Plan only, no code. Next: the owner
-answers its open questions and says go, then Phase 1.
+`tape-keys`, pushed): the PNG dolls are replaced by Moho style
+characters, on the owner's word with full say over style and UX
+(plan: `docs/redesign/moho-plan.md`; how it works: ARCHITECTURE.md
+"Characters"). Built and tested (`character_tests`,
+`character_json_tests`, `character_pose_tests`, `character_edit_tests`,
+`doll_convert_tests`, ui `character_page_tests`, `character_stage_tests`;
+the ui ones save screenshots to $SNAPPER_SHOTS when set):
+- Character tab (was Rig): tools along the top (Pick V, Move part T,
+  Add point A, Freehand F, Oval O, Rectangle R, Curvature C, Paint P,
+  Bone reach S, Bind points I, Try bones Z), parts tree on the left
+  (drag to reorder, eye, rename, add Drawing, Bones, Group, Switch,
+  Picture), the pick's settings on the right (part place and binding,
+  shape look, points, bone, smart bone action with stops).
+- Pose tab: character layers, whole-pose keys on the layer row, bone
+  tips dragged on the stage (IK; Shift turns one bone; a smart bone
+  plays its action), the inspector's Character box (switches, smart
+  bone sliders, Reset pose, Flip). Bones with Bounce lag and spring.
+- Old projects open with their dolls as characters; a library doll put
+  on a shot or opened from the Cast comes in as a character. Objects
+  (GIF props) stay dolls.
+- Fixed on the way: the palette panel's close crash (member order), the
+  ffmpeg 8 only `SwsContext` assert, gcc 13 test initializers.
+ctest: 106 of 115 pass. The 9 that fail are older than this work or
+test the old Rig and doll UI: model_tests, project_file_tests,
+rig_ui_tests and refusal_reason_tests (two tab scroll buttons) only
+compile now that gcc 13 initializers are fixed, cast_panel_tests (upper
+case tags), collider_ui_tests, scrub_tests, video_page_tests and
+window_tests (expects the WP1 tab order).
+Next: owner tries it by eye; then port physics (cloth, jelly) and Comp
+piece targets to characters, and delete the old doll and Rig code and
+the Krita exporter once nothing reaches them.
+
+Build here (cloud, this session): micromamba at /opt/mm; Qt 6.12 and
+ffmpeg 9 in /opt/qtenv, ccache and mold in /opt/tools (put
+/opt/tools/bin on PATH); configure with
+`PKG_CONFIG_PATH=/opt/qtenv/lib/pkgconfig cmake --preset debug
+-DCMAKE_PREFIX_PATH=/opt/qtenv -DSNAPPER_CCACHE=/opt/tools/bin/ccache
+-DCMAKE_LINKER_TYPE=MOLD`. Only 4 cores: a full build takes about 30
+minutes, build single targets.
 
 Before that (2026-10-16, branch `tape-keys`): joint circle color follows
 the drawing shown. With no color picked it is measured from the shown

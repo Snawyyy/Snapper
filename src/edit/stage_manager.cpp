@@ -94,8 +94,10 @@ Result<LayerId> StageManager::AddDoll(ShotId shot, const QString& doll) {
   if (!found->rig.object.is_object) {
     Project next = history_->current();
     DollParts parts;
+    Character character = CharacterFromDoll(*found, &parts);
+    character.name = doll;
     next.characters[doll] =
-        std::make_shared<const Character>(CharacterFromDoll(*found, &parts));
+        std::make_shared<const Character>(std::move(character));
     return AddLayer(shot, doll, CharacterLayer{doll, {}, false},
                     Tr("Add %1").arg(doll), false, std::nullopt,
                     std::move(next));

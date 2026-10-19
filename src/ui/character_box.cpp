@@ -14,7 +14,9 @@
 #include "edit/character_pose_manager.h"
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
+#include "edit/stage_manager.h"
 #include "ui/follow.h"
+#include "ui/panel_kit.h"
 #include "ui/playhead.h"
 
 namespace snapper {
@@ -63,6 +65,9 @@ CharacterBox::CharacterBox(const Managers& managers)
   row->setContentsMargins(0, 0, 0, 0);
   row->addWidget(&reset_);
   row->addWidget(&flip_);
+  layout_.addRow(EmptyHint(tr("Drag a bone's yellow tip on the stage to "
+                              "bend; Shift turns only that bone."),
+                           this));
   layout_.addRow(buttons);
   connect(&reset_, &QPushButton::clicked, this, [this] {
     const auto spot = SpotOf(managers_);
@@ -73,7 +78,7 @@ CharacterBox::CharacterBox(const Managers& managers)
   });
   connect(&flip_, &QPushButton::toggled, this, [this](bool is_on) {
     if (is_filling_) return;
-    Report(managers_.character_poses->SetFlipped(
+    Report(managers_.stage->SetFlipped(
         managers_.selection->shot(), managers_.selection->layer(), is_on));
   });
   Follow(managers_, this);
@@ -200,8 +205,9 @@ void CharacterBox::Refresh() {
     }
   }
   const Shot* shot = FindShot(managers_.history->current(), managers_.selection->shot());
+  const LayerId focus = managers_.selection->layer();
   const Layer* layer =
-      shot != nullptr ? FindLayer(*shot, managers_.selection->layer()) : nullptr;
+      shot != nullptr && focus.IsValid() ? FindLayer(*shot, focus) : nullptr;
   const auto* cast =
       layer != nullptr ? std::get_if<CharacterLayer>(&layer->content) : nullptr;
   flip_.setChecked(cast != nullptr && cast->is_flipped);

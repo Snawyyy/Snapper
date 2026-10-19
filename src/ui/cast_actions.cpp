@@ -335,16 +335,28 @@ void CastPanel::OpenClicked(const QListWidgetItem* item) {
     return;
   }
   const QString name = item->data(kKeyRole).toString();
-  const bool is_in = FindDoll(managers_.history->current(), name) != nullptr;
+  const Project& project = managers_.history->current();
+  const bool is_character = FindCharacter(project, name) != nullptr;
+  const bool is_library_character =
+      !is_character && managers_.characters != nullptr &&
+      managers_.characters->Available().contains(name);
+  if (is_library_character) {
+    const auto imported = managers_.characters->Import(name);
+    if (!imported) {
+      Report(imported.error().message);
+      return;
+    }
+  }
+  if (is_character || is_library_character) {
+    emit DollOpenAsked(name);
+    return;
+  }
+  const bool is_in = FindDoll(project, name) != nullptr;
   if (!is_in) {
     Report(Outcome(managers_.library->ImportAll({name})));
     stale_.remove(name);
   }
-  const bool is_now_in =
-      FindDoll(managers_.history->current(), name) != nullptr;
-  if (is_now_in) {
-    emit DollOpenAsked(name);
-  }
+  emit DollOpenAsked(name);
 }
 
 void CastPanel::Reload() {

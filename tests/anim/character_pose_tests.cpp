@@ -78,6 +78,7 @@ class CharacterPoseTests final : public QObject {
   void IkKeepsLimits();
   void LerpHoldsThePickUntilTheNextKey();
   void CornerCurveIsStraight();
+  void BouncingBonesTrailAndSettle();
 };
 
 void CharacterPoseTests::RestPoseKeepsTheDrawing() {
@@ -205,6 +206,26 @@ void CharacterPoseTests::CornerCurveIsStraight() {
   QVERIFY(Near(round.pointAtPercent(0.5), {10, 10}));
   const QPointF quarter = round.pointAtPercent(0.25);
   QVERIFY(quarter.y() > quarter.x() + 0.5);
+}
+
+void CharacterPoseTests::BouncingBonesTrailAndSettle() {
+  Character character = Arm();
+  character.parts[0].bones[1].dynamics = 0.6;
+  CharacterLayer layer{"Arm", {}, false};
+  CharacterPose up;
+  up.bones[BoneId(2)].turn = -90.0;
+  SetKey(&layer.poses, {Frame(0), CharacterPose{}, Ease::kStep});
+  SetKey(&layer.poses, {Frame(10), up, Ease::kStep});
+  // Right after the upper arm snaps up, the forearm trails behind it.
+  const CharacterPose just = PoseAt(character, layer, Frame(11));
+  QVERIFY(std::abs(just.bones.at(BoneId(3)).turn) > 5.0);
+  // Long after, it has settled straight again.
+  const CharacterPose later = PoseAt(character, layer, Frame(90));
+  const auto settled = later.bones.find(BoneId(3));
+  QVERIFY(settled == later.bones.end() || std::abs(settled->second.turn) < 1.0);
+  // Without bounce nothing trails.
+  character.parts[0].bones[1].dynamics = 0.0;
+  QVERIFY(PoseAt(character, layer, Frame(11)).bones.count(BoneId(3)) == 0);
 }
 
 }  // namespace snapper

@@ -58,16 +58,20 @@ Result<void> StageManager::SetFlipped(ShotId shot, LayerId layer,
   assert(history_ != nullptr);
   assert(layer.value() >= 0);
   return history_->Apply(
-      Tr("Flip doll"),
+      is_flipped ? Tr("Flip") : Tr("Unflip"),
       WithLayer(history_->current(), shot, layer,
                 [is_flipped](Layer* edited) {
                   auto* doll = std::get_if<DollLayer>(&edited->content);
-                  const bool is_doll = doll != nullptr;
-                  if (!is_doll) {
+                  auto* cast = std::get_if<CharacterLayer>(&edited->content);
+                  if (doll == nullptr && cast == nullptr) {
                     return Result<void>(std::unexpected(
-                        Error{Tr("Only dolls can be flipped.")}));
+                        Error{Tr("Only characters can be flipped.")}));
                   }
-                  doll->is_flipped = is_flipped;
+                  if (doll != nullptr) {
+                    doll->is_flipped = is_flipped;
+                  } else {
+                    cast->is_flipped = is_flipped;
+                  }
                   return Result<void>();
                 }));
 }

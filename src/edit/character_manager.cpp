@@ -10,6 +10,7 @@
 
 #include "base/text.h"
 #include "edit/character_edits.h"
+#include "edit/doll_convert.h"
 #include "edit/history_manager.h"
 #include "edit/vector_edits.h"
 #include "io/character_file.h"
@@ -119,6 +120,29 @@ Result<void> CharacterManager::Import(const QString& name) {
   }
   next.characters[read->name] = std::make_shared<const Character>(*read);
   return history_->Apply(Tr("Add %1").arg(read->name), std::move(next));
+}
+
+Result<void> CharacterManager::FromDoll(const QString& name) {
+  assert(history_ != nullptr);
+  assert(!name.isEmpty());
+  const Project& project = history_->current();
+  if (FindDoll(project, name) == nullptr) {
+    return std::unexpected(Error{Tr("%1 isn't in the project.").arg(name)});
+  }
+  Project only = project;
+  std::erase_if(only.dolls, [&name](const auto& entry) {
+    return entry.first != name;
+  });
+  Project converted = WithDollsAsCharacters(std::move(only));
+  if (FindCharacter(converted, name) == nullptr) {
+    return std::unexpected(
+        Error{Tr("%1 is a prop picture and stays one.").arg(name)});
+  }
+  Project next = project;
+  next.dolls.erase(name);
+  next.characters[name] = converted.characters.at(name);
+  next.shots = converted.shots;
+  return history_->Apply(Tr("Make %1 a character").arg(name), std::move(next));
 }
 
 Result<void> CharacterManager::SaveToLibrary(const QString& name) {

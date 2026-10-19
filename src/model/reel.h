@@ -54,7 +54,7 @@ struct ReelTextLook final {
 
 // A look saved under a name ("Title", "Caption"), kept in the project.
 struct TextStyle final {
-  QString name;
+  QString name{};
   ReelTextLook look;
 
   bool operator==(const TextStyle&) const = default;
@@ -147,7 +147,7 @@ struct ReelTrack final {
   bool is_subtitle = false;
   // Sound tracks only: the header's name (empty shows "A1", "A2"...),
   // Mute, Solo and the track's gain.
-  QString name;
+  QString name{};
   bool is_muted = false;
   bool is_solo = false;
   double volume = 1.0;

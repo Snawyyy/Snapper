@@ -29,6 +29,9 @@ TopBar::TopBar(const Managers& managers)
   tabs_.addTab(tr("Comp"));
   tabs_.addTab(tr("Character"));
   tabs_.setObjectName(QStringLiteral("modes"));
+  // The modes are the only way between tabs: never scrolled or cut.
+  tabs_.setUsesScrollButtons(false);
+  tabs_.setElideMode(Qt::ElideNone);
   layout_.addWidget(&tabs_);
   layout_.addSpacing(kBarGap);
   BuildSteps();

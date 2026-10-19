@@ -112,12 +112,15 @@ Result<void> StageManager::FlipAll(ShotId shot,
   assert(history_ != nullptr);
   assert(ids.size() <= static_cast<size_t>(kMaxLayersPerShot));
   return history_->Apply(
-      Tr("Flip dolls"),
+      is_flipped ? Tr("Flip") : Tr("Unflip"),
       WithLayers(history_->current(), shot, ids, [is_flipped](Layer* layer) {
         auto* doll = std::get_if<DollLayer>(&layer->content);
-        const bool is_doll = doll != nullptr;
-        if (is_doll) {
+        if (doll != nullptr) {
           doll->is_flipped = is_flipped;
+        }
+        auto* cast = std::get_if<CharacterLayer>(&layer->content);
+        if (cast != nullptr) {
+          cast->is_flipped = is_flipped;
         }
       }));
 }

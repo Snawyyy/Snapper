@@ -17,7 +17,8 @@ const CharacterLayer* PosedOf(const Project& project, ShotId shot,
   assert(shot.value() >= 0);
   assert(layer.value() >= 0);
   const Shot* found = FindShot(project, shot);
-  const Layer* item = found != nullptr ? FindLayer(*found, layer) : nullptr;
+  const Layer* item =
+      found != nullptr && layer.IsValid() ? FindLayer(*found, layer) : nullptr;
   return item != nullptr ? std::get_if<CharacterLayer>(&item->content)
                          : nullptr;
 }
@@ -104,23 +105,6 @@ Result<void> CharacterPoseManager::ResetPose(ShotId shot, LayerId layer,
   assert(frame.index() >= 0);
   return Pose(shot, layer, frame, Tr("Reset pose"),
               [](const CharacterPose&) { return CharacterPose{}; });
-}
-
-Result<void> CharacterPoseManager::SetFlipped(ShotId shot, LayerId layer,
-                                              bool is_flipped) {
-  assert(history_ != nullptr);
-  assert(layer.value() >= 0);
-  return history_->Apply(
-      is_flipped ? Tr("Flip") : Tr("Unflip"),
-      WithLayer(history_->current(), shot, layer,
-                [&](Layer* edited) -> Result<void> {
-                  auto* posed = std::get_if<CharacterLayer>(&edited->content);
-                  if (posed == nullptr) {
-                    return std::unexpected(NotCharacter());
-                  }
-                  posed->is_flipped = is_flipped;
-                  return {};
-                }));
 }
 
 }  // namespace snapper

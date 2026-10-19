@@ -1,6 +1,9 @@
 # Moho style characters: the plan
 
-Status: plan only, waiting for the owner's yes. No code yet.
+Status: phases 1 to 7 built and the converter (phase 10's first half)
+in, 2026-10-19; physics and Comp ports and the old code's removal are
+left. Calls made: whole pose keys, Moho curvature (not Bezier handles),
+no frame by frame or SVG yet, library dolls convert on first use.
 
 The owner's calls (2026-10-19):
 

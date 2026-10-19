@@ -187,7 +187,7 @@ void AddDials(const Doll& doll, Counter* ids, CharacterPart* skeleton,
 
 Character CharacterFromDoll(const Doll& doll, DollParts* parts) {
   assert(parts != nullptr);
-  assert(!doll.name.isEmpty());
+  assert(doll.rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   Counter ids;
   Character character;
   character.name = doll.name;
@@ -249,9 +249,9 @@ Character CharacterFromDoll(const Doll& doll, DollParts* parts) {
 
 CharacterLayer CharacterLayerFromDoll(const Doll& doll, const DollLayer& layer,
                                       const DollParts& parts) {
-  assert(!doll.name.isEmpty());
+  assert(doll.rig.pieces.size() <= static_cast<size_t>(kMaxDollPieces));
   assert(layer.pieces.size() <= static_cast<size_t>(kMaxPieceTracks));
-  CharacterLayer out{doll.name, {}, layer.is_flipped};
+  CharacterLayer out{layer.doll, {}, layer.is_flipped};
   std::map<Frame, Ease> frames;
   for (const auto& [piece, channel] : layer.pieces) {
     for (const Key<PiecePose>& key : channel.keys) {
@@ -293,8 +293,10 @@ Project WithDollsAsCharacters(Project project) {
       continue;
     }
     DollParts parts;
+    Character character = CharacterFromDoll(*doll, &parts);
+    character.name = name;
     project.characters[name] =
-        std::make_shared<const Character>(CharacterFromDoll(*doll, &parts));
+        std::make_shared<const Character>(std::move(character));
     converted[name] = std::move(parts);
   }
   if (converted.empty()) {

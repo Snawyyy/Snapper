@@ -4,6 +4,8 @@
 #include <QDir>
 #include <QTemporaryDir>
 
+#include "edit/character_manager.h"
+#include "edit/character_pose_manager.h"
 #include "edit/comp_manager.h"
 #include "edit/storyboard_manager.h"
 #include "edit/dial_manager.h"
@@ -17,6 +19,7 @@
 #include "edit/library_folder_manager.h"
 #include "edit/link_manager.h"
 #include "edit/object_manager.h"
+#include "edit/palette_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/poke_manager.h"
 #include "edit/pose_manager.h"
@@ -73,6 +76,10 @@ struct Bench final {
       QDir(dir.path()).filePath("library_folders.json")};
   StoryboardManager storyboard{&history, &document, &draw, &selection,
                               dir.path()};
+  PaletteManager palette{&history, &selection};
+  CharacterManager characters{&history,
+                              QDir(dir.path()).filePath("characters")};
+  CharacterPoseManager character_poses{&history};
 
   Managers All() {
     Managers all{&history, &document, &library, &rig, &shots, &stage,
@@ -89,6 +96,9 @@ struct Bench final {
     all.record = &record;
     all.library_folders = &library_folders;
     all.storyboard = &storyboard;
+    all.palette = &palette;
+    all.characters = &characters;
+    all.character_poses = &character_poses;
     return all;
   }
 };

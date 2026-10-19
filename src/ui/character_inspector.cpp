@@ -468,8 +468,14 @@ void CharacterInspector::RefreshLook(const CharacterPart* part) {
   stroke_width_.setValue(style.stroke_width);
   raise_.setEnabled(has_shape);
   lower_.setEnabled(has_shape);
+  const QString why_shape = tr("Pick a shape first");
+  raise_.setToolTip(has_shape ? tr("Bring the shape forward") : why_shape);
+  lower_.setToolTip(has_shape ? tr("Send the shape back") : why_shape);
   const bool has_points = part != nullptr && !session_->points().empty();
   make_shape_.setEnabled(has_points);
+  make_shape_.setToolTip(has_points
+                             ? tr("Fill the picked points' closed lines")
+                             : tr("Pick the points of a closed line first"));
   curvature_.setEnabled(has_points);
   point_width_.setEnabled(has_points);
   weld_.setEnabled(session_->points().size() == 2);

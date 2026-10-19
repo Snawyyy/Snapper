@@ -11,6 +11,7 @@
 #include <cassert>
 #include <initializer_list>
 
+#include "edit/character_manager.h"
 #include "edit/document_manager.h"
 #include "edit/draw_manager.h"
 #include "edit/library_folder_manager.h"
@@ -104,8 +105,20 @@ MainWindow::MainWindow(const Managers& managers)
   assert(managers_.IsComplete());
   BuildMenus();
   BuildPages();
-  connect(&cast_, &CastPanel::DollOpenAsked, &rig_panel_,
-          &RigPanel::OpenDoll);
+  // Opening a cast card shows it on the Character tab; an old doll
+  // becomes a character there.
+  connect(&cast_, &CastPanel::DollOpenAsked, this, [this](const QString& name) {
+    if (FindCharacter(managers_.history->current(), name) == nullptr &&
+        managers_.characters != nullptr) {
+      const auto made = managers_.characters->FromDoll(name);
+      if (!made) {
+        managers_.toasts->Problem(made.error().message);
+        return;
+      }
+    }
+    character_page_.session()->SetCharacter(name);
+    SetMode(Mode::kRig);
+  });
   connect(&rig_panel_, &RigPanel::DollPicked, &rig_canvas_,
           &RigCanvas::SetDoll);
   connect(&rig_panel_, &RigPanel::PickChanged, &rig_canvas_,
@@ -356,8 +369,7 @@ void MainWindow::BuildMenus() {
   QMenu* file = file_menu_.menu();
   // Export sits just above Quit.
   file->insertAction(file->actions().last(), &export_action_);
-  file->insertMenu(file->actions().last(), krita_menu_.menu());
-  file->insertAction(file->actions().last(), krita_menu_.program_action());
+  // Characters are drawn in Snapper now: the Krita doll menu is gone.
   file->insertSeparator(file->actions().last());
   connect(&cast_, &CastPanel::OpenInKritaRequested, &krita_menu_,
           &KritaMenu::Open);
