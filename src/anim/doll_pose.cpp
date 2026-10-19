@@ -162,7 +162,9 @@ QTransform LayerTransform(const Layer& layer, Frame frame) {
   assert(IsSorted(layer.transform));
   const PiecePose pose = Sample(layer.transform, frame, PiecePose());
   const auto* doll = std::get_if<DollLayer>(&layer.content);
-  const bool is_flipped = doll != nullptr && doll->is_flipped;
+  const auto* character = std::get_if<CharacterLayer>(&layer.content);
+  const bool is_flipped = (doll != nullptr && doll->is_flipped) ||
+                          (character != nullptr && character->is_flipped);
   const QTransform flip =
       is_flipped ? QTransform::fromScale(-1.0, 1.0) : QTransform();
   return flip * PoseMatrix(pose, QPointF());

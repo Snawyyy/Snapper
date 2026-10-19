@@ -39,7 +39,8 @@ enum class GrabKind {
   kWarpDot,
   kKey,
   kEdge,
-  kColliderDot
+  kColliderDot,
+  kBone
 };
 
 // The cursor that shows what dragging this kind of handle does.

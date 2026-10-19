@@ -12,6 +12,7 @@
 #include "anim/doll_pose.h"
 #include "anim/layer_order.h"
 #include "anim/links.h"
+#include "render/character_paint.h"
 #include "render/frame_renderer.h"
 #include "render/layer_painter.h"
 #include "render/stage_geometry.h"
@@ -116,6 +117,20 @@ struct LayerHitter final {
     const bool is_hit = TextBox(layer).contains(in_layer);
     return is_hit ? std::optional<QString>(QString()) : std::nullopt;
   }
+  // A character is picked whole: its parts pose through its bones.
+  std::optional<QString> operator()(const CharacterLayer& layer) const {
+    assert(cache != nullptr);
+    assert(!layer.character.isNull());
+    const Character* character = FindCharacter(project, layer.character);
+    if (character == nullptr) {
+      return std::nullopt;
+    }
+    const PosedCharacter posed =
+        PoseCharacter(*character, PoseAt(*character, layer, local));
+    const std::optional<PartId> part = HitPart(*character, posed, in_layer);
+    return part.has_value() ? std::optional<QString>(QString())
+                            : std::nullopt;
+  }
   // Effects change pixels; there is nothing of theirs to click.
   std::optional<QString> operator()(const EffectLayer& layer) const {
     assert(static_cast<int>(layer.kind) < kEffectKindCount);
@@ -195,6 +210,17 @@ QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
          PlaceDoll(*doll, links.Poses(*doll, *found, local))) {
       own = own.united(
           piece.transform.mapRect(QRectF(QPointF(), QSizeF(piece.size))));
+    }
+  }
+  const auto* cast = std::get_if<CharacterLayer>(&found->content);
+  const Character* character =
+      cast != nullptr ? FindCharacter(project, cast->character) : nullptr;
+  if (character != nullptr) {
+    own = QRectF();
+    const PosedCharacter shown =
+        PoseCharacter(*character, PoseAt(*character, *cast, local));
+    for (const PosedPart& part : shown.parts) {
+      own = own.united(PartOutline(*character, part).boundingRect());
     }
   }
   return to_screen->map(QPolygonF(own));

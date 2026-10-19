@@ -7,6 +7,7 @@
 #include <cassert>
 #include <variant>
 
+#include "edit/doll_convert.h"
 #include "edit/history_manager.h"
 #include "edit/project_edits.h"
 #include "edit/storyboard_edits.h"
@@ -43,10 +44,11 @@ StageManager::StageManager(HistoryManager* history) : history_(history) {
 Result<LayerId> StageManager::AddLayer(ShotId shot, const QString& name,
                                        LayerContent content,
                                        const QString& label, bool is_bottom,
-                                       std::optional<PiecePose> pose) {
+                                       std::optional<PiecePose> pose,
+                                       std::optional<Project> base) {
   assert(history_ != nullptr);
   assert(!name.isEmpty() && !label.isEmpty());
-  Project next = history_->current();
+  Project next = base.has_value() ? std::move(*base) : history_->current();
   const LayerId id = TakeLayerId(&next);
   auto added = WithShot(std::move(next), shot, [&](Shot* edited) {
     const bool is_full =
@@ -79,13 +81,39 @@ Result<LayerId> StageManager::AddLayer(ShotId shot, const QString& name,
 Result<LayerId> StageManager::AddDoll(ShotId shot, const QString& doll) {
   assert(history_ != nullptr);
   assert(!doll.isEmpty());
-  const bool is_present = FindDoll(history_->current(), doll) != nullptr;
-  if (!is_present) {
+  if (FindCharacter(history_->current(), doll) != nullptr) {
+    return AddCharacter(shot, doll);
+  }
+  const Doll* found = FindDoll(history_->current(), doll);
+  if (found == nullptr) {
     return std::unexpected(
         Error{Tr("Import %1 into the project first.").arg(doll)});
   }
+  // A doll comes onto the stage as a character; a prop picture stays a
+  // doll so its GIF keeps playing.
+  if (!found->rig.object.is_object) {
+    Project next = history_->current();
+    DollParts parts;
+    next.characters[doll] =
+        std::make_shared<const Character>(CharacterFromDoll(*found, &parts));
+    return AddLayer(shot, doll, CharacterLayer{doll, {}, false},
+                    Tr("Add %1").arg(doll), false, std::nullopt,
+                    std::move(next));
+  }
   return AddLayer(shot, doll, DollLayer{doll, {}, false},
                   Tr("Add %1").arg(doll));
+}
+
+Result<LayerId> StageManager::AddCharacter(ShotId shot,
+                                           const QString& character) {
+  assert(history_ != nullptr);
+  assert(!character.isEmpty());
+  if (FindCharacter(history_->current(), character) == nullptr) {
+    return std::unexpected(
+        Error{Tr("Add %1 to the project first.").arg(character)});
+  }
+  return AddLayer(shot, character, CharacterLayer{character, {}, false},
+                  Tr("Add %1").arg(character));
 }
 
 Result<LayerId> StageManager::AddImage(ShotId shot, const QString& path) {

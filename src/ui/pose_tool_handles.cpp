@@ -8,6 +8,8 @@
 #include <vector>
 
 #include "anim/warp.h"
+#include "edit/character_pose_edits.h"
+#include "edit/character_pose_manager.h"
 #include "edit/history_manager.h"
 #include "edit/rig_manager.h"
 #include "edit/project_edits.h"
@@ -37,6 +39,12 @@ QString PoseTool::IkKey(const QString& chain) {
   assert(!chain.isEmpty());
   assert(chain.size() < 100000);
   return QStringLiteral("ik/") + chain;
+}
+
+QString PoseTool::BoneKey(LayerId layer, BoneId bone) {
+  assert(layer.IsValid());
+  assert(bone.IsValid());
+  return QStringLiteral("bone/%1/%2").arg(layer.value()).arg(bone.value());
 }
 
 void PoseTool::Observe() {
@@ -112,6 +120,15 @@ std::vector<PoseTool::Handle> PoseTool::HandlesOf(
     handles.push_back({GrabKind::kIkTip, IkKey(tip.chain),
                        tip.point + frame.corner, {}, {}, layer, tip.chain});
   }
+  for (const PosedBone& bone :
+       layer.IsValid()
+           ? CharacterBonesOnScreen(project, *shot, layer, frame.local,
+                                    frame.scale, cache_->poses())
+           : std::vector<PosedBone>()) {
+    handles.push_back({GrabKind::kBone, BoneKey(layer, bone.id),
+                       bone.tip + frame.corner, {}, {}, layer,
+                       QString::number(bone.id.value())});
+  }
   return handles;
 }
 
@@ -173,6 +190,9 @@ bool PoseTool::PressHandle(QPointF point, const StageFrame& frame) {
       break;
     case GrabKind::kWarpDot:
       GrabWarp(*handle, point, frame);
+      break;
+    case GrabKind::kBone:
+      GrabBone(*handle, point, frame);
       break;
     default:
       GrabIk(*handle, point, frame);
@@ -251,6 +271,33 @@ void PoseTool::GrabIk(const Handle& handle, QPointF point,
   drag->start = point;
   drag->scope = std::make_unique<EditScope>(
       managers_.history, QObject::tr("Bend %1").arg(handle.chain));
+  drag_ = std::move(drag);
+}
+
+void PoseTool::GrabBone(const Handle& handle, QPointF point,
+                        const StageFrame& frame) {
+  assert(handle.kind == GrabKind::kBone);
+  assert(frame.scale > 0.0);
+  const Character* character =
+      managers_.character_poses != nullptr
+          ? managers_.character_poses->CharacterOf(frame.shot, handle.layer)
+          : nullptr;
+  const Bone* bone =
+      character != nullptr
+          ? FindBone(*character, BoneId(handle.chain.toInt()))
+          : nullptr;
+  if (bone == nullptr) {
+    return;
+  }
+  auto drag = std::make_unique<Drag>();
+  drag->kind = Kind::kBone;
+  drag->frame = frame;
+  drag->layer = handle.layer;
+  drag->chain = handle.chain;
+  drag->press = point;
+  drag->start = point;
+  drag->scope = std::make_unique<EditScope>(
+      managers_.history, QObject::tr("Bend %1").arg(bone->name));
   drag_ = std::move(drag);
 }
 

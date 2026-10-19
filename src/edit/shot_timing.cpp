@@ -67,6 +67,10 @@ void ReadChannels(const Shot& shot, Visit visit) {
     if (is_effect) {
       visit(effect->amount);
     }
+    const auto* cast = std::get_if<CharacterLayer>(&layer.content);
+    if (cast != nullptr) {
+      visit(cast->poses);
+    }
   }
 }
 
@@ -90,6 +94,10 @@ void RemapLayer(Layer* layer, const FrameMap& map) {
   const bool is_effect = effect != nullptr;
   if (is_effect) {
     RemapChannel(&effect->amount, map);
+  }
+  auto* cast = std::get_if<CharacterLayer>(&layer->content);
+  if (cast != nullptr) {
+    RemapChannel(&cast->poses, map);
   }
   // A layer shown for part of the shot keeps showing the same stretch;
   // length 0 (to the end) stays as it is. One shown from the first

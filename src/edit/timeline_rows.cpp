@@ -35,6 +35,9 @@ std::vector<TrackRef> LayerTracks(const Shot& shot, const Layer& layer) {
   if (is_effect) {
     tracks.push_back({shot.id, TrackKind::kEffectAmount, layer.id, {}});
   }
+  if (std::holds_alternative<CharacterLayer>(layer.content)) {
+    tracks.push_back({shot.id, TrackKind::kCharacter, layer.id, {}});
+  }
   return tracks;
 }
 

@@ -22,7 +22,9 @@ enum class TrackKind {
   kCamera,
   kEffectAmount,
   kDial,
-  kSkin
+  kSkin,
+  // A character layer's whole poses.
+  kCharacter
 };
 
 // The address of one channel, so pose, key and preset tools and the
@@ -94,6 +96,10 @@ Result<void> VisitTrack(Shot* shot, const TrackRef& track, Visit visit) {
   if (is_effect) {
     return visit(&effect->amount);
   }
+  auto* cast = std::get_if<CharacterLayer>(&layer->content);
+  if (track.kind == TrackKind::kCharacter && cast != nullptr) {
+    return visit(&cast->poses);
+  }
   return gone();
 }
 
@@ -152,8 +158,14 @@ bool ReadTrack(const Shot& shot, const TrackRef& track, Read read) {
       track.kind == TrackKind::kEffectAmount && effect != nullptr;
   if (is_effect) {
     read(effect->amount);
+    return true;
   }
-  return is_effect;
+  const auto* cast = std::get_if<CharacterLayer>(&layer->content);
+  const bool is_character = track.kind == TrackKind::kCharacter && cast != nullptr;
+  if (is_character) {
+    read(cast->poses);
+  }
+  return is_character;
 }
 
 }  // namespace snapper

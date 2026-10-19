@@ -43,6 +43,8 @@ struct InspectorShow final {
   // An object (a prop from a picture) picked whole: how it plays and
   // what holds it.
   bool object = false;
+  // A character picked whole: its switches, smart bones, reset and flip.
+  bool character = false;
 };
 
 // What the pick has beside the stage pick itself.

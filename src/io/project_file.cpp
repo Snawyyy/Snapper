@@ -7,6 +7,7 @@
 #include <cassert>
 
 #include "base/text.h"
+#include "io/character_json.h"
 #include "io/doll_file.h"
 #include "io/doll_json.h"
 #include "io/json_file.h"
@@ -38,6 +39,26 @@ void ReadDolls(const QJsonArray& dolls, Project* project, JsonIssues* issues) {
     doll.rig = RigFromJson(object.value("rig").toObject(), issues);
     AddOwnDrawings(&doll);
     project->dolls[doll.name] = std::make_shared<const Doll>(doll);
+  }
+}
+
+void ReadCharacters(const QJsonArray& characters, Project* project,
+                    JsonIssues* issues) {
+  assert(project != nullptr);
+  assert(issues != nullptr);
+  const bool is_too_many = characters.size() > kMaxProjectCharacters;
+  if (is_too_many) {
+    issues->Note(Tr("too many characters"));
+    return;
+  }
+  for (const QJsonValue& item : characters) {
+    const QJsonObject object = item.toObject();
+    Character character = CharacterFromJson(object, issues);
+    character.folder = object.value("folder").toString();
+    if (!character.name.isEmpty()) {
+      project->characters[character.name] =
+          std::make_shared<const Character>(std::move(character));
+    }
   }
 }
 
@@ -114,6 +135,7 @@ Result<Project> ReadProject(const QString& path) {
   project.new_shots_transparent =
       read->value("new_shots_transparent").toBool(false);
   ReadDolls(read->value("dolls").toArray(), &project, &issues);
+  ReadCharacters(read->value("characters").toArray(), &project, &issues);
   ReadShots(read->value("shots").toArray(), &project, &issues);
   project.reel = ReelFromJson(read->value("reel"), &issues);
   MoveShotTransitions(read->value("shots").toArray(), &project.reel,
@@ -143,6 +165,12 @@ Result<void> WriteProject(const QString& path, const Project& in_memory) {
                              {"art", ArtToJson(doll->art)},
                              {"rig", RigToJson(doll->rig)}});
   }
+  QJsonArray characters;
+  for (const auto& [name, character] : project.characters) {
+    QJsonObject json = CharacterToJson(*character);
+    json.insert("folder", character->folder);
+    characters.append(json);
+  }
   QJsonArray shots;
   for (const auto& shot : project.shots) {
     shots.append(ShotToJson(*shot));
@@ -158,6 +186,7 @@ Result<void> WriteProject(const QString& path, const Project& in_memory) {
       {"next_layer_id", project.next_layer_id},
       {"next_clip_id", project.next_clip_id},
       {"dolls", dolls},
+      {"characters", characters},
       {"shots", shots},
       {"reel", ReelToJson(project.reel)},
       {"cut_markers", MarkersToJson(project.reel.markers)},

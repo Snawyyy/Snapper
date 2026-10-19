@@ -12,6 +12,7 @@
 #include <cassert>
 #include <variant>
 
+#include "edit/character_manager.h"
 #include "edit/doll_library_manager.h"
 #include "edit/edit_scope.h"
 #include "edit/history_manager.h"
@@ -19,7 +20,9 @@
 #include "edit/object_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/stage_manager.h"
+#include "io/character_file.h"
 #include "ui/cast_panel.h"
+#include "ui/character_thumb.h"
 #include "ui/doll_drop.h"
 #include "ui/form_helpers.h"
 #include "ui/toast_manager.h"
@@ -43,7 +46,7 @@ void KeepPicked(QListWidget* list, int row) {
 
 QString LayerKind(const Layer& layer) {
   assert(layer.id.IsValid());
-  assert(layer.content.index() < 5);
+  assert(layer.content.index() < 6);
   switch (layer.content.index()) {
     case 0:
       return QObject::tr("doll");
@@ -53,6 +56,8 @@ QString LayerKind(const Layer& layer) {
       return QObject::tr("text");
     case 4:
       return QObject::tr("storyboard");
+    case 5:
+      return QObject::tr("character");
     default:
       return QObject::tr("effect");
   }
@@ -119,7 +124,10 @@ bool IsInShot(const Project& project, ShotId id, const QString& doll) {
                      [&doll](const Layer& layer) {
                        const auto* posed = std::get_if<DollLayer>(
                            &layer.content);
-                       return posed != nullptr && posed->doll == doll;
+                       const auto* cast = std::get_if<CharacterLayer>(
+                           &layer.content);
+                       return (posed != nullptr && posed->doll == doll) ||
+                              (cast != nullptr && cast->character == doll);
                      });
 }
 
@@ -128,12 +136,31 @@ bool IsInShot(const Project& project, ShotId id, const QString& doll) {
 QPixmap CastPanel::PictureOf(const QString& name) {
   assert(managers_.library != nullptr);
   assert(!name.isEmpty());
+  // A project character is drawn fresh, so edits on the Character tab
+  // show on its card.
+  const Character* in_project =
+      FindCharacter(managers_.history->current(), name);
+  if (in_project != nullptr) {
+    return CharacterPicture(*in_project, 72);
+  }
   const auto found = pictures_.constFind(name);
   const bool is_drawn = found != pictures_.constEnd();
   if (is_drawn) {
     return *found;
   }
-  const QPixmap picture = DollPicture(managers_.library->FolderOf(name), 72);
+  const Character* character =
+      FindCharacter(managers_.history->current(), name);
+  const bool is_library_character =
+      character == nullptr && managers_.characters != nullptr &&
+      managers_.characters->Available().contains(name);
+  const Result<Character> read =
+      is_library_character
+          ? ReadCharacterFolder(QDir(managers_.characters->folder()).filePath(name))
+          : Result<Character>(std::unexpected(Error{}));
+  const QPixmap picture =
+      character != nullptr ? CharacterPicture(*character, 72)
+      : read.has_value()   ? CharacterPicture(*read, 72)
+                           : DollPicture(managers_.library->FolderOf(name), 72);
   pictures_.insert(name, picture);
   return picture;
 }
@@ -142,8 +169,17 @@ void CastPanel::RefreshLibrary() {
   assert(managers_.IsComplete());
   assert(managers_.library != nullptr);
   const bool has_objects = managers_.objects != nullptr;
-  const QStringList all = has_objects ? managers_.objects->Dolls()
-                                      : managers_.library->Available();
+  QStringList all = has_objects ? managers_.objects->Dolls()
+                                : managers_.library->Available();
+  // Characters made on the Character tab sit beside the dolls.
+  if (managers_.characters != nullptr) {
+    for (const QString& name : managers_.characters->Available()) {
+      if (!all.contains(name)) all.append(name);
+    }
+    for (const auto& [name, character] : managers_.history->current().characters) {
+      if (!all.contains(name)) all.append(name);
+    }
+  }
   const LibraryFolderManager* folders = managers_.library_folders;
   const bool has_folders = folders != nullptr;
   FillCards(&library_,
@@ -174,7 +210,8 @@ void CastPanel::FillCards(DollCards* cards, const QStringList& names) {
   cards->clear();
   const Project& project = managers_.history->current();
   for (const QString& name : names) {
-    const bool is_in = FindDoll(project, name) != nullptr;
+    const bool is_in = FindDoll(project, name) != nullptr ||
+                       FindCharacter(project, name) != nullptr;
     const bool is_stale = is_in && stale_.contains(name);
     const bool is_in_shot =
         IsInShot(project, managers_.selection->shot(), name);

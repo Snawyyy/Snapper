@@ -3,6 +3,8 @@
 
 namespace snapper {
 
+class CharacterManager;
+class CharacterPoseManager;
 class CompManager;
 class DialManager;
 class DocumentManager;
@@ -90,6 +92,10 @@ struct Managers final {
   // Not in IsComplete either: the storyboard rows, box and keys check
   // it.
   StoryboardManager* storyboard = nullptr;
+  // Not in IsComplete either: the Character tab and character posing
+  // check them.
+  CharacterManager* characters = nullptr;
+  CharacterPoseManager* character_poses = nullptr;
 
   bool IsComplete() const {
     return history && document && library && rig && shots && stage &&

@@ -70,6 +70,8 @@ MainWindow::MainWindow(const Managers& managers)
       rig_split_(Qt::Horizontal),
       rig_canvas_(managers),
       rig_panel_(managers),
+      character_page_(managers.history, managers.characters,
+                      managers.document->SettingsPath()),
       comp_page_(managers),
       video_page_(managers),
       cast_dock_(tr("Cast")),
@@ -126,6 +128,12 @@ MainWindow::MainWindow(const Managers& managers)
   connect(&strip_, &ShotStrip::Problem, this, show_problem);
   connect(&cast_, &CastPanel::Problem, this, show_problem);
   connect(&rig_canvas_, &RigCanvas::Problem, this, show_problem);
+  connect(&character_page_, &CharacterPage::Problem, this,
+          [show_problem](const QString& message) {
+            if (!message.isEmpty()) {
+              show_problem(message);
+            }
+          });
   // A hint stays until the canvas clears it.
   connect(&rig_canvas_, &RigCanvas::Hint, this, [this](const QString& hint) {
     statusBar()->showMessage(hint);
@@ -234,7 +242,8 @@ void MainWindow::ToggleFullView() {
   }
   QWidget* view = mode() == Mode::kVideo  ? video_page_.main_view()
                   : mode() == Mode::kComp ? comp_page_.main_view()
-                  : mode() == Mode::kRig  ? static_cast<QWidget*>(&rig_canvas_)
+                  : mode() == Mode::kRig
+                      ? static_cast<QWidget*>(character_page_.canvas())
                                           : static_cast<QWidget*>(&stage_);
   full_view_.Enter(view);
 }
@@ -284,7 +293,7 @@ void MainWindow::BuildPages() {
   pages_.addWidget(&video_page_);
   pages_.addWidget(&pose_page_);
   pages_.addWidget(&comp_page_);
-  pages_.addWidget(&rig_split_);
+  pages_.addWidget(&character_page_);
   setCentralWidget(&pages_);
   // Depth: the window is the gap behind everything; pages and docks are
   // panels on it; the top bar stands raised.

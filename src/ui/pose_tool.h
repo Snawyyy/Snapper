@@ -112,6 +112,7 @@ class PoseTool final {
   static QString WarpKey(const WarpDot& dot);
   static QString TurnKey(LayerId layer);
   static QString IkKey(const QString& chain);
+  static QString BoneKey(LayerId layer, BoneId bone);
 
   // What a drag in progress should say: the live value in plain words
   // (a turn snapped by Shift says so), the point it began and the
@@ -141,7 +142,7 @@ class PoseTool final {
   const QString& problem() const { return problem_; }
 
  private:
-  enum class Kind { kMove, kScale, kIk, kBox, kLean, kSwivel, kWarp };
+  enum class Kind { kMove, kScale, kIk, kBox, kLean, kSwivel, kWarp, kBone };
 
   struct Drag final {
     Kind kind = Kind::kMove;
@@ -227,6 +228,9 @@ class PoseTool final {
   // Notes what the drag says now, with the cursor at point.
   void Say(const QString& text, bool is_snapped, QPointF point);
   void MoveIk(QPointF point);
+  // A character's bone dragged: IK, or one bone with Shift.
+  void MoveBone(QPointF point, bool is_shift);
+  void GrabBone(const Handle& handle, QPointF point, const StageFrame& frame);
   void MoveAll(QPointF total);
   // The frames an edit lands on: those of the keys picked on the
   // timeline in at's shot (so a move reaches them all, each moved by the

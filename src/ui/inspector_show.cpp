@@ -76,6 +76,12 @@ InspectorShow ShowFor(const Project& project, ShotId shot,
   const Doll* doll = DollOfLayer(project, shot, picks.begin()->layer);
   const bool is_doll = doll != nullptr;
   show.object = is_doll && is_whole && doll->rig.object.is_object;
+  const Shot* picked_shot = FindShot(project, shot);
+  const Layer* first =
+      picked_shot != nullptr ? FindLayer(*picked_shot, picks.begin()->layer)
+                             : nullptr;
+  show.character = is_whole && first != nullptr &&
+                   std::holds_alternative<CharacterLayer>(first->content);
   show.layer = is_whole;
   show.saved_poses = is_doll && is_whole;
   const bool has_dials = is_doll && !doll->rig.dials.empty();

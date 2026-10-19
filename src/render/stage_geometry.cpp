@@ -204,4 +204,31 @@ std::vector<IkHandle> IkHandles(const Project& project, const Shot& shot,
   return handles;
 }
 
+std::vector<PosedBone> CharacterBonesOnScreen(const Project& project,
+                                              const Shot& shot, LayerId layer,
+                                              Frame local, double scale,
+                                              PoseMemo* memo) {
+  assert(scale > 0.0);
+  assert(local.index() >= 0);
+  const Layer* found = layer.IsValid() ? FindLayer(shot, layer) : nullptr;
+  const auto* cast =
+      found != nullptr ? std::get_if<CharacterLayer>(&found->content) : nullptr;
+  const Character* character =
+      cast != nullptr ? FindCharacter(project, cast->character) : nullptr;
+  const auto to_screen =
+      character != nullptr
+          ? LayerToScreen(project, shot, layer, local, scale, memo)
+          : std::nullopt;
+  if (!to_screen) {
+    return {};
+  }
+  std::vector<PosedBone> bones =
+      PoseBones(*character, PoseAt(*character, *cast, local));
+  for (PosedBone& bone : bones) {
+    bone.base = to_screen->map(bone.base);
+    bone.tip = to_screen->map(bone.tip);
+  }
+  return bones;
+}
+
 }  // namespace snapper

@@ -7,6 +7,7 @@
 #include <cassert>
 
 #include "base/frame.h"
+#include "model/character.h"
 #include "model/key.h"
 #include "model/pose.h"
 
@@ -23,6 +24,9 @@ PiecePose Lerp(const PiecePose& a, const PiecePose& b, double t);
 CameraPose Lerp(const CameraPose& a, const CameraPose& b, double t);
 // Skins never blend: a holds until the next key.
 SkinSet Lerp(const SkinSet& a, const SkinSet& b, double t);
+// Moves, turns and scales blend; a switch pick holds a until the next
+// key (t reaches 1). Defined with the rest of character posing.
+CharacterPose Lerp(const CharacterPose& a, const CharacterPose& b, double t);
 
 // The one sampler: the value of channel at frame. Before the first key
 // it holds the first key, after the last it holds the last, and with no

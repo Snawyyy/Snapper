@@ -8,7 +8,7 @@
 namespace snapper {
 
 Qt::CursorShape CursorFor(GrabKind kind) {
-  assert(kind >= GrabKind::kNone && kind <= GrabKind::kColliderDot);
+  assert(kind >= GrabKind::kNone && kind <= GrabKind::kBone);
   assert(kGrabReach > kHandleDraw);
   switch (kind) {
     case GrabKind::kNone:
@@ -16,6 +16,7 @@ Qt::CursorShape CursorFor(GrabKind kind) {
     case GrabKind::kPivot:
       return Qt::SizeAllCursor;
     case GrabKind::kIkTip:
+    case GrabKind::kBone:
       return Qt::CrossCursor;
     case GrabKind::kLean:
       return Qt::SizeVerCursor;

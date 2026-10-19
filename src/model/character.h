@@ -185,6 +185,9 @@ struct Character final {
   bool operator==(const Character&) const = default;
 };
 
+// Where bone's tip is at rest, in its bone part's space.
+QPointF TipOf(const Bone& bone);
+
 const CharacterPart* FindPart(const Character& character, PartId id);
 CharacterPart* FindPart(Character* character, PartId id);
 // The part called name, or nullptr.

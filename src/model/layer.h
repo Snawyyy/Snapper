@@ -9,6 +9,7 @@
 
 #include "base/frame.h"
 #include "base/id.h"
+#include "model/character.h"
 #include "model/key.h"
 #include "model/pose.h"
 #include "model/storyboard.h"
@@ -65,6 +66,18 @@ struct DollLayer final {
   bool operator==(const DollLayer&) const = default;
 };
 
+// A posed character. One key holds its whole pose at that frame, as a
+// drawing does in traditional animation; its place on the stage is the
+// layer's own transform.
+struct CharacterLayer final {
+  QString character{};
+  Channel<CharacterPose> poses{};
+  // Drawn mirrored left to right.
+  bool is_flipped = false;
+
+  bool operator==(const CharacterLayer&) const = default;
+};
+
 // A single picture: a prop or a background.
 struct ImageLayer final {
   QString path;
@@ -107,7 +120,7 @@ struct EffectLayer final {
 };
 
 using LayerContent = std::variant<DollLayer, ImageLayer, TextLayer,
-                                  EffectLayer, StoryboardLayer>;
+                                  EffectLayer, StoryboardLayer, CharacterLayer>;
 
 // Something on a shot's stage. Every kind shares a name, a time range
 // and a keyed transform; content says what it is.

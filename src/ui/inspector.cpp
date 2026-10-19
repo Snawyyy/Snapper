@@ -52,6 +52,11 @@ Inspector::Inspector(const Managers& managers)
   // left open by the old default starts closed too.)
   AddFolded(&camera_, "shot_camera", false);
   layout_.addWidget(&pose_);
+  if (managers_.character_poses != nullptr) {
+    character_ = std::make_unique<CharacterBox>(managers_);
+    AddFolded(character_.get(), "character");
+    connect(character_.get(), &CharacterBox::Problem, this, &Inspector::Problem);
+  }
   const bool has_objects = managers_.objects != nullptr;
   if (has_objects) {
     object_ = std::make_unique<ObjectBox>(managers_);
@@ -222,6 +227,9 @@ void Inspector::Refresh() {
                "should move, then make one from a template."));
   }
   Show(&skins_, show.skins);
+  if (character_ != nullptr) {
+    Show(character_.get(), show.character);
+  }
   if (object_ != nullptr) {
     Show(object_.get(), show.object);
   }

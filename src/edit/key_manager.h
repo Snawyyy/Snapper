@@ -21,7 +21,8 @@ class HistoryManager;
 // Copied keys of one channel, with frames counted from the first copied
 // key.
 using CopiedChannel = std::variant<Channel<PiecePose>, Channel<CameraPose>,
-                                   Channel<double>, Channel<SkinSet>>;
+                                   Channel<double>, Channel<SkinSet>,
+                                   Channel<CharacterPose>>;
 
 // Timing: keys on the timeline, whatever channel they are in.
 class KeyManager final {

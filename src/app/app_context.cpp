@@ -40,6 +40,8 @@ AppContext::AppContext(const QString& data_folder)
       voices_(QDir(data_folder).filePath("voices")),
       voice_gen_(&document_, &playback_, &reel_, &voices_, data_folder),
       storyboard_(&history_, &document_, &draw_, &selection_, data_folder),
+      characters_(&history_, QDir(data_folder).filePath("characters")),
+      character_poses_(&history_),
       window_(Managers{&history_, &document_, &library_, &rig_, &shots_,
                        &stage_, &selection_, &pose_, &keys_, &presets_,
                        &playback_, &exporter_, &links_, &reel_, &motion_,
@@ -47,7 +49,7 @@ AppContext::AppContext(const QString& data_folder)
                        &palette_, &dials_, &draw_, &skins_, &objects_,
                        &sounds_, &references_, &comp_, &record_,
                        &library_folders_, &voices_, &voice_gen_,
-                       &storyboard_}) {
+                       &storyboard_, &characters_, &character_poses_}) {
   assert(!data_folder.isEmpty());
   // A doll redrawn in Krita while a project was closed is reloaded when
   // it opens, so the project never points at drawings that are gone.

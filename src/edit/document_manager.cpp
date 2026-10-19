@@ -9,6 +9,7 @@
 #include <set>
 
 #include "base/text.h"
+#include "edit/doll_convert.h"
 #include "edit/history_manager.h"
 #include "edit/reel_manager.h"
 #include "edit/storyboard_folder.h"
@@ -74,7 +75,11 @@ Result<void> DocumentManager::Open(const QString& path) {
     return std::unexpected(project.error());
   }
   ReelManager::AddSoundTracks(&*project);
-  history_->Reset(std::move(*project));
+  // Old PNG dolls open as characters; the file changes on the next save.
+  const size_t dolls = project->dolls.size();
+  *project = WithDollsAsCharacters(std::move(*project));
+  const bool is_converted = project->dolls.size() != dolls;
+  history_->Reset(std::move(*project), !is_converted);
   path_ = QFileInfo(path).absoluteFilePath();
   Remember(path_);
   LoadOutsideShown();
@@ -256,6 +261,7 @@ Result<void> DocumentManager::Recover() {
   // Recovered work is unsaved until the user saves it, which writes to
   // the file it came from when it had one.
   ReelManager::AddSoundTracks(&*project);
+  *project = WithDollsAsCharacters(std::move(*project));
   history_->Reset(std::move(*project), false);
   const QSettings settings(SettingsPath(), QSettings::IniFormat);
   path_ = settings.value(kAutosaveOrigin).toString();

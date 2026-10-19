@@ -7,6 +7,7 @@
 #include <cassert>
 #include <variant>
 
+#include "io/character_json.h"
 #include "io/dot_group_json.h"
 #include "io/comp_json.h"
 #include "io/reference_json.h"
@@ -21,8 +22,8 @@ constexpr std::array<const char*, kEffectKindCount> kEffectNames = {
     "flash", "fill", "invert", "zoom_punch", "halftone", "glitch",
     "posterize"};
 // Index matches LayerContent's alternatives.
-constexpr std::array<const char*, 5> kLayerTypes = {
-    "doll", "image", "text", "effect", "storyboard"};
+constexpr std::array<const char*, 6> kLayerTypes = {
+    "doll", "image", "text", "effect", "storyboard", "character"};
 static_assert(std::variant_size_v<LayerContent> == kLayerTypes.size());
 // PlayMode by its value.
 constexpr std::array<const char*, kPlayModeCount> kPlayModes = {
@@ -89,6 +90,14 @@ void AddFields(const StoryboardLayer& board, QJsonObject* object) {
   assert(object != nullptr);
   assert(object->contains("type"));
   AddStoryboardFields(board, object);
+}
+
+void AddFields(const CharacterLayer& posed, QJsonObject* object) {
+  assert(object != nullptr);
+  assert(object->contains("type"));
+  object->insert("character", posed.character);
+  object->insert("flipped", posed.is_flipped);
+  object->insert("poses", ChannelToJson(posed.poses));
 }
 
 QJsonObject ContentToJson(const LayerContent& content) {
@@ -165,6 +174,11 @@ LayerContent ContentFromJson(const QJsonObject& object, JsonIssues* issues) {
     }
     case 4:
       return StoryboardFromJson(object, issues);
+    case 5:
+      return CharacterLayer{
+          object.value("character").toString(),
+          ChannelFromJson(object.value("poses"), CharacterPose{}, issues),
+          object.value("flipped").toBool()};
     default:
       return DollFromJson(object, issues);
   }

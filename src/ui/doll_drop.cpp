@@ -4,6 +4,7 @@
 #include <set>
 
 #include "base/text.h"
+#include "edit/character_manager.h"
 #include "edit/doll_library_manager.h"
 #include "edit/history_manager.h"
 #include "edit/selection_manager.h"
@@ -19,9 +20,21 @@ QString PutDollsOnStage(const Managers& managers, const QStringList& dolls) {
     return Tr("Add a shot first.");
   }
   QStringList missing;
+  const QStringList characters =
+      managers.characters != nullptr ? managers.characters->Available()
+                                     : QStringList();
   for (const QString& name : dolls) {
-    const bool is_in = FindDoll(managers.history->current(), name) != nullptr;
-    if (!is_in) {
+    const Project& project = managers.history->current();
+    const bool is_in = FindDoll(project, name) != nullptr ||
+                       FindCharacter(project, name) != nullptr;
+    const bool is_character = characters.contains(name) &&
+                              !managers.library->Available().contains(name);
+    if (!is_in && is_character) {
+      const auto imported = managers.characters->Import(name);
+      if (!imported) {
+        return imported.error().message;
+      }
+    } else if (!is_in) {
       missing.append(name);
     }
   }

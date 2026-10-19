@@ -20,6 +20,7 @@
 #include "ui/layer_box.h"
 #include "ui/link_box.h"
 #include "ui/managers.h"
+#include "ui/character_box.h"
 #include "ui/object_box.h"
 #include "ui/point_motion_box.h"
 #include "ui/poses_box.h"
@@ -85,6 +86,7 @@ class Inspector final : public QScrollArea {
   PosesBox poses_;
   // Null without the object manager (some test benches).
   std::unique_ptr<ObjectBox> object_;
+  std::unique_ptr<CharacterBox> character_;
   // Null without the reference manager.
   std::unique_ptr<ReferenceBox> references_;
   // Null without the storyboard manager.

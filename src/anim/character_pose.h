@@ -5,15 +5,15 @@
 #include <QSizeF>
 #include <QTransform>
 
+#include <map>
 #include <vector>
 
+#include "anim/sampler.h"
+#include "base/frame.h"
 #include "model/character.h"
+#include "model/layer.h"
 
 namespace snapper {
-
-// The in-between of two character poses. Moves, turns and scales blend;
-// a switch pick holds a until the next key (t reaches 1).
-CharacterPose Lerp(const CharacterPose& a, const CharacterPose& b, double t);
 
 // pose with delta added on top: moves, turns and orders add, scales and
 // opacity multiply, a pick in delta wins. Used for smart bone actions.
@@ -28,6 +28,10 @@ CharacterPose ActionAt(const SmartAction& action, double turn);
 // order. A smart bone's own turn is kept (it drives, it bends nothing).
 CharacterPose WithActions(const Character& character,
                           const CharacterPose& hand);
+
+// The pose layer shows at frame: its keys sampled, actions added.
+CharacterPose PoseAt(const Character& character, const CharacterLayer& layer,
+                     Frame frame);
 
 // A bone as posed, in character space.
 struct PosedBone final {
@@ -56,6 +60,9 @@ struct PosedPart final {
 struct PosedCharacter final {
   std::vector<PosedPart> parts{};
   std::vector<PosedBone> bones{};
+  // Every part's own space to character space, shown or not; for a bone
+  // part, the space its bones are in.
+  std::map<PartId, QTransform> spaces{};
 };
 
 // Poses character: walks the tree with each part's rest and pose,

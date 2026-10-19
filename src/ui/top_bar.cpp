@@ -27,7 +27,7 @@ TopBar::TopBar(const Managers& managers)
   tabs_.addTab(tr("Video"));
   tabs_.addTab(tr("Pose"));
   tabs_.addTab(tr("Comp"));
-  tabs_.addTab(tr("Rig"));
+  tabs_.addTab(tr("Character"));
   tabs_.setObjectName(QStringLiteral("modes"));
   layout_.addWidget(&tabs_);
   layout_.addSpacing(kBarGap);

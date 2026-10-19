@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
+#include <numbers>
 #include <set>
 
 namespace snapper {
@@ -11,6 +13,13 @@ bool IsFolder(PartKind kind) {
   assert(static_cast<int>(kind) < kPartKindCount);
   return kind == PartKind::kGroup || kind == PartKind::kBone ||
          kind == PartKind::kSwitch;
+}
+
+QPointF TipOf(const Bone& bone) {
+  assert(std::isfinite(bone.angle));
+  assert(bone.length >= 0.0);
+  const double radians = bone.angle * std::numbers::pi / 180.0;
+  return bone.base + QPointF(std::cos(radians), std::sin(radians)) * bone.length;
 }
 
 int PartIndex(const Character& character, PartId id) {

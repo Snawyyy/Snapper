@@ -5,6 +5,8 @@
 #include <cmath>
 
 #include "anim/sampler.h"
+#include "edit/character_pose_edits.h"
+#include "edit/character_pose_manager.h"
 #include "edit/history_manager.h"
 #include "edit/pose_manager.h"
 #include "edit/selection_manager.h"
@@ -163,6 +165,32 @@ void PoseTool::MoveIk(QPointF point) {
   Say(OffsetText(point - drag_->start), false, point);
 }
 
+void PoseTool::MoveBone(QPointF point, bool is_shift) {
+  assert(drag_ != nullptr);
+  assert(managers_.character_poses != nullptr);
+  const Project& project = managers_.history->current();
+  const Shot* shot = FindShot(project, drag_->frame.shot);
+  const StageFrame& at = drag_->frame;
+  const Character* character =
+      managers_.character_poses->CharacterOf(at.shot, drag_->layer);
+  const auto to_screen =
+      shot != nullptr && character != nullptr
+          ? LayerToScreen(project, *shot, drag_->layer, at.local, at.scale,
+                          cache_->poses())
+          : std::nullopt;
+  if (!to_screen) {
+    return;
+  }
+  const BoneId bone(drag_->chain.toInt());
+  const QPointF target = Back(*to_screen, point, at.corner);
+  Note(managers_.character_poses->Pose(
+      at.shot, drag_->layer, at.local, QObject::tr("Bend bone"),
+      [&](const CharacterPose& pose) {
+        return WithBoneDrag(*character, pose, bone, target, is_shift);
+      }));
+  Say(OffsetText(point - drag_->start), false, point);
+}
+
 void PoseTool::Move(QPointF point, bool is_shift) {
   assert(std::isfinite(point.x()) && std::isfinite(point.y()));
   assert(managers_.pose != nullptr);
@@ -185,6 +213,9 @@ void PoseTool::Move(QPointF point, bool is_shift) {
       break;
     case Kind::kIk:
       MoveIk(point);
+      break;
+    case Kind::kBone:
+      MoveBone(point, is_shift);
       break;
     case Kind::kMove: {
       total = Snapped(total);

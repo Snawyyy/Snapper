@@ -4,6 +4,8 @@
 #include <QString>
 #include <QtClassHelperMacros>
 
+#include "edit/character_manager.h"
+#include "edit/character_pose_manager.h"
 #include "edit/comp_manager.h"
 #include "edit/storyboard_manager.h"
 #include "edit/dial_manager.h"
@@ -88,6 +90,8 @@ class AppContext final {
   VoiceLibrary voices_;
   VoiceGenManager voice_gen_;
   StoryboardManager storyboard_;
+  CharacterManager characters_;
+  CharacterPoseManager character_poses_;
   MainWindow window_;
 };
 

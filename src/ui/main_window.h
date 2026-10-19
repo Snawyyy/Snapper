@@ -15,6 +15,7 @@
 #include "ui/dock_grips.h"
 #include "ui/grip_splitter.h"
 #include "ui/cast_panel.h"
+#include "ui/character_page.h"
 #include "ui/krita_menu.h"
 #include "ui/palette_panel.h"
 #include "ui/command_palette.h"
@@ -142,6 +143,8 @@ class MainWindow final : public QMainWindow {
   // before the scroll area that holds it.
   QScrollArea rig_scroll_;
   RigPanel rig_panel_;
+  // The Character tab, which takes the Rig tab's place.
+  CharacterPage character_page_;
   CompPage comp_page_;
   VideoPage video_page_;
   QDockWidget cast_dock_;

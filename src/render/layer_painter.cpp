@@ -15,6 +15,7 @@
 #include "anim/doll_pose.h"
 #include "anim/joint_snap.h"
 #include "anim/sampler.h"
+#include "render/character_paint.h"
 #include "render/upscale.h"
 #include "render/warp_raster.h"
 
@@ -62,6 +63,7 @@ struct Painter final {
   PieceSplit split = PieceSplit::kOnly;
 
   void operator()(const DollLayer& layer) const;
+  void operator()(const CharacterLayer& layer) const;
   void DrawPiece(const Doll& doll, const PlacedPiece& piece,
                  const QImage& image) const;
   // The piece's joint circle, if on, just under the piece: as wide as
@@ -266,6 +268,18 @@ void Painter::operator()(const TextLayer& layer) const {
   assert(layer.size > 0.0);
   painter->setTransform(world);
   PaintLettering(TextPath(layer), layer, painter);
+}
+
+void Painter::operator()(const CharacterLayer& layer) const {
+  assert(cache != nullptr && painter != nullptr);
+  assert(frame.index() >= 0);
+  const Character* character = FindCharacter(project, layer.character);
+  if (character == nullptr) {
+    return;
+  }
+  const PosedCharacter posed =
+      PoseCharacter(*character, PoseAt(*character, layer, frame));
+  PaintCharacter(*character, posed, world, cache, painter);
 }
 
 // Effects change what is drawn instead; RenderShot applies them.

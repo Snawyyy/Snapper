@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 
+#include "model/character.h"
 #include "model/doll.h"
 #include "model/reel.h"
 #include "model/shot.h"
@@ -18,6 +19,7 @@ constexpr int kMinCanvasSide = 16;
 constexpr int kMaxCanvasSide = 7680;
 constexpr int kMaxShots = 512;
 constexpr int kMaxProjectDolls = 64;
+constexpr int kMaxProjectCharacters = 64;
 constexpr int kMaxRecentColors = 8;
 
 // The video frame every shot renders into, in pixels.
@@ -42,6 +44,8 @@ struct Project final {
   std::vector<std::shared_ptr<const Shot>> shots;
   // Every doll the shots use, by name.
   std::map<QString, std::shared_ptr<const Doll>> dolls;
+  // Every character the shots use, by name.
+  std::map<QString, std::shared_ptr<const Character>> characters{};
   // The final video, cut from shots and video files.
   Reel reel;
   int next_shot_id = 1;
@@ -58,6 +62,7 @@ struct Project final {
 int ShotIndex(const Project& project, ShotId id);
 const Shot* FindShot(const Project& project, ShotId id);
 const Doll* FindDoll(const Project& project, const QString& name);
+const Character* FindCharacter(const Project& project, const QString& name);
 
 }  // namespace snapper
 

@@ -45,4 +45,13 @@ const Doll* FindDoll(const Project& project, const QString& name) {
   return is_found ? found->second.get() : nullptr;
 }
 
+const Character* FindCharacter(const Project& project, const QString& name) {
+  assert(project.characters.size() <=
+         static_cast<size_t>(kMaxProjectCharacters));
+  assert(!name.isEmpty());
+  const auto found = project.characters.find(name);
+  const bool is_found = found != project.characters.end() && found->second;
+  return is_found ? found->second.get() : nullptr;
+}
+
 }  // namespace snapper

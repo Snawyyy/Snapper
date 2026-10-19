@@ -16,6 +16,7 @@
 #include "ui/dot_shape.h"
 #include "ui/motion.h"
 #include "ui/stage_view.h"
+#include "ui/bone_glyph.h"
 #include "ui/theme.h"
 
 namespace snapper {
@@ -218,6 +219,14 @@ void StageView::PaintHandles(const StageFrame& frame, QPainter* painter) {
     const double grow = hover_.ScaleOf(GrabKind::kIkTip,
                                        PoseTool::IkKey(handle.chain));
     painter->drawRect(Box(handle.point, kHandleDraw, kHandleDraw, grow));
+  }
+  for (const PosedBone& bone : CharacterBonesOnScreen(
+           project, *shot, selection.layer(), frame.local, frame.scale,
+           renderer_.cache()->poses())) {
+    const double grow = hover_.ScaleOf(
+        GrabKind::kBone, PoseTool::BoneKey(selection.layer(), bone.id));
+    PaintBoneGlyph(painter, bone.base, bone.tip,
+                   bone.is_smart ? theme::kCollider : theme::kFaceLight, grow);
   }
 }
 

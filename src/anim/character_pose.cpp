@@ -167,6 +167,13 @@ CharacterPose WithActions(const Character& character,
   return out;
 }
 
+CharacterPose PoseAt(const Character& character, const CharacterLayer& layer,
+                     Frame frame) {
+  assert(frame.index() >= 0);
+  assert(IsSorted(layer.poses));
+  return WithActions(character, Sample(layer.poses, frame, CharacterPose{}));
+}
+
 namespace {
 
 constexpr double kDegrees = 180.0 / std::numbers::pi;
@@ -425,7 +432,7 @@ std::vector<double> FlexiWeights(const CharacterPart& bone_part, QPointF at) {
     if (bone.is_smart) {
       continue;
     }
-    const QPointF tip = bone.base + Turned({bone.length, 0.0}, bone.angle);
+    const QPointF tip = TipOf(bone);
     const QPointF along = tip - bone.base;
     const double length2 = QPointF::dotProduct(along, along);
     const double t = length2 > 0.0
@@ -489,6 +496,9 @@ class Walker final {
     assert(IsSound(character));
     Walk(PartId(), 1.0, 0);
     out->bones = BonesOf(character, posed_);
+    for (size_t i = 0; i < character.parts.size(); ++i) {
+      out->spaces[character.parts[i].id] = posed_.at(i).to_character;
+    }
   }
 
  private:

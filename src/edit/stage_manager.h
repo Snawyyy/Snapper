@@ -12,6 +12,7 @@
 #include "base/frame.h"
 #include "model/layer.h"
 #include "model/pose.h"
+#include "model/project.h"
 #include "model/shot.h"
 
 namespace snapper {
@@ -28,6 +29,8 @@ class StageManager final {
 
   // New layers go on top, centred, and show for the whole shot.
   Result<LayerId> AddDoll(ShotId shot, const QString& doll);
+  // Puts a project character on shot at rest, in front.
+  Result<LayerId> AddCharacter(ShotId shot, const QString& character);
   Result<LayerId> AddImage(ShotId shot, const QString& path);
   Result<LayerId> AddText(ShotId shot, const QString& text);
   Result<LayerId> AddEffect(ShotId shot, EffectKind kind);
@@ -85,7 +88,8 @@ class StageManager final {
   Result<LayerId> AddLayer(ShotId shot, const QString& name,
                            LayerContent content, const QString& label,
                            bool is_bottom = false,
-                           std::optional<PiecePose> pose = std::nullopt);
+                           std::optional<PiecePose> pose = std::nullopt,
+                           std::optional<Project> base = std::nullopt);
 
   HistoryManager* history_;
 };

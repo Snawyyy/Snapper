@@ -1,7 +1,8 @@
 # Snapper architecture
 
 Snapper is a puppet animator for music videos in the style of Execution
-Clap. Dolls are drawn in Krita, rigged and posed in Snapper, cut into
+Clap. Characters are drawn and rigged in Snapper as Moho does it
+(vector drawings, bones, smart bones, switches; see Characters), posed, cut into
 shots, dressed with camera moves, text and effects, laid out with video
 files (a speedpaint) on the reel, and exported as MP4 or GIF, or with alpha as PNG frames, WebM or MOV. Everything is finished inside Snapper.
 
@@ -521,6 +522,61 @@ the picture's timing, start, offset) is played on the shot clock by
 `ApplyObjectPlay` (`anim/object_play.cpp`) at the end of
 `SamplePoses`, so scrubbing and export agree; Hold keeps the keyed
 drawing. `ObjectBox` (inspector) sets it. Holding is in Links below.
+
+## Characters
+
+A character replaces the old PNG doll. It is drawn and rigged on the
+Character tab and posed on the Pose tab, the way Moho works.
+
+- `model/vector.h`: a vector drawing is points (id, place, Moho style
+  curvature 0 corner to 0.33 round, a width share for tapered lines),
+  curves through point ids (open or closed; curves sharing a point are
+  welded) and shapes (fill and line over curves, even-odd holes). The
+  curve handles are worked out from the neighbours every frame
+  (`anim/vector_path.h`, `HandlesAt`), so bent points stay round.
+- `model/character.h`: a character is a tree of parts listed back to
+  front, a parent before its children: Group, Bone (holds a skeleton
+  that bends the parts inside), Vector, Switch (shows one child) and
+  Image. Every id (parts, bones, points) comes from one counter,
+  `next_id`, never reused. A part follows its bone part by `BindMode`:
+  flexi (each point blended by the bones in reach, `FlexiWeights`),
+  points bound by hand, riding one bone (layer binding), or none.
+- A pose (`CharacterPose`) holds what differs from rest: each part's
+  move, turn, scale, opacity, order, switch pick and point moves, and
+  each bone's turn, push and stretch. A key on a `CharacterLayer` holds
+  the whole pose (`Channel<CharacterPose>`), so one key is the drawing
+  of a moment; the shared sampler blends them (`Lerp` in
+  `anim/sampler.h`), picks hold until the next key.
+- Smart bones: a smart bone bends nothing; its turn plays its
+  `SmartAction`, stops of pose deltas at turns, blended between stops
+  (picks swap halfway) and added on top of the hand pose
+  (`WithActions`). The Pose tab's Character box shows each as a slider.
+- `anim/character_pose.h` (`PoseCharacter`) is the one place posing
+  happens: parts placed down the tree, bones by forward kinematics, then
+  points bent, giving every shown part back to front with its points in
+  character space and every part's space. `anim/bone_ik.h` pulls a
+  chain toward a target (CCD within limits, stopping at locked bones).
+- `render/character_paint.h` draws a posed character (fills, lines,
+  tapered lines, pictures) and hit tests it; the frame renderer and the
+  stage use it for `CharacterLayer` like any layer kind.
+- Edits: `edit/vector_edits.h` and `edit/character_edits.h` are the pure
+  rig edits; `CharacterManager` wraps them in undo steps and owns the
+  character library (`<data>/characters/<name>/character.json`, read
+  and written by `io/character_file.h`, JSON in `io/character_json.h`).
+  `CharacterPoseManager` keys poses on shot layers, every change built
+  from the pure `edit/character_pose_edits.h` (`WithBoneDrag`,
+  `WithPick`...), which the Character tab also uses to pose a smart
+  bone's stop.
+- Old dolls: `edit/doll_convert.h` turns a doll into a character (a bone
+  per piece, pictures riding them, several drawings as a switch, smart
+  dials as smart bones) and its layers' keys into whole poses. Opening a
+  project converts its dolls, and a library doll put on a shot comes in
+  converted. Objects (GIF props) stay dolls.
+- UI: `ui/character_page.h` (tool bar, `CharacterPartsPanel`,
+  `CharacterCanvas`, `CharacterInspector`, view state in
+  `CharacterSession`); on the Pose stage the picked character's bones
+  are handles (`GrabKind::kBone`, `PoseTool::MoveBone`), drawn with the
+  shared `ui/bone_glyph.h`; the inspector's `CharacterBox`.
 
 ## Poking
 
