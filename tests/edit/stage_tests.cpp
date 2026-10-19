@@ -115,8 +115,7 @@ void StageTests::SettingsFitTheirKind() {
   QCOMPARE(layer.name, QString("Hero"));
   QVERIFY(!layer.is_visible);
   QCOMPARE(layer.start, Frame(2));
-  // A doll comes onto the stage as a character.
-  QVERIFY(std::get<CharacterLayer>(layer.content).is_flipped);
+  QVERIFY(std::get<DollLayer>(layer.content).is_flipped);
   QCOMPARE(std::get<TextLayer>(TheShot(history).layers[1].content).text,
            QString("Bye"));
 }

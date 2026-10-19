@@ -105,16 +105,10 @@ MainWindow::MainWindow(const Managers& managers)
   assert(managers_.IsComplete());
   BuildMenus();
   BuildPages();
-  // Opening a cast card shows it on the Character tab; an old doll
-  // becomes a character there.
+  // Opening a cast card shows it on the Character tab.
   connect(&cast_, &CastPanel::DollOpenAsked, this, [this](const QString& name) {
-    if (FindCharacter(managers_.history->current(), name) == nullptr &&
-        managers_.characters != nullptr) {
-      const auto made = managers_.characters->FromDoll(name);
-      if (!made) {
-        managers_.toasts->Problem(made.error().message);
-        return;
-      }
+    if (FindCharacter(managers_.history->current(), name) == nullptr) {
+      return;
     }
     character_page_.session()->SetCharacter(name);
     SetMode(Mode::kRig);

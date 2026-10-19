@@ -64,7 +64,7 @@ characters, on the owner's word with full say over style and UX
 (plan: `docs/redesign/moho-plan.md`; how it works: ARCHITECTURE.md
 "Characters"). Built and tested (`character_tests`,
 `character_json_tests`, `character_pose_tests`, `character_edit_tests`,
-`doll_convert_tests`, ui `character_page_tests`, `character_stage_tests`;
+ui `character_page_tests`, `character_stage_tests`;
 the ui ones save screenshots to $SNAPPER_SHOTS when set):
 - Character tab (was Rig): tools along the top (Pick V, Move part T,
   Add point A, Freehand F, Oval O, Rectangle R, Curvature C, Paint P,
@@ -76,9 +76,6 @@ the ui ones save screenshots to $SNAPPER_SHOTS when set):
   tips dragged on the stage (IK; Shift turns one bone; a smart bone
   plays its action), the inspector's Character box (switches, smart
   bone sliders, Reset pose, Flip). Bones with Bounce lag and spring.
-- Old projects open with their dolls as characters; a library doll put
-  on a shot or opened from the Cast comes in as a character. Objects
-  (GIF props) stay dolls.
 - Fixed on the way: the palette panel's close crash (member order), the
   ffmpeg 8 only `SwsContext` assert, gcc 13 test initializers.
 ctest: 106 of 115 pass. The 9 that fail are older than this work or

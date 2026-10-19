@@ -567,11 +567,6 @@ Character tab and posed on the Pose tab, the way Moho works.
   from the pure `edit/character_pose_edits.h` (`WithBoneDrag`,
   `WithPick`...), which the Character tab also uses to pose a smart
   bone's stop.
-- Old dolls: `edit/doll_convert.h` turns a doll into a character (a bone
-  per piece, pictures riding them, several drawings as a switch, smart
-  dials as smart bones) and its layers' keys into whole poses. Opening a
-  project converts its dolls, and a library doll put on a shot comes in
-  converted. Objects (GIF props) stay dolls.
 - UI: `ui/character_page.h` (tool bar, `CharacterPartsPanel`,
   `CharacterCanvas`, `CharacterInspector`, view state in
   `CharacterSession`); on the Pose stage the picked character's bones

@@ -7,7 +7,6 @@
 #include <cassert>
 #include <variant>
 
-#include "edit/doll_convert.h"
 #include "edit/history_manager.h"
 #include "edit/project_edits.h"
 #include "edit/storyboard_edits.h"
@@ -88,19 +87,6 @@ Result<LayerId> StageManager::AddDoll(ShotId shot, const QString& doll) {
   if (found == nullptr) {
     return std::unexpected(
         Error{Tr("Import %1 into the project first.").arg(doll)});
-  }
-  // A doll comes onto the stage as a character; a prop picture stays a
-  // doll so its GIF keeps playing.
-  if (!found->rig.object.is_object) {
-    Project next = history_->current();
-    DollParts parts;
-    Character character = CharacterFromDoll(*found, &parts);
-    character.name = doll;
-    next.characters[doll] =
-        std::make_shared<const Character>(std::move(character));
-    return AddLayer(shot, doll, CharacterLayer{doll, {}, false},
-                    Tr("Add %1").arg(doll), false, std::nullopt,
-                    std::move(next));
   }
   return AddLayer(shot, doll, DollLayer{doll, {}, false},
                   Tr("Add %1").arg(doll));

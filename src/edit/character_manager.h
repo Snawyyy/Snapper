@@ -38,9 +38,6 @@ class CharacterManager final : public QObject {
   // Copies a library character into the project, replacing one of the
   // same name there.
   Result<void> Import(const QString& name);
-  // Makes the project's doll called name a character of the same name,
-  // its layers character layers (see doll_convert.h), as one step.
-  Result<void> FromDoll(const QString& name);
   // Writes the project's character back to the library.
   Result<void> SaveToLibrary(const QString& name);
 
