@@ -58,7 +58,13 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
-Last done (2026-10-16, branch `tape-keys`): joint circle color follows
+Last done (2026-10-19, branch `ccr-042c021f-aywj12`, cut from
+`tape-keys`): the plan to replace PNG dolls with Moho style characters
+(vector drawing, bones, smart bones, switch layers), in
+`docs/redesign/moho-plan.md`. Plan only, no code. Next: the owner
+answers its open questions and says go, then Phase 1.
+
+Before that (2026-10-16, branch `tape-keys`): joint circle color follows
 the drawing shown. With no color picked it is measured from the shown
 drawing every paint (`LimbMemo::ColorAt`), so a sleeve swapped for a
 bare arm recolors the circle; a palette pick sets the color for the rig
