@@ -63,8 +63,8 @@ void ResamplerCloser::operator()(SwrContext* context) const {
 }
 
 void ScalerCloser::operator()(SwsContext* context) const {
+  // SwsContext is opaque before ffmpeg 8, so only the pointer is checked.
   assert(context != nullptr);
-  assert(context->av_class != nullptr);
   sws_freeContext(context);
 }
 

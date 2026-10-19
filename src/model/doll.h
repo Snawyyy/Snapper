@@ -46,9 +46,9 @@ struct ArtPiece final {
   QSize size;
   // Each drawing's Krita layer name, one per drawing; empty for dolls
   // exported before names were kept (see DrawingName).
-  std::vector<QString> layer_names;
+  std::vector<QString> layer_names{};
   // The Krita groups holding the piece, outermost first.
-  std::vector<QString> folder;
+  std::vector<QString> folder{};
 
   bool operator==(const ArtPiece&) const = default;
 };
