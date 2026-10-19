@@ -11,8 +11,10 @@ namespace snapper {
 namespace {
 
 using posestage::Body;
+using posestage::kBoneTip;
 using posestage::kFrame;
 using posestage::Stage;
+using posestage::StageBone;
 
 }  // namespace
 
@@ -41,7 +43,7 @@ void PoseToolGrabTests::NothingMovesInTheDeadZone() {
   tool.Move({61, 60}, false);
   QCOMPARE(Body(bench).offset, QPointF(1, 0));
   tool.Release();
-  QCOMPARE(bench.history.UndoLabel(), QString("Move body"));
+  QCOMPARE(bench.history.UndoLabel(), QString("Move layer"));
   tool.Press({60, 60}, false, false, kFrame);
   tool.Move({62, 61}, false);
   tool.Release();
@@ -51,45 +53,47 @@ void PoseToolGrabTests::NothingMovesInTheDeadZone() {
 void PoseToolGrabTests::HandlesGrabFromTwelvePixels() {
   Bench bench;
   Stage(&bench);
+  StageBone(&bench);
   ImageCache cache;
   PoseTool tool(bench.All(), &cache);
-  tool.PickWhole({60, 60}, kFrame);
-  // The lean handle sits at (82, 50) in the widget.
-  const QPointF lean(10 + 60 + kTurnGap, 10 + 40);
-  tool.Press(lean + QPointF(kGrabReach + 1, 0), false, false, kFrame);
-  tool.Move(lean + QPointF(kGrabReach + 1, 40), false);
+  tool.Press(kBoneTip + QPointF(kGrabReach + 1, 0), false, false, kFrame);
+  tool.Move(kBoneTip + QPointF(kGrabReach + 1, 40), false);
   tool.Release();
-  QVERIFY(!bench.history.CanUndo());
-  tool.Press(lean + QPointF(0, kGrabReach), false, false, kFrame);
+  QVERIFY(!tool.IsDragging());
+  const QString made = bench.history.UndoLabel();
+  tool.Press(kBoneTip + QPointF(0, kGrabReach), false, false, kFrame);
   QVERIFY(tool.IsDragging());
-  tool.Move(lean + QPointF(0, kGrabReach + 40), false);
+  tool.Move(kBoneTip + QPointF(30, kGrabReach), false);
   tool.Release();
-  QCOMPARE(bench.history.UndoLabel(), QString("Lean Dot"));
+  QVERIFY(bench.history.UndoLabel() != made);
+  QVERIFY(bench.history.UndoLabel().startsWith("Bend"));
 }
 
 void PoseToolGrabTests::HiddenHandlesStayGrabbableBriefly() {
   Bench bench;
   Stage(&bench);
+  StageBone(&bench);
   ImageCache cache;
   PoseTool tool(bench.All(), &cache);
-  tool.PickWhole({60, 60}, kFrame);
   tool.Observe();
+  const LayerId bo = bench.selection.layer();
   bench.selection.Clear();
   tool.Observe();
-  tool.Press({82, 50}, false, false, kFrame);
-  tool.Move({82, 100}, false);
+  tool.Press(kBoneTip, false, false, kFrame);
+  tool.Move(kBoneTip + QPointF(30, 0), false);
   tool.Release();
-  QCOMPARE(bench.history.UndoLabel(), QString("Lean Dot"));
+  QVERIFY(bench.history.UndoLabel().startsWith("Bend"));
   bench.history.Undo();
-  tool.PickWhole({60, 60}, kFrame);
+  const QString before = bench.history.UndoLabel();
+  bench.selection.PickThings({Pick{bo}}, PickMode::kReplace, bo);
   tool.Observe();
   bench.selection.Clear();
   tool.Observe();
   QTest::qWait(kGraceMs + 60);
-  tool.Press({82, 50}, false, false, kFrame);
-  tool.Move({82, 100}, false);
+  tool.Press(kBoneTip, false, false, kFrame);
+  tool.Move(kBoneTip + QPointF(30, 0), false);
   tool.Release();
-  QVERIFY(!bench.history.CanUndo());
+  QCOMPARE(bench.history.UndoLabel(), before);
 }
 
 void PoseToolGrabTests::HoverNamesTheHandleOrTheThing() {
@@ -100,14 +104,16 @@ void PoseToolGrabTests::HoverNamesTheHandleOrTheThing() {
   const auto over = tool.HoverAt({60, 60}, kFrame);
   QCOMPARE(over.kind, GrabKind::kNone);
   QVERIFY(over.pick.has_value());
-  QCOMPARE(over.pick->piece, QString("body"));
+  QCOMPARE(over.pick->layer, LayerId(1));
   tool.PickWhole({60, 60}, kFrame);
   // Picked things show their red outline, not the hover one.
   QVERIFY(!tool.HoverAt({60, 60}, kFrame).pick.has_value());
-  const auto on_handle = tool.HoverAt({82, 50}, kFrame);
-  QCOMPARE(on_handle.kind, GrabKind::kLean);
-  QCOMPARE(on_handle.key, PoseTool::TurnKey(LayerId(1)));
-  QCOMPARE(tool.HoverAt({90, 90}, kFrame).kind, GrabKind::kNone);
+  const BoneId bone = StageBone(&bench);
+  const auto on_handle = tool.HoverAt(kBoneTip, kFrame);
+  QCOMPARE(on_handle.kind, GrabKind::kBone);
+  QCOMPARE(on_handle.key,
+           PoseTool::BoneKey(bench.selection.layer(), bone));
+  QCOMPARE(tool.HoverAt({95, 30}, kFrame).kind, GrabKind::kNone);
 }
 
 }  // namespace snapper

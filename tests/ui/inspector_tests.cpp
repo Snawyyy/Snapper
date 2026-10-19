@@ -9,20 +9,16 @@
 #include <cassert>
 #include <cmath>
 
-#include "anim/doll_pose.h"
 #include "bench.h"
 #include "inspector_stage.h"
 #include "edit/link_manager.h"
-#include "ui/drag_box.h"
 #include "ui/fold_section.h"
-#include "ui/kind_tile.h"
+#include "ui/character_box.h"
 #include "ui/inspector.h"
 #include "ui/shot_box.h"
 #include "ui/keyed_boxes.h"
 #include "ui/layer_box.h"
 #include "ui/link_box.h"
-#include "ui/motion_tile.h"
-#include "ui/point_motion_box.h"
 
 namespace snapper {
 namespace {
@@ -45,10 +41,6 @@ class InspectorTests final : public QObject {
   void LayerBoxFollowsTheKind();
   void FieldsApplyAsYouTypeAsOneStep();
   void FieldsChangeEveryPickByTheSameAmount();
-  void DragBoxTunesThePickedDot();
-  void DragBoxSetsReachOfEveryPickedDot();
-  void KindTilesShowTheRowsOfTheirKind();
-  void PointMotionBoxAnimatesThePickedDot();
   void OnlyWhatIsPickedShows();
   void ShotBoxChangesThePickedShots();
   void LinkBoxShowsOnlyWhenLinked();
@@ -111,174 +103,46 @@ void InspectorTests::FieldsApplyAsYouTypeAsOneStep() {
 void InspectorTests::FieldsChangeEveryPickByTheSameAmount() {
   Bench bench;
   Stage(&bench);
-  Project project = bench.history.current();
-  Doll doll = *project.dolls.at("Bob");
-  doll.rig.pieces.push_back({"arm", "", {}, 0, -1, {}});
-  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
-  bench.history.Reset(project);
-  const TrackRef arm{kShot, TrackKind::kPiece, LayerId(1), "arm"};
-  QVERIFY(bench.pose.Move(arm, Frame(0), QPointF(10, 0)).has_value());
-  bench.selection.SelectLayer(LayerId(1));
-  bench.selection.PickThings({{LayerId(1), "head"}, {LayerId(1), "arm"}},
+  const TrackRef bob{kShot, TrackKind::kLayer, LayerId(1)};
+  QVERIFY(bench.pose.Move(bob, Frame(0), QPointF(10, 0)).has_value());
+  bench.selection.PickThings({Pick{LayerId(1)}, Pick{LayerId(2)}},
                              PickMode::kReplace, LayerId(1));
   PoseBox box(bench.All());
   auto* x = box.findChild<QDoubleSpinBox*>("x");
   QCOMPARE(x->value(), 10.0);
   x->setValue(15.0);
   emit x->editingFinished();
-  const PoseMap poses = SamplePoses(
-      std::get<DollLayer>(bench.history.current().shots[0]->layers[0].content),
-      Frame(0));
-  QCOMPARE(poses.at("arm").offset.x(), 15.0);
-  QCOMPARE(poses.at("head").offset.x(), 5.0);
-}
-
-void InspectorTests::DragBoxTunesThePickedDot() {
-  Bench bench;
-  Stage(&bench);
-  QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
-  DragBox box(bench.All());
-  box.findChild<FoldSection*>("fine_tune")->SetOpen(true);
-  auto* drag = box.findChild<KindTile*>("kind_drag");
-  auto* lag = box.findChild<QDoubleSpinBox*>("lag");
-  QVERIFY(!drag->isEnabled());
-  bench.selection.PickDot(WarpDot{LayerId(1), "head", 4});
-  QVERIFY(drag->isEnabled());
-  QVERIFY(!lag->isEnabled());
-  drag->click();
-  QVERIFY(lag->isEnabled());
-  Type(lag, 0.8);
-  const auto& nodes =
-      Shown(bench, "Bob").drag_nodes;
-  QCOMPARE(nodes.size(), size_t{1});
-  QCOMPARE(nodes[0].lag, 0.8);
-  QCOMPARE(drag->share(), Share::kAll);
-}
-
-void InspectorTests::DragBoxSetsReachOfEveryPickedDot() {
-  Bench bench;
-  Stage(&bench);
-  QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
-  QVERIFY(bench.rig.SetWarpReach({{"Bob", "head", 0}}, 1.0).has_value());
-  DragBox box(bench.All());
-  auto* reach = box.findChild<QDoubleSpinBox*>("reach");
-  QVERIFY(!reach->isEnabled());
-  QVERIFY(!reach->toolTip().isEmpty());
-  bench.selection.PickDots({{LayerId(1), "head", 0}, {LayerId(1), "head", 4}},
-                           PickMode::kReplace);
-  // Plain dots have a reach too; differing ones say Mixed.
-  QVERIFY(reach->isEnabled());
-  QCOMPARE(reach->findChild<QLineEdit*>()->text(), QString("Mixed"));
-  Type(reach, 2.5);
-  const auto& rig = Shown(bench, "Bob");
-  QCOMPARE(rig.warp_reach[0], 2.5);
-  QCOMPARE(rig.warp_reach[4], 2.5);
-  QCOMPARE(bench.history.UndoLabel(), QString("Set reach on 2 dots"));
-}
-
-void InspectorTests::KindTilesShowTheRowsOfTheirKind() {
-  Bench bench;
-  Stage(&bench);
-  QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
-  DragBox box(bench.All());
-  box.findChild<FoldSection*>("fine_tune")->SetOpen(true);
-  auto* lag = box.findChild<QDoubleSpinBox*>("lag");
-  auto* gravity = box.findChild<QDoubleSpinBox*>("gravity");
-  QVERIFY(!gravity->isEnabled());
-  QVERIFY(!gravity->toolTip().isEmpty());
-  bench.selection.PickDot(WarpDot{LayerId(1), "head", 4});
-  box.findChild<KindTile*>("kind_drag")->click();
-  QVERIFY(lag->isVisibleTo(&box));
-  QVERIFY(!gravity->isVisibleTo(&box));
-  box.findChild<KindTile*>("kind_cloth")->click();
-  QCOMPARE(bench.history.UndoLabel(), QString("Cloth 1 dot"));
-  QVERIFY(!lag->isVisibleTo(&box));
-  for (const char* name :
-       {"stretch", "inertia", "air", "gravity", "spring"}) {
-    QVERIFY(box.findChild<QDoubleSpinBox*>(name)->isVisibleTo(&box));
-  }
-  Type(gravity, 0.9);
-  const auto& nodes =
-      Shown(bench, "Bob").drag_nodes;
-  QCOMPARE(nodes[0].kind, NodeKind::kCloth);
-  QCOMPARE(nodes[0].gravity, 0.9);
-  box.findChild<KindTile*>("kind_drag")->click();
-  QVERIFY(lag->isVisibleTo(&box));
-  QCOMPARE(Shown(bench, "Bob")
-               .drag_nodes[0].kind, NodeKind::kDrag);
-}
-
-void InspectorTests::PointMotionBoxAnimatesThePickedDot() {
-  Bench bench;
-  Stage(&bench);
-  QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
-  PointMotionBox box(bench.All());
-  const auto tile = [&box](WarpMotionKind kind) {
-    return box.findChild<MotionTile*>(
-        QStringLiteral("motion_kind_%1").arg(static_cast<int>(kind)));
+  const auto x_of = [&bench](size_t layer) {
+    return Sample(bench.history.current().shots[0]->layers[layer].transform,
+                  Frame(0), LayerPose())
+        .offset.x();
   };
-  auto* kind = tile(WarpMotionKind::kWave);
-  auto* size = box.findChild<QDoubleSpinBox*>("motion_size");
-  auto* angle = box.findChild<QDoubleSpinBox*>("motion_angle");
-  QVERIFY(!kind->isEnabled());
-  QVERIFY(!kind->toolTip().isEmpty());
-  bench.selection.PickDot(WarpDot{LayerId(1), "head", 4});
-  QVERIFY(kind->isEnabled());
-  QVERIFY(!size->isEnabled());
-  QVERIFY(!size->toolTip().isEmpty());
-  kind->click();
-  QCOMPARE(kind->share(), Share::kAll);
-  QCOMPARE(bench.history.UndoLabel(), QString("Set how it moves on 1 dot"));
-  QVERIFY(size->isEnabled());
-  Type(size, 20.0);
-  QCOMPARE(bench.history.UndoLabel(), QString("Set size on 1 dot"));
-  const auto& motions =
-      Shown(bench, "Bob").point_motions;
-  QCOMPARE(motions.size(), size_t{1});
-  QCOMPARE(motions[0].point, 4);
-  QCOMPARE(motions[0].size, 20.0);
-  // A shiver shakes every way, so it has no direction.
-  QVERIFY(angle->isEnabled());
-  tile(WarpMotionKind::kShiver)->click();
-  QVERIFY(!angle->isEnabled());
-  QCOMPARE(Shown(bench, "Bob")
-               .point_motions[0].size,
-           20.0);
-  tile(WarpMotionKind::kNone)->click();
-  QCOMPARE(bench.history.UndoLabel(),
-           QString("Set how it moves on 1 dot"));
-  QVERIFY(!size->isEnabled());
+  QCOMPARE(x_of(0), 15.0);
+  QCOMPARE(x_of(1), 5.0);
 }
 
 void InspectorTests::OnlyWhatIsPickedShows() {
   Bench bench;
   Stage(&bench);
-  QVERIFY(bench.rig.SetWarpGrid("Bob", "head", {2, 2}).has_value());
   Inspector inspector(bench.All());
   const auto shown = [&inspector]<typename Box>() {
     return inspector.findChild<Box*>()->isVisibleTo(&inspector);
   };
-  // A piece of a doll: its pose only; the layer's settings and the saved
-  // poses belong to the whole doll.
+  // A character: its pose, the character box and the layer's settings.
   QVERIFY(shown.operator()<PoseBox>());
-  QVERIFY(!shown.operator()<PosesBox>());
+  QVERIFY(shown.operator()<CharacterBox>());
+  QVERIFY(shown.operator()<LayerBox>());
   QVERIFY(!shown.operator()<ShotBox>());
   QVERIFY(!shown.operator()<CameraBox>());
-  QVERIFY(!shown.operator()<DragBox>());
-  bench.selection.PickDot(WarpDot{LayerId(1), "head", 0});
-  QVERIFY(shown.operator()<DragBox>());
-  QVERIFY(shown.operator()<PointMotionBox>());
   // Nothing picked: the shot and its camera (folded closed at first).
   bench.selection.Clear();
   QVERIFY(shown.operator()<ShotBox>());
   QVERIFY(!inspector.findChild<CameraBox*>()->isHidden());
   QVERIFY(!shown.operator()<PoseBox>());
-  QVERIFY(!shown.operator()<DragBox>());
-  QVERIFY(!shown.operator()<PointMotionBox>());
-  // The text layer is not a doll: no saved poses.
+  // The text layer is not a character.
   bench.selection.SelectLayer(LayerId(2));
   QVERIFY(shown.operator()<LayerBox>());
-  QVERIFY(!shown.operator()<PosesBox>());
+  QVERIFY(!shown.operator()<CharacterBox>());
 }
 
 void InspectorTests::ShotBoxChangesThePickedShots() {
@@ -317,14 +181,13 @@ void InspectorTests::LinkBoxShowsOnlyWhenLinked() {
   Inspector inspector(bench.All());
   const auto* link = inspector.findChild<LinkBox*>();
   QVERIFY(link != nullptr);
-  // Bob's head is picked but follows nothing: no Link box.
+  // Bob is picked but follows nothing: no Link box.
   QVERIFY(!link->isVisibleTo(&inspector));
-  const LinkEnd head{LayerId(1), "head"};
-  QVERIFY(bench.links
-              .LinkTo(kShot, {head}, LinkEnd{LayerId(2), {}}, Frame(0))
+  const LinkEnd bob{LayerId(1)};
+  QVERIFY(bench.links.LinkTo(kShot, {bob}, LinkEnd{LayerId(2)}, Frame(0))
               .has_value());
   QVERIFY(link->isVisibleTo(&inspector));
-  QVERIFY(bench.links.Unlink(kShot, {head}).has_value());
+  QVERIFY(bench.links.Unlink(kShot, {bob}).has_value());
   QVERIFY(!link->isVisibleTo(&inspector));
 }
 

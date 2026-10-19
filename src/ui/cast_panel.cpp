@@ -83,6 +83,8 @@ void CastPanel::BuildLayout() {
   layout_.addWidget(tabs_, 1);
   // The tape under the tabs turns with the playhead.
   layout_.addWidget(MakeOwned<CassetteDeck>(managers_), 0);
+  characters_.setObjectName(QStringLiteral("characters"));
+  layers_.setObjectName(QStringLiteral("layers"));
   characters_.setToolTip(tr("Drag a character onto the stage to put it "
                             "there; double click to edit it."));
   new_.setToolTip(tr("Make a new character and open it on the Character "

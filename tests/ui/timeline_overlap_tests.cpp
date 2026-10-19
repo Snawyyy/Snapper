@@ -15,20 +15,17 @@ namespace {
 
 const ShotId kShot(1);
 
-// One doll layer with a key at frame 2, in a 48-frame shot.
+// One character layer with a key at frame 2, in a 48-frame shot.
 void Stage(Bench* bench) {
   assert(bench != nullptr);
-  Doll doll;
-  doll.rig.pieces = {{"head", "", {}, 0, -1, {}}};
   Layer layer;
   layer.id = LayerId(1);
   layer.name = "Bob";
-  layer.content = DollLayer{"Bob", {}, false};
+  layer.content = CharacterLayer{"Bob", {}, false};
   Shot shot;
   shot.id = kShot;
   shot.layers = {layer};
   Project project;
-  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
   project.shots = {std::make_shared<const Shot>(shot)};
   bench->history.Reset(project);
   QVERIFY(bench->pose.KeyInPlace(kShot, LayerId(1), Frame(2)).has_value());

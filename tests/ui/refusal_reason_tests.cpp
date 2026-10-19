@@ -4,6 +4,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QPushButton>
+#include <QTabBar>
 #include <QTest>
 
 #include <cassert>
@@ -16,13 +17,13 @@
 namespace snapper {
 namespace {
 
-// A project with one doll layer and nothing picked.
+// A project with one character layer and nothing picked.
 Project OneLayerProject() {
   constexpr int kLayerId = 1;
   assert(kLayerId > 0);
   Layer layer;
   layer.id = LayerId(kLayerId);
-  layer.content = DollLayer{"Dot", {}, false};
+  layer.content = CharacterLayer{"Dot", {}, false};
   Shot shot;
   shot.id = ShotId(1);
   shot.layers = {layer};
@@ -59,12 +60,20 @@ QStringList SilentlyDisabled(QMainWindow* window) {
   QStringList silent;
   const auto widgets = window->findChildren<QWidget*>();
   for (const QWidget* widget : widgets) {
+    // A tab bar's own scroll arrows grey at either end; Qt's, not ours.
+    const bool is_tab_arrow =
+        qobject_cast<const QTabBar*>(widget->parentWidget()) != nullptr;
     const bool is_forced = widget->testAttribute(Qt::WA_ForceDisabled);
-    const bool is_silent = is_forced && widget->toolTip().isEmpty();
+    const bool is_silent =
+        is_forced && !is_tab_arrow && widget->toolTip().isEmpty();
     if (is_silent) {
-      silent << QStringLiteral("widget %1 %2")
+      const QWidget* parent = widget->parentWidget();
+      silent << QStringLiteral("widget %1 %2 in %3 %4")
                     .arg(widget->metaObject()->className(),
-                         widget->objectName());
+                         widget->objectName(),
+                         parent != nullptr ? parent->metaObject()->className()
+                                           : "nothing",
+                         parent != nullptr ? parent->objectName() : QString());
     }
   }
   QList<QAction*> actions = window->findChildren<QAction*>();

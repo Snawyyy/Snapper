@@ -203,7 +203,7 @@ void ScrubTests::FieldsAreNotRewrittenWhileTyped() {
   QLineEdit* edit = turn->findChild<QLineEdit*>();
   edit->selectAll();
   QTest::keyClicks(edit, "*");
-  bench.selection.SelectPieces({"head"}, false);
+  bench.selection.SelectLayer(LayerId(1));
   bench.playback.Seek(Frame(3));
   QCOMPARE(edit->text(), QString("*"));
 }
@@ -211,15 +211,9 @@ void ScrubTests::FieldsAreNotRewrittenWhileTyped() {
 void ScrubTests::PicksThatDifferShowMixed() {
   Bench bench;
   Stage(&bench);
-  Project project = bench.history.current();
-  Doll doll = *project.dolls.at("Bob");
-  doll.rig.pieces.push_back({"arm", "", {}, 0, -1, {}});
-  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
-  bench.history.Reset(project);
-  const TrackRef arm{kShot, TrackKind::kPiece, LayerId(1), "arm"};
-  QVERIFY(bench.pose.Move(arm, Frame(0), QPointF(10, 0)).has_value());
-  bench.selection.SelectLayer(LayerId(1));
-  bench.selection.PickThings({{LayerId(1), "head"}, {LayerId(1), "arm"}},
+  const TrackRef bob{kShot, TrackKind::kLayer, LayerId(1)};
+  QVERIFY(bench.pose.Move(bob, Frame(0), QPointF(10, 0)).has_value());
+  bench.selection.PickThings({Pick{LayerId(1)}, Pick{LayerId(2)}},
                              PickMode::kReplace, LayerId(1));
   PoseBox box(bench.All());
   const QString mixed = QObject::tr("Mixed");
@@ -227,8 +221,8 @@ void ScrubTests::PicksThatDifferShowMixed() {
   // Turn is the same on both, so it shows its number.
   QCOMPARE(box.findChild<QDoubleSpinBox*>("turn")->text(),
            QString("0.0 deg"));
-  bench.selection.PickThings({{LayerId(1), "head"}}, PickMode::kReplace,
-                             LayerId(1));
+  bench.selection.PickThings({Pick{LayerId(2)}}, PickMode::kReplace,
+                             LayerId(2));
   QCOMPARE(box.findChild<QDoubleSpinBox*>("x")->text(), QString("0.0 px"));
 }
 
@@ -236,12 +230,13 @@ void ScrubTests::ALabelGreysWithItsField() {
   Bench bench;
   Stage(&bench);
   PoseBox box(bench.All());
-  ScrubLabel* label = LabelOf(&box, "Lean");
+  ScrubLabel* label = LabelOf(&box, "Order");
   QVERIFY(label != nullptr);
-  // Lean needs a whole doll picked; for a single piece it is hidden.
-  QVERIFY(!label->isVisibleTo(&box));
+  QVERIFY(label->isEnabled());
+  // With nothing picked the pose box and its labels grey out.
+  bench.selection.Clear();
+  QVERIFY(!label->isEnabled());
   bench.selection.SelectLayer(LayerId(1));
-  QVERIFY(label->isVisibleTo(&box));
   QVERIFY(label->isEnabled());
 }
 
@@ -276,7 +271,7 @@ void ScrubTests::ShotLengthsThatDifferShowMixed() {
            QObject::tr("Mixed"));
   bench.selection.SelectShot(second);
   QCOMPARE(box.findChild<QSpinBox*>("shot_length")->text(),
-           QString("30 frames"));
+           QString("30"));
 }
 
 void ScrubTests::NewProjectSizesStepAndScrubByTwo() {

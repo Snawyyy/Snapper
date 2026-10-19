@@ -18,24 +18,21 @@
 namespace snapper {
 namespace {
 
-// A 100x100 shot: a red doll Dot in the middle and a blue box picture at
-// the top left, its drawings in the bench's folder.
+// A 100x100 shot: a red picture Dot in the middle and a blue box picture
+// at the top left, their files in the bench's folder.
 void Stage(Bench* bench) {
   QImage red(20, 20, QImage::Format_ARGB32);
   red.fill(Qt::red);
-  QVERIFY(red.save(QDir(bench->dir.path()).filePath("body.png")));
+  const QString dot_path = QDir(bench->dir.path()).filePath("body.png");
+  QVERIFY(red.save(dot_path));
   QImage blue(20, 20, QImage::Format_ARGB32);
   blue.fill(Qt::blue);
   const QString box_path = QDir(bench->dir.path()).filePath("box.png");
   QVERIFY(blue.save(box_path));
-  Doll doll;
-  doll.folder = bench->dir.path();
-  doll.art.pieces = {{"body", {"body.png"}, 0, {-10, -10}, {20, 20}}};
-  doll.rig.pieces = {{"body", "", {10, 10}, 0, -1, {}}};
   Layer dot;
   dot.id = LayerId(1);
   dot.name = "Dot";
-  dot.content = DollLayer{"Dot", {}, false};
+  dot.content = ImageLayer{dot_path};
   Layer box;
   box.id = LayerId(2);
   box.name = "Box";
@@ -48,7 +45,6 @@ void Stage(Bench* bench) {
   shot.layers = {dot, box};
   Project project;
   project.canvas = {100, 100};
-  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
   project.shots = {std::make_shared<const Shot>(shot)};
   bench->history.Reset(project);
   bench->selection.SelectShot(ShotId(1));
@@ -118,7 +114,7 @@ void LinkUiTests::StageDragLeavesAFaintCopyAtTheStart() {
   QPainter painter(&seen);
   stage.feedback().Paint(&painter, QRectF(0, 0, 400, 400));
   painter.end();
-  // The blue box shows faintly where it was grabbed, not as the red doll.
+  // The blue box shows faintly where it was grabbed, not the red dot.
   QVERIFY(seen.pixelColor(start).blue() > 30);
   QCOMPARE(seen.pixelColor(start).red(), 0);
   QTest::keyClick(&stage, Qt::Key_Escape);
@@ -133,7 +129,7 @@ void LinkUiTests::RightClickLinksThePick() {
   stage.resize(400, 400);
   stage.show();
   QVERIFY(QTest::qWaitForWindowExposed(&stage));
-  bench.selection.PickThings({Pick{LayerId(1), "body"}}, PickMode::kReplace,
+  bench.selection.PickThings({Pick{LayerId(1)}}, PickMode::kReplace,
                              LayerId(1));
   RightClick(&stage, QPointF(15, 15), [](QMenu* menu) {
     QAction* link = Find(menu, "Link movement to Box");
@@ -143,9 +139,9 @@ void LinkUiTests::RightClickLinksThePick() {
     link->trigger();
   });
   const Link* made = FindLink(*bench.history.current().shots[0],
-                              LinkEnd{LayerId(1), "body"});
+                              LinkEnd{LayerId(1)});
   QVERIFY(made != nullptr);
-  QCOMPARE(made->leader, (LinkEnd{LayerId(2), {}}));
+  QCOMPARE(made->leader, (LinkEnd{LayerId(2)}));
   RightClick(&stage, QPointF(15, 15), [](QMenu* menu) {
     QAction* unlink = Find(menu, "Unlink movement");
     QVERIFY(unlink != nullptr);
@@ -161,12 +157,11 @@ void LinkUiTests::LinkingToItselfIsGreyedOut() {
   stage.resize(400, 400);
   stage.show();
   QVERIFY(QTest::qWaitForWindowExposed(&stage));
-  bench.selection.PickThings({Pick{LayerId(1), {}}}, PickMode::kReplace,
+  bench.selection.PickThings({Pick{LayerId(1)}}, PickMode::kReplace,
                              LayerId(1));
   RightClick(&stage, QPointF(50, 50), [](QMenu* menu) {
     QAction* whole = Find(menu, "Link movement to Dot");
-    QAction* piece = Find(menu, "Link movement to Dot's body");
-    QVERIFY(whole != nullptr && piece != nullptr);
+    QVERIFY(whole != nullptr);
     QVERIFY(!whole->isEnabled());
     QVERIFY(!whole->toolTip().isEmpty());
     QVERIFY(Find(menu, "Unlink movement") == nullptr);
@@ -181,12 +176,12 @@ void LinkUiTests::LinkBoxSetsStrengthAndUnlinks() {
   auto* follows = box.findChild<QLabel*>("follows");
   auto* unlink = box.findChild<QPushButton*>("unlink");
   QVERIFY(strength != nullptr && follows != nullptr && unlink != nullptr);
-  bench.selection.PickThings({Pick{LayerId(1), {}}}, PickMode::kReplace,
+  bench.selection.PickThings({Pick{LayerId(1)}}, PickMode::kReplace,
                              LayerId(1));
   QVERIFY(!box.IsLinked());
   QVERIFY(bench.links
-              .LinkTo(ShotId(1), {LinkEnd{LayerId(1), {}}},
-                      LinkEnd{LayerId(2), {}}, Frame(3))
+              .LinkTo(ShotId(1), {LinkEnd{LayerId(1)}}, LinkEnd{LayerId(2)},
+                      Frame(3))
               .has_value());
   QVERIFY(box.IsLinked());
   QCOMPARE(follows->text(), QString("Follows Box from frame 3."));
@@ -194,7 +189,7 @@ void LinkUiTests::LinkBoxSetsStrengthAndUnlinks() {
   strength->setValue(0.5);
   emit strength->editingFinished();
   const Shot& shot = *bench.history.current().shots[0];
-  QCOMPARE(FindLink(shot, LinkEnd{LayerId(1), {}})->strength, 0.5);
+  QCOMPARE(FindLink(shot, LinkEnd{LayerId(1)})->strength, 0.5);
   QCOMPARE(bench.history.UndoLabel(), QString("Link strength"));
   QTest::mouseClick(unlink, Qt::LeftButton);
   QVERIFY(bench.history.current().shots[0]->links.empty());

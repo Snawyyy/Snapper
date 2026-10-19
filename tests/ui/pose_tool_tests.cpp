@@ -2,8 +2,6 @@
 
 #include <cassert>
 
-#include "anim/doll_lean.h"
-#include "anim/doll_pose.h"
 #include "anim/sampler.h"
 #include "bench.h"
 #include "pose_stage.h"
@@ -18,28 +16,27 @@ using posestage::Body;
 using posestage::kFrame;
 using posestage::Stage;
 
-// A head hung above the body: its joint above the middle of the doll's
-// box, the body's below.
-void AddHead(Bench* bench) {
+// A second 20x20 picture layer ("Eye") 40 pixels right of the first.
+void AddEye(Bench* bench) {
   assert(bench != nullptr);
   Project project = bench->history.current();
-  Doll doll = *project.dolls.at("Dot");
-  doll.art.pieces.push_back({"head", {"body.png"}, 0, {-10, -30}, {20, 20}});
-  doll.rig.pieces.push_back({"head", "body", {10, 10}, 1, -1, {}});
-  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
+  auto shot = std::make_shared<Shot>(*project.shots[0]);
+  Layer eye = shot->layers[0];
+  eye.id = LayerId(2);
+  eye.name = "Eye";
+  LayerPose right;
+  right.offset = QPointF(40, 0);
+  SetKey(&eye.transform, {Frame(0), right, Ease::kStep});
+  shot->layers.push_back(eye);
+  project.shots[0] = shot;
   bench->history.Reset(project);
-  assert(project.dolls.at("Dot")->rig.pieces.size() == 2);
+  assert(project.shots[0]->layers.size() == 2);
 }
 
-// The body gets a 2x2 warp grid, nine dots.
-void GiveBodyAWarp(Bench* bench) {
-  assert(bench != nullptr);
-  Project project = bench->history.current();
-  Doll doll = *project.dolls.at("Dot");
-  doll.rig.pieces[0].warp = {2, 2};
-  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
-  bench->history.Reset(project);
-  assert(project.dolls.at("Dot")->rig.pieces[0].warp.IsOn());
+LayerPose EyeAt0(const Bench& bench) {
+  assert(bench.history.current().shots[0]->layers.size() == 2);
+  return Sample(bench.history.current().shots[0]->layers[1].transform,
+                Frame(0), LayerPose());
 }
 
 }  // namespace
@@ -55,11 +52,7 @@ class PoseToolTests final : public QObject {
   void EscapePutsItBack();
   void ClickingNothingDropsThePick();
   void ManyPicksMoveAndTurnTogether();
-  void DoubleClickPicksTheWholeDoll();
-  void LeanHandleTipsTheDoll();
-  void WarpDotsBendThePiece();
-  void WarpDotsTakeReachAndDrag();
-  void WheelSetsReachOfEveryPickedDot();
+  void DoubleClickPicksTheLayer();
 };
 
 void PoseToolTests::ClickPicksAndDragMoves() {
@@ -69,13 +62,13 @@ void PoseToolTests::ClickPicksAndDragMoves() {
   PoseTool tool(bench.All(), &cache);
   tool.Press({60, 60}, false, false, kFrame);
   QCOMPARE(bench.selection.layer(), LayerId(1));
-  QCOMPARE(bench.selection.pieces(), std::set<QString>({"body"}));
+  QCOMPARE(bench.selection.picks(), std::set<Pick>({Pick{LayerId(1)}}));
   QVERIFY(tool.IsDragging());
   tool.Move({70, 65}, false);
   tool.Move({75, 62}, false);
   tool.Release();
   QCOMPARE(Body(bench).offset, QPointF(15, 2));
-  QCOMPARE(bench.history.UndoLabel(), QString("Move body"));
+  QCOMPARE(bench.history.UndoLabel(), QString("Move layer"));
   bench.history.Undo();
   QCOMPARE(Body(bench).offset, QPointF(0, 0));
 }
@@ -151,230 +144,51 @@ void PoseToolTests::ClickingNothingDropsThePick() {
 void PoseToolTests::ManyPicksMoveAndTurnTogether() {
   Bench bench;
   Stage(&bench);
-  // A second 20x20 doll piece to the right of the first.
-  Project project = bench.history.current();
-  Doll doll = *project.dolls.at("Dot");
-  doll.art.pieces.push_back({"eye", {"body.png"}, 0, {20, -10}, {20, 20}});
-  doll.rig.pieces.push_back({"eye", "", {10, 10}, 1, -1, {}});
-  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
-  bench.history.Reset(project);
+  AddEye(&bench);
   ImageCache cache;
   PoseTool tool(bench.All(), &cache);
   tool.SetGuides(false);
   // Box from above-left of the body to inside the eye catches both.
   tool.Press({12, 12}, false, false, kFrame);
-  tool.Move({85, 65}, false);
+  tool.Move({105, 65}, false);
   QVERIFY(!tool.Box().isEmpty());
   tool.Release();
   QCOMPARE(bench.selection.picks().size(), size_t{2});
   tool.Press({60, 60}, false, false, kFrame);
   tool.Move({64, 60}, false);
   tool.Release();
-  const PoseMap poses = SamplePoses(
-      std::get<DollLayer>(bench.history.current().shots[0]->layers[0].content),
-      Frame(0));
-  QCOMPARE(poses.at("body").offset, QPointF(4, 0));
-  QCOMPARE(poses.at("eye").offset, QPointF(4, 0));
+  QCOMPARE(Body(bench).offset, QPointF(4, 0));
+  QCOMPARE(EyeAt0(bench).offset, QPointF(44, 0));
   QCOMPARE(bench.history.UndoLabel(), QString("Move 2 parts"));
   tool.Wheel(1, false, kFrame);
-  const PoseMap turned = SamplePoses(
-      std::get<DollLayer>(bench.history.current().shots[0]->layers[0].content),
-      Frame(0));
-  QCOMPARE(turned.at("eye").rotation, -5.0);
+  QCOMPARE(EyeAt0(bench).rotation, -5.0);
   // Ctrl-click flips the eye out; Shift-click adds it back.
-  tool.Press({95, 60}, false, true, kFrame);
+  tool.Press({104, 60}, false, true, kFrame);
   tool.Release();
   QCOMPARE(bench.selection.picks().size(), size_t{1});
-  tool.Press({95, 60}, true, false, kFrame);
+  tool.Press({104, 60}, true, false, kFrame);
   tool.Release();
   QCOMPARE(bench.selection.picks().size(), size_t{2});
 }
 
-void PoseToolTests::DoubleClickPicksTheWholeDoll() {
+void PoseToolTests::DoubleClickPicksTheLayer() {
   Bench bench;
   Stage(&bench);
   ImageCache cache;
   PoseTool tool(bench.All(), &cache);
   tool.PickWhole({60, 60}, kFrame);
-  QCOMPARE(bench.selection.picks(),
-           std::set<Pick>({{LayerId(1), QString()}}));
+  QCOMPARE(bench.selection.picks(), std::set<Pick>({Pick{LayerId(1)}}));
   const QPolygonF box =
       LayerShape(bench.history.current(), *bench.history.current().shots[0],
                  LayerId(1), Frame(0), 1.0, &cache);
   QCOMPARE(box.boundingRect(), QRectF(40, 40, 20, 20));
-  // Dragging it moves the doll layer, not a piece.
+  // Dragging it moves the layer.
   tool.Press({60, 60}, false, false, kFrame);
   tool.Move({70, 60}, false);
   tool.Release();
   QCOMPARE(bench.history.current().shots[0]->layers[0].transform.keys.back()
                .value.offset,
            QPointF(10, 0));
-}
-
-void PoseToolTests::LeanHandleTipsTheDoll() {
-  Bench bench;
-  Stage(&bench);
-  AddHead(&bench);
-  ImageCache cache;
-  PoseTool tool(bench.All(), &cache);
-  // Not picked whole: no handle to grab, the press draws a box.
-  tool.Press({82, 50}, false, false, kFrame);
-  tool.Release();
-  tool.PickWhole({60, 60}, kFrame);
-  const Shot& shot = *bench.history.current().shots[0];
-  const auto handles = TurnHandlesOf(bench.history.current(), shot,
-                                     LayerId(1), Frame(0), 1.0, &cache);
-  QVERIFY(handles.has_value());
-  QCOMPARE(handles->lean, QPointF(60 + kTurnGap, 40));
-  QCOMPARE(handles->swivel, QPointF(50, 60 + kTurnGap));
-  // Dragging down leans it toward the camera, keyed once.
-  tool.Press({83, 52}, false, false, kFrame);
-  tool.Move({83, 52 + 200}, false);
-  tool.Move({83, 52 + 100}, false);
-  tool.Release();
-  const Layer& layer = bench.history.current().shots[0]->layers[0];
-  QCOMPARE(layer.transform.keys.back().value.lean, 100 * kTurnPerPixel);
-  // The keys stay as posed; the head, above the middle, is drawn
-  // nearer and the body further.
-  QCOMPARE(Body(bench).scale_x, 1.0);
-  const PoseMap shown =
-      ShownPoses(*bench.history.current().dolls.at("Dot"), layer, Frame(0));
-  QVERIFY(shown.at("body").scale_x < 1.0);
-  QVERIFY(shown.at("head").scale_x > 1.0);
-  QCOMPARE(bench.history.UndoLabel(), QString("Lean Dot"));
-  bench.history.Undo();
-  QVERIFY(!bench.history.CanUndo());
-  // Escape puts it back.
-  tool.Press({82, 50}, false, false, kFrame);
-  tool.Move({82, 10}, false);
-  const auto lean = [&bench] {
-    return Sample(bench.history.current().shots[0]->layers[0].transform,
-                  Frame(0), LayerPose())
-        .lean;
-  };
-  QCOMPARE(lean(), -40 * kTurnPerPixel);
-  tool.Cancel();
-  QCOMPARE(lean(), 0.0);
-  // The swivel handle, below the box, drags sideways.
-  tool.Press({60, 82}, false, false, kFrame);
-  tool.Move({100, 90}, false);
-  tool.Release();
-  QCOMPARE(Sample(bench.history.current().shots[0]->layers[0].transform,
-                  Frame(0), LayerPose())
-               .swivel,
-           40 * kTurnPerPixel);
-  QCOMPARE(lean(), 0.0);
-  QCOMPARE(bench.history.UndoLabel(), QString("Swivel Dot"));
-}
-
-void PoseToolTests::WheelSetsReachOfEveryPickedDot() {
-  Bench bench;
-  Stage(&bench);
-  Project project = bench.history.current();
-  Doll doll = *project.dolls.at("Dot");
-  doll.rig.pieces[0].warp = {2, 2};
-  doll.rig.pieces[0].warp_reach = std::vector<double>(9, 0.0);
-  doll.rig.pieces[0].warp_reach[0] = 1.0;
-  project.dolls["Dot"] = std::make_shared<const Doll>(doll);
-  bench.history.Reset(project);
-  ImageCache cache;
-  PoseTool tool(bench.All(), &cache);
-  tool.Press({60, 60}, false, false, kFrame);
-  tool.Release();
-  bench.selection.PickDots({{LayerId(1), "body", 0}, {LayerId(1), "body", 8}},
-                           PickMode::kReplace);
-  QVERIFY(tool.PickedDot(kFrame).has_value());
-  // One notch adds to each dot's own reach, as one step.
-  tool.Wheel(1, false, kFrame);
-  const RigPiece& rig = Shown(bench, "Dot");
-  QCOMPARE(rig.warp_reach[0], 1.0 + kReachStep);
-  QCOMPARE(rig.warp_reach[8], kReachStep);
-  QCOMPARE(rig.warp_reach[4], 0.0);
-  QCOMPARE(bench.history.UndoLabel(), QString("Set reach on 2 dots"));
-  QCOMPARE(Body(bench).rotation, 0.0);
-}
-
-void PoseToolTests::WarpDotsBendThePiece() {
-  Bench bench;
-  Stage(&bench);
-  GiveBodyAWarp(&bench);
-  ImageCache cache;
-  PoseTool tool(bench.All(), &cache);
-  // Not picked yet: the press picks and moves, it doesn't warp.
-  tool.Press({60, 60}, false, false, kFrame);
-  tool.Release();
-  QVERIFY(Body(bench).warp.empty());
-  const auto warp =
-      PieceWarpOnScreen(bench.history.current(),
-                        *bench.history.current().shots[0], LayerId(1),
-                        "body", Frame(0), 1.0);
-  QVERIFY(warp.has_value());
-  QCOMPARE(warp->points.size(), size_t{9});
-  QCOMPARE(warp->to_screen.map(warp->points[4]), QPointF(50, 50));
-  // Picked: dragging the middle dot pushes that grid point.
-  tool.Press({61, 59}, false, false, kFrame);
-  tool.Move({65, 62}, false);
-  tool.Release();
-  QCOMPARE(Body(bench).warp.size(), size_t{9});
-  // The dot jumps under the cursor: it ends where the mouse did.
-  QCOMPARE(Body(bench).warp[4], QPointF(5, 2));
-  QCOMPARE(Body(bench).offset, QPointF(0, 0));
-  QCOMPARE(bench.history.UndoLabel(), QString("Warp body"));
-  // A second drag adds to where the point already was.
-  tool.Press({64, 63}, false, false, kFrame);
-  tool.Move({70, 63}, false);
-  QCOMPARE(Body(bench).warp[4], QPointF(10, 3));
-  tool.Cancel();
-  QCOMPARE(Body(bench).warp[4], QPointF(5, 2));
-}
-
-void PoseToolTests::WarpDotsTakeReachAndDrag() {
-  Bench bench;
-  Stage(&bench);
-  GiveBodyAWarp(&bench);
-  ImageCache cache;
-  PoseTool tool(bench.All(), &cache);
-  // Pick the body first, as a click does.
-  tool.Press({60, 60}, false, false, kFrame);
-  tool.Release();
-  QVERIFY(bench.selection.pieces().contains("body"));
-  // Clicking the corner dot picks it; the wheel then sets its reach
-  // instead of turning the body.
-  tool.Press({50, 50}, false, false, kFrame);
-  tool.Release();
-  QCOMPARE(tool.PickedDot(kFrame), (WarpDot{LayerId(1), "body", 0}));
-  tool.Wheel(3, false, kFrame);
-  tool.Wheel(-1, true, kFrame);
-  const RigPiece& rig = Shown(bench, "Dot");
-  QCOMPARE(rig.warp_reach[0], 3 * kReachStep - kFineReachStep);
-  QCOMPARE(Body(bench).rotation, 0.0);
-  // Again drops it, and the wheel turns the body as before.
-  tool.Press({50, 50}, false, false, kFrame);
-  tool.Release();
-  QVERIFY(!tool.PickedDot(kFrame).has_value());
-  tool.Wheel(1, false, kFrame);
-  QCOMPARE(Body(bench).rotation, -kWheelStep);
-  tool.Press({50, 50}, false, false, kFrame);
-  tool.Release();
-  // D makes the picked dot drag, and again stops it.
-  tool.ToggleDrag(kFrame);
-  const auto drags = [&bench] {
-    return Shown(bench, "Dot").drag_nodes;
-  };
-  QCOMPARE(drags().size(), size_t{1});
-  QCOMPARE(drags()[0].point, 0);
-  tool.ToggleDrag(kFrame);
-  QVERIFY(drags().empty());
-  QVERIFY(tool.DropDot());
-  QVERIFY(!tool.DropDot());
-  tool.ToggleDrag(kFrame);
-  QVERIFY(!tool.problem().isEmpty());
-  // Clicking off the dots drops a picked one too.
-  tool.Press({50, 50}, false, false, kFrame);
-  tool.Release();
-  tool.Press({20, 20}, false, false, kFrame);
-  tool.Release();
-  QVERIFY(!tool.PickedDot(kFrame).has_value());
 }
 
 }  // namespace snapper

@@ -52,7 +52,7 @@ void CharacterStageTests::PickedCharacterShowsItsBonesAndBox() {
               .has_value());
   const auto layer = bench.stage.AddCharacter(*shot, "Bo");
   QVERIFY(layer.has_value());
-  bench.selection.PickThings({{*layer, QString()}}, PickMode::kReplace, *layer);
+  bench.selection.PickThings({Pick{*layer}}, PickMode::kReplace, *layer);
   window.SetMode(MainWindow::Mode::kPose);
   window.show();
   QVERIFY(QTest::qWaitForWindowExposed(&window));

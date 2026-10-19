@@ -346,6 +346,8 @@ void CompLibrary::ShowWhere() {
                            .arg(managers_.comp->TargetText(shot, *target))
                      : why_not);
   where_.setEnabled(why_not.isEmpty());
+  // Greyed, it says why on hover too, as every greyed control does.
+  where_.setToolTip(why_not);
 }
 
 void CompLibrary::AddPicked(const QListWidgetItem* item) {

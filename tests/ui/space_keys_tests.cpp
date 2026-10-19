@@ -17,20 +17,17 @@ namespace {
 
 const ShotId kShot(1);
 
-// One doll layer with pose keys at frames 2, 4 and 6.
+// One character layer with pose keys at frames 2, 4 and 6.
 void Stage(Bench* bench) {
   assert(bench != nullptr);
-  Doll doll;
-  doll.rig.pieces = {{"head", "", {}, 0, -1, {}}};
   Layer layer;
   layer.id = LayerId(1);
   layer.name = "Bob";
-  layer.content = DollLayer{"Bob", {}, false};
+  layer.content = CharacterLayer{"Bob", {}, false};
   Shot shot;
   shot.id = kShot;
   shot.layers = {layer};
   Project project;
-  project.dolls["Bob"] = std::make_shared<const Doll>(doll);
   project.shots = {std::make_shared<const Shot>(shot)};
   bench->history.Reset(project);
   for (const int frame : {2, 4, 6}) {
@@ -39,7 +36,7 @@ void Stage(Bench* bench) {
   }
 }
 
-std::vector<int> DollFrames(const Bench& bench) {
+std::vector<int> BobFrames(const Bench& bench) {
   assert(!bench.history.current().shots.empty());
   std::vector<int> frames;
   const auto rows = TimelineRows(bench.history.current(), kShot);
@@ -50,7 +47,7 @@ std::vector<int> DollFrames(const Bench& bench) {
   return frames;
 }
 
-// Picks every key on the doll's row.
+// Picks every key on Bob's row.
 void PickAll(Bench* bench) {
   assert(bench != nullptr);
   const Project& project = bench->history.current();
@@ -95,10 +92,10 @@ void SpaceKeysTests::ThreeSpacesPickedKeysInOneUndoStep() {
   QVERIFY(QTest::qWaitForWindowExposed(&window));
   PickAll(&bench);
   QTest::keyClick(&window, Qt::Key_3);
-  QCOMPARE(DollFrames(bench), std::vector<int>({2, 5, 8}));
+  QCOMPARE(BobFrames(bench), std::vector<int>({2, 5, 8}));
   QCOMPARE(bench.history.UndoLabel(), QString("Space keys on 3s"));
   bench.history.Undo();
-  QCOMPARE(DollFrames(bench), std::vector<int>({2, 4, 6}));
+  QCOMPARE(BobFrames(bench), std::vector<int>({2, 4, 6}));
 }
 
 void SpaceKeysTests::KeysStayPickedAfterwards() {
@@ -120,7 +117,7 @@ void SpaceKeysTests::NothingPickedToastsTheReason() {
   const QString before = bench.history.UndoLabel();
   QTest::keyClick(&window, Qt::Key_2);
   QCOMPARE(bench.history.UndoLabel(), before);
-  QCOMPARE(DollFrames(bench), std::vector<int>({2, 4, 6}));
+  QCOMPARE(BobFrames(bench), std::vector<int>({2, 4, 6}));
   QCOMPARE(bench.toasts.queue().toasts().size(), size_t{1});
   QCOMPARE(bench.toasts.queue().toasts()[0].text,
            bench.keys.WhyNoSpace({}));
@@ -134,7 +131,7 @@ void SpaceKeysTests::FiveDoesNothing() {
   QVERIFY(QTest::qWaitForWindowExposed(&window));
   PickAll(&bench);
   QTest::keyClick(&window, Qt::Key_5);
-  QCOMPARE(DollFrames(bench), std::vector<int>({2, 4, 6}));
+  QCOMPARE(BobFrames(bench), std::vector<int>({2, 4, 6}));
   QVERIFY(bench.toasts.queue().toasts().empty());
 }
 
@@ -154,7 +151,7 @@ void SpaceKeysTests::DigitInANumberFieldTypes() {
   edit->selectAll();
   QTest::keyClick(QApplication::focusWidget(), Qt::Key_3);
   QVERIFY(edit->text().contains('3'));
-  QCOMPARE(DollFrames(bench), std::vector<int>({2, 4, 6}));
+  QCOMPARE(BobFrames(bench), std::vector<int>({2, 4, 6}));
 }
 
 }  // namespace snapper

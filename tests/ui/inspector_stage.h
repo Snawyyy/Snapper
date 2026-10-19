@@ -31,6 +31,7 @@ inline void Stage(Bench* bench) {
   Project project;
   project.characters["Bob"] =
       std::make_shared<const Character>(NewCharacter("Bob"));
+  project.next_layer_id = 3;
   project.shots = {std::make_shared<const Shot>(shot)};
   bench->history.Reset(project);
   bench->selection.SelectLayer(LayerId(1));

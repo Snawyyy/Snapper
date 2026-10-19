@@ -10,6 +10,7 @@
 
 #include "anim/sampler.h"
 #include "bench.h"
+#include "edit/character_manager.h"
 #include "ui/pose_tool.h"
 
 namespace snapper {
@@ -34,8 +35,30 @@ inline void Stage(Bench* bench) {
   shot.layers = {layer};
   Project project;
   project.canvas = {100, 100};
+  project.next_shot_id = 2;
+  project.next_layer_id = 2;
   project.shots = {std::make_shared<const Shot>(shot)};
   bench->history.Reset(project);
+}
+
+// Adds Bo, a character with one bone from the frame's middle 30 pixels
+// straight down, as layer 2, and picks it. Answers the bone; its handle
+// sits at kBoneTip on the widget.
+inline const QPointF kBoneTip(60, 90);
+
+inline BoneId StageBone(Bench* bench) {
+  assert(bench != nullptr);
+  const auto made = bench->characters.Create("Bo");
+  assert(made.has_value());
+  const Character* bo = FindCharacter(bench->history.current(), "Bo");
+  assert(bo != nullptr);
+  const auto bone = bench->characters.AddBone("Bo", bo->parts[0].id,
+                                              {0, 0}, {0, 30}, BoneId());
+  assert(bone.has_value());
+  const auto layer = bench->stage.AddCharacter(ShotId(1), "Bo");
+  assert(layer.has_value());
+  bench->selection.PickThings({Pick{*layer}}, PickMode::kReplace, *layer);
+  return *bone;
 }
 
 // The Dot layer's pose at frame 0; rest when it has no keys.

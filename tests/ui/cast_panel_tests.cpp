@@ -1,4 +1,3 @@
-#include <QJsonArray>
 #include <QListWidget>
 #include <QPushButton>
 #include <QTest>
@@ -6,28 +5,10 @@
 #include <cassert>
 
 #include "bench.h"
-#include "io/json_file.h"
 #include "ui/cast_panel.h"
 
 namespace snapper {
 namespace {
-
-// Writes Bob.doll into the bench's library, as the Krita exporter does.
-void ExportBob(Bench* bench) {
-  const QString folder =
-      QDir(bench->library.folder()).filePath("Bob.doll");
-  QVERIFY(QDir().mkpath(folder));
-  const QJsonObject piece{{"name", "body"},
-                          {"drawings", QJsonArray{"body.png"}},
-                          {"position", QJsonArray{0, 0}},
-                          {"size", QJsonArray{10, 10}}};
-  QVERIFY(WriteJsonFile(QDir(folder).filePath("art.json"),
-                        QJsonObject{{"format", "snapper-art"},
-                                    {"version", 2},
-                                    {"canvas", QJsonArray{10, 10}},
-                                    {"pieces", QJsonArray{piece}}})
-              .has_value());
-}
 
 QPushButton* Button(CastPanel* panel, const QString& text) {
   assert(panel != nullptr);
@@ -44,7 +25,8 @@ QPushButton* Button(CastPanel* panel, const QString& text) {
 QListWidget* List(CastPanel* panel, int index) {
   assert(panel != nullptr);
   assert(index >= 0);
-  return panel->findChildren<QListWidget*>().at(index);
+  return panel->findChild<QListWidget*>(index == 0 ? "characters"
+                                                   : "layers");
 }
 
 }  // namespace
@@ -53,32 +35,32 @@ class CastPanelTests final : public QObject {
   Q_OBJECT
 
  private slots:
-  void ImportThenPutOnStage();
+  void LibraryCharactersGoOnStage();
   void LayersShowAndHide();
 };
 
-void CastPanelTests::ImportThenPutOnStage() {
+void CastPanelTests::LibraryCharactersGoOnStage() {
   Bench bench;
-  ExportBob(&bench);
+  // A character made and kept in the library, then left out of the
+  // project, as it is in a fresh project.
+  QVERIFY(bench.characters.Create("Bob").has_value());
+  bench.history.Reset(Project());
   QVERIFY(bench.shots.Add(-1).has_value());
   CastPanel panel(bench.All());
-  QPushButton* import = Button(&panel, "Import");
   QPushButton* place = Button(&panel, "Put on stage");
-  QVERIFY(!import->isEnabled());
-  QVERIFY(!import->toolTip().isEmpty());
+  QPushButton* edit = Button(&panel, "Edit");
+  QVERIFY(!place->isEnabled());
+  QVERIFY(!place->toolTip().isEmpty());
+  QCOMPARE(List(&panel, 0)->count(), 1);
   List(&panel, 0)->selectionModel()->select(
       List(&panel, 0)->model()->index(0, 0), QItemSelectionModel::Select);
-  QVERIFY(import->isEnabled());
-  // A picked doll can be put on the stage even before it is imported:
-  // putting it there imports it.
-  QVERIFY(place->isEnabled());
-  import->click();
-  QVERIFY(FindDoll(bench.history.current(), "Bob") != nullptr);
-  QVERIFY(List(&panel, 0)->item(0)->text().contains("in project"));
-  QVERIFY(!import->isEnabled());
+  QVERIFY(edit->isEnabled());
+  // Putting it on the stage takes it into the project.
   QVERIFY(place->isEnabled());
   place->click();
+  QVERIFY(FindCharacter(bench.history.current(), "Bob") != nullptr);
   QCOMPARE(bench.history.current().shots[0]->layers.size(), size_t{1});
+  QVERIFY(List(&panel, 0)->item(0)->text().contains("In shot"));
   QCOMPARE(List(&panel, 1)->count(), 1);
   QVERIFY(bench.selection.layer().IsValid());
 }

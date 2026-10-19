@@ -76,7 +76,7 @@ class VideoPageTests final : public QObject {
   void BinListsShotsToDrag();
   void DroppingAShotPlacesAClip();
   void DraggingAClipMovesIt();
-  void DraggingAnEndTrims();
+  void DraggingAWholeShotsEndResizesIt();
   void RulerSeeksTheReel();
   void KeysSplitAndRemove();
   void ImportedVideosQueueOnTheBottom();
@@ -146,7 +146,7 @@ void VideoPageTests::DraggingAClipMovesIt() {
   QCOMPARE(ClipOf(bench.history.current().reel, clip)->start, Frame(0));
 }
 
-void VideoPageTests::DraggingAnEndTrims() {
+void VideoPageTests::DraggingAWholeShotsEndResizesIt() {
   Bench bench;
   AddShot(&bench);
   const ClipId clip = *bench.reel.AddShot(ShotId(1), 0, Frame(100));
@@ -161,7 +161,8 @@ void VideoPageTests::DraggingAnEndTrims() {
   QTest::mouseMove(&timeline, in);
   QTest::mouseRelease(&timeline, Qt::LeftButton, {}, in);
   QCOMPARE(ClipOf(bench.history.current().reel, clip)->length, Frame(30));
-  QCOMPARE(bench.history.UndoLabel(), QString("Trim clip"));
+  // A clip showing its whole shot resizes the shot itself (Alt trims).
+  QCOMPARE(bench.history.UndoLabel(), QString("Resize shot Shot 1"));
 }
 
 void VideoPageTests::RulerSeeksTheReel() {

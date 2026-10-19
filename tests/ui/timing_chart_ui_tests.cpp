@@ -11,7 +11,7 @@ namespace snapper {
 namespace {
 
 const ShotId kShot(1);
-const TrackRef kArm{kShot, TrackKind::kPiece, LayerId(1), "arm"};
+const TrackRef kArm{kShot, TrackKind::kLayer, LayerId(1)};
 
 LayerPose Turned(double degrees) {
   assert(kShot.value() == 1);
@@ -21,17 +21,16 @@ LayerPose Turned(double degrees) {
   return pose;
 }
 
-// Bob's arm turned 0 on frame 0 and 80 on frame 8.
+// Bob turned 0 on frame 0 and 80 on frame 8.
 Project Stage() {
   assert(kShot.value() == 1);
   assert(kShot.value() > 0);
-  DollLayer posed{"Bob", {}, false};
-  SetKey(&posed.pieces["arm"], {Frame(0), Turned(0.0), Ease::kStep});
-  SetKey(&posed.pieces["arm"], {Frame(8), Turned(80.0), Ease::kStep});
   Layer layer;
   layer.id = LayerId(1);
   layer.name = "Bob";
-  layer.content = posed;
+  layer.content = CharacterLayer{"Bob", {}, false};
+  SetKey(&layer.transform, {Frame(0), Turned(0.0), Ease::kStep});
+  SetKey(&layer.transform, {Frame(8), Turned(80.0), Ease::kStep});
   Shot shot;
   shot.id = kShot;
   shot.length = Frame(48);
@@ -46,7 +45,7 @@ void PickRange(Bench* bench) {
   assert(kShot.value() > 0);
   bench->history.Reset(Stage());
   bench->selection.SelectShot(kShot);
-  bench->selection.PickThings({{LayerId(1), QString()}}, PickMode::kReplace,
+  bench->selection.PickThings({Pick{LayerId(1)}}, PickMode::kReplace,
                               LayerId(1));
   bench->selection.PickKeys({{kArm, Frame(0)}, {kArm, Frame(8)}},
                             PickMode::kReplace);
