@@ -3,7 +3,6 @@
 #include <cassert>
 
 #include "anim/master_timeline.h"
-#include "anim/mirror.h"
 #include "anim/sampler.h"
 
 namespace snapper {
@@ -27,9 +26,8 @@ class SamplerTests final : public QObject {
   void StepKeysHold();
   void EasedKeysBlend();
   void EmptyChannelGivesFallback();
-  void DrawingsSwapWithoutBlending();
+  void OrderHoldsWithoutBlending();
   void ShotsFollowEachOther();
-  void MirrorNamesSwapSides();
 };
 
 void SamplerTests::StepKeysHold() {
@@ -61,17 +59,16 @@ void SamplerTests::EmptyChannelGivesFallback() {
   QCOMPARE(Sample(channel, Frame(3), fallback).zoom, 2.0);
 }
 
-void SamplerTests::DrawingsSwapWithoutBlending() {
+void SamplerTests::OrderHoldsWithoutBlending() {
   LayerPose a;
-  a.drawing = 1;
-  a.warp = {QPointF(0, 0), QPointF(4, 0)};
+  a.order = 1;
+  a.offset = QPointF(0, 0);
   LayerPose b;
-  b.drawing = 2;
-  b.rotation = 90.0;
+  b.order = 3;
+  b.offset = QPointF(4, 0);
   const LayerPose mid = Lerp(a, b, 0.5);
-  QCOMPARE(mid.drawing, 1);
-  QCOMPARE(mid.rotation, 45.0);
-  QCOMPARE(mid.warp[1], QPointF(2, 0));
+  QCOMPARE(mid.order, 1);
+  QCOMPARE(mid.offset, QPointF(2, 0));
 }
 
 void SamplerTests::ShotsFollowEachOther() {
@@ -84,20 +81,6 @@ void SamplerTests::ShotsFollowEachOther() {
   QCOMPARE(moment.local, Frame(2));
   QCOMPARE(Locate(project, Frame(30)).shot, -1);
   QCOMPARE(TotalLength(Project()), Frame(0));
-}
-
-void SamplerTests::MirrorNamesSwapSides() {
-  QCOMPARE(MirrorName("arm_l"), QString("arm_r"));
-  QCOMPARE(MirrorName("L_leg"), QString("R_leg"));
-  QCOMPARE(MirrorName("Left hand"), QString("Right hand"));
-  QCOMPARE(MirrorName("RIGHT_EYE"), QString("LEFT_EYE"));
-  QCOMPARE(MirrorName("eye.R"), QString("eye.L"));
-  QCOMPARE(MirrorName("upper_l_arm"), QString("upper_r_arm"));
-  QCOMPARE(MirrorName("lip"), QString("lip"));
-  QCOMPARE(MirrorName("cleft"), QString("cleft"));
-  QCOMPARE(SideOf("arm_l"), -1);
-  QCOMPARE(SideOf("Right hand"), 1);
-  QCOMPARE(SideOf("head"), 0);
 }
 
 }  // namespace snapper
