@@ -13,6 +13,8 @@ namespace snapper {
 inline constexpr int kMaxStoryboardCels = 2000;
 // How strongly a new storyboard layer shows over what lies under it.
 inline constexpr double kDefaultStoryboardOpacity = 0.6;
+// The most limbs a storyboard layer can sink behind.
+inline constexpr int kMaxStoryboardSink = 256;
 
 // One picture of a storyboard layer: a PNG the size of the canvas, shown
 // from at (a frame of the shot) until the next cel, or the shot's end.
@@ -38,6 +40,13 @@ struct StoryboardLayer final {
   // In the exported video (an animatic); the stage and the Video tab's
   // preview show it either way.
   bool is_exported = false;
+  // How many limbs of the doll right under it in the stack it sinks
+  // behind: 0 lies over the whole doll, 1 goes behind its front-most
+  // drawn limb, and so on. The limbs are counted in their draw order at
+  // each frame, so a limb that moves forward passes in front. Without a
+  // doll right under it (other storyboards between are passed over),
+  // it does nothing.
+  int sink = 0;
 
   bool operator==(const StoryboardLayer&) const = default;
 };

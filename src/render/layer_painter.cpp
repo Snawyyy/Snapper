@@ -74,6 +74,11 @@ struct Painter final {
                          const std::vector<PlacedPiece>& placed,
                          const QString& piece,
                          std::set<QString>* circled) const;
+  // For a doll drawn in parts (PieceSplit::kPart): true when this part
+  // holds the first drawn of joined and its parent, which paints
+  // joined's circle.
+  bool IsCircleOwner(const Doll& doll, const std::vector<PlacedPiece>& placed,
+                     const PlacedPiece& joined) const;
   void operator()(const ImageLayer& layer) const;
   void operator()(const TextLayer& layer) const;
   void operator()(const EffectLayer& layer) const;
@@ -89,7 +94,9 @@ void Painter::operator()(const DollLayer& layer) const {
     return;
   }
   const double layer_opacity = painter->opacity();
-  const bool is_split = only_pieces != nullptr && split != PieceSplit::kOnly;
+  const bool is_split =
+      only_pieces != nullptr &&
+      (split == PieceSplit::kShown || split == PieceSplit::kCover);
   bool is_above_chosen = false;
   const std::vector<PlacedPiece> placed =
       PlaceDoll(*doll, links != nullptr ? links->Poses(*doll, whole, frame)
@@ -170,11 +177,13 @@ void Painter::PaintCirclesUnder(const Doll& doll,
                                 std::set<QString>* circled) const {
   assert(circled != nullptr);
   assert(!piece.isEmpty());
+  const bool is_part = only_pieces != nullptr && split == PieceSplit::kPart;
   for (const PlacedPiece& joined : placed) {
     const RigPiece* rig = FindRig(doll.rig, joined.name);
     const bool is_joined =
         joined.name == piece || (rig != nullptr && rig->parent == piece);
-    const bool is_due = is_joined && !circled->contains(joined.name);
+    const bool is_due = is_joined && !circled->contains(joined.name) &&
+                        (!is_part || IsCircleOwner(doll, placed, joined));
     if (!is_due) {
       continue;
     }
@@ -187,6 +196,26 @@ void Painter::PaintCirclesUnder(const Doll& doll,
   }
 }
 
+bool Painter::IsCircleOwner(const Doll& doll,
+                            const std::vector<PlacedPiece>& placed,
+                            const PlacedPiece& joined) const {
+  assert(cache != nullptr && only_pieces != nullptr);
+  assert(!joined.name.isEmpty());
+  const RigPiece* rig = FindRig(doll.rig, joined.name);
+  const QString parent = rig != nullptr ? rig->parent : QString();
+  // The first of the two drawn, back to front, paints the circle.
+  for (const PlacedPiece& other : placed) {
+    const bool is_pair = other.name == joined.name ||
+                         (!parent.isEmpty() && other.name == parent);
+    const bool is_drawn = is_pair && other.opacity > 0.0 &&
+                          !cache->Get(other.drawing).isNull();
+    if (is_drawn) {
+      return only_pieces->contains(other.name);
+    }
+  }
+  return only_pieces->contains(joined.name);
+}
+
 void Painter::PaintJointCircle(const Doll& doll, const PlacedPiece& piece,
                                const QImage& image) const {
   assert(cache != nullptr && painter != nullptr);
@@ -197,15 +226,21 @@ void Painter::PaintJointCircle(const Doll& doll, const PlacedPiece& piece,
     return;
   }
   // Measured, never stored: a swapped drawing gets its own width.
-  const double radius = JointRadius(*cache->limbs()->Of(image),
-                                    rig->pivot + QPointF(piece.offset));
+  const QPointF at = rig->pivot + QPointF(piece.offset);
+  const double radius = JointRadius(*cache->limbs()->Of(image), at);
   const bool is_empty = radius <= 0.0;
   if (is_empty) {
     return;
   }
-  const QColor color = rig->joint_circle.color.isValid()
-                           ? rig->joint_circle.color
-                           : QColor(Qt::black);
+  // A hand-picked color for the shown drawing wins; else the shown
+  // drawing's own color, so a bare arm swapped in for a sleeve follows.
+  const auto& picked = rig->joint_circle.drawing_colors;
+  const auto own = piece.drawing_name.isEmpty()
+                       ? picked.end()
+                       : picked.find(piece.drawing_name);
+  const QColor color = own != picked.end() && own->second.isValid()
+                           ? own->second
+                           : cache->limbs()->ColorAt(image, at);
   painter->setTransform(piece.transform * world);
   painter->setPen(Qt::NoPen);
   painter->setBrush(color);

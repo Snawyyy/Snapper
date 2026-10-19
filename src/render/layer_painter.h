@@ -48,6 +48,11 @@ enum class PieceSplit {
   // The others above are drawn and the named ones erase what they
   // cover: what stands in front of the named pieces.
   kCover,
+  // As kOnly, for one part of a doll drawn in several (a storyboard
+  // sunk between its limbs): a joint circle is drawn only in the part
+  // holding the first drawn of the two pieces it joins, so it is never
+  // drawn twice.
+  kPart,
 };
 
 // Draws one picture layer (doll, image or text) through view, which

@@ -5,8 +5,13 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <optional>
+#include <set>
+#include <utility>
 #include <variant>
+#include <vector>
 
+#include "anim/doll_pose.h"
 #include "anim/jitter.h"
 #include "anim/layer_order.h"
 #include "anim/links.h"
@@ -82,6 +87,108 @@ void RunEffectLayer(const Shot& shot, const Layer& layer,
   }
 }
 
+// One thing RenderShot draws, back to front: a layer, or one part of a
+// doll layer that a storyboard sinks into (only those pieces).
+struct DrawStep final {
+  const Layer* layer = nullptr;
+  std::optional<std::set<QString>> part;
+  bool is_first_part = true;
+};
+
+// How many limbs layer sinks behind: its sink when it is a storyboard
+// this renderer draws, else 0.
+int SinkOf(const Layer& layer, bool shows_boards) {
+  const auto* board = std::get_if<StoryboardLayer>(&layer.content);
+  const bool is_drawn =
+      board != nullptr && (shows_boards || board->is_exported);
+  return is_drawn ? std::clamp(board->sink, 0, kMaxStoryboardSink) : 0;
+}
+
+// drawn (layers back to front) as draw steps. A doll with storyboards
+// right over it, one of which sinks, is cut into parts at each
+// storyboard's sink, counted in drawn limbs from the front at local,
+// and each storyboard is drawn between its parts. Storyboards sinking
+// equally deep keep their stack order.
+std::vector<DrawStep> DrawSteps(const Project& project,
+                                const std::vector<const Layer*>& drawn,
+                                Frame local, LinkSolver* links,
+                                ImageCache* cache, bool shows_boards) {
+  assert(links != nullptr && cache != nullptr);
+  assert(drawn.size() <= static_cast<size_t>(kMaxLayersPerShot));
+  std::vector<DrawStep> steps;
+  const size_t count = drawn.size();
+  size_t at = 0;
+  while (at < count) {
+    const Layer& layer = *drawn[at];
+    ++at;
+    const auto* posed = std::get_if<DollLayer>(&layer.content);
+    const Doll* doll =
+        posed != nullptr ? FindDoll(project, posed->doll) : nullptr;
+    size_t end = at;
+    bool has_sink = false;
+    while (end < count &&
+           std::holds_alternative<StoryboardLayer>(drawn[end]->content)) {
+      has_sink = has_sink || SinkOf(*drawn[end], shows_boards) > 0;
+      ++end;
+    }
+    const std::vector<PlacedPiece> placed =
+        doll != nullptr && has_sink
+            ? PlaceDoll(*doll, links->Poses(*doll, layer, local))
+            : std::vector<PlacedPiece>();
+    const bool is_sunk_into = !placed.empty();
+    if (!is_sunk_into) {
+      steps.push_back({&layer, std::nullopt, true});
+      continue;
+    }
+    // The drawn limbs, back to front, as places in placed: a sink
+    // counts only limbs that show.
+    std::vector<size_t> shown;
+    for (size_t i = 0; i < placed.size(); ++i) {
+      const bool is_shown = placed[i].opacity > 0.0 &&
+                            !cache->Get(placed[i].drawing).isNull();
+      if (is_shown) {
+        shown.push_back(i);
+      }
+    }
+    // Each storyboard with where the part in front of it starts.
+    std::vector<std::pair<size_t, const Layer*>> cuts;
+    for (size_t i = at; i < end; ++i) {
+      const size_t sink = std::min(
+          static_cast<size_t>(SinkOf(*drawn[i], shows_boards)), shown.size());
+      const size_t cut =
+          sink == 0 ? placed.size() : shown[shown.size() - sink];
+      cuts.emplace_back(cut, drawn[i]);
+    }
+    std::stable_sort(cuts.begin(), cuts.end(),
+                     [](const auto& a, const auto& b) {
+                       return a.first < b.first;
+                     });
+    size_t from = 0;
+    bool is_first = true;
+    const auto add_part = [&](size_t to) {
+      const bool is_empty = to <= from;
+      if (is_empty) {
+        return;
+      }
+      std::set<QString> part;
+      for (size_t i = from; i < to; ++i) {
+        part.insert(placed[i].name);
+      }
+      steps.push_back({&layer, std::move(part), is_first});
+      is_first = false;
+      from = to;
+    };
+    for (const auto& [cut, board] : cuts) {
+      add_part(cut);
+      steps.push_back({board, std::nullopt, true});
+    }
+    add_part(placed.size());
+    at = end;
+  }
+  assert(steps.size() >= count);
+  return steps;
+}
+
 }  // namespace
 
 QTransform FrameRenderer::ViewTransform(const Project& project,
@@ -116,8 +223,12 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
   if (needs_drawn) {
     pictures.drawn = Blank(project, scale, Qt::transparent);
   }
-  for (const Layer* drawn_layer : LayersInDrawOrder(shot, local)) {
-    const Layer& layer = *drawn_layer;
+  for (const DrawStep& step :
+       DrawSteps(project, LayersInDrawOrder(shot, local), local, &links,
+                 &cache_, is_storyboard_shown_)) {
+    const Layer& layer = *step.layer;
+    const std::set<QString>* part =
+        step.part.has_value() ? &*step.part : nullptr;
     const auto* effect = std::get_if<EffectLayer>(&layer.content);
     const bool is_effect = effect != nullptr;
     if (is_effect) {
@@ -131,11 +242,12 @@ QImage FrameRenderer::RenderShot(const Project& project, const Shot& shot,
     const bool is_split = !needs.IsEmpty();
     if (is_split) {
       PaintForComp(project, layer, local, scale, view, &links, needs,
-                   &pictures, &frame);
+                   &pictures, &frame, part, step.is_first_part);
       continue;
     }
     QPainter painter(&frame);
-    PaintLayer(project, layer, local, view, &links, &cache_, &painter);
+    PaintLayer(project, layer, local, view, &links, &cache_, &painter, part,
+               PieceSplit::kPart);
   }
   if (wants_drawn) {
     *drawn = pictures.drawn;
@@ -170,18 +282,27 @@ void FrameRenderer::PaintForComp(const Project& project, const Layer& layer,
                                  Frame local,
                                  double scale, const QTransform& view,
                                  LinkSolver* links, const CompNeeds& needs,
-                                 CompPictures* pictures, QImage* frame) {
+                                 CompPictures* pictures, QImage* frame,
+                                 const std::set<QString>* part,
+                                 bool is_first_part) {
   assert(pictures != nullptr && frame != nullptr);
   assert(!needs.IsEmpty());
+  assert(part != nullptr || is_first_part);
   QImage own = Blank(project, scale, Qt::transparent);
   {
     QPainter painter(&own);
-    PaintLayer(project, layer, local, view, links, &cache_, &painter);
+    PaintLayer(project, layer, local, view, links, &cache_, &painter, part,
+               PieceSplit::kPart);
   }
   // What this layer covers is cut out of the targets below it and joins
   // their covers, so an effect on a doll stays behind what stands in
-  // front of it.
+  // front of it. A later part of a doll leaves the doll's own targets
+  // alone: they were made whole with its first part.
   for (auto& [key, picture] : pictures->targets) {
+    const bool is_own_later = !is_first_part && key.layer == layer.id;
+    if (is_own_later) {
+      continue;
+    }
     QPainter painter(&picture);
     painter.setCompositionMode(QPainter::CompositionMode_DestinationOut);
     painter.drawImage(0, 0, own);
@@ -200,7 +321,17 @@ void FrameRenderer::PaintForComp(const Project& project, const Layer& layer,
     }
     const bool is_whole = key.pieces.empty();
     if (is_whole) {
-      pictures->targets[key] = own;
+      const auto made = pictures->targets.find(key);
+      const bool is_added = !is_first_part && made != pictures->targets.end();
+      if (is_added) {
+        QPainter adding(&made->second);
+        adding.drawImage(0, 0, own);
+      } else {
+        pictures->targets[key] = own;
+      }
+      continue;
+    }
+    if (!is_first_part) {
       continue;
     }
     // The doll's own pieces above the picked ones cover them too.

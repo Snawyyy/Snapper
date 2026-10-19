@@ -16,6 +16,7 @@ void AddStoryboardFields(const StoryboardLayer& board, QJsonObject* object) {
   }
   object->insert("opacity", board.opacity);
   object->insert("exported", board.is_exported);
+  object->insert("sink", board.sink);
   object->insert("cels", cels);
 }
 
@@ -26,6 +27,8 @@ StoryboardLayer StoryboardFromJson(const QJsonObject& object,
   board.opacity = std::clamp(
       object.value("opacity").toDouble(kDefaultStoryboardOpacity), 0.0, 1.0);
   board.is_exported = object.value("exported").toBool(false);
+  board.sink =
+      std::clamp(object.value("sink").toInt(0), 0, kMaxStoryboardSink);
   const QJsonArray cels =
       Bounded(object.value("cels"), kMaxStoryboardCels, "storyboard cels",
               issues);

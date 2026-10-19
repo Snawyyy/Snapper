@@ -3,6 +3,7 @@
 #include <QFormLayout>
 
 #include <cassert>
+#include <cmath>
 
 #include "edit/draw_manager.h"
 #include "edit/history_manager.h"
@@ -34,6 +35,9 @@ StoryboardBox::StoryboardBox(const Managers& managers)
   form->addRow(MakeFaderRow(tr("Opacity"), &opacity_, &live_, 1.0,
                             kDefaultStoryboardOpacity, &form_host_));
   form->addRow(&exported_);
+  SetUpNumber(&sink_, Number::kPlaces);
+  sink_.setMinimum(0.0);
+  AddNumberRow(form, tr("Sink behind limbs"), &sink_, &live_);
   form->addRow(TileRow({&draw_new_, &draw_over_}, &form_host_));
   form->addRow(&remove_);
   count_.setWordWrap(true);
@@ -46,6 +50,12 @@ StoryboardBox::StoryboardBox(const Managers& managers)
     emit Problem(
         ProblemOf(board->SetOpacity(Shot(), Layer(), opacity_.value())));
   });
+  MakeLive(&sink_, &live_, tr("Sink storyboard behind limbs"), this,
+           [this, board] {
+             emit Problem(ProblemOf(board->SetSink(
+                 Shot(), Layer(), static_cast<int>(std::lround(
+                                      sink_.value())))));
+           });
   connect(&draw_new_, &QPushButton::clicked, this,
           [this] { RequestStoryboard(managers_, false); });
   connect(&draw_over_, &QPushButton::clicked, this,
@@ -88,6 +98,9 @@ void StoryboardBox::Refresh() {
              "animatic."));
   Explain(&opacity_, no_layer,
           tr("How strongly the storyboard shows over what lies under it."));
+  Explain(&sink_, no_layer,
+          tr("How many limbs of the doll right under this layer it goes "
+             "behind, counted from the front. 0 lies over the whole doll."));
   Explain(&draw_new_, WhyNoStoryboardHere(managers_, false),
           tr("A blank frame from the playhead on, with the frame before "
              "faint to trace from (Alt+N)."));
@@ -102,6 +115,7 @@ void StoryboardBox::Refresh() {
   const QSignalBlocker quiet_export(exported_);
   exported_.setChecked(board->is_exported);
   ShowNumber(&opacity_, board->opacity);
+  ShowNumber(&sink_, board->sink);
   const size_t count = board->cels.size();
   const QString frames =
       count == 1 ? tr("1 frame.") : tr("%1 frames.").arg(count);
