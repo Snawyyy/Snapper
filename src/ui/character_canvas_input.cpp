@@ -46,7 +46,7 @@ void CharacterCanvas::OpenScope(const QString& label) {
 
 void CharacterCanvas::CloseScope(bool keep) {
   assert(history_ != nullptr);
-  assert(drag_ != Drag::kNone || scope_ == nullptr);
+  assert(!keep || scope_ == nullptr || history_->IsScopeOpen());
   if (scope_ != nullptr && !keep) {
     scope_->Cancel();
   }

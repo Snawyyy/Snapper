@@ -5,6 +5,7 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QInputDialog>
+#include <QSignalBlocker>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -344,7 +345,21 @@ void CharacterPartsPanel::FillTree(const Character& character, PartId parent,
 void CharacterPartsPanel::Refresh() {
   assert(history_ != nullptr);
   assert(session_ != nullptr);
+  // Filling can change the session (the first character gets picked),
+  // which asks for a refresh: that one runs once this one is done.
+  if (is_filling_) {
+    is_stale_ = true;
+    return;
+  }
+  do {
+    is_stale_ = false;
+    FillAll();
+  } while (is_stale_);
+}
+
+void CharacterPartsPanel::FillAll() {
   is_filling_ = true;
+  const QSignalBlocker quiet(&tree_);
   RefreshCharacters();
   tree_.clear();
   const Character* character =

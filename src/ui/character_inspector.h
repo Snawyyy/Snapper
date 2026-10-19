@@ -4,6 +4,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QFormLayout>
 #include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
@@ -72,6 +73,7 @@ class CharacterInspector final : public QWidget {
   bool is_filling_ = false;
 
   QWidget* part_section_ = nullptr;
+  QFormLayout* part_form_ = nullptr;
   QLabel part_kind_;
   QDoubleSpinBox x_;
   QDoubleSpinBox y_;

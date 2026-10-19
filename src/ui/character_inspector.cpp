@@ -75,14 +75,18 @@ CharacterInspector::CharacterInspector(HistoryManager* history,
   auto* layout = new QVBoxLayout(this);
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(theme::kRowGap);
+  layout->setSizeConstraint(QLayout::SetMinAndMaxSize);
   part_section_ = PlatedSection(tr("Part"), BuildPart(), this);
   look_section_ = PlatedSection(tr("Look"), BuildLook(), this);
   bone_section_ = PlatedSection(tr("Bone"), BuildBone(), this);
   action_section_ = PlatedSection(tr("Smart bone action"), BuildAction(), this);
-  layout->addWidget(part_section_);
-  layout->addWidget(look_section_);
-  layout->addWidget(bone_section_);
-  layout->addWidget(action_section_);
+  // Each section keeps the height its rows ask for; the panel scrolls
+  // instead of squeezing them.
+  for (QWidget* section :
+       {part_section_, look_section_, bone_section_, action_section_}) {
+    section->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    layout->addWidget(section);
+  }
   layout->addStretch(1);
   connect(history_, &HistoryManager::Changed, this, &CharacterInspector::Refresh);
   connect(session_, &CharacterSession::Changed, this,
@@ -107,6 +111,7 @@ void CharacterInspector::Report(const Result<void>& done) {
 QWidget* CharacterInspector::BuildPart() {
   auto* body = new QWidget(this);
   QFormLayout* form = SettingsForm(body);
+  part_form_ = form;
   SetUpNumber(&x_, -100000, 100000, 1, 1, tr(" px"));
   SetUpNumber(&y_, -100000, 100000, 1, 1, tr(" px"));
   SetUpNumber(&turn_, -3600, 3600, 1, 1, tr(" deg"));
@@ -279,6 +284,8 @@ QWidget* CharacterInspector::BuildAction() {
   layout->setSpacing(theme::kRowGap / 2);
   action_turn_.setOrientation(Qt::Horizontal);
   action_turn_.setRange(-180, 180);
+  action_turn_.setTickPosition(QSlider::TicksBelow);
+  action_turn_.setTickInterval(45);
   action_turn_.setToolTip(
       tr("Turn the smart bone to see its action; double click goes back to rest"));
   layout->addWidget(&action_turn_text_);
@@ -286,7 +293,8 @@ QWidget* CharacterInspector::BuildAction() {
   stops_.setMaximumHeight(110);
   stops_.setToolTip(tr("The turns where the action is posed"));
   layout->addWidget(&stops_);
-  add_stop_.setText(tr("Add stop here"));
+  add_stop_.setText(tr("Add stop"));
+  add_stop_.setToolTip(tr("Save a stop at the turn shown, then pose it"));
   pose_stop_.setText(tr("Pose stop"));
   pose_stop_.setCheckable(true);
   pose_stop_.setToolTip(tr("While on, what you move on the canvas is saved "
@@ -428,9 +436,13 @@ void CharacterInspector::RefreshPart(const Character& character,
   }
   bind_bone_.setCurrentIndex(std::max(0, bind_bone_.findData(part.bound_bone.value())));
   bind_bone_.setEnabled(is_bendable && part.bind == BindMode::kLayer);
+  // Only what the part can use shows: binding inside a bone part, the
+  // rest pick on a switch.
+  part_form_->setRowVisible(&bind_, is_bendable);
+  part_form_->setRowVisible(&bind_bone_,
+                            is_bendable && part.bind == BindMode::kLayer);
   const bool is_switch = part.kind == PartKind::kSwitch;
-  pick_label_.setVisible(is_switch);
-  rest_pick_.setVisible(is_switch);
+  part_form_->setRowVisible(&rest_pick_, is_switch);
   rest_pick_.clear();
   for (PartId child : ChildrenOf(character, part.id)) {
     rest_pick_.addItem(FindPart(character, child)->name, child.value());

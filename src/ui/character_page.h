@@ -46,13 +46,14 @@ class CharacterPage final : public QWidget {
 
   HistoryManager* history_;
   CharacterSession session_;
+  // Holders first: what they hold is destroyed before them and leaves.
+  GripSplitter split_;
+  QScrollArea inspector_scroll_;
   CharacterCanvas canvas_;
   CharacterPartsPanel parts_;
   CharacterInspector inspector_;
-  QScrollArea inspector_scroll_;
-  GripSplitter split_;
   QButtonGroup tool_group_;
-  std::array<QToolButton*, kCharacterToolCount> tool_buttons_{};
+  std::array<QAbstractButton*, kCharacterToolCount> tool_buttons_{};
   QLabel hint_;
 };
 

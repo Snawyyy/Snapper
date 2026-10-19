@@ -46,6 +46,7 @@ class CharacterPartsPanel final : public QWidget {
 
  private:
   void Refresh();
+  void FillAll();
   void RefreshCharacters();
   void FillTree(const Character& character, PartId parent,
                 QTreeWidgetItem* under);
@@ -68,6 +69,7 @@ class CharacterPartsPanel final : public QWidget {
   QPushButton duplicate_;
   QPushButton remove_;
   bool is_filling_ = false;
+  bool is_stale_ = false;
 };
 
 }  // namespace snapper

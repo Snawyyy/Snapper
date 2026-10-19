@@ -32,12 +32,15 @@ void DrawMark(PartKind kind, QPainter* painter) {
       break;
     }
     case PartKind::kBone: {
-      painter->setBrush(theme::kFaceLight);
-      painter->drawPolygon(QPolygonF{QPointF(6, 26), QPointF(9, 15),
-                                     QPointF(27, 5), QPointF(15, 22)});
-      painter->setBrush(theme::kHandle);
+      // A bone: a shaft with a round knuckle at each end.
+      painter->setPen(QPen(theme::kText, 4.0, Qt::SolidLine, Qt::RoundCap));
+      painter->drawLine(QPointF(9, 23), QPointF(23, 9));
       painter->setPen(QPen(theme::kShadow, 1.0));
-      painter->drawEllipse(QPointF(27, 5), 3.0, 3.0);
+      painter->setBrush(theme::kText);
+      painter->drawEllipse(QPointF(6, 23), 3.6, 3.6);
+      painter->drawEllipse(QPointF(9, 26), 3.6, 3.6);
+      painter->drawEllipse(QPointF(23, 6), 3.6, 3.6);
+      painter->drawEllipse(QPointF(26, 9), 3.6, 3.6);
       break;
     }
     case PartKind::kGroup:

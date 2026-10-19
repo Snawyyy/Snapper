@@ -8,6 +8,7 @@
 
 #include "edit/history_manager.h"
 #include "ui/theme.h"
+#include "ui/tool_button.h"
 
 namespace snapper {
 namespace {
@@ -65,12 +66,12 @@ CharacterPage::CharacterPage(HistoryManager* history,
                              const QString& settings_path, QWidget* parent)
     : QWidget(parent),
       history_(history),
+      split_(Qt::Horizontal),
       canvas_(history, characters, &session_),
       parts_(history, characters, &session_),
-      inspector_(history, characters, &session_),
-      split_(Qt::Horizontal) {
+      inspector_(history, characters, &session_) {
   assert(history_ != nullptr && characters != nullptr);
-  assert(!settings_path.isNull());
+  assert(settings_path.size() < 100000);
   auto* layout = new QVBoxLayout(this);
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(0);
@@ -112,11 +113,8 @@ QWidget* CharacterPage::BuildTools() {
   tool_group_.setExclusive(true);
   for (int i = 0; i < kCharacterToolCount; ++i) {
     const ToolSpec& spec = kTools[i];
-    auto* button = new QToolButton(bar);
-    button->setText(tr(spec.label));
-    button->setCheckable(true);
-    button->setAutoRaise(true);
-    button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    auto* button = new ToolButton(tr(spec.label),
+                                  QKeySequence(spec.key).toString(), bar);
     button->setToolTip(QStringLiteral("%1 (%2)\n%3")
                            .arg(tr(spec.label),
                                 QKeySequence(spec.key).toString(),
@@ -146,7 +144,7 @@ void CharacterPage::RefreshTools() {
       character != nullptr ? FindPart(*character, session_.part()) : nullptr;
   for (int i = 0; i < kCharacterToolCount; ++i) {
     const ToolSpec& spec = kTools[i];
-    QToolButton* button = tool_buttons_[static_cast<size_t>(i)];
+    QAbstractButton* button = tool_buttons_[static_cast<size_t>(i)];
     const bool is_drawing = part != nullptr && part->kind == PartKind::kVector;
     const bool is_bones = part != nullptr && part->kind == PartKind::kBone;
     const bool is_usable = part == nullptr ? spec.tool == CharacterTool::kPick
