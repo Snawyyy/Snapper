@@ -163,11 +163,15 @@ void ReelTimeline::PaintSoundBody(QPainter* painter, const Clip& clip,
         half;
     painter->drawLine(QPointF(x, middle - level), QPointF(x, middle + level));
   }
-  deck::PaintGlowText(
-      painter, QRectF(box.left() + 6, box.bottom() - 17, box.width() - 10, 14),
-      is_missing ? tr("%1 (find file)").arg(QFileInfo(source.path).fileName())
-                 : QFileInfo(source.path).fileName(),
-      is_heard);
+  const bool has_label_room = box.width() > 10.0;
+  if (has_label_room) {
+    deck::PaintGlowText(
+        painter,
+        QRectF(box.left() + 6, box.bottom() - 17, box.width() - 10, 14),
+        is_missing ? tr("%1 (find file)").arg(QFileInfo(source.path).fileName())
+                   : QFileInfo(source.path).fileName(),
+        is_heard);
+  }
   // The volume line, sloping down over the fades.
   const double y = VolumeY(box, clip.volume);
   QPainterPath line(QPointF(box.left(), box.bottom() - 2.0));
