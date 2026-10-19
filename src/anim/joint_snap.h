@@ -113,7 +113,7 @@ std::optional<ShapeSnap> NearestShapeSnap(const LimbMask& own,
 double JointRadius(const LimbMask& mask, QPointF pivot);
 
 // The most common solid color of drawing within a few pixels of at, for
-// a new joint circle; black when none is there.
+// a joint circle without a hand-picked color; black when none is there.
 QColor JointColorAt(const QImage& drawing, QPointF at);
 
 // Measured drawings kept by the image's cache key, so a drag measures
@@ -121,9 +121,20 @@ QColor JointColorAt(const QImage& drawing, QPointF at);
 class LimbMemo final {
  public:
   std::shared_ptr<const LimbMask> Of(const QImage& drawing);
+  // JointColorAt(drawing, at), counted once per drawing and pixel.
+  QColor ColorAt(const QImage& drawing, QPointF at);
 
  private:
+  struct ColorKey final {
+    std::int64_t image = 0;
+    int x = 0;
+    int y = 0;
+
+    auto operator<=>(const ColorKey&) const = default;
+  };
+
   std::map<std::int64_t, std::shared_ptr<const LimbMask>> masks_;
+  std::map<ColorKey, QColor> colors_;
 };
 
 }  // namespace snapper

@@ -140,7 +140,8 @@ std::vector<PlacedPiece> PlaceDoll(const Doll& doll, const PoseMap& poses) {
                       pose.opacity,
                       rig.warp,
                       {},
-                      DrawingOffset(doll, rig.name, pose.drawing)};
+                      DrawingOffset(doll, rig.name, pose.drawing),
+                      ShownDrawingName(doll, rig.name, pose.drawing)};
     const bool is_warped =
         rig.warp.IsOn() &&
         static_cast<int>(pose.warp.size()) == rig.warp.PointCount();

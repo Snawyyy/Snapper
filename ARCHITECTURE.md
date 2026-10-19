@@ -1315,8 +1315,13 @@ limb's middle line, the line across, the spot ring and end circle
 drag freely. Right click > Snap to shape or Snap all joints goes through
 `RigManager::SnapJointsToShape` (edit/rig_snap.cpp), one undo step.
 A joint circle (`RigPiece::joint_circle`, rig.json `joint_circle`) is
-turned on with J (`ToggleJointCircle`, taking `JointColorAt` the first
-time) and recolored by a palette pick (`SetJointCircleColor`). The
+turned on with J (`ToggleJointCircle`). Its color is measured from the
+shown drawing each time (`JointColorAt` through `LimbMemo::ColorAt`), so
+a swapped drawing brings its own color, unless a palette pick set one
+for that drawing (`JointCircle::drawing_colors` by drawing name,
+`SetJointCircleColor`; an invalid color, right click > Circle color:
+auto, clears it). The renderer finds the shown drawing's name in
+`PlacedPiece::drawing_name`. The
 shared renderer draws it before the first drawn of its piece and its
 parent, so it sits under both (`PaintCirclesUnder`), its radius measured
 from the shown drawing each time (`JointRadius` over the

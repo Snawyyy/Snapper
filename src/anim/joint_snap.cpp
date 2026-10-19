@@ -302,16 +302,14 @@ double JointRadius(const LimbMask& mask, QPointF pivot) {
 QColor JointColorAt(const QImage& drawing, QPointF at) {
   assert(std::isfinite(at.x()) && std::isfinite(at.y()));
   assert(kJointColorReach > 0);
-  const QImage image = drawing.isNull()
-                           ? QImage()
-                           : drawing.convertToFormat(QImage::Format_ARGB32);
+  // pixel() reads any format; a solid pixel is the same premultiplied.
   std::map<QRgb, int> counts;
   const int cx = static_cast<int>(std::floor(at.x()));
   const int cy = static_cast<int>(std::floor(at.y()));
   for (int y = cy - kJointColorReach; y <= cy + kJointColorReach; ++y) {
     for (int x = cx - kJointColorReach; x <= cx + kJointColorReach; ++x) {
-      const bool is_in = image.valid(x, y);
-      const QRgb pixel = is_in ? image.pixel(x, y) : 0;
+      const bool is_in = drawing.valid(x, y);
+      const QRgb pixel = is_in ? drawing.pixel(x, y) : 0;
       const bool is_solid = is_in && qAlpha(pixel) == 255;
       if (is_solid) {
         ++counts[pixel];

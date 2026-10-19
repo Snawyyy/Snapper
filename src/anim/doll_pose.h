@@ -37,6 +37,8 @@ struct PlacedPiece final {
   std::vector<QPointF> warp_points;
   // Where the frame starts in the drawing shown (OwnDrawing::offset).
   QPoint offset;
+  // The drawing's name (see DrawingName); empty when there is none.
+  QString drawing_name{};
 };
 
 using PoseMap = std::map<QString, PiecePose>;

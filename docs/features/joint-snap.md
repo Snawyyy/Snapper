@@ -24,6 +24,7 @@ Placing a joint should land it on the limb's true center, and bending it should 
 - A circle drawn at the joint, its diameter the limb's width measured there, so the bend shows a round elbow instead of a gap or a corner.
 - On by a toggle per joint in the joint's settings (proposed key: J on a picked joint). A doll setting turns it on for new joints.
 - Color: picked from the [floating palette](palette.md), so it is one of the doll's own colors. By default it takes the most common color at the joint, which is usually the limb's fill.
+- The color follows the drawing shown (changed 2026-10-16 on the owner's word: a black sleeve's circle stayed black on the bare arm). With no color picked, it is measured from the shown drawing each time, like the width. A palette pick colors the drawing the rig canvas shows only (`JointCircle::drawing_colors`, by drawing name); right click > Circle color: auto gives that drawing back its measured color. Rigs saved before this had one color, the one measured when the circle was turned on; it is dropped on load.
 - Outline: optional, with its own color and width from the palette, drawn only on the outer side of the bend so it continues the limb's outline instead of crossing the fill.
 - Size: follows the width automatically; a Size fader nudges it (90% to 120%) for limbs that taper at the joint.
 - Draw order: between the two pieces, just under the upper one, so it fills the gap without covering either drawing's lines.

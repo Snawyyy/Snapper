@@ -161,10 +161,7 @@ void RigCanvas::ToggleJointCircle(const QString& piece) {
   if (!can_act) {
     return;
   }
-  const QImage drawing =
-      FrameOf(*doll, piece, -1, cache_.Get(DrawingPath(*doll, piece, -1)));
-  emit Problem(ProblemOf(
-      managers_.rig->ToggleJointCircle(doll_, piece, drawing)));
+  emit Problem(ProblemOf(managers_.rig->ToggleJointCircle(doll_, piece)));
 }
 
 void RigCanvas::ColorJointCircle(const QColor& color) {
@@ -176,12 +173,25 @@ void RigCanvas::ColorJointCircle(const QColor& color) {
                             ? FindRig(doll->rig, piece_)
                             : nullptr;
   // The palette serves draw mode too: only a shown canvas with a circle
-  // to color takes the pick.
+  // to color takes the pick. It colors the drawing shown here only.
   const bool takes = isVisible() && rig != nullptr && rig->joint_circle.is_on;
   if (takes) {
-    emit Problem(ProblemOf(
-        managers_.rig->SetJointCircleColor(doll_, piece_, color)));
+    emit Problem(ProblemOf(managers_.rig->SetJointCircleColor(
+        doll_, piece_, RigDrawing(*doll, piece_), color)));
   }
+}
+
+void RigCanvas::AutoJointCircleColor(const QString& piece) {
+  assert(managers_.rig != nullptr);
+  assert(managers_.history != nullptr);
+  const Doll* doll =
+      doll_.isEmpty() ? nullptr : FindDoll(managers_.history->current(), doll_);
+  const bool can_act = doll != nullptr && !piece.isEmpty();
+  if (!can_act) {
+    return;
+  }
+  emit Problem(ProblemOf(managers_.rig->SetJointCircleColor(
+      doll_, piece, RigDrawing(*doll, piece), QColor())));
 }
 
 }  // namespace snapper

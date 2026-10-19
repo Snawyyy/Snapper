@@ -232,13 +232,15 @@ class RigManager final {
   Result<std::vector<QString>> SnapJointsToShape(
       const QString& doll, const std::vector<QString>& pieces,
       const std::map<QString, QImage>& drawings);
-  // Turns piece's joint circle on or off, one undo step. Turned on for
-  // the first time it takes drawing's (the piece's drawing at rest) most
-  // common color at the joint (JointColorAt).
-  Result<void> ToggleJointCircle(const QString& doll, const QString& piece,
-                                 const QImage& drawing);
-  // Gives piece's joint circle color (a palette pick); one undo step. Refused while the circle is off.
+  // Turns piece's joint circle on or off, one undo step. Its color is
+  // measured from the drawing shown (JointColorAt) unless one was
+  // picked for that drawing.
+  Result<void> ToggleJointCircle(const QString& doll, const QString& piece);
+  // Gives piece's joint circle color (a palette pick) for drawing (its
+  // name, see DrawingName) only; an invalid color goes back to the
+  // measured one. One undo step. Refused while the circle is off.
   Result<void> SetJointCircleColor(const QString& doll, const QString& piece,
+                                   const QString& drawing,
                                    const QColor& color);
 
   // upper must be lower's parent; the name must be new.

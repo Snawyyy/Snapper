@@ -14,6 +14,8 @@ namespace {
 
 // Kept measurements before the memo starts over.
 constexpr size_t kMaxMemo = 64;
+// Joint colors kept: a dragged joint passes over many pixels.
+constexpr size_t kMaxMemoColors = 4096;
 
 // Running sums of a shape's pixel centers, for its middle and spread.
 struct Sums final {
@@ -260,6 +262,26 @@ std::shared_ptr<const LimbMask> LimbMemo::Of(const QImage& drawing) {
   auto mask = std::make_shared<const LimbMask>(MeasureLimbs(drawing));
   masks_[key] = mask;
   return mask;
+}
+
+QColor LimbMemo::ColorAt(const QImage& drawing, QPointF at) {
+  assert(colors_.size() <= kMaxMemoColors);
+  assert(std::isfinite(at.x()) && std::isfinite(at.y()));
+  const ColorKey key{drawing.cacheKey(),
+                     static_cast<int>(std::floor(at.x())),
+                     static_cast<int>(std::floor(at.y()))};
+  const auto found = colors_.find(key);
+  const bool is_known = found != colors_.end();
+  if (is_known) {
+    return found->second;
+  }
+  const bool is_full = colors_.size() >= kMaxMemoColors;
+  if (is_full) {
+    colors_.clear();
+  }
+  const QColor color = JointColorAt(drawing, at);
+  colors_[key] = color;
+  return color;
 }
 
 }  // namespace snapper

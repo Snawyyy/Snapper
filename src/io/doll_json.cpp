@@ -311,12 +311,16 @@ QJsonObject RigToJson(const Rig& rig, bool with_layers) {
     if (!piece.own_drawings.empty()) {
       object.insert("own_drawings", OwnDrawingsToJson(piece.own_drawings));
     }
-    const bool has_circle =
-        piece.joint_circle.is_on || piece.joint_circle.color.isValid();
+    const auto& colors = piece.joint_circle.drawing_colors;
+    const bool has_circle = piece.joint_circle.is_on || !colors.empty();
     if (has_circle) {
       QJsonObject circle{{"on", piece.joint_circle.is_on}};
-      if (piece.joint_circle.color.isValid()) {
-        circle.insert("color", ColorToJson(piece.joint_circle.color));
+      QJsonObject by_drawing;
+      for (const auto& [drawing, color] : colors) {
+        by_drawing.insert(drawing, ColorToJson(color));
+      }
+      if (!by_drawing.isEmpty()) {
+        circle.insert("colors", by_drawing);
       }
       object.insert("joint_circle", circle);
     }
@@ -391,12 +395,16 @@ Rig RigFromJson(const QJsonObject& object, JsonIssues* issues) {
                                             issues)});
     rig.pieces.back().own_drawings =
         OwnDrawingsFromJson(piece.value("own_drawings"), issues);
+    // An old single "color" was the color measured when the circle was
+    // turned on, so it is dropped: the circle measures each drawing.
     const QJsonObject circle = piece.value("joint_circle").toObject();
-    rig.pieces.back().joint_circle = JointCircle{
-        circle.value("on").toBool(),
-        circle.contains("color")
-            ? ColorFromJson(circle.value("color"), QColor(Qt::black), issues)
-            : QColor()};
+    JointCircle& joint_circle = rig.pieces.back().joint_circle;
+    joint_circle.is_on = circle.value("on").toBool();
+    const QJsonObject colors = circle.value("colors").toObject();
+    for (auto at = colors.begin(); at != colors.end(); ++at) {
+      joint_circle.drawing_colors[at.key()] =
+          ColorFromJson(at.value(), QColor(Qt::black), issues);
+    }
     rig.pieces.back().stays_crisp = piece.value("crisp").toBool();
     rig.pieces.back().drawing_colliders =
         DrawingCollidersFromJson(piece.value("drawing_colliders"));

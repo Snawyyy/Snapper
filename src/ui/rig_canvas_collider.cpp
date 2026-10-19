@@ -103,6 +103,13 @@ void RigCanvas::contextMenuEvent(QContextMenuEvent* event) {
   QAction* circle = menu.addAction(tr("Joint circle\tJ"));
   circle->setCheckable(true);
   circle->setChecked(rig != nullptr && rig->joint_circle.is_on);
+  QAction* auto_color = menu.addAction(tr("Circle color: auto"));
+  const QString shown = RigDrawing(*doll, *hit);
+  const bool has_own = rig != nullptr && rig->joint_circle.is_on &&
+                       rig->joint_circle.drawing_colors.contains(shown);
+  Explain(auto_color,
+          has_own ? QString()
+                  : tr("The circle already takes this drawing's color."));
   menu.addSeparator();
   QAction* mirror = menu.addAction(tr("Mirror rig to other side"));
   Explain(mirror, managers_.rig->WhyNoMirror(doll_, *hit));
@@ -128,6 +135,8 @@ void RigCanvas::contextMenuEvent(QContextMenuEvent* event) {
     SnapJoints(all);
   } else if (chosen == circle) {
     ToggleJointCircle(*hit);
+  } else if (chosen == auto_color) {
+    AutoJointCircleColor(*hit);
   }
 }
 

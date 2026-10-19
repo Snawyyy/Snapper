@@ -236,9 +236,11 @@ struct OwnDrawing final {
 // a round elbow instead of a gap.
 struct JointCircle final {
   bool is_on = false;
-  // Invalid until set; turning the circle on sets it to the drawing's
-  // most common color at the joint.
-  QColor color{};
+  // Colors picked by hand, by drawing name (see DrawingName), so a
+  // sleeved arm and a bare one each keep their own. A drawing without
+  // one takes the shown drawing's most common color at the joint,
+  // measured each time like the width (JointColorAt).
+  std::map<QString, QColor> drawing_colors{};
 
   bool operator==(const JointCircle&) const = default;
 };

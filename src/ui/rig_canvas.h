@@ -167,8 +167,11 @@ class RigCanvas final : public QWidget {
   // J or the right click entry: the focused joint's circle on or off.
   void ToggleJointCircle(const QString& piece);
   // A palette pick while the canvas shows and the focused joint has its
-  // circle on colors that circle.
+  // circle on colors that circle, for the drawing shown here only.
   void ColorJointCircle(const QColor& color);
+  // Right click > Circle color: auto: the drawing shown here goes back
+  // to its measured circle color.
+  void AutoJointCircleColor(const QString& piece);
   // Select all: every piece of the doll.
   void PickAllPieces();
   void ApplyPick(const std::set<QString>& pieces, PickMode mode,

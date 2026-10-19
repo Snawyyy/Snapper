@@ -101,30 +101,25 @@ Result<std::vector<QString>> RigManager::SnapJointsToShape(
 }
 
 Result<void> RigManager::ToggleJointCircle(const QString& doll,
-                                           const QString& piece,
-                                           const QImage& drawing) {
+                                           const QString& piece) {
   assert(history_ != nullptr);
   assert(!piece.isEmpty());
   const RigPiece* now = RigOf(doll, piece);
   if (now == nullptr) {
     return std::unexpected(NoPiece(doll, piece));
   }
-  JointCircle circle = now->joint_circle;
-  circle.is_on = !circle.is_on;
-  const bool needs_color = circle.is_on && !circle.color.isValid();
-  if (needs_color) {
-    circle.color = JointColorAt(drawing, now->pivot);
-  }
+  const bool is_on = !now->joint_circle.is_on;
   return history_->Apply(
       Tr("Joint circle %1").arg(piece),
       WithRig(history_->current(), doll, [&](Rig* rig) {
-        FindRig(rig, piece)->joint_circle = circle;
+        FindRig(rig, piece)->joint_circle.is_on = is_on;
         return Result<void>();
       }));
 }
 
 Result<void> RigManager::SetJointCircleColor(const QString& doll,
                                              const QString& piece,
+                                             const QString& drawing,
                                              const QColor& color) {
   assert(history_ != nullptr);
   assert(!piece.isEmpty());
@@ -132,17 +127,34 @@ Result<void> RigManager::SetJointCircleColor(const QString& doll,
   if (now == nullptr) {
     return std::unexpected(NoPiece(doll, piece));
   }
-  const bool is_usable = now->joint_circle.is_on && color.isValid();
-  if (!is_usable) {
+  const bool is_on = now->joint_circle.is_on;
+  if (!is_on) {
     return std::unexpected(Error{
         Tr("Turn on the joint circle of %1 first (J).").arg(piece)});
   }
+  if (drawing.isEmpty()) {
+    return std::unexpected(
+        Error{Tr("%1 shows no drawing to color the circle for.").arg(piece)});
+  }
+  const auto& colors = now->joint_circle.drawing_colors;
+  const bool is_auto = !color.isValid();
+  const bool has_own = colors.contains(drawing);
+  if (is_auto && !has_own) {
+    return std::unexpected(Error{
+        Tr("The circle of %1 already takes %2's color.").arg(piece, drawing)});
+  }
   auto next = WithRig(history_->current(), doll, [&](Rig* rig) {
-    FindRig(rig, piece)->joint_circle.color = color;
+    auto& own = FindRig(rig, piece)->joint_circle.drawing_colors;
+    if (is_auto) {
+      own.erase(drawing);
+    } else {
+      own[drawing] = color;
+    }
     return Result<void>();
   });
-  return history_->Apply(Tr("Joint circle color %1").arg(piece),
-                         std::move(next));
+  const QString label = is_auto ? Tr("Joint circle color auto %1").arg(piece)
+                                : Tr("Joint circle color %1").arg(piece);
+  return history_->Apply(label, std::move(next));
 }
 
 }  // namespace snapper

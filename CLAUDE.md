@@ -58,6 +58,14 @@ Manager. It writes dolls to `~/.local/share/Snapper/Snapper/dolls`.
 Update this section at the end of every session: the last thing done,
 then the next steps. Full story: `docs/session-2026-10-08.md`.
 
+Last done (2026-10-16, branch `tape-keys`): joint circle color follows
+the drawing shown. With no color picked it is measured from the shown
+drawing every paint (`LimbMemo::ColorAt`), so a sleeve swapped for a
+bare arm recolors the circle; a palette pick sets the color for the rig
+canvas's drawing only (`JointCircle::drawing_colors`, rig.json
+`joint_circle.colors`), right click > Circle color: auto clears it. The
+old single saved `color` is dropped on load. Next: owner tries it by eye.
+
 Last done (2026-10-15, branch `tape-keys`, not pushed): the retro gear
 look. Tape recorder play keys, radio dial ruler, Cast tabs as divider
 sheets, a cassette player under them; then all three timelines dressed
