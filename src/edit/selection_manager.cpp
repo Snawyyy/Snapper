@@ -19,19 +19,6 @@ SelectionManager::SelectionManager(HistoryManager* history)
   assert(keys_.empty());
 }
 
-std::set<QString> SelectionManager::pieces() const {
-  assert(picks_.size() < 100000);
-  std::set<QString> pieces;
-  for (const Pick& pick : picks_) {
-    const bool is_focus_piece = pick.layer == focus_ && !pick.piece.isEmpty();
-    if (is_focus_piece) {
-      pieces.insert(pick.piece);
-    }
-  }
-  assert(pieces.size() <= picks_.size());
-  return pieces;
-}
-
 std::vector<LayerId> SelectionManager::PickedLayers() const {
   assert(picks_.size() < 100000);
   std::vector<LayerId> layers;
@@ -50,10 +37,7 @@ std::vector<TrackRef> SelectionManager::PickedTracks() const {
   assert(picks_.size() < 100000);
   std::vector<TrackRef> tracks;
   for (const Pick& pick : picks_) {
-    const bool is_piece = !pick.piece.isEmpty();
-    tracks.push_back(
-        is_piece ? TrackRef{shot_, TrackKind::kPiece, pick.layer, pick.piece}
-                 : TrackRef{shot_, TrackKind::kLayer, pick.layer, {}});
+    tracks.push_back(TrackRef{shot_, TrackKind::kLayer, pick.layer});
   }
   assert(tracks.size() == picks_.size());
   return tracks;
@@ -112,28 +96,13 @@ void SelectionManager::SelectLayer(LayerId layer) {
     PickThings({}, PickMode::kReplace, LayerId());
     return;
   }
-  const bool is_unknown = !IsReal({layer, {}});
+  const bool is_unknown = !IsReal(Pick{layer});
   const bool is_same =
-      focus_ == layer && picks_ == std::set<Pick>{{layer, {}}};
+      focus_ == layer && picks_ == std::set<Pick>{Pick{layer}};
   const bool is_new = !is_unknown && !is_same;
   if (is_new) {
-    PickThings({{layer, {}}}, PickMode::kReplace, layer);
+    PickThings({Pick{layer}}, PickMode::kReplace, layer);
   }
-}
-
-void SelectionManager::SelectPieces(const std::set<QString>& pieces,
-                                    bool add) {
-  assert(history_ != nullptr);
-  assert(pieces.size() <= static_cast<size_t>(kMaxPieceTracks));
-  std::set<Pick> picks;
-  for (const QString& piece : pieces) {
-    picks.insert({focus_, piece});
-  }
-  const bool is_layer_only = picks.empty() && !add;
-  if (is_layer_only) {
-    picks.insert({focus_, {}});
-  }
-  PickThings(picks, add ? PickMode::kAdd : PickMode::kReplace, focus_);
 }
 
 void SelectionManager::PickThings(const std::set<Pick>& picks, PickMode mode,
@@ -148,13 +117,6 @@ void SelectionManager::PickThings(const std::set<Pick>& picks, PickMode mode,
     }
   }
   std::set<Pick> next = Combine(picks_, real, mode);
-  // A layer picked by its pieces is no longer picked as a whole.
-  std::erase_if(next, [&next](const Pick& pick) {
-    return pick.piece.isEmpty() &&
-           std::any_of(next.begin(), next.end(), [&pick](const Pick& other) {
-             return other.layer == pick.layer && !other.piece.isEmpty();
-           });
-  });
   const LayerId before = focus_;
   const bool is_changed = next != picks_;
   picks_ = std::move(next);

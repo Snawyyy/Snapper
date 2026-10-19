@@ -11,25 +11,23 @@
 #include "edit/history_manager.h"
 #include "edit/pose_edits.h"
 #include "edit/pose_manager.h"
-#include "model/doll.h"
+#include "model/shot.h"
 
 namespace snapper {
 namespace {
 
-// A draw order stays within as many places as a doll has pieces, as the
-// project file keeps it.
+// A draw order stays within as many places as a shot has layers, as
+// the project file keeps it.
 int ClampedOrder(double places) {
   assert(std::isfinite(places));
-  assert(kMaxDollPieces > 0);
+  assert(kMaxLayersPerShot > 0);
   return static_cast<int>(std::clamp(std::lround(places),
-                                     static_cast<long>(-kMaxDollPieces),
-                                     static_cast<long>(kMaxDollPieces)));
+                                     static_cast<long>(-kMaxLayersPerShot),
+                                     static_cast<long>(kMaxLayersPerShot)));
 }
 
-// Sets one number of pose, kept in range as Shift keeps it; lean and
-// swivel only turn layers.
-void SetPoseField(PiecePose* pose, PoseField field, double value,
-                  bool is_layer) {
+// Sets one number of pose, kept in range as Shift keeps it.
+void SetPoseField(LayerPose* pose, PoseField field, double value) {
   assert(pose != nullptr);
   assert(std::isfinite(value));
   switch (field) {
@@ -41,10 +39,6 @@ void SetPoseField(PiecePose* pose, PoseField field, double value,
     case PoseField::kSkew: pose->skew = std::clamp(value, -85.0, 85.0); break;
     case PoseField::kOpacity:
       pose->opacity = std::clamp(value, 0.0, 1.0);
-      break;
-    case PoseField::kLean: pose->lean = is_layer ? value : pose->lean; break;
-    case PoseField::kSwivel:
-      pose->swivel = is_layer ? value : pose->swivel;
       break;
     case PoseField::kOrder: pose->order = ClampedOrder(value); break;
   }
@@ -77,18 +71,16 @@ Result<void> PoseManager::ShiftAs(const QString& name,
       std::isfinite(delta.rotation) && std::isfinite(delta.offset.x()) &&
       std::isfinite(delta.offset.y()) && std::isfinite(delta.scale_x) &&
       std::isfinite(delta.scale_y) && std::isfinite(delta.skew) &&
-      std::isfinite(delta.opacity) && std::isfinite(delta.lean) &&
-      std::isfinite(delta.swivel) && std::isfinite(delta.order);
+      std::isfinite(delta.opacity) && std::isfinite(delta.order);
   const bool is_usable = is_finite && !tracks.empty() && !frames.empty();
   if (!is_usable) {
     return std::unexpected(Error{Tr("Pick something to change first.")});
   }
   Project next = history_->current();
   for (const TrackRef& track : tracks) {
-    const bool is_layer = track.kind == TrackKind::kLayer;
     for (const Frame frame : frames) {
-      auto shifted = KeyedAt(next, track, frame, PiecePose(),
-                             [&delta, is_layer](PiecePose* pose) {
+      auto shifted = KeyedAt(next, track, frame, LayerPose(),
+                             [&delta](LayerPose* pose) {
                                pose->rotation += delta.rotation;
                                pose->offset += delta.offset;
                                pose->scale_x = std::max(
@@ -99,8 +91,6 @@ Result<void> PoseManager::ShiftAs(const QString& name,
                                    pose->skew + delta.skew, -85.0, 85.0);
                                pose->opacity = std::clamp(
                                    pose->opacity + delta.opacity, 0.0, 1.0);
-                               pose->lean += is_layer ? delta.lean : 0.0;
-                               pose->swivel += is_layer ? delta.swivel : 0.0;
                                pose->order = ClampedOrder(pose->order +
                                                           delta.order);
                                return Result<void>();
@@ -118,7 +108,7 @@ Result<void> PoseManager::StepOrder(const std::vector<TrackRef>& tracks,
                                     const std::vector<Frame>& frames,
                                     int by) {
   assert(history_ != nullptr);
-  assert(by >= -kMaxDollPieces && by <= kMaxDollPieces);
+  assert(by >= -kMaxLayersPerShot && by <= kMaxLayersPerShot);
   PoseDelta delta;
   delta.order = by;
   return ShiftAs(OrderName(tracks), tracks, frames, delta);
@@ -135,9 +125,7 @@ QString PoseManager::OrderName(const std::vector<TrackRef>& tracks) const {
   const Shot* shot = FindShot(history_->current(), track.shot);
   const Layer* layer = shot != nullptr ? FindLayer(*shot, track.layer)
                                        : nullptr;
-  const bool is_piece = track.kind == TrackKind::kPiece;
-  const QString name = is_piece ? track.piece
-                                : (layer != nullptr ? layer->name : QString());
+  const QString name = layer != nullptr ? layer->name : QString();
   const bool is_named = !name.isEmpty();
   return is_named ? Tr("Draw order %1").arg(name) : Tr("Draw order");
 }
@@ -154,11 +142,10 @@ Result<void> PoseManager::SetField(const std::vector<TrackRef>& tracks,
   }
   Project next = history_->current();
   for (const TrackRef& track : tracks) {
-    const bool is_layer = track.kind == TrackKind::kLayer;
     for (const Frame frame : frames) {
-      auto set = KeyedAt(next, track, frame, PiecePose(),
-                         [field, value, is_layer](PiecePose* pose) {
-                           SetPoseField(pose, field, value, is_layer);
+      auto set = KeyedAt(next, track, frame, LayerPose(),
+                         [field, value](LayerPose* pose) {
+                           SetPoseField(pose, field, value);
                            return Result<void>();
                          });
       if (!set) {

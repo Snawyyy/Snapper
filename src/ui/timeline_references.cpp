@@ -17,7 +17,7 @@
 #include "edit/reference_manager.h"
 #include "edit/selection_manager.h"
 #include "ui/deck_paint.h"
-#include "ui/doll_cards.h"
+#include "ui/character_cards.h"
 #include "ui/form_helpers.h"
 #include "ui/paint_clip.h"
 #include "ui/pick_keys.h"

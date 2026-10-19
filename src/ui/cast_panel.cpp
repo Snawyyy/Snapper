@@ -8,16 +8,14 @@
 #include <initializer_list>
 #include <variant>
 
-#include "edit/doll_library_manager.h"
+#include "edit/character_manager.h"
 #include "edit/history_manager.h"
-#include "edit/library_folder_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/stage_manager.h"
 #include "edit/document_manager.h"
 #include "ui/cassette_deck.h"
 #include "ui/divider_tabs.h"
-#include "ui/doll_drop.h"
-#include "ui/library_nav_bar.h"
+#include "ui/character_drop.h"
 #include "ui/panel_kit.h"
 #include "ui/pick_list.h"
 #include "ui/theme.h"
@@ -47,11 +45,9 @@ void FillKeyRow(QHBoxLayout* row,
 CastPanel::CastPanel(const Managers& managers)
     : managers_(managers),
       layout_(this),
-      import_(tr("Import")),
-      reload_(tr("Reload")),
+      new_(tr("New")),
+      edit_(tr("Edit")),
       place_(tr("Put on stage")),
-      add_objects_(tr("Add pictures...")),
-      background_(tr("Background...")),
       add_menu_(tr("Add")),
       copy_(tr("Copy")),
       remove_(tr("Delete")),
@@ -60,9 +56,9 @@ CastPanel::CastPanel(const Managers& managers)
   assert(managers_.IsComplete());
   BuildLayout();
   Wire();
-  RefreshLibrary();
+  RefreshCharacters();
   RefreshLayers();
-  assert(library_.parent() != nullptr);
+  assert(characters_.parent() != nullptr);
 }
 
 void CastPanel::BuildLayout() {
@@ -72,44 +68,28 @@ void CastPanel::BuildLayout() {
   layout_.setSpacing(theme::kRowGap);
   tabs_ = MakeOwned<DividerTabs>(this);
   tabs_->setDocumentMode(true);
-  QWidget* library = MakeLibraryPage();
-  // Layers is made before Objects so the layer list stays the second
-  // list among the children.
-  QWidget* layers = MakeLayersPage();
-  QWidget* objects = MakeObjectsPage();
-  tabs_->addTab(library, tr("Library"));
-  tabs_->addTab(objects, tr("Objects"));
-  const int layers_tab = tabs_->addTab(layers, tr("Layers"));
+  tabs_->addTab(MakeCharactersPage(), tr("Characters"));
+  const int layers_tab = tabs_->addTab(MakeLayersPage(), tr("Layers"));
   tabs_->setTabToolTip(layers_tab, tr("The shot's layers, top first; "
                                        "the timeline rows show the same."));
   const QString settings_path = managers_.document->SettingsPath();
   const bool is_saved = !settings_path.isEmpty();
   if (is_saved) {
     const QSettings settings(settings_path, QSettings::IniFormat);
-    tabs_->setCurrentIndex(settings.value(kTabKey, kLibraryTab).toInt());
+    tabs_->setCurrentIndex(settings.value(kTabKey, 0).toInt());
   }
   connect(tabs_, &QTabWidget::currentChanged, this,
           &CastPanel::RememberTab);
   layout_.addWidget(tabs_, 1);
   // The tape under the tabs turns with the playhead.
   layout_.addWidget(MakeOwned<CassetteDeck>(managers_), 0);
-  objects_.SetEmptyText(
-      tr("Drop PNG or GIF pictures here, or on the stage."));
-  objects_.AcceptFiles();
-  objects_.setToolTip(tr("Props made from pictures. Drag one onto the "
-                         "stage; drop picture files here to add them."));
-  add_objects_.setToolTip(tr("Make objects from PNG, GIF or WebP files."));
-  // Without the object manager (some test benches) only Background shows.
-  const bool has_objects = managers_.objects != nullptr;
-  objects_.setVisible(has_objects);
-  add_objects_.setVisible(has_objects);
+  characters_.setToolTip(tr("Drag a character onto the stage to put it "
+                            "there; double click to edit it."));
+  new_.setToolTip(tr("Make a new character and open it on the Character "
+                     "tab."));
   // Every list picks by the one rule; Delete asks the panel.
   connect(PickList::Install(&layers_), &PickList::DeleteAsked, this,
           &CastPanel::RemoveLayers);
-  connect(&library_, &DollCards::DeleteAsked, this,
-          [this] { DeleteInLibrary(); });
-  connect(&objects_, &DollCards::DeleteAsked, this,
-          [this] { TakeOut(objects_); });
   assert(layout_.count() > 0);
 }
 
@@ -124,33 +104,15 @@ void CastPanel::RememberTab(int tab) const {
   }
 }
 
-QWidget* CastPanel::MakeLibraryPage() {
+QWidget* CastPanel::MakeCharactersPage() {
   assert(tabs_ != nullptr);
-  assert(library_buttons_.count() == 0);
-  FillKeyRow(&library_buttons_, {&import_, &reload_, &place_});
+  assert(character_buttons_.count() == 0);
+  FillKeyRow(&character_buttons_, {&new_, &edit_, &place_});
   auto* page = MakeOwned<QWidget>(this);
   auto* column = MakeOwned<QVBoxLayout>(page);
   column->setContentsMargins(DividerTabs::PageMargins());
-  const bool has_folders = managers_.library_folders != nullptr;
-  if (has_folders) {
-    nav_ = MakeOwned<LibraryNavBar>(managers_);
-    column->addWidget(nav_);
-    library_.AcceptDollsOnFolders();
-  }
-  column->addWidget(&library_, 1);
-  column->addLayout(&library_buttons_);
-  return page;
-}
-
-QWidget* CastPanel::MakeObjectsPage() {
-  assert(tabs_ != nullptr);
-  assert(object_buttons_.count() == 0);
-  FillKeyRow(&object_buttons_, {&add_objects_, &background_});
-  auto* page = MakeOwned<QWidget>(this);
-  auto* column = MakeOwned<QVBoxLayout>(page);
-  column->setContentsMargins(DividerTabs::PageMargins());
-  column->addWidget(&objects_, 1);
-  column->addLayout(&object_buttons_);
+  column->addWidget(&characters_, 1);
+  column->addLayout(&character_buttons_);
   return page;
 }
 
@@ -188,66 +150,38 @@ void CastPanel::Wire() {
           managers_.stage->AddEffect(managers_.selection->shot(), effect)));
     });
   }
-  connect(&import_, &QPushButton::clicked, this, &CastPanel::Import);
-  connect(&reload_, &QPushButton::clicked, this, &CastPanel::Reload);
+  connect(&new_, &QPushButton::clicked, this, &CastPanel::NewCharacter);
+  connect(&edit_, &QPushButton::clicked, this, [this] {
+    const QStringList picked = PickedCharacters();
+    if (!picked.isEmpty()) {
+      OpenCharacter(picked.front());
+    }
+  });
   connect(&place_, &QPushButton::clicked, this, &CastPanel::Place);
   connect(&copy_, &QPushButton::clicked, this, [this] {
     Report(ProblemOf(managers_.stage->DuplicateAll(
         managers_.selection->shot(), managers_.selection->PickedLayers())));
   });
   connect(&remove_, &QPushButton::clicked, this, &CastPanel::RemoveLayers);
-  connect(&background_, &QPushButton::clicked, this,
-          &CastPanel::AddBackground);
   connect(&up_, &QPushButton::clicked, this, [this] { Restack(1); });
   connect(&down_, &QPushButton::clicked, this, [this] { Restack(-1); });
-  connect(&library_, &QListWidget::itemSelectionChanged, this,
+  connect(&characters_, &QListWidget::itemSelectionChanged, this,
           &CastPanel::RefreshButtons);
-  connect(&library_, &QListWidget::itemClicked, this,
-          [this](const QListWidgetItem* item) { OpenClicked(item); });
-  const bool has_folders = managers_.library_folders != nullptr;
-  if (has_folders) {
-    connect(nav_, &LibraryNavBar::Problem, this, &CastPanel::Report);
-    connect(&library_, &QListWidget::itemActivated, this,
-            [this](const QListWidgetItem* item) { OpenFolderCard(item); });
-    connect(&library_, &DollCards::DollsDropped, this,
-            &CastPanel::MoveDollsToFolder);
-    connect(managers_.library_folders, &LibraryFolderManager::Changed, this,
-            [this] { RefreshLibrary(); });
-  }
-  library_.setContextMenuPolicy(Qt::CustomContextMenu);
-  connect(&library_, &QWidget::customContextMenuRequested, this,
-          &CastPanel::ShowLibraryMenu);
-  connect(&objects_, &DollCards::FilesDropped, this, &CastPanel::AddObjects);
-  connect(&add_objects_, &QPushButton::clicked, this,
-          &CastPanel::ChooseObjects);
-  objects_.setContextMenuPolicy(Qt::CustomContextMenu);
-  connect(&objects_, &QWidget::customContextMenuRequested, this,
-          &CastPanel::ShowObjectMenu);
-  connect(&objects_, &QListWidget::itemDoubleClicked, this,
+  connect(&characters_, &QListWidget::itemActivated, this,
           [this](const QListWidgetItem* item) {
-            Report(PutDollsOnStage(managers_,
-                                   {item->data(Qt::UserRole).toString()}));
+            OpenCharacter(item->data(Qt::UserRole).toString());
           });
   connect(&layers_, &QListWidget::itemSelectionChanged, this,
           &CastPanel::PickLayer);
   connect(&layers_, &QListWidget::itemChanged, this, &CastPanel::ToggleShown);
-  connect(managers_.library, &DollLibraryManager::LibraryChanged, this,
-          [this] {
-            pictures_.clear();
-            RefreshLibrary();
-          });
-  connect(managers_.library, &DollLibraryManager::ArtChanged, this,
-          [this](const QString& name) {
-            stale_.insert(name);
-            pictures_.remove(name);
-            RefreshLibrary();
-          });
   connect(managers_.history, &HistoryManager::Changed, this, [this] {
-    RefreshLibrary();
+    RefreshCharacters();
     RefreshLayers();
   });
-  connect(managers_.selection, &SelectionManager::Changed, this,
-          &CastPanel::RefreshLayers);
+  connect(managers_.selection, &SelectionManager::Changed, this, [this] {
+    RefreshCharacters();
+    RefreshLayers();
+  });
 }
 
 }  // namespace snapper

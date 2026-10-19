@@ -1,31 +1,31 @@
-// StageView's drop: a doll card dragged here goes on the stage, and
-// picture files dropped here become objects placed where they fell, or
-// with Alt held references to animate over.
+// StageView's drop: a character card dragged here goes on the stage,
+// and picture files dropped here become picture layers, or with Alt held
+// references to animate over.
 
 #include <QMimeData>
 
 #include <cassert>
 #include <set>
 
+#include "base/text.h"
+#include "edit/edit_scope.h"
 #include "edit/history_manager.h"
-#include "edit/object_manager.h"
 #include "edit/selection_manager.h"
-#include "render/frame_renderer.h"
-#include "ui/doll_cards.h"
-#include "ui/doll_drop.h"
+#include "edit/stage_manager.h"
+#include "ui/character_cards.h"
+#include "ui/character_drop.h"
 #include "ui/stage_view.h"
 
 namespace snapper {
 namespace {
 
-// True when the drop carries dolls, or files while objects can be made.
+// True when the drop carries characters or files.
 bool IsWanted(const QMimeData* data, const Managers& managers) {
   assert(data != nullptr);
-  const bool is_doll = !DollsOfDrop(data).isEmpty();
-  const bool can_take_files =
-      managers.objects != nullptr || managers.references != nullptr;
-  const bool is_files = can_take_files && !FilesOfDrop(data).isEmpty();
-  return is_doll || is_files;
+  assert(managers.stage != nullptr);
+  const bool is_character = !CharactersOfDrop(data).isEmpty();
+  const bool is_files = !FilesOfDrop(data).isEmpty();
+  return is_character || is_files;
 }
 
 }  // namespace
@@ -61,61 +61,53 @@ void StageView::dropEvent(QDropEvent* event) {
   assert(event != nullptr);
   assert(event->mimeData() != nullptr);
   is_drop_target_ = false;
-  const QStringList dolls = DollsOfDrop(event->mimeData());
-  const bool is_doll = !dolls.isEmpty();
-  if (is_doll) {
+  const QStringList characters = CharactersOfDrop(event->mimeData());
+  const bool is_character = !characters.isEmpty();
+  if (is_character) {
     event->acceptProposedAction();
-    emit Problem(PutDollsOnStage(managers_, dolls));
+    emit Problem(PutCharactersOnStage(managers_, characters));
   }
-  // Alt: the files are references to animate over, not objects.
+  const QStringList files =
+      is_character ? QStringList() : FilesOfDrop(event->mimeData());
+  // Alt: the files are references to animate over, not pictures.
   const bool is_reference_drop =
-      !is_doll && managers_.references != nullptr &&
-      event->modifiers().testFlag(Qt::AltModifier) &&
-      !FilesOfDrop(event->mimeData()).isEmpty();
+      !files.isEmpty() && managers_.references != nullptr &&
+      event->modifiers().testFlag(Qt::AltModifier);
   if (is_reference_drop) {
     event->acceptProposedAction();
-    DropReferences(FilesOfDrop(event->mimeData()));
+    DropReferences(files);
     update();
     return;
   }
-  const QStringList files = managers_.objects != nullptr
-                                ? FilesOfDrop(event->mimeData())
-                                : QStringList();
-  const auto frame = CurrentFrame();
-  const bool is_files = !is_doll && !files.isEmpty();
+  const bool is_files = !files.isEmpty();
   if (is_files) {
     event->acceptProposedAction();
-    const Project& project = managers_.history->current();
-    const Shot* shot =
-        frame.has_value() ? FindShot(project, frame->shot) : nullptr;
-    // Where it fell, in shot space; the middle when that is unknown.
-    std::optional<QPointF> at;
-    if (shot != nullptr) {
-      bool is_invertible = false;
-      const QTransform back =
-          FrameRenderer::ViewTransform(project, *shot, frame->local,
-                                       frame->scale)
-              .inverted(&is_invertible);
-      if (is_invertible) {
-        at = back.map(event->position() - frame->corner);
+    const auto frame = CurrentFrame();
+    const ShotId target =
+        frame.has_value() ? frame->shot : managers_.selection->shot();
+    std::set<Pick> picks;
+    QString problem;
+    {
+      EditScope step(managers_.history,
+                     files.size() == 1 ? Tr("Add picture")
+                                       : Tr("Add %1 pictures")
+                                             .arg(files.size()));
+      for (const QString& file : files) {
+        const auto layer = managers_.stage->AddImage(target, file);
+        if (!layer) {
+          problem = layer.error().message;
+          step.Cancel();
+          break;
+        }
+        picks.insert(Pick{*layer});
       }
     }
-    QStringList notes;
-    const ShotId target =
-        shot != nullptr ? frame->shot : managers_.selection->shot();
-    const auto layers =
-        managers_.objects->AddToShot(target, files, at, &notes);
-    if (layers) {
-      std::set<Pick> picks;
-      for (const LayerId layer : *layers) {
-        picks.insert({layer, QString()});
-      }
+    if (problem.isEmpty()) {
       managers_.selection->PickThings(
           picks, PickMode::kReplace,
-          layers->empty() ? LayerId() : layers->front());
+          picks.empty() ? LayerId() : picks.begin()->layer);
     }
-    emit Problem(layers ? notes.join(QStringLiteral(" "))
-                        : layers.error().message);
+    emit Problem(problem);
   }
   update();
 }

@@ -4,7 +4,6 @@
 #include <QGroupBox>
 #include <QLabel>
 #include <QScrollArea>
-#include <QToolButton>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -12,8 +11,6 @@
 #include <utility>
 #include <vector>
 
-#include "ui/dial_box.h"
-#include "ui/drag_box.h"
 #include "ui/fold_section.h"
 #include "ui/shot_box.h"
 #include "ui/keyed_boxes.h"
@@ -21,11 +18,7 @@
 #include "ui/link_box.h"
 #include "ui/managers.h"
 #include "ui/character_box.h"
-#include "ui/object_box.h"
-#include "ui/point_motion_box.h"
-#include "ui/poses_box.h"
 #include "ui/reference_box.h"
-#include "ui/skin_box.h"
 #include "ui/storyboard_box.h"
 
 namespace snapper {
@@ -33,10 +26,9 @@ namespace snapper {
 // The right-hand panel: only the settings of what is picked (see
 // ShowFor). With nothing picked on the stage: the shot, and its camera
 // folded closed at first. With pieces or layers: their pose at the
-// playhead, what they are linked to, the layer's settings, a doll's
-// dials (or a "+" tile for its first), skins when it has some, its saved
-// poses folded, and the picked warp dot's drag and animation. A picked
-// reference shows its settings. Stacked and scrollable; never wider
+// playhead, a character's switches and smart bones, what they are
+// linked to and the layer's settings. A picked reference or storyboard
+// shows its settings. Stacked and scrollable; never wider
 // than its share of the screen (KeepWideEnough).
 class Inspector final : public QScrollArea {
   Q_OBJECT
@@ -74,19 +66,10 @@ class Inspector final : public QScrollArea {
   QLabel badge_;
   ShotBox shot_;
   PoseBox pose_;
-  DialBox dials_;
-  // A doll with no dials: one tile whose menu makes the first.
-  QToolButton new_dial_;
-  SkinBox skins_;
-  DragBox drag_;
-  PointMotionBox point_motion_;
   CameraBox camera_;
   LayerBox layer_;
   LinkBox link_;
-  PosesBox poses_;
-  // Null without the object manager (some test benches).
-  std::unique_ptr<ObjectBox> object_;
-  std::unique_ptr<CharacterBox> character_;
+  CharacterBox character_;
   // Null without the reference manager.
   std::unique_ptr<ReferenceBox> references_;
   // Null without the storyboard manager.

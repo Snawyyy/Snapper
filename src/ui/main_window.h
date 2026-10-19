@@ -16,7 +16,6 @@
 #include "ui/grip_splitter.h"
 #include "ui/cast_panel.h"
 #include "ui/character_page.h"
-#include "ui/krita_menu.h"
 #include "ui/palette_panel.h"
 #include "ui/command_palette.h"
 #include "ui/deck_panel.h"
@@ -28,8 +27,6 @@
 #include "ui/managers.h"
 #include "ui/motion_menu.h"
 #include "ui/refusal_shaker.h"
-#include "ui/rig_canvas.h"
-#include "ui/rig_panel.h"
 #include "ui/shortcut_sheet.h"
 #include "ui/settings_actions.h"
 #include "ui/order_menu.h"
@@ -48,7 +45,8 @@
 
 namespace snapper {
 
-// The window frame: menus, the Pose, Rig, Comp and Video tabs, the status
+// The window frame: menus, the Video, Pose, Comp and Character tabs, the
+// status
 // bar, and the panels docked around the stage. It shows manager state and
 // forwards input; it decides nothing itself.
 class MainWindow final : public QMainWindow {
@@ -56,9 +54,9 @@ class MainWindow final : public QMainWindow {
 
  public:
   // In the order of the workflow in docs/redesign/ux-polish-plan.md: plan
-  // the reel, animate the shots, finish them; Rig, visited least, is
-  // last.
-  enum class Mode { kVideo = 0, kPose = 1, kComp = 2, kRig = 3 };
+  // the reel, animate the shots, finish them; Character, where the cast
+  // is drawn and rigged, is last.
+  enum class Mode { kVideo = 0, kPose = 1, kComp = 2, kCharacter = 3 };
 
   explicit MainWindow(const Managers& managers);
 
@@ -81,11 +79,10 @@ class MainWindow final : public QMainWindow {
   void BuildViewAndHelp();
   // Tab: fills the screen with the open tab's main view, or comes back.
   void ToggleFullView();
-  // Puts the Pose, Rig, Comp and Video pages in the stack.
+  // Puts the Video, Pose, Comp and Character pages in the stack.
   void BuildPages();
   // Puts the top bar in its fixed host and ties the tabs to the pages.
   void BuildModes();
-  void BuildHiddenFoldersAction();
   // Pulls title, undo and redo state from the history.
   void Refresh();
   // Undo or redo in the shot being worked in; the newest change when no
@@ -101,7 +98,6 @@ class MainWindow final : public QMainWindow {
 
   Managers managers_;
   FileMenu file_menu_;
-  KritaMenu krita_menu_;
   // The floating color palette and the View menu entry that opens it.
   PalettePanel color_palette_;
   QAction color_palette_action_;
@@ -112,8 +108,6 @@ class MainWindow final : public QMainWindow {
   // off.
   UiSound sound_;
   QAction sounds_action_;
-  // Shows the library folders that are marked hidden.
-  QAction hidden_folders_action_;
   QAction undo_action_;
   QAction redo_action_;
   // The bar sits fixed across the top, above the docks, so hiding the
@@ -136,14 +130,7 @@ class MainWindow final : public QMainWindow {
   QHBoxLayout pose_deck_layout_;
   TransportBar pose_transport_;
   TimelineView timeline_;
-  GripSplitter rig_split_;
-  RigCanvas rig_canvas_;
-  // Scrolls the rig settings, so a piece with more of them never
-  // squeezes or clips the rest. Before the panel, so the panel is gone
-  // before the scroll area that holds it.
-  QScrollArea rig_scroll_;
-  RigPanel rig_panel_;
-  // The Character tab, which takes the Rig tab's place.
+  // The Character tab: drawing and rigging the cast.
   CharacterPage character_page_;
   CompPage comp_page_;
   VideoPage video_page_;

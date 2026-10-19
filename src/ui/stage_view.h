@@ -28,17 +28,12 @@
 #include "ui/managers.h"
 #include "ui/pose_tool.h"
 #include "ui/stage_flash.h"
-#include "ui/stage_poke.h"
 
 namespace snapper {
 
 // The stage: the frame under the playhead, fitted to the widget, with
-// the pose tool on top. Picks are outlined in Teto red; joints and IK
-// tips are yellow handles, and a doll picked whole has yellow lean and
-// swivel handles on its right side and below it. A picked piece with a
-// warp grid shows it as faint lines with yellow dots to drag; clicking
-// a dot picks it, and the wheel then sets how far it pulls its
-// neighbours. Right-clicking something offers to link the picked
+// the pose tool on top. Picks are outlined in Teto red; a picked
+// character's bones are handles to drag. Right-clicking something offers to link the picked
 // things' movement to it, or to unlink them. Before any press, a thin
 // dashed outline shows the thing a click would pick, the handle under
 // the cursor grows and the cursor says what dragging it does. While a
@@ -111,24 +106,14 @@ class StageView final : public QWidget {
   void PaintGuides(QPainter* painter);
   // The thin outline of the thing under the cursor.
   void PaintHover(const StageFrame& frame, QPainter* painter);
-  // A doll's lean and swivel bars.
-  void PaintTurn(const TurnHandles& turn, LayerId layer, QPainter* painter);
   // Follows the cursor to the handle or thing under it.
   void UpdateHover(QPointF point);
   void ClearHover();
-  // A picked piece's warp grid: faint lines and yellow dots.
-  void PaintWarp(const StageFrame& frame, const Pick& pick,
-                 QPainter* painter);
-  // The picked warp dot: an orange ring, its rubber reach and a label.
-  void PaintReach(const WarpOnScreen& warp, int point, QPainter* painter);
-  // A ring round every picked dot of pick's piece.
-  void PaintPickedDots(const StageFrame& frame, const Pick& pick,
-                       const WarpOnScreen& warp, QPainter* painter);
   void ReportTool();
   // Shift+arrow: nudges the pick 1 pixel (10 with Ctrl too); true when
   // it was one and something is picked.
   bool NudgeKey(QKeyEvent* event);
-  // Escape: backs out of the drag, then the picked dot, then the pick.
+  // Escape: backs out of the drag, then the pick.
   void BackOut();
   // Zooms by notches wheel notches toward cursor.
   void ZoomBy(double notches, QPointF cursor);
@@ -156,13 +141,6 @@ class StageView final : public QWidget {
   // Shows the angle the wheel has turned the picked things by since it
   // last rested.
   void ShowWheel(QPointF cursor, int notches, bool is_fine);
-  // P down or up: holding it arms poking (see StagePoke). Returns true
-  // when the key was P and is dealt with.
-  bool PokeKey(QKeyEvent* event, bool is_down);
-  // Backslash held shows every drawing Crisp, to compare with the
-  // dolls' looks; letting go goes back. Changes no setting.
-  bool CrispKey(QKeyEvent* event, bool is_down);
-  void ShowCrisp(bool is_on);
   // Behind a see-through shot: the checkerboard, or while Shift+V is
   // held the palette's current color, to check edges on it. Changes no
   // setting.
@@ -178,12 +156,12 @@ class StageView final : public QWidget {
   bool PaletteKey(QKeyEvent* event);
   // The layer a click at point would pick; invalid for none.
   LayerId LayerUnder(QPointF point, const StageFrame& frame) const;
-  // Ctrl+A: every piece of the picked doll, or every layer.
+  // Ctrl+A: every layer.
   void PickAll();
   // The right-click menu's link actions, for the thing at point; empty
   // when there is nothing to offer.
   void AddLinkActions(QMenu* menu, QPointF point, const StageFrame& frame);
-  // Draw mode's canvas over the stage, and N and Shift+N to start it.
+  // Draw mode's canvas over the stage.
   void SetUpDraw();
 
   // References (ui/stage_view_reference.cpp). The behind ones on one
@@ -225,7 +203,7 @@ class StageView final : public QWidget {
   // O: shows or hides the outside of the frame. True when the key was
   // dealt with.
   bool OutsideKey(QKeyEvent* event);
-  // A doll card is over the stage.
+  // A character card or files are over the stage.
   bool is_drop_target_ = false;
   // The middle button is dragging the view; where the mouse was.
   bool is_panning_ = false;
@@ -236,7 +214,6 @@ class StageView final : public QWidget {
   // Draws the state before an undo or redo, for the flash.
   FrameRenderer was_renderer_;
   PoseTool tool_;
-  StagePoke poke_;
   HandleHover hover_;
   DragFeedback feedback_;
   ChangeWatcher watcher_;

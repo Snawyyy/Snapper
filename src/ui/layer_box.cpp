@@ -71,7 +71,7 @@ void LayerBox::BuildRows() {
                    MakeSpinCell(tr("For"), &length_, &live_, this)},
                   {}, this),
       this));
-  flip_.setToolTip(tr("Mirror the doll left to right, keys and all."));
+  flip_.setToolTip(tr("Mirror the character left to right, keys and all."));
   layout_.addRow(&flip_);
   auto* text = MakeOwned<QWidget>(this);
   QFormLayout* rows = SettingsForm(text);
@@ -147,10 +147,10 @@ const Layer* LayerBox::Picked() const {
              : nullptr;
 }
 
-void LayerBox::ShowRows(bool is_doll, bool is_text, bool is_effect) {
-  assert(!(is_doll && is_text));
+void LayerBox::ShowRows(bool is_character, bool is_text, bool is_effect) {
+  assert(!(is_character && is_text));
   assert(!(is_text && is_effect));
-  layout_.setRowVisible(&flip_, is_doll);
+  layout_.setRowVisible(&flip_, is_character);
   layout_.setRowVisible(text_section_, is_text);
   layout_.setRowVisible(&effect_title_, is_effect);
   layout_.setRowVisible(&effect_row_, is_effect);

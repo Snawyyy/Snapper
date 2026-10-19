@@ -20,10 +20,8 @@ double EaseAmount(Ease ease, double t);
 // first value until the next key.
 double Lerp(double a, double b, double t);
 QPointF Lerp(QPointF a, QPointF b, double t);
-PiecePose Lerp(const PiecePose& a, const PiecePose& b, double t);
+LayerPose Lerp(const LayerPose& a, const LayerPose& b, double t);
 CameraPose Lerp(const CameraPose& a, const CameraPose& b, double t);
-// Skins never blend: a holds until the next key.
-SkinSet Lerp(const SkinSet& a, const SkinSet& b, double t);
 // Moves, turns and scales blend; a switch pick holds a until the next
 // key (t reaches 1). Defined with the rest of character posing.
 CharacterPose Lerp(const CharacterPose& a, const CharacterPose& b, double t);

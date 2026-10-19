@@ -75,18 +75,12 @@ void DrawCanvas::End() {
   over_->setFocus();
 }
 
-QTransform DrawCanvas::View() const {
+QTransform DrawCanvas::World() const {
   assert(zoom_ > 0.0);
   assert(std::isfinite(center_.x()) && std::isfinite(center_.y()));
   return QTransform::fromTranslate(-center_.x(), -center_.y()) *
          QTransform::fromScale(zoom_, zoom_) *
          QTransform::fromTranslate(width() / 2.0, height() / 2.0);
-}
-
-QTransform DrawCanvas::World() const {
-  assert(managers_.draw != nullptr);
-  assert(zoom_ > 0.0);
-  return managers_.draw->rest_place() * View();
 }
 
 QPoint DrawCanvas::PixelAt(QPointF point) const {
@@ -100,8 +94,7 @@ QPoint DrawCanvas::PixelAt(QPointF point) const {
 void DrawCanvas::Fit() {
   const DrawManager* draw = managers_.draw;
   assert(draw != nullptr);
-  const QRectF box =
-      draw->rest_place().mapRect(QRectF(draw->frame_rect()));
+  const QRectF box(draw->frame_rect());
   const bool is_sized = box.width() > 0.0 && box.height() > 0.0 &&
                         width() > 0 && height() > 0;
   zoom_ = is_sized ? std::clamp(kFill * std::min(width() / box.width(),
@@ -189,7 +182,7 @@ void DrawCanvas::wheelEvent(QWheelEvent* event) {
     return;
   }
   const QPointF cursor = event->position();
-  const QPointF under = View().inverted().map(cursor);
+  const QPointF under = World().inverted().map(cursor);
   zoom_ = std::clamp(zoom_ * std::pow(kNotchZoom, notches), kMinZoom,
                      kMaxZoom);
   center_ = under - (cursor - QPointF(width() / 2.0, height() / 2.0)) / zoom_;
@@ -214,9 +207,6 @@ bool DrawCanvas::ToolKey(QKeyEvent* event) {
                                                       : DrawTool::kEraser);
       return true;
     case Qt::Key_D: draw->SetOnion(!draw->is_onion()); return true;
-    // Flip through the piece's other drawings under the new one.
-    case Qt::Key_Left: draw->Flip(-1); return true;
-    case Qt::Key_Right: draw->Flip(1); return true;
     case Qt::Key_F: draw->SetTool(DrawTool::kFill); return true;
     case Qt::Key_I: draw->SetTool(DrawTool::kPicker); return true;
     case Qt::Key_V: draw->SetTool(DrawTool::kMove); return true;

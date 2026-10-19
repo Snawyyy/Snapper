@@ -49,12 +49,9 @@ class FrameRenderer final {
                     double scale, const QImage* under = nullptr,
                     bool runs_screen = true, QImage* drawn = nullptr);
 
-  // Only some layers of a shot on a clear picture, with no effects: a
-  // layer that maps to an empty set is drawn whole, one that maps to
-  // piece names only draws those pieces of its doll.
+  // Only some layers of a shot on a clear picture, with no effects.
   QImage RenderLayers(const Project& project, const Shot& shot, Frame local,
-                      double scale,
-                      const std::map<LayerId, std::set<QString>>& only);
+                      double scale, const std::set<LayerId>& only);
 
   // Every layer of a shot but effects on a clear picture covering area
   // (output pixels, the canvas corner at 0,0), which may reach past the
@@ -90,15 +87,11 @@ class FrameRenderer final {
   // shows (or that is ticked for export); false for every other kind.
   bool PaintBoardLayer(const Layer& layer, Frame local, QImage* frame);
   // Draws layer onto frame through its own picture, keeping the comp's
-  // target pictures (and the drawn shape) as needs asks. part, when
-  // given, is the pieces of one part of a doll drawn in several (a
-  // storyboard sunk between them); its pickings for the comp are made
-  // with the first part only.
+  // target pictures (and the drawn shape) as needs asks.
   void PaintForComp(const Project& project, const Layer& layer, Frame local,
                     double scale, const QTransform& view, LinkSolver* links,
                     const CompNeeds& needs, CompPictures* pictures,
-                    QImage* frame, const std::set<QString>* part = nullptr,
-                    bool is_first_part = true);
+                    QImage* frame);
 
   // Every screen effect running at frame, over the finished reel
   // picture; drawn is the shots' layers on clear, for the effects that

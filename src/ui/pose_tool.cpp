@@ -52,26 +52,6 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
   mods.setFlag(Qt::ShiftModifier, is_shift);
   mods.setFlag(Qt::ControlModifier, is_ctrl);
   const bool is_handle = PressHandle(point, frame);
-  const bool is_on_dot = drag_ != nullptr && drag_->kind == Kind::kWarp;
-  // Shift and Ctrl add to, or take from, the picked dots; a plain press
-  // anywhere else lets them go.
-  const bool keeps_dots = is_shift || is_ctrl;
-  const bool lets_go = !is_on_dot && !keeps_dots;
-  if (lets_go) {
-    managers_.selection->PickDot(std::nullopt);
-  }
-  if (is_on_dot) {
-    // A click on a dot (a release without a drag) picks it by the pick
-    // rule; a plain click on the only picked dot drops it.
-    const WarpDot dot{drag_->layer, drag_->piece, drag_->point};
-    const auto& dots = managers_.selection->dots();
-    const bool is_picked = std::ranges::find(dots, dot) != dots.end();
-    const bool is_only = dots == std::vector<WarpDot>{dot};
-    const auto mode = ClickMode(mods, is_picked);
-    const bool drops = is_only && !keeps_dots;
-    drag_->later_mode = drops ? PickMode::kRemove
-                              : mode.value_or(PickMode::kReplace);
-  }
   if (is_handle) {
     return;
   }
@@ -83,12 +63,7 @@ void PoseTool::Press(QPointF point, bool is_shift, bool is_ctrl,
                       : std::nullopt;
   managers_.selection->SelectShot(frame.shot);
   if (hit) {
-    // A doll picked whole stays whole: grabbing any of its limbs moves
-    // the group, not the limb.
-    const Pick whole{hit->layer, QString()};
-    const bool is_group = managers_.selection->picks().contains(whole);
-    PressPick(is_group ? whole : Pick{hit->layer, hit->piece}, mods, frame,
-              point);
+    PressPick(Pick{hit->layer}, mods, frame, point);
     return;
   }
   auto drag = std::make_unique<Drag>();
@@ -122,8 +97,7 @@ void PoseTool::PressPick(const Pick& pick, Qt::KeyboardModifiers mods,
   }
   const auto count = selection->picks().size();
   const QString what = count > 1 ? QObject::tr("%1 parts").arg(count)
-                       : pick.piece.isEmpty() ? QObject::tr("layer")
-                                              : pick.piece;
+                                   : QObject::tr("layer");
   drag->kind = is_ctrl ? Kind::kScale : Kind::kMove;
   drag->frame = frame;
   drag->press = point;
@@ -146,25 +120,6 @@ QRectF PoseTool::Box() const {
                 : QRectF();
 }
 
-void PoseTool::MoveIk(QPointF point) {
-  assert(drag_ != nullptr);
-  assert(managers_.pose != nullptr);
-  const Project& project = managers_.history->current();
-  const Shot* shot = FindShot(project, drag_->frame.shot);
-  const StageFrame& at = drag_->frame;
-  const auto to_screen =
-      shot != nullptr
-          ? LayerToScreen(project, *shot, drag_->layer, at.local, at.scale,
-                        cache_->poses())
-          : std::nullopt;
-  if (to_screen) {
-    Note(managers_.pose->DragIk(at.shot, drag_->layer, drag_->chain,
-                                at.local,
-                                Back(*to_screen, point, at.corner)));
-  }
-  Say(OffsetText(point - drag_->start), false, point);
-}
-
 void PoseTool::MoveBone(QPointF point, bool is_shift) {
   assert(drag_ != nullptr);
   assert(managers_.character_poses != nullptr);
@@ -175,13 +130,12 @@ void PoseTool::MoveBone(QPointF point, bool is_shift) {
       managers_.character_poses->CharacterOf(at.shot, drag_->layer);
   const auto to_screen =
       shot != nullptr && character != nullptr
-          ? LayerToScreen(project, *shot, drag_->layer, at.local, at.scale,
-                          cache_->poses())
+          ? LayerToScreen(project, *shot, drag_->layer, at.local, at.scale)
           : std::nullopt;
   if (!to_screen) {
     return;
   }
-  const BoneId bone(drag_->chain.toInt());
+  const BoneId bone = drag_->bone;
   const QPointF target = Back(*to_screen, point, at.corner);
   Note(managers_.character_poses->Pose(
       at.shot, drag_->layer, at.local, QObject::tr("Bend bone"),
@@ -211,9 +165,6 @@ void PoseTool::Move(QPointF point, bool is_shift) {
     case Kind::kBox:
       drag_->corner = point;
       break;
-    case Kind::kIk:
-      MoveIk(point);
-      break;
     case Kind::kBone:
       MoveBone(point, is_shift);
       break;
@@ -228,23 +179,6 @@ void PoseTool::Move(QPointF point, bool is_shift) {
       ScaleAll(std::pow(2.0, (total.x() - total.y()) / kScalePixels));
       Say(ScaleText(drag_->scaled), false, point);
       break;
-    case Kind::kLean:
-      MoveTurn(total, point, false, is_shift);
-      break;
-    case Kind::kWarp: {
-      const StageFrame& at = drag_->frame;
-      const QPointF moved =
-          Back(drag_->drawing_to_screen, point, at.corner) -
-          Back(drag_->drawing_to_screen, drag_->start, at.corner);
-      Note(managers_.pose->Pull(
-          {at.shot, TrackKind::kPiece, drag_->layer, drag_->piece},
-          at.local, drag_->point, moved));
-      Say(OffsetText(point - drag_->start), false, point);
-      break;
-    }
-    case Kind::kSwivel:
-      MoveTurn(total, point, true, is_shift);
-      break;
   }
 }
 
@@ -256,8 +190,7 @@ bool PoseTool::LeftDeadZone(QPointF point) {
   const bool is_new = !drag_->has_moved &&
                       IsPastDeadZone(drag_->press, point);
   if (is_new) {
-    // A click that turned into a drag doesn't flip or narrow the pick,
-    // and a click on a warp dot that turned into a drag doesn't pick it.
+    // A click that turned into a drag doesn't flip or narrow the pick.
     drag_->later.reset();
     drag_->has_moved = true;
   }
@@ -277,24 +210,17 @@ void PoseTool::MoveAll(QPointF total) {
   // Each pick moves in its own parent's frame, so all follow the cursor
   // on screen by the same amount.
   for (const TrackRef& track : managers_.selection->PickedTracks()) {
-    const bool is_piece = track.kind == TrackKind::kPiece;
     const Layer* layer =
         track.layer.IsValid() ? FindLayer(*shot, track.layer) : nullptr;
-    const auto frame =
-        is_piece ? PieceParentToScreen(project, *shot, track.layer,
-                                       track.piece, at.local, at.scale,
-                                       cache_->poses())
-        : layer != nullptr
-            ? std::optional<QTransform>(LayerParentToScreen(
-                  project, *shot, *layer, at.local, at.scale, cache_->poses()))
-            : std::optional<QTransform>(FrameRenderer::ViewTransform(
-                  project, *shot, at.local, at.scale));
-    if (frame) {
-      PoseDelta delta;
-      delta.offset = Back(*frame, drag_->start + total, at.corner) -
-                     Back(*frame, drag_->start + drag_->done, at.corner);
-      Note(managers_.pose->Shift({track}, EditFrames(at), delta));
-    }
+    const QTransform frame =
+        layer != nullptr
+            ? LayerParentToScreen(project, *shot, *layer, at.local, at.scale)
+            : FrameRenderer::ViewTransform(project, *shot, at.local,
+                                           at.scale);
+    PoseDelta delta;
+    delta.offset = Back(frame, drag_->start + total, at.corner) -
+                   Back(frame, drag_->start + drag_->done, at.corner);
+    Note(managers_.pose->Shift({track}, EditFrames(at), delta));
   }
   drag_->done = total;
 }
@@ -323,42 +249,22 @@ void PoseTool::Release() {
     std::set<Pick> caught;
     const bool is_box_drawn = shot != nullptr && box.width() > 2.0 &&
                               box.height() > 2.0;
-    // A box over warp dots of a picked piece picks those dots; over
-    // none it picks pieces and layers as it always did.
-    const std::set<WarpDot> dots =
-        is_box_drawn ? DotsIn(box, at) : std::set<WarpDot>();
-    const bool has_dots = !dots.empty();
-    if (has_dots) {
-      managers_.selection->PickDots(dots, drag_->box_mode);
-    }
-    const bool picks_pieces = is_box_drawn && !has_dots;
-    if (picks_pieces) {
+    if (is_box_drawn) {
       for (const StageHit& hit :
            HitBox(project, *shot, at.local,
                   box.translated(-at.corner), at.scale, cache_)) {
-        caught.insert({hit.layer, hit.piece});
+        caught.insert(Pick{hit.layer});
       }
     }
     const LayerId focus = caught.empty() ? managers_.selection->layer()
                                          : caught.begin()->layer;
-    if (!has_dots) {
-      managers_.selection->PickThings(caught, drag_->box_mode, focus);
-    }
+    managers_.selection->PickThings(caught, drag_->box_mode, focus);
   }
   const bool is_late_pick = drag_ != nullptr && drag_->later.has_value();
   if (is_late_pick) {
     const Pick pick = *drag_->later;
     drag_->scope->Cancel();
     managers_.selection->PickThings({pick}, drag_->later_mode, pick.layer);
-  }
-  const bool is_dot_click = drag_ != nullptr &&
-                            drag_->kind == Kind::kWarp && !drag_->has_moved;
-  if (is_dot_click) {
-    // Clicking a dot picks it for the wheel by the mode the press chose
-    // (kRemove when a plain click lands on the only picked dot).
-    drag_->scope->Cancel();
-    const WarpDot dot{drag_->layer, drag_->piece, drag_->point};
-    managers_.selection->PickDots({dot}, drag_->later_mode);
   }
   drag_.reset();
 }
@@ -387,7 +293,7 @@ void PoseTool::PickWhole(QPointF point, const StageFrame& frame) {
                       : std::nullopt;
   if (hit) {
     managers_.selection->SelectShot(frame.shot);
-    managers_.selection->PickThings({{hit->layer, QString()}},
+    managers_.selection->PickThings({Pick{hit->layer}},
                                     PickMode::kReplace, hit->layer);
   }
 }
@@ -397,16 +303,11 @@ void PoseTool::Wheel(int notches, bool is_fine, const StageFrame& frame) {
   assert(frame.scale > 0.0);
   // Ticks in a row are one undo step.
   const HistoryManager::BurstGuard burst(managers_.history);
-  const auto dot = PickedDot(frame);
-  if (dot) {
-    WheelReach(notches, is_fine, frame);
-    return;
-  }
   const auto tracks = managers_.selection->PickedTracks();
   const bool is_picked =
       !tracks.empty() && managers_.selection->shot() == frame.shot;
   if (!is_picked) {
-    problem_ = QObject::tr("Click a piece first, then turn it.");
+    problem_ = QObject::tr("Click a layer first, then turn it.");
     return;
   }
   PoseDelta delta;

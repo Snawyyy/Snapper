@@ -51,17 +51,6 @@ void ReadChannels(const Shot& shot, Visit visit) {
   visit(shot.camera);
   for (const Layer& layer : shot.layers) {
     visit(layer.transform);
-    const auto* doll = std::get_if<DollLayer>(&layer.content);
-    const bool is_doll = doll != nullptr;
-    if (is_doll) {
-      for (const auto& [name, channel] : doll->pieces) {
-        visit(channel);
-      }
-      for (const auto& [name, channel] : doll->dials) {
-        visit(channel);
-      }
-      visit(doll->skins);
-    }
     const auto* effect = std::get_if<EffectLayer>(&layer.content);
     const bool is_effect = effect != nullptr;
     if (is_effect) {
@@ -78,18 +67,6 @@ void RemapLayer(Layer* layer, const FrameMap& map) {
   assert(layer != nullptr);
   assert(map != nullptr);
   RemapChannel(&layer->transform, map);
-  auto* doll = std::get_if<DollLayer>(&layer->content);
-  const bool is_doll = doll != nullptr;
-  if (is_doll) {
-    for (auto& [name, channel] : doll->pieces) {
-      RemapChannel(&channel, map);
-    }
-    for (auto& [name, channel] : doll->dials) {
-      RemapChannel(&channel, map);
-    }
-    RemapChannel(&doll->skins, map);
-    doll->play.start = Mapped(map, doll->play.start);
-  }
   auto* effect = std::get_if<EffectLayer>(&layer->content);
   const bool is_effect = effect != nullptr;
   if (is_effect) {
@@ -132,8 +109,7 @@ void RemapEffect(CompEffect* effect, const FrameMap& map) {
 }
 
 // Moves every timed thing in shot by map: keys, layer spans, links,
-// holds, references and Comp effects. Two holds of one object on one
-// frame keep the later.
+// references and Comp effects.
 void RemapShot(Shot* shot, const FrameMap& map) {
   assert(shot != nullptr);
   assert(map != nullptr);
@@ -151,21 +127,6 @@ void RemapShot(Shot* shot, const FrameMap& map) {
   for (Link& link : shot->links) {
     link.from = Mapped(map, link.from);
   }
-  std::map<std::pair<LayerId, Frame>, size_t> last;
-  for (size_t i = 0; i < shot->holds.size(); ++i) {
-    Hold& hold = shot->holds[i];
-    hold.at = Mapped(map, hold.at);
-    last[{hold.object, hold.at}] = i;
-  }
-  std::vector<Hold> kept;
-  for (size_t i = 0; i < shot->holds.size(); ++i) {
-    const Hold& hold = shot->holds[i];
-    const bool is_last = last[{hold.object, hold.at}] == i;
-    if (is_last) {
-      kept.push_back(hold);
-    }
-  }
-  shot->holds = std::move(kept);
 }
 
 }  // namespace

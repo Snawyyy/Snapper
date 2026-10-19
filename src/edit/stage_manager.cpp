@@ -43,7 +43,7 @@ StageManager::StageManager(HistoryManager* history) : history_(history) {
 Result<LayerId> StageManager::AddLayer(ShotId shot, const QString& name,
                                        LayerContent content,
                                        const QString& label, bool is_bottom,
-                                       std::optional<PiecePose> pose,
+                                       std::optional<LayerPose> pose,
                                        std::optional<Project> base) {
   assert(history_ != nullptr);
   assert(!name.isEmpty() && !label.isEmpty());
@@ -61,7 +61,7 @@ Result<LayerId> StageManager::AddLayer(ShotId shot, const QString& name,
     layer.name = name;
     layer.content = std::move(content);
     if (pose) {
-      layer.transform.keys.push_back(Key<PiecePose>{Frame(0), *pose});
+      layer.transform.keys.push_back(Key<LayerPose>{Frame(0), *pose});
     }
     if (is_bottom) {
       edited->layers.insert(edited->layers.begin(), std::move(layer));
@@ -75,21 +75,6 @@ Result<LayerId> StageManager::AddLayer(ShotId shot, const QString& name,
     return std::unexpected(applied.error());
   }
   return id;
-}
-
-Result<LayerId> StageManager::AddDoll(ShotId shot, const QString& doll) {
-  assert(history_ != nullptr);
-  assert(!doll.isEmpty());
-  if (FindCharacter(history_->current(), doll) != nullptr) {
-    return AddCharacter(shot, doll);
-  }
-  const Doll* found = FindDoll(history_->current(), doll);
-  if (found == nullptr) {
-    return std::unexpected(
-        Error{Tr("Import %1 into the project first.").arg(doll)});
-  }
-  return AddLayer(shot, doll, DollLayer{doll, {}, false},
-                  Tr("Add %1").arg(doll));
 }
 
 Result<LayerId> StageManager::AddCharacter(ShotId shot,
@@ -135,7 +120,7 @@ Result<LayerId> StageManager::AddBackground(ShotId shot,
   const double cover =
       std::max(static_cast<double>(canvas.width) / size.width(),
                static_cast<double>(canvas.height) / size.height());
-  PiecePose pose;
+  LayerPose pose;
   pose.scale_x = cover;
   pose.scale_y = cover;
   const QFileInfo info(path);
@@ -198,9 +183,6 @@ Result<LayerId> StageManager::Duplicate(ShotId shot, LayerId layer) {
     edited->layers.insert(at + 1, std::move(copy));
     return Result<void>();
   });
-  if (copied) {
-    *copied = WithCopiedLayerDots(std::move(*copied), {{layer, id}});
-  }
   auto applied = history_->Apply(Tr("Duplicate layer"), std::move(copied));
   if (!applied) {
     return std::unexpected(applied.error());

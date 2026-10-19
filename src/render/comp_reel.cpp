@@ -40,7 +40,7 @@ void FrameRenderer::ApplyReelComp(const Project& project, Frame frame,
     // One solver per shot: the effects come shot by shot.
     const bool is_new_shot = &shot != solver_shot;
     if (is_new_shot) {
-      links = std::make_unique<LinkSolver>(project, shot, cache_.poses());
+      links = std::make_unique<LinkSolver>(project, shot);
       solver_shot = &shot;
     }
     const Frame local(

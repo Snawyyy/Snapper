@@ -19,7 +19,7 @@ Result<CompEffectId> CompManager::AddEntry(ShotId shot,
                                            const CompTarget& target,
                                            int index) {
   assert(static_cast<int>(entry.kind) < kCompKindCount);
-  assert(target.layer.IsValid() || target.pieces.empty());
+  assert(target.layer.value() >= 0);
   const bool is_scene = entry.is_scene_gradient;
   const bool is_plugin = entry.kind == CompKind::kFsp;
   const Result<CompEffectId> added =
@@ -109,7 +109,7 @@ QString CompManager::WhyNoPaste(ShotId shot) const {
 Result<CompEffectId> CompManager::Paste(ShotId shot, const CompTarget& target,
                                         int index) {
   assert(history_ != nullptr);
-  assert(target.layer.IsValid() || target.pieces.empty());
+  assert(target.layer.value() >= 0);
   const QString why = WhyNoPaste(shot);
   const bool can_paste = why.isEmpty();
   if (!can_paste) {
@@ -121,7 +121,6 @@ Result<CompEffectId> CompManager::Paste(ShotId shot, const CompTarget& target,
   for (size_t i = 0; i < copies.size() && made.has_value(); ++i) {
     CompEffect effect = copies[i].effect;
     effect.target.layer = target.layer;
-    effect.target.pieces = target.pieces;
     const bool is_top = index < 0;
     const int at = is_top ? kOnTop : index + static_cast<int>(i);
     made = Insert(shot, std::move(effect), at, Tr("Paste effect"));

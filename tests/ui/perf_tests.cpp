@@ -62,7 +62,7 @@ void StageBigDoll(Bench* bench, bool is_animated) {
   }
   DollLayer posed{"Big", {}, false};
   for (const RigPiece& piece : doll.rig.pieces) {
-    PiecePose pose;
+    LayerPose pose;
     pose.warp = RestOffsets(piece.warp, 0.0);
     SetKey(&posed.pieces[piece.name], {Frame(0), pose, Ease::kLinear});
     pose.warp = RestOffsets(piece.warp, is_animated ? 12.0 : 0.0);

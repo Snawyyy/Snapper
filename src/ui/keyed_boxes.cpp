@@ -14,7 +14,6 @@
 #include "edit/pose_manager.h"
 #include "edit/project_edits.h"
 #include "edit/selection_manager.h"
-#include "ui/draw_actions.h"
 #include "ui/follow.h"
 #include "ui/form_helpers.h"
 #include "ui/live_edit.h"
@@ -49,20 +48,20 @@ QString OrderHelp() {
 }
 
 // The pose a track shows at frame.
-PiecePose PoseAt(const Project& project, const TrackRef& track,
+LayerPose PoseAt(const Project& project, const TrackRef& track,
                  Frame frame) {
   assert(frame.index() >= 0);
   assert(track.kind != TrackKind::kCamera);
-  PiecePose pose;
+  LayerPose pose;
   const Shot* shot = FindShot(project, track.shot);
   const bool has_shot = shot != nullptr;
   if (has_shot) {
     ReadTrack(*shot, track, [&](const auto& channel) {
       using Held =
           typename std::remove_cvref_t<decltype(channel)>::value_type;
-      constexpr bool is_pose = std::is_same_v<Held, PiecePose>;
+      constexpr bool is_pose = std::is_same_v<Held, LayerPose>;
       if constexpr (is_pose) {
-        pose = Sample(channel, frame, PiecePose());
+        pose = Sample(channel, frame, LayerPose());
       }
     });
   }
@@ -73,17 +72,16 @@ PiecePose PoseAt(const Project& project, const TrackRef& track,
 
 void PoseBox::ShowPose(const Project& project,
                        const std::vector<TrackRef>& tracks, Frame frame,
-                       const PiecePose& focus) {
+                       const LayerPose& focus) {
   assert(frame.index() >= 0);
   assert(!tracks.empty());
   // What each pick shows, field by field: several that differ say Mixed.
   std::array<std::vector<double>, kCount> spread;
   for (const TrackRef& track : tracks) {
-    const PiecePose p = PoseAt(project, track, frame);
+    const LayerPose p = PoseAt(project, track, frame);
     const std::array<double, kCount> shown = {
         p.rotation, p.offset.x(), p.offset.y(), p.scale_x, p.scale_y,
-        p.skew,     p.opacity,    p.lean,       p.swivel,
-        static_cast<double>(p.order)};
+        p.skew,     p.opacity,    static_cast<double>(p.order)};
     for (size_t i = 0; i < shown.size(); ++i) {
       spread[i].push_back(shown[i]);
     }
@@ -95,8 +93,6 @@ void PoseBox::ShowPose(const Project& project,
   ShowNumber(&fields_[kScaleY], focus.scale_y, spread[kScaleY]);
   ShowNumber(&fields_[kSkew], focus.skew, spread[kSkew]);
   ShowNumber(&fields_[kOpacity], focus.opacity, spread[kOpacity]);
-  ShowNumber(&fields_[kLean], focus.lean, spread[kLean]);
-  ShowNumber(&fields_[kSwivel], focus.swivel, spread[kSwivel]);
   ShowNumber(&fields_[kOrder], focus.order, spread[kOrder]);
 }
 
@@ -111,19 +107,16 @@ PoseBox::PoseBox(const Managers& managers)
   SetUpNumber(&fields_[kTurn], Number::kDegrees);
   SetUpNumber(&fields_[kSkew], Number::kLean);
   SetUpNumber(&fields_[kOpacity], Number::kFraction);
-  SetUpNumber(&fields_[kLean], Number::kDegrees);
-  SetUpNumber(&fields_[kSwivel], Number::kDegrees);
   SetUpNumber(&fields_[kOrder], Number::kPlaces);
   // Named so tests and screen readers find a field by what it is.
   const std::array<const char*, kCount> names = {
-      "turn", "x",       "y",    "scale_x", "scale_y",
-      "skew", "opacity", "lean", "swivel", "order"};
+      "turn", "x", "y", "scale_x", "scale_y", "skew", "opacity", "order"};
   for (int i = 0; i < kCount; ++i) {
     fields_[static_cast<size_t>(i)].setObjectName(
         QLatin1String(names[static_cast<size_t>(i)]));
   }
   // The two most used controls share the top row at one height, then
-  // the sliders, then the rarely used turns; the fields stay as small
+  // the sliders, then the draw order; the fields stay as small
   // readouts you can still type in.
   // Move takes the golden ratio's long part of the top row, Turn the
   // short one.
@@ -141,11 +134,6 @@ PoseBox::PoseBox(const Managers& managers)
                               kSkewShown, 0.0, this));
   layout_.addRow(MakeFaderRow(tr("Opacity"), &fields_[kOpacity], &live_, 1.0,
                               1.0, this));
-  turns_row_ = MakeCellRow(
-      {MakeMiniDial(tr("Lean"), &fields_[kLean], &live_, this),
-       MakeMiniDial(tr("Swivel"), &fields_[kSwivel], &live_, this)},
-      {}, this);
-  layout_.addRow(turns_row_);
   layout_.addRow(MakeCellRow(
       {MakeSpinCell(tr("Order"), &fields_[kOrder], &live_, this)}, {}, this));
   SetUpOrder();
@@ -153,9 +141,7 @@ PoseBox::PoseBox(const Managers& managers)
     MakeLive(&fields_[static_cast<size_t>(i)], &live_, tr("Pose"), this,
              [this] { Commit(); });
   }
-  layout_.addRow(tr("Drawing"), &drawing_);
   assert(layout_.rowCount() >= 6);
-  connect(&drawing_, &QComboBox::activated, this, &PoseBox::SwapDrawing);
   Follow(managers_, this);
   Refresh();
 }
@@ -178,7 +164,7 @@ void PoseBox::Refresh() {
   const auto track =
       spot ? PickedTrack(managers_, spot->shot) : std::nullopt;
   const QString why_not =
-      track ? QString() : tr("Pick a piece or layer on the stage first.");
+      track ? QString() : tr("Pick a layer on the stage first.");
   Explain(this, why_not);
   Explain(&fields_[kOrder], why_not, OrderHelp());
   if (!track) {
@@ -186,44 +172,12 @@ void PoseBox::Refresh() {
   }
   assert(spot.has_value());
   const Project& project = managers_.history->current();
-  const PiecePose pose = PoseAt(project, *track, spot->local);
+  const LayerPose pose = PoseAt(project, *track, spot->local);
   const auto picked = managers_.selection->picks().size();
   setTitle(picked > 1 ? tr("Pose at playhead (%1 picked, changes add to "
                            "each)").arg(picked)
                       : tr("Pose at playhead"));
   ShowPose(project, managers_.selection->PickedTracks(), spot->local, pose);
-  const bool is_whole_doll =
-      track->kind == TrackKind::kLayer &&
-      DollOfLayer(project, track->shot, track->layer) != nullptr;
-  // Lean and Swivel turn a whole doll; on a limb they have no meaning.
-  const bool is_turns_new = turns_row_->isHidden() == is_whole_doll;
-  if (is_turns_new) {
-    layout_.setRowVisible(turns_row_, is_whole_doll);
-  }
-  const QSignalBlocker quiet(drawing_);
-  drawing_.clear();
-  const bool is_piece = track->kind == TrackKind::kPiece;
-  const Doll* doll = is_piece ? DollOfLayer(project, track->shot, track->layer)
-                              : nullptr;
-  const ArtPiece* art = doll != nullptr ? FindArt(*doll, track->piece)
-                                        : nullptr;
-  drawing_.addItem(tr("Rig default"));
-  const int count = art != nullptr ? static_cast<int>(art->drawings.size())
-                                   : 0;
-  for (int i = 0; i < count; ++i) {
-    drawing_.addItem(art->drawings[static_cast<size_t>(i)]);
-  }
-  drawing_count_ = count;
-  const int starts = is_piece && count > 0 ? AddDrawStarts(&drawing_, managers_)
-                                           : 0;
-  drawing_.setCurrentIndex(std::clamp(pose.drawing + 1, 0, count));
-  // Only a piece with a choice of drawings, or a way to draw one, shows
-  // the picker.
-  const bool has_choice = count > 1 || starts > 0;
-  const bool is_drawing_new = drawing_.isHidden() == has_choice;
-  if (is_drawing_new) {
-    layout_.setRowVisible(&drawing_, has_choice);
-  }
 }
 
 void PoseBox::Commit() {
@@ -239,13 +193,12 @@ void PoseBox::Commit() {
   const std::set<Frame> picked =
       managers_.selection->EditFrames(spot->local);
   const std::vector<Frame> frames(picked.begin(), picked.end());
-  const PiecePose shown =
+  const LayerPose shown =
       PoseAt(managers_.history->current(), *track, spot->local);
   const std::array<double, kCount> was = {
       shown.rotation, shown.offset.x(), shown.offset.y(),
       shown.scale_x,  shown.scale_y,    shown.skew,
-      shown.opacity,  shown.lean,       shown.swivel,
-      static_cast<double>(shown.order)};
+      shown.opacity,  static_cast<double>(shown.order)};
   std::array<double, kCount> change{};
   for (size_t i = 0; i < change.size(); ++i) {
     change[i] = fields_[i].value() - was[i];
@@ -264,31 +217,10 @@ void PoseBox::Commit() {
   delta.scale_y = change[kScaleY];
   delta.skew = change[kSkew];
   delta.opacity = change[kOpacity];
-  delta.lean = change[kLean];
-  delta.swivel = change[kSwivel];
   delta.order = change[kOrder];
   emit Problem(ProblemOf(managers_.pose->Shift(
       managers_.selection->PickedTracks(), frames, delta)));
   assert(managers_.history != nullptr);
-}
-
-void PoseBox::SwapDrawing(int index) {
-  assert(index >= 0);
-  const auto spot = SpotOf(managers_);
-  const auto track = spot ? PickedTrack(managers_, spot->shot) : std::nullopt;
-  if (!track) {
-    return;
-  }
-  const bool is_new = index > drawing_count_;
-  if (is_new) {
-    Refresh();
-    RequestDraw(managers_, DrawStartAt(index - drawing_count_ - 1));
-    return;
-  }
-  // With picked keys under the playhead, every picked frame swaps.
-  emit Problem(ProblemOf(managers_.pose->SwapDrawing(
-      *track, managers_.selection->EditFrames(spot->local), index - 1)));
-  assert(managers_.pose != nullptr);
 }
 
 CameraBox::CameraBox(const Managers& managers)

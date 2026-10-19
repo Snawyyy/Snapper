@@ -52,7 +52,7 @@ QString CompManager::WhyNoPasteAt(Frame reel) const {
 
 Result<void> CompManager::PasteAt(Frame reel, const CompTarget& elsewhere) {
   assert(history_ != nullptr);
-  assert(elsewhere.layer.IsValid() || elsewhere.pieces.empty());
+  assert(elsewhere.layer.value() >= 0);
   const QString why = WhyNoPasteAt(reel);
   const bool can_paste = why.isEmpty();
   if (!can_paste) {
@@ -81,7 +81,6 @@ Result<void> CompManager::PasteAt(Frame reel, const CompTarget& elsewhere) {
     const bool is_other_shot = copy.shot != shot;
     if (is_other_shot) {
       effect.target.layer = elsewhere.layer;
-      effect.target.pieces = elsewhere.pieces;
     }
     effect.start = frames.local.first;
     effect.length = std::max(1, frames.local.end - frames.local.first);

@@ -37,14 +37,6 @@ const Shot* FindShot(const Project& project, ShotId id) {
   return is_found ? project.shots[static_cast<size_t>(index)].get() : nullptr;
 }
 
-const Doll* FindDoll(const Project& project, const QString& name) {
-  assert(project.dolls.size() <= static_cast<size_t>(kMaxProjectDolls));
-  assert(!name.isEmpty());
-  const auto found = project.dolls.find(name);
-  const bool is_found = found != project.dolls.end() && found->second;
-  return is_found ? found->second.get() : nullptr;
-}
-
 const Character* FindCharacter(const Project& project, const QString& name) {
   assert(project.characters.size() <=
          static_cast<size_t>(kMaxProjectCharacters));

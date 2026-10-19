@@ -1,4 +1,4 @@
-// DrawCanvas's painting: the dimmed doll, the drawing, its frame,
+// DrawCanvas's painting: the dimmed shot, the drawing, its frame,
 // pixel lines and the brush outline.
 
 #include <QPainter>
@@ -7,11 +7,8 @@
 
 #include <cassert>
 #include <cmath>
-#include <set>
 
 #include "edit/draw_manager.h"
-#include "edit/history_manager.h"
-#include "render/layer_painter.h"
 #include "render/pixel_paint.h"
 #include "ui/draw_canvas.h"
 #include "ui/theme.h"
@@ -21,9 +18,8 @@ namespace {
 
 // Screen pixels per drawing pixel from which the pixel lines show.
 constexpr double kGridZoom = 8.0;
-constexpr double kDollDim = 0.35;
 constexpr double kOnion = 0.3;
-// The shot under a storyboard frame shows clearer than a dimmed doll.
+// The shot under a storyboard frame, dimmed.
 constexpr double kUnderDim = 0.6;
 
 }  // namespace
@@ -36,40 +32,19 @@ void DrawCanvas::paintEvent(QPaintEvent* event) {
   if (!managers_.draw->is_drawing()) {
     return;
   }
-  PaintDoll(&painter);
+  PaintUnder(&painter);
   PaintDrawing(&painter);
   PaintGrid(&painter);
   PaintCursor(&painter);
 }
 
-void DrawCanvas::PaintDoll(QPainter* painter) {
+void DrawCanvas::PaintUnder(QPainter* painter) {
   assert(painter != nullptr);
-  assert(managers_.history != nullptr);
-  // A storyboard frame lies over the shot as it is at that frame.
-  if (!managers_.draw->is_named()) {
-    painter->save();
-    painter->setOpacity(kUnderDim);
-    painter->setTransform(World());
-    painter->drawImage(QPointF(), managers_.draw->under());
-    painter->restore();
-    return;
-  }
-  const Project& project = managers_.history->current();
-  const Doll* doll = FindDoll(project, managers_.draw->doll());
-  if (doll == nullptr) {
-    return;
-  }
-  std::set<QString> others;
-  for (const RigPiece& piece : doll->rig.pieces) {
-    if (piece.name != managers_.draw->piece()) {
-      others.insert(piece.name);
-    }
-  }
+  assert(managers_.draw != nullptr);
   painter->save();
-  painter->setOpacity(kDollDim);
-  PaintLayer(project,
-             RestLayer(doll->name, managers_.draw->doll_poses()),
-             Frame(0), View(), nullptr, &cache_, painter, &others);
+  painter->setOpacity(kUnderDim);
+  painter->setTransform(World());
+  painter->drawImage(QPointF(), managers_.draw->under());
   painter->restore();
 }
 
@@ -77,8 +52,6 @@ void DrawCanvas::PaintDrawing(QPainter* painter) {
   assert(painter != nullptr);
   const DrawManager* draw = managers_.draw;
   assert(draw != nullptr);
-  // The piece's frame (its joint and warp live there) on the sheet,
-  // which reaches past it on every side to draw beyond it.
   const QRectF frame(draw->frame_rect());
   const QRectF sheet(QPointF(), QSizeF(draw->image().size()));
   painter->save();
@@ -86,7 +59,7 @@ void DrawCanvas::PaintDrawing(QPainter* painter) {
   painter->fillRect(sheet, QColor(255, 255, 255, 14));
   painter->fillRect(frame, QColor(255, 255, 255, 40));
   const bool is_onion =
-      draw->is_onion() && !draw->is_peeking() && !draw->is_flipped();
+      draw->is_onion() && !draw->is_peeking();
   if (is_onion) {
     painter->setOpacity(kOnion);
     for (const QImage& onion : draw->onions()) {
@@ -94,9 +67,8 @@ void DrawCanvas::PaintDrawing(QPainter* painter) {
     }
     painter->setOpacity(1.0);
   }
-  painter->drawImage(QPointF(), draw->is_peeking()   ? draw->reference()
-                                : draw->is_flipped() ? draw->flipped_image()
-                                                     : draw->image());
+  painter->drawImage(QPointF(),
+                     draw->is_peeking() ? draw->reference() : draw->image());
   QPen edge(is_outside_ ? theme::kPick : theme::kHandle, 1.0);
   edge.setCosmetic(true);
   painter->setPen(edge);
@@ -109,10 +81,6 @@ void DrawCanvas::PaintDrawing(QPainter* painter) {
   painter->restore();
   const QString note =
       draw->is_peeking() ? tr("Original")
-      : draw->is_flipped()
-          ? tr("Flipped to %1: Left and Right go on, drawing goes back "
-               "to yours")
-                .arg(draw->flipped_name())
       : is_outside_ ? tr("Past the sheet's edge: cut off")
                     : QString();
   if (!note.isEmpty()) {

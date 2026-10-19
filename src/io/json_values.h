@@ -56,16 +56,12 @@ int EnumFromJson(const QJsonValue& value, std::span<const char* const> names,
 QJsonValue ValueToJson(double value);
 double ValueFromJson(const QJsonValue& value, double fallback,
                      JsonIssues* issues);
-QJsonValue ValueToJson(const PiecePose& pose);
-PiecePose ValueFromJson(const QJsonValue& value, PiecePose fallback,
+QJsonValue ValueToJson(const LayerPose& pose);
+LayerPose ValueFromJson(const QJsonValue& value, LayerPose fallback,
                         JsonIssues* issues);
 QJsonValue ValueToJson(const CameraPose& pose);
 CameraPose ValueFromJson(const QJsonValue& value, CameraPose fallback,
                          JsonIssues* issues);
-// The skins worn, as a list of names.
-QJsonValue ValueToJson(const SkinSet& skins);
-SkinSet ValueFromJson(const QJsonValue& value, SkinSet fallback,
-                      JsonIssues* issues);
 
 QString EaseToJson(Ease ease);
 Ease EaseFromJson(const QJsonValue& value, JsonIssues* issues);

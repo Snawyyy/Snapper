@@ -12,20 +12,13 @@
 namespace snapper {
 namespace {
 
-// True when end names a layer of shot, and a piece of its doll when it
-// names one.
-bool Exists(const Project& project, const Shot& shot, const LinkEnd& end) {
+// True when end names a layer of shot.
+bool Exists(const Shot& shot, const LinkEnd& end) {
   assert(end.layer.value() >= 0);
   assert(shot.layers.size() <= static_cast<size_t>(kMaxLayersPerShot));
   const Layer* layer =
       end.layer.IsValid() ? FindLayer(shot, end.layer) : nullptr;
-  const bool has_layer = layer != nullptr;
-  if (!has_layer) {
-    return false;
-  }
-  const bool is_whole = end.piece.isEmpty();
-  const Doll* doll = DollOfLayer(project, shot.id, end.layer);
-  return is_whole || (doll != nullptr && FindRig(doll->rig, end.piece));
+  return layer != nullptr;
 }
 
 }  // namespace
@@ -46,14 +39,14 @@ QString LinkManager::WhyNoLink(ShotId shot,
   if (!has_shot) {
     return Tr("That shot no longer exists.");
   }
-  const bool has_leader = Exists(project, *found, leader);
+  const bool has_leader = Exists(*found, leader);
   if (!has_leader) {
     return Tr("That is no longer on the stage.");
   }
   const bool has_followers =
       !followers.empty() &&
       std::ranges::all_of(followers, [&](const LinkEnd& follower) {
-        return Exists(project, *found, follower);
+        return Exists(*found, follower);
       });
   if (!has_followers) {
     return Tr("Pick what should follow first.");
@@ -177,9 +170,7 @@ QString LinkManager::NameOf(ShotId shot, const LinkEnd& end) const {
   if (!has_layer) {
     return Tr("something gone");
   }
-  const bool is_whole = end.piece.isEmpty();
-  return is_whole ? layer->name
-                  : Tr("%1's %2").arg(layer->name, end.piece);
+  return layer->name;
 }
 
 }  // namespace snapper

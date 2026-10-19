@@ -115,7 +115,7 @@ Result<CompEffectId> CompManager::AddPlugin(ShotId shot, const QString& id,
                                             const CompTarget& target,
                                             int index) {
   assert(history_ != nullptr);
-  assert(target.layer.IsValid() || target.pieces.empty());
+  assert(target.layer.value() >= 0);
   const QString why = WhyNoPlugin(id);
   const bool can_add = why.isEmpty();
   if (!can_add) {

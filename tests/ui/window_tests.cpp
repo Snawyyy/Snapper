@@ -163,7 +163,7 @@ void WindowTests::TabsStayPutInEveryMode() {
   QVERIFY(tabs != nullptr);
   const QPoint pose_at = tabs->mapTo(&window, QPoint(0, 0));
   constexpr MainWindow::Mode kModes[] = {
-      MainWindow::Mode::kRig, MainWindow::Mode::kVideo,
+      MainWindow::Mode::kCharacter, MainWindow::Mode::kVideo,
       MainWindow::Mode::kPose};
   for (const MainWindow::Mode mode : kModes) {
     window.SetMode(mode);
@@ -295,7 +295,7 @@ void WindowTests::TabsWearIcons() {
     QVERIFY(!tabs->tabIcon(i).isNull());
   }
   const QImage rest = tabs->tabIcon(1).pixmap(16, 16).toImage();
-  window.SetMode(MainWindow::Mode::kRig);
+  window.SetMode(MainWindow::Mode::kCharacter);
   const QImage picked = tabs->tabIcon(1).pixmap(16, 16).toImage();
   QVERIFY(rest != picked);
 }

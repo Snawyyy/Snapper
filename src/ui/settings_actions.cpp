@@ -32,10 +32,8 @@ SettingsActions::SettingsActions(const Managers& managers)
 void SettingsActions::Copy() {
   assert(managers_.settings != nullptr);
   assert(managers_.selection != nullptr);
-  const auto spot = SpotOf(managers_);
-  const Frame local = spot ? spot->local : Frame(0);
   const Result<void> done = managers_.settings->Copy(
-      managers_.selection->shot(), managers_.selection->picks(), local);
+      managers_.selection->shot(), managers_.selection->picks());
   if (done) {
     managers_.toasts->Cheer(tr("Copied the settings"));
     Refresh();
@@ -47,10 +45,8 @@ void SettingsActions::Copy() {
 void SettingsActions::Paste() {
   assert(managers_.settings != nullptr);
   assert(managers_.selection != nullptr);
-  const auto spot = SpotOf(managers_);
-  const Frame local = spot ? spot->local : Frame(0);
   const Result<void> done = managers_.settings->Paste(
-      managers_.selection->shot(), managers_.selection->picks(), local);
+      managers_.selection->shot(), managers_.selection->picks());
   if (!done) {
     managers_.toasts->Problem(done.error().message);
   }

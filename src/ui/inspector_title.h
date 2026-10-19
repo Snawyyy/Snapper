@@ -14,10 +14,10 @@ namespace snapper {
 
 // What the inspector's top line says is picked, in few words: "Head,
 // frame 24" for a piece, the layer's name for a whole layer, "3 picked"
-// for several, "Head, 2 dots" for picked warp dots, and the shot's name
+// for several, and the shot's name
 // when nothing is picked. local is the playhead's frame in the shot.
 QString InspectorTitle(const Project& project, ShotId shot,
-                       const std::set<Pick>& picks, int dots,
+                       const std::set<Pick>& picks,
                        const std::optional<Frame>& local);
 
 }  // namespace snapper

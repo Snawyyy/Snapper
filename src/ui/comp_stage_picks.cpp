@@ -35,18 +35,8 @@ void CompStage::PaintPicks(QPainter* painter) {
   painter->setPen(QPen(theme::kPick, 2.0));
   painter->setBrush(Qt::NoBrush);
   for (const Pick& pick : managers_.selection->picks()) {
-    const bool is_whole = pick.piece.isEmpty();
-    if (is_whole) {
-      painter->drawPolygon(LayerShape(project, *shot, pick.layer, local, scale,
-                                      renderer_.cache()));
-      continue;
-    }
-    const auto piece = PieceOnScreen(project, *shot, pick.layer, pick.piece,
-                                     local, scale, renderer_.cache()->poses());
-    const bool has_piece = piece.has_value();
-    if (has_piece) {
-      painter->drawPolygon(piece->outline);
-    }
+    painter->drawPolygon(LayerShape(project, *shot, pick.layer, local, scale,
+                                    renderer_.cache()));
   }
   const bool has_drop = drop_layer_.IsValid();
   if (has_drop) {
@@ -91,7 +81,7 @@ void CompStage::dragMoveEvent(QDragMoveEvent* event) {
   const bool is_new = under != drop_layer_;
   if (is_new) {
     drop_layer_ = under;
-    ShowChip(under.IsValid() ? tr("Drop on this doll")
+    ShowChip(under.IsValid() ? tr("Drop on this layer")
                              : tr("Drop on the screen"));
   }
 }
@@ -116,7 +106,7 @@ void CompStage::dropEvent(QDropEvent* event) {
   }
   event->acceptProposedAction();
   const ShotId shot = managers_.selection->shot();
-  const auto target = managers_.comp->TargetFor(shot, layer, {});
+  const auto target = managers_.comp->TargetFor(shot, layer);
   if (!target) {
     Report(target.error().message);
     return;

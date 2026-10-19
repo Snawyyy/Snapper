@@ -40,7 +40,7 @@ void Stage(Bench* bench) {
   box.id = LayerId(2);
   box.name = "Box";
   box.content = ImageLayer{box_path};
-  PiecePose corner;
+  LayerPose corner;
   corner.offset = QPointF(-35, -35);
   SetKey(&box.transform, {Frame(0), corner, Ease::kStep});
   Shot shot;

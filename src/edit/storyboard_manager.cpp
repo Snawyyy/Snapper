@@ -206,7 +206,6 @@ Result<void> StoryboardManager::Start(ShotId shot, Frame frame,
   // The onion: the frame before this one, to trace from.
   const StoryboardCel* before = CelBefore(cels, at);
   DrawJob job;
-  job.target = DrawTarget::kStoryboard;
   job.title = (is_over ? Tr("Storyboard: %1, frame %2")
                        : Tr("Storyboard: %1, starting at frame %2"))
                   .arg(found.name)

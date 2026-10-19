@@ -1,7 +1,6 @@
 #ifndef SNAPPER_UI_KEYED_BOXES_H_
 #define SNAPPER_UI_KEYED_BOXES_H_
 
-#include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGroupBox>
@@ -18,7 +17,7 @@
 
 namespace snapper {
 
-// Exact numbers for the picked piece or layer at the playhead. Typing a
+// Exact numbers for the picked layers at the playhead. Typing a
 // value keys it there, like dragging on the stage does.
 class PoseBox final : public QGroupBox {
   Q_OBJECT
@@ -33,28 +32,20 @@ class PoseBox final : public QGroupBox {
 
  private:
   enum Field {
-    kTurn, kX, kY, kScaleX, kScaleY, kSkew, kOpacity, kLean, kSwivel,
-    kOrder, kCount
+    kTurn, kX, kY, kScaleX, kScaleY, kSkew, kOpacity, kOrder, kCount
   };
   // The fields run in PoseField's order.
 
   void Commit();
   // The Order field: tooltip, double click reset, its own undo name.
   void SetUpOrder();
-  void SwapDrawing(int index);
   void ShowPose(const Project& project, const std::vector<TrackRef>& tracks,
-                Frame frame, const PiecePose& focus);
+                Frame frame, const LayerPose& focus);
 
   Managers managers_;
   QFormLayout layout_;
   LiveEdit live_;
   std::array<QDoubleSpinBox, kCount> fields_;
-  // The Lean and Swivel dials' row, inside layout_; for a whole doll only.
-  QWidget* turns_row_ = nullptr;
-  QComboBox drawing_;
-  // How many of the piece's drawings the picker lists, after "Rig
-  // default"; the new drawing entries follow them.
-  int drawing_count_ = 0;
 };
 
 // The camera of the shot under the playhead, keyed at the playhead.

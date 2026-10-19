@@ -8,247 +8,29 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <set>
 #include <variant>
 
-#include "anim/doll_lean.h"
-#include "anim/doll_pose.h"
-#include "anim/joint_snap.h"
+#include "anim/layer_transform.h"
 #include "anim/sampler.h"
 #include "render/character_paint.h"
-#include "render/upscale.h"
-#include "render/warp_raster.h"
 
 namespace snapper {
 namespace {
 
-// How many quarters of a drawing's size are enough to bend for it to
-// fill transform's pixels: a doll drawn at half size needs only half
-// the pixels each way. Rounds to the nearest quarter, up on a tie;
-// never less than a quarter, never more than most.
-int DetailFor(const QTransform& transform, int most = kFullDetail) {
-  assert(kFullDetail > 1);
-  assert(most >= 1);
-  const double pixels_per_pixel =
-      std::sqrt(std::abs(transform.determinant()));
-  assert(pixels_per_pixel >= 0.0);
-  const int quarters =
-      static_cast<int>(std::ceil(pixels_per_pixel * 4.0 - 0.5));
-  return std::clamp(quarters, 1, most);
-}
-
-// How piece of doll reads its drawing: Crisp while cache is held to
-// Crisp or the piece stays Crisp, else the doll's look.
-WarpLook LookOf(const Doll& doll, const QString& piece,
-                const ImageCache& cache) {
-  assert(static_cast<int>(doll.rig.look) < kDrawingLookCount);
-  assert(!piece.isEmpty());
-  const RigPiece* rig = FindRig(doll.rig, piece);
-  const bool is_crisp =
-      cache.is_crisp_only() || (rig != nullptr && rig->stays_crisp);
-  return is_crisp ? WarpLook{}
-                  : WarpLookFor(doll.rig.look, doll.rig.hard_edges);
-}
-
 // Each content kind draws itself; PaintLayer picks by visiting.
 struct Painter final {
   const Project& project;
-  const Layer& whole;
   Frame frame;
   const QTransform& world;
-  LinkSolver* links;
   ImageCache* cache;
   QPainter* painter;
-  const std::set<QString>* only_pieces = nullptr;
-  PieceSplit split = PieceSplit::kOnly;
 
-  void operator()(const DollLayer& layer) const;
   void operator()(const CharacterLayer& layer) const;
-  void DrawPiece(const Doll& doll, const PlacedPiece& piece,
-                 const QImage& image) const;
-  // The piece's joint circle, if on, just under the piece: as wide as
-  // image (the drawing it shows) is across the joint.
-  void PaintJointCircle(const Doll& doll, const PlacedPiece& piece,
-                        const QImage& image) const;
-  // The joint circles of piece and of its children not drawn yet, so
-  // each circle sits under both pieces it joins.
-  void PaintCirclesUnder(const Doll& doll,
-                         const std::vector<PlacedPiece>& placed,
-                         const QString& piece,
-                         std::set<QString>* circled) const;
-  // For a doll drawn in parts (PieceSplit::kPart): true when this part
-  // holds the first drawn of joined and its parent, which paints
-  // joined's circle.
-  bool IsCircleOwner(const Doll& doll, const std::vector<PlacedPiece>& placed,
-                     const PlacedPiece& joined) const;
   void operator()(const ImageLayer& layer) const;
   void operator()(const TextLayer& layer) const;
   void operator()(const EffectLayer& layer) const;
   void operator()(const StoryboardLayer& layer) const;
 };
-
-void Painter::operator()(const DollLayer& layer) const {
-  assert(cache != nullptr && painter != nullptr);
-  assert(frame.index() >= 0);
-  const Doll* doll = FindDoll(project, layer.doll);
-  const bool has_doll = doll != nullptr;
-  if (!has_doll) {
-    return;
-  }
-  const double layer_opacity = painter->opacity();
-  const bool is_split =
-      only_pieces != nullptr &&
-      (split == PieceSplit::kShown || split == PieceSplit::kCover);
-  bool is_above_chosen = false;
-  const std::vector<PlacedPiece> placed =
-      PlaceDoll(*doll, links != nullptr ? links->Poses(*doll, whole, frame)
-                                        : ShownPoses(*doll, whole, frame));
-  std::set<QString> circled;
-  for (const PlacedPiece& piece : placed) {
-    const QImage& image = cache->Get(piece.drawing);
-    const bool is_chosen =
-        only_pieces == nullptr || only_pieces->contains(piece.name);
-    // A piece above a chosen one covers it: it erases the chosen
-    // picture, or is the cover itself.
-    const bool is_over = !is_chosen && is_above_chosen && is_split;
-    is_above_chosen = is_above_chosen || is_chosen;
-    const bool is_drawable = (is_chosen || is_over) && !image.isNull() &&
-                             piece.opacity > 0.0;
-    if (!is_drawable) {
-      continue;
-    }
-    const bool is_erasing = is_chosen == (split == PieceSplit::kCover);
-    painter->setCompositionMode(
-        is_erasing ? QPainter::CompositionMode_DestinationOut
-                   : QPainter::CompositionMode_SourceOver);
-    painter->setOpacity(layer_opacity * piece.opacity);
-    PaintCirclesUnder(*doll, placed, piece.name, &circled);
-    DrawPiece(*doll, piece, image);
-  }
-  painter->setCompositionMode(QPainter::CompositionMode_SourceOver);
-  painter->setRenderHint(QPainter::SmoothPixmapTransform, false);
-  painter->setOpacity(layer_opacity);
-}
-
-// Draws one piece through its warp or its upscaled copy, as its rig's
-// look asks.
-void Painter::DrawPiece(const Doll& doll, const PlacedPiece& piece,
-                        const QImage& image) const {
-  assert(cache != nullptr && painter != nullptr);
-  assert(!image.isNull());
-  const QTransform on_screen = piece.transform * world;
-  WarpLook look = LookOf(doll, piece.name, *cache);
-  look.frame = FrameShare(piece.offset, piece.size, image.size());
-  // A smooth look is blended by the painter too, unless it cuts out.
-  painter->setRenderHint(QPainter::SmoothPixmapTransform,
-                         look.is_blended && !look.is_hard);
-  const bool is_warped = !piece.warp_points.empty();
-  if (is_warped) {
-    const WarpedImage& warped = cache->Warped(
-        piece.drawing, piece.grid, piece.warp_points,
-        DetailFor(on_screen, look.is_blended ? kSmoothDetail : kFullDetail),
-        look);
-    // A small bend is drawn stretched back to the drawing's size.
-    painter->setTransform(QTransform::fromScale(1.0 / warped.detail,
-                                                1.0 / warped.detail) *
-                          QTransform::fromTranslate(warped.origin.x(),
-                                                    warped.origin.y()) *
-                          on_screen);
-    painter->drawImage(0, 0, warped.image);
-    return;
-  }
-  // A smooth piece draws its upscaled copy over the same rectangle, so
-  // it sits on exactly the same spot.
-  const QImage& shown =
-      look.is_blended
-          ? cache->Upscaled(
-                piece.drawing,
-                UpscaleTimes(image.size(),
-                             std::sqrt(std::abs(on_screen.determinant()))))
-          : image;
-  painter->setTransform(on_screen);
-  // The drawing at its own size, its frame on the piece's: what it
-  // draws past the frame shows around it.
-  painter->drawImage(QRectF(-QPointF(piece.offset), QSizeF(image.size())),
-                     shown);
-}
-
-void Painter::PaintCirclesUnder(const Doll& doll,
-                                const std::vector<PlacedPiece>& placed,
-                                const QString& piece,
-                                std::set<QString>* circled) const {
-  assert(circled != nullptr);
-  assert(!piece.isEmpty());
-  const bool is_part = only_pieces != nullptr && split == PieceSplit::kPart;
-  for (const PlacedPiece& joined : placed) {
-    const RigPiece* rig = FindRig(doll.rig, joined.name);
-    const bool is_joined =
-        joined.name == piece || (rig != nullptr && rig->parent == piece);
-    const bool is_due = is_joined && !circled->contains(joined.name) &&
-                        (!is_part || IsCircleOwner(doll, placed, joined));
-    if (!is_due) {
-      continue;
-    }
-    circled->insert(joined.name);
-    const QImage& image = cache->Get(joined.drawing);
-    const bool is_drawn = !image.isNull() && joined.opacity > 0.0;
-    if (is_drawn) {
-      PaintJointCircle(doll, joined, image);
-    }
-  }
-}
-
-bool Painter::IsCircleOwner(const Doll& doll,
-                            const std::vector<PlacedPiece>& placed,
-                            const PlacedPiece& joined) const {
-  assert(cache != nullptr && only_pieces != nullptr);
-  assert(!joined.name.isEmpty());
-  const RigPiece* rig = FindRig(doll.rig, joined.name);
-  const QString parent = rig != nullptr ? rig->parent : QString();
-  // The first of the two drawn, back to front, paints the circle.
-  for (const PlacedPiece& other : placed) {
-    const bool is_pair = other.name == joined.name ||
-                         (!parent.isEmpty() && other.name == parent);
-    const bool is_drawn = is_pair && other.opacity > 0.0 &&
-                          !cache->Get(other.drawing).isNull();
-    if (is_drawn) {
-      return only_pieces->contains(other.name);
-    }
-  }
-  return only_pieces->contains(joined.name);
-}
-
-void Painter::PaintJointCircle(const Doll& doll, const PlacedPiece& piece,
-                               const QImage& image) const {
-  assert(cache != nullptr && painter != nullptr);
-  assert(!image.isNull());
-  const RigPiece* rig = FindRig(doll.rig, piece.name);
-  const bool is_on = rig != nullptr && rig->joint_circle.is_on;
-  if (!is_on) {
-    return;
-  }
-  // Measured, never stored: a swapped drawing gets its own width.
-  const QPointF at = rig->pivot + QPointF(piece.offset);
-  const double radius = JointRadius(*cache->limbs()->Of(image), at);
-  const bool is_empty = radius <= 0.0;
-  if (is_empty) {
-    return;
-  }
-  // A hand-picked color for the shown drawing wins; else the shown
-  // drawing's own color, so a bare arm swapped in for a sleeve follows.
-  const auto& picked = rig->joint_circle.drawing_colors;
-  const auto own = piece.drawing_name.isEmpty()
-                       ? picked.end()
-                       : picked.find(piece.drawing_name);
-  const QColor color = own != picked.end() && own->second.isValid()
-                           ? own->second
-                           : cache->limbs()->ColorAt(image, at);
-  painter->setTransform(piece.transform * world);
-  painter->setPen(Qt::NoPen);
-  painter->setBrush(color);
-  painter->drawEllipse(rig->pivot, radius, radius);
-  painter->setBrush(Qt::NoBrush);
-}
 
 void Painter::operator()(const ImageLayer& layer) const {
   assert(cache != nullptr && painter != nullptr);
@@ -354,44 +136,21 @@ QRectF TextBox(const TextLayer& text) {
   return QRectF(-width / 2.0, -height / 2.0, width, height);
 }
 
-Layer RestLayer(const QString& doll) {
-  assert(!doll.isEmpty());
-  Layer layer;
-  layer.id = LayerId(1);
-  layer.content = DollLayer{doll, {}, false};
-  assert(layer.transform.keys.empty());
-  return layer;
-}
-
-Layer RestLayer(const QString& doll, const PoseMap& poses) {
-  assert(!doll.isEmpty());
-  assert(poses.size() < 100000);
-  Layer layer = RestLayer(doll);
-  auto& pieces = std::get<DollLayer>(layer.content).pieces;
-  for (const auto& [name, pose] : poses) {
-    pieces[name].keys.push_back(Key<PiecePose>{Frame(0), pose});
-  }
-  return layer;
-}
-
 void PaintLayer(const Project& project, const Layer& layer, Frame frame,
                 const QTransform& view, LinkSolver* links, ImageCache* cache,
-                QPainter* painter, const std::set<QString>* only_pieces,
-                PieceSplit split) {
+                QPainter* painter) {
   assert(cache != nullptr);
   assert(painter != nullptr && painter->isActive());
-  const PiecePose pose = Sample(layer.transform, frame, PiecePose());
+  const LayerPose pose = Sample(layer.transform, frame, LayerPose());
   painter->save();
   painter->setRenderHint(QPainter::Antialiasing);
-  painter->setRenderHint(QPainter::SmoothPixmapTransform, false);
+  painter->setRenderHint(QPainter::SmoothPixmapTransform);
   painter->setOpacity(std::clamp(pose.opacity, 0.0, 1.0));
   const QTransform world = (links != nullptr
                                 ? links->LayerTransform(layer, frame)
                                 : LayerTransform(layer, frame)) *
                            view;
-  std::visit(Painter{project, layer, frame, world, links, cache, painter,
-                     only_pieces, split},
-             layer.content);
+  std::visit(Painter{project, frame, world, cache, painter}, layer.content);
   painter->restore();
 }
 

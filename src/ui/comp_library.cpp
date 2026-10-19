@@ -335,7 +335,7 @@ void CompLibrary::ShowWhere() {
   assert(managers_.selection != nullptr);
   const ShotId shot = managers_.selection->shot();
   const auto target = managers_.comp->TargetFor(
-      shot, managers_.selection->layer(), managers_.selection->pieces());
+      shot, managers_.selection->layer());
   const QString why_full = managers_.comp->WhyNoAdd(shot);
   const QString why_not = !why_full.isEmpty() ? why_full
                           : !target           ? target.error().message
@@ -358,8 +358,7 @@ void CompLibrary::AddPicked(const QListWidgetItem* item) {
   assert(managers_.selection != nullptr);
   CompManager* comp = managers_.comp;
   const ShotId shot = managers_.selection->shot();
-  const auto target = comp->TargetFor(shot, managers_.selection->layer(),
-                                      managers_.selection->pieces());
+  const auto target = comp->TargetFor(shot, managers_.selection->layer());
   if (!target) {
     Report(target.error().message);
     return;

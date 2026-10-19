@@ -21,10 +21,10 @@ bool Near(QPointF a, QPointF b) {
   return std::abs(a.x() - b.x()) < kClose && std::abs(a.y() - b.y()) < kClose;
 }
 
-PiecePose At(double x, double y) {
+LayerPose At(double x, double y) {
   assert(std::isfinite(x));
   assert(std::isfinite(y));
-  PiecePose pose;
+  LayerPose pose;
   pose.offset = QPointF(x, y);
   return pose;
 }
@@ -63,11 +63,11 @@ Project Stage() {
   Layer bob;
   bob.id = LayerId(3);
   DollLayer posed{"Bob", {}, true};
-  PiecePose bent;
+  LayerPose bent;
   bent.rotation = 30.0;
   SetKey(&posed.pieces["body"], {Frame(0), bent, Ease::kStep});
   bob.content = posed;
-  PiecePose turned = At(-200, 50);
+  LayerPose turned = At(-200, 50);
   turned.rotation = 90.0;
   turned.scale_x = 2.0;
   turned.scale_y = 2.0;

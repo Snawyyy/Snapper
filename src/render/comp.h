@@ -27,11 +27,9 @@ struct CompShow final {
   bool operator==(const CompShow&) const = default;
 };
 
-// A target layer, or some pieces of it, whose own picture an effect
-// needs.
+// A target layer whose own picture an effect needs.
 struct CompTargetKey final {
   LayerId layer;
-  std::vector<QString> pieces;
 
   auto operator<=>(const CompTargetKey&) const = default;
 };
@@ -41,8 +39,7 @@ struct CompTargetKey final {
 // when asked, every layer's pixels on clear (the shape of "everything").
 struct CompPictures final {
   std::map<CompTargetKey, QImage> targets;
-  // What stands in front of each target (the doll's own pieces above
-  // the picked ones, then later layers), cut out of what its effects
+  // What stands in front of each target (later layers), cut out of what its effects
   // draw so the target keeps its place in the draw order. None when
   // nothing does.
   std::map<CompTargetKey, QImage> covers;

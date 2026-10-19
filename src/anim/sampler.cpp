@@ -4,7 +4,6 @@
 #include <cassert>
 #include <cmath>
 
-#include "model/doll.h"
 
 namespace snapper {
 
@@ -39,32 +38,16 @@ QPointF Lerp(QPointF a, QPointF b, double t) {
   return a + (b - a) * t;
 }
 
-PiecePose Lerp(const PiecePose& a, const PiecePose& b, double t) {
+LayerPose Lerp(const LayerPose& a, const LayerPose& b, double t) {
   assert(std::isfinite(t));
-  assert(a.warp.size() <= static_cast<size_t>(kMaxWarpPoints));
-  assert(b.warp.size() <= static_cast<size_t>(kMaxWarpPoints));
-  PiecePose out = a;
+  assert(std::isfinite(a.rotation) && std::isfinite(b.rotation));
+  LayerPose out = a;
   out.rotation = Lerp(a.rotation, b.rotation, t);
   out.offset = Lerp(a.offset, b.offset, t);
   out.scale_x = Lerp(a.scale_x, b.scale_x, t);
   out.scale_y = Lerp(a.scale_y, b.scale_y, t);
   out.skew = Lerp(a.skew, b.skew, t);
   out.opacity = Lerp(a.opacity, b.opacity, t);
-  out.lean = Lerp(a.lean, b.lean, t);
-  out.swivel = Lerp(a.swivel, b.swivel, t);
-  // An empty warp is the rest shape, so it blends as all zeros.
-  const size_t count = std::max(a.warp.size(), b.warp.size());
-  const bool can_blend = (a.warp.empty() || a.warp.size() == count) &&
-                         (b.warp.empty() || b.warp.size() == count);
-  if (!can_blend) {
-    return out;
-  }
-  out.warp.assign(count, QPointF());
-  for (size_t i = 0; i < count; ++i) {
-    const QPointF from = a.warp.empty() ? QPointF() : a.warp[i];
-    const QPointF to = b.warp.empty() ? QPointF() : b.warp[i];
-    out.warp[i] = Lerp(from, to, t);
-  }
   return out;
 }
 
@@ -77,12 +60,6 @@ CameraPose Lerp(const CameraPose& a, const CameraPose& b, double t) {
   out.rotation = Lerp(a.rotation, b.rotation, t);
   out.shake = Lerp(a.shake, b.shake, t);
   return out;
-}
-
-SkinSet Lerp(const SkinSet& a, const SkinSet& b, double t) {
-  assert(std::isfinite(t));
-  assert(a.names.size() < 100000 && b.names.size() < 100000);
-  return a;
 }
 
 }  // namespace snapper

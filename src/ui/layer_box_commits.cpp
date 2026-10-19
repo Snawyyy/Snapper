@@ -39,14 +39,14 @@ void LayerBox::Refresh() {
     ShowRows(false, false, false);
     return;
   }
-  const auto* doll = std::get_if<DollLayer>(&layer->content);
+  const auto* cast = std::get_if<CharacterLayer>(&layer->content);
   const auto* text = std::get_if<TextLayer>(&layer->content);
   const auto* effect = std::get_if<EffectLayer>(&layer->content);
-  ShowRows(doll != nullptr, text != nullptr, effect != nullptr);
+  ShowRows(cast != nullptr, text != nullptr, effect != nullptr);
   const QSignalBlocker quiet_name(name_);
   name_.setText(layer->name);
   ShowTiming(*layer);
-  flip_.setChecked(doll != nullptr && doll->is_flipped);
+  flip_.setChecked(cast != nullptr && cast->is_flipped);
   const bool is_text = text != nullptr;
   // Never overwrite words while they are being typed.
   const bool can_show_words = is_text && !words_.hasFocus();
@@ -196,7 +196,7 @@ void LayerBox::CommitStrength() {
         picked != nullptr &&
         std::holds_alternative<EffectLayer>(picked->content);
     if (is_effect) {
-      tracks.push_back({spot->shot, TrackKind::kEffectAmount, id, {}});
+      tracks.push_back({spot->shot, TrackKind::kEffectAmount, id});
     }
   }
   const double delta =

@@ -1,8 +1,7 @@
-// StageView's way into draw mode: the canvas that covers it and the keys.
+// StageView's way into draw mode: the canvas that covers it.
 
 #include <cassert>
 
-#include "ui/draw_actions.h"
 #include "ui/stage_view.h"
 
 namespace snapper {
@@ -16,7 +15,6 @@ void StageView::SetUpDraw() {
     return;
   }
   draw_ = std::make_unique<DrawCanvas>(managers_, this);
-  AddDrawKeys(this, managers_);
 }
 
 }  // namespace snapper

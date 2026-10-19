@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "model/character.h"
-#include "model/doll.h"
 #include "model/reel.h"
 #include "model/shot.h"
 
@@ -18,7 +17,6 @@ constexpr int kMinCanvasSide = 16;
 // 8K: the largest frame common video encoders accept.
 constexpr int kMaxCanvasSide = 7680;
 constexpr int kMaxShots = 512;
-constexpr int kMaxProjectDolls = 64;
 constexpr int kMaxProjectCharacters = 64;
 constexpr int kMaxRecentColors = 8;
 
@@ -33,7 +31,7 @@ struct CanvasSize final {
 bool IsValidCanvas(CanvasSize canvas);
 
 // The whole document. A value: HistoryManager keeps snapshots of it for
-// undo, so shots and dolls are shared read-only pointers, and an edit
+// undo, so shots and characters are shared read-only pointers, and an edit
 // copies only the one it changes.
 struct Project final {
   QString name = QStringLiteral("Untitled");
@@ -42,8 +40,6 @@ struct Project final {
   QString song;
   // Master track order.
   std::vector<std::shared_ptr<const Shot>> shots;
-  // Every doll the shots use, by name.
-  std::map<QString, std::shared_ptr<const Doll>> dolls;
   // Every character the shots use, by name.
   std::map<QString, std::shared_ptr<const Character>> characters{};
   // The final video, cut from shots and video files.
@@ -61,7 +57,6 @@ struct Project final {
 // Index of the shot with id, or -1.
 int ShotIndex(const Project& project, ShotId id);
 const Shot* FindShot(const Project& project, ShotId id);
-const Doll* FindDoll(const Project& project, const QString& name);
 const Character* FindCharacter(const Project& project, const QString& name);
 
 }  // namespace snapper

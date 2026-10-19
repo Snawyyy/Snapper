@@ -62,14 +62,14 @@ Result<std::vector<LayerId>> StageManager::DuplicateAll(
   return copies;
 }
 
-Result<std::vector<LayerId>> StageManager::AddDolls(
-    ShotId shot, const QStringList& dolls) {
+Result<std::vector<LayerId>> StageManager::AddCharacters(
+    ShotId shot, const QStringList& characters) {
   assert(history_ != nullptr);
-  assert(dolls.size() <= kMaxLayersPerShot);
+  assert(characters.size() <= kMaxLayersPerShot);
   std::vector<LayerId> added;
-  EditScope batch(history_, Tr("Add dolls"));
-  for (const QString& doll : dolls) {
-    const auto layer = AddDoll(shot, doll);
+  EditScope batch(history_, Tr("Add characters"));
+  for (const QString& character : characters) {
+    const auto layer = AddCharacter(shot, character);
     if (!layer) {
       batch.Cancel();
       return std::unexpected(layer.error());
@@ -114,10 +114,6 @@ Result<void> StageManager::FlipAll(ShotId shot,
   return history_->Apply(
       is_flipped ? Tr("Flip") : Tr("Unflip"),
       WithLayers(history_->current(), shot, ids, [is_flipped](Layer* layer) {
-        auto* doll = std::get_if<DollLayer>(&layer->content);
-        if (doll != nullptr) {
-          doll->is_flipped = is_flipped;
-        }
         auto* cast = std::get_if<CharacterLayer>(&layer->content);
         if (cast != nullptr) {
           cast->is_flipped = is_flipped;

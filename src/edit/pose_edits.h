@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <type_traits>
-#include <variant>
 
 #include "anim/sampler.h"
 #include "edit/project_edits.h"
@@ -29,40 +28,10 @@ bool KeyInPlace(Channel<T>* channel, Frame frame, const T& rest) {
   return SetKey(channel, Key<T>{frame, Sample(*channel, frame, rest), ease});
 }
 
-// A doll's pose is keyed as a whole, as a drawing is in traditional
-// animation: every piece, every smart dial and the layer's own move get
-// a key at frame, so one key on the doll's timeline row is the full
-// pose.
-inline Result<Project> KeyWholeDoll(Project project, ShotId shot,
-                                    LayerId layer, Frame frame) {
-  assert(frame.index() >= 0);
-  assert(layer.value() >= 0);
-  const Doll* doll = DollOfLayer(project, shot, layer);
-  const bool is_doll = doll != nullptr;
-  if (!is_doll) {
-    return project;
-  }
-  const Rig rig = doll->rig;
-  return WithLayer(std::move(project), shot, layer, [&](Layer* edited) {
-    auto& pieces = std::get<DollLayer>(edited->content).pieces;
-    auto& dials = std::get<DollLayer>(edited->content).dials;
-    bool is_set = KeyInPlace(&edited->transform, frame, PiecePose());
-    for (const RigPiece& piece : rig.pieces) {
-      is_set = KeyInPlace(&pieces[piece.name], frame, PiecePose()) && is_set;
-    }
-    for (const SmartDial& dial : rig.dials) {
-      is_set = KeyInPlace(&dials[dial.name], frame, RestValue(dial)) && is_set;
-    }
-    return is_set ? Result<void>()
-                  : Result<void>(std::unexpected(
-                        Error{Tr("That doll is full of keys.")}));
-  });
-}
-
 // The project with track keyed at frame: the value there now (sampled)
 // is handed to change(T*) and the result is keyed. An existing key on
 // frame keeps its ease; a fresh one steps. Fails if track doesn't hold
-// T values. Keying any part of a doll keys the whole doll.
+// T values.
 template <typename T, typename Change>
 Result<Project> KeyedAt(const Project& project, const TrackRef& track,
                         Frame frame, const T& rest, Change change) {
@@ -92,14 +61,7 @@ Result<Project> KeyedAt(const Project& project, const TrackRef& track,
           Error{Tr("That track doesn't take this kind of change.")});
     }
   });
-  const bool is_doll_part = keyed.has_value() &&
-                            (track.kind == TrackKind::kPiece ||
-                             track.kind == TrackKind::kLayer ||
-                             track.kind == TrackKind::kDial);
-  if (!is_doll_part) {
-    return keyed;
-  }
-  return KeyWholeDoll(std::move(*keyed), track.shot, track.layer, frame);
+  return keyed;
 }
 
 }  // namespace snapper

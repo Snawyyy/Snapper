@@ -15,10 +15,10 @@ namespace {
 
 const ShotId kShot(1);
 
-PiecePose Turned(double degrees) {
+LayerPose Turned(double degrees) {
   assert(kShot.value() == 1);
   assert(kShot.value() > 0);
-  PiecePose pose;
+  LayerPose pose;
   pose.rotation = degrees;
   return pose;
 }
@@ -51,7 +51,7 @@ Project Stage() {
   return project;
 }
 
-const Channel<PiecePose>& Piece(const HistoryManager& history,
+const Channel<LayerPose>& Piece(const HistoryManager& history,
                                 const QString& name) {
   assert(kShot.value() == 1);
   assert(kShot.value() > 0);
@@ -59,7 +59,7 @@ const Channel<PiecePose>& Piece(const HistoryManager& history,
       .pieces.at(name);
 }
 
-std::vector<int> FramesOf(const Channel<PiecePose>& channel) {
+std::vector<int> FramesOf(const Channel<LayerPose>& channel) {
   assert(kShot.value() == 1);
   assert(kShot.value() > 0);
   std::vector<int> frames;
@@ -72,7 +72,7 @@ std::vector<int> FramesOf(const Channel<PiecePose>& channel) {
 double ArmAt(const HistoryManager& history, int frame) {
   assert(kShot.value() == 1);
   assert(kShot.value() > 0);
-  return Sample(Piece(history, "arm"), Frame(frame), PiecePose()).rotation;
+  return Sample(Piece(history, "arm"), Frame(frame), LayerPose()).rotation;
 }
 
 // Everything the tests need, with Bob picked and keys on frames 0 and 8.
@@ -145,7 +145,7 @@ void TimingChartEditTests::BakesEveryFrameWithoutMovingKeys() {
   QCOMPARE(ArmAt(rig.history, 12), 90.0);
   // The head follows too; its keys outside the range did not move.
   QCOMPARE(ArmAt(rig.history, 0), 0.0);
-  QCOMPARE(Sample(Piece(rig.history, "head"), Frame(4), PiecePose()).rotation,
+  QCOMPARE(Sample(Piece(rig.history, "head"), Frame(4), LayerPose()).rotation,
            -40.0);
   QCOMPARE(FramesOf(Piece(rig.history, "head")).back(), 12);
   QVERIFY(head_before.size() < FramesOf(Piece(rig.history, "head")).size());
@@ -289,7 +289,7 @@ void TimingChartEditTests::EveryModeIsOneUndoStepAndKeepsOutsideFrames() {
       const bool is_outside = f > 8;
       if (is_outside) {
         QCOMPARE(ArmAt(rig.history, f),
-                 Sample(before, Frame(f), PiecePose()).rotation);
+                 Sample(before, Frame(f), LayerPose()).rotation);
       }
     }
     rig.history.Undo();

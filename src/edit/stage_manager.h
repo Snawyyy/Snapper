@@ -28,7 +28,6 @@ class StageManager final {
   explicit StageManager(HistoryManager* history);
 
   // New layers go on top, centred, and show for the whole shot.
-  Result<LayerId> AddDoll(ShotId shot, const QString& doll);
   // Puts a project character on shot at rest, in front.
   Result<LayerId> AddCharacter(ShotId shot, const QString& character);
   Result<LayerId> AddImage(ShotId shot, const QString& path);
@@ -62,8 +61,8 @@ class StageManager final {
   Result<std::vector<LayerId>> DuplicateAll(ShotId shot,
                                             const std::vector<LayerId>& ids);
   Result<void> RemoveAll(ShotId shot, const std::vector<LayerId>& ids);
-  Result<std::vector<LayerId>> AddDolls(ShotId shot,
-                                        const QStringList& dolls);
+  Result<std::vector<LayerId>> AddCharacters(ShotId shot,
+                                             const QStringList& characters);
   Result<void> ShowAll(ShotId shot, const std::vector<LayerId>& ids,
                        bool is_visible);
   Result<void> FlipAll(ShotId shot, const std::vector<LayerId>& ids,
@@ -88,7 +87,7 @@ class StageManager final {
   Result<LayerId> AddLayer(ShotId shot, const QString& name,
                            LayerContent content, const QString& label,
                            bool is_bottom = false,
-                           std::optional<PiecePose> pose = std::nullopt,
+                           std::optional<LayerPose> pose = std::nullopt,
                            std::optional<Project> base = std::nullopt);
 
   HistoryManager* history_;

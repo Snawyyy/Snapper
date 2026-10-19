@@ -11,7 +11,7 @@ namespace snapper {
 
 Result<void> DrawManager::BeginJob(DrawJob job) {
   assert(history_ != nullptr);
-  assert(job.target != DrawTarget::kPiece);
+  assert(playback_ != nullptr);
   if (is_drawing_) {
     return std::unexpected(
         Error{Tr("Already drawing: press Done or Cancel first.")});
@@ -26,12 +26,7 @@ Result<void> DrawManager::BeginJob(DrawJob job) {
   if (was_playing) {
     playback_->Pause();
   }
-  target_ = job.target;
   image_ = job.image.convertToFormat(QImage::Format_ARGB32);
-  // A job's picture is its own frame: nothing past it.
-  sheet_ = image_.size();
-  frame_size_ = image_.size();
-  origin_ = QPoint();
   reference_ = job.reference.isNull() ? image_ : job.reference;
   under_ = job.under;
   onions_ = std::move(job.onions);
@@ -43,11 +38,6 @@ Result<void> DrawManager::BeginJob(DrawJob job) {
     is_onion_ = true;
   }
   title_ = job.title;
-  default_name_.clear();
-  doll_.clear();
-  track_ = TrackRef();
-  replaces_ = -1;
-  rest_place_ = QTransform();
   Open();
   return {};
 }

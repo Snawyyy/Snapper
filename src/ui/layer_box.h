@@ -20,7 +20,7 @@
 namespace snapper {
 
 // The picked layer's own settings: name and timing for any layer, flip
-// for a doll, words and style for text (a plated section of its own),
+// for a character, words and style for text (a plated section of its own),
 // kind, colour and strength for an effect. Rows that don't apply to the
 // layer's kind are hidden.
 class LayerBox final : public QGroupBox {
@@ -46,7 +46,7 @@ class LayerBox final : public QGroupBox {
   void CommitEffect();
   void CommitStrength();
   const Layer* Picked() const;
-  void ShowRows(bool is_doll, bool is_text, bool is_effect);
+  void ShowRows(bool is_character, bool is_text, bool is_effect);
 
   Managers managers_;
   QFormLayout layout_;

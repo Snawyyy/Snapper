@@ -112,8 +112,7 @@ void CompTimeline::PasteAtPlayhead() {
   // A copy pasted into another shot works on the stage pick there, or
   // on the screen when that pick draws nothing.
   const auto target = managers_.comp->TargetFor(
-      managers_.selection->shot(), managers_.selection->layer(),
-      managers_.selection->pieces());
+      managers_.selection->shot(), managers_.selection->layer());
   Report(ProblemOf(managers_.comp->PasteAt(
       Playhead(), target.value_or(CompTarget{}))));
 }

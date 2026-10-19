@@ -8,8 +8,6 @@
 
 #include "base/text.h"
 #include "io/character_json.h"
-#include "io/doll_file.h"
-#include "io/doll_json.h"
 #include "io/json_file.h"
 #include "io/layer_json.h"
 #include "io/reel_json.h"
@@ -21,26 +19,6 @@ namespace {
 // 3 moved transitions from shots to the reel's cuts; 2 added the reel;
 // 1 files open with an empty one.
 constexpr int kProjectVersion = 3;
-
-void ReadDolls(const QJsonArray& dolls, Project* project, JsonIssues* issues) {
-  assert(project != nullptr);
-  assert(issues != nullptr);
-  const bool is_too_many = dolls.size() > kMaxProjectDolls;
-  if (is_too_many) {
-    issues->Note(Tr("too many dolls"));
-    return;
-  }
-  for (const QJsonValue& item : dolls) {
-    const QJsonObject object = item.toObject();
-    Doll doll;
-    doll.name = object.value("name").toString();
-    doll.folder = object.value("folder").toString();
-    doll.art = ArtFromJson(object.value("art").toObject(), issues);
-    doll.rig = RigFromJson(object.value("rig").toObject(), issues);
-    AddOwnDrawings(&doll);
-    project->dolls[doll.name] = std::make_shared<const Doll>(doll);
-  }
-}
 
 void ReadCharacters(const QJsonArray& characters, Project* project,
                     JsonIssues* issues) {
@@ -134,7 +112,6 @@ Result<Project> ReadProject(const QString& path) {
   project.next_clip_id = read->value("next_clip_id").toInt(1);
   project.new_shots_transparent =
       read->value("new_shots_transparent").toBool(false);
-  ReadDolls(read->value("dolls").toArray(), &project, &issues);
   ReadCharacters(read->value("characters").toArray(), &project, &issues);
   ReadShots(read->value("shots").toArray(), &project, &issues);
   project.reel = ReelFromJson(read->value("reel"), &issues);
@@ -158,13 +135,6 @@ Result<void> WriteProject(const QString& path, const Project& in_memory) {
   assert(IsValidCanvas(in_memory.canvas));
   const Project project = RelativeStoryboardPaths(
       in_memory, QFileInfo(path).absolutePath());
-  QJsonArray dolls;
-  for (const auto& [name, doll] : project.dolls) {
-    dolls.append(QJsonObject{{"name", name},
-                             {"folder", doll->folder},
-                             {"art", ArtToJson(doll->art)},
-                             {"rig", RigToJson(doll->rig)}});
-  }
   QJsonArray characters;
   for (const auto& [name, character] : project.characters) {
     QJsonObject json = CharacterToJson(*character);
@@ -185,7 +155,6 @@ Result<void> WriteProject(const QString& path, const Project& in_memory) {
       {"next_shot_id", project.next_shot_id},
       {"next_layer_id", project.next_layer_id},
       {"next_clip_id", project.next_clip_id},
-      {"dolls", dolls},
       {"characters", characters},
       {"shots", shots},
       {"reel", ReelToJson(project.reel)},

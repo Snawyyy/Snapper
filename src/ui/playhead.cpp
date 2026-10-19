@@ -34,11 +34,7 @@ std::optional<TrackRef> PickedTrack(const Managers& managers, ShotId shot) {
   if (!is_picked) {
     return std::nullopt;
   }
-  const bool has_piece = !selection->pieces().empty();
-  return has_piece ? TrackRef{shot, TrackKind::kPiece, selection->layer(),
-                              *selection->pieces().begin()}
-                   : TrackRef{shot, TrackKind::kLayer, selection->layer(),
-                              {}};
+  return TrackRef{shot, TrackKind::kLayer, selection->layer()};
 }
 
 }  // namespace snapper

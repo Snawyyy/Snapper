@@ -215,7 +215,7 @@ void CompEffects::dropEvent(QDropEvent* event) {
   event->acceptProposedAction();
   const ShotId shot = managers_.selection->shot();
   const auto target = managers_.comp->TargetFor(
-      shot, managers_.selection->layer(), managers_.selection->pieces());
+      shot, managers_.selection->layer());
   if (!target) {
     Report(target.error().message);
     return;
@@ -229,7 +229,7 @@ void CompEffects::PasteAt(int index) {
   assert(index >= kOnTop);
   const ShotId shot = managers_.selection->shot();
   const auto target = managers_.comp->TargetFor(
-      shot, managers_.selection->layer(), managers_.selection->pieces());
+      shot, managers_.selection->layer());
   if (!target) {
     Report(target.error().message);
     return;

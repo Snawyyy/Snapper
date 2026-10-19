@@ -99,7 +99,6 @@ std::vector<CompClipRef> CompEffects::Shown() const {
   assert(managers_.selection != nullptr);
   return managers_.comp->ShownFor(
       managers_.selection->shot(), managers_.selection->layer(),
-      managers_.selection->pieces(),
       managers_.playback->FrameOn(Timeline::kReel));
 }
 
@@ -108,9 +107,6 @@ CompTarget CompEffects::PickedTarget() const {
   assert(managers_.comp != nullptr);
   CompTarget picked;
   picked.layer = managers_.selection->layer();
-  for (const QString& piece : managers_.selection->pieces()) {
-    picked.pieces.push_back(piece);
-  }
   return picked;
 }
 
@@ -120,9 +116,6 @@ QString CompEffects::Signature(const std::vector<CompClipRef>& shown) const {
   QString signature = QStringLiteral("%1/%2")
                           .arg(managers_.selection->shot().value())
                           .arg(managers_.selection->layer().value());
-  for (const QString& piece : managers_.selection->pieces()) {
-    signature += QStringLiteral("/") + piece;
-  }
   for (const CompClipRef& ref : shown) {
     signature +=
         QStringLiteral("e%1.%2").arg(ref.shot.value()).arg(ref.id.value());
@@ -183,7 +176,7 @@ void CompEffects::Rebuild(const std::vector<CompClipRef>& shown) {
   if (is_empty) {
     column->addWidget(EmptyHint(
         tr("No effects here yet. Double click one on the left, or drag it "
-           "here or onto a doll on the stage."),
+           "here or onto a layer on the stage."),
         folds_));
   }
   for (const CompClipRef& ref : shown) {

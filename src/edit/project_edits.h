@@ -62,24 +62,10 @@ template <typename Change>
 Result<Project> WithTrack(Project project, const TrackRef& track,
                           Change change) {
   assert(track.shot.value() >= 0);
-  assert(track.kind != TrackKind::kPiece || !track.piece.isEmpty());
+  assert(track.layer.value() >= 0);
   return WithShot(std::move(project), track.shot,
                   [&](Shot* shot) { return VisitTrack(shot, track, change); });
 }
-
-// The doll layer at shot and layer, or nullptr when it is gone or not
-// a doll.
-const DollLayer* PosedLayerOf(const Project& project, ShotId shot,
-                              LayerId layer);
-// The doll a doll layer shows, or nullptr when the shot, layer or doll
-// is gone or the layer is not a doll.
-const Doll* DollOfLayer(const Project& project, ShotId shot, LayerId layer);
-
-// project where each layer in copies (old id to new id) has the warp dot
-// settings of the layer it was copied from, so a copied layer or shot
-// looks and moves as the original does.
-Project WithCopiedLayerDots(Project project,
-                            const std::map<LayerId, LayerId>& copies);
 
 // Hands out the next layer id; ids are never reused.
 LayerId TakeLayerId(Project* project);

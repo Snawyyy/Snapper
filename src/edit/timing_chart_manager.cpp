@@ -26,8 +26,8 @@ struct Plan final {
   QString name;
 };
 
-// The channels of everything picked: a doll picked whole brings every
-// piece and its own move, as one timeline row does.
+// The channels of everything picked: a layer brings every channel of its
+// timeline row.
 std::vector<TrackRef> TracksOf(const Project& project, ShotId shot,
                                const std::set<Pick>& picks) {
   assert(picks.size() < 100000);
@@ -35,11 +35,6 @@ std::vector<TrackRef> TracksOf(const Project& project, ShotId shot,
   std::set<TrackRef> tracks;
   const auto rows = TimelineRows(project, shot);
   for (const Pick& pick : picks) {
-    const bool is_piece = !pick.piece.isEmpty();
-    if (is_piece) {
-      tracks.insert({shot, TrackKind::kPiece, pick.layer, pick.piece});
-      continue;
-    }
     for (const TimelineRow& row : rows) {
       const bool is_row = row.layer == pick.layer;
       if (is_row) {
@@ -95,9 +90,7 @@ QString NameOf(const Project& project, ShotId shot,
   if (!is_one) {
     return Tr("%1 things").arg(picks.size());
   }
-  const QString& piece = picks.begin()->piece;
-  return piece.isEmpty() ? layer->name
-                         : QStringLiteral("%1 %2").arg(layer->name, piece);
+  return layer->name;
 }
 
 // Frames of the picked keys in the shot: first is A, last is B.
@@ -129,7 +122,7 @@ Result<Plan> MakePlan(const Project& project,
   assert(shot.value() >= 0);
   const bool has_picks = !selection.picks().empty();
   if (!has_picks) {
-    return std::unexpected(Error{Tr("Pick a limb, piece or doll first.")});
+    return std::unexpected(Error{Tr("Pick a layer first.")});
   }
   const auto range = RangeOf(selection.keys(), shot);
   if (!range) {

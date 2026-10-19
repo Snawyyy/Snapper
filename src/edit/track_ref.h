@@ -1,8 +1,6 @@
 #ifndef SNAPPER_EDIT_TRACK_REF_H_
 #define SNAPPER_EDIT_TRACK_REF_H_
 
-#include <QString>
-
 #include <compare>
 #include <variant>
 
@@ -13,17 +11,12 @@
 
 namespace snapper {
 
-// Which channel of keys: a layer's own move, one doll piece, the
-// shot's camera, an effect's strength, or one smart dial of a doll
-// layer (its value, 0 to 1), or the skins a doll layer wears.
+// Which channel of keys: a layer's own move, the shot's camera, an
+// effect's strength, or a character layer's whole poses.
 enum class TrackKind {
   kLayer,
-  kPiece,
   kCamera,
   kEffectAmount,
-  kDial,
-  kSkin,
-  // A character layer's whole poses.
   kCharacter
 };
 
@@ -34,8 +27,6 @@ struct TrackRef final {
   TrackKind kind = TrackKind::kLayer;
   // Unused for the camera.
   LayerId layer;
-  // Only for kPiece; the dial's name for kDial.
-  QString piece;
 
   auto operator<=>(const TrackRef&) const = default;
   bool operator==(const TrackRef&) const = default;
@@ -51,9 +42,8 @@ struct KeyRef final {
 };
 
 // Calls visit(Channel<T>*) with the channel track names in shot, which
-// is a channel of PiecePose, CameraPose, double or SkinSet. A piece or dial
-// without keys yet gets an empty channel to write into. Fails when the layer is gone
-// or is the wrong kind for the track.
+// is a channel of LayerPose, CameraPose, double or CharacterPose. Fails
+// when the layer is gone or is the wrong kind for the track.
 template <typename Visit>
 Result<void> VisitTrack(Shot* shot, const TrackRef& track, Visit visit) {
   assert(shot != nullptr);
@@ -75,21 +65,6 @@ Result<void> VisitTrack(Shot* shot, const TrackRef& track, Visit visit) {
   if (is_layer) {
     return visit(&layer->transform);
   }
-  auto* doll = std::get_if<DollLayer>(&layer->content);
-  const bool is_piece = track.kind == TrackKind::kPiece && doll != nullptr &&
-                        !track.piece.isEmpty();
-  if (is_piece) {
-    return visit(&doll->pieces[track.piece]);
-  }
-  const bool is_dial = track.kind == TrackKind::kDial && doll != nullptr &&
-                       !track.piece.isEmpty();
-  if (is_dial) {
-    return visit(&doll->dials[track.piece]);
-  }
-  const bool is_skin = track.kind == TrackKind::kSkin && doll != nullptr;
-  if (is_skin) {
-    return visit(&doll->skins);
-  }
   auto* effect = std::get_if<EffectLayer>(&layer->content);
   const bool is_effect =
       track.kind == TrackKind::kEffectAmount && effect != nullptr;
@@ -103,13 +78,12 @@ Result<void> VisitTrack(Shot* shot, const TrackRef& track, Visit visit) {
   return gone();
 }
 
-// Read-only twin of VisitTrack: calls read(const Channel<T>&). A piece
-// without keys reads as an empty channel. False when the track's layer
-// is gone or the wrong kind.
+// Read-only twin of VisitTrack: calls read(const Channel<T>&). False
+// when the track's layer is gone or the wrong kind.
 template <typename Read>
 bool ReadTrack(const Shot& shot, const TrackRef& track, Read read) {
   assert(track.shot == shot.id);
-  assert(track.kind != TrackKind::kPiece || !track.piece.isEmpty());
+  assert(track.layer.value() >= 0);
   const bool is_camera = track.kind == TrackKind::kCamera;
   if (is_camera) {
     read(shot.camera);
@@ -123,34 +97,6 @@ bool ReadTrack(const Shot& shot, const TrackRef& track, Read read) {
   const bool is_layer = track.kind == TrackKind::kLayer;
   if (is_layer) {
     read(layer->transform);
-    return true;
-  }
-  const auto* doll = std::get_if<DollLayer>(&layer->content);
-  const bool is_piece = track.kind == TrackKind::kPiece && doll != nullptr;
-  if (is_piece) {
-    const auto found = doll->pieces.find(track.piece);
-    const bool has_keys = found != doll->pieces.end();
-    if (has_keys) {
-      read(found->second);
-    } else {
-      read(Channel<PiecePose>());
-    }
-    return true;
-  }
-  const bool is_dial = track.kind == TrackKind::kDial && doll != nullptr;
-  if (is_dial) {
-    const auto found = doll->dials.find(track.piece);
-    const bool has_keys = found != doll->dials.end();
-    if (has_keys) {
-      read(found->second);
-    } else {
-      read(Channel<double>());
-    }
-    return true;
-  }
-  const bool is_skin = track.kind == TrackKind::kSkin && doll != nullptr;
-  if (is_skin) {
-    read(doll->skins);
     return true;
   }
   const auto* effect = std::get_if<EffectLayer>(&layer->content);

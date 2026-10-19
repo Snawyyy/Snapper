@@ -18,7 +18,7 @@ double LeanOf(const Bench& bench) {
   assert(!bench.history.current().shots.empty());
   assert(!bench.history.current().shots[0]->layers.empty());
   return Sample(bench.history.current().shots[0]->layers[0].transform,
-                Frame(0), PiecePose())
+                Frame(0), LayerPose())
       .lean;
 }
 

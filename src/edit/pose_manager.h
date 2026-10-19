@@ -4,7 +4,6 @@
 #include <QPointF>
 #include <QString>
 
-#include <map>
 #include <set>
 #include <vector>
 
@@ -21,7 +20,7 @@ class HistoryManager;
 // differences: x 10 and x 0 moved by 5 become 15 and 5.
 // One number of a pose, as the Pose box shows it.
 enum class PoseField {
-  kTurn, kX, kY, kScaleX, kScaleY, kSkew, kOpacity, kLean, kSwivel,
+  kTurn, kX, kY, kScaleX, kScaleY, kSkew, kOpacity,
   // Places in front (above 0) or behind (below 0) of its place in the
   // draw order; it holds from key to key, never blends.
   kOrder,
@@ -34,9 +33,6 @@ struct PoseDelta final {
   double scale_y = 0.0;
   double skew = 0.0;
   double opacity = 0.0;
-  // Doll lean and swivel in degrees; only layer tracks turn.
-  double lean = 0.0;
-  double swivel = 0.0;
   // Draw order places, whole numbers (see PoseField::kOrder).
   double order = 0.0;
 };
@@ -49,26 +45,14 @@ class PoseManager final {
  public:
   explicit PoseManager(HistoryManager* history);
 
-  // For layer and piece tracks.
+  // For layer tracks.
   Result<void> Rotate(const TrackRef& track, Frame frame, double degrees);
   Result<void> Move(const TrackRef& track, Frame frame, QPointF offset);
   Result<void> Scale(const TrackRef& track, Frame frame, double x, double y);
   Result<void> Skew(const TrackRef& track, Frame frame, double degrees);
   Result<void> SetOpacity(const TrackRef& track, Frame frame,
                           double opacity);
-  // Piece tracks: show drawing (index into the piece's drawings; -1 for
-  // the rig's default).
-  Result<void> SwapDrawing(const TrackRef& track, Frame frame, int drawing);
-  // The same on every frame of frames, as one undo step.
-  Result<void> SwapDrawing(const TrackRef& track,
-                           const std::set<Frame>& frames, int drawing);
-  // Piece tracks: pull one warp grid point by `by` (drawing pixels),
-  // dragging its neighbours along as far as the rig's rubber reach for
-  // that point says. It pulls from where the open drag started, so a
-  // drag calls it with its running total.
-  Result<void> Pull(const TrackRef& track, Frame frame, int point,
-                    QPointF by);
-  Result<void> SetPose(const TrackRef& track, Frame frame, PiecePose pose);
+  Result<void> SetPose(const TrackRef& track, Frame frame, LayerPose pose);
   // Adds delta to every track's pose at frame, as one step. Scale stays
   // 0 or more and opacity 0 to 1.
   Result<void> Shift(const std::vector<TrackRef>& tracks, Frame frame,
@@ -84,13 +68,12 @@ class PoseManager final {
                         const std::vector<Frame>& frames, PoseField field,
                         double value);
   // Moves every track's draw order by `by` places at every one of
-  // frames, as one step named for what moved ("Draw order head"). A
-  // limb moves within its doll; a doll's own track moves it past
-  // layers.
+  // frames, as one step named for what moved ("Draw order Bo"): a
+  // layer moves past other layers.
   Result<void> StepOrder(const std::vector<TrackRef>& tracks,
                          const std::vector<Frame>& frames, int by);
-  // The undo name of a draw order change on tracks: "Draw order head"
-  // for one piece or layer, "Draw order" for several.
+  // The undo name of a draw order change on tracks: "Draw order Bo"
+  // for one layer, "Draw order" for several.
   QString OrderName(const std::vector<TrackRef>& tracks) const;
   Result<void> SetCamera(ShotId shot, Frame frame, CameraPose camera);
   // Effect amount tracks, 0 to 1.
@@ -99,28 +82,10 @@ class PoseManager final {
   Result<void> ShiftAmounts(const std::vector<TrackRef>& tracks, Frame frame,
                             double delta);
 
-  // Adds lean and swivel degrees to every doll layer in layers (see
-  // LeanPoses). It adds to the turn the open drag started from, so a
-  // drag calls it with its running total. One step.
-  Result<void> Lean(ShotId shot, const std::vector<LayerId>& layers,
-                    Frame frame, double lean, double swivel);
-
-  // Keys the layer at frame exactly as it looks there (a whole doll for
-  // a doll layer), to mark a pose before changing it.
+  // Keys the layer at frame exactly as it looks there, to mark a pose
+  // before changing it.
   Result<void> KeyInPlace(ShotId shot, LayerId layer, Frame frame);
 
-  // Bends chain on a doll layer so its tip reaches target (doll space).
-  Result<void> DragIk(ShotId shot, LayerId layer, const QString& chain,
-                      Frame frame, QPointF target);
-
-  // Copies the poses of pieces (all of them when empty) at frame.
-  Result<void> CopyPose(ShotId shot, LayerId layer, Frame frame,
-                        const std::set<QString>& pieces);
-  // Keys the copied pose at frame, mirrored left to right if asked.
-  Result<void> PastePose(ShotId shot, LayerId layer, Frame frame,
-                         bool is_mirrored);
-  // Why Paste can't act, for its tooltip; empty when it can.
-  QString WhyNoPaste() const;
 
  private:
   // Shift under an undo name of its own.
@@ -130,9 +95,6 @@ class PoseManager final {
                        const PoseDelta& delta);
 
   HistoryManager* history_;
-  // The copied pose, by piece name. Not part of the project: copying
-  // is not an edit.
-  std::map<QString, PiecePose> clipboard_;
 };
 
 }  // namespace snapper

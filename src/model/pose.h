@@ -2,47 +2,22 @@
 #define SNAPPER_MODEL_POSE_H_
 
 #include <QPointF>
-#include <QString>
-
-#include <vector>
 
 namespace snapper {
 
-// How far a piece (or a whole layer) is moved from rest. Angles are in
-// degrees, clockwise on screen.
-struct PiecePose final {
+// How far a layer is moved from rest: its own place on the stage, keyed.
+// Angles are in degrees, clockwise on screen.
+struct LayerPose final {
   double rotation = 0.0;
-  QPointF offset;
+  QPointF offset{};
   double scale_x = 1.0;
   double scale_y = 1.0;
   double skew = 0.0;
   double opacity = 1.0;
-  // Which of the piece's drawings shows; -1 means the rig's default.
-  int drawing = -1;
-  // Added to the rig's draw order for this pose, so a part can come in
-  // front for a while (leaning in brings the near half forward).
+  // Places in front of (above 0) or behind its place in the shot's stack.
   int order = 0;
-  // On a doll layer's own move only: how many degrees the doll leans
-  // toward the camera (above 0) or away, with no limit (see
-  // LeanPoses). It is drawn on top of the pieces' keys, so leaning back
-  // to 0 always gives the keyed pose again.
-  double lean = 0.0;
-  // The same for turning it left and right, toward the camera above 0
-  // on its right side.
-  double swivel = 0.0;
-  // One offset per warp grid point, row by row; empty means no warp.
-  std::vector<QPointF> warp;
 
-  bool operator==(const PiecePose&) const = default;
-};
-
-// The skins a doll layer wears, by name. Where two touch the same piece
-// the one higher in the doll's Skins list wins, so the order here does
-// not matter. Keyed like a pose, it holds until the next key.
-struct SkinSet final {
-  std::vector<QString> names;
-
-  bool operator==(const SkinSet&) const = default;
+  bool operator==(const LayerPose&) const = default;
 };
 
 // Where the shot's camera looks. center is the canvas point (from the

@@ -12,9 +12,6 @@
 #include "edit/selection_manager.h"
 #include "edit/storyboard_manager.h"
 #include "ui/follow.h"
-#include "edit/group_manager.h"
-#include "ui/form_helpers.h"
-#include "ui/group_chips.h"
 #include "ui/inspector_show.h"
 #include "ui/inspector_title.h"
 #include "ui/playhead.h"
@@ -29,14 +26,10 @@ Inspector::Inspector(const Managers& managers)
       managers_(managers),
       shot_(managers),
       pose_(managers),
-      dials_(managers),
-      skins_(managers),
-      drag_(managers),
-      point_motion_(managers),
       camera_(managers),
       layer_(managers),
       link_(managers),
-      poses_(managers) {
+      character_(managers) {
   assert(managers.IsComplete());
   layout_.setContentsMargins(4, 4, 4, 4);
   layout_.setSpacing(theme::kRowGap);
@@ -52,17 +45,7 @@ Inspector::Inspector(const Managers& managers)
   // left open by the old default starts closed too.)
   AddFolded(&camera_, "shot_camera", false);
   layout_.addWidget(&pose_);
-  if (managers_.character_poses != nullptr) {
-    character_ = std::make_unique<CharacterBox>(managers_);
-    AddFolded(character_.get(), "character");
-    connect(character_.get(), &CharacterBox::Problem, this, &Inspector::Problem);
-  }
-  const bool has_objects = managers_.objects != nullptr;
-  if (has_objects) {
-    object_ = std::make_unique<ObjectBox>(managers_);
-    AddFolded(object_.get(), "object");
-    connect(object_.get(), &ObjectBox::Problem, this, &Inspector::Problem);
-  }
+  AddFolded(&character_, "character");
   const bool has_references = managers_.references != nullptr;
   if (has_references) {
     references_ = std::make_unique<ReferenceBox>(managers_);
@@ -84,23 +67,8 @@ Inspector::Inspector(const Managers& managers)
     connect(managers_.storyboard, &StoryboardManager::Changed, this,
             &Inspector::Refresh);
   }
-  AddFolded(&skins_, "skins");
-  AddFolded(&dials_, "smart_dials");
-  new_dial_.setObjectName("new_dial");
-  new_dial_.setText(tr("+ Smart dial"));
-  new_dial_.setMenu(dials_.templates());
-  new_dial_.setPopupMode(QToolButton::InstantPopup);
-  new_dial_.setToolButtonStyle(Qt::ToolButtonTextOnly);
-  // As wide as the sections, so it reads as a row of the panel, not a
-  // loose button between two of them.
-  new_dial_.setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-  layout_.addWidget(&new_dial_);
-  layout_.addWidget(&drag_);
-  AddFolded(&point_motion_, "dot_animation");
   layout_.addWidget(&layer_);
   AddFolded(&link_, "link");
-  // Saved poses are reached for now and then: folded until opened.
-  AddFolded(&poses_, "saved_poses_shut", false);
   layout_.addStretch(1);
   // Pressed into the plastic like the model name on a deck: it closes
   // the panel so the space above reads as room, not a missing box.
@@ -116,16 +84,11 @@ Inspector::Inspector(const Managers& managers)
   badge_.setPalette(pressed);
   layout_.addWidget(&badge_);
   connect(&pose_, &PoseBox::Problem, this, &Inspector::Problem);
-  connect(&dials_, &DialBox::Problem, this, &Inspector::Problem);
-  connect(&skins_, &SkinBox::Problem, this, &Inspector::Problem);
+  connect(&character_, &CharacterBox::Problem, this, &Inspector::Problem);
   connect(&shot_, &ShotBox::Problem, this, &Inspector::Problem);
-  connect(&drag_, &DragBox::Problem, this, &Inspector::Problem);
-  connect(&point_motion_, &PointMotionBox::Problem, this,
-          &Inspector::Problem);
   connect(&camera_, &CameraBox::Problem, this, &Inspector::Problem);
   connect(&layer_, &LayerBox::Problem, this, &Inspector::Problem);
   connect(&link_, &LinkBox::Problem, this, &Inspector::Problem);
-  connect(&poses_, &PosesBox::Problem, this, &Inspector::Problem);
   setWidgetResizable(true);
   WatchScrolling(this);
   // Sideways only past the cap KeepWideEnough sets.
@@ -183,7 +146,6 @@ void Inspector::Refresh() {
   const bool is_here = spot.has_value() && spot->shot == selection.shot();
   const QString words = InspectorTitle(
       project, selection.shot(), selection.picks(),
-      static_cast<int>(selection.dots().size()),
       is_here ? std::optional<Frame>(spot->local) : std::nullopt);
   title_.setVisible(!words.isEmpty());
   // Setting rich text lays it out again: only when it says something new.
@@ -194,16 +156,9 @@ void Inspector::Refresh() {
   if (is_new_title) {
     title_.setText(html);
   }
-  const bool has_groups =
-      has_pick && !GroupsOfPicks(
-                       managers_.groups->GroupsOf(selection.shot()),
-                       selection.picks())
-                       .empty();
   const bool has_storyboard_box = storyboard_ != nullptr;
   PickExtras extras;
-  extras.has_dot = has_pick && selection.dot().has_value();
   extras.is_linked = has_pick && link_.IsLinked();
-  extras.has_groups = has_groups;
   extras.has_reference =
       managers_.references != nullptr &&
       managers_.references->PickedIn(selection.shot()).IsValid();
@@ -216,23 +171,7 @@ void Inspector::Refresh() {
   shot_.setVisible(show.shot);
   Show(&camera_, show.camera);
   pose_.setVisible(show.pose);
-  Show(&dials_, show.dials);
-  const bool is_new_dial_new = new_dial_.isHidden() == show.add_dial;
-  if (is_new_dial_new) {
-    new_dial_.setVisible(show.add_dial);
-  }
-  if (show.add_dial) {
-    Explain(&new_dial_, dials_.WhyNoDial(),
-            tr("This doll has no smart dials yet. Pick the pieces a dial "
-               "should move, then make one from a template."));
-  }
-  Show(&skins_, show.skins);
-  if (character_ != nullptr) {
-    Show(character_.get(), show.character);
-  }
-  if (object_ != nullptr) {
-    Show(object_.get(), show.object);
-  }
+  Show(&character_, show.character);
   if (references_ != nullptr) {
     Show(references_.get(), show.references);
   }
@@ -241,10 +180,6 @@ void Inspector::Refresh() {
   }
   Show(&link_, show.link);
   Show(&layer_, show.layer);
-  Show(&poses_, show.saved_poses);
-  // The dot controls and the groups share one panel.
-  drag_.ShowParts(show.drag, show.groups);
-  Show(&point_motion_, show.dot_animation);
   assert(!(shot_.isVisibleTo(this) && pose_.isVisibleTo(this)));
   assert(has_pick || !link_.isVisibleTo(this));
 }

@@ -1,10 +1,9 @@
-// StageView's ghost: the picked pieces and layers as they stood when a
+// StageView's ghost: the picked layers as they stood when a
 // drag took hold of them.
 
 #include <QPainter>
 
 #include <cassert>
-#include <map>
 #include <set>
 
 #include "anim/master_timeline.h"
@@ -13,33 +12,6 @@
 #include "ui/stage_view.h"
 
 namespace snapper {
-namespace {
-
-// The picks as the renderer wants them: a layer picked whole maps to
-// nothing (draw all of it), otherwise to the pieces picked.
-std::map<LayerId, std::set<QString>> OnlyPicked(const std::set<Pick>& picks) {
-  assert(picks.size() < 1000000);
-  std::map<LayerId, std::set<QString>> only;
-  std::set<LayerId> whole;
-  for (const Pick& pick : picks) {
-    const bool is_whole = pick.piece.isEmpty();
-    if (is_whole) {
-      whole.insert(pick.layer);
-    }
-    only[pick.layer];
-    if (!is_whole) {
-      only[pick.layer].insert(pick.piece);
-    }
-  }
-  for (const LayerId layer : whole) {
-    only[layer].clear();
-  }
-  assert(only.size() <= picks.size());
-  return only;
-}
-
-}  // namespace
-
 void StageView::GrabGhost(const StageFrame& frame) {
   assert(tool_.IsDragging());
   assert(frame.scale > 0.0);
@@ -49,7 +21,10 @@ void StageView::GrabGhost(const StageFrame& frame) {
   if (!has_shot) {
     return;
   }
-  const auto only = OnlyPicked(managers_.selection->picks());
+  std::set<LayerId> only;
+  for (const Pick& pick : managers_.selection->picks()) {
+    only.insert(pick.layer);
+  }
   feedback_.SetGhost(MakeGhost(
       GhostKind::kStagePick, size(), devicePixelRatioF(),
       [&](QPainter* painter) {

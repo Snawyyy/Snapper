@@ -18,7 +18,7 @@ Project Stage() {
   Layer layer;
   layer.id = LayerId(1);
   DollLayer posed{"Bob", {}, false};
-  SetKey(&posed.pieces["head"], {Frame(4), PiecePose(), Ease::kStep});
+  SetKey(&posed.pieces["head"], {Frame(4), LayerPose(), Ease::kStep});
   layer.content = posed;
   shot.layers = {layer};
   Shot other;

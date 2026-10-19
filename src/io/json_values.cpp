@@ -4,7 +4,7 @@
 #include <array>
 #include <cmath>
 
-#include "model/doll.h"
+#include "model/shot.h"
 
 namespace snapper {
 namespace {
@@ -152,26 +152,20 @@ double ValueFromJson(const QJsonValue& value, double fallback,
   return read;
 }
 
-QJsonValue ValueToJson(const PiecePose& pose) {
+QJsonValue ValueToJson(const LayerPose& pose) {
   assert(std::isfinite(pose.rotation));
-  assert(pose.warp.size() <= static_cast<size_t>(kMaxWarpPoints));
-  QJsonArray warp;
-  for (const QPointF& point : pose.warp) {
-    warp.append(PointToJson(point));
-  }
-  return QJsonObject{{"r", pose.rotation},       {"x", pose.offset.x()},
-                     {"y", pose.offset.y()},     {"sx", pose.scale_x},
-                     {"sy", pose.scale_y},       {"k", pose.skew},
-                     {"o", pose.opacity},        {"d", pose.drawing},
-                     {"z", pose.order},          {"l", pose.lean},
-                     {"v", pose.swivel},         {"w", warp}};
+  assert(std::isfinite(pose.opacity));
+  return QJsonObject{{"r", pose.rotation},   {"x", pose.offset.x()},
+                     {"y", pose.offset.y()}, {"sx", pose.scale_x},
+                     {"sy", pose.scale_y},   {"k", pose.skew},
+                     {"o", pose.opacity},    {"z", pose.order}};
 }
 
-PiecePose ValueFromJson(const QJsonValue& value, PiecePose fallback,
+LayerPose ValueFromJson(const QJsonValue& value, LayerPose fallback,
                         JsonIssues* issues) {
   assert(issues != nullptr);
   const QJsonObject object = value.toObject();
-  PiecePose pose = fallback;
+  LayerPose pose = fallback;
   pose.rotation = Number(object, "r", fallback.rotation);
   pose.offset = QPointF(Number(object, "x", fallback.offset.x()),
                         Number(object, "y", fallback.offset.y()));
@@ -179,22 +173,8 @@ PiecePose ValueFromJson(const QJsonValue& value, PiecePose fallback,
   pose.scale_y = Number(object, "sy", fallback.scale_y);
   pose.skew = Number(object, "k", fallback.skew);
   pose.opacity = Number(object, "o", fallback.opacity);
-  pose.lean = Number(object, "l", fallback.lean);
-  pose.swivel = Number(object, "v", fallback.swivel);
-  pose.drawing = object.value("d").toInt(fallback.drawing);
   pose.order = std::clamp(object.value("z").toInt(fallback.order),
-                          -kMaxDollPieces, kMaxDollPieces);
-  const QJsonArray warp = object.value("w").toArray();
-  const bool is_too_many = warp.size() > kMaxWarpPoints;
-  if (is_too_many) {
-    issues->Note(QStringLiteral("a warp has too many points"));
-    return pose;
-  }
-  pose.warp.clear();
-  for (const QJsonValue& point : warp) {
-    pose.warp.push_back(PointFromJson(point));
-  }
-  assert(pose.warp.size() <= static_cast<size_t>(kMaxWarpPoints));
+                          -kMaxLayersPerShot, kMaxLayersPerShot);
   return pose;
 }
 
@@ -223,38 +203,6 @@ CameraPose ValueFromJson(const QJsonValue& value, CameraPose fallback,
   }
   assert(std::isfinite(pose.zoom));
   return pose;
-}
-
-QJsonValue ValueToJson(const SkinSet& skins) {
-  assert(skins.names.size() < 100000);
-  QJsonArray names;
-  for (const QString& name : skins.names) {
-    names.append(name);
-  }
-  assert(names.size() == static_cast<qsizetype>(skins.names.size()));
-  return names;
-}
-
-SkinSet ValueFromJson(const QJsonValue& value, SkinSet fallback,
-                      JsonIssues* issues) {
-  assert(issues != nullptr);
-  const bool is_list = value.isArray();
-  if (!is_list) {
-    return fallback;
-  }
-  // A layer wears at most every skin its doll has.
-  const QJsonArray names = Bounded(value, 32, "worn skins", issues);
-  SkinSet skins;
-  for (const QJsonValue& name : names) {
-    const QString text = name.toString();
-    const bool is_new = !text.isEmpty() &&
-                        std::find(skins.names.begin(), skins.names.end(),
-                                  text) == skins.names.end();
-    if (is_new) {
-      skins.names.push_back(text);
-    }
-  }
-  return skins;
 }
 
 QString EaseToJson(Ease ease) {

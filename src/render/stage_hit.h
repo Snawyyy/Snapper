@@ -4,63 +4,35 @@
 #include <QPointF>
 #include <QPolygonF>
 #include <QRectF>
-#include <QString>
-#include <QTransform>
 
 #include <optional>
 #include <vector>
 
-#include "anim/doll_pose.h"
 #include "base/frame.h"
 #include "model/project.h"
 #include "render/image_cache.h"
 
 namespace snapper {
 
-// What was clicked: a layer, and for a doll, which piece.
+// What was clicked: a layer.
 struct StageHit final {
   LayerId layer;
-  QString piece;
 };
-
-// The topmost solid piece of a doll posed by poses under point, where
-// world maps the doll's space to the point's space.
-std::optional<QString> HitDollPiece(const Doll& doll, const PoseMap& poses,
-                                    const QTransform& world, QPointF point,
-                                    ImageCache* cache);
 
 // The topmost thing drawn at point (output pixels of a frame rendered
 // at scale), so clicks pick what is actually seen: see-through pixels
-// of a drawing don't count. Effects and hidden layers are never hit.
+// of a picture don't count. Effects and hidden layers are never hit.
 std::optional<StageHit> HitTest(const Project& project, const Shot& shot,
                                 Frame local, QPointF point, double scale,
                                 ImageCache* cache);
 
-// The outline of a picture, text or whole doll layer on screen (a doll's
-// is one box around all its pieces); empty for effects.
+// The outline of a picture, text or character layer on screen (a
+// character's is one box around its shown parts); empty for effects.
 QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
                      Frame local, double scale, ImageCache* cache);
 
-// How far, in screen pixels, the turn handles sit out from the box.
-constexpr double kTurnGap = 12.0;
-
-// Where a doll layer's turn handles sit on screen, just out from its
-// box (LayerShape): lean beside the middle of the right side, swivel
-// below the middle of the bottom.
-struct TurnHandles final {
-  QPointF lean;
-  QPointF swivel;
-};
-
-// Nothing for layers that aren't dolls.
-std::optional<TurnHandles> TurnHandlesOf(const Project& project,
-                                         const Shot& shot, LayerId layer,
-                                         Frame local, double scale,
-                                         ImageCache* cache);
-
-// Everything a box (output pixels at scale) touches: each doll piece
-// whose drawing overlaps it, and each other picture or text layer whose
-// box does. Effects and hidden layers are never caught.
+// Every picture, text or character layer whose box a box (output pixels
+// at scale) touches. Effects and hidden layers are never caught.
 std::vector<StageHit> HitBox(const Project& project, const Shot& shot,
                              Frame local, const QRectF& box, double scale,
                              ImageCache* cache);

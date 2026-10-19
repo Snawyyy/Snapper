@@ -102,7 +102,7 @@ bool TimelineStoryboard::Press(const QMouseEvent& event) {
   const bool is_name = event.position().x() < kNameWidth;
   if (is_name) {
     // The inspector shows the layer's settings.
-    managers_.selection->PickThings({{layer, QString()}}, PickMode::kReplace,
+    managers_.selection->PickThings({Pick{layer}}, PickMode::kReplace,
                                     layer);
     Aim(layer);
     return true;

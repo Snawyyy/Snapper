@@ -27,9 +27,9 @@ Layer DollWith(LayerId id, const std::vector<Keyed>& keys) {
   layer.name = "Doll";
   layer.content = DollLayer{"Doll", {}, false};
   for (const Keyed& key : keys) {
-    PiecePose pose;
+    LayerPose pose;
     pose.rotation = key.angle;
-    SetKey(&layer.transform, Key<PiecePose>{Frame(key.frame), pose});
+    SetKey(&layer.transform, Key<LayerPose>{Frame(key.frame), pose});
   }
   return layer;
 }

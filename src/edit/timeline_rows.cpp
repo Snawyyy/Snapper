@@ -10,33 +10,19 @@
 namespace snapper {
 namespace {
 
-// A layer's channels: its own move, plus each piece and dial or its
-// strength.
+// A layer's channels: its own move, plus a character's poses or an
+// effect's strength.
 std::vector<TrackRef> LayerTracks(const Shot& shot, const Layer& layer) {
   assert(layer.id.IsValid());
   assert(shot.id.IsValid());
   std::vector<TrackRef> tracks = {
-      {shot.id, TrackKind::kLayer, layer.id, {}}};
-  const auto* doll = std::get_if<DollLayer>(&layer.content);
-  const bool is_doll = doll != nullptr;
-  if (is_doll) {
-    for (const auto& [piece, channel] : doll->pieces) {
-      tracks.push_back({shot.id, TrackKind::kPiece, layer.id, piece});
-    }
-    for (const auto& [dial, channel] : doll->dials) {
-      tracks.push_back({shot.id, TrackKind::kDial, layer.id, dial});
-    }
-    const bool has_skins = !doll->skins.keys.empty();
-    if (has_skins) {
-      tracks.push_back({shot.id, TrackKind::kSkin, layer.id, {}});
-    }
-  }
+      {shot.id, TrackKind::kLayer, layer.id}};
   const bool is_effect = std::holds_alternative<EffectLayer>(layer.content);
   if (is_effect) {
-    tracks.push_back({shot.id, TrackKind::kEffectAmount, layer.id, {}});
+    tracks.push_back({shot.id, TrackKind::kEffectAmount, layer.id});
   }
   if (std::holds_alternative<CharacterLayer>(layer.content)) {
-    tracks.push_back({shot.id, TrackKind::kCharacter, layer.id, {}});
+    tracks.push_back({shot.id, TrackKind::kCharacter, layer.id});
   }
   return tracks;
 }
@@ -101,7 +87,7 @@ std::vector<TimelineRow> TimelineRows(const Project& project, ShotId shot) {
     rows.push_back(std::move(row));
   }
   TimelineRow camera{Tr("Camera"), LayerId(),
-                     {{shot, TrackKind::kCamera, {}, {}}}, {}, {}};
+                     {{shot, TrackKind::kCamera, {}}}, {}, {}};
   CollectKeys(*found, &camera);
   rows.push_back(std::move(camera));
   return rows;

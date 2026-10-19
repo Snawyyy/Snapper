@@ -14,7 +14,6 @@
 #include "edit/character_manager.h"
 #include "edit/document_manager.h"
 #include "edit/draw_manager.h"
-#include "edit/library_folder_manager.h"
 #include "anim/master_timeline.h"
 #include "edit/export_manager.h"
 #include "edit/history_manager.h"
@@ -43,7 +42,6 @@ void ShowStep(QAction* action, const StepFace& face) {
 MainWindow::MainWindow(const Managers& managers)
     : managers_(managers),
       file_menu_(managers.document, managers.history, this),
-      krita_menu_(managers.library, managers.toasts, this),
       color_palette_(managers.palette, managers.motion,
                      managers.document->SettingsPath(), this),
       color_palette_action_(tr("Color &palette")),
@@ -55,7 +53,6 @@ MainWindow::MainWindow(const Managers& managers)
                  .filePath(QStringLiteral("sounds")),
              managers.document->SettingsPath(), this),
       sounds_action_(tr("&Sounds")),
-      hidden_folders_action_(tr("Show &hidden folders")),
       undo_action_(tr("&Undo")),
       redo_action_(tr("&Redo")),
       top_bar_host_(tr("Top bar")),
@@ -68,9 +65,6 @@ MainWindow::MainWindow(const Managers& managers)
       pose_deck_layout_(&pose_deck_),
       pose_transport_(managers),
       timeline_(managers),
-      rig_split_(Qt::Horizontal),
-      rig_canvas_(managers),
-      rig_panel_(managers),
       character_page_(managers.history, managers.characters,
                       managers.document->SettingsPath()),
       comp_page_(managers),
@@ -106,22 +100,11 @@ MainWindow::MainWindow(const Managers& managers)
   BuildMenus();
   BuildPages();
   // Opening a cast card shows it on the Character tab.
-  connect(&cast_, &CastPanel::DollOpenAsked, this, [this](const QString& name) {
-    if (FindCharacter(managers_.history->current(), name) == nullptr) {
-      return;
-    }
-    character_page_.session()->SetCharacter(name);
-    SetMode(Mode::kRig);
-  });
-  connect(&rig_panel_, &RigPanel::DollPicked, &rig_canvas_,
-          &RigCanvas::SetDoll);
-  connect(&rig_panel_, &RigPanel::PickChanged, &rig_canvas_,
-          &RigCanvas::SetPick);
-  connect(&rig_panel_, &RigPanel::SkinPicked, &rig_canvas_,
-          &RigCanvas::SetSkin);
-  connect(&rig_canvas_, &RigCanvas::PickChanged, &rig_panel_,
-          &RigPanel::SetPick);
-  rig_canvas_.SetDoll(rig_panel_.doll());
+  connect(&cast_, &CastPanel::CharacterOpenAsked, this,
+          [this](const QString& name) {
+            character_page_.session()->SetCharacter(name);
+            SetMode(Mode::kCharacter);
+          });
   ToastManager* toasts = managers_.toasts;
   const auto show_problem = [toasts](const QString& why) {
     toasts->Problem(why);
@@ -134,18 +117,12 @@ MainWindow::MainWindow(const Managers& managers)
   connect(&timeline_, &TimelineView::Problem, this, show_problem);
   connect(&strip_, &ShotStrip::Problem, this, show_problem);
   connect(&cast_, &CastPanel::Problem, this, show_problem);
-  connect(&rig_canvas_, &RigCanvas::Problem, this, show_problem);
   connect(&character_page_, &CharacterPage::Problem, this,
           [show_problem](const QString& message) {
             if (!message.isEmpty()) {
               show_problem(message);
             }
           });
-  // A hint stays until the canvas clears it.
-  connect(&rig_canvas_, &RigCanvas::Hint, this, [this](const QString& hint) {
-    statusBar()->showMessage(hint);
-  });
-  connect(&rig_panel_, &RigPanel::Problem, this, show_problem);
   connect(&video_page_, &VideoPage::Problem, this, show_problem);
   connect(&comp_page_, &CompPage::Problem, this, show_problem);
   cast_dock_.setObjectName(QStringLiteral("cast"));
@@ -184,10 +161,11 @@ void MainWindow::Start(const QString& path) {
 }
 
 void MainWindow::ShowMode(int index) {
-  assert(index >= 0 && index <= static_cast<int>(Mode::kRig));
+  assert(index >= 0 && index <= static_cast<int>(Mode::kCharacter));
   assert(managers_.playback != nullptr);
   const int was = pages_.currentIndex();
-  // Video and Comp both work on the reel; Pose and Rig on the shots.
+  // Video and Comp both work on the reel; Pose and Character on the
+  // shots.
   const bool is_on_reel = index == static_cast<int>(Mode::kVideo) ||
                           index == static_cast<int>(Mode::kComp);
   pages_.setCurrentIndex(index);
@@ -195,11 +173,12 @@ void MainWindow::ShowMode(int index) {
   order_menu_.Refresh();
   managers_.playback->SetTimeline(is_on_reel ? Timeline::kReel
                                              : Timeline::kShots);
-  // The cast shows on the Pose and Rig tabs, the inspector only on Pose;
+  // The cast shows on the Pose and Character tabs, the inspector only on
+  // Pose;
   // each comes back as it was left there.
   const auto has_cast = [](int mode) {
     return mode == static_cast<int>(Mode::kPose) ||
-           mode == static_cast<int>(Mode::kRig);
+           mode == static_cast<int>(Mode::kCharacter);
   };
   const auto has_inspector = [](int mode) {
     return mode == static_cast<int>(Mode::kPose);
@@ -241,7 +220,7 @@ void MainWindow::FollowPlayhead() {
 }
 
 void MainWindow::ToggleFullView() {
-  assert(pages_.count() == static_cast<int>(Mode::kRig) + 1);
+  assert(pages_.count() == static_cast<int>(Mode::kCharacter) + 1);
   assert(centralWidget() == &pages_);
   if (full_view_.is_on()) {
     full_view_.Leave();
@@ -249,7 +228,7 @@ void MainWindow::ToggleFullView() {
   }
   QWidget* view = mode() == Mode::kVideo  ? video_page_.main_view()
                   : mode() == Mode::kComp ? comp_page_.main_view()
-                  : mode() == Mode::kRig
+                  : mode() == Mode::kCharacter
                       ? static_cast<QWidget*>(character_page_.canvas())
                                           : static_cast<QWidget*>(&stage_);
   full_view_.Enter(view);
@@ -285,18 +264,6 @@ void MainWindow::BuildPages() {
   pose_layout_.setSpacing(0);
   pose_layout_.addWidget(&strip_);
   pose_layout_.addWidget(&pose_split_, 1);
-  rig_split_.addWidget(&rig_canvas_);
-  rig_scroll_.setWidgetResizable(true);
-  rig_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  rig_scroll_.setFrameShape(QFrame::NoFrame);
-  rig_scroll_.setWidget(&rig_panel_);
-  // As wide as the settings need, whatever piece they show.
-  KeepWideEnough(&rig_scroll_);
-  rig_split_.addWidget(&rig_scroll_);
-  rig_split_.setCollapsible(1, false);
-  rig_split_.SetDefaultShares({3, 1});
-  rig_split_.Remember(QStringLiteral("rig"),
-                      managers_.document->SettingsPath());
   pages_.addWidget(&video_page_);
   pages_.addWidget(&pose_page_);
   pages_.addWidget(&comp_page_);
@@ -310,12 +277,12 @@ void MainWindow::BuildPages() {
     theme::SetLevel(panel, theme::kFace);
   }
   theme::SetLevel(&top_bar_host_, theme::kRaised);
-  assert(pages_.count() == static_cast<int>(Mode::kRig) + 1);
+  assert(pages_.count() == static_cast<int>(Mode::kCharacter) + 1);
 }
 
 void MainWindow::BuildModes() {
   assert(top_bar_.tabs()->count() == pages_.count());
-  assert(pages_.count() == static_cast<int>(Mode::kRig) + 1);
+  assert(pages_.count() == static_cast<int>(Mode::kCharacter) + 1);
   top_bar_host_.setObjectName(QStringLiteral("modes_bar"));
   top_bar_host_.setMovable(false);
   top_bar_host_.setFloatable(false);
@@ -363,10 +330,7 @@ void MainWindow::BuildMenus() {
   QMenu* file = file_menu_.menu();
   // Export sits just above Quit.
   file->insertAction(file->actions().last(), &export_action_);
-  // Characters are drawn in Snapper now: the Krita doll menu is gone.
   file->insertSeparator(file->actions().last());
-  connect(&cast_, &CastPanel::OpenInKritaRequested, &krita_menu_,
-          &KritaMenu::Open);
   connect(&export_action_, &QAction::triggered, &export_dialog_, [this] {
     export_dialog_.show();
     export_dialog_.raise();
@@ -406,8 +370,8 @@ void MainWindow::BuildViewAndHelp() {
   view_menu_.addAction(&sounds_action_);
   color_palette_action_.setCheckable(true);
   color_palette_action_.setToolTip(
-      tr("The floating palette: the picked piece's and doll's colors, "
-         "recent and added ones."));
+      tr("The floating palette: a color wheel, recent colors and the "
+         "picked character's."));
   view_menu_.addAction(&color_palette_action_);
   full_view_action_.setText(tr("Full view"));
   full_view_action_.setShortcut(QKeySequence(Qt::Key_Tab));
@@ -434,7 +398,6 @@ void MainWindow::BuildViewAndHelp() {
     connect(managers_.draw, &DrawManager::Ended, &color_palette_,
             [this] { color_palette_.Undock(); });
   }
-  BuildHiddenFoldersAction();
   connect(&sounds_action_, &QAction::toggled, &sound_, &UiSound::SetOn);
   connect(managers_.toasts, &ToastManager::Cheered, &sound_,
           [this] { sound_.Play(UiSound::Blip::kChime); });
@@ -448,26 +411,6 @@ void MainWindow::BuildViewAndHelp() {
           &CommandPalette::Open);
   connect(&sheet_action_, &QAction::triggered, &sheet_,
           &ShortcutSheet::Open);
-}
-
-void MainWindow::BuildHiddenFoldersAction() {
-  LibraryFolderManager* folders = managers_.library_folders;
-  assert(menuBar() != nullptr);
-  assert(view_menu_.actions().size() >= 0);
-  const bool has_folders = folders != nullptr;
-  if (!has_folders) {
-    return;
-  }
-  hidden_folders_action_.setCheckable(true);
-  hidden_folders_action_.setChecked(folders->show_hidden());
-  hidden_folders_action_.setToolTip(
-      tr("Show the library folders marked hidden, and the dolls in them."));
-  view_menu_.addAction(&hidden_folders_action_);
-  connect(&hidden_folders_action_, &QAction::toggled, folders,
-          &LibraryFolderManager::SetShowHidden);
-  connect(folders, &LibraryFolderManager::Changed, this, [this, folders] {
-    hidden_folders_action_.setChecked(folders->show_hidden());
-  });
 }
 
 void MainWindow::Refresh() {

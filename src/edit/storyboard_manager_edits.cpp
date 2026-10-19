@@ -49,20 +49,6 @@ Result<void> StoryboardManager::SetExported(ShotId shot, LayerId layer,
                 }));
 }
 
-Result<void> StoryboardManager::SetSink(ShotId shot, LayerId layer,
-                                        int sink) {
-  assert(history_ != nullptr);
-  assert(layer.value() >= 0);
-  const int clamped = std::clamp(sink, 0, kMaxStoryboardSink);
-  return history_->Apply(
-      Tr("Sink storyboard behind limbs"),
-      WithBoard(history_->current(), shot, layer,
-                [clamped](StoryboardLayer* board) -> Result<void> {
-                  board->sink = clamped;
-                  return {};
-                }));
-}
-
 Result<void> StoryboardManager::MoveCels(ShotId shot, LayerId layer,
                                          const std::set<Frame>& frames,
                                          int offset) {

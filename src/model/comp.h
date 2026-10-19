@@ -139,19 +139,18 @@ struct ColorSwap final {
 };
 
 // What an effect works on. No layer is everything below (the whole
-// frame, in screen space); a layer narrows it to that layer, pieces to
-// those pieces of its doll; colors narrow any of them to pixels of
-// those colors. They combine: "skin color on the doll Mika only".
+// frame, in screen space); a layer narrows it to that layer; colors
+// narrow either to pixels of those colors. They combine: "skin color on
+// Mika only".
 struct CompTarget final {
   LayerId layer{};
-  std::vector<QString> pieces{};
   std::vector<QColor> colors{};
 
   bool operator==(const CompTarget&) const = default;
 };
 
 // One effect of a shot's comp stack. Colors are stored as colors, not
-// palette slots, so a doll edit never changes a finished shot.
+// palette slots, so a character edit never changes a finished shot.
 struct CompEffect final {
   CompEffectId id{};
   CompKind kind = CompKind::kRimLight;

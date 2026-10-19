@@ -2,7 +2,6 @@
 
 #include <cassert>
 
-#include "anim/mirror.h"
 #include "render/pixel_paint.h"
 #include "ui/problem.h"
 #include "ui/theme.h"
@@ -41,7 +40,7 @@ void Paint(QWidget* widget) {
 
 DrawBar::DrawBar(const Managers& managers)
     : managers_(managers), layout_(this),
-      onion_(tr("Onion")), mirror_(tr("Mirror")), discard_(tr("Discard")), keep_(tr("Keep drawing")),
+      onion_(tr("Onion")), discard_(tr("Discard")), keep_(tr("Keep drawing")),
       done_(tr("Done")), cancel_(tr("Cancel")) {
   assert(managers_.draw != nullptr);
   assert(managers_.toasts != nullptr);
@@ -49,17 +48,11 @@ DrawBar::DrawBar(const Managers& managers)
   QFont bold = title_.font();
   bold.setBold(true);
   title_.setFont(bold);
-  name_.setPlaceholderText(tr("Name"));
-  name_.setToolTip(tr("What the drawing is called in the Drawing picker."));
-  name_.setMaximumWidth(140);
-  done_.setToolTip(tr("Save the drawing (Enter)."));
+  done_.setToolTip(tr("Keep the drawing (Enter)."));
   cancel_.setToolTip(tr("Leave without saving (Escape)."));
   question_.setText(tr("Throw away what you drew?"));
   layout_.addWidget(&title_);
-  layout_.addWidget(&name_);
   layout_.addWidget(&onion_);
-  layout_.addWidget(&mirror_);
-  mirror_.setFocusPolicy(Qt::NoFocus);
   size_.setText(tr("Brush"));
   brush_.setRange(1, kMaxBrushSize);
   brush_.setSuffix(tr(" px"));
@@ -79,15 +72,10 @@ DrawBar::DrawBar(const Managers& managers)
   onion_.setFocusPolicy(Qt::NoFocus);
   DrawManager* draw = managers_.draw;
   connect(draw, &DrawManager::Changed, this, &DrawBar::Refresh);
-  connect(draw, &DrawManager::Started, this, [this] {
-    name_.setText(managers_.draw->DefaultName());
-    Ask(false);
-  });
+  connect(draw, &DrawManager::Started, this, [this] { Ask(false); });
   connect(&onion_, &QCheckBox::toggled, draw, &DrawManager::SetOnion);
-  connect(&mirror_, &QCheckBox::toggled, draw, &DrawManager::SetMirrors);
   connect(&brush_, &QSpinBox::valueChanged, draw,
           &DrawManager::SetBrushSize);
-  // Enter in the name field reaches the canvas, which presses Done.
   connect(&done_, &QPushButton::clicked, this, &DrawBar::Finish);
   connect(&cancel_, &QPushButton::clicked, this, &DrawBar::AskCancel);
   connect(&discard_, &QPushButton::clicked, draw, &DrawManager::Cancel);
@@ -98,7 +86,7 @@ DrawBar::DrawBar(const Managers& managers)
 void DrawBar::Finish() {
   assert(managers_.draw != nullptr);
   assert(managers_.toasts != nullptr);
-  const QString problem = ProblemOf(managers_.draw->Done(name_.text()));
+  const QString problem = ProblemOf(managers_.draw->Done());
   if (!problem.isEmpty()) {
     managers_.toasts->Problem(problem);
   }
@@ -122,33 +110,9 @@ void DrawBar::Refresh() {
     const QSignalBlocker quiet_size(brush_);
     brush_.setValue(draw->brush_size());
   }
-  // A storyboard frame has no name; its onion is the frame before.
-  name_.setVisible(draw->is_named());
-  onion_.setToolTip(draw->is_named()
-                        ? tr("Show the original under yours at 30 % (D). "
-                             "Hold R to see only the original. Left and "
-                             "Right flip through the piece's drawings in "
-                             "place of yours.")
-                        : tr("Show the frame before (red) faint under "
-                             "yours, to trace from (D). Hold R to see "
-                             "this frame as it was."));
-  // Mirroring is for a piece's drawings; a new version redoes its copy.
-  const bool can_mirror = draw->is_named();
-  mirror_.setVisible(draw->is_named());
-  mirror_.setEnabled(can_mirror);
-  const QString twin = MirrorName(draw->piece());
-  mirror_.setToolTip(
-      !can_mirror ? QString()
-      : twin != draw->piece()
-          ? tr("Done also puts this drawing, flipped, on %1.").arg(twin)
-          : tr("Done also keeps a flipped copy beside it, as another "
-               "drawing of %1: a name ending _L gets its _R, else "
-               "\"name flipped\".")
-                .arg(draw->piece()));
-  {
-    const QSignalBlocker quiet_mirror(mirror_);
-    mirror_.setChecked(draw->mirrors());
-  }
+  onion_.setToolTip(tr("Show the frame before (red) faint under yours, "
+                       "to trace from (D). Hold R to see this frame as "
+                       "it was."));
   const QSignalBlocker quiet(onion_);
   onion_.setChecked(draw->is_onion());
   // No title while no drawing is open, so the text may be null.

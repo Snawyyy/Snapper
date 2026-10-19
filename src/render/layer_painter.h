@@ -7,10 +7,6 @@
 #include <QRectF>
 #include <QTransform>
 
-#include <map>
-#include <set>
-
-#include "anim/doll_pose.h"
 #include "anim/links.h"
 #include "base/frame.h"
 #include "model/layer.h"
@@ -30,41 +26,13 @@ QPainterPath TextPath(const TextLayer& text);
 void PaintLettering(const QPainterPath& path, const TextLayer& text,
                     QPainter* painter);
 
-// A layer showing doll at rest, unkeyed, for canvases that draw a doll
-// outside any shot (the rig canvas, draw mode).
-Layer RestLayer(const QString& doll);
-// The same, each piece held in its pose from poses (by piece name).
-Layer RestLayer(const QString& doll, const PoseMap& poses);
-
-// What a doll drawn for some of its pieces does with the others. Pieces
-// below the lowest named one are never drawn: nothing named is under
-// them to cover.
-enum class PieceSplit {
-  // The others keep their place, unseen.
-  kOnly,
-  // The others above erase what they cover: the named pieces as they
-  // show in the doll.
-  kShown,
-  // The others above are drawn and the named ones erase what they
-  // cover: what stands in front of the named pieces.
-  kCover,
-  // As kOnly, for one part of a doll drawn in several (a storyboard
-  // sunk between its limbs): a joint circle is drawn only in the part
-  // holding the first drawn of the two pieces it joins, so it is never
-  // drawn twice.
-  kPart,
-};
-
-// Draws one picture layer (doll, image or text) through view, which
-// maps shot space to the output, moved by its shot's links (links may
-// be nullptr for a layer outside any shot). Effect layers are not drawn
-// here: they change what is already drawn. With only_pieces, a doll
-// draws just the pieces so named, the others treated as split says.
+// Draws one picture layer (character, image or text) through view,
+// which maps shot space to the output, moved by its shot's links (links
+// may be nullptr for a layer outside any shot). Effect layers are not
+// drawn here: they change what is already drawn.
 void PaintLayer(const Project& project, const Layer& layer, Frame frame,
                 const QTransform& view, LinkSolver* links, ImageCache* cache,
-                QPainter* painter,
-                const std::set<QString>* only_pieces = nullptr,
-                PieceSplit split = PieceSplit::kOnly);
+                QPainter* painter);
 
 }  // namespace snapper
 

@@ -39,7 +39,7 @@ std::vector<const Layer*> LayersInDrawOrder(const Shot& shot, Frame local) {
     if (!is_live) {
       continue;
     }
-    const int order = Sample(layer.transform, local, PiecePose()).order;
+    const int order = Sample(layer.transform, local, LayerPose()).order;
     has_moved = has_moved || order != 0;
     live.push_back(&layer);
     orders.push_back(order);

@@ -2,12 +2,10 @@
 
 #include <QApplication>
 #include <QClipboard>
-#include <QColorDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QMenu>
 
-#include <array>
 #include <cassert>
 
 #include "edit/palette_manager.h"
@@ -18,21 +16,6 @@
 #include "ui/theme.h"
 
 namespace snapper {
-namespace {
-
-// A quiet small title over one of the doll's grids.
-QLabel* GridTitle(const QString& text, QWidget* parent) {
-  assert(!text.isEmpty());
-  assert(parent != nullptr);
-  auto* title = MakeOwned<QLabel>(text, parent);
-  QPalette dim = title->palette();
-  dim.setColor(QPalette::WindowText, theme::kTextOff);
-  title->setPalette(dim);
-  return title;
-}
-
-}  // namespace
-
 PalettePanel::PalettePanel(PaletteManager* palette, MotionManager* motion,
                            QString settings_path, QWidget* window)
     : QWidget(window),
@@ -125,31 +108,18 @@ void PalettePanel::BuildSections(MotionManager* motion) {
                             recent_fold_);
   recent_fold_->form()->addRow(recent_);
   recent_fold_->form()->addRow(recent_empty_);
-  doll_fold_ = MakeOwned<FoldSection>(tr("Doll"), motion, settings_path_,
-                                      QStringLiteral("palette_doll"), this,
-                                      true);
-  QFormLayout* form = doll_fold_->form();
-  piece_title_ = GridTitle(tr("This piece"), doll_fold_);
-  piece_ = MakeOwned<SwatchGrid>(doll_fold_);
-  doll_title_ = GridTitle(tr("Whole doll"), doll_fold_);
-  doll_ = MakeOwned<SwatchGrid>(doll_fold_);
-  added_title_ = GridTitle(tr("Added (right click to add)"), doll_fold_);
-  added_ = MakeOwned<SwatchGrid>(doll_fold_);
-  for (QWidget* widget : std::array<QWidget*, 6>{
-           piece_title_, piece_, doll_title_, doll_, added_title_, added_}) {
-    form->addRow(widget);
-  }
-  for (FoldSection* fold : {wheel_fold_, recent_fold_, doll_fold_}) {
+  character_fold_ = MakeOwned<FoldSection>(
+      tr("Character"), motion, settings_path_,
+      QStringLiteral("palette_character"), this, true);
+  character_ = MakeOwned<SwatchGrid>(character_fold_);
+  character_fold_->form()->addRow(character_);
+  for (FoldSection* fold : {wheel_fold_, recent_fold_, character_fold_}) {
     layout_.addWidget(fold);
   }
   connect(wheel_, &ColorWheel::Picked, palette_, &PaletteManager::Pick);
-  for (SwatchGrid* grid : {recent_, piece_, doll_, added_}) {
-    const bool is_added = grid == added_;
+  for (SwatchGrid* grid : {recent_, character_}) {
     connect(grid, &SwatchGrid::Hovered, palette_, &PaletteManager::Hover);
-    connect(grid, &SwatchGrid::MenuAsked, this,
-            [this, is_added](const QColor& color, const QPoint& global) {
-              ShowMenu(color, global, is_added);
-            });
+    connect(grid, &SwatchGrid::MenuAsked, this, &PalettePanel::ShowMenu);
   }
 }
 
@@ -178,15 +148,6 @@ void PalettePanel::SetOpen(bool is_open) {
   emit OpenChanged(is_open);
 }
 
-void PalettePanel::ShowGrid(SwatchGrid* grid, QLabel* title,
-                            std::vector<QColor> colors, bool is_shown) {
-  assert(grid != nullptr);
-  assert(title != nullptr);
-  grid->SetColors(std::move(colors), palette_->current());
-  grid->setVisible(is_shown);
-  title->setVisible(is_shown);
-}
-
 void PalettePanel::Refresh() {
   assert(palette_ != nullptr);
   assert(wheel_ != nullptr);
@@ -195,13 +156,11 @@ void PalettePanel::Refresh() {
   const std::vector<QColor> recent = palette_->RecentColors();
   recent_->SetColors(recent, current);
   recent_empty_->setVisible(recent.empty());
-  const bool shows_doll = !is_folded_ && palette_->ShowsDoll();
-  doll_fold_->setVisible(shows_doll);
-  const std::vector<QColor> piece = palette_->PieceColors();
-  ShowGrid(piece_, piece_title_, piece, !piece.empty());
-  ShowGrid(doll_, doll_title_, palette_->DollColors(), true);
-  ShowGrid(added_, added_title_, palette_->AddedColors(), true);
-  doll_fold_->SetTitle(tr("Doll: %1").arg(palette_->DollName()));
+  const bool shows_character = !is_folded_ && palette_->ShowsCharacter();
+  character_fold_->setVisible(shows_character);
+  character_->SetColors(palette_->CharacterColors(), current);
+  character_fold_->SetTitle(
+      tr("Character: %1").arg(palette_->CharacterName()));
   ShowCurrent(current);
   FitHeight();
 }
@@ -216,56 +175,24 @@ void PalettePanel::SetFolded(bool is_folded) {
   Refresh();
 }
 
-void PalettePanel::ShowMenu(const QColor& color, const QPoint& global,
-                            bool is_added) {
+void PalettePanel::ShowMenu(const QColor& color, const QPoint& global) {
   assert(palette_ != nullptr);
   assert(width() >= 0);
-  assert(palette_ != nullptr);
-  QMenu menu;
-  menu.setToolTipsVisible(true);
-  QAction* add = menu.addAction(tr("Add color..."), this,
-                                &PalettePanel::AddColor);
-  const QString why = palette_->WhyNoAdd();
-  add->setEnabled(why.isEmpty());
-  add->setToolTip(why);
-  const bool can_remove = is_added && color.isValid();
-  if (can_remove) {
-    // The color came from the Added list, so removing it cannot miss.
-    menu.addAction(tr("Remove added color"), this, [this, color] {
-      static_cast<void>(palette_->RemoveColor(color));
-    });
-  }
   const bool has_color = color.isValid();
-  if (has_color) {
-    menu.addAction(tr("Copy hex"), this, [color] {
-      QApplication::clipboard()->setText(color.name().toUpper());
-    });
-  }
-  menu.exec(global);
-}
-
-void PalettePanel::AddColor() {
-  assert(palette_ != nullptr);
-  assert(width() >= 0);
-  assert(palette_ != nullptr);
-  const QColor color =
-      QColorDialog::getColor(palette_->current(), this, tr("Add color"));
-  const bool is_chosen = color.isValid();
-  if (!is_chosen) {
+  if (!has_color) {
     return;
   }
-  const auto added = palette_->AddColor(color);
-  const bool is_added = added.has_value();
-  if (is_added) {
-    doll_fold_->SetOpen(true);
-    palette_->Pick(color);
-  }
+  QMenu menu;
+  menu.addAction(tr("Copy hex"), this, [color] {
+    QApplication::clipboard()->setText(color.name().toUpper());
+  });
+  menu.exec(global);
 }
 
 QColor PalettePanel::SwatchAt(QPoint at) const {
   assert(recent_ != nullptr);
-  assert(added_ != nullptr);
-  for (const SwatchGrid* grid : {recent_, piece_, doll_, added_}) {
+  assert(character_ != nullptr);
+  for (const SwatchGrid* grid : {recent_, character_}) {
     const QPoint local = grid->mapFrom(this, at);
     const bool is_on = grid->isVisible() && grid->rect().contains(local);
     if (is_on) {

@@ -62,13 +62,13 @@ void SamplerTests::EmptyChannelGivesFallback() {
 }
 
 void SamplerTests::DrawingsSwapWithoutBlending() {
-  PiecePose a;
+  LayerPose a;
   a.drawing = 1;
   a.warp = {QPointF(0, 0), QPointF(4, 0)};
-  PiecePose b;
+  LayerPose b;
   b.drawing = 2;
   b.rotation = 90.0;
-  const PiecePose mid = Lerp(a, b, 0.5);
+  const LayerPose mid = Lerp(a, b, 0.5);
   QCOMPARE(mid.drawing, 1);
   QCOMPARE(mid.rotation, 45.0);
   QCOMPARE(mid.warp[1], QPointF(2, 0));

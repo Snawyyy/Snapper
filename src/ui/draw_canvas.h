@@ -7,18 +7,17 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
-#include "render/image_cache.h"
 #include "ui/draw_bar.h"
 #include "ui/managers.h"
 
 namespace snapper {
 
 // Draw mode on the stage: while DrawManager draws, it covers the widget
-// it was made over (the stage) with the piece at its rest place, the
-// rest of the doll dimmed around it, a thin frame at the drawing's size
-// (red while a stroke goes past it, where it is cut off) and pixel
-// lines past 800 %. The wheel zooms toward the cursor, the middle
-// button slides the view and Shift+1 fits the piece. It turns presses
+// it was made over (the stage) with the picture over the shot dimmed
+// under it, a thin frame at the picture's size (red while a stroke goes
+// past it, where it is cut off) and pixel lines past 800 %. The wheel
+// zooms toward the cursor, the middle button slides the view and
+// Shift+1 fits the picture. It turns presses
 // and keys into DrawManager calls and decides nothing itself.
 class DrawCanvas final : public QWidget {
   Q_OBJECT
@@ -43,15 +42,13 @@ class DrawCanvas final : public QWidget {
  private:
   void Begin();
   void End();
-  // Doll space to widget pixels.
-  QTransform View() const;
   // The drawing's pixels to widget pixels.
   QTransform World() const;
   // The drawing pixel under point.
   QPoint PixelAt(QPointF point) const;
   void Fit();
-  // The other pieces of the doll at rest, dimmed.
-  void PaintDoll(QPainter* painter);
+  // The shot under the picture, dimmed.
+  void PaintUnder(QPainter* painter);
   // The drawing, its onion or original, and its frame.
   void PaintDrawing(QPainter* painter);
   void PaintGrid(QPainter* painter);
@@ -66,8 +63,8 @@ class DrawCanvas final : public QWidget {
   DrawBar bar_;
   QHBoxLayout row_;
   DrawTools tools_;
-  ImageCache cache_;
-  // Widget pixels per doll pixel, and the doll point at the middle.
+  // Widget pixels per drawing pixel, and the drawing point at the
+  // middle.
   double zoom_ = 1.0;
   QPointF center_;
   bool is_panning_ = false;

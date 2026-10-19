@@ -17,9 +17,9 @@
 #include "anim/guides.h"
 #include "base/frame.h"
 #include "edit/edit_scope.h"
-#include "edit/rig_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/track_ref.h"
+#include "model/character.h"
 #include "model/pose.h"
 #include "render/image_cache.h"
 #include "ui/grab.h"
@@ -31,15 +31,6 @@ constexpr double kWheelStep = 5.0;
 constexpr double kFineWheelStep = 1.0;
 // Dragging this many pixels doubles (or halves) the size.
 constexpr double kScalePixels = 200.0;
-// Dragging a turn handle turns a doll this many degrees a pixel: the
-// lean handle down leans it toward the camera, the swivel handle right
-// brings its right side toward the camera. There is no end to either.
-constexpr double kTurnPerPixel = 0.25;
-
-// Each wheel notch on a picked warp dot changes its rubber reach by this
-// many grid cells (the fine step with Shift).
-constexpr double kReachStep = 0.5;
-constexpr double kFineReachStep = 0.1;
 
 // Where on screen the stage frame is: which shot and frame it shows,
 // how big, and where its top-left corner sits in the widget.
@@ -55,14 +46,9 @@ struct StageFrame final {
 // that picks what it touches (Shift adds, Ctrl takes out). Dragging a
 // pick moves everything picked by the same amount (Shift locks to one
 // axis, Ctrl scales instead); the wheel turns them 5 degrees a notch
-// (1 with Shift); dragging an IK tip bends its chain; dragging the lean
-// or swivel handle of a doll picked whole turns every whole doll picked
-// in depth; dragging a dot of a picked piece's warp grid bends the
-// drawing there, and clicking one picks it so the wheel sets how far it
-// pulls its neighbours (clicking it again, or anything else, drops
-// it). Shift on a turn handle snaps the turn to 15 degrees. A drag is
-// one undo step and Escape (Cancel) undoes it on the
-// spot.
+// (1 with Shift); dragging a picked character's bone reaches its chain
+// for the cursor (Shift turns that one bone). A drag is one undo step
+// and Escape (Cancel) undoes it on the spot.
 class PoseTool final {
  public:
   PoseTool(const Managers& managers, ImageCache* cache);
@@ -78,24 +64,8 @@ class PoseTool final {
   void Nudge(QPointF delta, const StageFrame& frame);
   // The degrees a wheel turn of notches turns the picked things by.
   static double WheelDegrees(int notches, bool is_fine);
-  // Double-click: picks the whole doll (or layer) under point as one
-  // group, so it moves, scales and turns as one.
+  // Double-click: picks the layer under point.
   void PickWhole(QPointF point, const StageFrame& frame);
-  // The picked warp dot while its piece is still picked and the dot
-  // still on its grid.
-  std::optional<WarpDot> PickedDot(const StageFrame& frame) const;
-  // Every picked warp dot, while its piece is still picked.
-  std::vector<WarpDot> PickedDots(const StageFrame& frame) const;
-  // The warp dots of picked pieces that lie inside box (widget pixels).
-  std::set<WarpDot> DotsIn(const QRectF& box, const StageFrame& frame) const;
-  // Escape: drops the picked dots; false when there were none.
-  bool DropDot();
-  // D: makes the picked dots drag behind, or stop dragging when they
-  // all do already.
-  void ToggleDrag(const StageFrame& frame);
-  // Delete: takes the drag or physics node and the motion off every
-  // picked dot; false when none is picked.
-  bool ClearDots(const StageFrame& frame);
 
   // What is under the pointer before any press: the handle (kNone when
   // none) and, when no handle, the unpicked thing a click would pick.
@@ -109,9 +79,6 @@ class PoseTool final {
   // press just after they hide still lands.
   void Observe();
   // The names a handle is known by, for hovering and drawing it.
-  static QString WarpKey(const WarpDot& dot);
-  static QString TurnKey(LayerId layer);
-  static QString IkKey(const QString& chain);
   static QString BoneKey(LayerId layer, BoneId bone);
 
   // What a drag in progress should say: the live value in plain words
@@ -142,21 +109,14 @@ class PoseTool final {
   const QString& problem() const { return problem_; }
 
  private:
-  enum class Kind { kMove, kScale, kIk, kBox, kLean, kSwivel, kWarp, kBone };
+  enum class Kind { kMove, kScale, kBox, kBone };
 
   struct Drag final {
     Kind kind = Kind::kMove;
     StageFrame frame;
-    // For IK drags: the layer and chain.
+    // For bone drags: the character layer and bone.
     LayerId layer;
-    QString chain;
-    // For warp drags: the piece, its grid point, and drawing pixels to
-    // screen.
-    QString piece;
-    int point = -1;
-    QTransform drawing_to_screen;
-    // For lean and swivel drags: every doll picked whole.
-    std::vector<LayerId> dolls;
+    BoneId bone;
     // Where the mouse went down, for the dead zone; the drag measures
     // from start, which is a handle's own spot when it is one.
     QPointF press;
@@ -192,42 +152,26 @@ class PoseTool final {
     QString key;
     // Widget pixels.
     QPointF spot;
-    // Warp dots: which, and its drawing pixels to screen.
-    WarpDot dot;
-    QTransform to_screen;
-    // IK tips: layer and chain.
+    // Bones: the character layer and bone.
     LayerId layer;
-    QString chain;
+    BoneId bone;
   };
 
   // The picks whose handles are grabbable now: the live ones, or the
   // ones that hid within kGraceMs.
-  std::vector<DotRef> PickedRefs(const StageFrame& frame) const;
   std::set<Pick> GrabbablePicks(const StageFrame& frame) const;
   std::vector<Handle> HandlesOf(const StageFrame& frame) const;
   std::optional<Handle> HandleAt(QPointF point,
                                  const StageFrame& frame) const;
   bool PressHandle(QPointF point, const StageFrame& frame);
-  void GrabTurn(const Handle& handle, QPointF point,
-                const StageFrame& frame);
-  void GrabWarp(const Handle& handle, QPointF point,
-                const StageFrame& frame);
-  void GrabIk(const Handle& handle, QPointF point,
-              const StageFrame& frame);
   int64_t NowMs() const { return clock_.elapsed(); }
-  void WheelReach(int notches, bool is_fine, const StageFrame& frame);
   void PressPick(const Pick& pick, Qt::KeyboardModifiers mods,
                  const StageFrame& frame, QPointF point);
   // True once a drag may change things: the mouse has left the dead
   // zone (a pick box has none).
   bool LeftDeadZone(QPointF point);
-  // Turns every doll of the drag by the mouse's pixels, snapped to
-  // kTurnSnapDegrees with Shift, and notes what it says.
-  void MoveTurn(QPointF total, QPointF point, bool is_swivel,
-                bool is_shift);
   // Notes what the drag says now, with the cursor at point.
   void Say(const QString& text, bool is_snapped, QPointF point);
-  void MoveIk(QPointF point);
   // A character's bone dragged: IK, or one bone with Shift.
   void MoveBone(QPointF point, bool is_shift);
   void GrabBone(const Handle& handle, QPointF point, const StageFrame& frame);

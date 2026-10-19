@@ -120,7 +120,7 @@ void RenderTests::LayerMovesAndCameraZooms() {
   QTemporaryDir dir;
   Project project = RedDollProject(dir);
   Shot& shot = FirstShot(&project);
-  PiecePose moved;
+  LayerPose moved;
   moved.offset = QPointF(30, 0);
   SetKey(&shot.layers[0].transform, {Frame(0), moved, Ease::kStep});
   FrameRenderer renderer;
@@ -218,8 +218,8 @@ void RenderTests::LinksMoveWhatIsDrawnAndClicked() {
   Layer leader;
   leader.id = LayerId(2);
   leader.content = ImageLayer{"/nowhere.png"};
-  SetKey(&leader.transform, {Frame(0), PiecePose(), Ease::kLinear});
-  PiecePose moved;
+  SetKey(&leader.transform, {Frame(0), LayerPose(), Ease::kLinear});
+  LayerPose moved;
   moved.offset = QPointF(30, 0);
   SetKey(&leader.transform, {Frame(10), moved, Ease::kStep});
   shot.layers.push_back(leader);
@@ -344,7 +344,7 @@ void RenderTests::ClicksPickWhatIsSeen() {
   text.text = "HI";
   text.size = 20.0;
   words.content = text;
-  PiecePose low;
+  LayerPose low;
   low.offset = QPointF(0, 35);
   SetKey(&words.transform, {Frame(0), low, Ease::kStep});
   FirstShot(&project).layers.push_back(words);

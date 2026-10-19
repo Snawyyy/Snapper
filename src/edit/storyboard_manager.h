@@ -71,9 +71,6 @@ class StoryboardManager final : public QObject {
   Result<void> SetOpacity(ShotId shot, LayerId layer, double opacity);
   // Whether the exported video shows the layer (an animatic), one step.
   Result<void> SetExported(ShotId shot, LayerId layer, bool is_exported);
-  // How many limbs of the doll under it the layer sinks behind
-  // (StoryboardLayer::sink), one step (a scrub folds into one).
-  Result<void> SetSink(ShotId shot, LayerId layer, int sink);
   // Moves the cels starting at frames by offset frames, built on the
   // project the drag started from, so a drag calls it with the running
   // total. The pick follows the cels.

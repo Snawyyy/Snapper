@@ -55,7 +55,7 @@ std::vector<LinkEnd> LinkBox::Picked() const {
   assert(managers_.selection != nullptr);
   std::vector<LinkEnd> ends;
   for (const Pick& pick : managers_.selection->picks()) {
-    ends.push_back(LinkEnd{pick.layer, pick.piece});
+    ends.push_back(LinkEnd{pick.layer});
   }
   // The focused layer's picks come first.
   std::ranges::stable_partition(ends, [this](const LinkEnd& end) {

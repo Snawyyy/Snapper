@@ -13,7 +13,6 @@
 #include "edit/history_manager.h"
 #include "edit/palette_manager.h"
 #include "edit/playback_manager.h"
-#include "edit/poke_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/project_edits.h"
 #include "edit/reference_manager.h"
@@ -34,7 +33,6 @@ constexpr int kWheelUnit = 120;
 StageView::StageView(const Managers& managers)
     : managers_(managers),
       tool_(managers, renderer_.cache()),
-      poke_(managers),
       hover_(managers.motion, this),
       feedback_(managers.motion, this),
       watcher_(managers.history, this),
@@ -54,7 +52,6 @@ StageView::StageView(const Managers& managers)
   connect(managers_.selection, &SelectionManager::Changed, this, update_me);
   connect(managers_.selection, &SelectionManager::Changed, this,
           [this] { tool_.Observe(); });
-  connect(managers_.poke, &PokeManager::Changed, this, update_me);
   connect(managers_.document, &DocumentManager::OutsideShownChanged, this,
           update_me);
   if (managers_.palette != nullptr) {
@@ -101,7 +98,6 @@ void StageView::paintEvent(QPaintEvent* event) {
                      tr("No shot here. Add one in the shot strip above."));
     return;
   }
-  poke_.Sync(renderer_.cache()->poses());
   // References only ever reach the renderer from here.
   const QImage under = ReferencesUnder(*frame);
   const QImage image = renderer_.RenderFrame(
@@ -121,8 +117,8 @@ void StageView::paintEvent(QPaintEvent* event) {
   if (is_empty_shot) {
     painter.setPen(theme::kTextOff);
     painter.drawText(rect(), Qt::AlignCenter,
-                     tr("Drag a doll here from the Cast, or double-click "
-                        "one there."));
+                     tr("Drag a character here from the Cast, or pick one "
+                        "there and press Put on stage."));
   }
   painter.setRenderHint(QPainter::Antialiasing);
   PaintRopes(*frame, &painter);
@@ -167,12 +163,6 @@ void StageView::mousePressEvent(QMouseEvent* event) {
   if (is_reference) {
     return;
   }
-  const bool is_poke = is_usable && poke_.Press(
-      event->position(), LayerUnder(event->position(), *frame), *frame);
-  if (is_poke) {
-    setCursor(Qt::ClosedHandCursor);
-    return;
-  }
   if (is_usable) {
     tool_.Press(event->position(),
                 event->modifiers().testFlag(Qt::ShiftModifier),
@@ -196,12 +186,6 @@ void StageView::mouseMoveEvent(QMouseEvent* event) {
   }
   const bool was_reference = ReferenceMove(event->position());
   if (was_reference) {
-    return;
-  }
-  const auto poke_frame = CurrentFrame();
-  const bool is_poking = poke_.IsPoking() && poke_frame.has_value();
-  if (is_poking) {
-    poke_.Move(event->position(), *poke_frame);
     return;
   }
   const bool is_dragging = tool_.IsDragging();
@@ -230,13 +214,9 @@ void StageView::UpdateHover(QPointF point) {
   const bool is_pick_changed = now.pick != hover_pick_;
   hover_pick_ = now.pick;
   // A handle shows its own cursor; a thing a click would pick, move.
-  const Qt::CursorShape poke_cursor = poke_.CursorOver(
-      now.pick ? now.pick->layer : LayerId(), *frame);
-  const bool is_poke_cursor = poke_cursor != Qt::ArrowCursor;
-  setCursor(is_poke_cursor          ? poke_cursor
-            : now.kind != GrabKind::kNone ? CursorFor(now.kind)
-            : now.pick.has_value()    ? Qt::SizeAllCursor
-                                      : Qt::ArrowCursor);
+  setCursor(now.kind != GrabKind::kNone ? CursorFor(now.kind)
+            : now.pick.has_value()      ? Qt::SizeAllCursor
+                                        : Qt::ArrowCursor);
   if (is_pick_changed) {
     update();
   }
@@ -272,12 +252,6 @@ void StageView::mouseReleaseEvent(QMouseEvent* event) {
   const bool is_left = event->button() == Qt::LeftButton;
   const bool was_reference = is_left && ReferenceRelease();
   if (was_reference) {
-    UpdateHover(event->position());
-    return;
-  }
-  const bool was_poking = is_left && poke_.IsPoking();
-  if (was_poking) {
-    poke_.Release();
     UpdateHover(event->position());
     return;
   }
@@ -323,10 +297,9 @@ void StageView::wheelEvent(QWheelEvent* event) {
                          !tool_.IsDragging();
   if (is_usable) {
     const bool is_fine = event->modifiers().testFlag(Qt::ShiftModifier);
-    const bool was_dot = tool_.PickedDot(*frame).has_value();
     tool_.Wheel(notches, is_fine, *frame);
     ReportTool();
-    const bool has_turned = !was_dot && tool_.problem().isEmpty();
+    const bool has_turned = tool_.problem().isEmpty();
     if (has_turned) {
       ShowWheel(event->position(), notches, is_fine);
     }
@@ -339,9 +312,8 @@ void StageView::keyPressEvent(QKeyEvent* event) {
   assert(event != nullptr);
   const bool is_escape = event->key() == Qt::Key_Escape;
   const bool is_all = event->matches(QKeySequence::SelectAll);
-  const bool was_poke_ended =
-      is_escape && (CancelReferenceDrag() || poke_.Cancel());
-  if (was_poke_ended) {
+  const bool was_drag_ended = is_escape && CancelReferenceDrag();
+  if (was_drag_ended) {
     update();
     event->accept();
     return;
@@ -372,9 +344,8 @@ void StageView::keyPressEvent(QKeyEvent* event) {
     event->accept();
     return;
   }
-  const bool was_poke_key = PokeKey(event, true) || CrispKey(event, true) ||
-                            SolidKey(event, true);
-  if (was_poke_key) {
+  const bool was_solid_key = SolidKey(event, true);
+  if (was_solid_key) {
     event->accept();
     return;
   }
@@ -388,27 +359,24 @@ void StageView::keyPressEvent(QKeyEvent* event) {
     event->accept();
     return;
   }
-  const auto frame = CurrentFrame();
-  const bool is_erase =
-      event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace;
-  const bool has_cleared =
-      is_erase && frame.has_value() && tool_.ClearDots(*frame);
-  if (has_cleared) {
-    ReportTool();
-    event->accept();
-    return;
-  }
-  const bool is_drag_key = event->key() == Qt::Key_D &&
-                           event->modifiers() == Qt::NoModifier &&
-                           frame.has_value();
-  if (is_drag_key) {
-    tool_.ToggleDrag(*frame);
-    ReportTool();
-    event->accept();
-    return;
-  }
   QWidget::keyPressEvent(event);
   assert(!is_escape);
+}
+
+void StageView::keyReleaseEvent(QKeyEvent* event) {
+  assert(event != nullptr);
+  const bool is_handled = SolidKey(event, false);
+  if (is_handled) {
+    event->accept();
+    return;
+  }
+  QWidget::keyReleaseEvent(event);
+}
+
+void StageView::focusOutEvent(QFocusEvent* event) {
+  assert(event != nullptr);
+  is_solid_preview_ = false;
+  QWidget::focusOutEvent(event);
 }
 
 void StageView::ShowDrag() {

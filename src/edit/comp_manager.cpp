@@ -211,7 +211,7 @@ Result<CompEffectId> CompManager::Insert(ShotId shot, CompEffect effect,
 Result<CompEffectId> CompManager::Add(ShotId shot, CompKind kind,
                                       const CompTarget& target, int index) {
   assert(static_cast<int>(kind) < kCompKindCount);
-  assert(target.layer.IsValid() || target.pieces.empty());
+  assert(target.layer.value() >= 0);
   CompEffect effect = MadeOf(kind);
   effect.target = target;
   return Insert(shot, std::move(effect), index,
@@ -222,7 +222,7 @@ Result<CompEffectId> CompManager::AddSceneGradient(ShotId shot,
                                                    const CompTarget& target,
                                                    int index) {
   assert(history_ != nullptr);
-  assert(target.layer.IsValid() || target.pieces.empty());
+  assert(target.layer.value() >= 0);
   CompEffect effect = MadeOf(CompKind::kGradient);
   effect.target = target;
   effect.blend = BlendMode::kOverlay;

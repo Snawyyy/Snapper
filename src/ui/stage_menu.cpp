@@ -1,4 +1,4 @@
-// StageView's right-click menu: linking movement, holding objects.
+// StageView's right-click menu: linking movement, storyboard drawing.
 
 #include <QContextMenuEvent>
 
@@ -9,10 +9,9 @@
 #include "edit/link_manager.h"
 #include "edit/selection_manager.h"
 #include "render/stage_hit.h"
-#include "ui/draw_actions.h"
-#include "ui/hold_actions.h"
 #include "ui/problem.h"
 #include "ui/stage_view.h"
+#include "ui/storyboard_actions.h"
 #include "ui/timing_chart_action.h"
 
 namespace snapper {
@@ -30,7 +29,7 @@ std::vector<LinkEnd> EndsOf(const std::set<Pick>& picks) {
   assert(picks.size() < 100000);
   std::vector<LinkEnd> ends;
   for (const Pick& pick : picks) {
-    ends.push_back(LinkEnd{pick.layer, pick.piece});
+    ends.push_back(LinkEnd{pick.layer});
   }
   assert(ends.size() == picks.size());
   return ends;
@@ -50,7 +49,9 @@ void StageView::contextMenuEvent(QContextMenuEvent* event) {
   menu.setToolTipsVisible(true);
   AddLinkActions(&menu, event->pos(), *frame);
   AddTimingChartAction(&menu, managers_);
-  AddDrawActions(&menu, managers_);
+  if (managers_.draw != nullptr) {
+    AddStoryboardActions(&menu, managers_);
+  }
   const bool has_actions = !menu.isEmpty();
   if (has_actions) {
     menu.exec(event->globalPos());
@@ -75,11 +76,7 @@ void StageView::AddLinkActions(QMenu* menu, QPointF point,
                            frame.scale, renderer_.cache());
   std::vector<LinkEnd> leaders;
   if (hit) {
-    leaders.push_back(LinkEnd{hit->layer, QString()});
-    const bool is_piece = !hit->piece.isEmpty();
-    if (is_piece) {
-      leaders.push_back(LinkEnd{hit->layer, hit->piece});
-    }
+    leaders.push_back(LinkEnd{hit->layer});
   }
   LinkManager* links = managers_.links;
   for (const LinkEnd& leader : leaders) {
@@ -99,9 +96,6 @@ void StageView::AddLinkActions(QMenu* menu, QPointF point,
                   managers_.links->LinkTo(shot, picked, leader, from)));
             });
   }
-  AddHoldActions(menu, managers_, frame.shot, frame.local,
-                 hit ? std::optional<LinkEnd>(LinkEnd{hit->layer, hit->piece})
-                     : std::nullopt);
   const QString no_unlink = links->WhyNoUnlink(frame.shot, picked);
   const bool can_unlink = no_unlink.isEmpty();
   if (can_unlink) {

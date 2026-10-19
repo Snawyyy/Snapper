@@ -13,9 +13,9 @@ const ShotId kShot(1);
 const TrackRef kArm{kShot, TrackKind::kPiece, LayerId(1), "arm"};
 const TrackRef kCamera{kShot, TrackKind::kCamera, {}, {}};
 
-PiecePose Turned(double degrees) {
+LayerPose Turned(double degrees) {
   assert(std::isfinite(degrees));
-  PiecePose pose;
+  LayerPose pose;
   pose.rotation = degrees;
   assert(pose.rotation == degrees);
   return pose;

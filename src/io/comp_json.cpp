@@ -37,14 +37,6 @@ QJsonObject TargetToJson(const CompTarget& target) {
   if (has_layer) {
     object.insert("layer", target.layer.value());
   }
-  const bool has_pieces = !target.pieces.empty();
-  if (has_pieces) {
-    QJsonArray pieces;
-    for (const QString& piece : target.pieces) {
-      pieces.append(piece);
-    }
-    object.insert("pieces", pieces);
-  }
   const bool has_colors = !target.colors.empty();
   if (has_colors) {
     object.insert("colors", ColorsToJson(target.colors));
@@ -56,11 +48,6 @@ CompTarget TargetFromJson(const QJsonObject& object, JsonIssues* issues) {
   assert(issues != nullptr);
   CompTarget target;
   target.layer = LayerId(std::max(object.value("layer").toInt(0), 0));
-  const QJsonArray pieces =
-      Bounded(object.value("pieces"), kMaxPieceTracks, "pieces", issues);
-  for (const QJsonValue& piece : pieces) {
-    target.pieces.push_back(piece.toString());
-  }
   target.colors =
       ColorsFromJson(object.value("colors"), kMaxCompColors, issues);
   return target;

@@ -57,7 +57,7 @@ PoseMap PosesAt(const HistoryManager& history, Frame frame) {
       frame);
 }
 
-const Channel<PiecePose>& Keys(const HistoryManager& history,
+const Channel<LayerPose>& Keys(const HistoryManager& history,
                                const QString& piece) {
   assert(!piece.isEmpty());
   assert(!history.current().shots.empty());
@@ -135,7 +135,7 @@ void PosingTests::SwapsAndWarpsCheckTheRig() {
   QVERIFY(pose.Pull(Piece("arm_l"), Frame(0), 3, QPointF(1, 1)).has_value());
   QVERIFY(!pose.Pull(Piece("arm_l"), Frame(0), 4, QPointF()).has_value());
   QVERIFY(!pose.Pull(Piece("arm_r"), Frame(0), 0, QPointF()).has_value());
-  const PiecePose arm = PosesAt(history, Frame(0)).at("arm_l");
+  const LayerPose arm = PosesAt(history, Frame(0)).at("arm_l");
   QCOMPARE(arm.drawing, 1);
   QCOMPARE(arm.warp.size(), size_t{4});
   QCOMPARE(arm.warp[3], QPointF(1, 1));
@@ -156,7 +156,7 @@ void PosingTests::PullingDragsRubberNeighbours() {
     QVERIFY(pose.Pull(Piece("arm_l"), Frame(0), 4, QPointF(2, 0)));
     QVERIFY(pose.Pull(Piece("arm_l"), Frame(0), 4, QPointF(4, 0)));
   }
-  const PiecePose arm = PosesAt(history, Frame(0)).at("arm_l");
+  const LayerPose arm = PosesAt(history, Frame(0)).at("arm_l");
   // The middle point takes it all, an edge point one cell off half,
   // and the corners, further, less.
   QCOMPARE(arm.warp[4], QPointF(4, 0));
@@ -164,7 +164,7 @@ void PosingTests::PullingDragsRubberNeighbours() {
   QVERIFY(arm.warp[0].x() > 0.0 && arm.warp[0].x() < 2.0);
   // A point with no reach moves alone.
   QVERIFY(pose.Pull(Piece("arm_l"), Frame(0), 0, QPointF(0, 3)));
-  const PiecePose after = PosesAt(history, Frame(0)).at("arm_l");
+  const LayerPose after = PosesAt(history, Frame(0)).at("arm_l");
   QCOMPARE(after.warp[0].y(), 3.0);
   QCOMPARE(after.warp[1], QPointF(2, 0));
 }
@@ -236,7 +236,7 @@ void PosingTests::PosingOnePieceKeysTheWholeDoll() {
   const Layer& layer = history.current().shots[0]->layers[0];
   QVERIFY(KeyIndexAt(layer.transform, Frame(4)) >= 0);
   // The in-between arm_r key holds the eased value and keeps easing.
-  const Channel<PiecePose> right = Keys(history, "arm_r");
+  const Channel<LayerPose> right = Keys(history, "arm_r");
   QCOMPARE(right.keys[1].value.rotation, 30.0);
   QCOMPARE(right.keys[1].ease, Ease::kLinear);
   QCOMPARE(PosesAt(history, Frame(6)).at("arm_r").rotation, 40.0);

@@ -13,10 +13,10 @@ namespace {
 const ShotId kShot(1);
 const TrackRef kArm{kShot, TrackKind::kPiece, LayerId(1), "arm"};
 
-PiecePose Turned(double degrees) {
+LayerPose Turned(double degrees) {
   assert(kShot.value() == 1);
   assert(kShot.value() > 0);
-  PiecePose pose;
+  LayerPose pose;
   pose.rotation = degrees;
   return pose;
 }

@@ -23,7 +23,7 @@ Layer MakeLayer(int id, LayerContent content) {
   layer.start = Frame(2);
   layer.length = Frame(10);
   layer.is_visible = id % 2 == 0;
-  PiecePose moved;
+  LayerPose moved;
   moved.offset = QPointF(3, 4);
   moved.warp = {QPointF(1, 2)};
   SetKey(&layer.transform, {Frame(5), moved, Ease::kEaseOut});
@@ -48,7 +48,7 @@ Project FullProject() {
   doll.rig.pieces = {{"head", "", {5, 5}, 2, 1, {2, 2}}};
   project.dolls["Bob"] = std::make_shared<const Doll>(doll);
   DollLayer posed{"Bob", {}, true};
-  PiecePose tilt;
+  LayerPose tilt;
   tilt.rotation = 15.0;
   tilt.drawing = 1;
   tilt.order = -2;
@@ -238,7 +238,7 @@ void ProjectFileTests::PosesSurviveARoundTrip() {
   const QString path = QDir(dir.path()).filePath("poses.json");
   const auto empty = ReadPoses(path);
   QVERIFY(empty.has_value() && empty->empty());
-  PiecePose wave;
+  LayerPose wave;
   wave.rotation = -40.0;
   const std::vector<SavedPose> poses = {{"Wave", "Bob", {{"arm_l", wave}}}};
   QVERIFY(WritePoses(path, poses).has_value());

@@ -22,10 +22,8 @@ bool NeedsCompShape(const CompEffect& effect) {
 
 CompTargetKey CompKeyOf(const CompEffect& effect) {
   assert(HasCompLayer(effect));
-  assert(effect.target.pieces.size() <= static_cast<size_t>(kMaxPieceTracks));
-  std::vector<QString> pieces = effect.target.pieces;
-  std::ranges::sort(pieces);
-  return CompTargetKey{effect.target.layer, pieces};
+  assert(effect.target.layer.IsValid());
+  return CompTargetKey{effect.target.layer};
 }
 
 CompNeeds NeedsOf(const Shot& shot, Frame local, const CompShow& show,

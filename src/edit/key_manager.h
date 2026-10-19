@@ -20,8 +20,8 @@ class HistoryManager;
 
 // Copied keys of one channel, with frames counted from the first copied
 // key.
-using CopiedChannel = std::variant<Channel<PiecePose>, Channel<CameraPose>,
-                                   Channel<double>, Channel<SkinSet>,
+using CopiedChannel = std::variant<Channel<LayerPose>, Channel<CameraPose>,
+                                   Channel<double>,
                                    Channel<CharacterPose>>;
 
 // Timing: keys on the timeline, whatever channel they are in.
@@ -75,8 +75,8 @@ class KeyManager final {
 
   Result<void> Copy(const std::set<KeyRef>& keys);
   // Puts the copied keys back with the first at frame, on the same
-  // channels in shot. When onto is a layer, layer and piece keys go
-  // onto that layer instead.
+  // channels in shot. When onto is a layer, layer keys go onto that
+  // layer instead.
   Result<void> Paste(ShotId shot, Frame frame, LayerId onto);
   QString WhyNoPaste() const;
 

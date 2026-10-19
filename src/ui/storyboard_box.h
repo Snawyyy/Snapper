@@ -16,8 +16,7 @@
 namespace snapper {
 
 // The picked storyboard layer, in the panel kit's look: its opacity
-// fader, the In export tick, how many limbs of the doll under it it
-// sinks behind, drawing a new frame at the playhead or
+// fader, the In export tick, drawing a new frame at the playhead or
 // over the one showing, and deleting the picked frames. The layer's eye
 // and its draw order are the layer list's and the timeline row's. Each
 // control is greyed with the reason when it can't act. Every change
@@ -43,7 +42,6 @@ class StoryboardBox final : public QGroupBox {
   QWidget form_host_;
   QCheckBox exported_;
   QDoubleSpinBox opacity_;
-  QDoubleSpinBox sink_;
   QPushButton draw_new_;
   QPushButton draw_over_;
   QPushButton remove_;

@@ -58,7 +58,7 @@ void CharacterStageTests::PickedCharacterShowsItsBonesAndBox() {
   QVERIFY(QTest::qWaitForWindowExposed(&window));
   QTest::qWait(50);
   Shoot(&window, "10_pose_tab");
-  window.SetMode(MainWindow::Mode::kRig);
+  window.SetMode(MainWindow::Mode::kCharacter);
   QTest::qWait(50);
   Shoot(&window, "11_character_tab");
 }

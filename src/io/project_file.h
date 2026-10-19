@@ -8,8 +8,8 @@
 
 namespace snapper {
 
-// A .snapper file holds everything, dolls included, so it opens the
-// same even after the doll library changes.
+// A .snapper file holds everything, characters included, so it opens the
+// same even after the character library changes.
 inline constexpr char kProjectSuffix[] = "snapper";
 
 // Storyboard frame pictures below the file's folder are saved relative to

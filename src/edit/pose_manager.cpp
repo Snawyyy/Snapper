@@ -6,41 +6,22 @@
 #include <utility>
 #include <variant>
 
-#include "anim/warp.h"
 #include "edit/history_manager.h"
 #include "edit/pose_edits.h"
 
 namespace snapper {
-namespace {
-
-// The rig and art of the piece a piece track moves; nullptrs when the
-// track's layer, doll or piece is gone.
-std::pair<const RigPiece*, const ArtPiece*> PieceOf(const Project& project,
-                                                    const TrackRef& track) {
-  assert(track.kind == TrackKind::kPiece);
-  assert(!track.piece.isEmpty());
-  const Doll* doll = DollOfLayer(project, track.shot, track.layer);
-  const bool has_doll = doll != nullptr;
-  if (!has_doll) {
-    return {nullptr, nullptr};
-  }
-  return {FindRig(doll->rig, track.piece), FindArt(*doll, track.piece)};
-}
-
-}  // namespace
-
 PoseManager::PoseManager(HistoryManager* history) : history_(history) {
   assert(history_ != nullptr);
-  assert(clipboard_.empty());
+  assert(history_->current().shots.size() <= static_cast<size_t>(kMaxShots));
 }
 
 Result<void> PoseManager::SetPose(const TrackRef& track, Frame frame,
-                                  PiecePose pose) {
+                                  LayerPose pose) {
   assert(history_ != nullptr);
   assert(frame.index() >= 0);
   return history_->Apply(
-      Tr("Pose"), KeyedAt(history_->current(), track, frame, PiecePose(),
-                          [&pose](PiecePose* value) {
+      Tr("Pose"), KeyedAt(history_->current(), track, frame, LayerPose(),
+                          [&pose](LayerPose* value) {
                             *value = pose;
                             return Result<void>();
                           }));
@@ -55,8 +36,8 @@ Result<void> PoseManager::Rotate(const TrackRef& track, Frame frame,
     return std::unexpected(Error{Tr("That value is off the map.")});
   }
   return history_->Apply(
-      Tr("Rotate"), KeyedAt(history_->current(), track, frame, PiecePose(),
-                            [degrees](PiecePose* value) {
+      Tr("Rotate"), KeyedAt(history_->current(), track, frame, LayerPose(),
+                            [degrees](LayerPose* value) {
                               value->rotation = degrees;
                               return Result<void>();
                             }));
@@ -72,8 +53,8 @@ Result<void> PoseManager::Move(const TrackRef& track, Frame frame,
     return std::unexpected(Error{Tr("That value is off the map.")});
   }
   return history_->Apply(
-      Tr("Move"), KeyedAt(history_->current(), track, frame, PiecePose(),
-                          [offset](PiecePose* value) {
+      Tr("Move"), KeyedAt(history_->current(), track, frame, LayerPose(),
+                          [offset](LayerPose* value) {
                             value->offset = offset;
                             return Result<void>();
                           }));
@@ -88,8 +69,8 @@ Result<void> PoseManager::Scale(const TrackRef& track, Frame frame, double x,
     return std::unexpected(Error{Tr("That value is off the map.")});
   }
   return history_->Apply(
-      Tr("Scale"), KeyedAt(history_->current(), track, frame, PiecePose(),
-                           [x, y](PiecePose* value) {
+      Tr("Scale"), KeyedAt(history_->current(), track, frame, LayerPose(),
+                           [x, y](LayerPose* value) {
                              value->scale_x = x;
                              value->scale_y = y;
                              return Result<void>();
@@ -105,8 +86,8 @@ Result<void> PoseManager::Skew(const TrackRef& track, Frame frame,
     return std::unexpected(Error{Tr("Skew stays between -89 and 89.")});
   }
   return history_->Apply(
-      Tr("Skew"), KeyedAt(history_->current(), track, frame, PiecePose(),
-                          [degrees](PiecePose* value) {
+      Tr("Skew"), KeyedAt(history_->current(), track, frame, LayerPose(),
+                          [degrees](LayerPose* value) {
                             value->skew = degrees;
                             return Result<void>();
                           }));
@@ -121,129 +102,23 @@ Result<void> PoseManager::SetOpacity(const TrackRef& track, Frame frame,
     return std::unexpected(Error{Tr("Opacity runs from 0 to 1.")});
   }
   return history_->Apply(
-      Tr("Fade"), KeyedAt(history_->current(), track, frame, PiecePose(),
-                          [opacity](PiecePose* value) {
+      Tr("Fade"), KeyedAt(history_->current(), track, frame, LayerPose(),
+                          [opacity](LayerPose* value) {
                             value->opacity = opacity;
                             return Result<void>();
                           }));
-}
-
-Result<void> PoseManager::SwapDrawing(const TrackRef& track, Frame frame,
-                                      int drawing) {
-  assert(history_ != nullptr);
-  assert(frame.index() >= 0);
-  return SwapDrawing(track, std::set<Frame>{frame}, drawing);
-}
-
-Result<void> PoseManager::SwapDrawing(const TrackRef& track,
-                                      const std::set<Frame>& frames,
-                                      int drawing) {
-  assert(history_ != nullptr);
-  assert(!frames.empty());
-  const bool is_piece = track.kind == TrackKind::kPiece;
-  const ArtPiece* art =
-      is_piece ? PieceOf(history_->current(), track).second : nullptr;
-  const bool is_valid =
-      art != nullptr && drawing >= -1 &&
-      drawing < static_cast<int>(art->drawings.size());
-  if (!is_valid) {
-    return std::unexpected(Error{Tr("That piece has no such drawing.")});
-  }
-  Result<Project> next = history_->current();
-  for (const Frame frame : frames) {
-    next = KeyedAt(*next, track, frame, PiecePose(),
-                   [drawing](PiecePose* value) {
-                     value->drawing = drawing;
-                     return Result<void>();
-                   });
-    if (!next) {
-      break;
-    }
-  }
-  return history_->Apply(Tr("Swap %1").arg(track.piece), std::move(next));
-}
-
-Result<void> PoseManager::Pull(const TrackRef& track, Frame frame,
-                               int point, QPointF by) {
-  assert(history_ != nullptr);
-  assert(frame.index() >= 0);
-  const Project& base = history_->before();
-  const bool is_piece = track.kind == TrackKind::kPiece;
-  const RigPiece* rig = is_piece ? PieceOf(base, track).first : nullptr;
-  const int count = rig != nullptr ? rig->warp.PointCount() : 0;
-  const bool is_valid = point >= 0 && point < count &&
-                        std::isfinite(by.x()) && std::isfinite(by.y());
-  if (!is_valid) {
-    return std::unexpected(
-        Error{Tr("Give the piece a warp grid in the rig first.")});
-  }
-  const WarpGrid grid = rig->warp;
-  // The reach this layer's dot has (its own, else the doll's).
-  const double reach = ReachOf(PieceFor(*rig, track.layer), point);
-  return history_->Apply(
-      Tr("Warp %1").arg(track.piece),
-      KeyedAt(base, track, frame, PiecePose(),
-              [&](PiecePose* value) {
-                const bool is_fitting =
-                    static_cast<int>(value->warp.size()) == count;
-                if (!is_fitting) {
-                  value->warp.assign(static_cast<size_t>(count), QPointF());
-                }
-                for (int other = 0; other < count; ++other) {
-                  value->warp[static_cast<size_t>(other)] +=
-                      by * PullWeight(grid, point, other, reach);
-                }
-                return Result<void>();
-              }));
 }
 
 Result<void> PoseManager::KeyInPlace(ShotId shot, LayerId layer,
                                      Frame frame) {
   assert(history_ != nullptr);
   assert(frame.index() >= 0);
-  const TrackRef track{shot, TrackKind::kLayer, layer, {}};
+  const TrackRef track{shot, TrackKind::kLayer, layer};
   return history_->Apply(Tr("Add key"),
                          KeyedAt(history_->current(), track, frame,
-                                 PiecePose(), [](PiecePose*) {
+                                 LayerPose(), [](LayerPose*) {
                                    return Result<void>();
                                  }));
-}
-
-Result<void> PoseManager::Lean(ShotId shot,
-                               const std::vector<LayerId>& layers,
-                               Frame frame, double lean, double swivel) {
-  assert(history_ != nullptr);
-  assert(frame.index() >= 0);
-  const bool is_usable =
-      std::isfinite(lean) && std::isfinite(swivel) && !layers.empty();
-  if (!is_usable) {
-    return std::unexpected(Error{Tr("Pick a whole doll to lean first.")});
-  }
-  const Project& base = history_->before();
-  Project next = base;
-  bool has_doll = false;
-  for (const LayerId id : layers) {
-    const bool is_doll = DollOfLayer(base, shot, id) != nullptr;
-    if (!is_doll) {
-      continue;
-    }
-    has_doll = true;
-    auto keyed = KeyedAt(next, {shot, TrackKind::kLayer, id, {}}, frame,
-                         PiecePose(), [lean, swivel](PiecePose* value) {
-                           value->lean += lean;
-                           value->swivel += swivel;
-                           return Result<void>();
-                         });
-    if (!keyed) {
-      return std::unexpected(keyed.error());
-    }
-    next = std::move(*keyed);
-  }
-  if (!has_doll) {
-    return std::unexpected(Error{Tr("Pick a whole doll to lean first.")});
-  }
-  return history_->Apply(lean != 0.0 ? Tr("Lean") : Tr("Swivel"),
-                         std::move(next));
 }
 
 Result<void> PoseManager::SetCamera(ShotId shot, Frame frame,
@@ -260,7 +135,7 @@ Result<void> PoseManager::SetCamera(ShotId shot, Frame frame,
     return std::unexpected(
         Error{Tr("Zoom must be above zero and shake can't be negative.")});
   }
-  const TrackRef track{shot, TrackKind::kCamera, {}, {}};
+  const TrackRef track{shot, TrackKind::kCamera, {}};
   return history_->Apply(
       Tr("Move camera"),
       KeyedAt(history_->current(), track, frame, CameraPose(),

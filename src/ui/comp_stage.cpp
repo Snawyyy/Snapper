@@ -307,10 +307,6 @@ void CompStage::PickUnder(QPointF point, bool is_adding) {
   if (is_new_layer || !is_adding) {
     managers_.selection->SelectLayer(hit->layer);
   }
-  const bool has_piece = !hit->piece.isEmpty();
-  if (has_piece) {
-    managers_.selection->SelectPieces({hit->piece}, is_adding);
-  }
 }
 
 void CompStage::paintEvent(QPaintEvent* event) {

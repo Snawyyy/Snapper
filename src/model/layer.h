@@ -16,55 +16,8 @@
 
 namespace snapper {
 
-// A doll's pieces plus room for keys left by pieces renamed in Krita.
-constexpr int kMaxPieceTracks = 256;
-
 struct LayerTag;
 using LayerId = Id<LayerTag>;
-
-// How an animated object (a GIF) plays its frames on the shot clock.
-// - kLoop: over and over.
-// - kOnce: once, then stays on the last frame.
-// - kPingPong: forward, then back, over and over.
-// - kHold: does not play; shows the keyed drawing, for picking a frame
-//   by hand.
-enum class PlayMode { kLoop, kOnce, kPingPong, kHold };
-inline constexpr int kPlayModeCount = 4;
-// The most shot frames one drawing of an object may show for.
-inline constexpr int kMaxFramesPerDrawing = 24;
-
-// An object layer's play settings (see ObjectClip in model/doll.h).
-struct ObjectPlay final {
-  PlayMode mode = PlayMode::kLoop;
-  // Shot frames each drawing shows for (2 is on twos); 0 keeps the
-  // picture's own timing.
-  int frames_per_drawing = 0;
-  // The shot frame playing starts on; before it the first frame shows.
-  Frame start;
-  // How many frames in it starts, so two copies of one flame do not
-  // flicker in step.
-  int offset = 0;
-
-  bool operator==(const ObjectPlay&) const = default;
-};
-
-// A posed doll. Each piece has its own channel of pose keys, by name.
-struct DollLayer final {
-  QString doll;
-  std::map<QString, Channel<PiecePose>> pieces;
-  // Drawn mirrored left to right.
-  bool is_flipped = false;
-  // Each smart dial's value (0 to 1) by dial name; a dial without keys
-  // sits at its rest stop.
-  std::map<QString, Channel<double>> dials{};
-  // The skins it wears (track kind kSkin); without keys it wears none.
-  Channel<SkinSet> skins{};
-  // How an animated object plays; a doll that is not an object ignores
-  // it.
-  ObjectPlay play{};
-
-  bool operator==(const DollLayer&) const = default;
-};
 
 // A posed character. One key holds its whole pose at that frame, as a
 // drawing does in traditional animation; its place on the stage is the
@@ -119,8 +72,8 @@ struct EffectLayer final {
   bool operator==(const EffectLayer&) const = default;
 };
 
-using LayerContent = std::variant<DollLayer, ImageLayer, TextLayer,
-                                  EffectLayer, StoryboardLayer, CharacterLayer>;
+using LayerContent = std::variant<CharacterLayer, ImageLayer, TextLayer,
+                                  EffectLayer, StoryboardLayer>;
 
 // Something on a shot's stage. Every kind shares a name, a time range
 // and a keyed transform; content says what it is.
@@ -132,7 +85,7 @@ struct Layer final {
   Frame start;
   Frame length;
   bool is_visible = true;
-  Channel<PiecePose> transform;
+  Channel<LayerPose> transform;
   LayerContent content;
 
   bool operator==(const Layer&) const = default;

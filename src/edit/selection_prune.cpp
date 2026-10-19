@@ -4,7 +4,6 @@
 #include <cassert>
 
 #include "edit/history_manager.h"
-#include "edit/project_edits.h"
 #include "edit/selection_manager.h"
 
 namespace snapper {
@@ -65,106 +64,7 @@ bool SelectionManager::IsReal(const Pick& pick) const {
   const Shot* shot = FindShot(history_->current(), shot_);
   const bool has_layer = shot != nullptr && pick.layer.IsValid() &&
                          FindLayer(*shot, pick.layer) != nullptr;
-  if (!has_layer) {
-    return false;
-  }
-  const bool is_whole = pick.piece.isEmpty();
-  if (is_whole) {
-    return true;
-  }
-  const Doll* doll = DollOfLayer(history_->current(), shot_, pick.layer);
-  return doll != nullptr && FindRig(doll->rig, pick.piece) != nullptr;
-}
-
-bool SelectionManager::IsRealDot(const WarpDot& dot) const {
-  assert(history_ != nullptr);
-  assert(dot.point >= 0);
-  const bool is_picked = picks_.contains({dot.layer, dot.piece});
-  const Doll* doll = is_picked
-                         ? DollOfLayer(history_->current(), shot_, dot.layer)
-                         : nullptr;
-  const RigPiece* rig =
-      doll != nullptr ? FindRig(doll->rig, dot.piece) : nullptr;
-  return rig != nullptr && dot.point < rig->warp.PointCount();
-}
-
-std::vector<WarpDot> SelectionManager::dots() const {
-  assert(history_ != nullptr);
-  assert(dots_.size() < 100000);
-  std::vector<WarpDot> real;
-  for (const WarpDot& dot : dots_) {
-    const bool is_real = IsRealDot(dot);
-    if (is_real) {
-      real.push_back(dot);
-    }
-  }
-  return real;
-}
-
-std::optional<WarpDot> SelectionManager::dot() const {
-  assert(history_ != nullptr);
-  assert(picks_.size() < 100000);
-  const bool is_focus = dot_.has_value() && IsRealDot(*dot_);
-  if (is_focus) {
-    return dot_;
-  }
-  const std::vector<WarpDot> real = dots();
-  return real.empty() ? std::nullopt : std::optional<WarpDot>(real.front());
-}
-
-void SelectionManager::PickDot(std::optional<WarpDot> dot) {
-  assert(history_ != nullptr);
-  assert(!dot || dot->point >= 0);
-  PickDots(dot ? std::set<WarpDot>{*dot} : std::set<WarpDot>(),
-           PickMode::kReplace);
-}
-
-void SelectionManager::PickDots(const std::set<WarpDot>& dots,
-                                PickMode mode) {
-  assert(history_ != nullptr);
-  assert(dots.size() < 100000);
-  const std::set<WarpDot> before = dots_;
-  const std::optional<WarpDot> focus_before = dot_;
-  dots_ = Combine(dots_, dots, mode);
-  const bool is_focus_kept = dot_.has_value() && dots_.contains(*dot_);
-  const bool is_focused = !dots.empty() && mode != PickMode::kRemove &&
-                          dots_.contains(*dots.begin());
-  if (is_focused) {
-    dot_ = *dots.begin();
-  } else if (!is_focus_kept) {
-    dot_ = dots_.empty() ? std::nullopt
-                         : std::optional<WarpDot>(*dots_.begin());
-  }
-  const bool is_changed = before != dots_ || focus_before != dot_;
-  if (is_changed) {
-    emit Changed();
-  }
-}
-
-void SelectionManager::PickGroup(const std::set<WarpDot>& dots,
-                                 PickMode mode) {
-  assert(history_ != nullptr);
-  assert(dots.size() < 100000);
-  const bool has_dots = !dots.empty();
-  if (!has_dots) {
-    return;
-  }
-  const bool is_all_in = std::all_of(
-      dots.begin(), dots.end(), [this](const WarpDot& dot) {
-        return dots_.contains(dot) && IsRealDot(dot);
-      });
-  const bool is_taking_out =
-      mode == PickMode::kRemove || (mode == PickMode::kToggle && is_all_in);
-  const PickMode how =
-      mode == PickMode::kReplace ? PickMode::kReplace : PickMode::kAdd;
-  if (!is_taking_out) {
-    std::set<Pick> pieces;
-    for (const WarpDot& dot : dots) {
-      pieces.insert({dot.layer, dot.piece});
-    }
-    PickThings(pieces, how, dots.begin()->layer);
-  }
-  PickDots(dots, is_taking_out ? PickMode::kRemove : how);
+  return has_layer;
 }
 
 bool SelectionManager::IsKey(const KeyRef& key) const {

@@ -2,35 +2,30 @@
 #define SNAPPER_UI_CAST_PANEL_H_
 
 #include <QHBoxLayout>
-#include <QHash>
-#include <QPixmap>
 #include <QListWidget>
 #include <QMenu>
+#include <QPixmap>
 #include <QPushButton>
-#include <QSet>
 #include <QString>
+#include <QStringList>
 #include <QTabWidget>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QWidget>
 
-#include "ui/doll_cards.h"
+#include "ui/character_cards.h"
 #include "ui/managers.h"
 #include "ui/problem.h"
 
 namespace snapper {
 
-class LibraryNavBar;
-
-// Who is in the picked shot, in three tabs stacked in one area, like
-// Krita's stacked dockers; the open tab is remembered. Library: import a
-// doll, reload it after a Krita re-export (marked "new art"), or put it
-// on the stage. Objects: props made from pictures, and Background, a
-// picture as the bottom layer filling the canvas. Layers: the shot's
-// layers, top first: pick, tick to show or hide, add pictures, text and
-// effects, copy, delete and restack. Every list picks by the one pick rule
-// (PickList); Delete on cards takes unused dolls out of the project, on
-// layers deletes them.
+// Who is in the picked shot, in two tabs stacked in one area; the open
+// tab is remembered. Characters: the character library as cards: make a
+// new one, open one on the Character tab (double click), or put it on
+// the stage (drag, or Put on stage). Layers: the shot's layers, top
+// first: pick, tick to show or hide, add pictures, text, storyboards and
+// effects, copy, delete and restack. Every list picks by the one pick
+// rule (PickList); Delete on layers deletes them.
 class CastPanel final : public QWidget {
   Q_OBJECT
 
@@ -39,87 +34,45 @@ class CastPanel final : public QWidget {
 
  signals:
   void Problem(const QString& why);
-  // The user asked to open a library doll in Krita (right click a card).
-  void OpenInKritaRequested(const QString& doll);
-  // A plain click on a library card: open that doll in the Rig tab's
-  // panel (importing it into the project first when it is not in).
-  void DollOpenAsked(const QString& doll);
+  // Open that character on the Character tab (it is in the project).
+  void CharacterOpenAsked(const QString& character);
 
  private:
   void BuildLayout();
-  // The tabs' pages, each its list over its buttons.
-  QWidget* MakeLibraryPage();
-  QWidget* MakeObjectsPage();
+  QWidget* MakeCharactersPage();
   QWidget* MakeLayersPage();
   // Keeps the open tab for the next start.
   void RememberTab(int tab) const;
   void Wire();
-  void RefreshLibrary();
-  // Rebuilds cards with a card per name, keeping the picked ones picked.
-  void FillCards(DollCards* cards, const QStringList& names);
-  // The right click menu of the library card under at (ui/cast_folders.cpp).
-  void ShowLibraryMenu(const QPoint& at);
-  // Library folders (ui/cast_folders.cpp): folder cards over the dolls of
-  // the open folder, what a click, a menu or a Delete does to them.
-  void AddFolderCards();
-  QStringList PickedFolders() const;
-  QStringList PickedLibraryDolls() const;
-  void OpenFolderCard(const QListWidgetItem* item);
-  void MoveDollsToFolder(const QStringList& dolls, const QString& folder);
-  void DeleteInLibrary();
-  void ShowFolderMenu(const QListWidgetItem* item, QMenu* menu);
-  void AddMoveMenu(const QStringList& dolls, QMenu* menu);
-  // The Objects row: pictures dropped or chosen become library objects;
-  // a card's right click menu shows its folder or takes it out of the
-  // project.
-  void AddObjects(const QStringList& paths);
-  void ChooseObjects();
-  void ShowObjectMenu(const QPoint& at);
-  // The small picture of a library doll, kept once drawn.
-  QPixmap PictureOf(const QString& name);
+  void RefreshCharacters();
+  // The card picture of a character: drawn fresh for project ones, read
+  // from the library otherwise.
+  QPixmap PictureOf(const QString& name) const;
   void RefreshLayers();
   void RefreshButtons();
-  void Import();
-  void Reload();
-  // A plain click on a library card opens its doll in the rig.
-  void OpenClicked(const QListWidgetItem* item);
+  QStringList PickedCharacters() const;
+  void NewCharacter();
+  // Takes the character into the project when it is not in, then asks
+  // for it to open.
+  void OpenCharacter(const QString& name);
   void Place();
   void AddPicture();
   void AddBackground();
   void AddText();
   void RemoveLayers();
-  // Delete on cards: takes the picked dolls nothing uses out of the
-  // project as one undo step.
-  void TakeOut(const DollCards& cards);
   void Restack(int step);
   void PickLayer();
   void ToggleShown(QListWidgetItem* item);
-  // Picked library dolls that are (or are not yet) in the project.
-  QStringList PickedDolls(bool is_in_project) const;
   void Report(const QString& problem) { emit Problem(problem); }
 
-  static constexpr int kLibraryTab = 0;
-
   Managers managers_;
-  // Library dolls re-exported since they were last taken.
-  QSet<QString> stale_;
-  // The pictures of library dolls, drawn once until the library or a
-  // doll's art changes.
-  QHash<QString, QPixmap> pictures_;
   QVBoxLayout layout_;
-  // Library, Objects and Layers; the Library tab names unconverted
-  // dolls.
   QTabWidget* tabs_ = nullptr;
-  LibraryNavBar* nav_ = nullptr;
-  DollCards library_;
-  QHBoxLayout library_buttons_;
-  QPushButton import_;
-  QPushButton reload_;
+  CharacterCards characters_;
+  QHBoxLayout character_buttons_;
+  QPushButton new_;
+  QPushButton edit_;
   QPushButton place_;
-  DollCards objects_;
-  QHBoxLayout object_buttons_;
-  QPushButton add_objects_;
-  QPushButton background_;
   QListWidget layers_;
   QHBoxLayout layer_buttons_;
   QToolButton add_;

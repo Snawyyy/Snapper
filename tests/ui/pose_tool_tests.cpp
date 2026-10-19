@@ -249,7 +249,7 @@ void PoseToolTests::LeanHandleTipsTheDoll() {
   tool.Move({82, 10}, false);
   const auto lean = [&bench] {
     return Sample(bench.history.current().shots[0]->layers[0].transform,
-                  Frame(0), PiecePose())
+                  Frame(0), LayerPose())
         .lean;
   };
   QCOMPARE(lean(), -40 * kTurnPerPixel);
@@ -260,7 +260,7 @@ void PoseToolTests::LeanHandleTipsTheDoll() {
   tool.Move({100, 90}, false);
   tool.Release();
   QCOMPARE(Sample(bench.history.current().shots[0]->layers[0].transform,
-                  Frame(0), PiecePose())
+                  Frame(0), LayerPose())
                .swivel,
            40 * kTurnPerPixel);
   QCOMPARE(lean(), 0.0);

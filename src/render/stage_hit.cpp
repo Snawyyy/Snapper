@@ -1,6 +1,5 @@
 #include "render/stage_hit.h"
 
-#include <QLineF>
 #include <QPainterPath>
 #include <QTransform>
 
@@ -8,15 +7,12 @@
 #include <cmath>
 #include <variant>
 
-#include "anim/doll_lean.h"
-#include "anim/doll_pose.h"
 #include "anim/layer_order.h"
 #include "anim/links.h"
 #include "render/character_paint.h"
 #include "render/frame_renderer.h"
 #include "render/layer_painter.h"
 #include "render/stage_geometry.h"
-#include "render/warp_raster.h"
 
 namespace snapper {
 namespace {
@@ -35,114 +31,49 @@ bool IsSolidAt(const QImage& image, QPointF point) {
   return is_inside && qAlpha(image.pixel(x, y)) >= kSolidAlpha;
 }
 
-// IsSolidAt for a bent drawing; point is in the drawing's own pixels.
-bool IsWarpedSolidAt(const WarpedImage& warped, QPointF point) {
-  assert(std::isfinite(point.x()) && std::isfinite(point.y()));
-  assert(warped.image.isNull() || warped.image.width() > 0);
-  return !warped.image.isNull() &&
-         IsSolidAt(warped.image, point - warped.origin);
-}
-
-}  // namespace
-
-std::optional<QString> HitDollPiece(const Doll& doll, const PoseMap& poses,
-                                    const QTransform& world, QPointF point,
-                                    ImageCache* cache) {
-  assert(cache != nullptr);
-  assert(poses.size() <= static_cast<size_t>(kMaxPieceTracks));
-  const auto placed = PlaceDoll(doll, poses);
-  for (auto it = placed.rbegin(); it != placed.rend(); ++it) {
-    const QImage& image = cache->Get(it->drawing);
-    const bool is_drawn = !image.isNull() && it->opacity > 0.0;
-    if (!is_drawn) {
-      continue;
-    }
-    bool is_invertible = false;
-    const QTransform back = (it->transform * world).inverted(&is_invertible);
-    if (!is_invertible) {
-      continue;
-    }
-    const QPointF in_drawing = back.map(point);
-    const bool is_warped = !it->warp_points.empty();
-    WarpLook look;
-    look.frame = FrameShare(it->offset, it->size, image.size());
-    const bool is_hit =
-        is_warped ? IsWarpedSolidAt(cache->Warped(it->drawing, it->grid,
-                                                  it->warp_points,
-                                                  kFullDetail, look),
-                                    in_drawing)
-                  : IsSolidAt(image, in_drawing + QPointF(it->offset));
-    if (is_hit) {
-      return it->name;
-    }
-  }
-  return std::nullopt;
-}
-
-namespace {
-
-// Hit-tests one layer by its kind. An empty name means the whole layer
-// was hit; nothing means it wasn't.
+// Hit-tests one layer by its kind: true when point lands on it.
 struct LayerHitter final {
   const Project& project;
-  const Layer& whole;
   Frame local;
-  const QTransform& world;
-  QPointF point;
   QPointF in_layer;
-  LinkSolver* links;
   ImageCache* cache;
 
-  std::optional<QString> operator()(const DollLayer& layer) const {
-    assert(cache != nullptr);
-    assert(!layer.doll.isNull());
-    const Doll* doll = FindDoll(project, layer.doll);
-    const bool has_doll = doll != nullptr;
-    return has_doll ? HitDollPiece(*doll, links->Poses(*doll, whole, local),
-                                   world, point, cache)
-                    : std::nullopt;
-  }
-  std::optional<QString> operator()(const ImageLayer& layer) const {
+  bool operator()(const ImageLayer& layer) const {
     assert(cache != nullptr);
     assert(!layer.path.isNull());
     const QImage& pixels = cache->Get(layer.path);
     const QPointF corner(pixels.width() / 2.0, pixels.height() / 2.0);
-    const bool is_hit =
-        !pixels.isNull() && IsSolidAt(pixels, in_layer + corner);
-    return is_hit ? std::optional<QString>(QString()) : std::nullopt;
+    return !pixels.isNull() && IsSolidAt(pixels, in_layer + corner);
   }
-  std::optional<QString> operator()(const TextLayer& layer) const {
+  bool operator()(const TextLayer& layer) const {
     assert(layer.size > 0.0);
     assert(std::isfinite(in_layer.x()));
-    const bool is_hit = TextBox(layer).contains(in_layer);
-    return is_hit ? std::optional<QString>(QString()) : std::nullopt;
+    return TextBox(layer).contains(in_layer);
   }
   // A character is picked whole: its parts pose through its bones.
-  std::optional<QString> operator()(const CharacterLayer& layer) const {
+  bool operator()(const CharacterLayer& layer) const {
     assert(cache != nullptr);
     assert(!layer.character.isNull());
     const Character* character = FindCharacter(project, layer.character);
     if (character == nullptr) {
-      return std::nullopt;
+      return false;
     }
     const PosedCharacter posed =
         PoseCharacter(*character, PoseAt(*character, layer, local));
-    const std::optional<PartId> part = HitPart(*character, posed, in_layer);
-    return part.has_value() ? std::optional<QString>(QString())
-                            : std::nullopt;
+    return HitPart(*character, posed, in_layer).has_value();
   }
   // Effects change pixels; there is nothing of theirs to click.
-  std::optional<QString> operator()(const EffectLayer& layer) const {
+  bool operator()(const EffectLayer& layer) const {
     assert(static_cast<int>(layer.kind) < kEffectKindCount);
     assert(cache != nullptr);
-    return std::nullopt;
+    return false;
   }
   // A storyboard sheet is picked on its timeline row or in the layer
   // list, never by clicking the stage through what lies under it.
-  std::optional<QString> operator()(const StoryboardLayer& layer) const {
+  bool operator()(const StoryboardLayer& layer) const {
     assert(layer.opacity >= 0.0 && layer.opacity <= 1.0);
     assert(cache != nullptr);
-    return std::nullopt;
+    return false;
   }
 };
 
@@ -155,7 +86,7 @@ std::optional<StageHit> HitTest(const Project& project, const Shot& shot,
   assert(scale > 0.0);
   const QTransform view =
       FrameRenderer::ViewTransform(project, shot, local, scale);
-  LinkSolver links(project, shot, cache->poses());
+  LinkSolver links(project, shot);
   const std::vector<const Layer*> drawn = LayersInDrawOrder(shot, local);
   for (auto it = drawn.rbegin(); it != drawn.rend(); ++it) {
     const Layer& layer = **it;
@@ -165,13 +96,10 @@ std::optional<StageHit> HitTest(const Project& project, const Shot& shot,
     if (!is_invertible) {
       continue;
     }
-    const std::optional<QString> hit = std::visit(
-        LayerHitter{project, layer, local, world, point, in_layer, &links,
-                    cache},
-        layer.content);
-    const bool is_hit = hit.has_value();
+    const bool is_hit = std::visit(
+        LayerHitter{project, local, in_layer, cache}, layer.content);
     if (is_hit) {
-      return StageHit{layer.id, *hit};
+      return StageHit{layer.id};
     }
   }
   return std::nullopt;
@@ -182,15 +110,12 @@ QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
   assert(cache != nullptr);
   assert(scale > 0.0);
   const Layer* found = layer.IsValid() ? FindLayer(shot, layer) : nullptr;
-  const auto to_screen =
-      LayerToScreen(project, shot, layer, local, scale, cache->poses());
-  const bool is_found = found != nullptr && to_screen.has_value();
-  if (!is_found) {
+  const auto to_screen = LayerToScreen(project, shot, layer, local, scale);
+  if (found == nullptr || !to_screen.has_value()) {
     return QPolygonF();
   }
   const auto* text = std::get_if<TextLayer>(&found->content);
   const auto* image = std::get_if<ImageLayer>(&found->content);
-  const auto* posed = std::get_if<DollLayer>(&found->content);
   const QSizeF picture =
       image != nullptr ? QSizeF(cache->Get(image->path).size()) : QSizeF();
   QRectF own =
@@ -198,24 +123,12 @@ QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
           ? TextBox(*text)
           : QRectF(QPointF(-picture.width() / 2, -picture.height() / 2),
                    picture);
-  const Doll* doll =
-      posed != nullptr ? FindDoll(project, posed->doll) : nullptr;
-  const bool is_doll = doll != nullptr;
-  if (is_doll) {
-    // One box around every posed piece, in the layer's own space, so it
-    // turns and scales with the doll.
-    own = QRectF();
-    LinkSolver links(project, shot, cache->poses());
-    for (const PlacedPiece& piece :
-         PlaceDoll(*doll, links.Poses(*doll, *found, local))) {
-      own = own.united(
-          piece.transform.mapRect(QRectF(QPointF(), QSizeF(piece.size))));
-    }
-  }
   const auto* cast = std::get_if<CharacterLayer>(&found->content);
   const Character* character =
       cast != nullptr ? FindCharacter(project, cast->character) : nullptr;
   if (character != nullptr) {
+    // One box around every shown part, in the layer's own space, so it
+    // turns and scales with the character.
     own = QRectF();
     const PosedCharacter shown =
         PoseCharacter(*character, PoseAt(*character, *cast, local));
@@ -224,45 +137,6 @@ QPolygonF LayerShape(const Project& project, const Shot& shot, LayerId layer,
     }
   }
   return to_screen->map(QPolygonF(own));
-}
-
-namespace {
-
-// from pushed on past to, by kTurnGap pixels.
-QPointF PastBy(QPointF from, QPointF to) {
-  assert(std::isfinite(from.x()) && std::isfinite(to.x()));
-  const QLineF out(from, to);
-  const bool has_length = out.length() > 0.0;
-  assert(std::isfinite(out.length()));
-  return has_length ? to + (to - from) * (kTurnGap / out.length())
-                    : to + QPointF(kTurnGap, 0.0);
-}
-
-}  // namespace
-
-std::optional<TurnHandles> TurnHandlesOf(const Project& project,
-                                         const Shot& shot, LayerId layer,
-                                         Frame local, double scale,
-                                         ImageCache* cache) {
-  assert(cache != nullptr);
-  assert(scale > 0.0);
-  const Layer* found = layer.IsValid() ? FindLayer(shot, layer) : nullptr;
-  const bool is_doll =
-      found != nullptr && std::holds_alternative<DollLayer>(found->content);
-  const QPolygonF box =
-      is_doll ? LayerShape(project, shot, layer, local, scale, cache)
-              : QPolygonF();
-  // A rectangle's outline runs top-left, top-right, bottom-right,
-  // bottom-left.
-  const bool has_box = box.size() >= 4;
-  if (!has_box) {
-    return std::nullopt;
-  }
-  // Set out past the box, so grabbing the doll near its edge still
-  // moves it.
-  return TurnHandles{PastBy((box[0] + box[3]) / 2.0, (box[1] + box[2]) / 2.0),
-                     PastBy((box[0] + box[1]) / 2.0,
-                            (box[2] + box[3]) / 2.0)};
 }
 
 std::vector<StageHit> HitBox(const Project& project, const Shot& shot,
@@ -279,29 +153,10 @@ std::vector<StageHit> HitBox(const Project& project, const Shot& shot,
     if (!is_live) {
       continue;
     }
-    const auto* posed = std::get_if<DollLayer>(&layer.content);
-    const Doll* doll =
-        posed != nullptr ? FindDoll(project, posed->doll) : nullptr;
-    const bool is_doll = doll != nullptr;
-    if (is_doll) {
-      for (const RigPiece& piece : doll->rig.pieces) {
-        const auto outline =
-            PieceOnScreen(project, shot, layer.id, piece.name, local, scale,
-                          cache->poses());
-        QPainterPath shape;
-        shape.addPolygon(outline ? outline->outline : QPolygonF());
-        const bool is_caught = outline.has_value() && area.intersects(shape);
-        if (is_caught) {
-          hits.push_back({layer.id, piece.name});
-        }
-      }
-      continue;
-    }
     QPainterPath shape;
     shape.addPolygon(LayerShape(project, shot, layer.id, local, scale, cache));
-    const bool is_caught = area.intersects(shape);
-    if (is_caught) {
-      hits.push_back({layer.id, QString()});
+    if (area.intersects(shape)) {
+      hits.push_back({layer.id});
     }
   }
   return hits;

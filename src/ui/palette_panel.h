@@ -25,10 +25,9 @@ class PaletteManager;
 // window, moved by dragging it anywhere, resized by its bottom right
 // corner, foldable to the current color, opened where and as big as it
 // was last left. Under the title: a color wheel, the recent colors and
-// the doll's colors (the picked piece's, the whole doll's and the
-// hand-added ones), each a fold that stays as it was left. The doll's
-// show only when they fit what the palette is open for
-// (PaletteManager::ShowsDoll). Hovering a swatch makes the stage flash
+// the picked character's colors, each a fold that stays as it was left.
+// The character's show only when they fit what the palette is open for
+// (PaletteManager::ShowsCharacter). Hovering a swatch makes the stage flash
 // where the color is used. The Pick button is an eyedropper: the next
 // click anywhere in the window picks the color under it (Escape or a
 // right click cancels).
@@ -74,11 +73,8 @@ class PalettePanel final : public QWidget {
   void ShowCurrent(const QColor& color);
   void BuildSections(MotionManager* motion);
   void Refresh();
-  void ShowGrid(SwatchGrid* grid, QLabel* title, std::vector<QColor> colors,
-                bool is_shown);
   void SetFolded(bool is_folded);
-  void ShowMenu(const QColor& color, const QPoint& global, bool is_added);
-  void AddColor();
+  void ShowMenu(const QColor& color, const QPoint& global);
   void KeepPlace();
   void RestorePlace();
   // The recent colors in the settings file, shared by every project.
@@ -117,16 +113,11 @@ class PalettePanel final : public QWidget {
   // The folds; the panel's children, kept to show and hide.
   FoldSection* wheel_fold_ = nullptr;
   FoldSection* recent_fold_ = nullptr;
-  FoldSection* doll_fold_ = nullptr;
+  FoldSection* character_fold_ = nullptr;
   ColorWheel* wheel_ = nullptr;
   SwatchGrid* recent_ = nullptr;
   QLabel* recent_empty_ = nullptr;
-  QLabel* piece_title_ = nullptr;
-  SwatchGrid* piece_ = nullptr;
-  QLabel* doll_title_ = nullptr;
-  SwatchGrid* doll_ = nullptr;
-  QLabel* added_title_ = nullptr;
-  SwatchGrid* added_ = nullptr;
+  SwatchGrid* character_ = nullptr;
   QLabel current_swatch_;
   QLabel current_hex_;
   bool is_folded_ = false;

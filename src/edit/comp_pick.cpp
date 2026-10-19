@@ -15,28 +15,15 @@
 namespace snapper {
 namespace {
 
-// The most pieces a doll has; more is a broken pick.
-constexpr size_t kMaxPicked = 4096;
-
-// True when effect is listed for a pick of layer and pieces.
-bool IsShown(const CompEffect& effect, LayerId layer,
-             const std::set<QString>& pieces) {
-  assert(pieces.size() <= kMaxPicked);
-  assert(layer.IsValid() || pieces.empty());
+// True when effect is listed for a pick of layer.
+bool IsShown(const CompEffect& effect, LayerId layer) {
+  assert(layer.value() >= 0);
+  assert(effect.target.colors.size() <= static_cast<size_t>(kMaxCompColors));
   const bool is_screen_pick = !layer.IsValid();
   if (is_screen_pick) {
     return !effect.target.layer.IsValid();
   }
-  const bool is_on_layer = effect.target.layer == layer;
-  const bool is_layer_wide = effect.target.pieces.empty();
-  const bool is_whole_pick = pieces.empty();
-  const bool is_settled = !is_on_layer || is_layer_wide || is_whole_pick;
-  if (is_settled) {
-    return is_on_layer;
-  }
-  return std::ranges::any_of(effect.target.pieces, [&](const QString& one) {
-    return pieces.contains(one);
-  });
+  return effect.target.layer == layer;
 }
 
 }  // namespace
@@ -51,14 +38,6 @@ QString CompManager::TargetText(ShotId shot, const CompTarget& target) const {
     const Layer* layer =
         found != nullptr ? FindLayer(*found, target.layer) : nullptr;
     text = layer != nullptr ? layer->name : Tr("A removed layer");
-    const size_t pieces = target.pieces.size();
-    const bool is_one = pieces == 1;
-    const bool is_many = pieces > 1;
-    if (is_one) {
-      text += QStringLiteral(": ") + target.pieces.front();
-    } else if (is_many) {
-      text += Tr(": %1 pieces").arg(pieces);
-    }
   }
   const size_t colors = target.colors.size();
   const bool has_colors = colors > 0;
@@ -70,19 +49,10 @@ QString CompManager::TargetText(ShotId shot, const CompTarget& target) const {
 
 QString CompManager::TargetTag(ShotId shot, const CompTarget& target) const {
   assert(history_ != nullptr);
-  assert(target.pieces.size() <= kMaxPicked);
+  assert(target.colors.size() <= static_cast<size_t>(kMaxCompColors));
   const bool is_screen = !target.layer.IsValid();
   if (is_screen) {
     return Tr("(screen)");
-  }
-  const size_t pieces = target.pieces.size();
-  const bool has_pieces = pieces > 0;
-  if (has_pieces) {
-    const bool is_one = pieces == 1;
-    return is_one ? QStringLiteral("(%1)").arg(target.pieces.front())
-                  : QStringLiteral("(%1 +%2)")
-                        .arg(target.pieces.front())
-                        .arg(pieces - 1);
   }
   const Shot* found = FindShot(history_->current(), shot);
   const Layer* layer =
@@ -91,10 +61,9 @@ QString CompManager::TargetTag(ShotId shot, const CompTarget& target) const {
                                                      : Tr("gone"));
 }
 
-Result<CompTarget> CompManager::TargetFor(
-    ShotId shot, LayerId layer, const std::set<QString>& pieces) const {
+Result<CompTarget> CompManager::TargetFor(ShotId shot, LayerId layer) const {
   assert(history_ != nullptr);
-  assert(pieces.size() <= kMaxPicked);
+  assert(layer.value() >= 0);
   const bool is_screen = !layer.IsValid();
   if (is_screen) {
     return CompTarget{};
@@ -112,21 +81,19 @@ Result<CompTarget> CompManager::TargetFor(
   }
   CompTarget target;
   target.layer = layer;
-  target.pieces.assign(pieces.begin(), pieces.end());
   return target;
 }
 
-std::vector<CompClipRef> CompManager::ShownFor(
-    ShotId shot, LayerId layer, const std::set<QString>& pieces,
-    Frame reel) const {
+std::vector<CompClipRef> CompManager::ShownFor(ShotId shot, LayerId layer,
+                                               Frame reel) const {
   assert(history_ != nullptr);
-  assert(pieces.size() <= kMaxPicked);
+  assert(reel.index() >= 0);
   const Project& project = history_->current();
   std::vector<CompClipRef> shown;
   const bool is_screen_pick = !layer.IsValid();
   if (!is_screen_pick) {
     for (const CompEffect& effect : Of(shot)) {
-      const bool is_shown = IsShown(effect, layer, pieces);
+      const bool is_shown = IsShown(effect, layer);
       if (is_shown) {
         shown.push_back(CompClipRef{shot, effect.id});
       }

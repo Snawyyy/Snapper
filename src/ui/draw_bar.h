@@ -5,7 +5,6 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QSpinBox>
-#include <QLineEdit>
 #include <QPushButton>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -18,9 +17,8 @@
 
 namespace snapper {
 
-// Draw mode's title bar: "Drawing: mouth 2 (mouth)", the name the
-// drawing is saved as, the onion switch, the brush size, and Done and
-// Cancel. Cancel with something drawn asks in place (Discard or Keep
+// Draw mode's title bar: "Storyboard: Shot 2, frame 12", the onion
+// switch, the brush size, and Done and Cancel. Cancel with something drawn asks in place (Discard or Keep
 // drawing), never in a window.
 class DrawBar final : public QWidget {
   Q_OBJECT
@@ -28,7 +26,7 @@ class DrawBar final : public QWidget {
  public:
   explicit DrawBar(const Managers& managers);
 
-  // Done: saves under the name typed, or toasts why not.
+  // Done: keeps the drawing, or toasts why not.
   void Finish();
   // Cancel: leaves at once when nothing was drawn, else asks.
   void AskCancel();
@@ -40,10 +38,7 @@ class DrawBar final : public QWidget {
   Managers managers_;
   QHBoxLayout layout_;
   QLabel title_;
-  QLineEdit name_;
   QCheckBox onion_;
-  // Done also keeps a mirrored copy (DrawManager::mirrors).
-  QCheckBox mirror_;
   QLabel size_;
   // The brush size: typed, wheeled or stepped with [ and ].
   QSpinBox brush_;

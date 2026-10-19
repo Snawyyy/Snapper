@@ -1,11 +1,9 @@
 // SelectionManager's stepping of the pick with Tab.
 
 #include <cassert>
-#include <variant>
 #include <vector>
 
 #include "edit/history_manager.h"
-#include "edit/project_edits.h"
 #include "edit/selection_manager.h"
 
 namespace snapper {
@@ -30,7 +28,7 @@ void SelectionManager::StepPick(int direction) {
   if (!can_step) {
     return;
   }
-  // The pick the panels follow: the focused layer's first, else any.
+  // The pick the panels follow: the focused layer, else any.
   Pick current = *picks_.begin();
   for (const Pick& pick : picks_) {
     const bool is_focus = pick.layer == focus_;
@@ -38,21 +36,6 @@ void SelectionManager::StepPick(int direction) {
       current = pick;
       break;
     }
-  }
-  const Doll* doll = DollOfLayer(project, shot_, current.layer);
-  const bool is_piece = !current.piece.isEmpty() && doll != nullptr;
-  if (is_piece) {
-    const auto& pieces = doll->rig.pieces;
-    for (size_t i = 0; i < pieces.size(); ++i) {
-      const bool is_current = pieces[i].name == current.piece;
-      if (is_current) {
-        const QString next = pieces[Stepped(i, direction, pieces.size())].name;
-        PickThings({{current.layer, next}}, PickMode::kReplace,
-                   current.layer);
-        return;
-      }
-    }
-    return;
   }
   std::vector<LayerId> layers;
   for (const Layer& layer : shot->layers) {
@@ -65,7 +48,7 @@ void SelectionManager::StepPick(int direction) {
     const bool is_current = layers[i] == current.layer;
     if (is_current) {
       const LayerId next = layers[Stepped(i, direction, layers.size())];
-      PickThings({{next, QString()}}, PickMode::kReplace, next);
+      PickThings({{next}}, PickMode::kReplace, next);
       return;
     }
   }

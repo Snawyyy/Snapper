@@ -247,21 +247,17 @@ class CompManager final : public QObject {
   // A target's words ("Screen", "Mika: arm_l, 2 colors").
   QString TargetText(ShotId shot, const CompTarget& target) const;
   // A target in short, to put before an effect's name: "(arm_l)",
-  // "(arm_l +2)", "(Mika)", "(screen)".
+  // "(Mika)", "(screen)".
   QString TargetTag(ShotId shot, const CompTarget& target) const;
   // The target a new effect gets from what is picked on the Comp stage
   // (edit/comp_pick.cpp): no layer is the screen, a layer the whole
-  // layer, pieces those pieces of it. Fails on a layer that draws
-  // nothing.
-  Result<CompTarget> TargetFor(ShotId shot, LayerId layer,
-                               const std::set<QString>& pieces) const;
+  // layer. Fails on a layer that draws nothing.
+  Result<CompTarget> TargetFor(ShotId shot, LayerId layer) const;
   // The effects the Comp tab lists for that pick of shot, at the reel
   // frame: with no layer the screen effects running there, of any shot,
-  // and every screen effect of shot; with a layer every effect on it,
-  // or with pieces the layer-wide ones and those on any of the pieces.
+  // and every screen effect of shot; with a layer every effect on it.
   // Shots by where their clip starts, each in the order they run.
   std::vector<CompClipRef> ShownFor(ShotId shot, LayerId layer,
-                                    const std::set<QString>& pieces,
                                     Frame reel) const;
   // A palette or stage pick: alone, Shift adds it, Ctrl flips it.
   Result<void> PickTargetColor(ShotId shot, CompEffectId id, QColor color,

@@ -8,30 +8,21 @@
 #include "edit/character_pose_manager.h"
 #include "edit/comp_manager.h"
 #include "edit/storyboard_manager.h"
-#include "edit/dial_manager.h"
-#include "edit/doll_library_manager.h"
 #include "edit/document_manager.h"
 #include "edit/draw_manager.h"
 #include "edit/export_manager.h"
-#include "edit/group_manager.h"
 #include "edit/history_manager.h"
 #include "edit/key_manager.h"
-#include "edit/library_folder_manager.h"
 #include "edit/link_manager.h"
-#include "edit/object_manager.h"
 #include "edit/palette_manager.h"
 #include "edit/playback_manager.h"
-#include "edit/poke_manager.h"
 #include "edit/pose_manager.h"
-#include "edit/preset_manager.h"
 #include "edit/record_manager.h"
 #include "edit/reel_manager.h"
 #include "edit/reference_manager.h"
-#include "edit/rig_manager.h"
 #include "edit/selection_manager.h"
 #include "edit/settings_manager.h"
 #include "edit/shot_manager.h"
-#include "edit/skin_manager.h"
 #include "edit/sound_manager.h"
 #include "edit/stage_manager.h"
 #include "edit/timing_chart_manager.h"
@@ -46,8 +37,6 @@ struct Bench final {
   QTemporaryDir dir;
   HistoryManager history{Project()};
   DocumentManager document{&history, dir.path()};
-  DollLibraryManager library{&history, QDir(dir.path()).filePath("dolls")};
-  RigManager rig{&history};
   ShotManager shots{&history};
   ReelManager reel{&history};
   StageManager stage{&history};
@@ -55,25 +44,17 @@ struct Bench final {
   SelectionManager selection{&history};
   PoseManager pose{&history};
   KeyManager keys{&history};
-  PresetManager presets{&history, QDir(dir.path()).filePath("poses.json")};
   PlaybackManager playback{&history};
   ExportManager exporter{&history, &playback};
   MotionManager motion{document.SettingsPath()};
   TimingChartManager timing{&history, &selection, &keys, &playback};
   ToastManager toasts{&history};
-  PokeManager poke{&history, &playback};
-  GroupManager groups{&history};
   SettingsManager settings{&history};
-  DialManager dials{&history};
   DrawManager draw{&history, &playback, nullptr};
-  SkinManager skins{&history};
-  ObjectManager objects{&history, &library, &stage, &links};
   SoundManager sounds{&history};
   ReferenceManager references{&history};
   CompManager comp{&history};
   RecordManager record{&history, &document, &playback, &reel, dir.path()};
-  LibraryFolderManager library_folders{
-      QDir(dir.path()).filePath("library_folders.json")};
   StoryboardManager storyboard{&history, &document, &draw, &selection,
                               dir.path()};
   PaletteManager palette{&history, &selection};
@@ -82,35 +63,32 @@ struct Bench final {
   CharacterPoseManager character_poses{&history};
 
   Managers All() {
-    Managers all{&history, &document, &library, &rig, &shots, &stage,
-                 &selection, &pose, &keys, &presets, &playback, &exporter,
-                 &links, &reel, &motion, &toasts, &timing, &poke, &groups,
-                 &settings};
-    all.dials = &dials;
-    all.draw = &draw;
-    all.skins = &skins;
-    all.objects = &objects;
-    all.sounds = &sounds;
-    all.references = &references;
-    all.comp = &comp;
-    all.record = &record;
-    all.library_folders = &library_folders;
-    all.storyboard = &storyboard;
-    all.palette = &palette;
-    all.characters = &characters;
-    all.character_poses = &character_poses;
-    return all;
+    return Managers{.history = &history,
+                    .document = &document,
+                    .characters = &characters,
+                    .character_poses = &character_poses,
+                    .shots = &shots,
+                    .stage = &stage,
+                    .selection = &selection,
+                    .pose = &pose,
+                    .keys = &keys,
+                    .playback = &playback,
+                    .exporter = &exporter,
+                    .links = &links,
+                    .reel = &reel,
+                    .motion = &motion,
+                    .toasts = &toasts,
+                    .timing = &timing,
+                    .settings = &settings,
+                    .palette = &palette,
+                    .draw = &draw,
+                    .sounds = &sounds,
+                    .references = &references,
+                    .comp = &comp,
+                    .record = &record,
+                    .storyboard = &storyboard};
   }
 };
-
-// The piece 0 of the doll as layer 1 shows it: the layer's own warp dots
-// (drag nodes, motions, reach) where it has changed them, else the doll's.
-inline RigPiece Shown(const Bench& bench, const char* doll) {
-  assert(doll != nullptr);
-  assert(!bench.history.current().dolls.empty());
-  return PieceFor(bench.history.current().dolls.at(doll)->rig.pieces[0],
-                  LayerId(1));
-}
 
 }  // namespace snapper
 
