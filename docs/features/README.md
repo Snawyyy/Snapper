@@ -4,22 +4,16 @@ Planned features for Snapper, one file per feature. The research behind them is 
 
 ## Planned
 
-In build order. Each file has a Needs line naming what must come first; Doll to Krita starts the list because its first part, the Krita exporter keeping layer names, is what Smart Dials and Skins stand on.
+In build order. Each file has a Needs line naming what must come first. The old PNG dolls and the tools built on them (Krita export, smart dials, skins, joint snap, smooth warp, objects, drawing on a piece) are gone: characters are drawn and rigged in Snapper, Moho style (`docs/redesign/moho-plan.md`).
 
 ### Foundations: what other features stand on, and the bug-like gap
 
-- [x] [Doll to Krita](doll-to-krita.md): turn a doll folder back into a Krita file and round-trip it without losing the rig.
-- [x] [Floating palette](palette.md): one color panel offering the doll's own colors first, shared by drawing, joint circles, skins, compositing and text.
-- [x] [Editing outside the frame](off-frame-editing.md): limbs past the shot's frame are drawn dimmed and can be picked and edited, like a pasteboard.
+- [x] [Floating palette](palette.md): one color panel offering the picked character's colors first, shared by drawing, compositing and text.
+- [x] [Editing outside the frame](off-frame-editing.md): what lies past the shot's frame is drawn dimmed and can be picked and edited, like a pasteboard.
 
-### Doll tools
+### Characters
 
-- [x] [Smart Dials](smart-dials.md): one dial per action (head turn, blink, mouth) that swaps piece drawings and slides joints with them, keyed like any fader.
-- [x] [Draw on a piece](draw-on-a-piece.md): draw a new drawing for a limb inside Snapper, with reference flicking, a floating palette and pixel tools.
-- [x] [Joint snap and joint circles](joint-snap.md): joints catch on the middle of the drawn limb's width, and a circle of that width fills the bend.
-- [x] [Skins](skins.md): a named set of drawings across many pieces that swaps a doll's whole look with one tile.
-- [x] [Smooth warp](smooth-warp.md): upscale drawings with xBR and blend when warping, so bent parts stay smooth instead of jagged.
-- [x] [Objects](objects.md): PNG and GIF props a doll can hold, pass and drop, slotting into its draw order.
+- [ ] [Moho style characters](../redesign/moho-plan.md): vector drawing, bones, smart bones and switch layers, drawn and rigged on the Character tab.
 
 ### Video tab and output
 
@@ -27,11 +21,11 @@ In build order. Each file has a Needs line naming what must come first; Doll to 
 - [x] [Transparent shot background](transparent-background.md): see-through shots over video in the reel, and export with alpha.
 - [x] [Sound on the reel](reel-audio.md): audio tracks for sound effects, voice and music, with volume keys and fades; shots play the reel sound under them in the Pose tab.
 - [x] [Text and subtitles on the reel](reel-text-and-subtitles.md): text clips on Video tab tracks and a subtitle track timed by tapping to the song.
-- [x] [Reference on the Pose tab](pose-reference.md): a video, GIF or picture behind the doll with an opacity fader, in step with the timeline, never in the final video.
+- [x] [Reference on the Pose tab](pose-reference.md): a video, GIF or picture behind the characters with an opacity fader, in step with the timeline, never in the final video.
 
 ### Finishing
 
-- [x] [Compositing](compositing.md): a Comp tab with anime finishing effects, rim light included, that target a doll, pieces or palette colors.
+- [x] [Compositing](compositing.md): a Comp tab with anime finishing effects, rim light included, that target a layer or palette colors.
 
 ## Adding a new feature
 
@@ -58,32 +52,7 @@ Every proposed key is free in Snapper today (checked against the keys bound in t
 
 | Key | Where | Does | Feature |
 | --- | --- | --- | --- |
-| Ctrl + drag | Smart dial | Turn freely, no snapping to stops | Smart Dials |
-| Shift + drag or wheel | Smart dial | Fine steps | Smart Dials |
-| Double click | Smart dial | Back to the rest stop | Smart Dials |
-| Shift+[ and Shift+] | Doll picked | Previous and next skin | Skins |
-| Backslash (hold) | Stage | Show Crisp while held, to compare with Smooth | Smooth warp |
 | Shift+V (hold) | Stage, transparent shot | Preview over a solid color while held | Transparent background |
-| Ctrl + drag | Rig canvas, joint | Place freely, no shape snapping | Joint snap |
-| J | Rig canvas, joint picked | Joint circle on and off | Joint snap |
-| N | Piece picked | New drawing | Draw on a piece |
-| Shift+N | Piece picked | Edit the showing drawing (a copy if it came from Krita) | Draw on a piece |
-| R (hold) | Draw mode | Show the original drawing while held | Draw on a piece |
-| D | Draw mode | Original as onion under yours, on and off | Draw on a piece |
-| B | Draw mode | Brush | Draw on a piece |
-| E | Draw mode | Eraser on and off (back to the brush) | Draw on a piece |
-| F | Draw mode | Fill bucket | Draw on a piece |
-| W | Draw mode | Magic wand | Draw on a piece |
-| I | Draw mode | Color picker | Draw on a piece |
-| Alt (hold) | Draw mode | Color picker while held | Draw on a piece |
-| X | Draw mode | Show transparent pixels, on and off | Draw on a piece |
-| [ and ] | Draw mode | Brush size down and up | Draw on a piece |
-| H | Draw mode | Flip the picked pixels | Draw on a piece |
-| Shift+arrows, Ctrl+Shift+arrows | Stage, Draw mode | Nudge the pick (or picked pixels) by 1 or 10; plain arrows step frames | Draw on a piece |
-| Delete | Draw mode | Clear the picked pixels (reused from Delete on the stage) | Draw on a piece |
-| Ctrl+Z, Ctrl+Y | Draw mode | Undo and redo one stroke | Draw on a piece |
-| Enter | Draw mode | Done, save the drawing | Draw on a piece |
-| Escape | Draw mode | Cancel, asks first if anything was drawn | Draw on a piece |
 | O | Stage | Show or hide the outside of the frame | Editing outside the frame |
 | Shift+3 | Stage | Fit all: the frame and everything in the shot | Editing outside the frame |
 | Ctrl+T | Video tab | Add a text clip at the playhead | Text and subtitles |
