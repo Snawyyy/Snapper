@@ -239,7 +239,7 @@ project opens with its doll layers left out and a note.)
   from the pure `edit/character_pose_edits.h` (`WithBoneDrag`,
   `WithPick`...), which the Character tab also uses to pose a smart
   bone's stop.
-- UI: `ui/character_page.h` (tool box left of the canvas with icons
+- UI: `ui/character_page.h` (one column tool box left of the canvas with icons
   from `ui/tool_icons.h`, `CharacterPartsPanel`,
   `CharacterCanvas`, `CharacterInspector`, view state in
   `CharacterSession`); on the Pose stage the picked character's bones

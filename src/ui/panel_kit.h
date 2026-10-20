@@ -33,7 +33,7 @@ inline constexpr int kGoldenShort = 38;
 // short part, and never less than kSideMinWidth.
 inline constexpr int kSideShare = kGoldenShort / 2;
 inline constexpr int kMainShare = kGoldenLong;
-inline constexpr int kSideMinWidth = 240;
+inline constexpr int kSideMinWidth = 280;
 // Space between tiles that share a row.
 inline constexpr int kTileGap = 4;
 

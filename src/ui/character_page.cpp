@@ -1,6 +1,5 @@
 #include "ui/character_page.h"
 
-#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QVBoxLayout>
@@ -9,6 +8,7 @@
 
 #include "edit/history_manager.h"
 #include "ui/panel_kit.h"
+#include "ui/scroll_fit.h"
 #include "ui/theme.h"
 #include "ui/tool_button.h"
 #include "ui/tool_icons.h"
@@ -91,10 +91,12 @@ CharacterPage::CharacterPage(HistoryManager* history,
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(0);
   inspector_scroll_.setWidgetResizable(true);
-  inspector_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  inspector_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   inspector_scroll_.setFrameShape(QFrame::NoFrame);
   inspector_scroll_.setWidget(&inspector_);
   inspector_scroll_.setMinimumWidth(kSideMinWidth);
+  // Never clipped on the right: the column widens to what its rows need.
+  KeepWideEnough(&inspector_scroll_);
   parts_.setMinimumWidth(kSideMinWidth);
   split_.addWidget(&parts_);
   auto* stage = new QWidget(&split_);
@@ -125,36 +127,29 @@ CharacterPage::CharacterPage(HistoryManager* history,
 }
 
 QWidget* CharacterPage::BuildTools() {
-  // A tool box as Krita has, down the left of the canvas: two columns of
-  // icons, a gap between moving, drawing, shaping and bone tools.
+  // A tool box down the left of the canvas: one column of icons, a gap
+  // between moving, drawing, shaping and bone tools.
   auto* box = new QWidget(this);
   theme::SetLevel(box, theme::kRaised);
-  auto* grid = new QGridLayout(box);
-  grid->setContentsMargins(4, 4, 4, 4);
-  grid->setSpacing(2);
+  auto* column = new QVBoxLayout(box);
+  column->setContentsMargins(4, 4, 4, 4);
+  column->setSpacing(2);
   tool_group_.setExclusive(true);
-  int row = 0;
-  int column = 0;
   for (int i = 0; i < kCharacterToolCount; ++i) {
     const ToolSpec& spec = kTools[i];
     auto* button = new ToolButton(ToolIcon(spec.tool), tr(spec.label),
                                   QKeySequence(spec.key).toString(), box);
     tool_group_.addButton(button, i);
     tool_buttons_[static_cast<size_t>(i)] = button;
-    grid->addWidget(button, row, column);
-    column = 1 - column;
-    row += column == 0 ? 1 : 0;
+    column->addWidget(button);
     const bool ends_group = spec.tool == CharacterTool::kMovePart ||
                             spec.tool == CharacterTool::kRectangle ||
                             spec.tool == CharacterTool::kFill;
     if (ends_group) {
-      row += column == 0 ? 0 : 1;
-      column = 0;
-      grid->setRowMinimumHeight(row, theme::kCellGap / 2);
-      ++row;
+      column->addSpacing(theme::kCellGap / 2);
     }
   }
-  grid->setRowStretch(row + 1, 1);
+  column->addStretch(1);
   tool_buttons_[0]->setChecked(true);
   connect(&tool_group_, &QButtonGroup::idClicked, this, [this](int id) {
     session_.SetTool(static_cast<CharacterTool>(id));
