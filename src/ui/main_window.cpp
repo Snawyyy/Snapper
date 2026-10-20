@@ -173,12 +173,11 @@ void MainWindow::ShowMode(int index) {
   order_menu_.Refresh();
   managers_.playback->SetTimeline(is_on_reel ? Timeline::kReel
                                              : Timeline::kShots);
-  // The cast shows on the Pose and Character tabs, the inspector only on
-  // Pose;
-  // each comes back as it was left there.
+  // The cast and the inspector show only on Pose (the Character tab has
+  // its own parts and settings, so its canvas gets the room); each comes
+  // back as it was left there.
   const auto has_cast = [](int mode) {
-    return mode == static_cast<int>(Mode::kPose) ||
-           mode == static_cast<int>(Mode::kCharacter);
+    return mode == static_cast<int>(Mode::kPose);
   };
   const auto has_inspector = [](int mode) {
     return mode == static_cast<int>(Mode::kPose);

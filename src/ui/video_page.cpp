@@ -55,12 +55,14 @@ VideoPage::VideoPage(const Managers& managers)
   bin_layout_.addWidget(&new_shot_);
   bin_layout_.addWidget(&bin_, 1);
   BuildSide();
+  bin_column_.setMinimumWidth(kSideMinWidth);
+  side_.setMinimumWidth(kSideMinWidth);
   top_.addWidget(&bin_column_);
   top_.addWidget(&preview_);
   top_.addWidget(&side_);
   // The preview takes the golden ratio's long part; the two lists share
   // the short one.
-  top_.SetDefaultShares({kGoldenShort / 2, kGoldenLong, kGoldenShort / 2});
+  top_.SetDefaultShares({kSideShare, kMainShare, kSideShare});
   top_.Remember(QStringLiteral("video_top"),
                 managers_.document->SettingsPath());
   BuildBar();

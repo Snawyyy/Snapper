@@ -15,6 +15,7 @@
 #include "edit/history_manager.h"
 #include "edit/playback_manager.h"
 #include "edit/selection_manager.h"
+#include "ui/panel_kit.h"
 #include "ui/problem.h"
 
 namespace snapper {
@@ -64,7 +65,7 @@ CompPage::CompPage(const Managers& managers)
   assert(managers_.IsComplete());
   assert(managers_.comp != nullptr);
   layout_.setContentsMargins(0, 0, 0, 0);
-  library_.setMinimumWidth(200);
+  library_.setMinimumWidth(kSideMinWidth);
   split_.addWidget(&library_);
   center_.addWidget(&stage_);
   bottom_layout_.setContentsMargins(0, 0, 0, 0);
@@ -83,9 +84,9 @@ CompPage::CompPage(const Managers& managers)
   effects_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   effects_scroll_.setFrameShape(QFrame::NoFrame);
   effects_scroll_.setWidget(&effects_);
-  effects_scroll_.setMinimumWidth(280);
+  effects_scroll_.setMinimumWidth(kSideMinWidth);
   split_.addWidget(&effects_scroll_);
-  split_.SetDefaultShares({0, 3, 1});
+  split_.SetDefaultShares({kSideShare, kMainShare, kSideShare});
   split_.Remember(QStringLiteral("comp_main"),
                   managers_.document->SettingsPath());
   layout_.addWidget(&split_);

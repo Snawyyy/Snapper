@@ -93,6 +93,10 @@ CharacterInspector::CharacterInspector(HistoryManager* history,
     section->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     layout->addWidget(section);
   }
+  // With nothing picked the panel says how to fill it, not a blank.
+  empty_ = EmptyHint(tr("Pick a part on the left to see its settings."),
+                     this);
+  layout->addWidget(empty_);
   layout->addStretch(1);
   connect(history_, &HistoryManager::Changed, this, &CharacterInspector::Refresh);
   connect(session_, &CharacterSession::Changed, this,
@@ -584,6 +588,7 @@ void CharacterInspector::Refresh() {
       character != nullptr ? FindBone(*character, session_->bone()) : nullptr;
   bone_section_->setVisible(bone != nullptr);
   action_section_->setVisible(false);
+  empty_->setVisible(part == nullptr && bone == nullptr);
   if (bone != nullptr) {
     RefreshBone(*character, *bone);
   }

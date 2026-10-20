@@ -8,6 +8,7 @@
 #include <cassert>
 
 #include "edit/history_manager.h"
+#include "ui/panel_kit.h"
 #include "ui/theme.h"
 #include "ui/tool_button.h"
 #include "ui/tool_icons.h"
@@ -93,8 +94,8 @@ CharacterPage::CharacterPage(HistoryManager* history,
   inspector_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   inspector_scroll_.setFrameShape(QFrame::NoFrame);
   inspector_scroll_.setWidget(&inspector_);
-  inspector_scroll_.setMinimumWidth(260);
-  parts_.setMinimumWidth(220);
+  inspector_scroll_.setMinimumWidth(kSideMinWidth);
+  parts_.setMinimumWidth(kSideMinWidth);
   split_.addWidget(&parts_);
   auto* stage = new QWidget(&split_);
   auto* stage_row = new QHBoxLayout(stage);
@@ -104,7 +105,7 @@ CharacterPage::CharacterPage(HistoryManager* history,
   stage_row->addWidget(&canvas_, 1);
   split_.addWidget(stage);
   split_.addWidget(&inspector_scroll_);
-  split_.SetDefaultShares({20, 60, 20});
+  split_.SetDefaultShares({kSideShare, kMainShare, kSideShare});
   split_.Remember(QStringLiteral("character"), settings_path);
   layout->addWidget(&split_, 1);
   hint_.setContentsMargins(theme::kIndent, 2, theme::kIndent, 2);

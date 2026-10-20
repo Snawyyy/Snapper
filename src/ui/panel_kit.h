@@ -28,6 +28,12 @@ namespace snapper {
 inline constexpr double kGoldenRatio = 1.6180339887498949;
 inline constexpr int kGoldenLong = 62;
 inline constexpr int kGoldenShort = 38;
+// Every tab lays out the same: a side panel, the main view taking the
+// golden ratio's long part, a side panel; each side takes half the
+// short part, and never less than kSideMinWidth.
+inline constexpr int kSideShare = kGoldenShort / 2;
+inline constexpr int kMainShare = kGoldenLong;
+inline constexpr int kSideMinWidth = 240;
 // Space between tiles that share a row.
 inline constexpr int kTileGap = 4;
 

@@ -73,6 +73,7 @@ class CharacterInspector final : public QWidget {
   CharacterSession* session_;
   bool is_filling_ = false;
 
+  QLabel* empty_ = nullptr;
   QWidget* part_section_ = nullptr;
   QFormLayout* part_form_ = nullptr;
   QLabel part_kind_;
