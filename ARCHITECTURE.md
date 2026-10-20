@@ -712,6 +712,7 @@ are destroyed in reverse.
 | `ExportManager`        | MP4, GIF, PNG frames, WebM, MOV export, threaded; sound only as WAV |
 | `MotionManager` (`ui`) | How long and how softly the UI moves: the Motion table, Full / Calm / Off, saved in settings |
 | `ToastManager` (`ui`)  | Toasts: the queue, their time, stacking, dismissal and the Undo they offer |
+| `AchievementManager`   | The trophy case: achievement stats and which are earned, read off the project, tallied as you work, kept in the app settings |
 | `TimingChartDialog` (`ui`) | The floating timing chart window (Shift+T, or Define timing chart... in the stage and timeline menus); its strip only draws the ticks and forwards drags to `TimingChartManager` |
 | `SpaceKeysShortcuts` (`ui`) | The 1 to 4 window shortcuts and the Space evenly menu; both call `KeyManager::Space` through `RequestSpaceKeys` |
 | `DragPlayhead` (`ui`) | The playhead's place before a key or clip drag: the drag carries the playhead, Escape puts it back, no history |
@@ -739,7 +740,34 @@ which on success shows a toast with an Undo button: the toast keeps the
 `HistoryManager::revision` of the step it announces and Undo runs only
 while that is still the latest step, so it can never undo something
 else; a newer edit takes the button away. Pinned hints and
-file failures (warning boxes) stay as they are.
+file failures (warning boxes) stay as they are. Each toast has a
+`ToastKind` that picks its sticky note's paper: news yellow, a refusal
+red, a win green, an achievement gold (`ToastManager::Achieve`); its
+corner curls up as its time runs out.
+
+The desk. The UI dresses as an animator's desk where it helps the work
+and never hides it: the Cast's layers are clear cels on a peg
+(`ui/cel_stack.h`: an eye, a lock, drag to restack through
+`StageManager::Move`, a yellow slot where it lands); a locked layer
+(`Layer::is_locked`, `StageManager::SetLocked`) shows but the stage
+click passes through it; the light table (L on the Pose stage, View >
+Light table) draws `LightTableSkins` (`anim/light_table.h`: two frames
+either side within the shot) through the one renderer, earlier red,
+later green; shots in the strip are pinned polaroids; the export
+dialog's progress is a disc burning in a tray (`ui/disc_burner.h`).
+
+Achievements. `edit/achievements.h` is the catalog: 30 Terraria style
+trophies on four shelves (Artist, Rigger, Director, Grinder), each an
+`AchievementStat` and a goal, and `Measure` reads the stats a project
+shows. `AchievementManager` watches `HistoryManager`: stats read off
+the project keep their best, strokes, fills and keys add up only on a
+new step made by hand (undo and redo never count twice), going back
+counts an undo, and a new step marks the day for the streak and the
+small hours; finished exports count themselves. `TrophyCase`
+(`ui/trophy_case.h`) feeds it what only the UI sees (the light table
+lit, a Character tab tool picked, a note dismissed), turns `Earned`
+into a gold note and opens `AchievementsWindow` (View > Achievements),
+pixel badges from `ui/achievement_icons.h`.
 
 `RefusalShaker` watches the whole application: a mouse press on a
 disabled widget (the "greyed with a reason" rule, `Explain`) shakes it

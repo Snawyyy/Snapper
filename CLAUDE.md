@@ -53,15 +53,18 @@ then the next steps. Older history: `git log` and
 `docs/session-2026-10-08.md`.
 
 Last done (2026-10-20, branch `ui-overhaul`, cut from
-`ccr-042c021f-aywj12`): a UI overhaul on the owner's word. Modern retro
-edges (flat faces, one light line on top, slim knurled grips), dock
-titles as quiet spaced capitals over the section plates, one side panel
-width on every tab (`kSideShare`, `kSideMinWidth`), the Cast and the
-inspector on Pose only, Undo and Redo at the top bar's right, flat
-track name tags. Before that, on `ccr-042c021f-aywj12`: Moho style
-characters replaced the PNG dolls (`docs/redesign/moho-plan.md`,
-ARCHITECTURE.md "Characters"), with a Krita style tool box on the
-Character tab. The app was not launched (owner's rule).
+`ccr-042c021f-aywj12`): a UI overhaul, then the desk on the owner's
+word (mockup `docs/redesign/desk-mockup.html`). Overhaul: modern retro
+edges, quiet dock titles, one side panel width on every tab, the Cast
+and the inspector on Pose only, Undo and Redo at the top bar's right,
+flat track name tags, a one column tool box on the Character tab. The
+desk (ARCHITECTURE.md "Managers", "The desk" and "Achievements"): cel
+stack layers with eye and lock (layers can be locked), the light table
+(L), polaroid shots, the DVD burner export, sticky note toasts, and 30
+Terraria style achievements with a trophy case (View > Achievements)
+and a gold pop-up. Fixed on the way: a toast fading out while fading in
+crashed. Before that, on `ccr-042c021f-aywj12`: Moho style characters
+replaced the PNG dolls. The app was not launched (owner's rule).
 
 Next steps:
 

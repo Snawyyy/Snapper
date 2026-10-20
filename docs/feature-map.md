@@ -36,6 +36,8 @@ it in the same commit.
 | Picking and multi-select | Picking many | edit/selection_manager.cpp, render/stage_hit.cpp | SelectionManager | edit/selection_tests |
 | One pick rule on canvases, strips and lists; references in the pick (Shift, Ctrl, Ctrl+A, Delete, Escape on reference rows) | Picking many | ui/pose_tool.cpp, ui/character_canvas_input.cpp, ui/timeline_input.cpp, ui/shot_strip.cpp, ui/timeline_references.cpp, ui/reference_keys.cpp, edit/reference_manager.cpp (PickMany, RemovePicked), app/app_context.cpp | SelectionManager, ReferenceManager | ui/pose_tool_tests |
 | Cast panel tabs (Characters, Layers, Add menu with Background) and the tape player under them | Picking many | ui/cast_panel.cpp, ui/cassette_deck.cpp, ui/divider_tabs.cpp, ui/glass_door.cpp, ui/cast_actions.cpp, edit/stage_manager.cpp (AddBackground) | StageManager, CharacterManager | ui/cast_panel_tests |
+| The desk: cel stack layers with eye and lock, light table, polaroid shot strip, DVD burner export, sticky note toasts | Managers | ui/cel_stack.cpp, ui/cast_actions.cpp, model/layer.h (is_locked), edit/stage_settings.cpp (SetLocked), render/stage_hit.cpp, anim/light_table.cpp, ui/stage_view_light.cpp, ui/shot_strip_paint.cpp, ui/disc_burner.cpp, ui/export_dialog.cpp, ui/toast_queue.cpp (ToastKind), ui/toast_view.cpp | StageManager | ui/cast_panel_tests, anim/light_table_tests, edit/stage_tests, render/render_tests, ui/toast_tests, ui/export_dialog_tests, ui/character_stage_tests |
+| Achievements and stats (trophy case, gold pop-up) | Managers | edit/achievements.cpp (catalog, Measure), edit/achievement_manager.cpp, ui/achievement_icons.cpp, ui/achievements_window.cpp, ui/trophy_case.cpp, app/app_context.cpp | AchievementManager (never the project) | edit/achievement_tests, ui/character_stage_tests |
 | Undo, redo, history, drag steps, per-shot undo | The one edit path | edit/history_manager.cpp, edit/history_scoped.cpp, edit/step_scope.cpp, edit/edit_scope.cpp, edit/project_edits.cpp | HistoryManager | edit/history_tests |
 | Stage view, handles, grab | Managers | ui/stage_view.cpp, ui/stage_view_camera.cpp, ui/stage_view_flash.cpp, ui/stage_flash.cpp, render/stage_camera.cpp, anim/guides.cpp, ui/pose_tool_guides.cpp, ui/pose_tool_nudge.cpp, edit/selection_step.cpp, render/stage_geometry.cpp, ui/grab.cpp, ui/pose_tool.cpp | PoseManager, RigManager | ui/pose_tool_tests, ui/grab_tests, ui/stage_flash_tests |
 | Character cards, drag a character to the stage, files dropped on the stage | Characters | ui/character_cards.cpp, ui/character_drop.cpp, ui/character_thumb.cpp, ui/cast_actions.cpp, ui/stage_view_drop.cpp, ui/shot_thumbs.cpp, ui/shot_strip_paint.cpp, ui/reel_timeline_badges.cpp | StageManager (AddCharacters), CharacterManager (Import) | ui/cast_panel_tests |
@@ -169,6 +171,15 @@ Other enums with switch sites:
   ui/tool_icons.cpp, the press switch in
   ui/character_canvas_input.cpp, the tool's own code in
   ui/character_canvas_tools.cpp.
+- ToastKind (ui/toast_queue.h): `PaperOf` in ui/toast_view.cpp, the
+  push in each ToastManager method.
+- AchievementStat (edit/achievements.h, `kAchievementStatCount`):
+  `Measure` and `IsTallied` in edit/achievements.cpp, the numbers line
+  in ui/achievements_window.cpp; a stat only the UI sees is counted in
+  ui/trophy_case.cpp.
+- AchievementGroup (edit/achievements.h, `kAchievementGroupCount`):
+  `SpriteOf` in ui/achievement_icons.cpp, `GroupName` in
+  ui/achievements_window.cpp.
 - PoseField (edit/pose_manager.h): `SetPoseField` switch in
   edit/pose_shift.cpp; ui/keyed_boxes.cpp runs its fields in this order
   (`PoseBox::Field`, its names array and the `was` and `shown` arrays).
