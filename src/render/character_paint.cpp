@@ -8,6 +8,7 @@
 #include <cassert>
 
 #include "anim/vector_path.h"
+#include "render/line_brush.h"
 
 namespace snapper {
 namespace {
@@ -71,7 +72,9 @@ void PaintVector(const CharacterPart& part, const PosedPart& posed,
     if (!shape.has_stroke || shape.stroke_width <= 0.0) {
       continue;
     }
-    if (IsEvenWidth(drawing, shape)) {
+    if (shape.brush != LineBrush::kSolid) {
+      PaintBrushedStroke(drawing, shape, posed.points, painter);
+    } else if (IsEvenWidth(drawing, shape)) {
       painter->strokePath(ShapeStrokePath(drawing, shape, posed.points),
                           StrokePen(shape, shape.stroke_width));
     } else {

@@ -49,6 +49,24 @@ struct VectorCurve final {
   bool operator==(const VectorCurve&) const = default;
 };
 
+// How a shape's line is laid down. Solid is one even stroke; the others
+// are dabbed along it by the renderer (render/line_brush.h).
+enum class LineBrush {
+  kSolid,
+  // Thin and grainy, like graphite.
+  kPencil,
+  // Swells in the middle of each line and thins to its ends, like a pen
+  // pressed harder mid-stroke.
+  kInk,
+  // Flat and see-through, darker where it crosses itself.
+  kMarker,
+  // Broken and dusty, with gaps.
+  kChalk,
+  // A row of round dots.
+  kDots,
+};
+inline constexpr int kLineBrushCount = 6;
+
 // A fill and a stroke over curves. Closed curves are filled even-odd,
 // so a curve inside another cuts a hole. A shape without fill is a line.
 struct VectorShape final {
@@ -59,6 +77,7 @@ struct VectorShape final {
   bool has_stroke = true;
   QColor stroke = QColor(20, 20, 24);
   double stroke_width = 3.0;
+  LineBrush brush = LineBrush::kSolid;
 
   bool operator==(const VectorShape&) const = default;
 };

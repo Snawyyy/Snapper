@@ -169,6 +169,16 @@ QWidget* CharacterInspector::BuildLook() {
   form->addRow(&has_fill_, &fill_);
   form->addRow(&has_stroke_, &stroke_);
   form->addRow(tr("Line width"), &stroke_width_);
+  const char* const kBrushNames[kLineBrushCount] = {
+      QT_TR_NOOP("Solid"),  QT_TR_NOOP("Pencil"), QT_TR_NOOP("Ink"),
+      QT_TR_NOOP("Marker"), QT_TR_NOOP("Chalk"),  QT_TR_NOOP("Dots")};
+  for (const char* name : kBrushNames) {
+    brush_.addItem(tr(name));
+  }
+  brush_.setToolTip(tr("How the line is laid down: an even stroke, or "
+                       "pencil grain, ink that swells mid-line, see-through "
+                       "marker, broken chalk or dots"));
+  form->addRow(tr("Brush"), &brush_);
   make_shape_.setText(tr("Make shape"));
   make_shape_.setToolTip(tr("Fill the picked points' closed lines (U)"));
   raise_.setText(tr("Forward"));
@@ -190,6 +200,8 @@ QWidget* CharacterInspector::BuildLook() {
   connect(&fill_, &SwatchButton::Picked, this, &CharacterInspector::CommitLook);
   connect(&stroke_, &SwatchButton::Picked, this, &CharacterInspector::CommitLook);
   connect(&stroke_width_, &QDoubleSpinBox::valueChanged, this,
+          &CharacterInspector::CommitLook);
+  connect(&brush_, &QComboBox::activated, this,
           &CharacterInspector::CommitLook);
   connect(&make_shape_, &QPushButton::clicked, this, [this] {
     const std::vector<PointId> ids(session_->points().begin(),
@@ -378,6 +390,8 @@ void CharacterInspector::CommitLook() {
   style.has_stroke = has_stroke_.isChecked();
   style.stroke = stroke_.color();
   style.stroke_width = stroke_width_.value();
+  style.brush = static_cast<LineBrush>(std::clamp(brush_.currentIndex(), 0,
+                                                  kLineBrushCount - 1));
   session_->SetStyle(style);
   if (session_->shape() >= 0) {
     Report(characters_->SetShapeStyle(session_->character(), session_->part(),
@@ -466,6 +480,7 @@ void CharacterInspector::RefreshLook(const CharacterPart* part) {
   has_stroke_.setChecked(style.has_stroke);
   stroke_.SetColor(style.stroke);
   stroke_width_.setValue(style.stroke_width);
+  brush_.setCurrentIndex(static_cast<int>(style.brush));
   raise_.setEnabled(has_shape);
   lower_.setEnabled(has_shape);
   const QString why_shape = tr("Pick a shape first");

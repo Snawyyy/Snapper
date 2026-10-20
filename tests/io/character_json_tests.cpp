@@ -26,7 +26,8 @@ Character Arm() {
                          VectorPoint{PointId(5), {50, 0}, 0.0},
                          VectorPoint{PointId(6), {0, 50}, kSmoothCurvature, 0.5}};
   body.drawing.curves = {{{PointId(4), PointId(5), PointId(6)}, true}};
-  body.drawing.shapes = {VectorShape{.curves = {0}, .fill = Qt::red}};
+  body.drawing.shapes = {
+      VectorShape{.curves = {0}, .fill = Qt::red, .brush = LineBrush::kInk}};
   body.point_bones[PointId(5)] = BoneId(2);
   character.parts = {skeleton, body};
   character.actions = {

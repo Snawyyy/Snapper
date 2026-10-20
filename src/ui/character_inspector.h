@@ -94,6 +94,8 @@ class CharacterInspector final : public QWidget {
   QCheckBox has_stroke_;
   SwatchButton stroke_;
   QDoubleSpinBox stroke_width_;
+  // The line's brush (LineBrush, in order).
+  QComboBox brush_;
   QPushButton make_shape_;
   QPushButton raise_;
   QPushButton lower_;

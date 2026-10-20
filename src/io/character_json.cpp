@@ -9,6 +9,10 @@
 namespace snapper {
 namespace {
 
+// Index matches LineBrush.
+constexpr std::array<const char*, kLineBrushCount> kBrushNames = {
+    "solid", "pencil", "ink", "marker", "chalk", "dots"};
+
 constexpr std::array<const char*, kPartKindCount> kPartKindNames = {
     "group", "bone", "vector", "switch", "image"};
 constexpr std::array<const char*, kBindModeCount> kBindNames = {
@@ -72,7 +76,9 @@ QJsonObject DrawingToJson(const VectorDrawing& drawing) {
                               {"has_fill", shape.has_fill},
                               {"stroke", ColorToJson(shape.stroke)},
                               {"has_stroke", shape.has_stroke},
-                              {"width", shape.stroke_width}});
+                              {"width", shape.stroke_width},
+                              {"brush", EnumToJson(static_cast<int>(shape.brush),
+                                                   kBrushNames)}});
   }
   assert(points.size() == static_cast<qsizetype>(drawing.points.size()));
   return QJsonObject{{"points", points}, {"curves", curves}, {"shapes", shapes}};
@@ -107,6 +113,12 @@ VectorShape ShapeFromJson(const QJsonObject& object, JsonIssues* issues) {
   shape.stroke_width =
       std::clamp(Number(object, "width", shape.stroke_width), 0.0,
                  static_cast<double>(kMaxStrokeWidth));
+  // Files from before brushes have none: solid.
+  const bool has_brush = object.contains("brush");
+  if (has_brush) {
+    shape.brush = static_cast<LineBrush>(
+        EnumFromJson(object.value("brush"), kBrushNames, issues));
+  }
   return shape;
 }
 
