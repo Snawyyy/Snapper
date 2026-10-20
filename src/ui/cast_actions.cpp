@@ -15,6 +15,7 @@
 #include "edit/stage_manager.h"
 #include "io/character_file.h"
 #include "ui/cast_panel.h"
+#include "ui/cel_stack.h"
 #include "ui/character_drop.h"
 #include "ui/character_thumb.h"
 #include "ui/form_helpers.h"
@@ -53,6 +54,14 @@ QString LayerKind(const Layer& layer) {
     default:
       return QObject::tr("effect");
   }
+}
+
+// layer of the picked shot, or null.
+const Layer* PickedShotLayer(const Managers& managers, LayerId layer) {
+  assert(managers.selection != nullptr);
+  const Shot* shot =
+      FindShot(managers.history->current(), managers.selection->shot());
+  return shot != nullptr ? FindLayer(*shot, layer) : nullptr;
 }
 
 // True when a layer of shot shows character.
@@ -135,9 +144,10 @@ void CastPanel::RefreshLayers() {
     for (auto it = shot->layers.rbegin(); it != shot->layers.rend(); ++it) {
       layers_.addItem(tr("%1 (%2)").arg(it->name, LayerKind(*it)));
       QListWidgetItem* item = layers_.item(layers_.count() - 1);
-      item->setData(kKeyRole, it->id.value());
-      item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-      item->setCheckState(it->is_visible ? Qt::Checked : Qt::Unchecked);
+      item->setData(kCelIdRole, it->id.value());
+      item->setData(kCelShownRole, it->is_visible);
+      item->setData(kCelLockedRole, it->is_locked);
+      item->setData(kCelKindRole, static_cast<int>(it->content.index()));
       const auto picked = managers_.selection->PickedLayers();
       const bool is_picked =
           std::find(picked.begin(), picked.end(), it->id) != picked.end();
@@ -293,11 +303,14 @@ void CastPanel::PickLayer() {
   assert(picks.size() <= static_cast<size_t>(kMaxLayersPerShot));
 }
 
-void CastPanel::ToggleShown(QListWidgetItem* item) {
-  assert(item != nullptr);
+void CastPanel::ToggleShown(LayerId layer) {
+  assert(layer.IsValid());
   assert(managers_.stage != nullptr);
-  const LayerId layer(item->data(kKeyRole).toInt());
-  const bool is_shown = item->checkState() == Qt::Checked;
+  const Layer* found = PickedShotLayer(managers_, layer);
+  if (found == nullptr) {
+    return;
+  }
+  const bool is_shown = !found->is_visible;
   // Ticking a picked layer ticks every picked layer.
   const auto picked = managers_.selection->PickedLayers();
   const bool is_in_pick =
@@ -305,6 +318,16 @@ void CastPanel::ToggleShown(QListWidgetItem* item) {
   Report(ProblemOf(managers_.stage->ShowAll(
       managers_.selection->shot(),
       is_in_pick ? picked : std::vector<LayerId>{layer}, is_shown)));
+}
+
+void CastPanel::ToggleLocked(LayerId layer) {
+  assert(layer.IsValid());
+  assert(managers_.stage != nullptr);
+  const Layer* found = PickedShotLayer(managers_, layer);
+  if (found != nullptr) {
+    Report(ProblemOf(managers_.stage->SetLocked(
+        managers_.selection->shot(), layer, !found->is_locked)));
+  }
 }
 
 }  // namespace snapper

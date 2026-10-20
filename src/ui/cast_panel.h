@@ -13,6 +13,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "model/layer.h"
 #include "ui/character_cards.h"
 #include "ui/managers.h"
 #include "ui/problem.h"
@@ -62,7 +63,9 @@ class CastPanel final : public QWidget {
   void RemoveLayers();
   void Restack(int step);
   void PickLayer();
-  void ToggleShown(QListWidgetItem* item);
+  // The eye and the lock on a cel.
+  void ToggleShown(LayerId layer);
+  void ToggleLocked(LayerId layer);
   void Report(const QString& problem) { emit Problem(problem); }
 
   Managers managers_;

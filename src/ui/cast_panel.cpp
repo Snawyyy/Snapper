@@ -14,6 +14,7 @@
 #include "edit/stage_manager.h"
 #include "edit/document_manager.h"
 #include "ui/cassette_deck.h"
+#include "ui/cel_stack.h"
 #include "ui/divider_tabs.h"
 #include "ui/character_drop.h"
 #include "ui/panel_kit.h"
@@ -92,6 +93,8 @@ void CastPanel::BuildLayout() {
   // Every list picks by the one rule; Delete asks the panel.
   connect(PickList::Install(&layers_), &PickList::DeleteAsked, this,
           &CastPanel::RemoveLayers);
+  // Layers are cels on a peg bar: drag to restack, eye and lock on each.
+  CelStack::Install(&layers_);
   assert(layout_.count() > 0);
 }
 
@@ -175,7 +178,14 @@ void CastPanel::Wire() {
           });
   connect(&layers_, &QListWidget::itemSelectionChanged, this,
           &CastPanel::PickLayer);
-  connect(&layers_, &QListWidget::itemChanged, this, &CastPanel::ToggleShown);
+  CelStack* cels = layers_.findChild<CelStack*>();
+  assert(cels != nullptr);
+  connect(cels, &CelStack::ShownClicked, this, &CastPanel::ToggleShown);
+  connect(cels, &CelStack::LockClicked, this, &CastPanel::ToggleLocked);
+  connect(cels, &CelStack::Moved, this, [this](LayerId layer, int index) {
+    Report(ProblemOf(
+        managers_.stage->Move(managers_.selection->shot(), layer, index)));
+  });
   connect(managers_.history, &HistoryManager::Changed, this, [this] {
     RefreshCharacters();
     RefreshLayers();
