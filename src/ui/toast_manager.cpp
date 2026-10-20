@@ -55,6 +55,15 @@ void ToastManager::Cheer(const QString& text) {
   emit Cheered();
 }
 
+void ToastManager::Achieve(const QString& text) {
+  assert(!text.isEmpty());
+  assert(history_ != nullptr);
+  queue_.Push(text, ToastKind::kAchievement);
+  RunClockWhileShowing();
+  emit Changed();
+  emit Cheered();
+}
+
 void ToastManager::Done(const QString& text) {
   assert(!text.isEmpty());
   assert(history_ != nullptr);
@@ -97,6 +106,7 @@ void ToastManager::Dismiss(int id) {
   const bool is_dismissed = queue_.Dismiss(id);
   if (is_dismissed) {
     emit Changed();
+    emit Dismissed();
   }
 }
 
@@ -106,6 +116,7 @@ bool ToastManager::DismissNewest() {
   const bool is_dismissed = queue_.DismissNewest();
   if (is_dismissed) {
     emit Changed();
+    emit Dismissed();
   }
   return is_dismissed;
 }

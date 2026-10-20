@@ -160,9 +160,15 @@ void ToastView::Fade(ToastItem* item, double from, double to,
   QGraphicsOpacityEffect* shown = effect.release();
   item->setGraphicsEffect(shown);
   const MotionKind kind = is_leaving ? MotionKind::kPop : MotionKind::kMove;
+  // A newer fade replaces the effect and deletes this one while this
+  // animation may still run, so it holds the effect weakly.
+  const QPointer<QGraphicsOpacityEffect> weak(shown);
   QVariantAnimation* animation = motion_->Animate(
-      item, kind, from, to,
-      [shown](const QVariant& v) { shown->setOpacity(v.toDouble()); });
+      item, kind, from, to, [weak](const QVariant& v) {
+        if (weak != nullptr) {
+          weak->setOpacity(v.toDouble());
+        }
+      });
   const bool is_instant = animation == nullptr;
   const bool is_gone_now = is_instant && is_leaving;
   const bool is_gone_later = !is_instant && is_leaving;

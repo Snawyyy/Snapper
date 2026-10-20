@@ -373,6 +373,9 @@ void MainWindow::BuildViewAndHelp() {
                                     "the Pose stage: earlier in red, later "
                                     "in green. L on the stage flips it."));
   view_menu_.addAction(&light_table_action_);
+  trophies_ = std::make_unique<TrophyCase>(
+      managers_, &stage_, character_page_.session(), this);
+  view_menu_.addAction(trophies_->action());
   connect(&light_table_action_, &QAction::toggled, &stage_,
           &StageView::SetLightTable);
   connect(&stage_, &StageView::LightTableChanged, &light_table_action_,

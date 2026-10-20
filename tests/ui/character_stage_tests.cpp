@@ -6,7 +6,10 @@
 
 #include "bench.h"
 #include "edit/character_edits.h"
+#include "edit/achievements.h"
+#include "ui/achievements_window.h"
 #include "ui/main_window.h"
+#include "ui/toast_queue.h"
 #include "ui/stage_view.h"
 #include "ui/theme.h"
 
@@ -75,6 +78,10 @@ void CharacterStageTests::PickedCharacterShowsItsBonesAndBox() {
     }
   }
   QVERIFY(light != nullptr && light->isChecked());
+  // Lighting the table earns Seeing Ghosts, shown on a gold note.
+  QVERIFY(bench.achievements.IsEarned(17));
+  QVERIFY(bench.toasts.queue().toasts().back().kind ==
+          ToastKind::kAchievement);
   const TrackRef track{*shot, TrackKind::kLayer, *layer};
   QVERIFY(bench.pose.Move(track, Frame(0), QPointF(-160, 0)).has_value());
   QVERIFY(bench.pose.Move(track, Frame(4), QPointF(0, 0)).has_value());
@@ -87,6 +94,21 @@ void CharacterStageTests::PickedCharacterShowsItsBonesAndBox() {
   bench.toasts.Cheer("Saved teto.snap");
   QTest::qWait(400);
   Shoot(&window, "15_notes");
+  QAction* trophies = nullptr;
+  for (QAction* menu : window.menuBar()->actions()) {
+    for (QAction* action : menu->menu()->actions()) {
+      if (action->text() == "&Achievements...") {
+        trophies = action;
+      }
+    }
+  }
+  QVERIFY(trophies != nullptr && trophies->isEnabled());
+  trophies->trigger();
+  auto* shelf = window.findChild<AchievementsWindow*>();
+  QVERIFY(shelf != nullptr);
+  QVERIFY(QTest::qWaitForWindowExposed(shelf));
+  Shoot(shelf, "16_achievements");
+  shelf->close();
   light->setChecked(false);
   QVERIFY(!stage->is_light_table_on());
   window.SetMode(MainWindow::Mode::kCharacter);

@@ -12,6 +12,8 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <memory>
+
 #include "ui/dock_grips.h"
 #include "ui/grip_splitter.h"
 #include "ui/cast_panel.h"
@@ -36,6 +38,7 @@
 #include "ui/space_keys_action.h"
 #include "ui/stage_view.h"
 #include "ui/top_bar.h"
+#include "ui/trophy_case.h"
 #include "ui/timeline_view.h"
 #include "ui/transport_bar.h"
 #include "ui/timing_chart_dialog.h"
@@ -109,6 +112,8 @@ class MainWindow final : public QMainWindow {
   UiSound sound_;
   QAction sounds_action_;
   QAction light_table_action_;
+  // Built with the View menu, once the stage and the Character tab are.
+  std::unique_ptr<TrophyCase> trophies_;
   QAction undo_action_;
   QAction redo_action_;
   // The bar sits fixed across the top, above the docks, so hiding the

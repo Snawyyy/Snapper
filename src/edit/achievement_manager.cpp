@@ -57,7 +57,11 @@ void AchievementManager::Count(AchievementStat stat, int by) {
 
 void AchievementManager::UseTool(int tool) {
   assert(tool >= 0 && tool < 32);
-  tools_ |= 1u << static_cast<unsigned>(tool);
+  const quint32 bit = 1u << static_cast<unsigned>(tool);
+  if ((tools_ & bit) != 0) {
+    return;
+  }
+  tools_ |= bit;
   int& used = stats_[static_cast<size_t>(AchievementStat::kToolsUsed)];
   used = std::popcount(tools_);
   Check();

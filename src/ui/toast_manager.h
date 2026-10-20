@@ -38,6 +38,8 @@ class ToastManager final : public QObject {
   // Passes on the outcome of an edit: a problem is shown as one, no
   // problem shows done_text with Undo.
   void Finish(const QString& problem, const QString& done_text);
+  // An achievement was earned: a gold note, and the window bursts.
+  void Achieve(const QString& text);
 
   // The Undo button of a toast. Does nothing unless the toast still
   // offers Undo for the current step.
@@ -56,6 +58,9 @@ class ToastManager final : public QObject {
   void Changed();
   // Something big went well.
   void Cheered();
+  // The user took a note away (a click or Escape), not its time running
+  // out.
+  void Dismissed();
 
  private:
   void OnTick();
