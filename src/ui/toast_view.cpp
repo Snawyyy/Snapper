@@ -22,6 +22,24 @@ constexpr int kToastWidth = 420;
 constexpr int kSideGutter = 16;
 constexpr int kBottomGap = 16;
 constexpr int kBarHeight = 2;
+// A sticky note's corner curls up this far.
+constexpr int kPeel = 14;
+constexpr QColor kNoteInk{0x3a, 0x2f, 0x1e};
+
+// The note's paper for each kind, in ToastKind order.
+QColor PaperOf(ToastKind kind) {
+  switch (kind) {
+    case ToastKind::kProblem:
+      return {0xf2, 0x9a, 0x9a};
+    case ToastKind::kCheer:
+      return {0xb6, 0xe0, 0x9e};
+    case ToastKind::kAchievement:
+      return {0xf2, 0xc2, 0x30};
+    case ToastKind::kInfo:
+      break;
+  }
+  return {0xf6, 0xd8, 0x60};
+}
 
 }  // namespace
 
@@ -50,6 +68,10 @@ void ToastItem::Update(const Toast& toast) {
   assert(toast.id == id_);
   assert(toast.left_ms <= kToastMs);
   left_ms_ = toast.left_ms;
+  kind_ = toast.kind;
+  QPalette ink = label_.palette();
+  ink.setColor(QPalette::WindowText, kNoteInk);
+  label_.setPalette(ink);
   undo_.setVisible(toast.has_undo);
   undo_.setToolTip(tr("Undo %1").arg(toast.undo_label));
   update();
@@ -65,16 +87,28 @@ void ToastItem::mousePressEvent(QMouseEvent* event) {
 void ToastItem::paintEvent(QPaintEvent* event) {
   assert(event != nullptr);
   assert(left_ms_ <= kToastMs);
+  // A sticky note on the desk's edge: paper of its kind, a darker band
+  // where the glue is, and its bottom right corner curling up as its
+  // time runs out.
   QPainter painter(this);
-  painter.fillRect(rect(), theme::kFace);
-  painter.setPen(theme::kFaceLight);
-  painter.drawLine(0, 0, width() - 1, 0);
-  painter.drawLine(0, 0, 0, height() - 1);
-  painter.setPen(theme::kShadow);
-  painter.drawLine(0, height() - 1, width() - 1, height() - 1);
-  painter.drawLine(width() - 1, 0, width() - 1, height() - 1);
-  const int bar = width() * std::max(left_ms_, 0) / kToastMs;
-  painter.fillRect(0, height() - kBarHeight, bar, kBarHeight, theme::kPick);
+  painter.setRenderHint(QPainter::Antialiasing);
+  const QColor paper = PaperOf(kind_);
+  const int peel = kPeel * (kToastMs - std::max(left_ms_, 0)) / kToastMs + 4;
+  QPolygon sheet;
+  sheet << QPoint(0, 0) << QPoint(width(), 0)
+        << QPoint(width(), height() - peel) << QPoint(width() - peel, height())
+        << QPoint(0, height());
+  painter.setPen(Qt::NoPen);
+  painter.setBrush(paper);
+  painter.drawPolygon(sheet);
+  painter.fillRect(QRect(0, 0, width(), 5), paper.darker(110));
+  painter.setBrush(paper.darker(125));
+  painter.drawPolygon(QPolygon{QPoint(width(), height() - peel),
+                               QPoint(width() - peel, height()),
+                               QPoint(width() - peel, height() - peel)});
+  const int bar = (width() - peel) * std::max(left_ms_, 0) / kToastMs;
+  painter.fillRect(0, height() - kBarHeight, bar, kBarHeight,
+                   paper.darker(160));
 }
 
 ToastView::ToastView(ToastManager* toasts, MotionManager* motion,

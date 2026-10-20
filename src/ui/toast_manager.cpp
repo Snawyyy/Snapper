@@ -33,7 +33,7 @@ void ToastManager::Problem(const QString& why) {
   if (!is_problem) {
     return;
   }
-  queue_.Push(why);
+  queue_.Push(why, ToastKind::kProblem);
   RunClockWhileShowing();
   emit Changed();
 }
@@ -49,7 +49,9 @@ void ToastManager::Say(const QString& text) {
 void ToastManager::Cheer(const QString& text) {
   assert(!text.isEmpty());
   assert(history_ != nullptr);
-  Say(text);
+  queue_.Push(text, ToastKind::kCheer);
+  RunClockWhileShowing();
+  emit Changed();
   emit Cheered();
 }
 

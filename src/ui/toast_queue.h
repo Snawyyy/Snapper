@@ -11,12 +11,17 @@ namespace snapper {
 constexpr int kToastMs = 4000;
 constexpr int kMaxToasts = 3;
 
+// What a toast says, which picks its sticky note's colour: news in
+// yellow, a refusal in red, a win in green, an achievement in gold.
+enum class ToastKind { kInfo, kProblem, kCheer, kAchievement };
+
 // One message on screen. A toast with an Undo button is tied to the
 // history step it announces (step), so the button can only undo that
 // step.
 struct Toast final {
   int id = 0;
   QString text;
+  ToastKind kind = ToastKind::kInfo;
   bool has_undo = false;
   // The history revision the toast announces; used only with has_undo.
   int step = 0;
@@ -36,7 +41,7 @@ class ToastQueue final {
   // Adds a toast and returns its id. The same text again with no Undo
   // refreshes the one already there instead of stacking. When kMaxToasts
   // are showing, the oldest goes.
-  int Push(const QString& text);
+  int Push(const QString& text, ToastKind kind = ToastKind::kInfo);
   // A toast that offers Undo for the history step step.
   int PushUndoable(const QString& text, int step,
                    const QString& undo_label);

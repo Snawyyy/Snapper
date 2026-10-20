@@ -157,8 +157,13 @@ void ToastTests::FinishShowsAProblemOrTheDoneToast() {
   QCOMPARE(rig.toasts.queue().toasts().back().text,
            QString("Nothing is picked."));
   QVERIFY(!rig.toasts.queue().toasts().back().has_undo);
+  // A refusal is a red note, the news after it a yellow one.
+  QVERIFY(rig.toasts.queue().toasts().back().kind == ToastKind::kProblem);
   rig.toasts.Finish(QString(), "Deleted 1 key");
   QVERIFY(rig.toasts.queue().toasts().back().has_undo);
+  QVERIFY(rig.toasts.queue().toasts().back().kind == ToastKind::kInfo);
+  rig.toasts.Cheer("Saved");
+  QVERIFY(rig.toasts.queue().toasts().back().kind == ToastKind::kCheer);
 }
 
 void ToastTests::WindowShowsToastsAndNeverTakesFocus() {

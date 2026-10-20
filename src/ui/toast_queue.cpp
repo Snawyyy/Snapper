@@ -28,19 +28,21 @@ int ToastQueue::Add(Toast toast) {
   return id;
 }
 
-int ToastQueue::Push(const QString& text) {
+int ToastQueue::Push(const QString& text, ToastKind kind) {
   assert(!text.isEmpty());
   assert(next_id_ > 0);
   for (Toast& shown : toasts_) {
     const bool is_repeat = !shown.has_undo && shown.text == text;
     if (is_repeat) {
       shown.left_ms = kToastMs;
+      shown.kind = kind;
       return shown.id;
     }
   }
   Toast toast;
   toast.id = next_id_++;
   toast.text = text;
+  toast.kind = kind;
   return Add(std::move(toast));
 }
 

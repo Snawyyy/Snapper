@@ -42,6 +42,7 @@ class ToastItem final : public QFrame {
  private:
   int id_;
   int left_ms_;
+  ToastKind kind_ = ToastKind::kInfo;
   QHBoxLayout layout_;
   QLabel label_;
   QPushButton undo_;

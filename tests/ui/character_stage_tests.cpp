@@ -82,6 +82,11 @@ void CharacterStageTests::PickedCharacterShowsItsBonesAndBox() {
   bench.playback.Seek(Frame(4));
   QTest::qWait(50);
   Shoot(&window, "14_light_table");
+  bench.toasts.Say("Undo Rotate head: Ctrl+Z");
+  bench.toasts.Problem("Can't key here. Pick a layer first.");
+  bench.toasts.Cheer("Saved teto.snap");
+  QTest::qWait(400);
+  Shoot(&window, "15_notes");
   light->setChecked(false);
   QVERIFY(!stage->is_light_table_on());
   window.SetMode(MainWindow::Mode::kCharacter);
