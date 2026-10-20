@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snapper Desk Mockup</title>
+<style>
+  :root {
+    --gap: #100b0c; --well: #1c1818; --face: #2e2a29; --raised: #423837;
+    --light: #5c504e; --text: #ece6da; --off: #8c867e; --hint: #a8a196;
+    --pick: #d8304f; --handle: #f2c230; --rust: #c46a3a; --cork: #8a6a48;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; background: var(--gap); color: var(--text);
+    font: 13px/1.35 "DejaVu Sans", system-ui, sans-serif;
+  }
+  h1 { font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase;
+       color: var(--hint); margin: 0 0 16px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .panel { background: var(--face); border-top: 1px solid #4a4140;
+           border-bottom: 1px solid #0c090a; min-height: 300px; }
+  .plate { background: var(--raised); padding: 5px 10px; font-weight: bold;
+           border-left: 3px solid var(--pick); }
+  .body { padding: 14px; position: relative; }
+  .why { color: var(--off); font-size: 11.5px; margin-top: 10px; }
+
+  /* Cel stack */
+  .cels { position: relative; height: 210px; }
+  .cel {
+    position: absolute; left: 10px; right: 10px; height: 46px;
+    background: rgba(220, 235, 245, 0.10);
+    border: 1px solid rgba(220, 235, 245, 0.28);
+    box-shadow: 0 3px 6px rgba(0,0,0,.45);
+    display: flex; align-items: center; gap: 8px; padding: 0 10px 0 34px;
+  }
+  .cel::before { /* peg holes */
+    content: ""; position: absolute; left: 8px; top: 15px; width: 14px;
+    height: 14px; border-radius: 50%; background: var(--face);
+    box-shadow: inset 0 1px 2px #000;
+  }
+  .cel .name { flex: 1; }
+  .cel .thumb { width: 34px; height: 30px; border-radius: 2px; }
+  .ico { width: 20px; height: 20px; border-radius: 3px; display: grid;
+         place-items: center; background: rgba(0,0,0,.25); font-size: 11px; }
+  .cel.picked { border-color: var(--pick); box-shadow: 0 0 0 1px var(--pick),
+                0 3px 6px rgba(0,0,0,.45); }
+  .cel.lifted { transform: translate(14px, -6px) rotate(-1.2deg);
+                box-shadow: 0 12px 18px rgba(0,0,0,.6); z-index: 5;
+                background: rgba(220, 235, 245, 0.16); }
+  .cel.hidden { opacity: .45; transform: translateX(26px); }
+  .slot { position: absolute; left: 10px; right: 10px; height: 4px;
+          background: var(--handle); }
+
+  /* Light table */
+  .table { height: 210px; border-radius: 3px; position: relative;
+           background: radial-gradient(circle at 50% 45%, #fffbe9, #e9dcb8 70%);
+           overflow: hidden; }
+  .ghost { position: absolute; top: 40px; width: 70px; height: 130px;
+           border: 2px solid; border-radius: 40px 40px 10px 10px; }
+  .lamp { position: absolute; right: 10px; top: 10px; padding: 3px 8px;
+          background: var(--raised); color: var(--handle); font-size: 11px;
+          border-bottom: 2px solid var(--handle); }
+
+  /* Index cards */
+  .cork { height: 210px; background: var(--cork);
+          background-image: radial-gradient(#6f5236 1px, transparent 1.5px);
+          background-size: 7px 7px; position: relative; }
+  .card { position: absolute; width: 112px; height: 78px; background: #f4efe2;
+          color: #3a342c; padding: 6px 8px; font-size: 11px;
+          box-shadow: 0 3px 5px rgba(0,0,0,.4);
+          background-image: linear-gradient(transparent 21px, #c46a3a 21px,
+          #c46a3a 22px, transparent 22px),
+          repeating-linear-gradient(transparent 0 33px, #b9d3e6 33px 34px); }
+  .card b { display: block; }
+  .pin { position: absolute; top: -5px; left: 50%; width: 10px; height: 10px;
+         border-radius: 50%; background: var(--pick);
+         box-shadow: 0 1px 2px #000; }
+  .card.picked { outline: 2px solid var(--pick); }
+
+  /* DVD burner */
+  .burner { height: 210px; display: grid; place-items: center; }
+  .tray { width: 230px; height: 150px; background: #1a1617; position: relative;
+          border-top: 1px solid #3a3130; border-bottom: 2px solid #000; }
+  .disc { position: absolute; left: 50%; top: 12px; width: 124px;
+          height: 124px; margin-left: -62px; border-radius: 50%;
+          background: conic-gradient(from 20deg, #cfd6e6, #f5e8ff, #bfe7e0,
+          #f2e9c9, #cfd6e6, #e8d1ef, #cfd6e6);
+          animation: spin 1.2s linear infinite; }
+  .disc::after { content: ""; position: absolute; inset: 50px;
+                 border-radius: 50%; background: #1a1617;
+                 box-shadow: 0 0 0 9px rgba(255,255,255,.35); }
+  .scribble { position: absolute; left: 22px; top: 30px; color: #3a342c;
+              font: italic 12px "DejaVu Serif", serif; transform: rotate(-12deg); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .led { position: absolute; right: 10px; bottom: 8px; font-size: 11px;
+         color: var(--pick); font-family: monospace; }
+  .bar { position: absolute; left: 10px; bottom: 10px; width: 120px;
+         height: 6px; background: #000; }
+  .bar i { display: block; width: 62%; height: 100%; background: var(--pick); }
+
+  /* Sticky notes */
+  .desk { height: 210px; position: relative; background: #2a2322; }
+  .note { position: absolute; width: 150px; padding: 10px; color: #3a2f1e;
+          font-size: 12px; box-shadow: 0 4px 6px rgba(0,0,0,.45); }
+  .note.yellow { background: #f6d860; }
+  .note.red { background: #f29a9a; }
+  .note .x { position: absolute; right: 6px; top: 3px; opacity: .55; }
+  .note .peel { position: absolute; right: 0; bottom: 0; width: 18px;
+                height: 18px; background: linear-gradient(135deg,
+                transparent 50%, rgba(0,0,0,.18) 50%); }
+
+  /* Rewards */
+  .board { height: 210px; position: relative; background: var(--cork);
+           background-image: radial-gradient(#6f5236 1px, transparent 1.5px);
+           background-size: 7px 7px; }
+  .polaroid { position: absolute; width: 108px; background: #fbfaf5;
+              padding: 6px 6px 22px; box-shadow: 0 4px 7px rgba(0,0,0,.45);
+              color: #3a342c; font: italic 11px "DejaVu Serif", serif;
+              text-align: center; }
+  .polaroid .shot { height: 76px; margin-bottom: 4px; }
+  .streak { position: absolute; right: 10px; bottom: 10px; background: var(--face);
+            padding: 6px 10px; font-size: 11px; color: var(--handle);
+            border-left: 3px solid var(--handle); }
+</style>
+</head>
+<body>
+<h1>Snapper desk: mockup</h1>
+<div class="grid">
+
+  <section class="panel">
+    <div class="plate">Cel stack</div>
+    <div class="body">
+      <div class="cels">
+        <div class="cel" style="top:0">
+          <div class="thumb" style="background:#f0c8aa"></div>
+          <span class="name">Bo, head</span><span class="ico">&#128065;</span><span class="ico">&#128275;</span>
+        </div>
+        <div class="cel lifted" style="top:48px">
+          <div class="thumb" style="background:#6a8fd6"></div>
+          <span class="name">Bo, coat</span><span class="ico">&#128065;</span><span class="ico">&#128275;</span>
+        </div>
+        <div class="slot" style="top:148px"></div>
+        <div class="cel picked" style="top:100px">
+          <div class="thumb" style="background:#d8304f"></div>
+          <span class="name">Teto</span><span class="ico">&#128065;</span><span class="ico">&#128274;</span>
+        </div>
+        <div class="cel hidden" style="top:156px">
+          <div class="thumb" style="background:#7e9a6a"></div>
+          <span class="name">Background</span><span class="ico">-</span><span class="ico">&#128275;</span>
+        </div>
+      </div>
+      <div class="why">Drag a cel up or down: it lifts and casts a shadow, and the yellow slot shows where it lands. A hidden cel slides aside and goes dim.</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="plate">Light table</div>
+    <div class="body">
+      <div class="table">
+        <div class="lamp">LAMP ON (O)</div>
+        <div class="ghost" style="left:90px;border-color:rgba(216,48,79,.35)"></div>
+        <div class="ghost" style="left:118px;border-color:rgba(216,48,79,.65)"></div>
+        <div class="ghost" style="left:146px;border-color:#3a342c;background:rgba(240,200,170,.6)"></div>
+        <div class="ghost" style="left:174px;border-color:rgba(46,140,120,.6)"></div>
+      </div>
+      <div class="why">Hold O to light the desk from under: earlier frames show through in red, later ones in green, the current one solid.</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="plate">Shots as index cards</div>
+    <div class="body">
+      <div class="cork">
+        <div class="card" style="left:12px;top:16px;transform:rotate(-2deg)"><span class="pin"></span><b>1. Walk in</b>2.0 s, 3 cels</div>
+        <div class="card picked" style="left:136px;top:12px;transform:rotate(1.5deg)"><span class="pin"></span><b>2. Wave</b>1.5 s, 2 cels</div>
+        <div class="card" style="left:30px;top:112px;transform:rotate(1deg)"><span class="pin"></span><b>3. Jump</b>3.0 s, 4 cels</div>
+        <div class="card" style="left:150px;top:116px;transform:rotate(-1.5deg);opacity:.55"><span class="pin" style="background:#888"></span><b>+ New shot</b>Double click the board</div>
+      </div>
+      <div class="why">Shots are cards pinned in reel order: drag to reorder, and the picked one wears red.</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="plate">DVD burner (export)</div>
+    <div class="body">
+      <div class="burner">
+        <div class="tray">
+          <div class="disc"></div>
+          <div class="scribble">Teto ep 1</div>
+          <div class="bar"><i></i></div>
+          <div class="led">BURN 62%</div>
+        </div>
+      </div>
+      <div class="why">Export drops a blank disc in the tray; it spins while rendering, then ejects with its label written. Click the tray to cancel.</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="plate">Sticky notes</div>
+    <div class="body">
+      <div class="desk">
+        <div class="note yellow" style="left:14px;top:16px;transform:rotate(-2deg)"><span class="x">x</span><b>Undo Rotate head</b><br>Ctrl+Z</div>
+        <div class="note red" style="left:150px;top:70px;transform:rotate(2deg)"><span class="x">x</span><b>Can't key here</b><br>Pick a layer first.<span class="peel"></span></div>
+        <div class="note yellow" style="left:30px;top:130px;transform:rotate(1deg)"><span class="x">x</span>Tip: Shift turns only that bone.</div>
+      </div>
+      <div class="why">Messages are notes stuck to the desk edge: yellow for info, red for a refusal. They peel off after a while or on a click.</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="plate">Rewards</div>
+    <div class="body">
+      <div class="board">
+        <div class="polaroid" style="left:16px;top:14px;transform:rotate(-3deg)"><div class="shot" style="background:linear-gradient(#bcd7ef,#f0c8aa)"></div>Shot 1 done!</div>
+        <div class="polaroid" style="left:130px;top:24px;transform:rotate(2.5deg)"><div class="shot" style="background:linear-gradient(#f6d860,#d8304f)"></div>First smart bone</div>
+        <div class="streak">3 day streak</div>
+      </div>
+      <div class="why">Finishing a shot or a first-time feat pins a polaroid of that frame to the board, and a streak counts the days you worked.</div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
