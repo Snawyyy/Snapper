@@ -44,8 +44,9 @@ inline constexpr QColor kAmber{0xf2, 0x8c, 0x28};
 void PaintPlastic(QPainter* painter, const QRectF& area, double end,
                   double row_height);
 
-// A cream label strip with a ruled line and text in ink; a shut one
-// (muted, off) is faded, the current one wears a red tab at its left.
+// A track's name tag: a flat raised strip with a rust rule at its foot;
+// a shut one (muted, off) has quiet text, the current one is lighter and
+// wears a red tab at its left.
 void PaintLabel(QPainter* painter, const QRectF& strip, const QString& text,
                 bool is_current, bool is_shut);
 

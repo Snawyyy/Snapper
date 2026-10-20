@@ -36,7 +36,7 @@ class TopBar final : public QWidget {
   void RedoRequested();
 
  private:
-  // Puts the Undo and Redo buttons after the tabs.
+  // Puts the Undo and Redo buttons at the bar's right end.
   void BuildSteps();
   // Makes a button that never takes focus and fades its hover.
   void AddButton(QPushButton* button, const QString& tip);

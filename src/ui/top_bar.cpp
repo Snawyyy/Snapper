@@ -22,7 +22,7 @@ TopBar::TopBar(const Managers& managers)
       undo_(tr("Undo"), managers.motion),
       redo_(tr("Redo"), managers.motion) {
   assert(managers_.IsComplete());
-  layout_.setContentsMargins(4, 4, 4, 2);
+  layout_.setContentsMargins(4, 4, 4, 4);
   layout_.setSpacing(2);
   tabs_.addTab(tr("Video"));
   tabs_.addTab(tr("Pose"));
@@ -33,9 +33,11 @@ TopBar::TopBar(const Managers& managers)
   tabs_.setUsesScrollButtons(false);
   tabs_.setElideMode(Qt::ElideNone);
   layout_.addWidget(&tabs_);
-  layout_.addSpacing(kBarGap);
-  BuildSteps();
+  // The modes on the left, the steps at the far right, as in most
+  // editors: the eye finds each in one place on every tab.
   layout_.addStretch();
+  BuildSteps();
+  layout_.addSpacing(kBarGap);
   assert(tabs_.count() == 4);
 }
 

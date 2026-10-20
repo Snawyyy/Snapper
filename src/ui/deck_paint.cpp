@@ -59,25 +59,23 @@ void PaintLabel(QPainter* painter, const QRectF& strip, const QString& text,
                 bool is_current, bool is_shut) {
   assert(painter != nullptr);
   assert(strip.width() > 8.0 && strip.height() > 4.0);
-  const QRectF paper = strip.adjusted(3.0, 2.0, -3.0, -2.0);
-  painter->fillRect(paper.translated(1.0, 1.0), kPlasticDark);
-  painter->fillRect(paper, is_shut ? kLabelShut : kLabel);
-  // The rust rule along the label's foot, as printed on a cassette.
+  // A flat tag in the panel's own colours, so names read as part of the
+  // app rather than paper stuck on it; the rust rule keeps the cassette.
+  const QRectF tag = strip.adjusted(2.0, 1.0, -2.0, -1.0);
+  painter->fillRect(tag, is_current ? theme::kFaceLight : theme::kRaised);
   painter->setPen(QPen(kLabelRule, 1.0));
-  const double rule = paper.bottom() - 3.0;
-  painter->drawLine(QPointF(paper.left() + 4.0, rule),
-                    QPointF(paper.right() - 3.0, rule));
+  painter->drawLine(QPointF(tag.left(), tag.bottom()),
+                    QPointF(tag.right(), tag.bottom()));
   if (is_current) {
-    painter->fillRect(QRectF(paper.left(), paper.top(), 4.0,
-                             paper.height()),
+    painter->fillRect(QRectF(tag.left(), tag.top(), 3.0, tag.height()),
                       theme::kPick);
   }
-  painter->setPen(kInk);
-  painter->drawText(paper.adjusted(8.0, 0.0, -3.0, -2.0),
+  painter->setPen(is_shut ? theme::kTextOff : theme::kText);
+  painter->drawText(tag.adjusted(8.0, 0.0, -3.0, 0.0),
                     Qt::AlignVCenter | Qt::AlignLeft,
                     painter->fontMetrics().elidedText(
                         text, Qt::ElideRight,
-                        static_cast<int>(paper.width()) - 11));
+                        static_cast<int>(tag.width()) - 11));
 }
 
 void PaintTape(QPainter* painter, const QRectF& run) {
