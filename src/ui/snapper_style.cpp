@@ -32,6 +32,10 @@ constexpr int kTabLiftPx = 1;
 // Pixels between ridges on a grip, and the most drawn on one.
 constexpr int kRidgeGap = 4;
 constexpr int kGripRidges = 5;
+// Room left of a dock title's text.
+constexpr int kDockTitlePad = 8;
+// Room above and below it.
+constexpr int kDockTitleMargin = 5;
 
 double HoverOf(const QStyleOption* option, const QWidget* widget) {
   assert(option != nullptr);
@@ -96,6 +100,29 @@ void DrawGrip(const QStyleOption* option, QPainter* painter, bool is_lit) {
   // Grips are the gaps between panels: the window shows through.
   painter->fillRect(option->rect, theme::kGap);
   DrawGripLine(painter, option->rect, is_active);
+}
+
+// A dock's title, the top of the header ladder: small spaced capitals,
+// quiet, on a dark band, so the red-stripped section plates under it
+// stay the loudest heads in the panel.
+void DrawDockTitle(const QStyleOptionDockWidget& dock, QPainter* painter,
+                   const QWidget* widget) {
+  assert(painter != nullptr);
+  assert(kDockTitlePad > 0);
+  painter->fillRect(dock.rect, theme::kFaceDark);
+  painter->save();
+  QFont font = widget != nullptr ? widget->font() : painter->font();
+  font.setBold(true);
+  font.setCapitalization(QFont::AllUppercase);
+  font.setLetterSpacing(QFont::AbsoluteSpacing, 1.2);
+  font.setPointSizeF(font.pointSizeF() * 0.85);
+  painter->setFont(font);
+  painter->setPen(theme::kTextHint);
+  const QRect text = dock.rect.adjusted(kDockTitlePad, 0, -kDockTitlePad, 0);
+  painter->drawText(text, Qt::AlignLeft | Qt::AlignVCenter,
+                    painter->fontMetrics().elidedText(
+                        dock.title, Qt::ElideRight, text.width()));
+  painter->restore();
 }
 
 }  // namespace
@@ -224,6 +251,12 @@ void SnapperStyle::drawControl(ControlElement element,
   assert(option != nullptr);
   assert(painter != nullptr);
   const auto* tab = qstyleoption_cast<const QStyleOptionTab*>(option);
+  const auto* dock = qstyleoption_cast<const QStyleOptionDockWidget*>(option);
+  const bool is_dock_title = element == CE_DockWidgetTitle && dock != nullptr;
+  if (is_dock_title) {
+    DrawDockTitle(*dock, painter, widget);
+    return;
+  }
   const bool is_splitter = element == CE_Splitter;
   if (is_splitter) {
     DrawGrip(option, painter, false);
@@ -340,6 +373,10 @@ int SnapperStyle::pixelMetric(PixelMetric metric, const QStyleOption* option,
                        metric == PM_DockWidgetSeparatorExtent;
   if (is_grip) {
     return kGripExtent;
+  }
+  const bool is_dock_title = metric == PM_DockWidgetTitleMargin;
+  if (is_dock_title) {
+    return kDockTitleMargin;
   }
   return QProxyStyle::pixelMetric(metric, option, widget);
 }
