@@ -191,17 +191,54 @@ bool AreIdsSound(const Character& character) {
       }
     }
   }
+  for (const VectorStyle& style : character.styles) {
+    if (!NoteId(style.id.value(), character.next_id, &seen)) {
+      return false;
+    }
+  }
   return bone_count <= kMaxCharacterBones;
 }
 
 }  // namespace
+
+const VectorStyle* FindStyle(const Character& character, StyleId id) {
+  assert(id.value() >= 0);
+  assert(character.styles.size() <= static_cast<size_t>(kMaxCharacterStyles));
+  const auto found = std::ranges::find_if(
+      character.styles, [id](const VectorStyle& style) { return style.id == id; });
+  return found == character.styles.end() ? nullptr : &*found;
+}
+
+VectorStyle* FindStyle(Character* character, StyleId id) {
+  assert(character != nullptr);
+  assert(id.value() >= 0);
+  const auto found = std::ranges::find_if(
+      character->styles,
+      [id](const VectorStyle& style) { return style.id == id; });
+  return found == character->styles.end() ? nullptr : &*found;
+}
+
+VectorShape LookOf(const Character& character, const VectorShape& shape) {
+  assert(shape.curves.size() <= static_cast<size_t>(kMaxVectorCurves));
+  assert(shape.stroke_width >= 0.0);
+  const VectorStyle* style =
+      shape.style.IsValid() ? FindStyle(character, shape.style) : nullptr;
+  if (style == nullptr) {
+    return shape;
+  }
+  VectorShape look = style->look;
+  look.curves = shape.curves;
+  look.style = shape.style;
+  return look;
+}
 
 bool IsSound(const Character& character) {
   assert(character.parts.size() < 1000000);
   assert(character.actions.size() < 1000000);
   const bool is_small =
       character.parts.size() <= static_cast<size_t>(kMaxCharacterParts) &&
-      character.actions.size() <= static_cast<size_t>(kMaxSmartActions);
+      character.actions.size() <= static_cast<size_t>(kMaxSmartActions) &&
+      character.styles.size() <= static_cast<size_t>(kMaxCharacterStyles);
   if (!is_small || !AreIdsSound(character)) {
     return false;
   }

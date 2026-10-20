@@ -9,6 +9,7 @@
 #include "edit/character_manager.h"
 #include "edit/character_pose_edits.h"
 #include "edit/character_pose_manager.h"
+#include "edit/character_styles.h"
 #include "edit/history_manager.h"
 #include "edit/stage_manager.h"
 #include "edit/vector_edits.h"
@@ -46,6 +47,7 @@ class CharacterEditTests final : public QObject {
   void WeldingTheEndsClosesALoop();
   void DeletingAnEdgeCutsTheLine();
   void TheMagnetPullsNearPointsMost();
+  void StylesChangeEveryShapeUsingThem();
   void ShapesComeFromWholeLines();
   void PartsMoveWithWhatTheyHold();
   void DuplicatesTakeNewIds();
@@ -159,6 +161,44 @@ void CharacterEditTests::TheMagnetPullsNearPointsMost() {
   const std::vector<std::pair<PointId, QPointF>> gone = {
       {PointId(999), QPointF(1, 1)}};
   QVERIFY(!ShiftPoints(&drawing, gone).has_value());
+}
+
+void CharacterEditTests::StylesChangeEveryShapeUsingThem() {
+  Character bo = NewCharacter("Bo");
+  const PartId drawing = DrawingPart(bo);
+  VectorDrawing* lines = &FindPart(&bo, drawing)->drawing;
+  const std::vector<QPointF> square = {{0, 0}, {10, 0}, {10, 10}, {0, 10}};
+  for (int i = 0; i < 2; ++i) {
+    const auto ids = AddCurve(lines, &bo.next_id, square, true, 0.0, 0.0);
+    QVERIFY(MakeShape(lines, *ids, VectorShape{}).has_value());
+  }
+  VectorShape skin;
+  skin.fill = Qt::yellow;
+  skin.brush = LineBrush::kPencil;
+  const auto id = AddStyle(&bo, QString(), skin);
+  QVERIFY(id.has_value());
+  QCOMPARE(bo.styles[0].name, QString("Style 1"));
+  QVERIFY(UseStyle(&bo, drawing, 0, *id).has_value());
+  QVERIFY(UseStyle(&bo, drawing, 1, *id).has_value());
+  // The Look panel on one shape changes the style, so both.
+  VectorShape red = skin;
+  red.fill = Qt::red;
+  QVERIFY(SetShapeLook(&bo, drawing, 0, red).has_value());
+  const VectorDrawing& now = FindPart(bo, drawing)->drawing;
+  QCOMPARE(LookOf(bo, now.shapes[1]).fill, QColor(Qt::red));
+  QCOMPARE(LookOf(bo, now.shapes[1]).brush, LineBrush::kPencil);
+  QCOMPARE(LookOf(bo, now.shapes[1]).curves, now.shapes[1].curves);
+  // Own look keeps what it showed; deleting the style bakes the rest.
+  QVERIFY(UseStyle(&bo, drawing, 0, StyleId()).has_value());
+  QVERIFY(RenameStyle(&bo, *id, "Skin").has_value());
+  QVERIFY(!RenameStyle(&bo, *id, " ").has_value());
+  QVERIFY(RemoveStyle(&bo, *id).has_value());
+  QVERIFY(bo.styles.empty());
+  for (const VectorShape& shape : FindPart(bo, drawing)->drawing.shapes) {
+    QVERIFY(!shape.style.IsValid());
+    QCOMPARE(shape.fill, QColor(Qt::red));
+  }
+  QVERIFY(IsSound(bo));
 }
 
 void CharacterEditTests::WeldingTheEndsClosesALoop() {

@@ -202,6 +202,23 @@ project opens with its doll layers left out and a note.)
   the whole pose (`Channel<CharacterPose>`), so one key is the drawing
   of a moment; the shared sampler blends them (`Lerp` in
   `anim/sampler.h`), picks hold until the next key.
+- Lines and looks: a shape's line has a brush (`LineBrush`: solid, or
+  pencil, ink, marker, chalk, dots dabbed along the curve by
+  `render/line_brush.cpp` with grain fixed per dab, so still lines never
+  shimmer), and a shape may use one of the character's named styles
+  (`VectorStyle`, `Character::styles`): it then looks as the style says
+  (`LookOf`, which every painter and hit test asks), so changing the
+  style changes every shape using it. The pure style edits are
+  `edit/character_styles.h`; `SetShapeLook` is the one rule for the Look
+  panel (a styled shape edits its style). The Styles section
+  (`CharacterStylesPanel`) makes, uses, lets go of, renames and deletes
+  them; a deleted style's shapes keep its look as their own.
+- Shaping tools: Line width (W) drags a point's width share, Delete
+  edge (D) cuts one curve segment (`EdgeAt`, `DeleteEdge`: an open curve
+  splits, a closed one opens, shapes it outlined go, loose points go),
+  Magnet (M) moves the points near the press with a smooth falloff
+  (`MagnetWeights`, `ShiftPoints`; [ and ] size its reach), all pure in
+  `edit/vector_reshape.h` and drawn in `ui/character_canvas_tools.cpp`.
 - Smart bones: a smart bone bends nothing; its turn plays its
   `SmartAction`, stops of pose deltas at turns, blended between stops
   (picks swap halfway) and added on top of the hand pose

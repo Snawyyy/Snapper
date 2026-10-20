@@ -1,6 +1,8 @@
 #include <QApplication>
 #include <QDir>
 #include <QTemporaryDir>
+#include <QListWidget>
+#include <QPushButton>
 #include <QTest>
 
 #include <algorithm>
@@ -177,6 +179,25 @@ void CharacterPageTests::ShapingToolsReshapeLines() {
   }
   QVERIFY(most > 1.0);
   QVERIFY(held >= 1);
+  // Styles: New makes one from the look new shapes take and draws new
+  // shapes with it; a shape drawn then follows the style.
+  auto* styles = page.findChild<QListWidget*>("styles");
+  QVERIFY(styles != nullptr);
+  QPushButton* make = nullptr;
+  for (QPushButton* button : page.findChildren<QPushButton*>()) {
+    if (button->text() == "New" && button->parent() != nullptr &&
+        button->parentWidget()->findChild<QListWidget*>("styles") != nullptr) {
+      make = button;
+    }
+  }
+  QVERIFY(make != nullptr);
+  page.session()->SetShape(-1);
+  make->click();
+  QCOMPARE(styles->count(), 1);
+  QVERIFY(page.session()->style().style.IsValid());
+  page.session()->SetTool(CharacterTool::kRectangle);
+  Drag(canvas, middle + QPoint(100, 100), middle + QPoint(160, 160));
+  QVERIFY(shape().shapes.back().style.IsValid());
 }
 
 }  // namespace snapper

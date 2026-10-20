@@ -18,6 +18,7 @@
 namespace snapper {
 
 class CharacterManager;
+class CharacterStylesPanel;
 class HistoryManager;
 
 // A square button showing a color; a click opens the color picker.
@@ -88,6 +89,8 @@ class CharacterInspector final : public QWidget {
   QComboBox rest_pick_;
 
   QWidget* look_section_ = nullptr;
+  QWidget* styles_section_ = nullptr;
+  CharacterStylesPanel* styles_ = nullptr;
   QLabel look_for_;
   QCheckBox has_fill_;
   SwatchButton fill_;

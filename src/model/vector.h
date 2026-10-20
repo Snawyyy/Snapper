@@ -13,6 +13,9 @@ namespace snapper {
 struct PointTag;
 // A vector point, unique inside its character.
 using PointId = Id<PointTag>;
+struct StyleTag;
+// A named style of its character (see VectorStyle).
+using StyleId = Id<StyleTag>;
 
 constexpr int kMaxVectorPoints = 4000;
 constexpr int kMaxVectorCurves = 1000;
@@ -78,6 +81,9 @@ struct VectorShape final {
   QColor stroke = QColor(20, 20, 24);
   double stroke_width = 3.0;
   LineBrush brush = LineBrush::kSolid;
+  // A shape that uses one of its character's styles looks as the style
+  // says, not as its own fields do (LookOf); none: its own look.
+  StyleId style{};
 
   bool operator==(const VectorShape&) const = default;
 };

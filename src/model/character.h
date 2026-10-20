@@ -23,6 +23,7 @@ using BoneId = Id<BoneTag>;
 constexpr int kMaxCharacterParts = 512;
 constexpr int kMaxCharacterBones = 256;
 constexpr int kMaxSmartActions = 128;
+constexpr int kMaxCharacterStyles = 64;
 constexpr int kMaxActionStops = 32;
 
 // What a part of a character is, as in Moho's layer kinds.
@@ -169,6 +170,17 @@ struct CharacterPart final {
   bool operator==(const CharacterPart&) const = default;
 };
 
+// A named look shapes can share, as Moho's styles: change the style and
+// every shape using it changes. Only look's fill, line, width and brush
+// count; its curves are unused.
+struct VectorStyle final {
+  StyleId id{};
+  QString name{};
+  VectorShape look{};
+
+  bool operator==(const VectorStyle&) const = default;
+};
+
 // A character as the library and a project hold it: a tree of parts.
 // Parts are listed bottom to top, so a child later in the list draws in
 // front of its siblings earlier in it; a parent comes before its
@@ -179,11 +191,20 @@ struct Character final {
   QString folder{};
   std::vector<CharacterPart> parts{};
   std::vector<SmartAction> actions{};
-  // The next free id for a part, bone or point; ids are never reused.
+  std::vector<VectorStyle> styles{};
+  // The next free id for a part, bone, point or style; ids are never
+  // reused.
   int next_id = 1;
 
   bool operator==(const Character&) const = default;
 };
+
+// The style id, or nullptr.
+const VectorStyle* FindStyle(const Character& character, StyleId id);
+VectorStyle* FindStyle(Character* character, StyleId id);
+// How shape looks: its style's look (with shape's curves) when it uses
+// one that is there, else itself.
+VectorShape LookOf(const Character& character, const VectorShape& shape);
 
 // Where bone's tip is at rest, in its bone part's space.
 QPointF TipOf(const Bone& bone);

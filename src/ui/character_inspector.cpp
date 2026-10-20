@@ -10,6 +10,7 @@
 
 #include "edit/character_manager.h"
 #include "edit/history_manager.h"
+#include "ui/character_styles_panel.h"
 #include "ui/panel_kit.h"
 #include "ui/theme.h"
 
@@ -78,12 +79,17 @@ CharacterInspector::CharacterInspector(HistoryManager* history,
   layout->setSizeConstraint(QLayout::SetMinAndMaxSize);
   part_section_ = PlatedSection(tr("Part"), BuildPart(), this);
   look_section_ = PlatedSection(tr("Look"), BuildLook(), this);
+  styles_ = new CharacterStylesPanel(history_, characters_, session_, this);
+  styles_section_ = PlatedSection(tr("Styles"), styles_, this);
+  connect(styles_, &CharacterStylesPanel::Problem, this,
+          &CharacterInspector::Problem);
   bone_section_ = PlatedSection(tr("Bone"), BuildBone(), this);
   action_section_ = PlatedSection(tr("Smart bone action"), BuildAction(), this);
   // Each section keeps the height its rows ask for; the panel scrolls
   // instead of squeezing them.
   for (QWidget* section :
-       {part_section_, look_section_, bone_section_, action_section_}) {
+       {part_section_, look_section_, styles_section_, bone_section_,
+        action_section_}) {
     section->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     layout->addWidget(section);
   }
@@ -394,8 +400,11 @@ void CharacterInspector::CommitLook() {
                                                   kLineBrushCount - 1));
   session_->SetStyle(style);
   if (session_->shape() >= 0) {
-    Report(characters_->SetShapeStyle(session_->character(), session_->part(),
-                                      session_->shape(), style));
+    Report(characters_->SetShapeLook(session_->character(), session_->part(),
+                                     session_->shape(), style));
+  } else if (style.style.IsValid()) {
+    Report(characters_->SetStyleLook(session_->character(), style.style,
+                                     style));
   }
 }
 
@@ -470,11 +479,26 @@ void CharacterInspector::RefreshLook(const CharacterPart* part) {
   const bool has_shape = part != nullptr && session_->shape() >= 0 &&
                          static_cast<size_t>(session_->shape()) <
                              part->drawing.shapes.size();
-  const VectorShape& style =
-      has_shape ? part->drawing.shapes[static_cast<size_t>(session_->shape())]
-                : session_->style();
-  look_for_.setText(has_shape ? tr("The picked shape:")
-                              : tr("New shapes are drawn with:"));
+  const Character* character = Shown();
+  const VectorShape style =
+      has_shape && character != nullptr
+          ? LookOf(*character,
+                   part->drawing.shapes[static_cast<size_t>(session_->shape())])
+      : character != nullptr ? LookOf(*character, session_->style())
+                             : session_->style();
+  const VectorStyle* named =
+      character != nullptr && style.style.IsValid()
+          ? FindStyle(*character, style.style)
+          : nullptr;
+  look_for_.setText(
+      named != nullptr
+          ? (has_shape ? tr("The picked shape, style %1 (every shape with "
+                            "it changes):")
+                       : tr("New shapes, style %1 (every shape with it "
+                            "changes):"))
+                .arg(named->name)
+      : has_shape ? tr("The picked shape:")
+                  : tr("New shapes are drawn with:"));
   has_fill_.setChecked(style.has_fill);
   fill_.SetColor(style.fill);
   has_stroke_.setChecked(style.has_stroke);
@@ -554,6 +578,7 @@ void CharacterInspector::Refresh() {
   }
   const bool is_drawing = part != nullptr && part->kind == PartKind::kVector;
   look_section_->setVisible(is_drawing);
+  styles_section_->setVisible(is_drawing);
   RefreshLook(is_drawing ? part : nullptr);
   const Bone* bone =
       character != nullptr ? FindBone(*character, session_->bone()) : nullptr;

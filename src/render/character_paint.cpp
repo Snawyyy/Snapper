@@ -60,12 +60,13 @@ void PaintTaperedStroke(const VectorDrawing& drawing, const VectorShape& shape,
   }
 }
 
-void PaintVector(const CharacterPart& part, const PosedPart& posed,
-                 QPainter* painter) {
+void PaintVector(const Character& character, const CharacterPart& part,
+                 const PosedPart& posed, QPainter* painter) {
   assert(painter != nullptr);
   assert(posed.points.size() == part.drawing.points.size());
   const VectorDrawing& drawing = part.drawing;
-  for (const VectorShape& shape : drawing.shapes) {
+  for (const VectorShape& own : drawing.shapes) {
+    const VectorShape shape = LookOf(character, own);
     if (shape.has_fill) {
       painter->fillPath(ShapeFillPath(drawing, shape, posed.points), shape.fill);
     }
@@ -118,7 +119,7 @@ void PaintCharacter(const Character& character, const PosedCharacter& posed,
     painter->setOpacity(opacity * std::clamp(shown.opacity, 0.0, 1.0));
     if (part->kind == PartKind::kVector) {
       painter->setTransform(world);
-      PaintVector(*part, shown, painter);
+      PaintVector(character, *part, shown, painter);
     } else if (part->kind == PartKind::kImage) {
       PaintImage(character, *part, shown, world, cache, painter);
     }
@@ -140,7 +141,8 @@ QPainterPath PartOutline(const Character& character, const PosedPart& shown) {
     return shown.to_character.map(box);
   }
   QPainterPathStroker stroker;
-  for (const VectorShape& shape : part->drawing.shapes) {
+  for (const VectorShape& own : part->drawing.shapes) {
+    const VectorShape shape = LookOf(character, own);
     if (shape.has_fill) {
       outline.addPath(ShapeFillPath(part->drawing, shape, shown.points));
     }

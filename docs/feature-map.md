@@ -12,6 +12,7 @@ it in the same commit.
 | Feature | Section | Main files | Edits go through | Tests |
 |---|---|---|---|---|
 | Characters: vector drawing, parts tree, bones and binding, IK, switches, smart bones, Character tab, posing on the Pose tab | Characters | model/vector.h, model/character.h, anim/vector_path.cpp, anim/character_pose.cpp, anim/bone_ik.cpp, anim/stroke_fit.cpp, render/character_paint.cpp, render/stage_geometry.cpp (CharacterBonesOnScreen), io/character_json.cpp, io/character_file.cpp, edit/vector_edits.cpp, edit/character_edits.cpp, edit/character_pose_edits.cpp, edit/character_manager.cpp, edit/character_pose_manager.cpp, edit/track_ref.h (kCharacter), ui/character_page.cpp, ui/character_canvas.cpp, ui/character_canvas_input.cpp, ui/character_parts_panel.cpp, ui/character_inspector.cpp, ui/character_session.cpp, ui/character_box.cpp, ui/character_thumb.cpp, ui/part_icons.cpp, ui/bone_glyph.cpp, ui/pose_tool.cpp (MoveBone) | CharacterManager (rig), CharacterPoseManager (keys) | model/character_tests, io/character_json_tests, anim/character_pose_tests, edit/character_edit_tests |
+| Character lines and looks: line brushes, named styles, Line width, Delete edge and Magnet tools | Characters | model/vector.h (LineBrush, VectorShape::brush, ::style), model/character.h (VectorStyle, LookOf), render/line_brush.cpp, render/character_paint.cpp, edit/vector_reshape.cpp, edit/character_styles.cpp, edit/character_manager_shapes.cpp, io/character_json.cpp, ui/character_canvas_tools.cpp, ui/character_styles_panel.cpp, ui/character_inspector.cpp (Look, Brush) | CharacterManager | edit/character_edit_tests, render/line_brush_tests, io/character_json_tests, ui/character_page_tests |
 | Layer poses, editing many picked frames | Time | model/pose.h (LayerPose), anim/layer_transform.cpp, edit/pose_manager.cpp, edit/pose_shift.cpp (Shift, SetField on many frames), edit/selection_manager.cpp (EditFrames: the picked keys' frames), ui/keyed_boxes.cpp (typed sets, drags add) | PoseManager | edit/posing_tests |
 | Keyed draw order (a layer's place among layers, the Order field, Ctrl+] and Ctrl+[) | Rendering | model/pose.h (LayerPose::order), anim/sampler.cpp (holds), anim/layer_order.cpp (LayersInDrawOrder: the one draw and pick order of a shot's layers), render/frame_renderer.cpp and render/stage_hit.cpp (walk it), edit/pose_shift.cpp (SetField, StepOrder, OrderName), ui/keyed_boxes.cpp (Order field), ui/reset_on_double_click.cpp, ui/order_menu.cpp (Edit menu keys) | PoseManager | anim/sampler_tests |
 | Keys, easing, sampling | Time | model/key.h, anim/sampler.cpp, edit/key_manager.cpp | KeyManager | anim/sampler_tests, edit/key_tests |
@@ -159,6 +160,14 @@ VideoFormat (media/video_formats.h, an export format):
 - tests: edit/export_tests, media/media_tests
 
 Other enums with switch sites:
+- LineBrush (model/vector.h, `kLineBrushCount`): render/line_brush.cpp
+  (`DabOf` switch, `Spacing`), io/character_json.cpp (`kBrushNames`),
+  ui/character_inspector.cpp (`kBrushNames` labels in enum order); test
+  render/line_brush_tests.
+- CharacterTool (ui/character_session.h, `kCharacterToolCount`):
+  `kTools` in ui/character_page.cpp (enum order), the press switch in
+  ui/character_canvas_input.cpp, the tool's own code in
+  ui/character_canvas_tools.cpp.
 - PoseField (edit/pose_manager.h): `SetPoseField` switch in
   edit/pose_shift.cpp; ui/keyed_boxes.cpp runs its fields in this order
   (`PoseBox::Field`, its names array and the `was` and `shown` arrays).

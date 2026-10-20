@@ -51,6 +51,24 @@ VectorPoint PointFromJson(const QJsonObject& object) {
   return point;
 }
 
+// A shape's look: fill, line, width, brush and its style, if any. Its
+// curves are written by the drawing.
+QJsonObject ShapeToJson(const VectorShape& shape) {
+  assert(shape.stroke_width >= 0.0);
+  assert(static_cast<int>(shape.brush) < kLineBrushCount);
+  QJsonObject object{
+      {"fill", ColorToJson(shape.fill)},
+      {"has_fill", shape.has_fill},
+      {"stroke", ColorToJson(shape.stroke)},
+      {"has_stroke", shape.has_stroke},
+      {"width", shape.stroke_width},
+      {"brush", EnumToJson(static_cast<int>(shape.brush), kBrushNames)}};
+  if (shape.style.IsValid()) {
+    object.insert("style", shape.style.value());
+  }
+  return object;
+}
+
 QJsonObject DrawingToJson(const VectorDrawing& drawing) {
   assert(IsSound(drawing));
   QJsonArray points;
@@ -71,14 +89,9 @@ QJsonObject DrawingToJson(const VectorDrawing& drawing) {
     for (int curve : shape.curves) {
       indices.append(curve);
     }
-    shapes.append(QJsonObject{{"curves", indices},
-                              {"fill", ColorToJson(shape.fill)},
-                              {"has_fill", shape.has_fill},
-                              {"stroke", ColorToJson(shape.stroke)},
-                              {"has_stroke", shape.has_stroke},
-                              {"width", shape.stroke_width},
-                              {"brush", EnumToJson(static_cast<int>(shape.brush),
-                                                   kBrushNames)}});
+    QJsonObject object = ShapeToJson(shape);
+    object.insert("curves", indices);
+    shapes.append(object);
   }
   assert(points.size() == static_cast<qsizetype>(drawing.points.size()));
   return QJsonObject{{"points", points}, {"curves", curves}, {"shapes", shapes}};
@@ -113,6 +126,7 @@ VectorShape ShapeFromJson(const QJsonObject& object, JsonIssues* issues) {
   shape.stroke_width =
       std::clamp(Number(object, "width", shape.stroke_width), 0.0,
                  static_cast<double>(kMaxStrokeWidth));
+  shape.style = StyleId(std::max(0, object.value("style").toInt()));
   // Files from before brushes have none: solid.
   const bool has_brush = object.contains("brush");
   if (has_brush) {
@@ -438,10 +452,18 @@ QJsonObject CharacterToJson(const Character& character) {
   for (const SmartAction& action : character.actions) {
     actions.append(ActionToJson(action));
   }
+  QJsonArray styles;
+  for (const VectorStyle& style : character.styles) {
+    QJsonObject look = ShapeToJson(style.look);
+    look.insert("id", style.id.value());
+    look.insert("name", style.name);
+    styles.append(look);
+  }
   return QJsonObject{{"name", character.name},
                      {"next_id", character.next_id},
                      {"parts", parts},
-                     {"actions", actions}};
+                     {"actions", actions},
+                     {"styles", styles}};
 }
 
 Character CharacterFromJson(const QJsonObject& object, JsonIssues* issues) {
@@ -458,9 +480,18 @@ Character CharacterFromJson(const QJsonObject& object, JsonIssues* issues) {
        Bounded(object.value("actions"), kMaxSmartActions, "actions", issues)) {
     character.actions.push_back(ActionFromJson(item.toObject(), issues));
   }
+  for (const QJsonValue& item : Bounded(object.value("styles"),
+                                        kMaxCharacterStyles, "styles", issues)) {
+    const QJsonObject read = item.toObject();
+    VectorShape look = ShapeFromJson(read, issues);
+    look.style = StyleId();
+    character.styles.push_back(
+        {StyleId(read.value("id").toInt()), read.value("name").toString(),
+         look});
+  }
   if (!IsSound(character)) {
     issues->Note(QStringLiteral("the character's parts do not form a tree"));
-    return Character{character.name, {}, {}, {}, 1};
+    return Character{.name = character.name};
   }
   return character;
 }

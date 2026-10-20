@@ -82,6 +82,18 @@ class CharacterManager final : public QObject {
   // Shaping (edit/character_manager_shapes.cpp).
   Result<void> DeleteEdge(const QString& character, PartId part,
                           VectorEdge edge);
+  // Named styles (edit/character_styles.h); each one undo step.
+  Result<StyleId> AddStyle(const QString& character, const QString& name,
+                           const VectorShape& look);
+  Result<void> RenameStyle(const QString& character, StyleId id,
+                           const QString& name);
+  Result<void> RemoveStyle(const QString& character, StyleId id);
+  Result<void> UseStyle(const QString& character, PartId part, int shape,
+                        StyleId id);
+  Result<void> SetShapeLook(const QString& character, PartId part, int shape,
+                            const VectorShape& look);
+  Result<void> SetStyleLook(const QString& character, StyleId id,
+                            const VectorShape& look);
   // The magnet: moves each point by its own step, named "Magnet".
   Result<void> ShiftPoints(
       const QString& character, PartId part,

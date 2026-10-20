@@ -27,12 +27,18 @@ Character Arm() {
                          VectorPoint{PointId(6), {0, 50}, kSmoothCurvature, 0.5}};
   body.drawing.curves = {{{PointId(4), PointId(5), PointId(6)}, true}};
   body.drawing.shapes = {
-      VectorShape{.curves = {0}, .fill = Qt::red, .brush = LineBrush::kInk}};
+      VectorShape{.curves = {0},
+                  .fill = Qt::red,
+                  .brush = LineBrush::kInk,
+                  .style = StyleId(7)}};
   body.point_bones[PointId(5)] = BoneId(2);
   character.parts = {skeleton, body};
   character.actions = {
       {BoneId(2), "wave", {{45.0, {.bones = {{BoneId(2), {.turn = 10}}}}}}}};
-  character.next_id = 7;
+  character.styles = {{StyleId(7), "Skin",
+                       VectorShape{.fill = Qt::yellow,
+                                   .brush = LineBrush::kPencil}}};
+  character.next_id = 8;
   assert(IsSound(character));
   return character;
 }
