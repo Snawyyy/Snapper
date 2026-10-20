@@ -15,34 +15,29 @@ void DrawBevel(QPainter* painter, const QRect& rect, const QColor& fill,
   if (!has_room) {
     return;
   }
+  // Modern retro: a flat face with a light line along its top and a dark
+  // one under it when raised, the dark line on top when sunk; the sides
+  // are a quiet edge a shade under the face.
   painter->fillRect(rect, fill);
-  const QColor top_left = is_sunk ? theme::kShadow : theme::kFaceLight;
-  const QColor bottom_right = is_sunk ? theme::kFaceLight : theme::kShadow;
-  painter->setPen(top_left);
-  painter->drawLine(rect.topLeft(), rect.topRight());
+  painter->save();
+  painter->setPen(fill.darker(135));
   painter->drawLine(rect.topLeft(), rect.bottomLeft());
-  painter->setPen(bottom_right);
-  painter->drawLine(rect.bottomLeft(), rect.bottomRight());
   painter->drawLine(rect.topRight(), rect.bottomRight());
-  const bool is_raised = !is_sunk;
-  if (is_raised) {
-    const QRect inner = rect.adjusted(1, 1, -1, -1);
-    painter->setPen(theme::kFaceDark);
-    painter->drawLine(inner.bottomLeft(), inner.bottomRight());
-    painter->drawLine(inner.topRight(), inner.bottomRight());
-  }
+  painter->setPen(is_sunk ? theme::kShadow : fill.lighter(128));
+  painter->drawLine(rect.topLeft(), rect.topRight());
+  painter->setPen(is_sunk ? fill.darker(135) : theme::kShadow);
+  painter->drawLine(rect.bottomLeft(), rect.bottomRight());
+  painter->restore();
 }
 
 void DrawSunkenFrame(QPainter* painter, const QRect& rect) {
   assert(painter != nullptr);
   assert(rect.isValid());
   painter->save();
+  painter->setPen(theme::kFaceDark);
+  painter->drawRect(rect.adjusted(0, 0, -1, -1));
   painter->setPen(theme::kShadow);
   painter->drawLine(rect.topLeft(), rect.topRight());
-  painter->drawLine(rect.topLeft(), rect.bottomLeft());
-  painter->setPen(theme::kFaceLight);
-  painter->drawLine(rect.bottomLeft(), rect.bottomRight());
-  painter->drawLine(rect.topRight(), rect.bottomRight());
   painter->restore();
 }
 

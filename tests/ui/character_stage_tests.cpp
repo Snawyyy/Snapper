@@ -61,6 +61,12 @@ void CharacterStageTests::PickedCharacterShowsItsBonesAndBox() {
   window.SetMode(MainWindow::Mode::kCharacter);
   QTest::qWait(50);
   Shoot(&window, "11_character_tab");
+  window.SetMode(MainWindow::Mode::kVideo);
+  QTest::qWait(50);
+  Shoot(&window, "12_video_tab");
+  window.SetMode(MainWindow::Mode::kComp);
+  QTest::qWait(50);
+  Shoot(&window, "13_comp_tab");
 }
 
 }  // namespace snapper

@@ -31,7 +31,7 @@ constexpr int kTabPadY = 8;
 constexpr int kTabLiftPx = 1;
 // Pixels between ridges on a grip, and the most drawn on one.
 constexpr int kRidgeGap = 4;
-constexpr int kMaxRidges = 2000;
+constexpr int kGripRidges = 5;
 
 double HoverOf(const QStyleOption* option, const QWidget* widget) {
   assert(option != nullptr);
@@ -107,30 +107,26 @@ void DrawGripLine(QPainter* painter, const QRect& box, bool is_active) {
   if (!has_room) {
     return;
   }
-  // Ridges across the strip, like a knurled edge: ||||||| along it.
+  // A hairline along the gap with a short knurled grip in its middle,
+  // like the ridges on a cassette; all of it yellow while active.
   const bool is_bar = box.height() > box.width();
   const int along = is_bar ? box.height() : box.width();
   const int across = is_bar ? box.width() : box.height();
-  const int ridge_length = std::max(2, across * 2 / 3);
+  const int middle = across / 2;
+  const QRect line = is_bar ? QRect(box.left() + middle, box.top(), 1, along)
+                            : QRect(box.left(), box.top() + middle, along, 1);
+  painter->fillRect(line, is_active ? theme::kHandle : theme::kFaceDark);
+  const int ridges = std::min(kGripRidges, along / kRidgeGap);
+  const int ridge_length = std::max(2, across / 2);
   const int start = (across - ridge_length) / 2;
-  if (is_active) {
-    const QRect band = is_bar ? QRect(box.left() + start, box.top(),
-                                      ridge_length, along)
-                              : QRect(box.left(), box.top() + start, along,
-                                      ridge_length);
-    painter->fillRect(band, theme::kFaceDark);
-  }
-  const int steps = std::min(along / kRidgeGap, kMaxRidges);
-  for (int i = 0; i < steps; ++i) {
-    const int at = i * kRidgeGap + kRidgeGap / 2;
-    const QRect dark = is_bar ? QRect(box.left() + start, box.top() + at,
-                                      ridge_length, 1)
-                              : QRect(box.left() + at, box.top() + start, 1,
-                                      ridge_length);
-    painter->fillRect(dark, is_active ? theme::kHandle : theme::kShadow);
-    const QRect light = is_bar ? dark.translated(0, 1) : dark.translated(1, 0);
-    painter->fillRect(light, is_active ? theme::kHandle.darker(130)
-                                       : theme::kFaceLight);
+  const int first = (along - ridges * kRidgeGap) / 2;
+  for (int i = 0; i < ridges; ++i) {
+    const int at = first + i * kRidgeGap;
+    const QRect ridge = is_bar ? QRect(box.left() + start, box.top() + at,
+                                       ridge_length, 2)
+                               : QRect(box.left() + at, box.top() + start, 2,
+                                       ridge_length);
+    painter->fillRect(ridge, is_active ? theme::kHandle : theme::kFaceLight);
   }
 }
 
