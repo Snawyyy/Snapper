@@ -39,6 +39,19 @@ Result<void> StageManager::SetVisible(ShotId shot, LayerId layer,
                 }));
 }
 
+Result<void> StageManager::SetLocked(ShotId shot, LayerId layer,
+                                     bool is_locked) {
+  assert(history_ != nullptr);
+  assert(layer.value() >= 0);
+  return history_->Apply(
+      is_locked ? Tr("Lock layer") : Tr("Unlock layer"),
+      WithLayer(history_->current(), shot, layer,
+                [is_locked](Layer* edited) {
+                  edited->is_locked = is_locked;
+                  return Result<void>();
+                }));
+}
+
 Result<void> StageManager::SetRange(ShotId shot, LayerId layer, Frame start,
                                     Frame length) {
   assert(history_ != nullptr);

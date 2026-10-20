@@ -85,6 +85,9 @@ struct Layer final {
   Frame start;
   Frame length;
   bool is_visible = true;
+  // A locked layer still shows but a click on the stage passes through
+  // it, so what lies under it can be picked.
+  bool is_locked = false;
   Channel<LayerPose> transform;
   LayerContent content;
 

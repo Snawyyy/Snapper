@@ -23,6 +23,7 @@ Layer MakeLayer(int id, LayerContent content) {
   layer.start = Frame(id);
   layer.length = Frame(10);
   layer.is_visible = id % 2 == 0;
+  layer.is_locked = id % 3 == 0;
   LayerPose moved;
   moved.offset = QPointF(3, 4);
   moved.order = -2;

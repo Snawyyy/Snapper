@@ -109,6 +109,9 @@ QJsonObject LayerToJson(const Layer& layer) {
   object.insert("start", layer.start.index());
   object.insert("length", layer.length.index());
   object.insert("visible", layer.is_visible);
+  if (layer.is_locked) {
+    object.insert("locked", true);
+  }
   object.insert("transform", ChannelToJson(layer.transform));
   assert(object.contains("type"));
   return object;
@@ -122,6 +125,7 @@ Layer LayerFromJson(const QJsonObject& object, JsonIssues* issues) {
   layer.start = Frame(object.value("start").toInt());
   layer.length = Frame(object.value("length").toInt());
   layer.is_visible = object.value("visible").toBool(true);
+  layer.is_locked = object.value("locked").toBool(false);
   layer.transform =
       ChannelFromJson(object.value("transform"), LayerPose(), issues);
   layer.content = ContentFromJson(object, issues);

@@ -225,6 +225,12 @@ void RenderTests::LinksMoveWhatIsDrawnAndClicked() {
                            QPointF(80, 50), 1.0, renderer.cache());
   QVERIFY(hit.has_value());
   QCOMPARE(hit->layer, LayerId(1));
+  // A locked layer lets the click through.
+  Shot locked = *project.shots[0];
+  locked.layers[0].is_locked = true;
+  QVERIFY(!HitTest(project, locked, Frame(10), QPointF(80, 50), 1.0,
+                   renderer.cache())
+               .has_value());
   const auto body = LayerToScreen(project, *project.shots[0], LayerId(1),
                                   Frame(10), 1.0);
   QVERIFY(body.has_value());

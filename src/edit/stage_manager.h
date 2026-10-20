@@ -48,6 +48,8 @@ class StageManager final {
 
   Result<void> Rename(ShotId shot, LayerId layer, const QString& name);
   Result<void> SetVisible(ShotId shot, LayerId layer, bool is_visible);
+  // A locked layer shows but cannot be picked on the stage.
+  Result<void> SetLocked(ShotId shot, LayerId layer, bool is_locked);
   // length 0 shows it to the end of the shot.
   Result<void> SetRange(ShotId shot, LayerId layer, Frame start,
                         Frame length);

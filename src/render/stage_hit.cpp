@@ -90,6 +90,9 @@ std::optional<StageHit> HitTest(const Project& project, const Shot& shot,
   const std::vector<const Layer*> drawn = LayersInDrawOrder(shot, local);
   for (auto it = drawn.rbegin(); it != drawn.rend(); ++it) {
     const Layer& layer = **it;
+    if (layer.is_locked) {
+      continue;
+    }
     const QTransform world = links.LayerTransform(layer, local) * view;
     bool is_invertible = false;
     const QPointF in_layer = world.inverted(&is_invertible).map(point);
@@ -149,7 +152,7 @@ std::vector<StageHit> HitBox(const Project& project, const Shot& shot,
   area.addRect(box);
   for (const Layer& layer : shot.layers) {
     const bool is_live = IsLayerLive(layer, local, shot.length) &&
-                         IsStagePicture(layer);
+                         IsStagePicture(layer) && !layer.is_locked;
     if (!is_live) {
       continue;
     }

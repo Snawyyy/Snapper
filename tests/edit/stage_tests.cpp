@@ -111,10 +111,13 @@ void StageTests::SettingsFitTheirKind() {
                .has_value());
   QVERIFY(stage.SetRange(shot, bob, Frame(2), Frame(5)).has_value());
   QVERIFY(stage.SetVisible(shot, bob, false).has_value());
+  QVERIFY(stage.SetLocked(shot, bob, true).has_value());
+  QCOMPARE(history.UndoLabel(), QString("Lock layer"));
   QVERIFY(stage.Rename(shot, bob, "Hero").has_value());
   const Layer& layer = TheShot(history).layers[0];
   QCOMPARE(layer.name, QString("Hero"));
   QVERIFY(!layer.is_visible);
+  QVERIFY(layer.is_locked);
   QCOMPARE(layer.start, Frame(2));
   QVERIFY(std::get<CharacterLayer>(layer.content).is_flipped);
   QCOMPARE(std::get<TextLayer>(TheShot(history).layers[1].content).text,
