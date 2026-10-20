@@ -1,6 +1,7 @@
 #include "ui/character_session.h"
 
 #include <cassert>
+#include <algorithm>
 #include <cmath>
 
 namespace snapper {
@@ -70,6 +71,18 @@ void CharacterSession::SetTool(CharacterTool tool) {
     return;
   }
   tool_ = tool;
+  emit Changed();
+}
+
+void CharacterSession::SetMagnetRadius(double radius) {
+  assert(std::isfinite(radius));
+  assert(magnet_radius_ > 0.0);
+  const double clamped =
+      std::clamp(radius, kMinMagnetRadius, kMaxMagnetRadius);
+  if (clamped == magnet_radius_) {
+    return;
+  }
+  magnet_radius_ = clamped;
   emit Changed();
 }
 

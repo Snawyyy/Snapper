@@ -4,6 +4,7 @@
 
 #include <cassert>
 
+#include "anim/vector_path.h"
 #include "edit/character_edits.h"
 #include "edit/character_manager.h"
 #include "edit/character_pose_edits.h"
@@ -11,6 +12,7 @@
 #include "edit/history_manager.h"
 #include "edit/stage_manager.h"
 #include "edit/vector_edits.h"
+#include "edit/vector_reshape.h"
 
 namespace snapper {
 namespace {
@@ -42,6 +44,8 @@ class CharacterEditTests final : public QObject {
   void ExtendingAnEndGrowsItsCurve();
   void DeletingPointsTidiesCurvesAndShapes();
   void WeldingTheEndsClosesALoop();
+  void DeletingAnEdgeCutsTheLine();
+  void TheMagnetPullsNearPointsMost();
   void ShapesComeFromWholeLines();
   void PartsMoveWithWhatTheyHold();
   void DuplicatesTakeNewIds();
@@ -102,6 +106,59 @@ void CharacterEditTests::DeletingPointsTidiesCurvesAndShapes() {
   QVERIFY(DeletePoints(&drawing, rest).has_value());
   QVERIFY(drawing.curves.empty());
   QVERIFY(drawing.shapes.empty());
+}
+
+void CharacterEditTests::DeletingAnEdgeCutsTheLine() {
+  VectorDrawing drawing;
+  int next = 1;
+  const std::vector<QPointF> square = {{0, 0}, {10, 0}, {10, 10}, {0, 10}};
+  const auto ids = AddCurve(&drawing, &next, square, true, 0.0, 0.0);
+  QVERIFY(MakeShape(&drawing, *ids, VectorShape{}).has_value());
+  const std::vector<QPointF> places = RestPlaces(drawing);
+  // A click on the top side finds that segment.
+  const auto top = EdgeAt(drawing, places, QPointF(5, 1), 2.0);
+  QVERIFY(top.has_value());
+  QCOMPARE(*top, (VectorEdge{0, 0}));
+  QVERIFY(!EdgeAt(drawing, places, QPointF(5, 5), 2.0).has_value());
+  // The closed square opens there, starting after the cut, and its fill
+  // goes.
+  QVERIFY(DeleteEdge(&drawing, *top).has_value());
+  QVERIFY(!drawing.curves[0].is_closed);
+  QCOMPARE(drawing.curves[0].points,
+           (std::vector<PointId>{(*ids)[1], (*ids)[2], (*ids)[3], (*ids)[0]}));
+  QVERIFY(drawing.shapes.empty());
+  // An open line splits in two; a lone point left at an end goes.
+  QVERIFY(DeleteEdge(&drawing, {0, 0}).has_value());
+  QCOMPARE(drawing.curves.size(), size_t{1});
+  QCOMPARE(drawing.curves[0].points,
+           (std::vector<PointId>{(*ids)[2], (*ids)[3], (*ids)[0]}));
+  QCOMPARE(drawing.points.size(), size_t{3});
+  QVERIFY(!DeleteEdge(&drawing, {0, 5}).has_value());
+}
+
+void CharacterEditTests::TheMagnetPullsNearPointsMost() {
+  VectorDrawing drawing;
+  int next = 1;
+  const std::vector<QPointF> line = {{0, 0}, {5, 0}, {20, 0}};
+  const auto ids = AddCurve(&drawing, &next, line, false, 0.0, 0.0);
+  const auto weights =
+      MagnetWeights(drawing, RestPlaces(drawing), QPointF(0, 0), 10.0);
+  // The point under the magnet moves fully, the one halfway less, the
+  // one past its reach not at all.
+  QCOMPARE(weights.size(), size_t{2});
+  QCOMPARE(weights[0].first, (*ids)[0]);
+  QCOMPARE(weights[0].second, 1.0);
+  QVERIFY(weights[1].second > 0.0 && weights[1].second < 1.0);
+  std::vector<std::pair<PointId, QPointF>> moves;
+  for (const auto& [id, weight] : weights) {
+    moves.emplace_back(id, QPointF(0, 10) * weight);
+  }
+  QVERIFY(ShiftPoints(&drawing, moves).has_value());
+  QCOMPARE(drawing.points[0].at, QPointF(0, 10));
+  QCOMPARE(drawing.points[2].at, QPointF(20, 0));
+  const std::vector<std::pair<PointId, QPointF>> gone = {
+      {PointId(999), QPointF(1, 1)}};
+  QVERIFY(!ShiftPoints(&drawing, gone).has_value());
 }
 
 void CharacterEditTests::WeldingTheEndsClosesALoop() {

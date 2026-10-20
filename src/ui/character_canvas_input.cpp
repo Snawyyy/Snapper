@@ -133,6 +133,15 @@ void CharacterCanvas::mousePressEvent(QMouseEvent* event) {
       OpenScope(tr("Curvature"));
       break;
     }
+    case CharacterTool::kLineWidth:
+      PressLineWidth();
+      break;
+    case CharacterTool::kDeleteEdge:
+      ClickDeleteEdge();
+      break;
+    case CharacterTool::kMagnet:
+      PressMagnet();
+      break;
     case CharacterTool::kFill:
       Fill(press_);
       break;
@@ -375,6 +384,12 @@ void CharacterCanvas::MoveDrag(QPointF at, Qt::KeyboardModifiers mods) {
       if (!done) Report(ProblemOf(done.error()));
       break;
     }
+    case Drag::kLineWidth:
+      MoveLineWidth(at, mods);
+      break;
+    case Drag::kMagnet:
+      MoveMagnet(at);
+      break;
     case Drag::kStrength: {
       const Bone* bone = FindBone(*character, drag_bone_);
       const CharacterPart* bones = BonesShown();
@@ -753,6 +768,15 @@ void CharacterCanvas::keyPressEvent(QKeyEvent* event) {
     drag_ = Drag::kNone;
     trying_.reset();
     stroke_.clear();
+    update();
+    return;
+  }
+  const bool is_magnet = session_->tool() == CharacterTool::kMagnet;
+  const bool is_reach_key = event->key() == Qt::Key_BracketLeft ||
+                            event->key() == Qt::Key_BracketRight;
+  if (is_magnet && is_reach_key) {
+    const double factor = event->key() == Qt::Key_BracketRight ? 1.25 : 0.8;
+    session_->SetMagnetRadius(session_->magnet_radius() * factor);
     update();
     return;
   }

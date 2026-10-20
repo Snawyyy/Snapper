@@ -353,6 +353,14 @@ void CharacterCanvas::PaintTool(QPainter* painter) const {
       }
       break;
     }
+    case Drag::kMagnet: {
+      // The reach goes with the cursor, as the points do.
+      pen.setStyle(Qt::DashLine);
+      painter->setPen(pen);
+      const double radius = session_->magnet_radius();
+      painter->drawEllipse(now_, radius, radius);
+      break;
+    }
     case Drag::kAddLine:
     case Drag::kAddBone:
       painter->setPen(pen);

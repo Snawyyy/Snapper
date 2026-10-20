@@ -68,6 +68,8 @@ class CharacterCanvas final : public QWidget {
     kAddLine,
     kAddBone,
     kCurvature,
+    kLineWidth,
+    kMagnet,
     kStrength,
     kTry,
   };
@@ -102,6 +104,12 @@ class CharacterCanvas final : public QWidget {
   void PressPick(QMouseEvent* event);
   void PressAdd(QMouseEvent* event);
   void PressBind(QMouseEvent* event);
+  // The shaping tools (ui/character_canvas_tools.cpp).
+  void PressLineWidth();
+  void MoveLineWidth(QPointF at, Qt::KeyboardModifiers mods);
+  void ClickDeleteEdge();
+  void PressMagnet();
+  void MoveMagnet(QPointF at);
   void MoveDrag(QPointF at, Qt::KeyboardModifiers mods);
   void FinishDrag(QPointF at, Qt::KeyboardModifiers mods);
   void FinishStroke();
@@ -132,9 +140,11 @@ class CharacterCanvas final : public QWidget {
   std::vector<QPointF> stroke_;
   // kAddLine: the point the line starts from, if it starts on one.
   PointId from_point_;
-  // kCurvature and kStrength: what the drag started from.
+  // kCurvature, kLineWidth and kStrength: what the drag started from.
   double start_value_ = 0.0;
   BoneId drag_bone_;
+  // kMagnet: how much each point under the magnet follows the drag.
+  std::vector<std::pair<PointId, double>> magnet_;
   // kTryBones without a stop: the pose being tried, dropped on release.
   std::optional<CharacterPose> trying_;
 };

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/error.h"
+#include "edit/vector_reshape.h"
 #include "model/character.h"
 
 namespace snapper {
@@ -78,6 +79,13 @@ class CharacterManager final : public QObject {
                             std::span<const PointId> ids, double curvature);
   Result<void> SetWidth(const QString& character, PartId part,
                         std::span<const PointId> ids, double width);
+  // Shaping (edit/character_manager_shapes.cpp).
+  Result<void> DeleteEdge(const QString& character, PartId part,
+                          VectorEdge edge);
+  // The magnet: moves each point by its own step, named "Magnet".
+  Result<void> ShiftPoints(
+      const QString& character, PartId part,
+      std::span<const std::pair<PointId, QPointF>> moves);
   Result<void> DeletePoints(const QString& character, PartId part,
                             std::span<const PointId> ids);
   Result<void> Weld(const QString& character, PartId part, PointId keep,

@@ -45,6 +45,18 @@ constexpr ToolSpec kTools[kCharacterToolCount] = {
     {CharacterTool::kCurvature, "Curvature", Qt::Key_C,
      "Drag left to sharpen, right to round the picked points", true, false,
      false},
+    {CharacterTool::kLineWidth, "Line width", Qt::Key_W,
+     "Drag up to thicken, down to thin the line at the picked points (or "
+     "the point you press)",
+     true, false, false},
+    {CharacterTool::kDeleteEdge, "Delete edge", Qt::Key_D,
+     "Click a line between two points to cut it out; a fill it outlined "
+     "goes with it",
+     true, false, false},
+    {CharacterTool::kMagnet, "Magnet", Qt::Key_M,
+     "Drag to pull the points near where you press, the nearest most; "
+     "[ and ] change its reach",
+     true, false, false},
     {CharacterTool::kFill, "Paint", Qt::Key_P,
      "Click a shape to give it the current fill and line", true, false,
      false},

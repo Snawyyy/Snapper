@@ -84,6 +84,26 @@ QPainterPath CurvePath(const VectorDrawing& drawing, const VectorCurve& curve,
   return path;
 }
 
+QPainterPath SegmentPath(const VectorDrawing& drawing, const VectorCurve& curve,
+                         int segment, std::span<const QPointF> places) {
+  assert(places.size() == drawing.points.size());
+  assert(segment >= 0);
+  const CurvePoints points = PointsOf(drawing, curve, places);
+  const int count = static_cast<int>(points.places.size());
+  QPainterPath path;
+  if (segment + 1 >= count && !(curve.is_closed && segment < count)) {
+    return path;
+  }
+  const int next = (segment + 1) % count;
+  const CurveHandles from = HandlesAt(points.places, points.curvature,
+                                      segment, curve.is_closed);
+  const CurveHandles to =
+      HandlesAt(points.places, points.curvature, next, curve.is_closed);
+  path.moveTo(points.places[static_cast<size_t>(segment)]);
+  path.cubicTo(from.out, to.in, points.places[static_cast<size_t>(next)]);
+  return path;
+}
+
 QPainterPath ShapeFillPath(const VectorDrawing& drawing,
                            const VectorShape& shape,
                            std::span<const QPointF> places) {

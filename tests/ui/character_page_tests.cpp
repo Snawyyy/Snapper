@@ -3,6 +3,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <algorithm>
+
 #include "edit/character_manager.h"
 #include "edit/history_manager.h"
 #include "ui/character_page.h"
@@ -41,6 +43,7 @@ class CharacterPageTests final : public QObject {
 
  private slots:
   void DrawingAndRiggingByMouse();
+  void ShapingToolsReshapeLines();
 };
 
 void CharacterPageTests::DrawingAndRiggingByMouse() {
@@ -113,6 +116,67 @@ void CharacterPageTests::DrawingAndRiggingByMouse() {
   Shoot(&page, "05_smart_stop");
   page.session()->SetAction(smart, -1, 30.0);
   Shoot(&page, "06_smart_half");
+}
+
+void CharacterPageTests::ShapingToolsReshapeLines() {
+  QTemporaryDir library;
+  HistoryManager history{Project()};
+  CharacterManager characters(&history, library.path());
+  CharacterPage page(&history, &characters, QString());
+  page.resize(1400, 820);
+  page.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&page));
+  const auto made = characters.Create("Bo");
+  QVERIFY(made.has_value());
+  page.session()->SetCharacter(*made);
+  const PartId drawing = FindCharacter(history.current(), "Bo")->parts[1].id;
+  page.session()->SetPart(drawing);
+  CharacterCanvas* canvas = page.canvas();
+  const QPoint middle = canvas->rect().center();
+  const QPoint corner = middle + QPoint(-60, -60);
+  page.session()->SetTool(CharacterTool::kRectangle);
+  Drag(canvas, corner, middle + QPoint(60, 60));
+  const auto shape = [&history, drawing] {
+    return FindPart(*FindCharacter(history.current(), "Bo"), drawing)->drawing;
+  };
+  QCOMPARE(shape().points.size(), size_t{4});
+  // Line width: dragging up from a corner thickens the line there only.
+  page.session()->SetPoints({});
+  page.session()->SetTool(CharacterTool::kLineWidth);
+  Drag(canvas, corner, corner + QPoint(0, -120));
+  QCOMPARE(history.UndoLabel(), QString("Line width"));
+  int thick = 0;
+  for (const VectorPoint& point : shape().points) {
+    thick += point.width > 1.5 ? 1 : 0;
+  }
+  QCOMPARE(thick, 1);
+  // Delete edge: a click on the top side opens the square, its fill goes.
+  page.session()->SetTool(CharacterTool::kDeleteEdge);
+  QTest::mouseClick(canvas, Qt::LeftButton, {}, middle + QPoint(0, -60));
+  QCOMPARE(history.UndoLabel(), QString("Delete edge"));
+  QVERIFY(shape().shapes.empty());
+  QVERIFY(!shape().curves[0].is_closed);
+  // Magnet: a drag from the bottom right corner pulls it all the way and
+  // its neighbours less, the far corner not at all.
+  page.session()->SetTool(CharacterTool::kMagnet);
+  const auto place_of = [&shape](PointId id) {
+    for (const VectorPoint& point : shape().points) {
+      if (point.id == id) return point.at;
+    }
+    return QPointF();
+  };
+  const VectorDrawing before = shape();
+  Drag(canvas, middle + QPoint(60, 60), middle + QPoint(90, 60));
+  QCOMPARE(history.UndoLabel(), QString("Magnet"));
+  double most = 0.0;
+  int held = 0;
+  for (const VectorPoint& point : before.points) {
+    const QPointF now = place_of(point.id);
+    most = std::max(most, now.x() - point.at.x());
+    held += now == point.at ? 1 : 0;
+  }
+  QVERIFY(most > 1.0);
+  QVERIFY(held >= 1);
 }
 
 }  // namespace snapper

@@ -29,6 +29,11 @@ CurveHandles HandlesAt(std::span<const QPointF> places,
 QPainterPath CurvePath(const VectorDrawing& drawing, const VectorCurve& curve,
                        std::span<const QPointF> places);
 
+// The path of one segment of curve: from its point segment to the next
+// (the last segment of a closed curve goes back to the first point).
+QPainterPath SegmentPath(const VectorDrawing& drawing, const VectorCurve& curve,
+                         int segment, std::span<const QPointF> places);
+
 // The path of shape: its closed curves for the fill (even-odd), or every
 // curve for a stroke.
 QPainterPath ShapeFillPath(const VectorDrawing& drawing,
