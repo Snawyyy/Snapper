@@ -3,7 +3,9 @@
 #include <QTest>
 
 #include "bench.h"
+#include "ui/disc_burner.h"
 #include "ui/export_dialog.h"
+#include "ui/theme.h"
 
 namespace snapper {
 
@@ -33,6 +35,17 @@ void ExportDialogTests::SaysWhyThenExports() {
   QVERIFY(bench.exporter.Start(dialog.Request()).has_value());
   QVERIFY(done.wait(10000));
   QVERIFY(QFile::exists(path));
+  // The burned disc stops and wears the file's name.
+  auto* burner = dialog.findChild<DiscBurner*>();
+  QVERIFY(burner != nullptr);
+  QCOMPARE(burner->state(), DiscBurner::State::kDone);
+  const QString shots = qEnvironmentVariable("SNAPPER_SHOTS");
+  if (!shots.isEmpty()) {
+    dialog.resize(420, 520);
+    dialog.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+    dialog.grab().save(shots + "/21_burner.png");
+  }
 }
 
 }  // namespace snapper

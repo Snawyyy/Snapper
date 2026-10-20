@@ -7,12 +7,12 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QProgressBar>
 #include <QPushButton>
 #include <QSpinBox>
 
 #include "edit/export_manager.h"
 #include "ui/choice_row.h"
+#include "ui/disc_burner.h"
 #include "ui/managers.h"
 
 namespace snapper {
@@ -56,7 +56,8 @@ class ExportDialog final : public QDialog {
   QHBoxLayout file_row_;
   QLineEdit path_;
   QPushButton browse_;
-  QProgressBar progress_;
+  // The progress, as a disc burning in a tray.
+  DiscBurner burner_;
   QLabel status_;
   QHBoxLayout buttons_;
   QPushButton sound_only_;

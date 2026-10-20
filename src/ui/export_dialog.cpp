@@ -1,5 +1,7 @@
 #include "ui/export_dialog.h"
 
+#include <QFileInfo>
+
 #include <cassert>
 
 #include "anim/master_timeline.h"
@@ -73,7 +75,7 @@ void ExportDialog::BuildLayout() {
   layout_.addRow(tr("Size"), &size_);
   layout_.addRow(tr("Subtitles"), &subtitles_);
   layout_.addRow(tr("File"), &file_row_);
-  layout_.addRow(&progress_);
+  layout_.addRow(&burner_);
   layout_.addRow(&status_);
   layout_.addRow(&buttons_);
   status_.setWordWrap(true);
@@ -104,19 +106,21 @@ void ExportDialog::Wire() {
     }
   });
   connect(exporter, &ExportManager::Progress, this, [this](int done, int all) {
-    progress_.setRange(0, all);
-    progress_.setValue(done);
+    burner_.SetProgress(done, all);
   });
   connect(exporter, &ExportManager::Finished, this, [this](const QString& p) {
     status_.setText(tr("Saved %1").arg(p));
+    burner_.Finish(QFileInfo(p).completeBaseName());
     Refresh();
   });
   connect(exporter, &ExportManager::Failed, this, [this](const QString& why) {
     status_.setText(why);
+    burner_.Stop(true);
     Refresh();
   });
   connect(exporter, &ExportManager::Cancelled, this, [this] {
     status_.setText(tr("Cancelled; nothing was saved."));
+    burner_.Stop(false);
     Refresh();
   });
   connect(managers_.history, &HistoryManager::Changed, this,
