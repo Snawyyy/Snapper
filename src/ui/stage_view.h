@@ -59,10 +59,15 @@ class StageView final : public QWidget {
   // Shift+2 frames the pick, Shift+0 is
   // actual size.
   void SetCamera(const StageCamera& camera);
+  // The light table: the frames either side show through the paper,
+  // earlier ones in red, later ones in green. L flips it.
+  bool is_light_table_on() const { return is_light_table_on_; }
+  void SetLightTable(bool is_on);
 
  signals:
   // Something the user tried didn't work; empty clears it.
   void Problem(const QString& why);
+  void LightTableChanged(bool is_on);
 
  protected:
   void paintEvent(QPaintEvent* event) override;
@@ -203,6 +208,11 @@ class StageView final : public QWidget {
   // O: shows or hides the outside of the frame. True when the key was
   // dealt with.
   bool OutsideKey(QKeyEvent* event);
+  // L: flips the light table. True when the key was dealt with.
+  bool LightTableKey(QKeyEvent* event);
+  // Draws the light table's frames over the frame shown at corner.
+  void PaintLightTable(const StageFrame& frame, QPainter* painter);
+  bool is_light_table_on_ = false;
   // A character card or files are over the stage.
   bool is_drop_target_ = false;
   // The middle button is dragging the view; where the mouse was.

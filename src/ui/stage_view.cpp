@@ -107,6 +107,7 @@ void StageView::paintEvent(QPaintEvent* event) {
   PaintOutside(*frame, image.size(), &painter);
   PaintBehind(*frame, image.size(), &painter);
   painter.drawImage(frame->corner, image);
+  PaintLightTable(*frame, &painter);
   PaintReferencesOver(*frame, image.size(), &painter);
   PaintFrameEdge(*frame, image.size(), &painter);
   shown_ = image;
@@ -336,6 +337,11 @@ void StageView::keyPressEvent(QKeyEvent* event) {
   }
   const bool was_camera_key = CameraKey(event);
   if (was_camera_key) {
+    event->accept();
+    return;
+  }
+  const bool was_light_key = LightTableKey(event);
+  if (was_light_key) {
     event->accept();
     return;
   }

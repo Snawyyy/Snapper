@@ -108,6 +108,7 @@ class MainWindow final : public QMainWindow {
   // off.
   UiSound sound_;
   QAction sounds_action_;
+  QAction light_table_action_;
   QAction undo_action_;
   QAction redo_action_;
   // The bar sits fixed across the top, above the docks, so hiding the

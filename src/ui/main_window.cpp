@@ -53,6 +53,7 @@ MainWindow::MainWindow(const Managers& managers)
                  .filePath(QStringLiteral("sounds")),
              managers.document->SettingsPath(), this),
       sounds_action_(tr("&Sounds")),
+      light_table_action_(tr("&Light table")),
       undo_action_(tr("&Undo")),
       redo_action_(tr("&Redo")),
       top_bar_host_(tr("Top bar")),
@@ -367,6 +368,15 @@ void MainWindow::BuildViewAndHelp() {
   sounds_action_.setToolTip(tr("Quiet ticks and chimes for undo, redo and "
                                "big wins."));
   view_menu_.addAction(&sounds_action_);
+  light_table_action_.setCheckable(true);
+  light_table_action_.setToolTip(tr("The frames either side show through "
+                                    "the Pose stage: earlier in red, later "
+                                    "in green. L on the stage flips it."));
+  view_menu_.addAction(&light_table_action_);
+  connect(&light_table_action_, &QAction::toggled, &stage_,
+          &StageView::SetLightTable);
+  connect(&stage_, &StageView::LightTableChanged, &light_table_action_,
+          &QAction::setChecked);
   color_palette_action_.setCheckable(true);
   color_palette_action_.setToolTip(
       tr("The floating palette: a color wheel, recent colors and the "

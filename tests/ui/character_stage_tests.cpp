@@ -1,10 +1,13 @@
 #include <QApplication>
+#include <QMenu>
+#include <QMenuBar>
 #include <QDir>
 #include <QTest>
 
 #include "bench.h"
 #include "edit/character_edits.h"
 #include "ui/main_window.h"
+#include "ui/stage_view.h"
 #include "ui/theme.h"
 
 namespace snapper {
@@ -58,6 +61,29 @@ void CharacterStageTests::PickedCharacterShowsItsBonesAndBox() {
   QVERIFY(QTest::qWaitForWindowExposed(&window));
   QTest::qWait(50);
   Shoot(&window, "10_pose_tab");
+  // L on the stage lights the table, and the View menu follows.
+  auto* stage = window.findChild<StageView*>();
+  QVERIFY(stage != nullptr);
+  QTest::keyClick(stage, Qt::Key_L);
+  QVERIFY(stage->is_light_table_on());
+  QAction* light = nullptr;
+  for (QAction* menu : window.menuBar()->actions()) {
+    for (QAction* action : menu->menu()->actions()) {
+      if (action->text() == "&Light table") {
+        light = action;
+      }
+    }
+  }
+  QVERIFY(light != nullptr && light->isChecked());
+  const TrackRef track{*shot, TrackKind::kLayer, *layer};
+  QVERIFY(bench.pose.Move(track, Frame(0), QPointF(-160, 0)).has_value());
+  QVERIFY(bench.pose.Move(track, Frame(4), QPointF(0, 0)).has_value());
+  QVERIFY(bench.pose.Move(track, Frame(5), QPointF(160, 0)).has_value());
+  bench.playback.Seek(Frame(4));
+  QTest::qWait(50);
+  Shoot(&window, "14_light_table");
+  light->setChecked(false);
+  QVERIFY(!stage->is_light_table_on());
   window.SetMode(MainWindow::Mode::kCharacter);
   QTest::qWait(50);
   Shoot(&window, "11_character_tab");
