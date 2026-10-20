@@ -13,6 +13,8 @@ namespace {
 
 constexpr int kPadX = 10;
 constexpr int kStrip = 3;
+constexpr int kSquare = 40;
+constexpr int kIconDraw = 24;
 
 }  // namespace
 
@@ -26,7 +28,17 @@ ToolButton::ToolButton(const QString& name, const QString& key,
   setCursor(Qt::PointingHandCursor);
 }
 
+ToolButton::ToolButton(const QIcon& icon, const QString& name,
+                       const QString& key, QWidget* parent)
+    : ToolButton(name, key, parent) {
+  assert(!icon.isNull());
+  icon_ = icon;
+}
+
 QSize ToolButton::sizeHint() const {
+  if (!icon_.isNull()) {
+    return {kSquare, kSquare};
+  }
   const QFontMetrics metrics(font());
   QFont small = font();
   small.setPointSizeF(small.pointSizeF() * 0.8);
@@ -57,6 +69,10 @@ void ToolButton::paintEvent(QPaintEvent*) {
   QPainter painter(this);
   const bool is_on = isChecked();
   const bool is_live = isEnabled();
+  if (!icon_.isNull()) {
+    PaintSquare(&painter, is_on, is_live);
+    return;
+  }
   if (is_on) {
     painter.fillRect(rect(), theme::kFaceLight);
     painter.fillRect(QRect(0, height() - kStrip, width(), kStrip),
@@ -78,6 +94,28 @@ void ToolButton::paintEvent(QPaintEvent*) {
   const QRect bottom(0, top.bottom() + 1, width(),
                      height() - top.bottom() - kStrip - 2);
   painter.drawText(bottom, Qt::AlignHCenter | Qt::AlignVCenter, key_);
+}
+
+void ToolButton::PaintSquare(QPainter* painter, bool is_on,
+                             bool is_live) {
+  assert(painter != nullptr);
+  assert(!icon_.isNull());
+  if (is_on) {
+    painter->fillRect(rect(), theme::kFaceLight);
+    painter->fillRect(QRect(0, 0, kStrip, height()), theme::kPick);
+  } else if (is_hovered_ && is_live) {
+    painter->fillRect(rect(), theme::kRaised.lighter(115));
+  }
+  const QRect place((width() - kIconDraw) / 2, (height() - kIconDraw) / 2,
+                    kIconDraw, kIconDraw);
+  icon_.paint(painter, place, Qt::AlignCenter,
+              is_live ? QIcon::Normal : QIcon::Disabled);
+  QFont small = font();
+  small.setPointSizeF(small.pointSizeF() * 0.7);
+  painter->setFont(small);
+  painter->setPen(is_live ? theme::kTextHint : theme::kTextOff);
+  painter->drawText(rect().adjusted(0, 0, -2, 0),
+                    Qt::AlignRight | Qt::AlignBottom, key_);
 }
 
 }  // namespace snapper

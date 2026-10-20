@@ -1,5 +1,6 @@
 #include "ui/character_page.h"
 
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QVBoxLayout>
@@ -9,6 +10,7 @@
 #include "edit/history_manager.h"
 #include "ui/theme.h"
 #include "ui/tool_button.h"
+#include "ui/tool_icons.h"
 
 namespace snapper {
 namespace {
@@ -87,7 +89,6 @@ CharacterPage::CharacterPage(HistoryManager* history,
   auto* layout = new QVBoxLayout(this);
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(0);
-  layout->addWidget(BuildTools());
   inspector_scroll_.setWidgetResizable(true);
   inspector_scroll_.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   inspector_scroll_.setFrameShape(QFrame::NoFrame);
@@ -95,7 +96,13 @@ CharacterPage::CharacterPage(HistoryManager* history,
   inspector_scroll_.setMinimumWidth(260);
   parts_.setMinimumWidth(220);
   split_.addWidget(&parts_);
-  split_.addWidget(&canvas_);
+  auto* stage = new QWidget(&split_);
+  auto* stage_row = new QHBoxLayout(stage);
+  stage_row->setContentsMargins(0, 0, 0, 0);
+  stage_row->setSpacing(0);
+  stage_row->addWidget(BuildTools());
+  stage_row->addWidget(&canvas_, 1);
+  split_.addWidget(stage);
   split_.addWidget(&inspector_scroll_);
   split_.SetDefaultShares({20, 60, 20});
   split_.Remember(QStringLiteral("character"), settings_path);
@@ -117,35 +124,42 @@ CharacterPage::CharacterPage(HistoryManager* history,
 }
 
 QWidget* CharacterPage::BuildTools() {
-  auto* bar = new QWidget(this);
-  theme::SetLevel(bar, theme::kRaised);
-  auto* row = new QHBoxLayout(bar);
-  row->setContentsMargins(theme::kIndent / 2, 4, theme::kIndent / 2, 4);
-  row->setSpacing(2);
+  // A tool box as Krita has, down the left of the canvas: two columns of
+  // icons, a gap between moving, drawing, shaping and bone tools.
+  auto* box = new QWidget(this);
+  theme::SetLevel(box, theme::kRaised);
+  auto* grid = new QGridLayout(box);
+  grid->setContentsMargins(4, 4, 4, 4);
+  grid->setSpacing(2);
   tool_group_.setExclusive(true);
+  int row = 0;
+  int column = 0;
   for (int i = 0; i < kCharacterToolCount; ++i) {
     const ToolSpec& spec = kTools[i];
-    auto* button = new ToolButton(tr(spec.label),
-                                  QKeySequence(spec.key).toString(), bar);
-    button->setToolTip(QStringLiteral("%1 (%2)\n%3")
-                           .arg(tr(spec.label),
-                                QKeySequence(spec.key).toString(),
-                                tr(spec.help)));
+    auto* button = new ToolButton(ToolIcon(spec.tool), tr(spec.label),
+                                  QKeySequence(spec.key).toString(), box);
     tool_group_.addButton(button, i);
     tool_buttons_[static_cast<size_t>(i)] = button;
-    row->addWidget(button);
-    const bool ends_draw_tools = spec.tool == CharacterTool::kFill;
-    if (ends_draw_tools) {
-      row->addSpacing(theme::kCellGap);
+    grid->addWidget(button, row, column);
+    column = 1 - column;
+    row += column == 0 ? 1 : 0;
+    const bool ends_group = spec.tool == CharacterTool::kMovePart ||
+                            spec.tool == CharacterTool::kRectangle ||
+                            spec.tool == CharacterTool::kFill;
+    if (ends_group) {
+      row += column == 0 ? 0 : 1;
+      column = 0;
+      grid->setRowMinimumHeight(row, theme::kCellGap / 2);
+      ++row;
     }
   }
-  row->addStretch(1);
+  grid->setRowStretch(row + 1, 1);
   tool_buttons_[0]->setChecked(true);
   connect(&tool_group_, &QButtonGroup::idClicked, this, [this](int id) {
     session_.SetTool(static_cast<CharacterTool>(id));
     canvas_.setFocus();
   });
-  return bar;
+  return box;
 }
 
 void CharacterPage::RefreshTools() {

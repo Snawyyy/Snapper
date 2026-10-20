@@ -52,7 +52,7 @@ Update this section at the end of every session: the last thing done,
 then the next steps. Older history: `git log` and
 `docs/session-2026-10-08.md`.
 
-Last done (2026-10-19, branch `ccr-042c021f-aywj12`, cut from
+Last done (2026-10-20, branch `ccr-042c021f-aywj12`, cut from
 `tape-keys`): the PNG dolls are gone, replaced by Moho style
 characters (`docs/redesign/moho-plan.md`, ARCHITECTURE.md
 "Characters"). On the owner's word ("we scrap old") there is no

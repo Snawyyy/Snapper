@@ -20,9 +20,8 @@ namespace snapper {
 class CharacterManager;
 class HistoryManager;
 
-// The Character tab, laid out as Moho is: the tools along the top, the
-// parts on the left, the canvas in the middle and the pick's settings on
-// the right. Tool keys work while the canvas has the focus.
+// The Character tab: the parts on the left, then a Krita style tool box,
+// the canvas in the middle and the pick's settings on the right. Tool keys work while the canvas has the focus.
 class CharacterPage final : public QWidget {
   Q_OBJECT
 

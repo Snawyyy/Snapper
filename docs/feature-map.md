@@ -165,7 +165,8 @@ Other enums with switch sites:
   ui/character_inspector.cpp (`kBrushNames` labels in enum order); test
   render/line_brush_tests.
 - CharacterTool (ui/character_session.h, `kCharacterToolCount`):
-  `kTools` in ui/character_page.cpp (enum order), the press switch in
+  `kTools` in ui/character_page.cpp (enum order), its icon in
+  ui/tool_icons.cpp, the press switch in
   ui/character_canvas_input.cpp, the tool's own code in
   ui/character_canvas_tools.cpp.
 - PoseField (edit/pose_manager.h): `SetPoseField` switch in
