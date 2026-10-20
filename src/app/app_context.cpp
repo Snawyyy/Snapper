@@ -33,6 +33,7 @@ AppContext::AppContext(const QString& data_folder)
       storyboard_(&history_, &document_, &draw_, &selection_, data_folder),
       characters_(&history_, QDir(data_folder).filePath("characters")),
       character_poses_(&history_),
+      achievements_(&history_, &exporter_, document_.SettingsPath()),
       window_(Managers{.history = &history_,
                        .document = &document_,
                        .characters = &characters_,
@@ -58,7 +59,8 @@ AppContext::AppContext(const QString& data_folder)
                        .record = &record_,
                        .voices = &voices_,
                        .voice_gen = &voice_gen_,
-                       .storyboard = &storyboard_}) {
+                       .storyboard = &storyboard_,
+                       .achievements = &achievements_}) {
   assert(!data_folder.isEmpty());
   // Declared after playback, so the reel's sound is handed over here.
   playback_.SetSounds(&sounds_);

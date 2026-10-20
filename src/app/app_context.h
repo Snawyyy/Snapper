@@ -4,6 +4,7 @@
 #include <QString>
 #include <QtClassHelperMacros>
 
+#include "edit/achievement_manager.h"
 #include "edit/character_manager.h"
 #include "edit/character_pose_manager.h"
 #include "edit/comp_manager.h"
@@ -73,6 +74,7 @@ class AppContext final {
   StoryboardManager storyboard_;
   CharacterManager characters_;
   CharacterPoseManager character_poses_;
+  AchievementManager achievements_;
   MainWindow window_;
 };
 

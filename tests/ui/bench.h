@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QTemporaryDir>
 
+#include "edit/achievement_manager.h"
 #include "edit/character_manager.h"
 #include "edit/character_pose_manager.h"
 #include "edit/comp_manager.h"
@@ -61,6 +62,8 @@ struct Bench final {
   CharacterManager characters{&history,
                               QDir(dir.path()).filePath("characters")};
   CharacterPoseManager character_poses{&history};
+  AchievementManager achievements{&history, &exporter,
+                                  document.SettingsPath()};
 
   Managers All() {
     return Managers{.history = &history,
@@ -86,7 +89,8 @@ struct Bench final {
                     .references = &references,
                     .comp = &comp,
                     .record = &record,
-                    .storyboard = &storyboard};
+                    .storyboard = &storyboard,
+                    .achievements = &achievements};
   }
 };
 

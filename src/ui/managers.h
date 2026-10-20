@@ -3,6 +3,7 @@
 
 namespace snapper {
 
+class AchievementManager;
 class CharacterManager;
 class CharacterPoseManager;
 class CompManager;
@@ -71,6 +72,8 @@ struct Managers final {
   // Not in IsComplete either: the storyboard rows, box and keys check
   // it.
   StoryboardManager* storyboard = nullptr;
+  // Not in IsComplete either: the trophy case and its pop-up check it.
+  AchievementManager* achievements = nullptr;
 
   bool IsComplete() const {
     return history && document && characters && character_poses &&
