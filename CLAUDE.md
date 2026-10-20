@@ -52,23 +52,16 @@ Update this section at the end of every session: the last thing done,
 then the next steps. Older history: `git log` and
 `docs/session-2026-10-08.md`.
 
-Last done (2026-10-20, branch `ccr-042c021f-aywj12`, cut from
-`tape-keys`): the PNG dolls are gone, replaced by Moho style
-characters (`docs/redesign/moho-plan.md`, ARCHITECTURE.md
-"Characters"). On the owner's word ("we scrap old") there is no
-converter: an old project opens with its doll layers left out and a
-note. Gone with the dolls: the Krita exporter and menu, the doll
-library and its folders, the Rig tab, saved poses, poking, dot groups,
-smart dials, skins, objects and holds, warp dots, jelly and cloth,
-joint snap, smooth warp, lean and swivel, drawing on a piece. What is
-left works on whole layers: picks, links, keys and Comp targets name a
-layer; the Pose stage moves, scales and turns layers and drags a
-picked character's bones; the Cast panel has Characters (New, Edit,
-Put on stage, drag to the stage) and Layers; draw mode draws
-storyboard frames only. Fixed on the way: the project file lost every
-character on reading. Every ported test passes, and the old failures
-(refusal reasons, scrub, video page, window) are fixed. The app was
-not launched (owner's rule).
+Last done (2026-10-20, branch `ui-overhaul`, cut from
+`ccr-042c021f-aywj12`): a UI overhaul on the owner's word. Modern retro
+edges (flat faces, one light line on top, slim knurled grips), dock
+titles as quiet spaced capitals over the section plates, one side panel
+width on every tab (`kSideShare`, `kSideMinWidth`), the Cast and the
+inspector on Pose only, Undo and Redo at the top bar's right, flat
+track name tags. Before that, on `ccr-042c021f-aywj12`: Moho style
+characters replaced the PNG dolls (`docs/redesign/moho-plan.md`,
+ARCHITECTURE.md "Characters"), with a Krita style tool box on the
+Character tab. The app was not launched (owner's rule).
 
 Next steps:
 
@@ -76,7 +69,8 @@ Next steps:
    bind, switches, smart bones), posing on the Pose tab, the Cast.
 2. Then the plan's next phases (`docs/redesign/moho-plan.md`): what
    it lists as not built yet.
-3. Merge to main only when the owner says "merge".
+3. The owner looks over `ui-overhaul`; merge it and the characters
+   branch to main only when the owner says "merge".
 
 Build here (cloud): micromamba in `/opt/mm`; Qt 6.12 and ffmpeg 9 in
 `/opt/qtenv`; ccache and mold in `/opt/tools/bin` (put it on PATH).

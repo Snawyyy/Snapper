@@ -820,15 +820,23 @@ jump past `kMaxSettleFrames`, none in Off).
 
 The look of every button and tab lives in one place: `SnapperStyle`
 (`snapper_style.h`), a `QProxyStyle` over Windows that `theme::Apply`
-sets on the application. Raised bevels, the hover brighten, the sunk
-press and the chunky tab are drawn there, so no widget carries a
-stylesheet. What a button looks like in each state is `LookOfButton`
+sets on the application. The edges are modern retro: a flat face
+with one light line on top and a dark one under it when raised, the
+dark line on top when sunk (`ui/style_bevel.h`, and `ui/bevel.h` for
+widgets that paint themselves). The hover brighten, the sunk press,
+the chunky tab and dock titles (small spaced capitals on a dark band,
+above the red-stripped section plates in the header ladder) are drawn
+there, so no widget carries a stylesheet. Every tab lays out side
+panel, main view, side panel with `kSideShare`, `kMainShare` and
+`kSideMinWidth` (`ui/panel_kit.h`); the Cast and the inspector docks
+show on Pose only. What a button looks like in each state is `LookOfButton`
 (pure, tested). A widget that fades its hover sets the `kHoverProperty`
 number (0 to 1); without it the style uses the plain mouse-over state.
 
 The top bar (`TopBar`) holds the mode tabs (`ModeTabs`: a red bar
-slides under the active tab through `MotionManager`) and the Undo and
-Redo buttons. The play controls are a `TransportBar`, one above the
+slides under the active tab through `MotionManager`) at the left and
+the Undo and Redo buttons at the right end. Track names on every
+timeline are `deck::PaintLabel` tags. The play controls are a `TransportBar`, one above the
 pose timeline and one at the left of the video page's button bar (none
 on the Character tab). Both forward clicks to `PlaybackManager` and
 `HistoryManager` and decide nothing: the words, tooltips and
@@ -964,7 +972,7 @@ Accents. What is on, picked or focused wears Teto red (`ui/snapper_accents.h`, d
 
 View camera. The Comp stage and the Video preview zoom with the wheel toward the pointer and slide with a middle button drag (Shift+1 fits), through `ViewCamera` (`ui/view_camera.h`): the zoom and slide on top of each widget's own fit. The Pose stage and the Character canvas keep their own copies of the same idea; on Pose the plain wheel turns the pick, so Ctrl+wheel zooms there. Pictures are rendered at most one frame pixel per pixel and magnified past that.
 
-Grips. Splitter handles and dock separators are `kGripExtent` wide with ridges along them (`DrawGripLine`, `ui/snapper_style.h`) and turn yellow under the pointer or while dragged. Pages use `GripSplitter` (`ui/grip_splitter.h`), whose handles follow enter and leave themselves, light after `kGripDwellMs` of rest, put the default shares back on a double click and keep the sizes they were dragged to (as parts per 10000, under `splits/<key>` in the settings file). Dock separators have no hover state or double click in Qt, so `DockGrips` (`ui/dock_grips.h`) watches the main window: it finds the separator under the pointer, publishes the lit one in the window's `litGrip` property for the style, resets a dock to its golden width on a double click and keeps dragged widths under `docks/<name>`.
+Grips. Splitter handles and dock separators are `kGripExtent` wide as a hairline with a short knurl in its middle (`DrawGripLine`, `ui/snapper_style.h`) and turn yellow under the pointer or while dragged. Pages use `GripSplitter` (`ui/grip_splitter.h`), whose handles follow enter and leave themselves, light after `kGripDwellMs` of rest, put the default shares back on a double click and keep the sizes they were dragged to (as parts per 10000, under `splits/<key>` in the settings file). Dock separators have no hover state or double click in Qt, so `DockGrips` (`ui/dock_grips.h`) watches the main window: it finds the separator under the pointer, publishes the lit one in the window's `litGrip` property for the style, resets a dock to its golden width on a double click and keeps dragged widths under `docks/<name>`.
 
 Panel kit. Every panel is built from `ui/panel_kit.h` so all of them
 look like the Pose box: `MakePlate` (a centred raised plate, a control
